@@ -25,6 +25,7 @@ from .models import (
     ServiceLocation,
     ServiceResource,
     ServiceStaff,
+    TimeModel,
     TimeOff,
 )
 
@@ -323,7 +324,11 @@ def _search(
 ) -> _Schedule | None:
     context = require_tenant_context()
     service = Service.all_objects.filter(
-        pk=service_id, organization_id=context.organization_id, active=True
+        pk=service_id,
+        organization_id=context.organization_id,
+        active=True,
+        # A stay has no starts on a grid (periods.py).
+        time_model=TimeModel.SLOT,
     ).first()
     if service is None:
         return None
@@ -390,7 +395,7 @@ def _load(
         zone=zone,
         resource_ids=[*required_resource_ids] if required_resource_ids else [None],
         earliest=(now or timezone.now()) + timedelta(minutes=service.minimum_notice_minutes),
-        duration=timedelta(minutes=service.duration_minutes),
+        duration=service.slot_duration,
         before=before,
         after=after,
         rules=list(

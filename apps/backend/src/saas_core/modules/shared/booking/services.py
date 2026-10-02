@@ -64,6 +64,7 @@ from .models import (
     StaffMember,
     StaffTeam,
     StaffTeamMember,
+    TimeModel,
     TimeOff,
 )
 from .observers import (
@@ -125,7 +126,10 @@ def list_catalog() -> dict[str, list[Any]]:
     return {
         "locations": list(Location.all_objects.filter(organization_id=org)),
         "staff": list(StaffMember.all_objects.filter(organization_id=org)),
-        "services": list(Service.all_objects.filter(organization_id=org)),
+        # The calendar's visits: a stay is booked by its dates (periods.py).
+        "services": list(
+            Service.all_objects.filter(organization_id=org, time_model=TimeModel.SLOT)
+        ),
         "resources": list(Resource.all_objects.filter(organization_id=org)),
     }
 
@@ -468,6 +472,11 @@ def create_appointment(
         # Online booking paused (ADR-078, B1): the form refuses, the team books on.
         refuse_when_paused(_zone().key)
     service = Service.all_objects.filter(pk=service_id, active=True).first()
+    if service is not None and service.time_model != TimeModel.SLOT:
+        raise ValidationError(
+            {"service_id": "Tę usługę rezerwuje się na dni, nie na godzinę."},
+            code="not_a_slot_offer",
+        )
     people = {
         person.id: person for person in StaffMember.all_objects.filter(pk__in=named, active=True)
     }
@@ -550,26 +559,7 @@ def create_appointment(
             chose = len(free) > need
     elif walk_in_minutes <= 0:
         raise ValidationError({"walk_in_minutes": "Podaj, na jak długo zająć okno."})
-    email = customer_data.get("email", "").strip().lower()
-    phone = customer_data.get("phone", "").strip()
-    if not email and not phone:
-        raise ValidationError("Wymagany jest e-mail albo telefon.")
-    contact_hash = hashlib.sha256(f"{email}|{phone}".encode()).hexdigest()
-    customer = Customer.all_objects.filter(
-        contact_hash=contact_hash, anonymized_at__isnull=True
-    ).first()
-    if customer is None:
-        customer = Customer.all_objects.create(
-            organization=organization,
-            display_name=customer_data["display_name"].strip(),
-            email=email,
-            phone=phone,
-            contact_hash=contact_hash,
-            locale=clamp_content_locale(
-                str(customer_data.get("locale") or "").strip().lower() or None,
-                organization=organization,
-            ),
-        )
+    customer, email = upsert_customer(organization, customer_data)
     if materials is not None:
         # Hand-picked products: whoever types them must be allowed to take stock.
         if materials:
@@ -581,7 +571,9 @@ def create_appointment(
         lines = stock.normalize(organization.id, service.materials, strict=False)
     else:
         lines = []
-    ends_at = starts_at + timedelta(minutes=walk_in_minutes or service.duration_minutes)
+    ends_at = starts_at + (
+        timedelta(minutes=walk_in_minutes) if walk_in_minutes else service.slot_duration
+    )
     # A walk-in takes no buffers: they exist to protect a plan, and there is none.
     before = 0 if walk_in_minutes else service.buffer_before_minutes
     after = 0 if walk_in_minutes else service.buffer_after_minutes
@@ -675,68 +667,23 @@ def create_appointment(
             "queued_at",
         ]
     )
-    AppointmentStatusHistory.all_objects.create(
-        organization=organization,
-        appointment=appointment,
-        to_status=AppointmentStatus.CONFIRMED,
-        actor_kind=context.principal_kind,
-    )
     stock.reserve(organization.id, appointment.id, lines)
-    BookingMutation.all_objects.create(
-        organization=organization,
-        appointment=appointment,
-        action="create",
+    record_new_booking(
+        organization,
+        appointment,
+        customer,
+        email=email,
+        token=token,
+        digest=digest,
+        expires=expires,
         principal_ref=principal_ref,
         idempotency_key=idempotency_key,
         request_hash=request_hash,
-    )
-    SelfServiceRoute.objects.create(
-        token_digest=digest,
-        organization_id=organization.id,
-        appointment_id=appointment.id,
-        expires_at=expires,
-    )
-    if walk_in_minutes is None:
         # Nothing to remind anybody about when the visit is already happening.
-        arm_reminder(appointment)
-    if email and walk_in_minutes is None:
-        queue_email(
-            recipient_email=email,
-            template_key="booking.confirmation",
-            template_version=2,
-            locale=customer.locale,
-            template_context={
-                "organization_name": organization.name,
-                "starts_at": local_time(starts_at, appointment.timezone, customer.locale),
-                "manage_url": notify.manage_url(token, customer.locale),
-            },
-            idempotency_key=f"booking-confirm:{appointment.id}",
-            causation_id=f"booking:{appointment.id}",
-        )
-    record_audit(
-        organization=organization,
-        action="booking.appointment.created",
-        actor=User.objects.filter(pk=context.actor_id).first(),
-        target_type="appointment",
-        target_id=appointment.id,
-        metadata={
-            "starts_at": starts_at.isoformat(),
-            "staff": [str(person) for person in taken],
-        },
+        walk_in=walk_in_minutes is not None,
+        metadata={"starts_at": starts_at.isoformat(), "staff": [str(person) for person in taken]},
     )
     notify.staff_assigned(appointment, taken)
-    _announce(
-        AppointmentChange(
-            change=CREATED,
-            organization_id=organization.id,
-            appointment_id=appointment.id,
-            previous_starts_at=None,
-            starts_at=starts_at,
-            previous_status="",
-            status=appointment.status,
-            timezone=appointment.timezone,
-        )
-    )
     return CreatedAppointment(appointment, token, True)
 
 
@@ -765,6 +712,11 @@ def reschedule_appointment(
             raise BookingIdempotencyConflict
         return appointment
     service = appointment.service
+    if service.time_model != TimeModel.SLOT:
+        raise ValidationError(
+            {"starts_at": "Pobyt przekłada się datami przyjazdu i wyjazdu."},
+            code="stay_moves_by_dates",
+        )
     crew = crew_of(appointment)
     customer_move = context.principal_kind != "membership"
 
@@ -792,7 +744,7 @@ def reschedule_appointment(
     AppointmentResourceAllocation.all_objects.filter(appointment=appointment, active=True).update(
         active=False
     )
-    ends = starts_at + timedelta(minutes=service.duration_minutes)
+    ends = starts_at + service.slot_duration
     occupied_from = starts_at - timedelta(minutes=service.buffer_before_minutes)
     occupied_until = ends + timedelta(minutes=service.buffer_after_minutes)
     previous = appointment.starts_at
@@ -1329,6 +1281,113 @@ def anonymize_customer(customer_id: UUID) -> Customer:
         target_id=customer.id,
     )
     return customer
+
+
+def upsert_customer(
+    organization: Organization, customer_data: dict[str, str]
+) -> tuple[Customer, str]:
+    """The end customer by their contact, made on their first booking; and
+    the e-mail the confirmation goes to."""
+    email = customer_data.get("email", "").strip().lower()
+    phone = customer_data.get("phone", "").strip()
+    if not email and not phone:
+        raise ValidationError("Wymagany jest e-mail albo telefon.")
+    contact_hash = hashlib.sha256(f"{email}|{phone}".encode()).hexdigest()
+    customer = Customer.all_objects.filter(
+        contact_hash=contact_hash, anonymized_at__isnull=True
+    ).first()
+    if customer is None:
+        customer = Customer.all_objects.create(
+            organization=organization,
+            display_name=customer_data["display_name"].strip(),
+            email=email,
+            phone=phone,
+            contact_hash=contact_hash,
+            locale=clamp_content_locale(
+                str(customer_data.get("locale") or "").strip().lower() or None,
+                organization=organization,
+            ),
+        )
+    return customer, email
+
+
+def record_new_booking(
+    organization: Organization,
+    appointment: Appointment,
+    customer: Customer,
+    *,
+    email: str,
+    token: str,
+    digest: str,
+    expires: datetime,
+    principal_ref: str,
+    idempotency_key: str,
+    request_hash: str,
+    walk_in: bool,
+    metadata: dict[str, Any],
+) -> None:
+    """What every new booking leaves behind, a visit or a stay: its history,
+    its key's receipt, the self-service route, the reminder, the confirmation,
+    the audit and the observers."""
+    context = require_tenant_context()
+    AppointmentStatusHistory.all_objects.create(
+        organization=organization,
+        appointment=appointment,
+        to_status=AppointmentStatus.CONFIRMED,
+        actor_kind=context.principal_kind,
+    )
+    BookingMutation.all_objects.create(
+        organization=organization,
+        appointment=appointment,
+        action="create",
+        principal_ref=principal_ref,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+    )
+    SelfServiceRoute.objects.create(
+        token_digest=digest,
+        organization_id=organization.id,
+        appointment_id=appointment.id,
+        expires_at=expires,
+    )
+    if not walk_in:
+        arm_reminder(appointment)
+    if email and not walk_in:
+        queue_email(
+            recipient_email=email,
+            template_key="booking.confirmation",
+            template_version=2,
+            locale=customer.locale,
+            template_context={
+                "organization_name": organization.name,
+                "starts_at": local_time(
+                    appointment.starts_at, appointment.timezone, customer.locale
+                ),
+                "manage_url": notify.manage_url(token, customer.locale),
+            },
+            idempotency_key=f"booking-confirm:{appointment.id}",
+            causation_id=f"booking:{appointment.id}",
+        )
+    record_audit(
+        organization=organization,
+        action="booking.appointment.created",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="appointment",
+        target_id=appointment.id,
+        metadata=metadata,
+    )
+    _announce(
+        AppointmentChange(
+            change=CREATED,
+            organization_id=organization.id,
+            appointment_id=appointment.id,
+            previous_starts_at=None,
+            starts_at=appointment.starts_at,
+            previous_status="",
+            status=appointment.status,
+            timezone=appointment.timezone,
+        )
+    )
 
 
 def local_time(value: datetime, zone: str, locale: str) -> str:

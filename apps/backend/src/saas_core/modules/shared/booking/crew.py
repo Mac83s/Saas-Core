@@ -67,8 +67,8 @@ class CrewChange:
     added: tuple[UUID, ...]
     removed: tuple[UUID, ...]
     kept: tuple[UUID, ...]
-    lead_before: UUID
-    lead_after: UUID
+    lead_before: UUID | None
+    lead_after: UUID | None
 
     @property
     def changed(self) -> bool:
@@ -220,7 +220,7 @@ def set_crew(
         if notify_staff:
             notify.staff_assigned(appointment, added)
             notify.staff_unassigned(appointment, removed)
-        if change.lead_before != change.lead_after:
+        if change.lead_before is not None and change.lead_before != change.lead_after:
             notify.customer_person_changed(appointment, previous_lead_id=change.lead_before)
     return change
 

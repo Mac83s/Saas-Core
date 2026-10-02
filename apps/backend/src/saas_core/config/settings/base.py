@@ -537,6 +537,9 @@ NOTIFICATIONS_EXPORT_MAX_ROWS = int(os.environ.get("NOTIFICATIONS_EXPORT_MAX_ROW
 BOOKING_PUBLIC_RATE = os.environ.get("BOOKING_PUBLIC_RATE", "30/min")
 BOOKING_SELF_SERVICE_TTL_DAYS = int(os.environ.get("BOOKING_SELF_SERVICE_TTL_DAYS", "30"))
 BOOKING_SLOT_HORIZON_DAYS = int(os.environ.get("BOOKING_SLOT_HORIZON_DAYS", "62"))
+# ADR-072 §5 (T7): the widest one query of a stay calendar may span — a
+# protective bound of the query, not the offer's booking window (its rules).
+BOOKING_PERIOD_HORIZON_DAYS = int(os.environ.get("BOOKING_PERIOD_HORIZON_DAYS", "548"))
 BOOKING_REMINDER_LEAD_HOURS = int(os.environ.get("BOOKING_REMINDER_LEAD_HOURS", "24"))
 if (
     NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS <= 0
@@ -545,6 +548,7 @@ if (
     or NOTIFICATIONS_EXPORT_MAX_ROWS <= 0
     or BOOKING_SELF_SERVICE_TTL_DAYS <= 0
     or not 1 <= BOOKING_SLOT_HORIZON_DAYS <= 62
+    or not 1 <= BOOKING_PERIOD_HORIZON_DAYS <= 731
     or BOOKING_REMINDER_LEAD_HOURS <= 0
 ):
     raise ImproperlyConfigured("Ustawienia notifications muszą być dodatnie")

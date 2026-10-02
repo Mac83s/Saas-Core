@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import time
 from typing import Any
 from uuid import UUID
 
@@ -41,17 +42,21 @@ from saas_core.modules.shared.billing.decisions import FeatureOperation
 
 from . import materials as stock
 from .models import (
+    Appointment,
     BookingSetupMutation,
     Location,
     PublicBookingRoute,
+    RangeUnit,
     Resource,
     ResourceGroup,
     Service,
+    ServiceGroup,
     ServiceLocation,
     ServiceResource,
     ServiceStaff,
     StaffChoice,
     StaffMember,
+    TimeModel,
 )
 from .offer_settings import offer_options
 from .services import (
@@ -65,6 +70,10 @@ from .services import (
 #: What the history keeps of a service; the links go in as counts.
 _SERVICE_FIELDS = (
     "name",
+    "time_model",
+    "range_unit",
+    "range_start_local",
+    "range_end_local",
     "duration_minutes",
     "buffer_before_minutes",
     "buffer_after_minutes",
@@ -86,6 +95,8 @@ class ServiceSetup:
     staff_ids: list[UUID] = field(default_factory=list)
     location_ids: list[UUID] = field(default_factory=list)
     resource_ids: list[UUID] = field(default_factory=list)
+    #: The groups of units a `range` offer is booked in (ADR-072 §3).
+    group_ids: list[UUID] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,6 +222,7 @@ def list_setup() -> Setup:
         (ServiceStaff, "staff", "staff_id", {}),
         (ServiceLocation, "locations", "location_id", {}),
         (ServiceResource, "resources", "resource_id", {"required": True}),
+        (ServiceGroup, "groups", "group_id", {}),
     )
     for model, key, column, extra in sources:
         rows = model.all_objects.filter(organization=organization, **extra).order_by("id")
@@ -224,6 +236,7 @@ def list_setup() -> Setup:
                 links.get(service.id, {}).get("staff", []),
                 links.get(service.id, {}).get("locations", []),
                 links.get(service.id, {}).get("resources", []),
+                links.get(service.id, {}).get("groups", []),
             )
             for service in services
         ],
@@ -314,9 +327,16 @@ def _service_links(organization: Organization, service: Service) -> ServiceSetup
             (ServiceStaff, "staff_id", {}),
             (ServiceLocation, "location_id", {}),
             (ServiceResource, "resource_id", {"required": True}),
+            (ServiceGroup, "group_id", {}),
         )
     }
-    return ServiceSetup(service, links["staff_id"], links["location_id"], links["resource_id"])
+    return ServiceSetup(
+        service,
+        links["staff_id"],
+        links["location_id"],
+        links["resource_id"],
+        links["group_id"],
+    )
 
 
 @transaction.atomic
@@ -355,6 +375,56 @@ def save_service(
     )
 
 
+#: A stay's default times when the offer names none: check-in 16:00 and
+#: check-out 11:00 as in the „Nocleg” preset; pickup 9:00 and return 18:00.
+_RANGE_TIMES = {
+    RangeUnit.NIGHT: (time(16), time(11)),
+    RangeUnit.DAY: (time(9), time(18)),
+}
+
+
+def _check_offer(service: Service, before: dict[str, Any]) -> None:
+    """What the offer's time model asks of its other fields (ADR-072 §1–§2)."""
+    if (
+        before
+        and before.get("time_model") != service.time_model
+        and (Appointment.all_objects.filter(service=service).exists())
+    ):
+        raise ValidationError(
+            {"time_model": "Usługa z rezerwacjami nie zmienia sposobu rezerwacji."},
+            code="time_model_locked",
+        )
+    if service.time_model == TimeModel.SESSION:
+        raise ValidationError(
+            {"time_model": "Wydarzenia z miejscami przyjdą później."}, code="time_model_not_ready"
+        )
+    if service.time_model == TimeModel.SLOT:
+        if service.duration_minutes is None:
+            raise ValidationError(
+                {"duration_minutes": "Podaj czas trwania wizyty."}, code="required"
+            )
+        if service.staff_count < 1:
+            raise ValidationError(
+                {"staff_count": "Wizyta potrzebuje co najmniej jednej osoby."}, code="min_value"
+            )
+        service.range_unit, service.range_start_local, service.range_end_local = "", None, None
+        return
+    if service.range_unit not in (RangeUnit.NIGHT, RangeUnit.DAY):
+        raise ValidationError(
+            {"range_unit": "Wybierz, czy liczysz noce, czy dni."},
+            code="range_unit_not_ready" if service.range_unit == RangeUnit.HOUR else "required",
+        )
+    service.duration_minutes = None
+    default_start, default_end = _RANGE_TIMES[RangeUnit(service.range_unit)]
+    service.range_start_local = service.range_start_local or default_start
+    service.range_end_local = service.range_end_local or default_end
+    if service.range_unit == RangeUnit.DAY and service.range_end_local <= service.range_start_local:
+        raise ValidationError(
+            {"range_end_local": "Zwrot musi być po odbiorze tego samego dnia."},
+            code="end_before_start",
+        )
+
+
 def _saved_service(
     organization: Organization,
     service: Service,
@@ -383,6 +453,7 @@ def _write_service(
     staff_ids = values.pop("staff_ids", None)
     location_ids = values.pop("location_ids", None)
     resource_ids = values.pop("resource_ids", None)
+    group_ids = values.pop("group_ids", None)
     materials = values.pop("materials", None)
     if service_id is None:
         _assert_appointment_kind_available(organization, values.get("appointment_kind", ""))
@@ -410,6 +481,7 @@ def _write_service(
         raise ValidationError({
             "public_staff_choice": "Osobę klient wybiera tylko przy usłudze dla jednej osoby."
         })
+    _check_offer(service, before)
     service.save()
     changes = field_changes(before, audit_snapshot(service, _SERVICE_FIELDS)) if before else {}
     for key, name, target, model, column, extra, ids in (
@@ -424,6 +496,7 @@ def _write_service(
             {"required": True},
             resource_ids,
         ),
+        ("groups", "group_ids", ResourceGroup, ServiceGroup, "group_id", {}, group_ids),
     ):
         if ids is None:
             continue

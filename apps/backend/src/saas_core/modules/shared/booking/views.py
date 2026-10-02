@@ -30,6 +30,7 @@ from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
 from .models import (
+    Appointment,
     BookingClosure,
     BookingRule,
     Location,
@@ -38,7 +39,9 @@ from .models import (
     ResourceGroup,
     SelfServiceRoute,
     Service,
+    TimeModel,
 )
+from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
 from .public import public_choices, public_people, shown_to_customer
 from .rules import (
@@ -74,6 +77,7 @@ from .serializers import (
     CopyYearResultSerializer,
     CrewInputSerializer,
     CustomerAnonymizedSerializer,
+    DateListSerializer,
     GroupInputSerializer,
     GroupSetupPreviewSerializer,
     GroupSetupSerializer,
@@ -119,6 +123,9 @@ from .serializers import (
     StaffFactsSerializer,
     StaffHistorySerializer,
     StaffSlotTimeListSerializer,
+    StayInputSerializer,
+    StayMoveSerializer,
+    StayPlanSerializer,
     TeamInputSerializer,
     TeamListSerializer,
     TeamSerializer,
@@ -134,6 +141,7 @@ from .serializers import (
 from .services import (
     BOOKING_ENABLED,
     BOOKING_MANAGE,
+    CreatedAppointment,
     anonymize_customer,
     cancel_appointment,
     complete_appointment,
@@ -319,8 +327,10 @@ def _appointment_payload(
         # the customer's; empty when no module knows one.
         "title": known.titles.get(value.id, ""),
         "staff_id": value.staff_id,
-        "staff_name": value.staff.display_name,
-        "staff_membership_id": value.staff.membership_id,
+        # A stay takes a unit and nobody (ADR-072 §2).
+        "staff_name": value.staff.display_name if value.staff else None,
+        "staff_membership_id": value.staff.membership_id if value.staff else None,
+        "time_model": value.service.time_model,
         "location_name": value.location.name,
         # The visit's own place first, then the module that knows it (ADR-066).
         "place": value.place_town or known.places.get(value.id),
@@ -949,7 +959,10 @@ class PublicBookingCatalogView(APIView):
             org = route.organization_id
             value: dict[str, list[Any]] = {
                 "locations": list(Location.all_objects.filter(organization_id=org)),
-                "services": list(Service.all_objects.filter(organization_id=org)),
+                # Stays are booked on the website from phase 5 (ADR-072 §1).
+                "services": list(
+                    Service.all_objects.filter(organization_id=org, time_model=TimeModel.SLOT)
+                ),
                 "resources": list(Resource.all_objects.filter(organization_id=org)),
             }
             payload = _catalog_payload(value, public=True)
@@ -1736,6 +1749,11 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "id": service.id,
         "name": service.name,
         "appointment_kind": service.appointment_kind,
+        "time_model": service.time_model,
+        "range_unit": service.range_unit,
+        "range_start_local": service.range_start_local,
+        "range_end_local": service.range_end_local,
+        "group_ids": value.group_ids,
         "duration_minutes": service.duration_minutes,
         "buffer_before_minutes": service.buffer_before_minutes,
         "buffer_after_minutes": service.buffer_after_minutes,
@@ -2694,6 +2712,223 @@ class BookingClosureCopyYearPreviewView(APIView):
         s.is_valid(raise_exception=True)
         saved = copy_closures_to_next_year(year=s.validated_data["year"], preview=True)
         return Response({"count": len(saved.value)})
+
+
+def _plan_payload(plan: StayPlan) -> dict[str, Any]:
+    return {
+        "resource_id": plan.unit.id,
+        "resource_name": plan.unit.name,
+        "starts_at": plan.stay.starts_at,
+        "ends_at": plan.stay.ends_at,
+        "length": plan.stay.length,
+        "range_unit": plan.service.range_unit,
+    }
+
+
+def _query_date(request: Request, name: str) -> date:
+    raw = request.query_params.get(name, "")
+    try:
+        return date.fromisoformat(raw)
+    except ValueError as error:
+        raise ValidationError({name: "Podaj datę (RRRR-MM-DD)."}, code="invalid") from error
+
+
+def _query_uuid(request: Request, name: str) -> UUID | None:
+    raw = request.query_params.get(name, "")
+    if not raw:
+        return None
+    try:
+        return UUID(raw)
+    except ValueError as error:
+        raise ValidationError({name: "Nieprawidłowy identyfikator."}, code="invalid") from error
+
+
+_STAY_TARGET = [
+    OpenApiParameter("service_id", UUID, OpenApiParameter.QUERY, required=True),
+    OpenApiParameter("resource_id", UUID, OpenApiParameter.QUERY, description="Only this unit."),
+    OpenApiParameter(
+        "group_id", UUID, OpenApiParameter.QUERY, description="Any unit of this group."
+    ),
+]
+
+
+class StayStartsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_stay_starts_list",
+        summary="List the days a stay can begin on",
+        description="Days in the window a unit is free for the shortest stay the season "
+        "allows from that day, closed days and the season's rules applied (ADR-072 §5). "
+        "One query; the window spans at most BOOKING_PERIOD_HORIZON_DAYS.",
+        tags=["booking"],
+        parameters=[
+            *_STAY_TARGET,
+            OpenApiParameter("from", date, OpenApiParameter.QUERY, required=True),
+            OpenApiParameter("to", date, OpenApiParameter.QUERY, required=True),
+        ],
+        responses={200: DateListSerializer, **_SETUP_PROBLEMS},
+    )
+    def get(self, request: Request) -> Response:
+        service_id = _query_uuid(request, "service_id")
+        if service_id is None:
+            raise ValidationError({"service_id": "Podaj usługę."}, code="required")
+        days = stay_starts(
+            service_id=service_id,
+            resource_id=_query_uuid(request, "resource_id"),
+            group_id=_query_uuid(request, "group_id"),
+            from_date=_query_date(request, "from"),
+            to_date=_query_date(request, "to"),
+        )
+        return Response({"items": days})
+
+
+class StayEndsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_stay_ends_list",
+        summary="List the days a stay beginning on a day can end on",
+        description="Departure days (nights) or last days (days) a stay from `start` can "
+        "have on a free unit, the season of the arrival day applied.",
+        tags=["booking"],
+        parameters=[
+            *_STAY_TARGET,
+            OpenApiParameter("start", date, OpenApiParameter.QUERY, required=True),
+        ],
+        responses={200: DateListSerializer, **_SETUP_PROBLEMS},
+    )
+    def get(self, request: Request) -> Response:
+        service_id = _query_uuid(request, "service_id")
+        if service_id is None:
+            raise ValidationError({"service_id": "Podaj usługę."}, code="required")
+        days = stay_ends(
+            service_id=service_id,
+            resource_id=_query_uuid(request, "resource_id"),
+            group_id=_query_uuid(request, "group_id"),
+            start_date=_query_date(request, "start"),
+        )
+        return Response({"items": days})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StayCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_stay_create",
+        summary="Book a stay or a rental",
+        description="Books a range offer from–to on a unit, or on the least busy free unit of "
+        "a group. A broken season rule is 400 with its code (`rule_min_length`, "
+        "`rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`. The same "
+        "Idempotency-Key answers the first booking again.",
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=StayInputSerializer,
+        responses={201: AppointmentSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        s = StayInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = dict(s.validated_data)
+        customer = data.pop("customer")
+        result = book_stay(
+            **data,
+            customer_data=customer,
+            idempotency_key=_idem(request),
+            principal_ref=str(context.actor_id),
+        )
+        assert isinstance(result, CreatedAppointment)
+        return Response(
+            _appointment_payload(result.appointment, result.token),
+            status=201 if result.created else 200,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StayPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_stay_create_preview",
+        summary="Check a stay without booking it",
+        description="Which unit a booking would take, its instants and length — or the "
+        "same 400 and 409 the booking would answer. Nothing is saved.",
+        tags=["booking"],
+        request=StayInputSerializer,
+        responses={200: StayPlanSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = StayInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = dict(s.validated_data)
+        customer = data.pop("customer")
+        plan = book_stay(
+            **data,
+            customer_data=customer,
+            idempotency_key="",
+            principal_ref="",
+            preview=True,
+        )
+        assert isinstance(plan, StayPlan)
+        return Response(_plan_payload(plan))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StayMoveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_stay_move",
+        summary="Move a stay to other dates",
+        description="Keeps the unit when it is free then, otherwise takes another free unit "
+        "of the group the stay was booked in. Rules and closed days as for a booking.",
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=StayMoveSerializer,
+        responses={200: AppointmentSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        s = StayMoveSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        moved = move_stay(
+            appointment_id=appointment_id,
+            **s.validated_data,
+            idempotency_key=_idem(request),
+            principal_ref=str(context.actor_id),
+        )
+        assert isinstance(moved, Appointment)
+        return Response(_appointment_payload(moved))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StayMovePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_stay_move_preview",
+        summary="Check a move of a stay without making it",
+        description="Answers as `booking_stay_move` would; nothing is saved.",
+        tags=["booking"],
+        request=StayMoveSerializer,
+        responses={200: StayPlanSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        s = StayMoveSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        plan = move_stay(
+            appointment_id=appointment_id,
+            **s.validated_data,
+            idempotency_key="",
+            principal_ref="",
+            preview=True,
+        )
+        assert isinstance(plan, StayPlan)
+        return Response(_plan_payload(plan))
 
 
 _PERIOD = [

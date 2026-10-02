@@ -7,7 +7,7 @@ from rest_framework import serializers
 from saas_core.modules.core.organizations.options import SETTING_TYPES, SETTING_UNITS
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
-from .models import StaffChoice, TimeOffSource
+from .models import RangeUnit, StaffChoice, TimeModel, TimeOffSource
 from .offer_settings import offer_setting
 
 
@@ -211,10 +211,16 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
             "visit's farm), shown before the customer's name; empty when none."
         ),
     )
-    staff_id = serializers.UUIDField()
-    staff_name = serializers.CharField()
+    staff_id = serializers.UUIDField(
+        allow_null=True, help_text="The lead; null for a stay, which takes a unit, nobody."
+    )
+    staff_name = serializers.CharField(allow_null=True)
     #: The calendar entry's team member, for "my visits" (null: no account).
     staff_membership_id = serializers.UUIDField(allow_null=True)
+    time_model = serializers.ChoiceField(
+        choices=[TimeModel.SLOT.value, TimeModel.RANGE.value],
+        help_text="`slot` — a visit; `range` — a stay or rental from–to.",
+    )
     location_name = serializers.CharField()
     place = serializers.CharField(
         allow_null=True,
@@ -394,7 +400,12 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
     appointment_kind = serializers.CharField()
-    duration_minutes = serializers.IntegerField()
+    time_model = serializers.ChoiceField(choices=[TimeModel.SLOT.value, TimeModel.RANGE.value])
+    range_unit = serializers.CharField(help_text="`night`, `day`; empty for a `slot` service.")
+    range_start_local = serializers.TimeField(allow_null=True)
+    range_end_local = serializers.TimeField(allow_null=True)
+    group_ids = serializers.ListField(child=serializers.UUIDField())
+    duration_minutes = serializers.IntegerField(allow_null=True)
     buffer_before_minutes = serializers.IntegerField()
     buffer_after_minutes = serializers.IntegerField()
     minimum_notice_minutes = serializers.IntegerField()
@@ -545,7 +556,29 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     """A new service."""
 
     name = serializers.CharField(max_length=160)
-    duration_minutes = _bounded("duration_minutes")
+    time_model = serializers.ChoiceField(
+        choices=[TimeModel.SLOT.value, TimeModel.RANGE.value],
+        required=False,
+        help_text=offer_setting("time_model").description,
+    )
+    range_unit = serializers.ChoiceField(
+        choices=[RangeUnit.NIGHT.value, RangeUnit.DAY.value],
+        required=False,
+        help_text=offer_setting("range_unit").description,
+    )
+    range_start_local = serializers.TimeField(
+        required=False, allow_null=True, help_text=offer_setting("range_start_local").description
+    )
+    range_end_local = serializers.TimeField(
+        required=False, allow_null=True, help_text=offer_setting("range_end_local").description
+    )
+    group_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        max_length=50,
+        required=False,
+        help_text="For a `range` service: the groups of units it is booked in.",
+    )
+    duration_minutes = _bounded("duration_minutes", required=False, allow_null=True)
     buffer_before_minutes = _bounded("buffer_before_minutes", required=False)
     buffer_after_minutes = _bounded("buffer_after_minutes", required=False)
     minimum_notice_minutes = _bounded("minimum_notice_minutes", required=False)
@@ -568,7 +601,6 @@ class ServiceUpdateSerializer(ServiceInputSerializer):
     """A change to a service: only the fields sent change."""
 
     name = serializers.CharField(max_length=160, required=False)
-    duration_minutes = _bounded("duration_minutes", required=False)
     appointment_kind = None  # type: ignore[assignment]
     expected_version = _expected_version()
 
@@ -1187,3 +1219,44 @@ class PerformanceSerializer(serializers.Serializer[dict[str, Any]]):
     period_to = serializers.DateField()
     columns = PerformanceColumnSerializer(many=True)
     items = PerformanceRowSerializer(many=True)
+
+
+class StayInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A stay or rental from the panel: a range offer, a unit or a group, dates."""
+
+    service_id = serializers.UUIDField()
+    resource_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="This very unit."
+    )
+    group_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        help_text="Any free unit of this group — the server picks the least busy one. With "
+        "neither, any unit the offer lists.",
+    )
+    start_date = serializers.DateField(help_text="Arrival day (nights) or first day (days).")
+    end_date = serializers.DateField(
+        help_text="Departure day (nights) or last day, included (days)."
+    )
+    customer = CustomerInputSerializer()
+    customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
+class StayMoveSerializer(serializers.Serializer[dict[str, Any]]):
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+
+
+class StayPlanSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a booking or a move of a stay would take; nothing is saved."""
+
+    resource_id = serializers.UUIDField(help_text="The unit the stay would take.")
+    resource_name = serializers.CharField()
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    length = serializers.IntegerField(help_text="Nights or days.")
+    range_unit = serializers.CharField()
+
+
+class DateListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = serializers.ListField(child=serializers.DateField())

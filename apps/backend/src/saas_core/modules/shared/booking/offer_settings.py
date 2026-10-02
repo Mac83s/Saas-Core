@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from .models import StaffChoice
+from .models import RangeUnit, StaffChoice, TimeModel
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +48,65 @@ _BUFFER_HELP = {
 
 OFFER_SETTINGS: tuple[OfferSetting, ...] = (
     OfferSetting(
+        key="booking.offer.time_model",
+        type="enum",
+        default=TimeModel.SLOT.value,
+        values=(
+            (TimeModel.SLOT.value, {"pl": "Wizyta o godzinie", "en": "A visit at a time"}),
+            (TimeModel.RANGE.value, {"pl": "Pobyt lub wynajem od–do", "en": "A stay or rental"}),
+        ),
+        label={"pl": "Jak się rezerwuje", "en": "How it is booked"},
+        help={
+            "pl": "Usługa z rezerwacjami nie zmienia sposobu rezerwacji.",
+            "en": "A service with bookings keeps how it is booked.",
+        },
+        description=(
+            "`slot`: a visit of a set length at a start the calendar offers (people's hours). "
+            "`range`: a stay or rental from–to the customer picks, taking a unit (a cottage, "
+            "a kayak) by nights or days. Set when the service is created; a service with "
+            "bookings never changes it."
+        ),
+    ),
+    OfferSetting(
+        key="booking.offer.range_unit",
+        type="enum",
+        default=RangeUnit.NIGHT.value,
+        values=(
+            (RangeUnit.NIGHT.value, {"pl": "Noce", "en": "Nights"}),
+            (RangeUnit.DAY.value, {"pl": "Dni", "en": "Days"}),
+        ),
+        label={"pl": "Liczymy", "en": "Counted in"},
+        description=(
+            "For a `range` service: nights (check-in to check-out, a stay) or days (pickup on "
+            "the first day to return on the last one, a rental)."
+        ),
+        depends_on="booking.offer.time_model == 'range'",
+    ),
+    OfferSetting(
+        key="booking.offer.range_start_local",
+        type="text",
+        default="16:00",
+        label={"pl": "Zameldowanie / odbiór", "en": "Check-in / pickup"},
+        help={
+            "pl": "Godzina, od której pobyt albo wynajem się zaczyna (dla dni domyślnie 9:00).",
+            "en": "The time a stay or rental begins (for days 9:00 by default).",
+        },
+        description="HH:MM local time a `range` booking begins on its first day.",
+        depends_on="booking.offer.time_model == 'range'",
+    ),
+    OfferSetting(
+        key="booking.offer.range_end_local",
+        type="text",
+        default="11:00",
+        label={"pl": "Wymeldowanie / zwrot", "en": "Check-out / return"},
+        help={
+            "pl": "Godzina, o której pobyt albo wynajem się kończy (dla dni domyślnie 18:00).",
+            "en": "The time a stay or rental ends (for days 18:00 by default).",
+        },
+        description="HH:MM local time a `range` booking ends on its last day.",
+        depends_on="booking.offer.time_model == 'range'",
+    ),
+    OfferSetting(
         key="booking.offer.duration_minutes",
         type="int",
         default=30,
@@ -55,7 +114,8 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
         maximum=1440,
         unit="minute",
         label={"pl": "Czas trwania", "en": "Duration"},
-        description="How long one visit of this service takes, in minutes.",
+        description="How long one visit of a `slot` service takes, in minutes.",
+        depends_on="booking.offer.time_model == 'slot'",
     ),
     OfferSetting(
         key="booking.offer.buffer_before_minutes",
@@ -106,14 +166,17 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
         key="booking.offer.staff_count",
         type="int",
         default=1,
-        minimum=1,
+        minimum=0,
         maximum=10,
         label={"pl": "Ile osób potrzeba", "en": "People needed"},
         help={
             "pl": "Tyle osób zablokujemy w kalendarzu przy każdej wizycie.",
             "en": "This many people are blocked in the calendar for every visit.",
         },
-        description="How many of the company's people one visit needs; each is blocked.",
+        description=(
+            "How many of the company's people one visit needs; each is blocked. 0 only for "
+            "a `range` service whose booking takes a unit and nobody (ADR-072 §2)."
+        ),
     ),
     OfferSetting(
         key="booking.offer.public_staff_choice",

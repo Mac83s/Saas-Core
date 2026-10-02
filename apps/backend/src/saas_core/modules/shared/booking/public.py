@@ -133,6 +133,6 @@ def shown_to_customer(appointment: Appointment) -> tuple[str | None, str | None]
     team = appointment.requested_team.name if appointment.requested_team is not None else None
     lead = appointment.staff
     person = None
-    if lead.profile_id is not None and lead.id in crew_of(appointment):
+    if lead is not None and lead.profile_id is not None and lead.id in crew_of(appointment):
         person = person_names(appointment.organization_id, [lead.profile_id]).get(lead.profile_id)
     return team, person

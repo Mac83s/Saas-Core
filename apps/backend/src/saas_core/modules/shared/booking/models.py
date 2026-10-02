@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Any
 
 from django.conf import settings
@@ -18,6 +19,23 @@ class AppointmentStatus(models.TextChoices):
     COMPLETED = "completed", "Zakończona"
     CANCELED = "canceled", "Anulowana"
     NO_SHOW = "no_show", "Nieobecność"
+
+
+class TimeModel(models.TextChoices):
+    """How an offer takes time (ADR-072 §1)."""
+
+    #: A visit of a set length at a start the calendar offers.
+    SLOT = "slot", "Termin"
+    #: A stay from–to the customer picks: nights, days or hours.
+    RANGE = "range", "Okres"
+    #: Seats in an occurrence with a capacity (phase 8).
+    SESSION = "session", "Wydarzenie"
+
+
+class RangeUnit(models.TextChoices):
+    NIGHT = "night", "Noc"
+    DAY = "day", "Dzień"
+    HOUR = "hour", "Godzina"
 
 
 class StaffChoice(models.TextChoices):
@@ -231,7 +249,16 @@ class Service(TenantScopedModel):
     name = models.CharField(max_length=160)
     public_slug = models.SlugField(max_length=80)
     appointment_kind = models.CharField(max_length=64, blank=True)
-    duration_minutes = models.PositiveSmallIntegerField()
+    #: An offer with bookings never changes it (ADR-072 §1).
+    time_model = models.CharField(max_length=8, choices=TimeModel, default=TimeModel.SLOT)
+    #: A `range` offer counts nights, days or hours; empty otherwise.
+    range_unit = models.CharField(max_length=8, choices=RangeUnit, blank=True)
+    #: Check-in and check-out (nights), pickup and return (days): local times.
+    range_start_local = models.TimeField(null=True, blank=True)
+    range_end_local = models.TimeField(null=True, blank=True)
+    #: A `slot` visit's length; empty for a `range` offer, whose length the
+    #: customer picks within its rules.
+    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
     buffer_before_minutes = models.PositiveSmallIntegerField(default=0)
     buffer_after_minutes = models.PositiveSmallIntegerField(default=0)
     minimum_notice_minutes = models.PositiveIntegerField(default=60)
@@ -260,12 +287,30 @@ class Service(TenantScopedModel):
             models.UniqueConstraint(
                 fields=["organization", "public_slug"], name="booking_service_org_slug_uq"
             ),
+            # ADR-072 §1: a range offer's length comes from its rules.
             models.CheckConstraint(
-                condition=models.Q(duration_minutes__gte=5, duration_minutes__lte=1440),
+                condition=(
+                    models.Q(time_model=TimeModel.RANGE, duration_minutes__isnull=True)
+                    | (
+                        ~models.Q(time_model=TimeModel.RANGE)
+                        & models.Q(duration_minutes__gte=5, duration_minutes__lte=1440)
+                    )
+                ),
                 name="booking_service_duration_ck",
             ),
             models.CheckConstraint(
-                condition=models.Q(staff_count__gte=1, staff_count__lte=10),
+                condition=(
+                    models.Q(time_model=TimeModel.RANGE, range_unit__in=list(RangeUnit.values))
+                    | (~models.Q(time_model=TimeModel.RANGE) & models.Q(range_unit=""))
+                ),
+                name="booking_service_range_unit_ck",
+            ),
+            # ADR-072 §2: nobody is needed only where a unit or a seat is booked.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(staff_count__gte=1, staff_count__lte=10)
+                    | (~models.Q(time_model=TimeModel.SLOT) & models.Q(staff_count=0))
+                ),
                 name="booking_service_staff_count_ck",
             ),
             models.CheckConstraint(
@@ -274,6 +319,13 @@ class Service(TenantScopedModel):
                 name="booking_service_person_choice_ck",
             ),
         ]
+
+    @property
+    def slot_duration(self) -> timedelta:
+        """A `slot` visit's length; a `range` offer has none (ADR-072 §1)."""
+        if self.duration_minutes is None:
+            raise ValueError("Oferta okresu nie ma długości wizyty.")
+        return timedelta(minutes=self.duration_minutes)
 
     def clean(self) -> None:
         super().clean()
@@ -327,6 +379,21 @@ class ServiceResource(TenantScopedModel):
             models.UniqueConstraint(
                 fields=["organization", "service", "resource"], name="booking_service_resource_uq"
             )
+        ]
+
+
+class ServiceGroup(TenantScopedModel):
+    """A group of units a `range` offer is booked in: the customer takes any
+    free unit of it (ADR-072 §3). Single units go through `ServiceResource`."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="group_links")
+    group = models.ForeignKey(ResourceGroup, on_delete=models.PROTECT, related_name="service_links")
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["service", "group"], name="booking_service_group_uq"),
         ]
 
 
@@ -546,7 +613,11 @@ class Appointment(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="appointments")
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="appointments")
-    staff = models.ForeignKey(StaffMember, on_delete=models.PROTECT, related_name="appointments")
+    #: The lead; empty exactly when the booking takes nobody — a unit, a seat
+    #: (ADR-072 §2, `staff_required` 0).
+    staff = models.ForeignKey(
+        StaffMember, null=True, blank=True, on_delete=models.PROTECT, related_name="appointments"
+    )
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="appointments")
     resource = models.ForeignKey(
         Resource, null=True, blank=True, on_delete=models.PROTECT, related_name="appointments"
@@ -586,6 +657,10 @@ class Appointment(TenantScopedModel):
     requested_staff = models.ForeignKey(
         StaffMember, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    #: The group a stay was booked in: moving the stay picks a unit of it again.
+    requested_group = models.ForeignKey(
+        ResourceGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     queue_reason = models.CharField(max_length=16, choices=QueueReason, blank=True)
     queued_at = models.DateTimeField(null=True, blank=True)
     #: What the customer wrote („Uwagi”, answer 1A of 28.09). It may be health
@@ -611,6 +686,11 @@ class Appointment(TenantScopedModel):
             models.CheckConstraint(
                 condition=models.Q(occupied_until__gt=models.F("occupied_from")),
                 name="booking_appointment_occupied_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(staff__isnull=True, staff_required=0)
+                | models.Q(staff__isnull=False, staff_required__gte=1),
+                name="booking_appointment_staff_ck",
             ),
         ]
         indexes = [

@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.models import MembershipStatus
 from saas_core.modules.shared.billing.api import FeatureOperation
@@ -252,6 +252,11 @@ def assign_crew(
         return with_crew(Appointment.all_objects.filter(pk=appointment.id)).get()
     if appointment.status != AppointmentStatus.CONFIRMED:
         raise AppointmentNotChangeable
+    if appointment.staff_required == 0:
+        # A stay takes a unit; nobody is put on it (ADR-072 §2).
+        raise ValidationError(
+            {"staff_ids": "Na pobyt nie przydziela się osób."}, code="no_people_needed"
+        )
     if appointment.crew_version != expected_version:
         raise CrewChanged(last_crew_actor(appointment))
     set_crew(
