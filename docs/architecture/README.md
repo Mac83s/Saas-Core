@@ -13,6 +13,8 @@ kontrakt.
 | [api-and-events.md](api-and-events.md) | REST, błędy, OpenAPI, outbox i webhooki |
 | [billing-lifecycle.md](billing-lifecycle.md) | stany planu, przejścia i dowód na każde z nich |
 | [testing-strategy.md](testing-strategy.md) | poziomy testów oraz bramki CI |
+| [model-port.md](model-port.md) | port modeli AI: typy żądania i odpowiedzi, błędy, dopuszczenie i sufity, telemetria (ADR-068) |
+| [translation-sources.md](translation-sources.md) | protokół źródeł tłumaczeń: fragmenty, pochodzenie, rejestr i obowiązki adaptera (ADR-069, ADR-070) |
 | [`packages/contracts/content-operations/`](../../packages/contracts/content-operations/) | kontrakt zmian treści dla SeoContentRank (W9.6.0) |
 
 Prozę kontraktu z SeoContentRank — słownik, podział odpowiedzialności i
