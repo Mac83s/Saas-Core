@@ -84,13 +84,19 @@ vi.mock("../../../product/calendar", () => ({
           <button
             onClick={() =>
               props.fill({
-                customer: { display_name: "Ewa Nowak" },
-                place: { town: "Zalesie" },
+                customer: { display_name: "Ewa Nowak", phone: "", email: "" },
+                place: { town: "Zalesie", address: "" },
               })
             }
             type="button"
           >
             Pick another farm
+          </button>
+          <button
+            onClick={() => props.fill({ customer: { display_name: "Ola" } })}
+            type="button"
+          >
+            Type a name
           </button>
           {props.errors.farm ? <p>{props.errors.farm}</p> : null}
         </fieldset>
@@ -719,6 +725,13 @@ test("a product's kind of visit: its section fills the form and books the visit 
   expect(
     within(dialog).getByLabelText("Address (street and number)"),
   ).toHaveValue("");
+  // A key left out stays as typed: a card typed key by key wipes nothing.
+  fireEvent.change(within(dialog).getByLabelText("Phone"), {
+    target: { value: "600 999 999" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Type a name" }));
+  expect(within(dialog).getByLabelText("Full name")).toHaveValue("Ola");
+  expect(within(dialog).getByLabelText("Phone")).toHaveValue("600 999 999");
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Pick the farm" }),
   );

@@ -115,6 +115,7 @@ export type ProductAnimalSection = {
  * The contract stays small on purpose (service, value, filling, errors,
  * access), so the form can change around it. Core ships `null`.
  */
+/** A key present is written ("" clears it); a key left out stays as typed. */
 export type ProductVisitFill = {
   customer?: { display_name?: string; phone?: string; email?: string };
   place?: { town: string; address?: string };

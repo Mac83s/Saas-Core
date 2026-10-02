@@ -779,20 +779,34 @@ function NewAppointmentForm({
     form.setFocus("time");
   }
 
-  // A group the section gives replaces the whole group: switching from one
-  // farm to another must not keep the first one's street or phone.
+  // A field the section names is written, "" included: choosing another farm
+  // names them all, so the first one's street or phone does not stay. A field
+  // it leaves out stays as the person typed it (a card typed key by key).
   function fill(values: ProductVisitFill) {
-    const set = (field: keyof NewValues, value = "") =>
-      form.setValue(field, value, { shouldDirty: true });
-    if (values.customer) {
-      set("display_name", values.customer.display_name);
-      set("phone", values.customer.phone);
-      set("email", values.customer.email);
-    }
-    if (values.place) {
-      set("place_town", values.place.town);
-      set("place_address", values.place.address);
-    }
+    const groups: [
+      Record<string, string | undefined> | undefined,
+      [string, keyof NewValues][],
+    ][] = [
+      [
+        values.customer,
+        [
+          ["display_name", "display_name"],
+          ["phone", "phone"],
+          ["email", "email"],
+        ],
+      ],
+      [
+        values.place,
+        [
+          ["town", "place_town"],
+          ["address", "place_address"],
+        ],
+      ],
+    ];
+    for (const [group, fields] of groups)
+      for (const [key, field] of fields)
+        if (group && key in group)
+          form.setValue(field, group[key] ?? "", { shouldDirty: true });
   }
 
   function add(value: string) {
