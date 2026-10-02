@@ -58,9 +58,13 @@ def _url_value(raw: str) -> str:
     return f"{prefix}{host.lower()}{slash}{path}"
 
 
+# Mark and mask tokens (`⟦1⟧`, `⟦/1⟧`, `⟦m:1⟧`) carry numbers that are not facts.
+_TOKENS = re.compile(r"⟦(?:/?\d{1,3}|m:\d{1,3})⟧")
+
+
 def extract_facts(text: str) -> frozenset[Fact]:
     facts: set[Fact] = set()
-    remaining = text
+    remaining = _TOKENS.sub(" ", text)
 
     def take(
         pattern: re.Pattern[str], kind: str, value_of: Callable[[re.Match[str]], str | None]

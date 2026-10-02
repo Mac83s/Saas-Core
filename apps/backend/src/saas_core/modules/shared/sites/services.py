@@ -121,7 +121,10 @@ GRANT_REVOKED = "sites.automation_grant.revoked"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
 PUBLICATION_REFERENCE_OWNER = "sites.publication"
-PUBLICATION_SNAPSHOT_SCHEMA_VERSION = 1
+# 2: other-language entries carry their own blocks, binding and origin, and the
+# snapshot names its live languages (ADR-070 pkt 8). Strictly additive: a
+# reader of 1 still serves the source language correctly.
+PUBLICATION_SNAPSHOT_SCHEMA_VERSION = 2
 # `save_draft(page_presentation=UNSET)` keeps the current draft's page
 # presentation; None clears it. Older clients, change sets and blueprints
 # never send the field, so they must not reset what a person chose.
@@ -2113,13 +2116,13 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         raise SitePublicationNotReady
 
     translations = list(
-        PageTranslation.all_objects.select_for_update()
+        PageTranslation.all_objects.select_for_update(of=("self",))
         .filter(
             organization_id=context.organization_id,
             site_id=site.id,
             locale__in=_supported_locales(),
         )
-        .select_related("site")
+        .select_related("site", "body_current__source_version")
         .order_by("page_id", "locale")
     )
     localization = build_localization_report(
@@ -2169,11 +2172,32 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
             key=str,
         )
     )
+    from .language_publication import language_entries, previous_source_ids
+
+    current = site.current_publication.snapshot if site.current_publication else None
+    source_blocks = {
+        version_id: [stored_block_payload(block) for block in version_blocks]
+        for version_id, version_blocks in blocks_by_version.items()
+    }
+    for block in PageBlock.all_objects.filter(
+        organization_id=context.organization_id,
+        page_version_id__in=previous_source_ids(current, site.default_locale) - set(source_blocks),
+    ).order_by("page_version_id", "position"):
+        source_blocks.setdefault(block.page_version_id, []).append(stored_block_payload(block))
+    languages = language_entries(
+        site=site,
+        pages=pages,
+        sources={page.id: page.current_draft for page in pages if page.current_draft},
+        blocks=source_blocks,
+        translations=translations,
+        previous=current,
+    )
     snapshot = _publication_snapshot(
         site=site,
         pages=pages,
         blocks_by_version=blocks_by_version,
         localization=localization,
+        languages=languages,
         page_media_ids=page_media_ids,
         navigation=_navigation_snapshot(
             site=site,
@@ -2215,12 +2239,17 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         raise SitesIdempotencyConflict from error
 
     published_at = timezone.now()
+    # Addresses lock when they go public: the source's, and the language
+    # versions this publication carries (a version with metadata only does not
+    # go public any more, so its address stays free to change).
     published_translation_ids = [
         locale.translation_id
         for page in localization.pages
         for locale in page.locales
-        if locale.complete and locale.translation_id is not None
-    ]
+        if locale.locale == site.default_locale
+        and locale.complete
+        and locale.translation_id is not None
+    ] + [UUID(entry["translation_id"]) for entry in languages.entries.values()]
     PageTranslation.all_objects.filter(
         organization_id=context.organization_id,
         id__in=published_translation_ids,
@@ -2714,6 +2743,7 @@ def _publication_snapshot(
     pages: list[Page],
     blocks_by_version: dict[UUID, list[PageBlock]],
     localization: SiteLocalizationReport,
+    languages: Any,
     page_media_ids: dict[UUID, tuple[UUID, ...]],
     navigation: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -2721,6 +2751,42 @@ def _publication_snapshot(
 
     appearance = appearance_snapshot(site)
     localization_by_page = {page.page.id: page for page in localization.pages}
+
+    def locales(page: Page) -> list[dict[str, Any]]:
+        source = [
+            {
+                "locale": locale.locale,
+                "translation_id": (
+                    str(locale.translation_id) if locale.translation_id is not None else None
+                ),
+                "version": locale.version,
+                "slug": locale.slug,
+                "path": locale.path,
+                "canonical_path": locale.canonical_path,
+                "title": locale.title,
+                "description": locale.description,
+                "social_title": locale.social_title,
+                "social_description": locale.social_description,
+                "fallback_fields": list(locale.fallback_fields),
+            }
+            for locale in localization_by_page[page.id].locales
+            if locale.locale == site.default_locale and locale.complete
+        ]
+        other = [
+            entry
+            for (page_id, _locale), entry in sorted(languages.entries.items())
+            if page_id == str(page.id)
+        ]
+        return source + other
+
+    def hreflang(entries: list[dict[str, Any]]) -> dict[str, str]:
+        return {
+            str(entry["locale"]): str(entry["path"])
+            for entry in entries
+            if entry.get("path") and not entry.get("withheld")
+        }
+
+    page_locales = {page.id: locales(page) for page in pages}
     return {
         "site_id": str(site.id),
         "site_slug": site.slug,
@@ -2761,32 +2827,17 @@ def _publication_snapshot(
                     if page.current_draft and page.current_draft.presentation is not None
                     else {}
                 ),
-                "locales": [
-                    {
-                        "locale": locale.locale,
-                        "translation_id": (
-                            str(locale.translation_id)
-                            if locale.translation_id is not None
-                            else None
-                        ),
-                        "version": locale.version,
-                        "slug": locale.slug,
-                        "path": locale.path,
-                        "canonical_path": locale.canonical_path,
-                        "title": locale.title,
-                        "description": locale.description,
-                        "social_title": locale.social_title,
-                        "social_description": locale.social_description,
-                        "fallback_fields": list(locale.fallback_fields),
-                    }
-                    for locale in localization_by_page[page.id].locales
-                    if locale.complete
-                ],
-                "hreflang": localization_by_page[page.id].hreflang,
+                "locales": page_locales[page.id],
+                "hreflang": hreflang(page_locales[page.id]),
                 "x_default": localization_by_page[page.id].x_default,
             }
             for page in pages
         ],
+        # The languages a visitor can read here: the source, and each language
+        # whose home page this publication carries (ADR-070 pkt 7).
+        "live_locales": languages.live_locales,
+        # What did not go out, and why — the publication goes on without it.
+        "skipped_locales": languages.skipped,
     }
 
 

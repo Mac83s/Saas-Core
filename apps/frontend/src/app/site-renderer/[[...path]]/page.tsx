@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 
 import { countsAsPageView } from "../../../modules/shared/sites/page-view";
 import {
@@ -42,7 +42,9 @@ export default async function PublicSitePage({
   );
   if (result.kind === "not-found") notFound();
   if (result.kind === "redirect") {
-    permanentRedirect(withSearchParams(result.location, await searchParams));
+    const location = withSearchParams(result.location, await searchParams);
+    if (result.temporary) redirect(location);
+    permanentRedirect(location);
   }
   return <PublicSiteRenderer page={result.page} />;
 }

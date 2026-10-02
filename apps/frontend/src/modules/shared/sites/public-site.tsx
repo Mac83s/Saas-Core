@@ -20,7 +20,7 @@ const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 
 export type PublicSiteResult =
   | { kind: "page"; page: PublicSitePage }
-  | { kind: "redirect"; location: string }
+  | { kind: "redirect"; location: string; temporary?: boolean }
   | { kind: "not-found" };
 
 type BackendResponse = {
@@ -95,10 +95,16 @@ export const getPublicSite = cache(
     const url = new URL("/api/v1/public/site/", backend);
     url.searchParams.set("path", path);
     const response = await requestBackend(url, host, countView);
-    if (response.status === 308) {
+    if (response.status === 308 || response.status === 307) {
+      // 307: a language version withheld for a while (ADR-070 pkt 10), so a
+      // search engine keeps the address.
       return response.location === null
         ? { kind: "not-found" }
-        : { kind: "redirect", location: response.location };
+        : {
+            kind: "redirect",
+            location: response.location,
+            temporary: response.status === 307,
+          };
     }
     if (response.status === 404) return { kind: "not-found" };
     if (response.status < 200 || response.status >= 300) {

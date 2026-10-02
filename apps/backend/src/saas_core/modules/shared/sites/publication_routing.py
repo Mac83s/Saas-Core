@@ -158,16 +158,18 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                 # Nothing answers here any more, but something used to. A
                 # visitor following an old link, and a search engine holding an
                 # old address, both deserve better than a 404.
-                target = _redirect_target(
+                found = _redirect_target(
                     publication=domain.site.current_publication,
                     requested_path=normalized_path,
                 )
-                if target is None:
+                if found is None:
                     raise
+                target, temporary = found
                 raise PublicSiteMoved(
                     target
                     if hostname == canonical.hostname
-                    else f"{settings.PUBLIC_SITE_SCHEME}://{canonical.hostname}{target}"
+                    else f"{settings.PUBLIC_SITE_SCHEME}://{canonical.hostname}{target}",
+                    temporary=temporary,
                 ) from None
     return _resolved(
         canonical=canonical,
@@ -233,7 +235,9 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "appearance": publication_snapshot.get("appearance"),
         # Only site pages carry one; entries, indexes and archives inherit.
         "page_presentation": page.page.get("page_presentation"),
-        "blocks": page.page["blocks"],
+        # The language's own body (ADR-070); the source language uses the
+        # page's blocks.
+        "blocks": selected_locale.get("blocks", page.page["blocks"]),
         "navigation": _navigation_links(publication_snapshot, page.locale),
         # Derived from the menu, never stored: a stored trail is wrong the
         # moment somebody reorders the tree, and the whole point of the
@@ -900,14 +904,17 @@ def _breadcrumbs(
 
 
 class PublicSiteMoved(Exception):
-    """The address moved. Carries where to, so the view can answer 308."""
+    """The address moved. Carries where to, so the view can answer 308 — or
+    307 while a language version is withheld (ADR-070 pkt 10)."""
 
-    def __init__(self, location: str) -> None:
+    def __init__(self, location: str, *, temporary: bool = False) -> None:
         super().__init__(location)
         self.location = location
+        self.temporary = temporary
 
 
-def _redirect_target(*, publication: Any, requested_path: str) -> str | None:
+def _redirect_target(*, publication: Any, requested_path: str) -> tuple[str, bool] | None:
+    """Where an address answers now, and whether only for a while."""
     if publication is None:
         return None
     wanted = _comparable_path(requested_path)
@@ -915,9 +922,14 @@ def _redirect_target(*, publication: Any, requested_path: str) -> str | None:
         if not isinstance(entry, dict):
             continue
         if _comparable_path(str(entry.get("from_path", ""))) == wanted:
-            return str(entry.get("to_path", "")) or None
-    moved: dict[str, str] = visible_snapshot(publication)["moved"]
-    return moved.get(wanted)
+            target = str(entry.get("to_path", ""))
+            return (target, False) if target else None
+    visible = visible_snapshot(publication)
+    if wanted in visible["withheld"]:
+        return visible["withheld"][wanted], True
+    if wanted in visible["moved"]:
+        return visible["moved"][wanted], False
+    return None
 
 
 def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dict[str, str]:
@@ -981,7 +993,9 @@ def _find_page(
 #: process. Cleared rather than evicted one by one when full: simple, and a
 #: worker serves far fewer live publications than this.
 _VISIBLE_SNAPSHOTS: dict[Any, dict[str, Any]] = {}
-_VISIBLE_SNAPSHOTS_LIMIT = 512
+# A site of 50 pages in 5 languages is about 2.3 MB of JSON (measured 02.10),
+# so the bound is what one worker may hold, not how many sites exist.
+_VISIBLE_SNAPSHOTS_LIMIT = 64
 
 
 def visible_snapshot(publication: Publication) -> dict[str, Any]:
@@ -999,7 +1013,10 @@ def visible_snapshot(publication: Publication) -> dict[str, Any]:
       and their addresses move to the page in the source language.
 
     `moved` maps each such address, compared without its trailing slash, to
-    where it now answers.
+    where it now answers. A language version withheld after its source changed
+    a fact (ADR-070 pkt 10) is out of routing, hreflang, the menu and the
+    sitemap too, but answers from `withheld` — a 307 until it is refreshed. A
+    language whose home page is not live (`live_locales`) is not public.
     """
     cached = _VISIBLE_SNAPSHOTS.get(publication.id)
     if cached is None:
@@ -1017,17 +1034,25 @@ def _visible(snapshot: dict[str, Any]) -> dict[str, Any]:
     home = next((page for page in pages if page.get("page_type") == "homepage"), None)
     if home is None and pages:
         home = pages[0]
+    live = snapshot.get("live_locales")
     moved: dict[str, str] = {}
+    withheld: dict[str, str] = {}
     visible: list[dict[str, Any]] = []
     for page in pages:
         kept: list[dict[str, Any]] = []
         hidden: list[dict[str, Any]] = []
+        paused: list[dict[str, Any]] = []
         for raw_locale in page.get("locales", []):
             if not isinstance(raw_locale, dict):
                 continue
             locale = str(raw_locale.get("locale", ""))
-            if locale != default_locale and "blocks" not in raw_locale:
+            if locale != default_locale and (
+                "blocks" not in raw_locale or (live is not None and locale not in live)
+            ):
                 hidden.append(raw_locale)
+                continue
+            if locale != default_locale and raw_locale.get("withheld"):
+                paused.append(raw_locale)
                 continue
             if page is home:
                 root = "/" if locale == default_locale else f"/{locale}/"
@@ -1040,13 +1065,14 @@ def _visible(snapshot: dict[str, Any]) -> dict[str, Any]:
             (str(item["path"]) for item in kept if item.get("locale") == default_locale), None
         )
         if source_path is not None:
-            for raw_locale in hidden:
-                addresses = [raw_locale.get("path")]
-                if page is home:
-                    addresses.append(f"/{raw_locale.get('locale')}/")
-                for address in addresses:
-                    if address:
-                        moved.setdefault(_comparable_path(str(address)), source_path)
+            for group, into in ((hidden, moved), (paused, withheld)):
+                for raw_locale in group:
+                    addresses = [raw_locale.get("path")]
+                    if page is home:
+                        addresses.append(f"/{raw_locale.get('locale')}/")
+                    for address in addresses:
+                        if address:
+                            into.setdefault(_comparable_path(str(address)), source_path)
         hreflang = {str(item["locale"]): str(item["path"]) for item in kept if item.get("path")}
         visible.append({
             **page,
@@ -1054,4 +1080,4 @@ def _visible(snapshot: dict[str, Any]) -> dict[str, Any]:
             "hreflang": hreflang,
             "x_default": hreflang.get(str(default_locale), page.get("x_default")),
         })
-    return {**snapshot, "pages": visible, "moved": moved}
+    return {**snapshot, "pages": visible, "moved": moved, "withheld": withheld}

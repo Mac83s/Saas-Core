@@ -59,6 +59,7 @@ class PublicSitePageView(APIView):
         ],
         responses={
             200: PublicSitePageSerializer,
+            307: None,
             308: None,
             400: ProblemDetailsSerializer,
             404: ProblemDetailsSerializer,
@@ -72,8 +73,9 @@ class PublicSitePageView(APIView):
             )
         except PublicSiteMoved as moved:
             # The address changed deliberately and the old one still answers,
-            # permanently, so a search engine can move the ranking across.
-            response = Response(status=308)
+            # permanently, so a search engine can move the ranking across —
+            # unless a language version is only withheld for a while (307).
+            response = Response(status=307 if moved.temporary else 308)
             response["Location"] = moved.location
             return response
         if page.redirect_url is not None:

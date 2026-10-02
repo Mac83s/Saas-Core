@@ -7125,6 +7125,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicSitePage'
           description: ''
+        '307':
+          description: No response body
         '308':
           description: No response body
         '400':

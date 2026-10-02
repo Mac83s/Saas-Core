@@ -15541,6 +15541,13 @@ export interface operations {
                 };
             };
             /** @description No response body */
+            307: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No response body */
             308: {
                 headers: {
                     [name: string]: unknown;

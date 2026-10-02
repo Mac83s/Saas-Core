@@ -114,9 +114,10 @@ każdą publikację tłumaczeń. Zestawy zmian SCR adresują bloki pozycją wobe
    poprawnie serwuje język źródłowy. Reguła odczytu starszych migawek (TL2): wpis
    innego języka bez własnych `blocks` nie jest publiczny, a jego adres odpowiada
    308 do strony w języku źródłowym; publikacja pochodna na migawce v1 zapisuje
-   już v2. Budżet: 50 podstron × 5 języków ≤ 2 MB JSON i ≤ 50 ms parsowania
-   (pomiar w TL9); sparsowane migawki trzyma pamięć procesu, najwyżej 512, według
-   identyfikatora — publikacje są niezmienne.
+   już v2. Budżet: 50 podstron × 5 języków ≤ 3 MB JSON i ≤ 50 ms parsowania
+   (pomiar TL9 02.10 na najdłuższej recepcie: 2,3 MB, 10 ms); sparsowane migawki
+   trzyma pamięć procesu, najwyżej 64, według identyfikatora — publikacje są
+   niezmienne.
 9. **`publish_site` bierze wersje związane z publikowanym źródłem**, także
    przetłumaczone z tego szkicu przed publikacją. Wersja, która była publiczna, a
    nie jest już publikowalna, zostaje w ostatniej opublikowanej postaci
