@@ -31,6 +31,13 @@ from saas_core.modules.shared.billing.models import (
 
 pytestmark = pytest.mark.django_db
 
+# The assistant's features (billing 0026, ADR-076 pkt 8): known to every
+# profile, granted by no plan until `shared.assistant` publishes them.
+ASSISTANT_FEATURE_KEYS = {
+    "assistant.text.enabled",
+    "assistant.site_generation.enabled",
+    "assistant.voice.enabled",
+}
 FEATURE_KEYS = {
     "seo.audit.enabled",
     "seo.gsc.enabled",
@@ -39,7 +46,7 @@ FEATURE_KEYS = {
     "notifications.enabled",
     "booking.enabled",
     "custom_domain.enabled",
-} | {
+} | ASSISTANT_FEATURE_KEYS | {
     # A module outside the pilot catalogue (the farm register, a product's
     # vertical, ADR-049) publishes its own feature from its own migration.
     entitlement
@@ -134,6 +141,60 @@ def test_template_limits_walk_back_to_the_previous_versions_and_forward_again() 
     assert starter.current_version.quotas["sites.templates.max"] == 10
     profile = Plan.objects.select_related("current_version").get(key="profile")
     assert profile.current_version.quotas["sites.templates.max"] == 3
+
+
+def test_assistant_features_are_known_and_in_no_plan() -> None:
+    """Known, so a decision answers feature_disabled and an operator override can
+    name them; in no plan version, current or past, so no customer has them and
+    the plan catalogue offers nothing new. No assistant quota: credits meter it."""
+    seeded = Feature.objects.filter(key__in=ASSISTANT_FEATURE_KEYS)
+    assert {(feature.key, feature.module, feature.is_active) for feature in seeded} == {
+        (key, "shared.assistant", True) for key in ASSISTANT_FEATURE_KEYS
+    }
+    granted = {key for version in PlanVersion.objects.all() for key in version.feature_keys}
+    assert not granted & ASSISTANT_FEATURE_KEYS
+    assert not QuotaDefinition.objects.filter(key__startswith="assistant.").exists()
+
+
+def test_assistant_features_walk_back_and_forward_without_touching_plans() -> None:
+    """Billing 0026 moves no plan. Walking back deletes a feature nothing names
+    and only switches off one an override or a plan version names (the rule of
+    `withdraw_feature`); walking forward switches them on again."""
+    before = ("billing", "0025_site_templates_quota")
+    after = ("billing", "0026_assistant_features")
+    EntitlementGrant.all_objects.create(
+        organization=organization(slug="assistant-pilot"),
+        source=GrantSource.OVERRIDE,
+        feature=Feature.objects.get(key="assistant.text.enabled"),
+        enabled=True,
+        granted_by=actor(),
+        reason="Pilot asystenta",
+    )
+    # What rolling back a later `publish_feature` leaves: an immutable version
+    # still naming the key, with the plan pointed back at the one before it.
+    latest = PlanVersion.objects.filter(plan__key="pro").order_by("-version").first()
+    assert latest is not None
+    PlanVersion.objects.create(
+        plan=latest.plan,
+        version=latest.version + 1,
+        unit_amount_minor=latest.unit_amount_minor,
+        feature_keys=[*latest.feature_keys, "assistant.voice.enabled"],
+        quotas=dict(latest.quotas),
+    )
+    current = dict(Plan.objects.values_list("key", "current_version_id"))
+
+    MigrationExecutor(connection).migrate([before])
+    assert dict(Plan.objects.values_list("key", "current_version_id")) == current
+    left = Feature.objects.filter(key__in=ASSISTANT_FEATURE_KEYS)
+    assert dict(left.values_list("key", "is_active")) == {
+        "assistant.text.enabled": False,
+        "assistant.voice.enabled": False,
+    }
+
+    MigrationExecutor(connection).migrate([after])
+    assert dict(Plan.objects.values_list("key", "current_version_id")) == current
+    active = Feature.objects.filter(key__in=ASSISTANT_FEATURE_KEYS, is_active=True)
+    assert set(active.values_list("key", flat=True)) == ASSISTANT_FEATURE_KEYS
 
 
 def test_plan_version_rejects_unknown_catalog_keys() -> None:

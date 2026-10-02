@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.context import (
     MissingTenantContext,
@@ -33,6 +33,7 @@ from saas_core.modules.shared.billing.models import (
     PlanVersion,
     SubscriptionState,
 )
+from saas_core.modules.shared.billing.overrides import create_entitlement_override
 
 pytestmark = pytest.mark.django_db
 
@@ -191,6 +192,63 @@ def test_rbac_and_entitlements_are_independent_decisions() -> None:
         authorize_entitled(BILLING_MANAGE, "booking.enabled")
 
     assert raised.value.decision.reason == DecisionReason.FEATURE_DISABLED
+
+
+def test_assistant_text_is_disabled_until_an_operator_enables_one_organization() -> None:
+    """The assistant's features are known and in no plan (billing 0026, ADR-076
+    pkt 8): a plan answers feature_disabled rather than unknown_feature, and an
+    audited operator override is how one pilot organization gets the assistant."""
+    features = (
+        "assistant.text.enabled",
+        "assistant.site_generation.enabled",
+        "assistant.voice.enabled",
+    )
+    pilot = organization("assistant-pilot")
+    other = organization("assistant-other")
+    snapshot(pilot)
+    snapshot(other)
+    pilot_owner = context(pilot, permissions=frozenset({BILLING_MANAGE}))
+    other_owner = context(other, permissions=frozenset({BILLING_MANAGE}))
+
+    with activate_tenant_context(pilot_owner):
+        before = {key: decide_feature(key).reason for key in features}
+        with pytest.raises(EntitlementRequired) as raised:
+            authorize_entitled(BILLING_MANAGE, "assistant.text.enabled")
+
+    assert before == dict.fromkeys(features, DecisionReason.FEATURE_DISABLED)
+    assert raised.value.decision.reason == DecisionReason.FEATURE_DISABLED
+
+    operator = User.objects.create_user(
+        email="assistant-operator@example.com", status=UserStatus.ACTIVE, is_staff=True
+    )
+    with activate_tenant_context(
+        TenantContext(
+            organization_id=pilot.id,
+            membership_id=uuid.uuid7(),
+            actor_id=operator.id,
+            role_key="operator",
+            permissions=frozenset(),
+        )
+    ):
+        create_entitlement_override(
+            actor=operator,
+            feature_key="assistant.text.enabled",
+            enabled=True,
+            reason="Pilot asystenta",
+            idempotency_key="pilot:assistant-text",
+        )
+
+    with activate_tenant_context(pilot_owner):
+        enabled = decide_feature("assistant.text.enabled")
+        authorize_entitled(BILLING_MANAGE, "assistant.text.enabled")
+        voice = decide_feature("assistant.voice.enabled")
+    with activate_tenant_context(other_owner):
+        elsewhere = decide_feature("assistant.text.enabled")
+
+    assert enabled.reason == DecisionReason.ALLOWED
+    assert enabled.evidence.source["kind"] == "override"
+    assert voice.reason == DecisionReason.FEATURE_DISABLED
+    assert elsewhere.reason == DecisionReason.FEATURE_DISABLED
 
 
 def test_decisions_require_tenant_context_before_catalog_lookup() -> None:
