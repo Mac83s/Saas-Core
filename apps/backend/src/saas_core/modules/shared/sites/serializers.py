@@ -155,6 +155,9 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     article = serializers.DictField(allow_null=True)
     # AI images on this page; empty when the operator switched the badge off.
     ai_media_ids = serializers.ListField(child=serializers.UUIDField())
+    noindex = serializers.BooleanField(
+        help_text="The page asks search engines not to index it (robots noindex,follow)."
+    )
 
 
 class NavigationItemSerializer(serializers.Serializer[dict[str, Any]]):

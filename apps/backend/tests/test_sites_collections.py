@@ -287,7 +287,8 @@ def test_published_entry_is_reachable_on_the_public_site() -> None:
             {"path": "/blog/pierwszy-wpis/"},
             HTTP_HOST=platform.hostname,
         )
-        # The same address without the trailing slash is the same article.
+        # The same address without the trailing slash is the same article,
+        # one 308 away (ADR-071).
         no_slash = PublicClient().get(
             "/api/v1/public/site/",
             {"path": "/blog/pierwszy-wpis"},
@@ -303,7 +304,8 @@ def test_published_entry_is_reachable_on_the_public_site() -> None:
     assert found.data["title"] == "Pierwszy Wpis"
     assert found.data["locale"] == "pl"
     assert found.data["blocks"][0]["block_type"] == "core.rich_text"
-    assert no_slash.status_code == 200
+    assert no_slash.status_code == 308
+    assert no_slash["Location"].endswith("/blog/pierwszy-wpis/")
     assert missing.status_code == 404
 
 
@@ -1025,11 +1027,11 @@ def test_collection_can_be_linked_from_the_published_menu() -> None:
     with override_settings(PUBLIC_SITE_SCHEME="https"):
         home = PublicClient().get(
             "/api/v1/public/site/",
-            {"path": "/start/"},
+            {"path": "/"},
             HTTP_HOST=platform.hostname,
         )
     menu = home.json()["navigation"]
-    assert [item["path"] for item in menu] == ["/start/", "/blog/"]
+    assert [item["path"] for item in menu] == ["/", "/blog/"]
     assert menu[-1]["title"] == "Blog"
 
 
@@ -1298,8 +1300,18 @@ def test_an_article_gets_a_second_language_that_publishes_on_its_own() -> None:
             {"path": "/blog/"},
             HTTP_HOST=platform.hostname,
         )
+        translated = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/en/blog/in-english/"},
+            HTTP_HOST=platform.hostname,
+        )
     assert sorted(both.json()["hreflang"]) == ["en", "pl"]
     assert both.json()["hreflang"]["en"].endswith("/blog/in-english/")
+    # One x-default for the whole cluster, the site's own language, named the
+    # same way by every language of the article.
+    assert both.json()["x_default"].endswith("/blog/po-polsku/")
+    assert translated.json()["x_default"] == both.json()["x_default"]
+    assert translated.json()["noindex"] is False
 
     # One row per article, not one per language: listing both would show the
     # reader the same article twice under two titles.
@@ -1594,15 +1606,15 @@ def test_reordering_the_menu_never_moves_a_page_s_address() -> None:
     with override_settings(PUBLIC_SITE_SCHEME="https"):
         served = PublicClient().get(
             "/api/v1/public/site/",
-            {"path": "/start/"},
+            {"path": "/"},
             HTTP_HOST=platform.hostname,
         )
     assert served.status_code == 200
-    assert served.json()["canonical_url"].endswith("/start/")
+    assert served.json()["canonical_url"].endswith("/")
     # The trail follows the tree, so nesting is visible without the URL moving.
     assert [item["path"] for item in served.json()["breadcrumbs"]] == [
         "/oferta/",
-        "/start/",
+        "/",
     ]
 
 
@@ -1617,6 +1629,9 @@ def test_changing_a_published_url_leaves_a_redirect_and_an_audit_entry() -> None
 
     client, _, _ = sites_client(slug="w963-url", role_key="owner")
     site = create_site(client)
+    # The home page answers at the root whatever its slug, so the page that
+    # moves is another one.
+    _publishable_page(client, site.data["id"], key="home", slug="start", title="Start")
     page = _publishable_page(
         client, site.data["id"], key="oferta", slug="oferta", title="Oferta"
     )
@@ -2463,8 +2478,10 @@ def test_a_tag_archive_lists_only_what_carries_that_tag() -> None:
     ]
     assert archive.json()["canonical_url"].endswith("/blog/tag/porady/")
     # Two articles is not a topic page, so the archive serves readers but asks
-    # not to be indexed.
+    # not to be indexed — in the page itself, not only by staying out of the
+    # sitemap.
     assert archive.json()["title"] == "Wpisy oznaczone: Porady"
+    assert archive.json()["noindex"] is True
 
     # A subject nobody has written about is a wrong address, not an empty page.
     assert missing.status_code == 404

@@ -172,6 +172,36 @@ def publish_fixture(
             "spacing": "comfortable",
         },
         "pages": [
+            # The home page answers at the root (ADR-071); the offer is an
+            # ordinary page with its own address in both languages.
+            {
+                "page_id": str(uuid7()),
+                "key": "home",
+                "page_type": "homepage",
+                "version_id": str(uuid7()),
+                "version": 1,
+                "blocks": [
+                    {
+                        "block_type": "core.hero",
+                        "schema_version": 1,
+                        "data": {"heading": "Start"},
+                    }
+                ],
+                "media_asset_ids": [],
+                "locales": [
+                    {
+                        "locale": "pl",
+                        "path": f"/start{tail}",
+                        "canonical_path": f"/start{tail}",
+                        "title": "Start",
+                        "description": "Strona główna",
+                        "social_title": "Start",
+                        "social_description": "Strona główna",
+                    }
+                ],
+                "hreflang": {"pl": f"/start{tail}"},
+                "x_default": f"/start{tail}",
+            },
             {
                 "page_id": str(uuid7()),
                 "key": "offer",
@@ -199,6 +229,14 @@ def publish_fixture(
                         "locale": "en",
                         "path": f"/en/offer{tail}",
                         "canonical_path": f"/en/offer{tail}",
+                        # Its own body: a version without one is not public.
+                        "blocks": [
+                            {
+                                "block_type": "core.hero",
+                                "schema_version": 1,
+                                "data": {"heading": "Offer"},
+                            }
+                        ],
                         "title": "Offer",
                         "description": "Offer description",
                         "social_title": "Offer social",
@@ -604,7 +642,8 @@ def test_public_renderer_matches_paths_however_they_end() -> None:
     """Publishing writes trailing-slash paths ("/oferta/"), and the resolver
     trimmed only the request before comparing — so every page but the home page
     answered 404 in production while this suite, whose fixture omits the slash,
-    stayed green."""
+    stayed green. Both spellings find the page; the other one answers a single
+    308 to the canonical address (ADR-071)."""
     client, _, user = domain_client(slug="domain-slash")
     site_response = create_site(client, "slash-site")
     site = Site.all_objects.get(pk=site_response.data["id"])
@@ -624,9 +663,8 @@ def test_public_renderer_matches_paths_however_they_end() -> None:
 
     assert with_slash.status_code == 200
     assert with_slash.data["locale"] == "pl"
-    # The canonical form differing only by a trailing slash must not send the
-    # visitor back to the address they already requested.
-    assert without_slash.status_code == 200
+    assert without_slash.status_code == 308
+    assert without_slash["Location"] == f"https://{platform.hostname}/oferta/"
 
 
 @override_settings(PUBLIC_SITE_SCHEME="https")
@@ -689,8 +727,8 @@ def test_public_renderer_resolves_only_host_publication_locale_and_canonical() -
     assert alias.status_code == 308
     assert alias["Location"] == f"https://{platform.hostname}/oferta"
     assert root.status_code == 200
-    assert root.data["title"] == "Oferta"
-    assert root.data["canonical_url"] == f"https://{platform.hostname}/oferta"
+    assert root.data["title"] == "Start"
+    assert root.data["canonical_url"] == f"https://{platform.hostname}/"
     assert unknown.status_code == 404
     assert injected.status_code == 400
 

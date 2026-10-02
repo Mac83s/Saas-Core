@@ -19,6 +19,7 @@ from .publication_routing import (
     published_entries,
     tag_archive_path,
     tenant_is_servable,
+    visible_snapshot,
 )
 
 #: How many articles a feed carries. A reader wants what is new; handing it
@@ -167,8 +168,8 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
     locations: list[str] = []
     publication = domain.site.current_publication
     if publication is not None:
-        for raw_page in publication.snapshot.get("pages", []):
-            if not isinstance(raw_page, dict) or raw_page.get("noindex"):
+        for raw_page in visible_snapshot(publication)["pages"]:
+            if raw_page.get("noindex"):
                 continue
             for raw_locale in raw_page.get("locales", []):
                 if isinstance(raw_locale, dict) and raw_locale.get("path"):

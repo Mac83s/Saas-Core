@@ -127,7 +127,8 @@ def test_public_form_persists_once_and_queues_private_owner_notification(publish
     inquiry = SiteInquiry.all_objects.get(id=first.data["reference"])
     assert inquiry.organization_id == organization.id
     assert inquiry.publication_id == site.current_publication_id
-    assert inquiry.page_path == "/contact/"
+    # The site's only page is its home page, which answers at the root.
+    assert inquiry.page_path == "/"
     message = inquiry.notification_message
     assert message.recipient_email == owner.email
     assert message.recipient_email != inquiry.email

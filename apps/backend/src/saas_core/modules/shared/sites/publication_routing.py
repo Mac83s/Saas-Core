@@ -77,18 +77,11 @@ class PublicPage:
 
     @property
     def redirect_url(self) -> str | None:
-        # Compared the same way the page was matched. A raw `==` treats
-        # "/start" and "/start/" as different addresses and redirects the
-        # visitor to the page they already asked for, forever.
-        already_canonical = _comparable_path(self.requested_path) == _comparable_path(
-            self.canonical_path
-        )
-        # `/` is the public alias for the selected home page. Serve it on the
-        # canonical hostname and keep the page's real path in canonical_url;
-        # this also lets local deployments use a non-standard proxy port
-        # without constructing a redirect that silently drops that port.
-        root_alias = _comparable_path(self.requested_path) == "/"
-        if self.hostname == self.canonical_hostname and (already_canonical or root_alias):
+        # Exact, trailing slash included (ADR-071): the page was matched
+        # either way, and the other spelling answers one 308 to the canonical
+        # one. The renderer passes the visitor's path as typed, so this is
+        # not the loop it was while Next stripped the slash first.
+        if self.hostname == self.canonical_hostname and self.requested_path == self.canonical_path:
             return None
         return f"{settings.PUBLIC_SITE_SCHEME}://{self.canonical_hostname}{self.canonical_path}"
 
@@ -120,7 +113,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     try:
         if publication is None:
             raise PublicSiteNotFound
-        page, locale_document = _find_page(publication.snapshot, normalized_path)
+        page, locale_document = _find_page(visible_snapshot(publication), normalized_path)
     except PublicSiteNotFound:
         # Not a page, so it may be a collection entry, or the collection's own
         # index. Entries publish on their own (ADR-035 §1) and are therefore
@@ -130,6 +123,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
             page, locale_document, publication = _find_entry(
                 organization_id=domain.organization_id,
                 site_id=domain.site_id,
+                default_locale=domain.site.default_locale,
                 requested_path=normalized_path,
             )
         except PublicSiteNotFound:
@@ -205,7 +199,11 @@ def _resolved(
 
 def public_page_payload(page: PublicPage) -> dict[str, Any]:
     selected_locale = page.page["selected_locale"]
-    publication_snapshot = page.publication.snapshot
+    publication_snapshot = (
+        visible_snapshot(page.publication)
+        if isinstance(page.publication, Publication)
+        else page.publication.snapshot
+    )
     canonical_origin = f"{settings.PUBLIC_SITE_SCHEME}://{page.canonical_hostname}"
     hreflang = {
         locale: f"{canonical_origin}{path}"
@@ -225,9 +223,7 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # An entry's snapshot carries no theme of its own; it inherits the
         # site's, and falls back to the default when the site has never been
         # published.
-        "design_tokens": publication_snapshot.get(
-            "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
-        ),
+        "design_tokens": publication_snapshot.get("design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS),
         "appearance": publication_snapshot.get("appearance"),
         # Only site pages carry one; entries, indexes and archives inherit.
         "page_presentation": page.page.get("page_presentation"),
@@ -248,6 +244,10 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
         "article": page.page.get("article"),
         "ai_media_ids": _ai_media_ids(page),
+        # Pages that ask not to be indexed (thin tag archives, entries marked
+        # by their author) say so in the document itself; a sitemap that
+        # leaves them out is not enough for a crawler that arrives by link.
+        "noindex": bool(page.page.get("noindex", False)),
     }
 
 
@@ -272,21 +272,15 @@ def _ai_media_ids(page: PublicPage) -> list[str]:
         )
 
 
-def _absolute_pagination(
-    pagination: dict[str, Any] | None, origin: str
-) -> dict[str, Any] | None:
+def _absolute_pagination(pagination: dict[str, Any] | None, origin: str) -> dict[str, Any] | None:
     if pagination is None:
         return None
     return {
         **pagination,
         "previous_url": (
-            f"{origin}{pagination['previous_path']}"
-            if pagination["previous_path"]
-            else None
+            f"{origin}{pagination['previous_path']}" if pagination["previous_path"] else None
         ),
-        "next_url": (
-            f"{origin}{pagination['next_path']}" if pagination["next_path"] else None
-        ),
+        "next_url": (f"{origin}{pagination['next_path']}" if pagination["next_path"] else None),
     }
 
 
@@ -342,6 +336,7 @@ def _find_entry(
     *,
     organization_id: Any,
     site_id: Any,
+    default_locale: str,
     requested_path: str,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
     """Resolves a published blog entry and shapes it like a page.
@@ -377,9 +372,7 @@ def _find_entry(
             "social_description": snapshot.get("excerpt", ""),
             "fallback_fields": [],
         }
-        siblings = _published_translations(
-            organization_id=organization_id, entry=entry
-        )
+        siblings = _published_translations(organization_id=organization_id, entry=entry)
         return (
             {
                 "page_id": snapshot["entry_id"],
@@ -390,16 +383,17 @@ def _find_entry(
                 # Only languages that are actually published: advertising a
                 # translation still in draft points a search engine at a 404.
                 "hreflang": siblings,
-                "x_default": siblings.get(snapshot["locale"], snapshot["path"]),
+                # One x-default for the whole cluster: every sibling names the
+                # same address — the site's language if that one is published,
+                # otherwise the same first one — never each its own.
+                "x_default": siblings.get(default_locale) or siblings[min(siblings)],
                 "noindex": bool(snapshot.get("noindex", False)),
                 # What a reader and a search engine both want to know about an
                 # article and never about a page: who wrote it and when.
                 "article": {
                     "author_name": str(snapshot.get("author_name", "")),
                     "published_at": (
-                        entry.published_at.isoformat()
-                        if entry.published_at is not None
-                        else None
+                        entry.published_at.isoformat() if entry.published_at is not None else None
                     ),
                     "updated_at": publication.created_at.isoformat(),
                     "tags": [
@@ -445,9 +439,7 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
             "excerpt": str(snapshot.get("excerpt", "")),
             "author_name": str(snapshot.get("author_name", "")),
             "tags": [
-                tag
-                for tag in snapshot.get("tags", [])
-                if isinstance(tag, dict) and tag.get("slug")
+                tag for tag in snapshot.get("tags", []) if isinstance(tag, dict) and tag.get("slug")
             ],
             "published_at": entry.published_at,
             # When the article last changed, which is when its current
@@ -465,9 +457,7 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
     return items
 
 
-def one_per_article(
-    entries: list[dict[str, Any]], preferred_locale: str
-) -> list[dict[str, Any]]:
+def one_per_article(entries: list[dict[str, Any]], preferred_locale: str) -> list[dict[str, Any]]:
     """Collapses an article's language versions to the one worth listing.
 
     Listing both would show the reader the same article twice under two
@@ -479,8 +469,7 @@ def one_per_article(
         group = item["translation_group"]
         current = chosen.get(group)
         if current is None or (
-            current["locale"] != preferred_locale
-            and item["locale"] == preferred_locale
+            current["locale"] != preferred_locale and item["locale"] == preferred_locale
         ):
             chosen[group] = item
     return [item for item in entries if chosen.get(item["translation_group"]) is item]
@@ -568,9 +557,7 @@ def _find_collection_index(
     entries = one_per_article(
         [
             item
-            for item in published_entries(
-                organization_id=organization_id, site_id=site_id
-            )
+            for item in published_entries(organization_id=organization_id, site_id=site_id)
             if item["collection_id"] == str(collection.id)
         ],
         site_locale,
@@ -588,8 +575,8 @@ def _find_collection_index(
     if requested_page > total_pages:
         raise PublicSiteNotFound
     window = entries[(requested_page - 1) * page_size : requested_page * page_size]
-    path = first_path if requested_page == 1 else index_page_path(
-        first_path, locale, requested_page
+    path = (
+        first_path if requested_page == 1 else index_page_path(first_path, locale, requested_page)
     )
     locale_document: dict[str, Any] = {
         "locale": locale,
@@ -755,9 +742,7 @@ def _find_tag_archive(
     entries = one_per_article(
         [
             item
-            for item in published_entries(
-                organization_id=organization_id, site_id=site_id
-            )
+            for item in published_entries(organization_id=organization_id, site_id=site_id)
             if item["collection_id"] == str(collection.id)
             and any(tag.get("slug") == slug for tag in item["tags"])
         ],
@@ -834,9 +819,7 @@ def _find_tag_archive(
                     else (
                         archive_path
                         if requested_page == 2
-                        else index_page_path(
-                            archive_path, site_locale, requested_page - 1
-                        )
+                        else index_page_path(archive_path, site_locale, requested_page - 1)
                     )
                 ),
                 "next_path": (
@@ -906,7 +889,8 @@ def _redirect_target(*, publication: Any, requested_path: str) -> str | None:
             continue
         if _comparable_path(str(entry.get("from_path", ""))) == wanted:
             return str(entry.get("to_path", "")) or None
-    return None
+    moved: dict[str, str] = visible_snapshot(publication)["moved"]
+    return moved.get(wanted)
 
 
 def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dict[str, str]:
@@ -951,8 +935,7 @@ def _find_page(
     requested_path: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     wanted = _comparable_path(requested_path)
-    pages = snapshot.get("pages", [])
-    for raw_page in pages:
+    for raw_page in snapshot.get("pages", []):
         if not isinstance(raw_page, dict):
             continue
         for raw_locale in raw_page.get("locales", []):
@@ -964,29 +947,84 @@ def _find_page(
             # every page except the home page answered 404.
             if _comparable_path(str(raw_locale.get("path", ""))) == wanted:
                 return raw_page, raw_locale
-    if wanted == "/":
-        return _home_page(snapshot, pages)
     raise PublicSiteNotFound
 
 
-def _home_page(
-    snapshot: dict[str, Any],
-    pages: Any,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    valid_pages = [page for page in pages if isinstance(page, dict)]
-    page = next(
-        (item for item in valid_pages if item.get("page_type") == "homepage"),
-        valid_pages[0] if valid_pages else None,
-    )
-    if page is None:
-        raise PublicSiteNotFound
+#: Snapshots are immutable, so what visitors get of one is worked out once per
+#: process. Cleared rather than evicted one by one when full: simple, and a
+#: worker serves far fewer live publications than this.
+_VISIBLE_SNAPSHOTS: dict[Any, dict[str, Any]] = {}
+_VISIBLE_SNAPSHOTS_LIMIT = 512
 
-    locales = [item for item in page.get("locales", []) if isinstance(item, dict)]
+
+def visible_snapshot(publication: Publication) -> dict[str, Any]:
+    """A site publication as visitors get it (ADR-071, plan TL2).
+
+    Two reading rules apply to every snapshot, old ones included, without
+    rewriting it:
+
+    - the home page answers at `/`, and at `/xx/` in another language; its
+      slug address moves there with a 308;
+    - a language version with no body of its own is not public. Snapshots
+      before per-language bodies (ADR-070) carry one block list per page, so
+      their other-language versions served the source text under another
+      `lang`; they drop out of routing, hreflang, the menu and the sitemap,
+      and their addresses move to the page in the source language.
+
+    `moved` maps each such address, compared without its trailing slash, to
+    where it now answers.
+    """
+    cached = _VISIBLE_SNAPSHOTS.get(publication.id)
+    if cached is None:
+        if len(_VISIBLE_SNAPSHOTS) >= _VISIBLE_SNAPSHOTS_LIMIT:
+            _VISIBLE_SNAPSHOTS.clear()
+        cached = _visible(publication.snapshot)
+        _VISIBLE_SNAPSHOTS[publication.id] = cached
+    return cached
+
+
+def _visible(snapshot: dict[str, Any]) -> dict[str, Any]:
     default_locale = snapshot.get("default_locale")
-    locale = next(
-        (item for item in locales if item.get("locale") == default_locale),
-        locales[0] if locales else None,
-    )
-    if locale is None or not locale.get("canonical_path"):
-        raise PublicSiteNotFound
-    return page, locale
+    pages = [page for page in snapshot.get("pages", []) if isinstance(page, dict)]
+    # The page the root shows: the one marked as home, or the first.
+    home = next((page for page in pages if page.get("page_type") == "homepage"), None)
+    if home is None and pages:
+        home = pages[0]
+    moved: dict[str, str] = {}
+    visible: list[dict[str, Any]] = []
+    for page in pages:
+        kept: list[dict[str, Any]] = []
+        hidden: list[dict[str, Any]] = []
+        for raw_locale in page.get("locales", []):
+            if not isinstance(raw_locale, dict):
+                continue
+            locale = str(raw_locale.get("locale", ""))
+            if locale != default_locale and "blocks" not in raw_locale:
+                hidden.append(raw_locale)
+                continue
+            if page is home:
+                root = "/" if locale == default_locale else f"/{locale}/"
+                old = str(raw_locale.get("path") or root)
+                if _comparable_path(old) != _comparable_path(root):
+                    moved[_comparable_path(old)] = root
+                raw_locale = {**raw_locale, "path": root, "canonical_path": root}
+            kept.append(raw_locale)
+        source_path = next(
+            (str(item["path"]) for item in kept if item.get("locale") == default_locale), None
+        )
+        if source_path is not None:
+            for raw_locale in hidden:
+                addresses = [raw_locale.get("path")]
+                if page is home:
+                    addresses.append(f"/{raw_locale.get('locale')}/")
+                for address in addresses:
+                    if address:
+                        moved.setdefault(_comparable_path(str(address)), source_path)
+        hreflang = {str(item["locale"]): str(item["path"]) for item in kept if item.get("path")}
+        visible.append({
+            **page,
+            "locales": kept,
+            "hreflang": hreflang,
+            "x_default": hreflang.get(str(default_locale), page.get("x_default")),
+        })
+    return {**snapshot, "pages": visible, "moved": moved}
