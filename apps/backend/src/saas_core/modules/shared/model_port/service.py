@@ -392,7 +392,7 @@ def _gates(spec: TaskSpec, profile: ModelProfile, purpose: str) -> None:
     block = state.active_block(profile.adapter, spec.key, profile.model)
     if block is not None:
         until, kind, code = block
-        _refuse(spec, kind, code, until=until)  # type: ignore[arg-type]
+        _refuse(spec, kind, code, until=until)
 
 
 def _content_tokens(request: ModelRequest) -> int:

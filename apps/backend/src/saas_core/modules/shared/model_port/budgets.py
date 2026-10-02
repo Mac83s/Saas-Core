@@ -34,7 +34,7 @@ def current_budgets() -> Budgets:
     values: dict[str, float] = {}
     for name in Budgets.__dataclass_fields__:
         raw = os.environ.get(f"MODEL_PORT_BUDGET_{name.upper()}")
-        values[name] = float(raw) if raw not in (None, "") else getattr(defaults, name)
+        values[name] = float(raw) if raw else getattr(defaults, name)
     return Budgets(**values)
 
 

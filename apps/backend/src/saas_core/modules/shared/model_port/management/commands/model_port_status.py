@@ -44,12 +44,14 @@ class Command(BaseCommand):
         context = ModelContext(organization_id=None, purpose="probe")
         report = {
             key: {
-                "status": {
-                    **asdict(task_status(key)),
-                    "capabilities": sorted(task_status(key).capabilities),
-                },
+                "status": _status(key),
                 "budgets": [asdict(level) for level in budget_state(key, context).levels],
             }
             for key in registered_tasks()
         }
         self.stdout.write(json.dumps(report, default=str, indent=2, ensure_ascii=False))
+
+
+def _status(key: str) -> dict[str, Any]:
+    status = task_status(key)
+    return {**asdict(status), "capabilities": sorted(status.capabilities)}
