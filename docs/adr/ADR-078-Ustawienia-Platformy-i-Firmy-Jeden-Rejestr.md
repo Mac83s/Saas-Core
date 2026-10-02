@@ -66,8 +66,11 @@ Cztery szwy z planem platformy i rejestrem poleceń:
    (`command_executor.py:232`). Dla polecenia, które jest adapterem grupy ustawień
    (pkt 12), sprawdza każdy klucz z niepustą wartością albo w `reset`: uprawnienie
    zasięgu, cechę planu, blokadę (operator, `lockable`) i sufity; zwraca kod odmowy
-   pierwszego naruszenia albo `None`. Inne polecenia przepuszcza. Wykonawca się nie
-   zmienia.
+   pierwszego naruszenia albo `None`. Że polecenie jest adapterem grupy, bramka wie
+   z mapy polecenie → grupa, którą rejestr ustawień zapisuje sam przy rejestracji
+   adaptera — nie zgaduje po nazwie. Inne polecenia przepuszcza, a podgląd `None`
+   (odczyt) znosi. Bramki działają po podglądzie w kolejności nazw (`features`,
+   `settings`); wyjątek w bramce to odmowa. Wykonawca się nie zmienia.
 2. **Polecenia.** Moduł rejestruje polecenia ustawień zwykłym `register_command`;
    rejestr ustawień daje fragment schematu wejścia, walidację, podgląd z
    `observed_versions`, eskalację ryzyka i pole wersji (pkt 12).
@@ -230,7 +233,12 @@ modyfikator `changes_billing`, więc serwis woła `require_step_up` w panelu i u
 asystenta jednakowo (ADR-076, uzupełnienie 30a/31b); kto w ogóle może je zmienić,
 rozstrzyga odpowiedź na pytanie 34. Deklaracja może zażądać bramki „tylko osoba”
 (`assert_person_required`), wtedy kontekst z `acting` przejdzie tylko po zgodzie z
-kliknięcia (ADR-076 pkt 6, uzupełnienie A1b-8).
+kliknięcia (ADR-076 pkt 6, uzupełnienie A1b-8): etykieta musi być w `person_gates`
+polecenia i w suficie kanału. Funkcja żyje dziś w `shared/sites/services.py`, a
+rejestr w rdzeniu nie importuje `shared`, więc pierwsza deklaracja, która jej
+zażąda, przenosi ją do `core.organizations` pod tą samą nazwą (licznik etykiet w
+`tests/test_command_doors.py` szuka wywołań po nazwie), a `shared.sites` ją
+reeksportuje.
 
 ### 9. Jeden kontrakt zapisu, wykonuje go właściciel danych (UF-T6)
 
@@ -239,7 +247,11 @@ rejestru (typ, granice, `validate`, `depends_on`) → podgląd skutków i efekty
 klasa ryzyka → zapis w transakcji z `record_audit` i hakiem `on_changed`.
 Pominięte pole albo `null` = bez zmian; powrót do dziedziczenia to jawna lista
 `reset`, tak samo w API i w poleceniach (ADR-076 pkt 1: `null` w poleceniu znaczy
-„bez zmiany”, więc nie może znaczyć „usuń”). Dla `copy_at_creation` `reset`
+„bez zmiany”, więc nie może znaczyć „usuń”). W poleceniu `reset` to
+`{"type": ["array", "null"], "items": {"type": "string", "enum": [klucze grupy]}}` w
+`required`, bez `minItems` i `uniqueItems` (port zdejmuje granice tablic w trybie
+strict); `null` i `[]` znaczą to samo — nic nie resetuj — a powtórzenia usuwa
+walidacja. Dla `copy_at_creation` `reset`
 kopiuje bieżącą wartość domyślną firmy — znowu jako kopię. Nieaktualny token wersji
 to 409 `settings_version_conflict` (w encjach kod właściciela, np.
 `booking_version_conflict`); błędy mają `errors [{field, code, message}]` z
@@ -253,7 +265,8 @@ API `TranslationSettings` (TL6), języki przez serwis TL10. Historia: grupy firm
 `organization.settings_changed` z kluczem grupy w `target_type` i różnicą kluczy w
 metadanych (`field_changes`; klucze `personal` tylko „zmieniono”); grupy w encjach
 zostają przy akcjach domenowych modułu i dopisują klucz grupy w metadanych. Historia
-filtruje po grupie i kluczu.
+filtruje po grupie i kluczu; nowa akcja dostaje etykietę pl/en w
+słowniku akcji historii.
 
 ### 10. Klasa danych (UF-T8)
 
@@ -294,7 +307,11 @@ podgląd z `observed_versions`, eskalację i pole wersji. **Zestaw kluczy jest
 zamrożony w wersji polecenia**: nowy klucz w grupie to nowa wersja albo nowe
 polecenie (ADR-076 pkt 1), a dryf łapie `pnpm commands:check`. Każde polecenie ma
 pełną baterię evali (ADR-076 pkt 1). Polecenie istniejące przed rejestrem (A1b-9)
-przechodzi na fragment z rejestru bez zmiany wejścia.
+przechodzi na fragment z rejestru bez zmiany wejścia; polecenie zapowiedziane w
+`packages/contracts/commands/planned.json` znika stamtąd w commicie, który je
+rejestruje. Klucze z `changes_billing` dają osobną grupę zgody ze step-upem w tokenie
+(A1b-7), więc ich evale używają konta z 2FA albo oczekują
+`step_up_mfa_setup_required`.
 
 ### 13. Panel z metadanych (UF-T10)
 
