@@ -18,6 +18,7 @@ from saas_core.modules.core.organizations.models import (
     RoleScope,
 )
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
+from saas_core.modules.shared.booking import places
 from saas_core.modules.shared.booking.api import (
     PlaceSuggestion,
     register_appointment_place,
@@ -25,11 +26,17 @@ from saas_core.modules.shared.booking.api import (
 )
 from saas_core.modules.shared.booking.availability import available_slots
 from saas_core.modules.shared.booking.models import Appointment
-from saas_core.modules.shared.booking.places import _providers, _searches
 from test_booking import _no_delivery, catalog, membership, tenant
 from test_tenant_context import authenticated_client
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.fixture(autouse=True)
+def no_product_places(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A product repository runs this suite with its own module registered."""
+    monkeypatch.setattr(places, "_providers", {})
+    monkeypatch.setattr(places, "_searches", {})
 
 
 def worker_of(member: Membership, email: str) -> Membership:
@@ -114,7 +121,7 @@ def test_a_visit_keeps_its_own_place_before_the_one_a_module_knows(
         # Without its own place the visit shows what the module knows.
         assert (cleared.json()["place"], cleared.json()["place_town"]) == ("Testowo", "")
     finally:
-        _providers.pop("test-herds", None)
+        places._providers.pop("test-herds", None)
 
     moved = client.put(url, {"town": "Zambrów", "address": "Długa 7"}, format="json")
     assert moved.json()["place"] == "Zambrów"
@@ -188,7 +195,7 @@ def test_the_form_offers_the_places_a_module_keeps(monkeypatch: pytest.MonkeyPat
         assert worker.get("/api/v1/booking/places/").status_code == 403
         assert client.get("/api/v1/booking/places/", {"limit": "dużo"}).status_code == 400
     finally:
-        _searches.pop("test-farms", None)
+        places._searches.pop("test-farms", None)
 
 
 def test_anonymizing_the_customer_takes_the_street_and_keeps_the_town(
