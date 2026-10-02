@@ -280,6 +280,10 @@ CATALOG_CONTRACTS_PATH = Path(
 CONTENT_APPROVAL_DIGEST_TTL = timedelta(
     minutes=int(os.environ.get("CONTENT_APPROVAL_DIGEST_TTL_MINUTES", "30"))
 )
+#: How long, in seconds, a person's click lets the assistant run what it showed
+#: (ADR-076 §3): enough to run the plan right after the click, too short to keep
+#: a consent for later. A security time, not a platform setting.
+COMMAND_CONSENT_TTL = 300
 
 
 def secret_setting(name: str, default: str = "") -> str:

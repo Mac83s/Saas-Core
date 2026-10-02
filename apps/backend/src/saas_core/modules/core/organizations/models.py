@@ -646,3 +646,37 @@ class OrganizationAuditEntry(models.Model):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Wpis audytu jest append-only.")
+
+
+class CommandReceipt(models.Model):
+    """One step a consent ran, so the step never runs twice (ADR-046, ADR-076 §3).
+
+    Written in the savepoint of the step it records: a step that fails takes
+    its receipt with it, and a retry runs afresh. A retry of a step that ran
+    gets this result back instead of running again, whatever the state now.
+    The result is what the command may return to a model — never `health`,
+    `personal` only with a purpose its declaration names.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="+")
+    membership_id = models.UUIDField()
+    #: `name@version`.
+    command = models.CharField(max_length=120)
+    idempotency_key = models.CharField(max_length=36)
+    #: What the step asked for: the command and its arguments.
+    request_hash = models.CharField(max_length=64)
+    acting_ref = models.CharField(max_length=64)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "membership_id", "command", "idempotency_key"],
+                name="organizations_command_receipt_uq",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.command}:{self.idempotency_key}"

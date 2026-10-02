@@ -20,19 +20,26 @@ import logging
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from django.core.exceptions import ImproperlyConfigured
-from django.db import transaction
+from django.db import connection, transaction
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError as SchemaViolation
-from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
+from rest_framework.exceptions import (
+    APIException,
+    ErrorDetail,
+    NotFound,
+    PermissionDenied,
+    ValidationError,
+)
 from rest_framework.settings import api_settings
 
 from saas_core.http.exceptions import problem_code, problem_errors
 
 from .authorization import authorize
 from .canonical import canonical_json_hash
+from .command_consent import ConsentDigestMismatch, read_consent
 from .command_registry import (
     RISKS,
     CommandSpec,
@@ -43,6 +50,7 @@ from .command_registry import (
     organization_modules,
 )
 from .context import TenantContext, require_tenant_context
+from .models import CommandReceipt
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +95,28 @@ class CommandGateRefused(APIException):
 
 class CommandPlanConflict(ValidationError):
     problem_code = "command_plan_conflict"
+
+
+class ConsentRequired(PermissionDenied):
+    default_detail = "To polecenie wymaga zgody osoby."
+    default_code = "consent_required"
+
+
+class StepUpRequired(PermissionDenied):
+    default_detail = "To polecenie wymaga ponownego potwierdzenia kodem z aplikacji."
+    default_code = "step_up_required"
+
+
+class CommandIdempotencyConflict(APIException):
+    status_code = 409
+    default_detail = "Ten krok planu został już wykonany z innymi argumentami."
+    default_code = "command_idempotency_conflict"
+
+
+class CommandPartiallyApplied(APIException):
+    status_code = 409
+    default_detail = "Część planu została już wykonana; resztę trzeba zaproponować od nowa."
+    default_code = "command_partially_applied"
 
 
 class CommandInternalError(APIException):
@@ -159,6 +189,11 @@ class ConsentGroup:
     risk: str
     step_up_required: bool
 
+    @property
+    def id(self) -> str:
+        """The group's first step: what a consent is handed back under."""
+        return self.calls[0].step_id
+
 
 @dataclass(frozen=True, slots=True)
 class CallRefusal:
@@ -222,27 +257,51 @@ def preview_plan(invocations: Sequence[Invocation]) -> Plan:
     return Plan(reads=reads, groups=_groups(context, planned), refusals=())
 
 
-def execute_plan(invocations: Sequence[Invocation]) -> tuple[CallResult, ...]:
-    """Every call previewed again on today's state; reads run, the rest wait
-    for consent."""
+def execute_plan(
+    invocations: Sequence[Invocation],
+    consents: Mapping[str, str] | None = None,
+) -> tuple[CallResult, ...]:
+    """Runs a plan a person consented to, group by group (ADR-076 §3).
+
+    `consents` maps a group's `id` to the token its click minted. Order matters:
+    receipts first — a step that already ran answers with what it returned,
+    because its own write changed the state a new preview would read; then a
+    fresh preview of every group on the state before the plan, every token
+    read against it, and only then any write. A group runs in a savepoint of
+    its own: the first that fails is undone and the groups after it do not run,
+    while the groups before it stay done.
+    """
+    context = _acting_context()
+    replayed = _replayed(context, invocations)
+    if replayed is not None:
+        return replayed
     plan = preview_plan(invocations)
     if plan.refusals:
         refused = {refusal.step_id: refusal for refusal in plan.refusals}
         return tuple(
-            CallResult(
-                step_id=invocation.step_id,
-                status="refused" if invocation.step_id in refused else "skipped",
-                code=refused[invocation.step_id].code if invocation.step_id in refused else None,
-                errors=refused[invocation.step_id].errors if invocation.step_id in refused else (),
-            )
+            _refused(refused[invocation.step_id])
+            if invocation.step_id in refused
+            else CallResult(step_id=invocation.step_id, status="skipped")
             for invocation in invocations
         )
     results = {call.step_id: _run_read(call) for call in plan.reads}
+    verdicts = {group.id: _consent_verdict(context, group, consents or {}) for group in plan.groups}
+    halted = False
     for group in plan.groups:
-        for call in group.calls:
-            results[call.step_id] = CallResult(
-                step_id=call.step_id, status="refused", code="consent_required"
-            )
+        verdict = verdicts[group.id]
+        if halted:
+            results.update({
+                call.step_id: CallResult(step_id=call.step_id, status="skipped")
+                for call in group.calls
+            })
+        elif verdict is not None:
+            results.update({
+                call.step_id: _refused(_refusal(call.step_id, verdict)) for call in group.calls
+            })
+        else:
+            group_results = _run_group(context, group)
+            results.update(group_results)
+            halted = any(result.status != "done" for result in group_results.values())
     return tuple(results[invocation.step_id] for invocation in invocations)
 
 
@@ -481,6 +540,145 @@ def _run_read(call: PlannedCall) -> CallResult:
         )
         return CallResult(step_id=call.step_id, status="failed", code="command_internal_error")
     return CallResult(step_id=call.step_id, status="done", output=output)
+
+
+def receipt_for(context: TenantContext, spec: CommandSpec, step_id: str) -> CommandReceipt | None:
+    """What a step did, read by its key: an ambiguous outcome is settled by
+    reading, not by running again (ADR-035, ADR-076 §3)."""
+    return CommandReceipt.objects.filter(
+        organization_id=context.organization_id,
+        membership_id=context.membership_id,
+        command=spec.key,
+        idempotency_key=idempotency_key(context, spec, step_id),
+    ).first()
+
+
+def _replayed(
+    context: TenantContext, invocations: Sequence[Invocation]
+) -> tuple[CallResult, ...] | None:
+    """Stored results when the plan's writes already ran; None when none did."""
+    stored: dict[str, CallResult] = {}
+    writes: list[str] = []
+    for invocation in invocations:
+        try:
+            spec = _resolve(invocation.command)
+            receipt = receipt_for(context, spec, _step_id(invocation.step_id))
+        except (CommandUnavailable, ValueError):
+            continue
+        if spec.risk == "read":
+            continue
+        writes.append(invocation.step_id)
+        if receipt is None:
+            continue
+        if receipt.request_hash != _request_hash(spec, invocation.arguments):
+            stored[invocation.step_id] = _refused(
+                _refusal(invocation.step_id, CommandIdempotencyConflict())
+            )
+        else:
+            stored[invocation.step_id] = CallResult(
+                step_id=invocation.step_id, status="done", output=receipt.result
+            )
+    if not stored:
+        return None
+    partial = CommandPartiallyApplied()
+    return tuple(
+        stored.get(invocation.step_id)
+        or (
+            _refused(_refusal(invocation.step_id, partial))
+            if invocation.step_id in writes
+            else CallResult(step_id=invocation.step_id, status="skipped")
+        )
+        for invocation in invocations
+    )
+
+
+def _consent_verdict(
+    context: TenantContext, group: ConsentGroup, consents: Mapping[str, str]
+) -> APIException | None:
+    token = consents.get(group.id)
+    if token is None:
+        return ConsentRequired()
+    try:
+        consent = read_consent(token, context=context)
+    except APIException as error:
+        return error
+    if consent.digest != group.digest:
+        return ConsentDigestMismatch()
+    if group.step_up_required and consent.step_up_at is None:
+        # Until the step-up exists (A1b-7) nothing that needs one runs.
+        return StepUpRequired()
+    return None
+
+
+def _run_group(context: TenantContext, group: ConsentGroup) -> dict[str, CallResult]:
+    done: dict[str, CallResult] = {}
+    current = group.calls[0]
+    try:
+        with transaction.atomic():
+            for current in group.calls:
+                done[current.step_id] = CallResult(
+                    step_id=current.step_id, status="done", output=_run_write(context, current)
+                )
+    except APIException as error:
+        failed = _refused(_refusal(current.step_id, error))
+    except Exception:
+        logger.exception(
+            "command_internal_error",
+            extra={"command": current.spec.key, "step_id": current.step_id},
+        )
+        failed = CallResult(step_id=current.step_id, status="failed", code="command_internal_error")
+    else:
+        return done
+    # The savepoint took every call of the group with it, receipts included.
+    return {
+        call.step_id: failed
+        if call.step_id == current.step_id
+        else CallResult(step_id=call.step_id, status="skipped")
+        for call in group.calls
+    }
+
+
+def _run_write(context: TenantContext, call: PlannedCall) -> Mapping[str, Any]:
+    with connection.cursor() as cursor:
+        # A second execution of the same step waits here and finds the
+        # receipt, instead of running the step again.
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            [f"command:{context.organization_id}:{context.membership_id}:{call.idempotency_key}"],
+        )
+    receipt = receipt_for(context, call.spec, call.step_id)
+    request_hash = _request_hash(call.spec, call.arguments)
+    if receipt is not None:
+        if receipt.request_hash != request_hash:
+            raise CommandIdempotencyConflict
+        return cast(Mapping[str, Any], receipt.result)
+    output = call.spec.run(
+        call.arguments,
+        CommandCall(context=context, idempotency_key=call.idempotency_key, preview=call.preview),
+    )
+    Draft202012Validator(call.spec.output_schema).validate(output)
+    CommandReceipt.objects.create(
+        organization_id=context.organization_id,
+        membership_id=context.membership_id,
+        command=call.spec.key,
+        idempotency_key=call.idempotency_key,
+        request_hash=request_hash,
+        acting_ref=context.acting_ref,
+        result=output,
+    )
+    return cast(Mapping[str, Any], output)
+
+
+def _request_hash(spec: CommandSpec, arguments: Mapping[str, Any]) -> str:
+    """What the step asked for. The versions it observed are the digest's to
+    bind, not the receipt's: its own write moves them."""
+    return canonical_json_hash({"command": spec.key, "arguments": arguments})
+
+
+def _refused(refusal: CallRefusal) -> CallResult:
+    return CallResult(
+        step_id=refusal.step_id, status="refused", code=refusal.code, errors=refusal.errors
+    )
 
 
 def _refusal(step_id: str, error: APIException) -> CallRefusal:
