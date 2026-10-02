@@ -54,7 +54,7 @@ from .references import (
     register_resource_reference_handler,
 )
 from .settings_commands import group_commands
-from .settings_registry import SettingGroup, SettingSpec, register_setting_group
+from .settings_registry import SettingGroup, SettingSpec, register_setting_group, schema_entry
 from .settings_service import (
     Resolved,
     change_settings,
@@ -62,6 +62,7 @@ from .settings_service import (
     resolve,
     setting,
     settings_snapshot,
+    validate_settings,
 )
 
 __all__ = [
@@ -75,6 +76,8 @@ __all__ = [
     "resolve",
     "setting",
     "settings_snapshot",
+    "schema_entry",
+    "validate_settings",
     "CHANNEL_FEATURES",
     "CommandGate",
     "CommandSpec",

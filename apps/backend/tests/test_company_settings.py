@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User
@@ -27,6 +27,8 @@ from saas_core.modules.core.organizations.settings_registry import (
     SettingGroup,
     SettingSpec,
     register_setting_group,
+    schema_entry,
+    settings_defaults_problems,
 )
 from saas_core.modules.core.organizations.settings_service import (
     SettingsEntitlementRequired,
@@ -35,6 +37,8 @@ from saas_core.modules.core.organizations.settings_service import (
     change_settings,
     read_group,
     resolve,
+    schema,
+    validate_settings,
 )
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
 from saas_core.modules.shared.booking.company_settings import reminder_due
@@ -342,3 +346,76 @@ def test_the_api_reads_previews_and_changes_a_group_with_a_key() -> None:
     assert changed.status_code == 200
     assert changed.json()["values"]["lead_hours"] == 48
     assert changed.json()["sources"]["lead_hours"] == "organization"
+
+
+def _entity_group(**spec: Any) -> SettingGroup:
+    return SettingGroup(
+        key="booking.entity_probe",
+        module="shared.booking",
+        title={"pl": "Próba", "en": "Probe"},
+        description={"pl": "Opis", "en": "Description"},
+        permission="organization.settings.manage",
+        api="/api/v1/booking/probe/",
+        read_explicit=lambda: {"mode": None},
+        settings=(
+            SettingSpec(**{
+                "key": "booking.entity_probe.mode",
+                "type": "enum",
+                "values": (
+                    ("a", {"pl": "A", "en": "A"}),
+                    ("b", {"pl": "B", "en": "B"}),
+                ),
+                "default": "a",
+                "scopes": ("organization",),
+                "label": {"pl": "Tryb", "en": "Mode"},
+                "model_description": "Mode.",
+                **spec,
+            }),
+        ),
+    )
+
+
+def test_an_entity_group_is_declared_by_core_and_written_by_its_module(
+    settings: Any,
+) -> None:
+    """ADR-078 pkt 7 (R2b): an entity group's module keeps its table and API;
+    the registry checks its keys and lists them with `api`."""
+    with pytest.raises(ImproperlyConfigured, match="restrict"):
+        register_setting_group(_entity_group(strategy="restrict", type="bool", values=()))
+    with pytest.raises(ImproperlyConfigured, match="read_explicit czyta tylko"):
+        register_setting_group(_entity_group(scopes=("offer",)))
+    settings.SETTINGS_DEFAULTS = {"booking.entity_probe.mode": "b"}
+    with pytest.raises(ImproperlyConfigured, match="settingsDefaults"):
+        register_setting_group(_entity_group(product_default=False))
+
+    member = membership("settings-basics")
+    with tenant(member):
+        currency, mode = resolve("organization.currency"), resolve("booking.reminders.lead_hours")
+        assert (currency.value, currency.source) == ("PLN", "organization")
+        assert mode.source == "platform"
+        with pytest.raises(NotFound):
+            _change("organization", "x", currency="EUR")
+        with pytest.raises(ValidationError) as refused:
+            validate_settings("organization", {"currency": "GBP"})
+    assert refused.value.detail["currency"][0].code == "invalid_choice"
+
+
+def test_the_schema_names_who_serves_a_group_and_how_its_value_applies() -> None:
+    member = membership("settings-schema")
+    with tenant(member) as context:
+        groups = {group.key: (group, can, locked) for group, can, locked in schema(context)}
+    basics = groups["organization"][0]
+    assert basics.api == "/api/v1/organizations/current/"
+    assert groups[REMINDERS][0].api is None
+    entry = schema_entry(basics.spec("currency"))
+    assert (entry["strategy"], entry["scopes"]) == ("override", ["organization"])
+
+
+def test_a_product_default_nobody_declares_fails_the_start(settings: Any) -> None:
+    settings.SETTINGS_DEFAULTS = {
+        "booking.reminders.lead_hours": 48,
+        "booking.nonexistent.key": 1,
+        # A namespace without a registered group checks its own keys.
+        "elsewhere.thing": True,
+    }
+    assert settings_defaults_problems() == ["booking.nonexistent.key"]

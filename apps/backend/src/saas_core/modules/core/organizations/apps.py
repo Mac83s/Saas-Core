@@ -23,3 +23,10 @@ class OrganizationsConfig(AppConfig):
         from .settings_commands import settings_gate  # noqa: PLC0415
 
         register_command_gate("settings", settings_gate)
+        # The company's basic settings on the registry (ADR-078, R2b).
+        from .basic_settings import BASICS  # noqa: PLC0415
+        from .settings_registry import register_setting_group  # noqa: PLC0415
+
+        register_setting_group(BASICS)
+        # A product's starting value for a setting nobody declares fails the start.
+        from . import settings_checks  # noqa: F401, PLC0415

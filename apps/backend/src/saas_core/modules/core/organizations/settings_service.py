@@ -48,6 +48,7 @@ from .settings_registry import (
     organization_groups,
     platform_value,
     product_value,
+    setting_group,
     setting_spec,
 )
 
@@ -130,11 +131,21 @@ def settings_snapshot() -> Iterator[None]:
 
 
 def resolve(key: str) -> Resolved:
-    """The value of `key` for the company of the current tenant context."""
+    """The value of `key` for the company of the current tenant context.
+
+    A `restrict` setting's value in force may be stricter: its module applies
+    its own ceilings on top (ADR-078 pkt 3)."""
     spec = setting_spec(key)
-    row = _rows().get(key)
-    if row is not None and row.value is not None:
-        return Resolved(row.value, "organization")
+    group = setting_group(spec.group)
+    if group.api is not None:
+        if group.read_explicit is None:
+            raise LookupError(f"{key}: wartość węższego zasięgu czyta jej moduł.")
+        explicit = group.read_explicit().get(spec.field)
+    else:
+        row = _rows().get(key)
+        explicit = row.value if row is not None else None
+    if explicit is not None:
+        return Resolved(explicit, "organization")
     product = product_value(spec)
     if product is not None:
         return Resolved(product, "product")
@@ -307,10 +318,21 @@ _DENIALS = {
 
 
 def _group(context: TenantContext, group_key: str) -> SettingGroup:
+    """A group core reads and changes itself; an entity group's own module does."""
     for group in organization_groups(context.organization_id):
-        if group.key == group_key:
+        if group.key == group_key and group.api is None:
             return group
     raise NotFound("Nie ma takiej grupy ustawień.")
+
+
+def validate_settings(
+    group_key: str, changes: Mapping[str, Any], reset: Sequence[str] = ()
+) -> dict[str, Any]:
+    """The declaration's check of a change, for a module that writes its own
+    group: values by field (None for each one reset), or a `ValidationError`
+    with the same field codes as core's groups."""
+    given = {name: value for name, value in changes.items() if value is not None}
+    return _validated(setting_group(group_key), given, tuple(dict.fromkeys(reset)))
 
 
 def group_locked(group: SettingGroup, *, write: bool = False) -> str:

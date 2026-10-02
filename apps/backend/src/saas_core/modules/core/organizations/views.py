@@ -27,6 +27,7 @@ from saas_core.modules.core.identity.step_up import (
 
 from .audit import record_audit
 from .authorization import authorize
+from .basic_settings import organization_options
 from .command_consent import mint_consent
 from .command_executor import pending_consent
 from .context import TenantContext, context_from_membership
@@ -44,7 +45,6 @@ from .lifecycle import (
     update_membership,
 )
 from .models import Invitation, InvitationStatus, Membership, Organization, Role
-from .options import organization_options
 from .permissions import ORGANIZATION_READ
 from .serializers import (
     ActiveOrganizationResultSerializer,

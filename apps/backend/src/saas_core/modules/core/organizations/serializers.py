@@ -7,7 +7,13 @@ from rest_framework import serializers
 
 from .command_registry import RISKS
 from .context import ACTING_VIA
-from .options import DEFAULT_CURRENCY, SETTING_TYPES, SETTING_UNITS, currency_codes
+from .options import (
+    DEFAULT_CURRENCY,
+    SETTING_STRATEGIES,
+    SETTING_TYPES,
+    SETTING_UNITS,
+    currency_codes,
+)
 
 
 def _offered_currency(value: str) -> str:
@@ -288,6 +294,11 @@ class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
     description = serializers.CharField(help_text="What the setting does, in English.")
     scopes = serializers.ListField(child=serializers.CharField())
     depends_on = serializers.CharField(allow_null=True)
+    strategy = serializers.ChoiceField(
+        choices=SETTING_STRATEGIES,
+        help_text="restrict: the value in force may be stricter than the company's — the "
+        "module applies its ceilings (operator, deployment) on top.",
+    )
 
 
 class SettingOptionsSerializer(serializers.Serializer[dict[str, Any]]):

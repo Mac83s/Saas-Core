@@ -57,6 +57,19 @@ function text(labels: { pl: string; en: string }, locale: string): string {
   return locale === "en" ? labels.en : labels.pl;
 }
 
+/**
+ * Whether a field matters now: `depends_on` names a switch of the group that
+ * must be on, or `<key> == '<value>'` another field's value (ADR-078).
+ */
+function applies(option: SettingOption, values: Values): boolean {
+  if (!option.depends_on) return true;
+  const [key, expected] = option.depends_on.split(" == ");
+  const value = values[key.slice(key.lastIndexOf(".") + 1)];
+  return expected === undefined
+    ? value !== false
+    : value === expected.replace(/^'|'$/g, "");
+}
+
 function zodFor(option: SettingOption): z.ZodType {
   if (option.type === "bool") return z.boolean();
   if (option.type === "int") {
@@ -219,12 +232,7 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
           <FieldGroup>
             {group.keys.map((option) => {
               const field = fieldOf(option);
-              const dependsOn = option.depends_on
-                ? option.depends_on.slice(
-                    option.depends_on.lastIndexOf(".") + 1,
-                  )
-                : null;
-              if (dependsOn && watched[dependsOn] === false) return null;
+              if (!applies(option, watched)) return null;
               const source = reset.includes(field)
                 ? "default"
                 : (state?.sources as Record<string, string> | undefined)?.[

@@ -56,6 +56,11 @@ class SettingsGroupSchemaSerializer(serializers.Serializer[dict[str, Any]]):
         allow_blank=True, help_text="Why the plan does not let the company change them; empty."
     )
     keys = SettingOptionSerializer(many=True)
+    api = serializers.CharField(
+        allow_null=True,
+        help_text="The module's own endpoint for a group it stores itself; null: "
+        "…/current/settings/<group>/.",
+    )
 
 
 class SettingsSchemaSerializer(serializers.Serializer[dict[str, Any]]):
@@ -97,6 +102,7 @@ class SettingsSchemaView(APIView):
                     "can_change": can_change,
                     "locked": locked,
                     "keys": [schema_entry(spec) for spec in group.settings],
+                    "api": group.api,
                 }
                 for group, can_change, locked in schema(context)
             ]
@@ -106,6 +112,8 @@ class SettingsSchemaView(APIView):
 def settings_urlpatterns() -> list[URLPattern]:
     patterns = [path("current/settings/schema/", SettingsSchemaView.as_view())]
     for group in registered_groups():
+        if group.api is not None:
+            continue  # An entity group's module serves its own API.
         read, preview = _group_views(group)
         patterns += [
             path(f"current/settings/{group.key}/", read.as_view()),

@@ -9,9 +9,15 @@ The code default is today's behaviour; above it the platform's value — until
 the platform settings exist, the Django setting named in `platform_env`, read
 from `.env` — and above that the company's own choice, stored in
 `organization_setting`. `settings_service.resolve()` says which one applies and
-why. This first increment (R1) knows the company scope stored by core; values
-of a narrower scope (a place, an offer, a person) live in their module's tables
-and join with their first key.
+why.
+
+A group either lives in core's `organization_setting` (company scope; core
+serves its API and commands) or — with `api` — in its module's own table: an
+"entity" group (ADR-078 pkt 7). Its module keeps the table, the endpoints, the
+receipts, the preview and the commands; the registry declares and checks its
+keys, lists them in the schema with `api`, and resolves a company-level one
+through `read_explicit`. Values of a narrower scope (an offer, a person) are
+read by their module.
 """
 
 from __future__ import annotations
@@ -27,15 +33,17 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from .command_registry import RISKS, Effect, organization_modules
-from .options import SETTING_TYPES, SETTING_UNITS
+from .options import SETTING_STRATEGIES, SETTING_TYPES, SETTING_UNITS
 
 #: Where a value comes from, most general first (ADR-078 pkt 3): the code, the
 #: platform, the product's starting value (`settingsDefaults`), the company.
 SOURCES = ("code", "platform", "product", "organization")
-SCOPES = ("platform", "organization")
+SCOPES = ("platform", "organization", "location", "offer", "staff")
+STRATEGIES = SETTING_STRATEGIES
 DATA_CLASSES = frozenset({"public", "public_personal", "personal"})
 
-_GROUP_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
+#: `organization` (core's own basic settings) or `<namespace>.<group>`.
+_GROUP_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)?$")
 _FIELD_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 _LOCALES = frozenset({"pl", "en"})
 
@@ -59,13 +67,21 @@ class SettingSpec:
     #: An `enum`'s values in order, each with its labels.
     values: tuple[tuple[str, Mapping[str, str]], ...] = ()
     max_length: int | None = None
-    #: Another field of the group, a `bool`: this one matters only while it is on.
+    #: When this one matters: `<field>` (a bool of the group that is on) or
+    #: `<field> == '<value>'` — e.g. `time_model == 'range'`.
     depends_on: str | None = None
     #: The Django setting (named like its `.env` variable) that holds the
     #: platform's value until the platform settings have a table (UF-T16).
     platform_env: str | None = None
     data_class: str = "public"
     scopes: tuple[str, ...] = ("platform", "organization")
+    #: `restrict`: the value in force is the strictest of this one and the
+    #: module's ceilings (operator, deployment), which only the module knows —
+    #: so `resolve()` is the company's choice, not necessarily what applies.
+    strategy: str = "override"
+    #: False: no product may set a starting value (`settingsDefaults`) — e.g. a
+    #: switch whose turning on is one person's consent (ADR-069 pkt 14).
+    product_default: bool = True
 
     @property
     def field(self) -> str:
@@ -100,6 +116,11 @@ class SettingGroup:
     on_changed: Callable[[Mapping[str, Any], Mapping[str, Any]], None] | None = None
     #: The assistant's `read` and `update` commands, `name@version`.
     commands: tuple[str, str] | None = None
+    #: An entity group: the module's endpoint that reads and changes it.
+    api: str | None = None
+    #: An entity group at company scope: the company's own values by field in
+    #: the current tenant, None where it has none (`resolve()` reads it).
+    read_explicit: Callable[[], Mapping[str, Any]] | None = None
     fields: tuple[str, ...] = dataclass_field(init=False)
 
     def __post_init__(self) -> None:
@@ -229,6 +250,7 @@ def schema_entry(spec: SettingSpec) -> dict[str, Any]:
         "help": dict(spec.help) if spec.help else None,
         "description": spec.model_description,
         "scopes": list(spec.scopes),
+        "strategy": spec.strategy,
         "depends_on": f"{spec.group}.{spec.depends_on}" if spec.depends_on else None,
     }
 
@@ -258,6 +280,10 @@ def _group_problems(group: SettingGroup) -> list[str]:
             problems.append(f"{label} wymaga niepustego tekstu pl i en")
     if not group.settings:
         problems.append("grupa bez ustawień")
+    if group.api is None and group.read_explicit is not None:
+        problems.append("read_explicit ma tylko grupa encji (z api)")
+    if group.api is not None and group.commands is not None:
+        problems.append("polecenia grupy encji pisze jej moduł")
     if len(set(group.fields)) != len(group.fields):
         problems.append("pola grupy powtarzają się")
     for spec in group.settings:
@@ -279,8 +305,12 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         problems.append("model_description jest wymagany")
     if spec.data_class not in DATA_CLASSES:
         problems.append(f"klasa danych {spec.data_class!r} (health nigdy)")
-    if not spec.scopes or set(spec.scopes) - set(SCOPES) or "organization" not in spec.scopes:
-        problems.append(f"zasięgi to {list(SCOPES)} z firmą")
+    if not spec.scopes or set(spec.scopes) - set(SCOPES):
+        problems.append(f"zasięgi spoza {list(SCOPES)}")
+    elif group.api is None and "organization" not in spec.scopes:
+        problems.append("grupa rdzenia ma zasięg firmy")
+    elif set(spec.scopes) - {"platform", "organization"} and group.read_explicit is not None:
+        problems.append("read_explicit czyta tylko wartości firmy")
     if spec.type == "enum" and (
         not spec.values or not all(_localized(labels) for _, labels in spec.values)
     ):
@@ -289,15 +319,20 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         checked = check_value(spec, spec.default)
         if checked is None or checked[1]:
             problems.append("wartość domyślna poza typem albo granicami")
-    if spec.depends_on is not None and (
-        spec.depends_on not in group.fields or group.spec(spec.depends_on).type != "bool"
+    if spec.depends_on is not None and not _depends_on_ok(group, spec.depends_on):
+        problems.append("depends_on: pole bool tej grupy albo <pole> == '<wartość>'")
+    if spec.strategy not in STRATEGIES or (
+        spec.strategy == "restrict" and spec.type not in {"enum", "int"}
     ):
-        problems.append("depends_on wskazuje pole bool tej grupy")
+        problems.append("strategia override albo restrict (restrict dla enum i int)")
     product = product_value(spec)
     if product is not None:
-        checked = check_value(spec, product)
-        if checked is None or checked[1]:
-            problems.append("settingsDefaults profilu poza typem albo granicami")
+        if not spec.product_default or "organization" not in spec.scopes:
+            problems.append("settingsDefaults profilu nie może ustawiać tego klucza")
+        else:
+            checked = check_value(spec, product)
+            if checked is None or checked[1]:
+                problems.append("settingsDefaults profilu poza typem albo granicami")
     if spec.platform_env is not None:
         if not hasattr(settings, spec.platform_env):
             problems.append(f"brak ustawienia {spec.platform_env}")
@@ -308,9 +343,38 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
     return problems
 
 
+_DEPENDS_ON = re.compile(r"^([a-z][a-z0-9_]*)(?: == '([^']*)')?$")
+
+
+def _depends_on_ok(group: SettingGroup, condition: str) -> bool:
+    """`<field>` (a bool that must be on) or `<field> == '<value>'` (an enum's
+    value, or a text)."""
+    match = _DEPENDS_ON.fullmatch(condition)
+    if match is None or match.group(1) not in group.fields:
+        return False
+    other, value = group.spec(match.group(1)), match.group(2)
+    if value is None:
+        return other.type == "bool"
+    if other.type == "enum":
+        return value in {option for option, _ in other.values}
+    return other.type == "text"
+
+
 def _localized(texts: Mapping[str, str] | None) -> bool:
     return (
         texts is not None
         and set(texts) == _LOCALES
         and all(isinstance(text, str) and text.strip() for text in texts.values())
     )
+
+
+def settings_defaults_problems() -> list[str]:
+    """Keys of the profile's `settingsDefaults` that no module declares — only in
+    namespaces that already have a registered group: a module still on its own
+    constants checks its keys itself until it moves (ADR-078 pkt 14)."""
+    spaces = {group.key.split(".")[0] for group in _groups.values()}
+    return [
+        key
+        for key in getattr(settings, "SETTINGS_DEFAULTS", {})
+        if key.split(".")[0] in spaces and key not in _keys
+    ]

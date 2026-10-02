@@ -875,6 +875,7 @@ SPECTACULAR_SETTINGS = {
         "ModeEnum": ["consume", "sale"],
         "TranslationModeEnum": ["automatic", "review"],
         "SettingSourceEnum": "saas_core.modules.core.organizations.settings_registry.SOURCES",
+        "SettingStrategyEnum": "saas_core.modules.core.organizations.options.SETTING_STRATEGIES",
     },
 }
 
