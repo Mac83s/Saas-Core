@@ -27,7 +27,7 @@ from rest_framework.exceptions import APIException, ErrorDetail, ValidationError
 
 from saas_core.modules.core.identity.models import User
 
-from .audit import record_audit
+from .audit import field_changes, record_audit
 from .authorization import authorize
 from .canonical import canonical_json_hash
 from .context import current_tenant_context
@@ -346,10 +346,10 @@ def _save(
         actor=actor,
         target_type=PUBLIC_LOCALES_GROUP,
         target_id=organization.id,
+        # The keys the history screen shows as "before → after" (`history.py`).
         metadata={
-            "field_changes": {
-                "public_locales": {"from": list(plan.before), "to": list(plan.after)}
-            },
+            "fields": [FIELD],
+            "changes": field_changes({FIELD: list(plan.before)}, {FIELD: list(plan.after)}),
             "origin": origin,
             "version": plan.version,
         },

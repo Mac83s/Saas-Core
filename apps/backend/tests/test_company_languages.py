@@ -107,9 +107,15 @@ def test_a_change_is_previewed_saved_once_and_recorded_with_its_own_version():
         organization=organization, action="organization.settings_changed"
     ).order_by("occurred_at")
     assert [row.target_type for row in audit] == ["organization.public_locales"] * 2
-    assert audit.first().metadata["field_changes"] == {
+    assert audit.first().metadata["changes"] == {
         "public_locales": {"from": ["pl"], "to": ["pl", "en"]}
     }
+    history = client.get("/api/v1/organizations/current/history/").data["items"]
+    languages = next(
+        item for item in history if item["target_type"] == "organization.public_locales"
+    )
+    assert languages["changes"] == {"public_locales": {"from": ["pl", "en"], "to": ["en", "pl"]}}
+    assert "changes" not in languages["details"]
 
 
 def test_wrong_lists_are_refused_field_by_field():
