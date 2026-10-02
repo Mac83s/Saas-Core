@@ -4119,6 +4119,14 @@ export interface components {
             place: string | null;
             /** @description The visit's own „Miejsce wizyty”: its town, or empty. */
             place_town?: string;
+            /** @description The customer's phone, for whoever plans visits and the people on it. */
+            customer_phone: string | null;
+            /** @description The customer's e-mail, for whoever plans visits and the people on it. */
+            customer_email: string | null;
+            /** @description The kind of the visit's service; a product's own kinds name its visits. */
+            appointment_kind: string;
+            /** @description Marks a product puts on the visit's card, e.g. farm_missing (ADR-067). */
+            flags: string[];
             /** @description Street and number of the visit's own place, or empty. */
             place_address?: string;
             resource_name: string | null;
@@ -6658,6 +6666,12 @@ export interface components {
             place: string | null;
             /** @description The visit's own „Miejsce wizyty”: its town, or empty. */
             place_town?: string;
+            customer_phone: string;
+            customer_email: string;
+            /** @description The kind of the visit's service; a product's own kinds name its visits. */
+            appointment_kind: string;
+            /** @description Marks a product puts on the visit's card, e.g. farm_missing (ADR-067). */
+            flags: string[];
             /** @description Street and number of the visit's own place, or empty. */
             place_address?: string;
             resource_name: string | null;
@@ -6676,8 +6690,6 @@ export interface components {
             /** Format: uuid */
             requested_staff_id: string | null;
             customer_notes: string;
-            customer_phone: string;
-            customer_email: string;
         };
         /**
          * @description * `available` - available
@@ -10539,7 +10551,9 @@ export interface operations {
     farms_list: {
         parameters: {
             query?: {
-                /** @description Szukaj po nazwie, miejscowości, hodowcy, numerze. */
+                /** @description Tylko aktywne karty (1). */
+                active?: boolean;
+                /** @description Szukaj po nazwie, miejscowości, hodowcy, numerze stada, e-mailu i telefonie. */
                 q?: string;
             };
             header?: never;

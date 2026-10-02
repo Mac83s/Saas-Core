@@ -2369,7 +2369,12 @@
     "teamsGroup": "Zespoły",
     "staffGroup": "Pracownicy",
     "onlyScheduled": "Tylko pracujący tego dnia",
-    "assigned": "Zapisano skład: {customer}."
+    "assigned": "Zapisano skład: {customer}.",
+    "navigate": "Nawiguj",
+    "opensNewTab": " (otwiera się w nowej karcie)",
+    "idempotencyConflict": "Te dane różnią się od wysłanych przed chwilą — jeśli wizyta już się zapisała, znajdziesz ją w kalendarzu. Zamknij formularz i otwórz go od nowa.",
+    "sectionInvalid": "Uzupełnij zaznaczone pola.",
+    "flags": {}
   },
   "DayBoard": {
     "label": "Tablica dnia",

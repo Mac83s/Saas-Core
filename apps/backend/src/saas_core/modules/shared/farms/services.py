@@ -8,6 +8,7 @@ simply not found — the database guard is the second line, not the first.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Callable, Sequence
 from datetime import date
@@ -15,7 +16,7 @@ from typing import Any, cast
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Max, Q, QuerySet
+from django.db.models import Count, F, Func, Max, Q, QuerySet, Value
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
@@ -137,16 +138,32 @@ def audit_farm(
     )
 
 
-def list_farms(*, search: str = "") -> list[Farm]:
+def list_farms(*, search: str = "", active_only: bool = False) -> list[Farm]:
+    """The company's own cards — the organization filter is explicit, not left
+    to RLS alone. `search` matches the name, village, keeper, herd number,
+    e-mail and phone; a phone is matched by its last nine digits, so
+    "600 100 200" finds "+48 600-100-200" (decision 15a, 02.10)."""
     context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
     query = Farm.all_objects.filter(organization_id=context.organization_id)
+    if active_only:
+        query = query.filter(active=True)
     if search:
-        query = query.filter(
+        found = (
             Q(name__icontains=search)
             | Q(village__icontains=search)
             | Q(keeper_name__icontains=search)
             | Q(herd_number__icontains=normalize_identifier(search))
+            | Q(email__icontains=search)
         )
+        digits = re.sub(r"\D", "", search)[-9:]
+        if len(digits) >= 3:
+            query = query.annotate(
+                phone_digits=Func(
+                    F("phone"), Value(r"\D"), Value(""), Value("g"), function="regexp_replace"
+                )
+            )
+            found |= Q(phone_digits__contains=digits)
+        query = query.filter(found)
     return list(query.annotate(animal_count=Count("animals"))[:PAGE_LIMIT])
 
 

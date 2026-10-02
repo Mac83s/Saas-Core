@@ -27,6 +27,7 @@ from .facts import (
     StaffSubject,
     register_staff_facts,
 )
+from .flags import register_appointment_flags
 from .models import AppointmentStatus
 from .observers import (
     CANCELED,
@@ -90,6 +91,7 @@ __all__ = [
     "leave_visit_crew",
     "list_appointments",
     "on_crew",
+    "register_appointment_flags",
     "register_appointment_observer",
     "register_appointment_place",
     "register_place_search",

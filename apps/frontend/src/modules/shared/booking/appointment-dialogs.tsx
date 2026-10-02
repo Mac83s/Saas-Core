@@ -19,6 +19,8 @@ import {
   CheckCircle2Icon,
   CircleIcon,
   MapPinIcon,
+  NavigationIcon,
+  PhoneIcon,
   UserXIcon,
   XCircleIcon,
   XIcon,
@@ -36,13 +38,14 @@ import {
   setBookingAppointmentMaterials,
   setBookingAppointmentPlace,
   type BookingAppointment,
+  type BookingAppointmentInput,
   type BookingCatalog,
   type BookingPlaceSuggestion,
   type BookingSlotList,
   type StaffTeam,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
-import { Button } from "@saas-core/ui/components/button";
+import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   Combobox,
   ComboboxContent,
@@ -73,6 +76,10 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 import { cn } from "@saas-core/ui/lib/utils";
+
+import { allows, type PanelAccess } from "#lib/panel-navigation";
+import type { ProductVisitFill } from "#lib/product-extension";
+import productCalendar from "../../../product/calendar";
 
 import {
   addDays,
@@ -259,10 +266,71 @@ function placeLine(appointment: BookingAppointment) {
     .join(", ");
 }
 
+/** A product's marks on a visit (ADR-067), worded by its messages. */
+export function FlagBadges({ flags }: { flags?: string[] }) {
+  const t = useTranslations("Calendar");
+  if (!flags?.length) return null;
+  return (
+    <>
+      {flags.map((flag) => (
+        <Badge key={flag} variant="outline">
+          {t.has(`flags.${flag}`) ? t(`flags.${flag}`) : flag}
+        </Badge>
+      ))}
+    </>
+  );
+}
+
+/** The product's section for a kind of visit, when this person may use it. */
+function productSection(access: PanelAccess | undefined, kind?: string) {
+  return productCalendar &&
+    access &&
+    kind &&
+    productCalendar.kinds.includes(kind) &&
+    allows(access, productCalendar)
+    ? productCalendar
+    : null;
+}
+
+/** Google Maps for the place's town and street: the person's own app opens it. */
+function mapLink(line: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(line)}`;
+}
+
+/** The form's own fields a server's validation answer names (one place to
+ * change when the API's field errors change shape). */
+const SERVER_FIELDS: Record<string, keyof NewValues> = {
+  "customer.display_name": "display_name",
+  "customer.email": "email",
+  "customer.phone": "phone",
+  customer_notes: "notes",
+  place_town: "place_town",
+  place_address: "place_address",
+};
+
+function fieldProblems(error: unknown): [keyof NewValues, string][] {
+  if (!(error instanceof ApiProblemError)) return [];
+  const detail = error.problem.detail;
+  if (!detail || typeof detail !== "object") return [];
+  const found: [keyof NewValues, string][] = [];
+  const walk = (value: unknown, path: string) => {
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      const field = SERVER_FIELDS[path];
+      if (field) found.push([field, value[0]]);
+    } else if (value && typeof value === "object")
+      for (const [key, inner] of Object.entries(value))
+        walk(inner, path ? `${path}.${key}` : key);
+  };
+  walk(detail, "");
+  return found;
+}
+
 function problemText(error: unknown, t: Translate, fallback: string) {
   switch (error instanceof ApiProblemError ? error.problem.code : "") {
     case "slot_unavailable":
       return t("slotTaken");
+    case "booking_idempotency_conflict":
+      return t("idempotencyConflict");
     case "appointment_not_changeable":
       return t("notChangeable");
     case "entitlement_required":
@@ -514,9 +582,12 @@ type NewValues = {
 };
 
 export function NewAppointmentDialog({
+  access,
   canUseInventory = false,
   catalog,
   day,
+  params = {},
+  serviceId = "",
   staffId = "",
   time = "",
   onCreated,
@@ -526,10 +597,16 @@ export function NewAppointmentDialog({
   teams = [],
   zone,
 }: {
+  /** What a product's section may offer this person (ADR-067). */
+  access?: PanelAccess;
   canUseInventory?: boolean;
   catalog: BookingCatalog;
   /** The day the calendar shows; the form starts there unless it is past. */
   day: string;
+  /** A product's parameters from the calendar's address, for its section. */
+  params?: Readonly<Record<string, string>>;
+  /** The service a link names (`service_id`). */
+  serviceId?: string;
   /** The person the calendar is filtered to: the form starts with them. */
   staffId?: string;
   /** "HH:mm" of a free window picked on the day board (plan: phase 4). */
@@ -556,9 +633,12 @@ export function NewAppointmentDialog({
           <DialogDescription>{t("createDescription")}</DialogDescription>
         </DialogHeader>
         <NewAppointmentForm
+          access={access}
           canUseInventory={canUseInventory}
           catalog={catalog}
           day={day}
+          params={params}
+          serviceId={serviceId}
           onCreated={onCreated}
           staffId={staffId}
           teams={teams}
@@ -571,18 +651,24 @@ export function NewAppointmentDialog({
 }
 
 function NewAppointmentForm({
+  access,
   canUseInventory,
   catalog,
   day,
   onCreated,
+  params,
+  serviceId: linkedService,
   staffId: chosenStaff,
   teams,
   time: chosenTime,
   zone,
 }: {
+  access?: PanelAccess;
   canUseInventory: boolean;
   catalog: BookingCatalog;
   day: string;
+  params: Readonly<Record<string, string>>;
+  serviceId: string;
   onCreated: (appointment: BookingAppointment) => void;
   staffId: string;
   teams: StaffTeam[];
@@ -629,7 +715,9 @@ function NewAppointmentForm({
   const form = useForm<NewValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      service_id: only(catalog.services),
+      service_id: catalog.services.some((item) => item.id === linkedService)
+        ? linkedService
+        : only(catalog.services),
       location_id: only(catalog.locations),
       date: day < today ? today : day,
       time: day < today ? "" : chosenTime,
@@ -642,6 +730,12 @@ function NewAppointmentForm({
     },
   });
   const savedPlaces = useSavedPlaces(Boolean(catalog.place_search));
+  // A product's section for its own kind of visit (ADR-067): it may fill the
+  // customer and the place, and it books the visit itself.
+  const [sectionValue, setSectionValue] = useState<unknown>();
+  const [sectionErrors, setSectionErrors] = useState<Record<string, string>>(
+    {},
+  );
   const [serviceId, locationId, date, time] = useWatch({
     control: form.control,
     name: ["service_id", "location_id", "date", "time"],
@@ -656,6 +750,8 @@ function NewAppointmentForm({
   const takesMaterials = canUseInventory && chosen?.takes_materials !== false;
   const drafts = edited ?? draftsOf(chosen?.materials);
   const need = chosen?.staff_count ?? 1;
+  const section = productSection(access, chosen?.appointment_kind);
+  const Section = section?.formSection;
   const slots = crewSlots(search.slots, crew, need);
   const names = new Map(catalog.staff.map((item) => [item.id, item.name]));
   // Who the search found free at the chosen time: the add list says so.
@@ -676,6 +772,18 @@ function NewAppointmentForm({
     form.setValue("time", local.time);
     form.clearErrors("time");
     form.setFocus("time");
+  }
+
+  function fill(values: ProductVisitFill) {
+    const set = (field: keyof NewValues, value?: string) => {
+      if (value !== undefined)
+        form.setValue(field, value, { shouldDirty: true });
+    };
+    set("display_name", values.customer?.display_name);
+    set("phone", values.customer?.phone);
+    set("email", values.customer?.email);
+    set("place_town", values.place?.town);
+    set("place_address", values.place?.address);
   }
 
   function add(value: string) {
@@ -713,32 +821,36 @@ function NewAppointmentForm({
     const notes = values.notes.trim();
     const town = values.place_town.trim();
     const address = values.place_address.trim();
+    const input: BookingAppointmentInput = {
+      service_id: values.service_id,
+      location_id: values.location_id,
+      ...(crew.length
+        ? { staff_ids: crew, resource_id: slot.resource_id }
+        : {}),
+      starts_at: slot.starts_at,
+      customer: {
+        display_name: values.display_name.trim(),
+        email: values.email,
+        phone: values.phone.trim(),
+        locale: locale === "en" ? "en" : "pl",
+      },
+      ...(notes ? { customer_notes: notes } : {}),
+      ...(town || address ? { place_town: town, place_address: address } : {}),
+      ...(edited && takesMaterials
+        ? { materials: materialsInput(edited) }
+        : {}),
+    };
+    const checked = section?.check(sectionValue, input);
+    setSectionErrors(checked ?? {});
+    if (checked) {
+      setProblem(t("sectionInvalid"));
+      return;
+    }
     try {
       onCreated(
-        await createBookingAppointment(
-          {
-            service_id: values.service_id,
-            location_id: values.location_id,
-            ...(crew.length
-              ? { staff_ids: crew, resource_id: slot.resource_id }
-              : {}),
-            starts_at: slot.starts_at,
-            customer: {
-              display_name: values.display_name.trim(),
-              email: values.email,
-              phone: values.phone.trim(),
-              locale: locale === "en" ? "en" : "pl",
-            },
-            ...(notes ? { customer_notes: notes } : {}),
-            ...(town || address
-              ? { place_town: town, place_address: address }
-              : {}),
-            ...(edited && takesMaterials
-              ? { materials: materialsInput(edited) }
-              : {}),
-          },
-          idempotencyKey,
-        ),
+        section
+          ? await section.save({ input, value: sectionValue, idempotencyKey })
+          : await createBookingAppointment(input, idempotencyKey),
       );
     } catch (error) {
       if (
@@ -746,6 +858,10 @@ function NewAppointmentForm({
         error.problem.code === "slot_unavailable"
       )
         setVersion((value) => value + 1);
+      const own = section?.problemErrors?.(error);
+      if (own) setSectionErrors(own);
+      for (const [field, message] of fieldProblems(error))
+        form.setError(field, { message });
       setProblem(problemText(error, t, "createError"));
     }
   }
@@ -953,6 +1069,17 @@ function NewAppointmentForm({
           zone={zone}
         />
       </FieldSet>
+      {Section && chosen && access ? (
+        <Section
+          access={access}
+          errors={sectionErrors}
+          fill={fill}
+          onChange={setSectionValue}
+          params={params}
+          service={chosen}
+          value={sectionValue}
+        />
+      ) : null}
       <FieldSet>
         <FieldLegend>{t("customer")}</FieldLegend>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -1011,7 +1138,8 @@ function NewAppointmentForm({
       <FieldSet>
         <FieldLegend>{t("placeLegend")}</FieldLegend>
         <FieldDescription>{t("placeHint")}</FieldDescription>
-        {savedPlaces.length ? (
+        {/* A product's section owns the places of its own visits. */}
+        {savedPlaces.length && !section ? (
           <Field>
             <FieldLabel htmlFor="appointment-saved-place">
               {t("placeSaved")}
@@ -1085,6 +1213,7 @@ function NewAppointmentForm({
 
 /** The selected appointment, with "Reschedule" and "Cancel" for managers. */
 export function AppointmentDialog({
+  access,
   appointment,
   canManage,
   canUseInventory = false,
@@ -1096,6 +1225,8 @@ export function AppointmentDialog({
   teams = [],
   zone,
 }: {
+  /** What a product's section under the details may offer (ADR-067). */
+  access?: PanelAccess;
   appointment?: BookingAppointment;
   canManage: boolean;
   canUseInventory?: boolean;
@@ -1118,6 +1249,7 @@ export function AppointmentDialog({
       >
         {appointment ? (
           <AppointmentDetails
+            access={access}
             appointment={appointment}
             canManage={canManage}
             canUseInventory={canUseInventory}
@@ -1190,6 +1322,7 @@ export function CrewBadges({
 }
 
 function AppointmentDetails({
+  access,
   appointment,
   canManage,
   canUseInventory,
@@ -1198,6 +1331,7 @@ function AppointmentDetails({
   teams,
   zone,
 }: {
+  access?: PanelAccess;
   appointment: BookingAppointment;
   canManage: boolean;
   canUseInventory: boolean;
@@ -1230,6 +1364,10 @@ function AppointmentDetails({
     [t("location"), appointment.location_name],
     [t("resource"), appointment.resource_name],
   ].filter((row): row is [string, string] => Boolean(row[1]));
+  const Details = productSection(
+    access,
+    appointment.appointment_kind,
+  )?.detailsSection;
   // A lone person has nobody to swap with — unless the visit lost them.
   const crewChangeable =
     canManage &&
@@ -1249,6 +1387,7 @@ function AppointmentDetails({
         <dd className="flex flex-wrap gap-2">
           <StatusBadge status={appointment.status} />
           <CrewBadges appointment={appointment} />
+          <FlagBadges flags={appointment.flags} />
         </dd>
         {rows.map(([label, value]) => (
           <Fragment key={label}>
@@ -1256,6 +1395,34 @@ function AppointmentDetails({
             <dd className="font-medium">{value}</dd>
           </Fragment>
         ))}
+        {/* Only whoever plans and the people on the visit get them (ADR-067). */}
+        {appointment.customer_phone ? (
+          <>
+            <dt className="text-muted-foreground">{t("phone")}</dt>
+            <dd>
+              <a
+                className="inline-flex min-h-8 items-center gap-1.5 font-medium text-primary hover:underline"
+                href={`tel:${appointment.customer_phone.replace(/[^\d+]/g, "")}`}
+              >
+                <PhoneIcon aria-hidden="true" className="size-4" />
+                {appointment.customer_phone}
+              </a>
+            </dd>
+          </>
+        ) : null}
+        {appointment.customer_email ? (
+          <>
+            <dt className="text-muted-foreground">{t("email")}</dt>
+            <dd>
+              <a
+                className="font-medium break-all text-primary hover:underline"
+                href={`mailto:${appointment.customer_email}`}
+              >
+                {appointment.customer_email}
+              </a>
+            </dd>
+          </>
+        ) : null}
         {appointment.customer_notes ? (
           <>
             <dt className="self-start text-muted-foreground">{t("notes")}</dt>
@@ -1274,6 +1441,13 @@ function AppointmentDetails({
           onChanged(updated);
         }}
       />
+      {Details && access ? (
+        <Details
+          access={access}
+          appointment={appointment}
+          onChanged={onChanged}
+        />
+      ) : null}
       {crewChangeable ? (
         <div>
           <Button
@@ -1407,6 +1581,18 @@ function VisitPlaceSection({
               t("placeNone")
             )}
           </p>
+          {line ? (
+            <a
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+              href={mapLink(line)}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <NavigationIcon aria-hidden="true" />
+              {t("navigate")}
+              <span className="sr-only">{t("opensNewTab")}</span>
+            </a>
+          ) : null}
           {editable ? (
             <Button
               onClick={() =>

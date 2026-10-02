@@ -64,7 +64,12 @@ ERRORS = {
     403: ProblemDetailsSerializer,
     404: ProblemDetailsSerializer,
 }
-SEARCH = OpenApiParameter("q", str, description="Szukaj po nazwie, miejscowości, hodowcy, numerze.")
+SEARCH = OpenApiParameter(
+    "q",
+    str,
+    description="Szukaj po nazwie, miejscowości, hodowcy, numerze stada, e-mailu i telefonie.",
+)
+ACTIVE = OpenApiParameter("active", bool, description="Tylko aktywne karty (1).")
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -72,13 +77,16 @@ class FarmListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        parameters=[SEARCH],
+        parameters=[SEARCH, ACTIVE],
         responses={200: FarmSerializer(many=True), **ERRORS},
         operation_id="farms_list",
         tags=["farms"],
     )
     def get(self, request: Request) -> Response:
-        farms = list_farms(search=request.query_params.get("q", "").strip())
+        farms = list_farms(
+            search=request.query_params.get("q", "").strip(),
+            active_only=request.query_params.get("active", "").lower() in {"1", "true"},
+        )
         return Response(FarmSerializer(farms, many=True).data)
 
     @extend_schema(

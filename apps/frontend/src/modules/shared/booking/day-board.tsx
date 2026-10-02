@@ -15,6 +15,7 @@ import { cn } from "@saas-core/ui/lib/utils";
 import { Link } from "#i18n/navigation";
 import {
   CrewBadges,
+  FlagBadges,
   statusLabel,
   statusStyle,
   VisitPlace,
@@ -600,6 +601,7 @@ function Agenda({
                     </span>
                   ) : null}
                   <CrewBadges appointment={item} short />
+                  <FlagBadges flags={item.flags} />
                 </span>
               </button>
             ),

@@ -187,6 +187,23 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     place_town = serializers.CharField(
         required=False, help_text="The visit's own „Miejsce wizyty”: its town, or empty."
     )
+    #: Null when the caller may not see it: only who plans visits and the
+    #: people on this visit do (ADR-067).
+    customer_phone = serializers.CharField(
+        allow_null=True,
+        help_text="The customer's phone, for whoever plans visits and the people on it.",
+    )
+    customer_email = serializers.CharField(
+        allow_null=True,
+        help_text="The customer's e-mail, for whoever plans visits and the people on it.",
+    )
+    appointment_kind = serializers.CharField(
+        help_text="The kind of the visit's service; a product's own kinds name its visits.",
+    )
+    flags = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Marks a product puts on the visit's card, e.g. farm_missing (ADR-067).",
+    )
     place_address = serializers.CharField(
         required=False, help_text="Street and number of the visit's own place, or empty."
     )

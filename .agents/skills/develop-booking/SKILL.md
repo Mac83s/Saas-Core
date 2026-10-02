@@ -50,6 +50,13 @@ concurrency are both harder than they look.
   the result as `place`. A product's `register_place_search` offers the
   company's places in the form (HoofCare: farms). The street can be a
   customer's home: never in the audit, cleared on anonymization.
+- **A product's kind of visit is booked by the product (ADR-067).** The slot
+  `src/product/calendar.tsx` puts its section in „Nowa wizyta” for its
+  `appointment_kind`s; the section takes over „Zapisz” and books atomically
+  through the product's API. Core has no `details` field on its own POST.
+  Products mark visits with `register_appointment_flags`. The customer's phone
+  and e-mail in a visit's payload are for `booking.appointment.manage` and the
+  people on the visit only (`visible_contacts`); everybody else gets null.
 
 ## Conflicts
 

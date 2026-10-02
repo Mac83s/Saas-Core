@@ -45,7 +45,9 @@ planem rezerwacji uniwersalnych; teraz go nie budujemy.
 ## Konsekwencje
 
 - Wizyta z wybranym gospodarstwem nie staje się wizytą w gospodarstwie
-  (`HerdVisit`): ma tylko miejsce. Wizytę w gospodarstwie nadal planuje HoofCare.
+  (`HerdVisit`): ma tylko miejsce. **Zmienione przez ADR-067 (02.10):** wizyty
+  rodzaju produktu rezerwuje sekcja produktu w „Nowej wizycie”, a HoofCare nie
+  podpowiada już gospodarstw jako „Zapisanych miejsc”.
 - Miejsce wizyty jest tekstem, nie odniesieniem: zmiana wsi gospodarstwa po
   fakcie nie przepisuje zaplanowanych wizyt — tak samo jak migawka nazwy usługi.
 - Formularz na stronie publicznej miejsca nie pyta (klient nie ma adresu) —

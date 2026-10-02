@@ -2369,7 +2369,12 @@
     "teamsGroup": "Teams",
     "staffGroup": "People",
     "onlyScheduled": "Only people working that day",
-    "assigned": "Crew saved: {customer}."
+    "assigned": "Crew saved: {customer}.",
+    "navigate": "Navigate",
+    "opensNewTab": " (opens in a new tab)",
+    "idempotencyConflict": "These details differ from the ones just sent — if the visit was saved, it is in the calendar. Close the form and open it again.",
+    "sectionInvalid": "Fill in the marked fields.",
+    "flags": {}
   },
   "DayBoard": {
     "label": "Day board",

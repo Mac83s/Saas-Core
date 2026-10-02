@@ -306,6 +306,29 @@ def list_appointments(
     return list(with_crew(query.distinct())[:limit])
 
 
+def visible_contacts(ids: Sequence[UUID]) -> set[UUID]:
+    """The visits whose customer phone and e-mail the caller sees (owner's
+    decision 15.2b, ADR-067): whoever plans visits sees them all, everybody
+    else only those they are on — the people going there phone the customer,
+    the rest of the staff has no business with the number."""
+    context = require_tenant_context()
+    if not ids:
+        return set()
+    if context.has_permission(BOOKING_MANAGE):
+        return set(ids)
+    return set(
+        Appointment.all_objects.filter(organization_id=context.organization_id, pk__in=ids)
+        .filter(
+            _on_visit(
+                Q(staff_allocations__staff__membership_id=context.membership_id),
+                membership_id=context.membership_id,
+            )
+        )
+        .values_list("id", flat=True)
+        .distinct()
+    )
+
+
 def _on_visit(
     allocated: Q, *, staff_id: UUID | None = None, membership_id: UUID | None = None
 ) -> Q:

@@ -37,10 +37,12 @@ import { cn } from "@saas-core/ui/lib/utils";
 import { PanelPage, PanelToolbar } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import type { PanelAccess } from "#lib/panel-navigation";
 import {
   AppointmentDialog,
   CrewBadges,
   crewNames,
+  FlagBadges,
   NewAppointmentDialog,
   StatusBadge,
   STATUSES,
@@ -104,12 +106,25 @@ function crewShort(item: BookingAppointment) {
  * The team's appointments by day, week or month. Services, staff and working
  * hours are set up in Settings; this screen only links there.
  */
+/** The calendar's own parameters; any other one belongs to a product's section. */
+const OWN_PARAMS = new Set([
+  "view",
+  "date",
+  "staff",
+  "service",
+  "new",
+  "service_id",
+]);
+
 export function BookingPanel({
+  access,
   canManage = true,
   canUseInventory = false,
   timeZone,
   viewKey,
 }: {
+  /** What a product's section in the visit form may offer (ADR-067). */
+  access?: PanelAccess;
   /** booking.appointment.manage: plan, move and cancel appointments. */
   canManage?: boolean;
   /** inventory.use: pick the products a visit takes (ADR-055). */
@@ -165,9 +180,18 @@ export function BookingPanel({
   const [serviceFilter, setServiceFilter] = useState(() => asked("service"));
   const [selected, setSelected] = useState<BookingAppointment>();
   const [detailsOpen, setDetailsOpen] = useState(false);
-  // "Zaplanuj wizytę" on a person's card opens the form with them chosen.
+  // "Zaplanuj wizytę" on a person's card opens the form with them chosen;
+  // a product's link may name the service (`service_id`, not the filter's
+  // `service`, which is a name) and its own parameters, e.g. a farm.
   const [creating, setCreating] = useState(
     () => canManage && asked("new") === "1",
+  );
+  const [linked] = useState(() => asked("new") === "1");
+  const [newService] = useState(() => asked("service_id"));
+  const [productParams] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      [...(params?.entries() ?? [])].filter(([key]) => !OWN_PARAMS.has(key)),
+    ),
   );
   const [notice, setNotice] = useState("");
   const opener = useRef<HTMLElement | null>(null);
@@ -185,6 +209,13 @@ export function BookingPanel({
     if (cursor !== today) query.set("date", cursor);
     if (staffFilter) query.set("staff", staffFilter);
     if (serviceFilter) query.set("service", serviceFilter);
+    // While the form is open a refresh reopens it as the link asked.
+    if (creating && linked) {
+      query.set("new", "1");
+      if (newService) query.set("service_id", newService);
+      for (const [key, value] of Object.entries(productParams))
+        query.set(key, value);
+    }
     const search = query.toString();
     // Replace, not push: the arrows would otherwise fill the history.
     window.history.replaceState(
@@ -192,7 +223,17 @@ export function BookingPanel({
       "",
       `${window.location.pathname}${search ? `?${search}` : ""}`,
     );
-  }, [cursor, serviceFilter, staffFilter, today, view]);
+  }, [
+    creating,
+    cursor,
+    linked,
+    newService,
+    productParams,
+    serviceFilter,
+    staffFilter,
+    today,
+    view,
+  ]);
   const refresh = () => setReloads((value) => value + 1);
 
   const byDay = useMemo(() => {
@@ -882,6 +923,7 @@ export function BookingPanel({
       </section>
 
       <AppointmentDialog
+        access={access}
         appointment={selected}
         canManage={canManage}
         canUseInventory={canUseInventory}
@@ -898,9 +940,12 @@ export function BookingPanel({
       />
       {catalog ? (
         <NewAppointmentDialog
+          access={access}
           canUseInventory={canUseInventory}
           catalog={catalog}
           day={cursor}
+          params={productParams}
+          serviceId={newService}
           // A free window on the board names the person and the time.
           staffId={plan?.staffId ?? chosenStaff}
           time={plan?.time}
@@ -1106,7 +1151,8 @@ function AppointmentCard({
       </span>{" "}
       <span className="flex flex-wrap gap-1">
         <StatusBadge status={appointment.status} />{" "}
-        <CrewBadges appointment={appointment} short={!wide} />
+        <CrewBadges appointment={appointment} short={!wide} />{" "}
+        <FlagBadges flags={appointment.flags} />
       </span>
     </button>
   );

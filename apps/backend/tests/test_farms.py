@@ -146,6 +146,38 @@ def test_the_register_is_granted_to_core_roles() -> None:
     assert "farms.manage" not in SYSTEM_ROLE_PERMISSIONS["viewer"]
 
 
+def test_the_search_finds_a_card_by_phone_or_e_mail_and_can_skip_closed_ones() -> None:
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_farm,
+        list_farms,
+        update_farm,
+    )
+
+    member = membership("szukaj-kontakt")
+    other = membership("szukaj-obcy")
+    with tenant(other) as request:
+        create_farm(request=request, data={"name": "Obca", "phone": "600 100 200"})
+    with tenant(member) as request:
+        nowak = create_farm(
+            request=request,
+            data={"name": "Nowak", "phone": "+48 600-100-200", "email": "nowak@wies.test"},
+        )
+        closed = create_farm(request=request, data={"name": "Stara", "phone": "600100200"})
+        update_farm(request=request, farm_id=closed.id, data={"active": False})
+
+        def names(search: str, **flags: bool) -> list[str]:
+            return sorted(item.name for item in list_farms(search=search, **flags))
+
+        # However the number is typed, and only this company's cards.
+        assert names("600 100 200") == ["Nowak", "Stara"]
+        assert names("48600100200", active_only=True) == ["Nowak"]
+        assert names("NOWAK@wies") == ["Nowak"]
+        # Two digits are part of a name, not a phone.
+        assert names("60") == []
+        assert nowak.id in [item.id for item in list_farms(active_only=True)]
+        assert closed.id not in [item.id for item in list_farms(active_only=True)]
+
+
 def test_a_farm_is_identified_by_its_herd_number_and_audited() -> None:
     from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
         create_farm,
@@ -870,9 +902,12 @@ def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out(
     with tenant(farmer):
         (keeper_cow,) = list_animals()
         assert keeper_cow.withdrawal_meat_until is None
-        assert AnimalHealthEntry.all_objects.filter(
-            organization_id=farmer.organization_id, source=medicine["source"]
-        ).count() == 3
+        assert (
+            AnimalHealthEntry.all_objects.filter(
+                organization_id=farmer.organization_id, source=medicine["source"]
+            ).count()
+            == 3
+        )
 
 
 def test_a_written_health_entry_is_neither_rewritten_nor_deleted() -> None:
@@ -1782,9 +1817,12 @@ def test_an_entry_is_corrected_by_its_author_as_its_next_revision() -> None:
                 data={"action": "withdraw", "reason": "Nieprawda"},
             )
         assert foreign.value.get_codes() == "entry_of_another_author"
-        assert OrganizationAuditEntry.objects.filter(
-            organization_id=farmer.organization_id, action="farms.animal.health_corrected"
-        ).count() == 3
+        assert (
+            OrganizationAuditEntry.objects.filter(
+                organization_id=farmer.organization_id, action="farms.animal.health_corrected"
+            ).count()
+            == 3
+        )
 
     with tenant(company) as request:
         # What a module wrote is corrected in that module, not in the file.

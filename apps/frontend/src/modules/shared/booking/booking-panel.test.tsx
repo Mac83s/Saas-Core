@@ -50,6 +50,48 @@ vi.mock("@saas-core/api-client", async (original) => ({
   ...api,
 }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
+// A product's part of the calendar (ADR-067), for a kind core does not know.
+const section = vi.hoisted(() => ({
+  check: vi.fn(),
+  save: vi.fn(),
+  params: [] as unknown[],
+}));
+vi.mock("../../../product/calendar", () => ({
+  default: {
+    kinds: ["test.field"],
+    formSection: (props: {
+      params: Record<string, string>;
+      errors: Record<string, string>;
+      fill: (values: object) => void;
+      onChange: (value: unknown) => void;
+    }) => {
+      section.params.push(props.params);
+      return (
+        <fieldset>
+          <legend>Farm section</legend>
+          <button
+            onClick={() => {
+              props.fill({
+                customer: { display_name: "Jan Rolnik", phone: "600 700 800" },
+                place: { town: "Wólka", address: "Polna 1" },
+              });
+              props.onChange({ farm: "farm-1" });
+            }}
+            type="button"
+          >
+            Pick the farm
+          </button>
+          {props.errors.farm ? <p>{props.errors.farm}</p> : null}
+        </fieldset>
+      );
+    },
+    check: section.check,
+    save: section.save,
+    detailsSection: ({ appointment }: { appointment: { id: string } }) => (
+      <p>Product details of {appointment.id}</p>
+    ),
+  },
+}));
 // The calendar reads its view from the address (plan: phase 2).
 const address = vi.hoisted(() => ({ params: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => address.params }));
@@ -92,6 +134,13 @@ const catalog = {
   ],
   resources: [{ id: ROOM, name: "Room", kind: "room" }],
 };
+const FIELD = "33333333-3333-4333-8333-555555555555";
+const ACCESS = {
+  modules: [],
+  permissions: null,
+  isOwner: true,
+  limited: false,
+};
 
 // Thursday 20 August 2026, 10:00 in Warsaw; "today" is the day before.
 const appointment = {
@@ -108,6 +157,10 @@ const appointment = {
   location_name: "Centrum",
   resource_name: "Room",
   place: null,
+  appointment_kind: "",
+  flags: [],
+  customer_phone: null,
+  customer_email: null,
   crew: [{ staff_id: ALEX, name: "Alex", membership_id: null, lead: true }],
   staff_required: 1,
   needs_assignment: false,
@@ -602,6 +655,111 @@ test("„Miejsce wizyty”: a saved place fills the town and the address, and a 
     ),
   );
   expect(await within(details).findByText("Visit place saved.")).not.toBeNull();
+});
+
+test("a product's kind of visit: its section fills the form and books the visit itself", async () => {
+  address.params = new URLSearchParams(`new=1&service_id=${FIELD}&farm=farm-1`);
+  api.getBookingCatalog.mockResolvedValue({
+    ...catalog,
+    services: [
+      ...catalog.services,
+      {
+        ...catalog.services[0],
+        id: FIELD,
+        name: "Field visit",
+        appointment_kind: "test.field",
+      },
+    ],
+  });
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T07:00:00Z",
+        ends_at: "2026-08-20T07:30:00Z",
+        staff_id: ALEX,
+        resource_id: ROOM,
+      },
+    ],
+  });
+  section.check.mockReturnValueOnce({ farm: "Choose the farm." });
+  section.check.mockReturnValue(null);
+  section.save.mockResolvedValue({
+    ...appointment,
+    customer_name: "Jan Rolnik",
+  });
+  renderCalendar({ access: ACCESS });
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  // The link named the service and the product's own parameter.
+  expect(within(dialog).getByLabelText("Service")).toHaveValue(FIELD);
+  expect(section.params).toContainEqual({ farm: "farm-1" });
+  expect(window.location.search).toContain(`service_id=${FIELD}`);
+  expect(window.location.search).toContain("farm=farm-1");
+
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Pick the farm" }),
+  );
+  expect(within(dialog).getByLabelText("Full name")).toHaveValue("Jan Rolnik");
+  expect(within(dialog).getByLabelText("Town")).toHaveValue("Wólka");
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "09:00" },
+  });
+  await waitFor(() =>
+    expect(within(dialog).getByText("This time is free.")).not.toBeNull(),
+  );
+  const save = within(dialog).getByRole("button", { name: "Save appointment" });
+  fireEvent.click(save);
+  // The section's own check holds the save and says where.
+  expect(await within(dialog).findByText("Choose the farm.")).not.toBeNull();
+  expect(section.save).not.toHaveBeenCalled();
+  fireEvent.click(save);
+  await waitFor(() => expect(section.save).toHaveBeenCalled());
+  expect(section.save.mock.calls[0][0]).toMatchObject({
+    input: {
+      service_id: FIELD,
+      place_town: "Wólka",
+      place_address: "Polna 1",
+      customer: { display_name: "Jan Rolnik", phone: "600 700 800" },
+    },
+    value: { farm: "farm-1" },
+  });
+  expect(api.createBookingAppointment).not.toHaveBeenCalled();
+});
+
+test("a visit's details: phone and e-mail to use, a map to the place, and the product's part", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    {
+      ...appointment,
+      appointment_kind: "test.field",
+      customer_phone: "+48 600 100 200",
+      customer_email: "jan@wies.test",
+      place: "Wólka",
+      place_town: "Wólka",
+      place_address: "Polna 1",
+      flags: ["farm_missing"],
+    },
+  ]);
+  renderCalendar({ access: ACCESS });
+  fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
+  const details = await screen.findByRole("dialog", { name: /Jan Kowalski/ });
+  expect(
+    within(details).getByRole("link", { name: /600 100 200/ }),
+  ).toHaveAttribute("href", "tel:+48600100200");
+  expect(
+    within(details).getByRole("link", { name: "jan@wies.test" }),
+  ).toHaveAttribute("href", "mailto:jan@wies.test");
+  expect(
+    within(details)
+      .getByRole("link", { name: /Navigate/ })
+      .getAttribute("href"),
+  ).toContain(encodeURIComponent("Wólka, Polna 1"));
+  // A flag without the product's wording still reads, as its key.
+  expect(within(details).getByText("farm_missing")).not.toBeNull();
+  expect(
+    within(details).getByText(`Product details of ${appointment.id}`),
+  ).not.toBeNull();
 });
 
 test("a new appointment takes a free time and says when one is taken", async () => {

@@ -7,14 +7,17 @@ export default async function CalendarPage() {
     getServerCurrentOrganization(),
     getServerUser(),
   ]);
+  const access = panelAccess(organization);
   return (
     <BookingPanel
+      // What a product's section may offer this person (ADR-067).
+      access={access}
       // The API decides; this only keeps actions out of sight of those who
       // may not take them.
-      canManage={allows(panelAccess(organization), {
+      canManage={allows(access, {
         permission: "booking.appointment.manage",
       })}
-      canUseInventory={allows(panelAccess(organization), {
+      canUseInventory={allows(access, {
         module: "shared.inventory",
         permission: "inventory.use",
       })}

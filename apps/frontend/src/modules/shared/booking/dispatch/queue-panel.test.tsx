@@ -58,6 +58,8 @@ const picked = {
   staff_membership_id: null,
   location_name: "Baza",
   place: null,
+  appointment_kind: "",
+  flags: [],
   resource_name: null,
   crew: [
     member(MARCIN, "Marcin Kowalski", true),

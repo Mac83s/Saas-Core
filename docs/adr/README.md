@@ -62,6 +62,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-064](ADR-064-Wyszukiwarka-Katalogu-Na-Meilisearch.md) | wyszukiwarka katalogu na Meilisearch w stacku każdej aplikacji, baza źródłem prawdy, powrót do PostgreSQL przy awarii, dokument budowany w tenancie, odległość miasto–miasto, wyniki po znaczeniu osobno; zastępuje ADR-053 §8 | Accepted |
 | [ADR-065](ADR-065-Usuwanie-Podstron-Witryny.md) | usunięcie podstrony to ukrycie (`deleted_at`), nie kasowanie: od razu poza stroną publiczną przez publikację z opublikowanego stanu, 301 na wybraną podstronę, adres wolny, przywrócenie jako szkic; bez strony głównej i ostatniej; tylko osoba; sekcja „Strona internetowa” na adresach | Accepted |
 | [ADR-066](ADR-066-Miejsce-Wizyty.md) | miejsce wizyty na wizycie (`place_town`, `place_address`, booking 0012) przed tym, co wie produkt; „Zmień miejsce”; zapisane miejsca produktu przez `register_place_search` (HoofCare: gospodarstwa); ulica nie w historii, czyszczona przy anonimizacji | Accepted |
+| [ADR-067](ADR-067-Czesc-Produktu-W-Kalendarzu.md) | slot `src/product/calendar.tsx`: sekcja produktu w „Nowej wizycie” przejmuje zapis wizyt swojego rodzaju, sekcja pod szczegółami, `?new=1&service_id=` i parametry produktu; znaczniki `register_appointment_flags`; telefon i e-mail klienta tylko dla planujących i osób na wizycie; szukanie kart gospodarstw po telefonie i e-mailu | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

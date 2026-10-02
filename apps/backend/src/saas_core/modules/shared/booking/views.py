@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, cast
 from uuid import UUID
@@ -25,6 +26,7 @@ from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
+from .flags import appointment_flags
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
 from .places import appointment_places, has_place_search, search_places
 from .public import public_choices, public_people, shown_to_customer
@@ -97,6 +99,7 @@ from .services import (
     set_appointment_place,
     set_service_materials,
     update_staff,
+    visible_contacts,
 )
 from .setup import ServiceSetup, list_setup, save_location, save_resource, save_service
 from .staff import (
@@ -191,12 +194,27 @@ def _crew_payload(value: Any) -> list[dict[str, Any]]:
     ]
 
 
+@dataclass(frozen=True, slots=True)
+class _Known:
+    """What a list asks once for all its visits: the places and flags the
+    modules know, and whose customer contact the caller sees."""
+
+    places: Mapping[UUID, str]
+    flags: Mapping[UUID, list[str]]
+    contacts: set[UUID]
+
+
+def _known(ids: Sequence[UUID]) -> _Known:
+    return _Known(appointment_places(ids), appointment_flags(ids), visible_contacts(ids))
+
+
 def _appointment_payload(
-    value: Any, token: str | None = None, places: Mapping[UUID, str] | None = None
+    value: Any, token: str | None = None, known: _Known | None = None
 ) -> dict[str, Any]:
-    """`places`: what a list already asked its providers; one visit asks itself."""
-    if places is None:
-        places = appointment_places([value.id])
+    """`known`: what a list already asked; one visit asks for itself."""
+    if known is None:
+        known = _known([value.id])
+    seen = value.id in known.contacts
     return {
         "id": value.id,
         "starts_at": value.starts_at,
@@ -210,9 +228,13 @@ def _appointment_payload(
         "staff_membership_id": value.staff.membership_id,
         "location_name": value.location.name,
         # The visit's own place first, then the module that knows it (ADR-066).
-        "place": value.place_town or places.get(value.id),
+        "place": value.place_town or known.places.get(value.id),
         "place_town": value.place_town,
         "place_address": value.place_address,
+        "customer_phone": value.customer.phone if seen else None,
+        "customer_email": value.customer.email if seen else None,
+        "appointment_kind": value.service.appointment_kind,
+        "flags": known.flags.get(value.id, []),
         "resource_name": value.resource.name if value.resource else None,
         "materials": value.materials,
         "takes_materials": stock.takes_materials(value.service.appointment_kind),
@@ -234,9 +256,9 @@ def _appointment_payload(
     }
 
 
-def _queue_payload(value: Any, places: Mapping[UUID, str]) -> dict[str, Any]:
+def _queue_payload(value: Any, known: _Known) -> dict[str, Any]:
     return {
-        **_appointment_payload(value, places=places),
+        **_appointment_payload(value, known=known),
         "customer_phone": value.customer.phone,
         "customer_email": value.customer.email,
     }
@@ -579,8 +601,8 @@ class AppointmentListCreateView(APIView):
             mine=mine,
             limit=limit,
         )
-        places = appointment_places([x.id for x in items])
-        return Response({"items": [_appointment_payload(x, places=places) for x in items]})
+        known = _known([x.id for x in items])
+        return Response({"items": [_appointment_payload(x, known=known) for x in items]})
 
     @extend_schema(
         tags=["booking"],
@@ -1475,8 +1497,8 @@ class BookingQueueView(APIView):
     def get(self, request: Request) -> Response:
         del request
         items = queue()
-        places = appointment_places([item.id for item in items])
-        return Response({"items": [_queue_payload(item, places) for item in items]})
+        known = _known([item.id for item in items])
+        return Response({"items": [_queue_payload(item, known) for item in items]})
 
 
 class BookingOverviewView(APIView):

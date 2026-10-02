@@ -1,5 +1,10 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
+import type {
+  BookingAppointment,
+  BookingAppointmentInput,
+  BookingCatalog,
+} from "@saas-core/api-client";
 
 import type { ProductContent } from "../marketing/content/types";
 import type { PanelAccess } from "./panel-navigation";
@@ -97,4 +102,56 @@ export type ProductAnimalSection = {
   /** React key, and the order the card renders the sections in. */
   id: string;
   component: ComponentType<ProductAnimalSectionProps>;
+} & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;
+
+/**
+ * A product's part of the calendar (slot file `src/product/calendar.tsx`,
+ * ADR-067). For the kinds of visit it owns (`Service.appointment_kind`), its
+ * section stands in the „Nowa wizyta” form and books the visit itself — a
+ * HoofCare herd visit needs its farm, which core does not know. The section
+ * may fill the form's customer and place, which the person still sees and may
+ * change. Under a visit's details the product may add its own actions.
+ *
+ * The contract stays small on purpose (service, value, filling, errors,
+ * access), so the form can change around it. Core ships `null`.
+ */
+export type ProductVisitFill = {
+  customer?: { display_name?: string; phone?: string; email?: string };
+  place?: { town: string; address?: string };
+};
+export type ProductVisitFormProps = {
+  service: BookingCatalog["services"][number];
+  access: PanelAccess;
+  /** The product's parameters from the calendar's address, e.g. `farm`. */
+  params: Readonly<Record<string, string>>;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  fill: (values: ProductVisitFill) => void;
+  /** The section's field errors: its own check, or the server's answer. */
+  errors: Readonly<Record<string, string>>;
+};
+export type ProductVisitDetailsProps = {
+  appointment: BookingAppointment;
+  access: PanelAccess;
+  onChanged: (appointment: BookingAppointment) => void;
+};
+export type ProductCalendar = {
+  /** The kinds of visit the product books itself. */
+  kinds: readonly string[];
+  formSection: ComponentType<ProductVisitFormProps>;
+  /** The section's field errors before saving; null when it may save. */
+  check: (
+    value: unknown,
+    input: BookingAppointmentInput,
+  ) => Record<string, string> | null;
+  /** Books the visit instead of core's POST: the section takes over „Zapisz”. */
+  save: (args: {
+    input: BookingAppointmentInput;
+    value: unknown;
+    idempotencyKey: string;
+  }) => Promise<BookingAppointment>;
+  /** The section's field errors in a server problem; null when not its own. */
+  problemErrors?: (error: unknown) => Record<string, string> | null;
+  /** Below a visit's details: the product's own actions on it. */
+  detailsSection?: ComponentType<ProductVisitDetailsProps>;
 } & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;
