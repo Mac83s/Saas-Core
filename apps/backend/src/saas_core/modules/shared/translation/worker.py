@@ -707,7 +707,8 @@ def _close(job: TranslationJob) -> None:
     record_audit(
         organization=Organization.objects.get(pk=job.organization_id),
         action=f"translation.job_{job.state}",
-        actor=None,
+        # The job is the ordering person's, wherever it ends.
+        actor=job.created_by,
         target_type="translation.job",
         target_id=job.id,
         metadata={

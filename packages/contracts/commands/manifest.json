@@ -1142,6 +1142,845 @@
       "tool_name": "organization_update_v1",
       "undo": "command:organization.update@1",
       "version_field": "version"
+    },
+    {
+      "command": "translation.glossary.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "forms": {
+            "description": "Inflected forms in the source language, at most 10.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "operation": {
+            "description": "add, change or remove.",
+            "enum": [
+              "add",
+              "change",
+              "remove"
+            ],
+            "type": "string"
+          },
+          "rule": {
+            "description": "keep, name or translate_as.",
+            "enum": [
+              "keep",
+              "name",
+              "translate_as",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_locale": {
+            "description": "The language the term is written in.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_locale": {
+            "description": "Only for this language; null for every one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "term": {
+            "description": "The term as written in the source.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "term_id": {
+            "description": "The term to change or remove; null to add.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "translation": {
+            "description": "translate_as only: the company's translation.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "operation",
+          "term_id",
+          "term",
+          "rule",
+          "source_locale",
+          "target_locale",
+          "translation",
+          "forms"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds, changes or removes one glossary term. rule: keep (unchanged everywhere, e.g. a brand), name (a person's name, transliterated into Cyrillic) or translate_as (with translation). A term is one line of at most 120 characters, with up to 10 inflected forms in the source language. For change and remove pass term_id; pass null for fields that stay.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "removed": {
+            "type": "boolean"
+          },
+          "term_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Add, change or remove a term a translation keeps or renders the company's way.",
+        "pl": "Dodaj, zmień albo usuń termin, który tłumaczenie zachowuje lub tłumaczy po swojemu."
+      },
+      "title": {
+        "en": "Change the glossary",
+        "pl": "Zmień glosariusz"
+      },
+      "tool_name": "translation_glossary_update_v1",
+      "undo": "command:translation.glossary.update@1",
+      "version_field": "version"
+    },
+    {
+      "command": "translation.job.cancel@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "description": "The job to stop.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "model_description": "Stops a running translation job by job_id: items not started are cancelled, items in flight finish, delivered text is billed and the rest of the held credits are released. A stopped job cannot be resumed; order the rest again.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "credits": {
+            "type": "integer"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "units": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Items not started are cancelled; only what was delivered is billed.",
+        "pl": "Pozycje jeszcze nierozpoczęte są anulowane, rozliczone tylko dostarczone."
+      },
+      "title": {
+        "en": "Stop a translation",
+        "pl": "Zatrzymaj tłumaczenie"
+      },
+      "tool_name": "translation_job_cancel_v1",
+      "undo": "none:a stopped job cannot be resumed; order the rest again",
+      "version_field": "state"
+    },
+    {
+      "command": "translation.job.create@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_unverified": {
+            "description": "Also propose over texts written before provenance existed; default false.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "protected": {
+            "description": "Texts a person or an integration wrote: skip, propose changes that wait for a person (default), or overwrite (only when the person asked for it).",
+            "enum": [
+              "skip",
+              "propose",
+              "overwrite",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "targets": {
+            "description": "The (object, language) pairs, e.g. a site's pages in German.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "basis": {
+                  "description": "published (default): what visitors see; working: the draft open in the editor.",
+                  "enum": [
+                    "published",
+                    "working",
+                    null
+                  ],
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locale": {
+                  "description": "A language enabled for the company.",
+                  "type": "string"
+                },
+                "object_id": {
+                  "description": "The object's id in that source.",
+                  "type": "string"
+                },
+                "source_key": {
+                  "description": "A source, e.g. sites.page.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source_key",
+                "object_id",
+                "locale",
+                "basis"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "targets",
+          "protected",
+          "include_unverified"
+        ],
+        "type": "object"
+      },
+      "model_description": "Orders the AI translation of the given (object, language) pairs for the credits the quote shows; the person's click binds that quote, and if the content changes before the click the order is refused. Results that wait for a person (legal documents, review mode, a person's own text) are billed when delivered. Quote first with translation.quote and show the person the credits.",
+      "modifiers": [
+        "spends_credits"
+      ],
+      "module": "shared.translation",
+      "no_preview_reason": null,
+      "no_version_reason": "The quote's digest binds the consent and the order checks it again.",
+      "output_schema": {
+        "properties": {
+          "credits": {
+            "type": "integer"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "units": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "irreversible",
+      "summary": {
+        "en": "Translation of the quoted items for the credits shown.",
+        "pl": "Tłumaczenie wycenionych pozycji za pokazane kredyty."
+      },
+      "title": {
+        "en": "Order a translation",
+        "pl": "Zleć tłumaczenie"
+      },
+      "tool_name": "translation_job_create_v1",
+      "undo": "compensation:take the job back with POST /api/v1/translation/jobs/<id>/revert/",
+      "version_field": null
+    },
+    {
+      "command": "translation.offer.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Says whether the company can order an AI translation now and why not (reasons such as model_not_selected, operation_unpriced, processing_ack_required), the publication mode in force, the automation's state and the price unit (credits per 1,000 source characters per language), and every translation setting with its allowed values. Use it before quoting.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "automation": {
+            "type": "object"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "billing": {
+            "type": "object"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "reasons": {
+            "type": "array"
+          },
+          "settings": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Whether translation can be ordered now, in which mode and at what price.",
+        "pl": "Czy można teraz tłumaczyć, w jakim trybie i za ile."
+      },
+      "title": {
+        "en": "Check AI translation",
+        "pl": "Sprawdź tłumaczenia AI"
+      },
+      "tool_name": "translation_offer_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "translation.quote@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_unverified": {
+            "description": "Also propose over texts written before provenance existed; default false.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "protected": {
+            "description": "Texts a person or an integration wrote: skip, propose changes that wait for a person (default), or overwrite (only when the person asked for it).",
+            "enum": [
+              "skip",
+              "propose",
+              "overwrite",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "targets": {
+            "description": "The (object, language) pairs, e.g. a site's pages in German.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "basis": {
+                  "description": "published (default): what visitors see; working: the draft open in the editor.",
+                  "enum": [
+                    "published",
+                    "working",
+                    null
+                  ],
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locale": {
+                  "description": "A language enabled for the company.",
+                  "type": "string"
+                },
+                "object_id": {
+                  "description": "The object's id in that source.",
+                  "type": "string"
+                },
+                "source_key": {
+                  "description": "A source, e.g. sites.page.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source_key",
+                "object_id",
+                "locale",
+                "basis"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "targets",
+          "protected",
+          "include_unverified"
+        ],
+        "type": "object"
+      },
+      "model_description": "Counts what would be translated for each (object, language) pair, what it costs in credits, which results would wait for a person and why, and returns a digest. Nothing is saved. Show the person the credits and what waits before ordering with translation.job.create.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": "A quote saves nothing, so there is nothing to show first.",
+      "no_version_reason": "A quote checks no version; the order checks its digest.",
+      "output_schema": {
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "characters": {
+            "type": "integer"
+          },
+          "credits": {
+            "type": "integer"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "include_unverified": {
+            "type": "boolean"
+          },
+          "lines": {
+            "type": "array"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "parts": {
+            "type": "array"
+          },
+          "protected": {
+            "type": "string"
+          },
+          "reasons": {
+            "type": "array"
+          },
+          "unit_cost": {
+            "type": "integer"
+          },
+          "units": {
+            "type": "integer"
+          },
+          "waiting": {
+            "type": "object"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "How many characters, units and credits, and what will wait for approval and why.",
+        "pl": "Ile znaków, jednostek i kredytów, co poczeka na akceptację i dlaczego."
+      },
+      "title": {
+        "en": "Quote a translation",
+        "pl": "Wyceń tłumaczenie"
+      },
+      "tool_name": "translation_quote_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "translation.review.accept@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_ids": {
+            "description": "Ids from translation.review.list.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_ids"
+        ],
+        "type": "object"
+      },
+      "model_description": "Publishes the chosen waiting translations (ids from translation.review.list). A person's decision: it runs only after the person's click that names these items. Items without text (qa_failed, model_refused, gate_failed) cannot be accepted.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "decided": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [
+        "Decyzja o tłumaczeniu AI"
+      ],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "publish",
+      "summary": {
+        "en": "Publishes the chosen translations the way their source publishes.",
+        "pl": "Publikuje wybrane tłumaczenia tak, jak publikuje je ich źródło."
+      },
+      "title": {
+        "en": "Approve translations",
+        "pl": "Zaakceptuj tłumaczenia"
+      },
+      "tool_name": "translation_review_accept_v1",
+      "undo": "compensation:take the translation back by reverting its job",
+      "version_field": "version"
+    },
+    {
+      "command": "translation.review.list@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "description": "Only items waiting for this reason.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "model_description": "Lists up to 50 translation results waiting for a person, oldest first, each with its id, version, reason (legal_document, review_mode, overwrites_human, qa_flagged, locale_first_appearance…) and whether it can be accepted. Pass a reason to filter, or null. Accepting needs the person's click: translation.review.accept.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "items": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "What waits for a person's decision and why.",
+        "pl": "Co czeka na decyzję osoby i dlaczego."
+      },
+      "title": {
+        "en": "Translations to approve",
+        "pl": "Tłumaczenia do akceptacji"
+      },
+      "tool_name": "translation_review_list_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "translation.review.reject@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_ids": {
+            "description": "Ids from translation.review.list.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_ids"
+        ],
+        "type": "object"
+      },
+      "model_description": "Discards the chosen waiting translations (ids from translation.review.list); what is public stays as it is. A discarded result was billed when delivered. A person's decision: it runs only after the person's click.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "decided": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [
+        "Decyzja o tłumaczeniu AI"
+      ],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Discards the chosen translations; what is public stays.",
+        "pl": "Odrzuca wybrane tłumaczenia; to, co publiczne, zostaje."
+      },
+      "title": {
+        "en": "Discard translations",
+        "pl": "Odrzuć tłumaczenia"
+      },
+      "tool_name": "translation_review_reject_v1",
+      "undo": "none:a discarded result is gone; order the translation again",
+      "version_field": "version"
+    },
+    {
+      "command": "translation.settings.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_changes": {
+            "description": "Translate changes automatically; null leaves it.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "auto_monthly_limit": {
+            "description": "Credits a month for the automation, 0 to 100000; null leaves it.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mode": {
+            "description": "automatic or review; null leaves it.",
+            "enum": [
+              "automatic",
+              "review",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Settings to take back to their default; null or [] resets none.",
+            "items": {
+              "enum": [
+                "mode",
+                "auto_changes",
+                "auto_monthly_limit"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "auto_changes",
+          "auto_monthly_limit",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's translation settings: mode (automatic or review), auto_changes (translate changes of published content without a click, as the person who turns it on) and auto_monthly_limit (credits a month for that, 0 turns it off). Pass null for what stays; reset lists settings to take back to their default. Turning the automation on or raising its limit needs the person's click and a second factor.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "auto_changes": {
+            "type": "boolean"
+          },
+          "auto_monthly_limit": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.manage",
+      "person_gates": [
+        "Zgoda na automat tłumaczeń"
+      ],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Publication mode, the automation of changes and its monthly limit.",
+        "pl": "Tryb publikacji, automat zmian i jego miesięczny limit."
+      },
+      "title": {
+        "en": "Change translation settings",
+        "pl": "Zmień ustawienia tłumaczeń"
+      },
+      "tool_name": "translation_settings_update_v1",
+      "undo": "command:translation.settings.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "translation.status.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "description": "One job; null for the latest ten.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "model_description": "Returns the state of the company's latest ten translation jobs, or of one job by job_id: queued, running, succeeded, partial, failed or canceled, with credits held and settled per part and each (object, language) item's state. Pass null for the latest jobs.",
+      "modifiers": [],
+      "module": "shared.translation",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "jobs": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "translation.request",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The latest jobs or one job: state, parts and items.",
+        "pl": "Ostatnie zlecenia albo jedno zlecenie: stan, części i pozycje."
+      },
+      "title": {
+        "en": "Translation status",
+        "pl": "Stan tłumaczeń"
+      },
+      "tool_name": "translation_status_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
     }
   ],
   "version": 1

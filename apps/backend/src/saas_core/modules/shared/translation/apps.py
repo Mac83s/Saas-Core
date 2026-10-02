@@ -14,3 +14,7 @@ class TranslationConfig(AppConfig):
         from .engine_policy import ENGINE_POLICY
 
         register_translation_policy(ENGINE_POLICY)
+
+        from .command_declarations import register_translation_commands
+
+        register_translation_commands()

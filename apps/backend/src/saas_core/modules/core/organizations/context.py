@@ -29,7 +29,14 @@ ACTING_TRIGGER_KINDS = frozenset({"user", "api_key", "schedule", "conversation"}
 ACTING_PERSON_GATE_ALLOWED: dict[str, frozenset[str]] = {
     # Removing a company language, with the person's click on the consent that
     # shows which language goes (ADR-071 pkt 5: a high-risk command).
-    "assistant": frozenset({"Usunięcie języka firmy"}),
+    # Accepting or discarding an AI translation, and consenting to translate
+    # changes without a click — each with the click on the consent that names
+    # it (ADR-069 pkt 28); the automation also needs a second factor.
+    "assistant": frozenset({
+        "Usunięcie języka firmy",
+        "Decyzja o tłumaczeniu AI",
+        "Zgoda na automat tłumaczeń",
+    }),
 }
 
 

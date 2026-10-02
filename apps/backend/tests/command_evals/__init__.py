@@ -11,6 +11,7 @@ assistant tool nobody evaluated is not offered to a model.
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,9 +35,17 @@ class CommandEval:
     #: (ADR-072 §11); the battery then checks that nothing stayed, not that
     #: nothing ran.
     preview_rolls_back: str = ""
+    #: What the process needs around the whole test — a source in a registry,
+    #: a model the port may call — restored afterwards.
+    around: Callable[[], AbstractContextManager[None]] | None = None
 
 
 def all_evals() -> dict[str, CommandEval]:
-    from . import booking, company_settings, organization  # noqa: PLC0415
+    from . import booking, company_settings, organization, translation  # noqa: PLC0415
 
-    return {**organization.EVALS, **booking.EVALS, **company_settings.EVALS}
+    return {
+        **organization.EVALS,
+        **booking.EVALS,
+        **company_settings.EVALS,
+        **translation.EVALS,
+    }

@@ -62,6 +62,19 @@ def features_on(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     yield
 
 
+@pytest.fixture(autouse=True)
+def command_environment(request: pytest.FixtureRequest) -> Iterator[None]:
+    """The process-wide setup an entry asks for (`CommandEval.around`)."""
+    callspec = getattr(request.node, "callspec", None)
+    key = callspec.params.get("key") if callspec is not None else None
+    around = EVALS[key].around if key in EVALS else None
+    if around is None:
+        yield
+        return
+    with around():
+        yield
+
+
 def owner(slug: str, key: str) -> TenantContext:
     """A company and its owner, with what the command needs prepared."""
     slug = f"{slug}-{key.replace('.', '-').replace('@', '-')}".replace("_", "-")

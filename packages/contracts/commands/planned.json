@@ -3,66 +3,6 @@
   "_comment": "Polecenia z ADR-076 §2, które istnieją dopiero jako zapowiedź: nazwa, klasa ryzyka, modyfikatory i właściciel. Schematy wejścia dopisze właściciel przy rejestracji (register_command) i usunie wtedy wpis stąd — nazwa nie może być w obu miejscach.",
   "commands": [
     {
-      "command": "translation.offer.read@1",
-      "risk": "read",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.quote@1",
-      "risk": "read",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.status.read@1",
-      "risk": "read",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.review.list@1",
-      "risk": "read",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.glossary.update@1",
-      "risk": "apply",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.job.create@1",
-      "risk": "irreversible",
-      "modifiers": ["spends_credits"],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.job.cancel@1",
-      "risk": "apply",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.review.accept@1",
-      "risk": "publish",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.review.reject@1",
-      "risk": "apply",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6"
-    },
-    {
-      "command": "translation.settings.update@1",
-      "risk": "apply",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL6 (eskalacja do irreversible + changes_billing)"
-    },
-    {
       "command": "sites.locale_body.save@1",
       "risk": "draft",
       "modifiers": [],

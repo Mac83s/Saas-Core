@@ -341,14 +341,17 @@ def change_settings(
         auto = changes.get(AUTO_CHANGES.key)
         if auto is True and row.auto_changes is not True:
             # Consent is one person's act: never an API key, a job or the
-            # assistant on its own (it opens this only after a click, TL6c).
-            assert_person_required(context, AUTOMATION_CONSENT)
+            # assistant on its own — its click opens this for the run, so a
+            # preview only shows the change and the run checks the person.
+            if not preview:
+                assert_person_required(context, AUTOMATION_CONSENT)
             row.auto_consent_membership_id = context.membership_id
             row.auto_consent_at = now
         if auto is not None:
             row.auto_changes = auto
         if changes.get(PROCESSING_ACK) is True and row.processing_ack_at is None:
-            assert_person_required(context, PROCESSING_ACKNOWLEDGEMENT)
+            if not preview:
+                assert_person_required(context, PROCESSING_ACKNOWLEDGEMENT)
             row.processing_ack_membership_id = context.membership_id
             row.processing_ack_at = now
         for key in reset_keys:
