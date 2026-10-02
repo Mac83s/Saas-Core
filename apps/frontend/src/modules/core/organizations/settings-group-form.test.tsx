@@ -34,6 +34,7 @@ const GROUP: SettingsGroupSchema = {
   permission: "organization.settings.manage",
   can_change: true,
   locked: "",
+  api: null,
   keys: [
     {
       key: "booking.reminders.enabled",
@@ -48,6 +49,7 @@ const GROUP: SettingsGroupSchema = {
       description: "Whether.",
       scopes: ["organization"],
       depends_on: null,
+      strategy: "override",
     },
     {
       key: "booking.reminders.lead_hours",
@@ -62,6 +64,7 @@ const GROUP: SettingsGroupSchema = {
       description: "When.",
       scopes: ["platform", "organization"],
       depends_on: "booking.reminders.enabled",
+      strategy: "override",
     },
   ],
 };
@@ -157,7 +160,9 @@ test("wyłączony przełącznik chowa zależne pole; błąd pola trafia pod pole
       code: "invalid",
       detail: "Zła wartość.",
       correlation_id: null,
-      errors: [{ field: "lead_hours", code: "max_value", message: "Najwięcej 168." }],
+      errors: [
+        { field: "lead_hours", code: "max_value", message: "Najwięcej 168." },
+      ],
     }),
   );
   renderForm("en");
@@ -171,4 +176,52 @@ test("wyłączony przełącznik chowa zależne pole; błąd pola trafia pod pole
   await waitFor(() =>
     expect(screen.queryByLabelText("Hours before the visit")).toBeNull(),
   );
+});
+
+test("pole zależne od wartości innego pola widać tylko przy tej wartości", async () => {
+  const group: SettingsGroupSchema = {
+    ...GROUP,
+    key: "booking.offer_probe",
+    keys: [
+      {
+        ...GROUP.keys[0],
+        key: "booking.offer_probe.time_model",
+        type: "enum",
+        default: "slot",
+        values: [
+          { value: "slot", label: { pl: "Termin", en: "Slot" } },
+          { value: "range", label: { pl: "Okres", en: "Range" } },
+        ],
+        label: { pl: "Model czasu", en: "Time model" },
+      },
+      {
+        ...GROUP.keys[1],
+        key: "booking.offer_probe.range_unit",
+        type: "enum",
+        default: "night",
+        minimum: null,
+        maximum: null,
+        unit: null,
+        values: [{ value: "night", label: { pl: "Noc", en: "Night" } }],
+        label: { pl: "Jednostka", en: "Unit" },
+        depends_on: "booking.offer_probe.time_model == 'range'",
+      },
+    ],
+  };
+  getSettingsGroup.mockResolvedValue({
+    ...STATE,
+    values: { time_model: "slot", range_unit: "night" },
+    sources: { time_model: "code", range_unit: "code" },
+  });
+  render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      <SettingsGroupForm group={group} />
+    </NextIntlClientProvider>,
+  );
+
+  const model = await screen.findByLabelText("Model czasu");
+  await waitFor(() => expect((model as HTMLSelectElement).value).toBe("slot"));
+  expect(screen.queryByLabelText("Jednostka")).toBeNull();
+  fireEvent.change(model, { target: { value: "range" } });
+  expect(await screen.findByLabelText("Jednostka")).toBeInTheDocument();
 });

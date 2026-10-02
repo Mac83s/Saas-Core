@@ -60,6 +60,7 @@ const OPTIONS: SettingOptions = {
       description: "The company's currency.",
       scopes: ["organization"],
       depends_on: null,
+      strategy: "override",
     },
   ],
 };
