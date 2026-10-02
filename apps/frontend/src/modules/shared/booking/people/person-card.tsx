@@ -512,7 +512,8 @@ export function PersonCard({
           ) : null}
         </>
       }
-      description={description}
+      // The role and the date one joined: data, kept on a phone (UX-005).
+      subtitle={description}
       title={name}
     >
       <section aria-labelledby="person-facts-title">

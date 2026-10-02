@@ -19,6 +19,7 @@ export function PanelPage({
   eyebrowHref,
   title,
   titleId,
+  subtitle,
   description,
   actions,
   notice,
@@ -33,6 +34,13 @@ export function PanelPage({
   title: ReactNode;
   /** For a region the page's title names (`aria-labelledby`). */
   titleId?: string;
+  /**
+   * A line of data or scope under the title — „Właściciel · w firmie od…”,
+   * „Twoje ustawienia, każdy ma własne”. Unlike the description it stays on a
+   * phone (UX-005).
+   */
+  subtitle?: ReactNode;
+  /** An explanation; a phone leaves it out to start the work higher. */
   description?: ReactNode;
   /** What the page lets one do (add, receive), top right. */
   actions?: ReactNode;
@@ -65,8 +73,11 @@ export function PanelPage({
           >
             {title}
           </h1>
+          {subtitle ? (
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          ) : null}
           {description ? (
-            <p className="max-w-3xl text-sm text-muted-foreground max-sm:hidden">
+            <p className="max-w-3xl text-sm text-pretty text-muted-foreground max-sm:hidden">
               {description}
             </p>
           ) : null}
