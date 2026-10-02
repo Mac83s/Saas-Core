@@ -756,12 +756,18 @@ export function BookingPanel({
       actions={
         canManage ? (
           <>
+            {/* On a phone only its icon: with the words, the two actions
+                need two rows of a header that should stay short. */}
             <Link
-              className={buttonVariants({ variant: "ghost" })}
+              className={buttonVariants({
+                variant: "ghost",
+                className: "max-sm:w-11 max-sm:px-0",
+              })}
               href="/panel/settings/services"
+              title={t("settingsLink")}
             >
               <Settings2Icon aria-hidden="true" />
-              {t("settingsLink")}
+              <span className="max-sm:sr-only">{t("settingsLink")}</span>
             </Link>
             {ready ? (
               <Button
