@@ -13,14 +13,26 @@ from uuid import UUID
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework.exceptions import ParseError
+from rest_framework.exceptions import APIException, ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from saas_core.http.exceptions import problem_details_exception_handler
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .jobs import (
+    TargetRequest,
+    TranslationQuoteChanged,
+    TranslationUnavailable,
+    get_job,
+    job_payload,
+    list_jobs,
+    order_translation,
+    quote_payload,
+    quote_translation,
+)
 from .serializers import (
     GlossaryDeleteQuerySerializer,
     GlossaryPageSerializer,
@@ -29,6 +41,11 @@ from .serializers import (
     GlossaryTermPreviewSerializer,
     GlossaryTermSerializer,
     GlossaryTermUpdateSerializer,
+    JobPageSerializer,
+    JobSerializer,
+    OrderRequestSerializer,
+    QuoteRequestSerializer,
+    QuoteSerializer,
     TranslationOfferSerializer,
     TranslationSettingsPreviewSerializer,
     TranslationSettingsSerializer,
@@ -291,3 +308,133 @@ class GlossaryUpdatePreviewView(APIView):
             term_id=term_id, data=data, expected_version=version, preview=True
         )
         return Response({**GlossaryTermSerializer(saved.value).data, "changes": saved.changes})
+
+
+def _targets(data: dict[str, Any]) -> list[TargetRequest]:
+    return [TargetRequest(**target) for target in data["targets"]]
+
+
+def _problem(request: Request, error: APIException, **extra: Any) -> Response:
+    response = problem_details_exception_handler(error, {"request": request})
+    assert response is not None
+    response.data.update(extra)
+    return response
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class QuoteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_quote_create",
+        summary="Quote a translation",
+        description="Counts what would be translated for each (object, language), what it "
+        "costs, what would wait for a person and why, and seals it in a digest an order must "
+        "carry. Nothing is saved; the same content gives the same digest.",
+        tags=["translation"],
+        request=QuoteRequestSerializer,
+        responses={
+            200: QuoteSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "A calculation: nothing is saved, a repeat answers the same.",
+            }
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = QuoteRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        result = quote_translation(
+            targets=_targets(data),
+            protected=data["protected"],
+            include_unverified=data["include_unverified"],
+        )
+        return Response(QuoteSerializer(quote_payload(result)).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class JobListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_job_list",
+        summary="Translation jobs",
+        description="The company's translation jobs, newest first, paged by `cursor`.",
+        tags=["translation"],
+        parameters=[GlossaryQuerySerializer],
+        responses={
+            200: JobPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = GlossaryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        jobs, next_cursor = list_jobs(
+            cursor=query.validated_data.get("cursor"), limit=query.validated_data["limit"]
+        )
+        return Response({"items": [job_payload(job) for job in jobs], "next_cursor": next_cursor})
+
+    @extend_schema(
+        operation_id="translation_job_create",
+        summary="Order a translation",
+        description="Orders the quote with this digest at the credits it showed, as the person "
+        "sending it. A changed quote is 409 `translation_quote_changed` with the new quote in "
+        "`quote`; a changed price is 409 `credit_price_changed`; translation that cannot run now "
+        "is 503 `translation_unavailable` with `reasons`. A repeated Idempotency-Key answers the "
+        "first job again.",
+        tags=["translation"],
+        parameters=[IDEMPOTENCY],
+        request=OrderRequestSerializer,
+        responses={
+            201: JobSerializer,
+            **_PROBLEMS,
+            402: ProblemDetailsSerializer,
+            503: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = OrderRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            saved = order_translation(
+                targets=_targets(data),
+                digest=data["digest"],
+                expected_credits=data["expected_credits"],
+                protected=data["protected"],
+                include_unverified=data["include_unverified"],
+                idempotency_key=_idem(request),
+            )
+        except TranslationQuoteChanged as changed:
+            return _problem(
+                request, changed, quote=QuoteSerializer(quote_payload(changed.quote)).data
+            )
+        except TranslationUnavailable as unavailable:
+            return _problem(request, unavailable, reasons=unavailable.reasons)
+        return Response(JobSerializer(job_payload(saved.value)).data, status=201)
+
+
+class JobDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_job_retrieve",
+        summary="A translation job",
+        description="The job with its parts (credits held and settled) and items (object × "
+        "language, state, delivered characters and what the source answered).",
+        tags=["translation"],
+        responses={
+            200: JobSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, job_id: UUID) -> Response:
+        return Response(JobSerializer(job_payload(get_job(job_id))).data)

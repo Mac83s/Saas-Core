@@ -237,7 +237,11 @@
       "translation_glossary_term_created": "Added a glossary term",
       "translation_glossary_term_updated": "Changed a glossary term",
       "translation_glossary_term_deleted": "Removed a glossary term",
-      "translation_operator_override": "The operator changed the translation settings"
+      "translation_operator_override": "The operator changed the translation settings",
+      "translation_job_created": "Ordered a translation",
+      "translation_job_succeeded": "Translation finished",
+      "translation_job_partial": "Translation partly finished",
+      "translation_job_failed": "Translation failed"
     },
     "fields": {
       "name": "Name",

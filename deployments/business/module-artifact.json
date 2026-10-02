@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:eaaad41b12470178810753dcb149b77bb662a006d4a71ec73ef31c48b1d47a01",
+  "profileHash": "sha256:8019b5f75ea00672092ad283a9ab41d75a631a60c39b6bac4aea95477debe3d3",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -446,7 +446,13 @@
         "entitlements": [],
         "eventSchemas": [],
         "publicTables": [],
-        "platformTables": []
+        "platformTables": [],
+        "beatSchedule": {
+          "translation-reconcile": {
+            "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_jobs",
+            "schedule": 60
+          }
+        }
       },
       "frontend": {
         "routes": [],

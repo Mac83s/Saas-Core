@@ -5164,6 +5164,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/translation/jobs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Translation jobs
+         * @description The company's translation jobs, newest first, paged by `cursor`.
+         */
+        get: operations["translation_job_list"];
+        put?: never;
+        /**
+         * Order a translation
+         * @description Orders the quote with this digest at the credits it showed, as the person sending it. A changed quote is 409 `translation_quote_changed` with the new quote in `quote`; a changed price is 409 `credit_price_changed`; translation that cannot run now is 503 `translation_unavailable` with `reasons`. A repeated Idempotency-Key answers the first job again.
+         */
+        post: operations["translation_job_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/jobs/{job_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A translation job
+         * @description The job with its parts (credits held and settled) and items (object × language, state, delivered characters and what the source answered).
+         */
+        get: operations["translation_job_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/translation/offer/": {
         parameters: {
             query?: never;
@@ -5178,6 +5222,26 @@ export interface paths {
         get: operations["translation_offer_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/quotes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote a translation
+         * @description Counts what would be translated for each (object, language), what it costs, what would wait for a person and why, and seals it in a digest an order must carry. Nothing is saved; the same content gives the same digest.
+         */
+        post: operations["translation_quote_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5566,6 +5630,12 @@ export interface components {
             ends_at: string;
             reason: string | null;
         };
+        /**
+         * @description * `published` - published
+         *     * `working` - working
+         * @enum {string}
+         */
+        BasisEnum: "published" | "working";
         /** @description What the panel shows and sends back for the invoice form. */
         BillingDetails: {
             customer_kind: components["schemas"]["CustomerKindEnum"];
@@ -7242,6 +7312,58 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        Job: {
+            /** Format: uuid */
+            id: string;
+            state: string;
+            trigger: string;
+            billing: string;
+            units: number;
+            credits: number;
+            error_code: string;
+            /**
+             * Format: date-time
+             * @description When the job continues, e.g. after waiting for the model pool.
+             */
+            next_attempt_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+            parts: components["schemas"]["JobPart"][];
+            items: components["schemas"]["JobItem"][];
+        };
+        JobItem: {
+            /** Format: uuid */
+            id: string;
+            source_key: string;
+            /** Format: uuid */
+            object_id: string;
+            locale: string;
+            state: string;
+            quoted_characters: number;
+            delivered_characters: number;
+            outcomes: {
+                [key: string]: unknown;
+            }[];
+            error_code: string;
+        };
+        JobPage: {
+            items: components["schemas"]["Job"][];
+            next_cursor: string | null;
+        };
+        JobPart: {
+            index: number;
+            units: number;
+            state: string;
+            /** Format: date-time */
+            deadline_at: string | null;
+            delivered_characters: number;
+            settled_units: number;
+            settled_credits: number;
+        };
         KeptSection: {
             slot: number;
             block: components["schemas"]["PageBlockInput"];
@@ -7632,6 +7754,28 @@ export interface components {
             resource_id: string | null;
             /** Format: date-time */
             created_at: string | null;
+        };
+        OrderRequest: {
+            /** @description The (object, language) pairs to translate. */
+            targets: components["schemas"]["Target"][];
+            /**
+             * @description Texts a person or an integration wrote: skip them, send changes as proposals that wait for a person, or overwrite them (a person's choice only).
+             *
+             *     * `skip` - skip
+             *     * `propose` - propose
+             *     * `overwrite` - overwrite
+             * @default propose
+             */
+            protected: components["schemas"]["ProtectedEnum"];
+            /**
+             * @description Also propose over texts written before provenance existed.
+             * @default false
+             */
+            include_unverified: boolean;
+            /** @description The digest of the quote agreed to. */
+            digest: string;
+            /** @description The credits the quote showed. */
+            expected_credits: number;
         };
         OrganizationArchived: {
             status: components["schemas"]["OrganizationArchivedStatusEnum"];
@@ -8530,6 +8674,13 @@ export interface components {
             resource_id: string;
             restored_version: number;
         };
+        /**
+         * @description * `skip` - skip
+         *     * `propose` - propose
+         *     * `overwrite` - overwrite
+         * @enum {string}
+         */
+        ProtectedEnum: "skip" | "propose" | "overwrite";
         ProviderStatus: {
             event_id: string;
             provider_message_id: string;
@@ -8790,6 +8941,66 @@ export interface components {
             /** Format: uuid */
             requested_staff_id: string | null;
             customer_notes: string;
+        };
+        Quote: {
+            /** @description Send it with the order. */
+            digest: string;
+            available: boolean;
+            reasons: string[];
+            characters: number;
+            /** @description 1,000 characters × language, rounded up per part. */
+            units: number;
+            unit_cost: number;
+            credits: number;
+            mode: string;
+            protected: string;
+            include_unverified: boolean;
+            parts: number[][];
+            /** @description Lines whose results wait, by reason. */
+            waiting: {
+                [key: string]: number;
+            };
+            lines: components["schemas"]["QuoteLine"][];
+        };
+        QuoteLine: {
+            source_key: string;
+            /** Format: uuid */
+            object_id: string;
+            locale: string;
+            basis: string;
+            /** @description Visible source characters to translate. */
+            characters: number;
+            /** @description Units sent as proposals over people's text. */
+            proposals: number;
+            proposal_characters: number;
+            /** @description Units left out, by reason: fresh, blocked, copied, not_sendable, protected, unverified. */
+            skipped: {
+                [key: string]: number;
+            };
+            /** @description Where the results land: live, draft or pending. */
+            outcome: string;
+            /** @description Why they wait, when they do. */
+            reason: string | null;
+            /** @description Why nothing is sent: in_progress, source_unpublished… */
+            excluded: string | null;
+        };
+        QuoteRequest: {
+            /** @description The (object, language) pairs to translate. */
+            targets: components["schemas"]["Target"][];
+            /**
+             * @description Texts a person or an integration wrote: skip them, send changes as proposals that wait for a person, or overwrite them (a person's choice only).
+             *
+             *     * `skip` - skip
+             *     * `propose` - propose
+             *     * `overwrite` - overwrite
+             * @default propose
+             */
+            protected: components["schemas"]["ProtectedEnum"];
+            /**
+             * @description Also propose over texts written before provenance existed.
+             * @default false
+             */
+            include_unverified: boolean;
         };
         Registration: {
             /** Format: email */
@@ -9827,6 +10038,22 @@ export interface components {
         };
         SupportRetry: {
             reason: string;
+        };
+        Target: {
+            /** @description A registered source, e.g. sites.page. */
+            source_key: string;
+            /** Format: uuid */
+            object_id: string;
+            /** @description A language enabled for the company. */
+            locale: string;
+            /**
+             * @description published: what visitors see; working: the draft open in the editor.
+             *
+             *     * `published` - published
+             *     * `working` - working
+             * @default published
+             */
+            basis: components["schemas"]["BasisEnum"];
         };
         TaskStatus: {
             task: string;
@@ -26272,6 +26499,157 @@ export interface operations {
             };
         };
     };
+    translation_job_list: {
+        parameters: {
+            query?: {
+                /** @description From the previous page. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_job_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrderRequest"];
+                "multipart/form-data": components["schemas"]["OrderRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_job_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     translation_offer_retrieve: {
         parameters: {
             query?: never;
@@ -26290,6 +26668,55 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_quote_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["QuoteRequest"];
+                "multipart/form-data": components["schemas"]["QuoteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

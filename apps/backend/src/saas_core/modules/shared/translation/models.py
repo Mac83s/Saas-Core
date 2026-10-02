@@ -194,3 +194,147 @@ class TranslationCeiling(models.Model):
 
     def __str__(self) -> str:
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.state}"
+
+
+class JobState(models.TextChoices):
+    QUEUED = "queued", "Queued"
+    RUNNING = "running", "Running"
+    SUCCEEDED = "succeeded", "Succeeded"
+    PARTIAL = "partial", "Partial"
+    FAILED = "failed", "Failed"
+    CANCELED = "canceled", "Canceled"
+
+
+JOB_TERMINAL = frozenset({JobState.SUCCEEDED, JobState.PARTIAL, JobState.FAILED, JobState.CANCELED})
+
+
+class PartState(models.TextChoices):
+    QUEUED = "queued", "Queued"
+    RUNNING = "running", "Running"
+    SETTLED = "settled", "Settled"
+
+
+class ItemState(models.TextChoices):
+    QUEUED = "queued", "Queued"
+    RUNNING = "running", "Running"
+    WRITTEN = "written", "Written"
+    FAILED = "failed", "Failed"
+    CANCELED = "canceled", "Canceled"
+
+
+ITEM_ACTIVE = frozenset({ItemState.QUEUED, ItemState.RUNNING})
+
+
+class TranslationJob(TenantScopedModel):
+    """One order: the pairs (object × language) of one quote, sealed by its
+    digest, run as the person who ordered it (ADR-069 pkt 13, 18, 19)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    # The membership the job acts as: the person who clicked, or who consented.
+    membership_id = models.UUIDField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    # click | automatic
+    trigger = models.CharField(max_length=16)
+    # `<kind>:<uuid>` (A1a `acting_trigger`): user, api_key, schedule, conversation.
+    cause = models.CharField(max_length=80)
+    # credits | platform_budget
+    billing = models.CharField(max_length=16)
+    protected = models.CharField(max_length=16)
+    include_unverified = models.BooleanField(default=False)
+    quote_digest = models.CharField(max_length=64)
+    operation_key = models.CharField(max_length=100)
+    unit_cost = models.PositiveIntegerField(null=True, blank=True)
+    units = models.PositiveIntegerField(default=0)
+    credits = models.PositiveIntegerField(default=0)
+    state = models.CharField(max_length=16, choices=JobState.choices, default=JobState.QUEUED)
+    error_code = models.CharField(max_length=80, blank=True)
+    next_attempt_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        indexes = [models.Index(fields=["organization", "state", "next_attempt_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(trigger__in=["click", "automatic"]),
+                name="translation_job_trigger_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(billing__in=["credits", "platform_budget"]),
+                name="translation_job_billing_ck",
+            ),
+        ]
+
+
+class TranslationJobPart(TenantScopedModel):
+    """At most 500 units of a job, with its own credit hold taken when it starts
+    and its own 72-hour deadline (ADR-069 pkt 19, 20)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    job = models.ForeignKey(TranslationJob, on_delete=models.CASCADE, related_name="parts")
+    index = models.PositiveIntegerField()
+    units = models.PositiveIntegerField()
+    state = models.CharField(max_length=16, choices=PartState.choices, default=PartState.QUEUED)
+    reservation_key = models.CharField(max_length=120, blank=True)
+    deadline_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    delivered_characters = models.PositiveIntegerField(default=0)
+    settled_units = models.PositiveIntegerField(default=0)
+    settled_credits = models.PositiveIntegerField(default=0)
+    settled_at = models.DateTimeField(null=True, blank=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["job", "index"], name="translation_part_index_uq")
+        ]
+
+
+class TranslationJobItem(TenantScopedModel):
+    """One object in one language: the durable queue, with one active item per
+    pair (ADR-069 pkt 19)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    job = models.ForeignKey(TranslationJob, on_delete=models.CASCADE, related_name="items")
+    part = models.ForeignKey(TranslationJobPart, on_delete=models.CASCADE, related_name="items")
+    # The order of the quote: a site's home page first.
+    position = models.PositiveIntegerField()
+    source_key = models.CharField(max_length=100)
+    object_id = models.UUIDField()
+    locale = models.CharField(max_length=10)
+    basis = models.CharField(max_length=16)
+    scope = models.CharField(max_length=200)
+    quoted_characters = models.PositiveIntegerField(default=0)
+    state = models.CharField(max_length=16, choices=ItemState.choices, default=ItemState.QUEUED)
+    lease_token = models.UUIDField(null=True, blank=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    # Results that passed the hard checks, by source hash, kept until the item
+    # is written: a write refused for a changed version is retried without a
+    # second model call.
+    delivered = models.JSONField(default=dict, blank=True)
+    delivered_characters = models.PositiveIntegerField(default=0)
+    # What the source answered: [{state, reason, keys}] — no text.
+    outcomes = models.JSONField(default=list, blank=True)
+    error_code = models.CharField(max_length=80, blank=True)
+    model = models.CharField(max_length=120, blank=True)
+    prompt_version = models.CharField(max_length=40, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "source_key", "object_id", "locale"],
+                condition=models.Q(state__in=["queued", "running"]),
+                name="translation_item_active_uq",
+            )
+        ]
+        indexes = [models.Index(fields=["job", "state", "position"])]

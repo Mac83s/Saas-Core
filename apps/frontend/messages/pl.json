@@ -237,7 +237,11 @@
       "translation_glossary_term_created": "Dodano termin do glosariusza",
       "translation_glossary_term_updated": "Zmieniono termin glosariusza",
       "translation_glossary_term_deleted": "Usunięto termin z glosariusza",
-      "translation_operator_override": "Operator zmienił ustawienia tłumaczeń"
+      "translation_operator_override": "Operator zmienił ustawienia tłumaczeń",
+      "translation_job_created": "Zlecono tłumaczenie",
+      "translation_job_succeeded": "Tłumaczenie zakończone",
+      "translation_job_partial": "Tłumaczenie zakończone częściowo",
+      "translation_job_failed": "Tłumaczenie nie powiodło się"
     },
     "fields": {
       "name": "Nazwa",

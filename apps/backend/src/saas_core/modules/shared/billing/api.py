@@ -2,6 +2,8 @@
 
 from .authorization import EntitlementRequired, authorize_entitled
 from .credits import (
+    CreditPriceChanged,
+    CreditsExhausted,
     commit_credits,
     operation_cost,
     release_credits,
@@ -25,6 +27,8 @@ from .quotas import (
 from .tenant_scope import billing_organization_ids
 
 __all__ = [
+    "CreditPriceChanged",
+    "CreditsExhausted",
     "EntitlementRequired",
     "FeatureOperation",
     "QuotaExceeded",

@@ -20,7 +20,13 @@
     "entitlements": [],
     "eventSchemas": [],
     "publicTables": [],
-    "platformTables": []
+    "platformTables": [],
+    "beatSchedule": {
+      "translation-reconcile": {
+        "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_jobs",
+        "schedule": 60
+      }
+    }
   },
   "frontend": {
     "routes": [],

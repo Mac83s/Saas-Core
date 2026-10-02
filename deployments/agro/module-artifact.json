@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:fba53e31d9066c84f4a5155992220a205274a81398561077e6e635e71478d34d",
+  "profileHash": "sha256:fb650ef45e3b6fdea189a2d4ae8689f2d536a69f5aaa2ad47ace24046b89c3cf",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -447,7 +447,13 @@
         "entitlements": [],
         "eventSchemas": [],
         "publicTables": [],
-        "platformTables": []
+        "platformTables": [],
+        "beatSchedule": {
+          "translation-reconcile": {
+            "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_jobs",
+            "schedule": 60
+          }
+        }
       },
       "frontend": {
         "routes": [],

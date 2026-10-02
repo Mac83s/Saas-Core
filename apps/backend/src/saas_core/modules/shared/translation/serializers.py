@@ -208,3 +208,117 @@ class GlossaryPageSerializer(serializers.Serializer[dict[str, Any]]):
 
 class GlossaryDeleteQuerySerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=1)
+
+
+class TargetSerializer(serializers.Serializer[dict[str, Any]]):
+    source_key = serializers.CharField(help_text="A registered source, e.g. sites.page.")
+    object_id = serializers.UUIDField()
+    locale = serializers.CharField(max_length=10, help_text="A language enabled for the company.")
+    basis = serializers.ChoiceField(
+        choices=["published", "working"],
+        default="published",
+        help_text="published: what visitors see; working: the draft open in the editor.",
+    )
+
+
+class QuoteRequestSerializer(serializers.Serializer[dict[str, Any]]):
+    targets = TargetSerializer(many=True, help_text="The (object, language) pairs to translate.")
+    protected = serializers.ChoiceField(
+        choices=["skip", "propose", "overwrite"],
+        default="propose",
+        help_text="Texts a person or an integration wrote: skip them, send changes as "
+        "proposals that wait for a person, or overwrite them (a person's choice only).",
+    )
+    include_unverified = serializers.BooleanField(
+        default=False, help_text="Also propose over texts written before provenance existed."
+    )
+
+
+class OrderRequestSerializer(QuoteRequestSerializer):
+    digest = serializers.CharField(max_length=64, help_text="The digest of the quote agreed to.")
+    expected_credits = serializers.IntegerField(
+        min_value=0, help_text="The credits the quote showed."
+    )
+
+
+class QuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
+    source_key = serializers.CharField()
+    object_id = serializers.UUIDField()
+    locale = serializers.CharField()
+    basis = serializers.CharField()
+    characters = serializers.IntegerField(help_text="Visible source characters to translate.")
+    proposals = serializers.IntegerField(help_text="Units sent as proposals over people's text.")
+    proposal_characters = serializers.IntegerField()
+    skipped = serializers.DictField(
+        child=serializers.IntegerField(),
+        help_text="Units left out, by reason: fresh, blocked, copied, not_sendable, protected, "
+        "unverified.",
+    )
+    outcome = serializers.CharField(help_text="Where the results land: live, draft or pending.")
+    reason = serializers.CharField(allow_null=True, help_text="Why they wait, when they do.")
+    excluded = serializers.CharField(
+        allow_null=True, help_text="Why nothing is sent: in_progress, source_unpublished…"
+    )
+
+
+class QuoteSerializer(serializers.Serializer[dict[str, Any]]):
+    digest = serializers.CharField(help_text="Send it with the order.")
+    available = serializers.BooleanField()
+    reasons = serializers.ListField(child=serializers.CharField())
+    characters = serializers.IntegerField()
+    units = serializers.IntegerField(help_text="1,000 characters × language, rounded up per part.")
+    unit_cost = serializers.IntegerField()
+    credits = serializers.IntegerField()
+    mode = serializers.CharField()
+    protected = serializers.CharField()
+    include_unverified = serializers.BooleanField()
+    parts = serializers.ListField(child=serializers.ListField(child=serializers.IntegerField()))
+    waiting = serializers.DictField(
+        child=serializers.IntegerField(), help_text="Lines whose results wait, by reason."
+    )
+    lines = QuoteLineSerializer(many=True)
+
+
+class JobPartSerializer(serializers.Serializer[dict[str, Any]]):
+    index = serializers.IntegerField()
+    units = serializers.IntegerField()
+    state = serializers.CharField()
+    deadline_at = serializers.DateTimeField(allow_null=True)
+    delivered_characters = serializers.IntegerField()
+    settled_units = serializers.IntegerField()
+    settled_credits = serializers.IntegerField()
+
+
+class JobItemSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    source_key = serializers.CharField()
+    object_id = serializers.UUIDField()
+    locale = serializers.CharField()
+    state = serializers.CharField()
+    quoted_characters = serializers.IntegerField()
+    delivered_characters = serializers.IntegerField()
+    outcomes = serializers.ListField(child=serializers.DictField())
+    error_code = serializers.CharField(allow_blank=True)
+
+
+class JobSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    state = serializers.CharField()
+    trigger = serializers.CharField()
+    billing = serializers.CharField()
+    units = serializers.IntegerField()
+    credits = serializers.IntegerField()
+    error_code = serializers.CharField(allow_blank=True)
+    next_attempt_at = serializers.DateTimeField(
+        help_text="When the job continues, e.g. after waiting for the model pool."
+    )
+    created_at = serializers.DateTimeField()
+    started_at = serializers.DateTimeField(allow_null=True)
+    finished_at = serializers.DateTimeField(allow_null=True)
+    parts = JobPartSerializer(many=True)
+    items = JobItemSerializer(many=True)
+
+
+class JobPageSerializer(serializers.Serializer[dict[str, Any]]):
+    items = JobSerializer(many=True)
+    next_cursor = serializers.CharField(allow_null=True)

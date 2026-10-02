@@ -54,6 +54,8 @@ class QuoteLine:
     # Where the results land unless something changes (§7 rules).
     outcome: str
     reason: str | None
+    # Why nothing of this pair is sent: in_progress, or the source's `excluded`.
+    excluded: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +88,7 @@ def quote_line(
     selection: Selection,
     policy: TranslationPolicy,
     trigger: Trigger,
+    excluded: str | None = None,
 ) -> QuoteLine:
     requested: WriteTarget = "draft" if read.basis == "working" else "live"
     decision: PublicationDecision = decide_publication(
@@ -109,6 +112,7 @@ def quote_line(
         skipped=tuple(sorted(Counter(selection.skipped.values()).items())),
         outcome=decision.outcome,
         reason=decision.reason,
+        excluded=excluded or read.excluded,
     )
 
 
@@ -162,6 +166,7 @@ def build_quote(
                 "proposals": list(line.proposals),
                 "outcome": line.outcome,
                 "reason": line.reason,
+                "excluded": line.excluded,
             }
             for line in ordered
         ],

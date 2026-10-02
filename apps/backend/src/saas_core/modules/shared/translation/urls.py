@@ -5,12 +5,18 @@ from .views import (
     GlossaryDetailView,
     GlossaryListView,
     GlossaryUpdatePreviewView,
+    JobDetailView,
+    JobListView,
+    QuoteView,
     TranslationOfferView,
     TranslationSettingsPreviewView,
     TranslationSettingsView,
 )
 
 urlpatterns = [
+    path("quotes/", QuoteView.as_view(), name="translation-quotes"),
+    path("jobs/", JobListView.as_view(), name="translation-jobs"),
+    path("jobs/<uuid:job_id>/", JobDetailView.as_view(), name="translation-job"),
     path("offer/", TranslationOfferView.as_view(), name="translation-offer"),
     path("settings/", TranslationSettingsView.as_view(), name="translation-settings"),
     path(

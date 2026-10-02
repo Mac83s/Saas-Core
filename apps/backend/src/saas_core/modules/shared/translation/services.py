@@ -17,6 +17,7 @@ from typing import Any
 from uuid import UUID
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
@@ -644,8 +645,10 @@ def translation_offer() -> dict[str, Any]:
         reasons.append(UNAVAILABLE_SUSPENDED)
     if not platform and not state["processing_acknowledged"]:
         reasons.append(UNAVAILABLE_PROCESSING_ACK)
-    # Jobs and their worker arrive with TL6b.
-    reasons.append(UNAVAILABLE_WORKER)
+    from .tasks import WORKER_SEEN
+
+    if not cache.get(WORKER_SEEN):
+        reasons.append(UNAVAILABLE_WORKER)
     return {
         "available": not reasons,
         "reasons": list(dict.fromkeys(reasons)),

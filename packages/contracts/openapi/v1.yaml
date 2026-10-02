@@ -15788,6 +15788,157 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/translation/jobs/:
+    get:
+      operationId: translation_job_list
+      description: The company's translation jobs, newest first, paged by `cursor`.
+      summary: Translation jobs
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          minLength: 1
+        description: From the previous page.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: translation_job_create
+      description: Orders the quote with this digest at the credits it showed, as
+        the person sending it. A changed quote is 409 `translation_quote_changed`
+        with the new quote in `quote`; a changed price is 409 `credit_price_changed`;
+        translation that cannot run now is 503 `translation_unavailable` with `reasons`.
+        A repeated Idempotency-Key answers the first job again.
+      summary: Order a translation
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/jobs/{job_id}/:
+    get:
+      operationId: translation_job_retrieve
+      description: The job with its parts (credits held and settled) and items (object
+        × language, state, delivered characters and what the source answered).
+      summary: A translation job
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/translation/offer/:
     get:
       operationId: translation_offer_retrieve
@@ -15812,6 +15963,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/translation/quotes/:
+    post:
+      operationId: translation_quote_create
+      description: Counts what would be translated for each (object, language), what
+        it costs, what would wait for a person and why, and seals it in a digest an
+        order must carry. Nothing is saved; the same content gives the same digest.
+      summary: Quote a translation
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'A calculation: nothing is saved, a repeat answers the same.'
   /api/v1/translation/settings/:
     get:
       operationId: translation_settings_retrieve
@@ -16828,6 +17029,14 @@ components:
       - ends_at
       - reason
       - starts_at
+    BasisEnum:
+      enum:
+      - published
+      - working
+      type: string
+      description: |-
+        * `published` - published
+        * `working` - working
     BillingDetails:
       type: object
       description: What the panel shows and sends back for the invoice form.
@@ -21069,6 +21278,141 @@ components:
       - id
       - role
       - status
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          type: string
+        trigger:
+          type: string
+        billing:
+          type: string
+        units:
+          type: integer
+        credits:
+          type: integer
+        error_code:
+          type: string
+        next_attempt_at:
+          type: string
+          format: date-time
+          description: When the job continues, e.g. after waiting for the model pool.
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        finished_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        parts:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobPart'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobItem'
+      required:
+      - billing
+      - created_at
+      - credits
+      - error_code
+      - finished_at
+      - id
+      - items
+      - next_attempt_at
+      - parts
+      - started_at
+      - state
+      - trigger
+      - units
+    JobItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_key:
+          type: string
+        object_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        state:
+          type: string
+        quoted_characters:
+          type: integer
+        delivered_characters:
+          type: integer
+        outcomes:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        error_code:
+          type: string
+      required:
+      - delivered_characters
+      - error_code
+      - id
+      - locale
+      - object_id
+      - outcomes
+      - quoted_characters
+      - source_key
+      - state
+    JobPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+      required:
+      - items
+      - next_cursor
+    JobPart:
+      type: object
+      properties:
+        index:
+          type: integer
+        units:
+          type: integer
+        state:
+          type: string
+        deadline_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        delivered_characters:
+          type: integer
+        settled_units:
+          type: integer
+        settled_credits:
+          type: integer
+      required:
+      - deadline_at
+      - delivered_characters
+      - index
+      - settled_credits
+      - settled_units
+      - state
+      - units
     KeptSection:
       type: object
       properties:
@@ -21948,6 +22292,40 @@ components:
       - idempotency_key
       - resource_id
       - resource_type
+    OrderRequest:
+      type: object
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Target'
+          description: The (object, language) pairs to translate.
+        protected:
+          allOf:
+          - $ref: '#/components/schemas/ProtectedEnum'
+          default: propose
+          description: |-
+            Texts a person or an integration wrote: skip them, send changes as proposals that wait for a person, or overwrite them (a person's choice only).
+
+            * `skip` - skip
+            * `propose` - propose
+            * `overwrite` - overwrite
+        include_unverified:
+          type: boolean
+          default: false
+          description: Also propose over texts written before provenance existed.
+        digest:
+          type: string
+          description: The digest of the quote agreed to.
+          maxLength: 64
+        expected_credits:
+          type: integer
+          minimum: 0
+          description: The credits the quote showed.
+      required:
+      - digest
+      - expected_credits
+      - targets
     OrganizationArchived:
       type: object
       properties:
@@ -24287,6 +24665,16 @@ components:
       - resource_id
       - resource_type
       - restored_version
+    ProtectedEnum:
+      enum:
+      - skip
+      - propose
+      - overwrite
+      type: string
+      description: |-
+        * `skip` - skip
+        * `propose` - propose
+        * `overwrite` - overwrite
     ProviderStatus:
       type: object
       properties:
@@ -24932,6 +25320,137 @@ components:
       - status
       - timezone
       - title
+    Quote:
+      type: object
+      properties:
+        digest:
+          type: string
+          description: Send it with the order.
+        available:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+        characters:
+          type: integer
+        units:
+          type: integer
+          description: 1,000 characters × language, rounded up per part.
+        unit_cost:
+          type: integer
+        credits:
+          type: integer
+        mode:
+          type: string
+        protected:
+          type: string
+        include_unverified:
+          type: boolean
+        parts:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+        waiting:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Lines whose results wait, by reason.
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteLine'
+      required:
+      - available
+      - characters
+      - credits
+      - digest
+      - include_unverified
+      - lines
+      - mode
+      - parts
+      - protected
+      - reasons
+      - unit_cost
+      - units
+      - waiting
+    QuoteLine:
+      type: object
+      properties:
+        source_key:
+          type: string
+        object_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        basis:
+          type: string
+        characters:
+          type: integer
+          description: Visible source characters to translate.
+        proposals:
+          type: integer
+          description: Units sent as proposals over people's text.
+        proposal_characters:
+          type: integer
+        skipped:
+          type: object
+          additionalProperties:
+            type: integer
+          description: 'Units left out, by reason: fresh, blocked, copied, not_sendable,
+            protected, unverified.'
+        outcome:
+          type: string
+          description: 'Where the results land: live, draft or pending.'
+        reason:
+          type:
+          - string
+          - 'null'
+          description: Why they wait, when they do.
+        excluded:
+          type:
+          - string
+          - 'null'
+          description: 'Why nothing is sent: in_progress, source_unpublished…'
+      required:
+      - basis
+      - characters
+      - excluded
+      - locale
+      - object_id
+      - outcome
+      - proposal_characters
+      - proposals
+      - reason
+      - skipped
+      - source_key
+    QuoteRequest:
+      type: object
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Target'
+          description: The (object, language) pairs to translate.
+        protected:
+          allOf:
+          - $ref: '#/components/schemas/ProtectedEnum'
+          default: propose
+          description: |-
+            Texts a person or an integration wrote: skip them, send changes as proposals that wait for a person, or overwrite them (a person's choice only).
+
+            * `skip` - skip
+            * `propose` - propose
+            * `overwrite` - overwrite
+        include_unverified:
+          type: boolean
+          default: false
+          description: Also propose over texts written before provenance existed.
+      required:
+      - targets
     Registration:
       type: object
       properties:
@@ -27454,6 +27973,32 @@ components:
           maxLength: 500
       required:
       - reason
+    Target:
+      type: object
+      properties:
+        source_key:
+          type: string
+          description: A registered source, e.g. sites.page.
+        object_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+          description: A language enabled for the company.
+          maxLength: 10
+        basis:
+          allOf:
+          - $ref: '#/components/schemas/BasisEnum'
+          default: published
+          description: |-
+            published: what visitors see; working: the draft open in the editor.
+
+            * `published` - published
+            * `working` - working
+      required:
+      - locale
+      - object_id
+      - source_key
     TaskStatus:
       type: object
       properties:
