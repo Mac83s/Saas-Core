@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import hashlib
-import json
 import uuid
 from typing import Any
 
@@ -11,17 +9,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+# Re-exported: the site modules import the digest from here (ADR-076 §3).
+from saas_core.modules.core.organizations.canonical import (
+    canonical_json_hash as canonical_json_hash,
+)
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
-
-
-def canonical_json_hash(value: Any) -> str:
-    serialized = json.dumps(
-        value,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    return hashlib.sha256(serialized).hexdigest()
 
 
 class SitePurpose(models.TextChoices):

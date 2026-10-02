@@ -4,7 +4,6 @@ import base64
 import hashlib
 import hmac
 import ipaddress
-import json
 import socket
 import time
 from collections.abc import Callable
@@ -14,6 +13,9 @@ from urllib.parse import urlsplit
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.core.exceptions import ValidationError
+
+# Re-exported for the webhook signers that import it from here.
+from saas_core.modules.core.organizations.canonical import canonical_json as canonical_json
 
 from .metrics import SIGNATURE_FAILURES
 
@@ -82,10 +84,6 @@ def verify_provider_webhook(*, body: bytes, timestamp: str, signature: str) -> N
     ):
         SIGNATURE_FAILURES.labels(kind="provider_email").inc()
         raise ValidationError("Nieprawidłowy podpis webhooka.")
-
-
-def canonical_json(value: dict[str, Any]) -> bytes:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
 
 
 def _fernet() -> Fernet:
