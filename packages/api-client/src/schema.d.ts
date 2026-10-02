@@ -5076,6 +5076,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/translation/glossary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company's glossary
+         * @description Terms a translation keeps or renders the company's way, ordered by language and term, paged by `cursor`.
+         */
+        get: operations["translation_glossary_list"];
+        put?: never;
+        /**
+         * Add a glossary term
+         * @description Adds a term: one line of at most 120 characters, no tokens, up to 10 inflected forms; a company has at most 500. Terms are data for the model, never instructions. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `translation_idempotency_conflict`. `expected_version` is the version the change was made on; another one is 409 `translation_version_conflict`.
+         */
+        post: operations["translation_glossary_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/glossary/{term_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a glossary term
+         * @description Removes the term at the version given in `expected_version`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `translation_idempotency_conflict`. `expected_version` is the version the change was made on; another one is 409 `translation_version_conflict`.
+         */
+        delete: operations["translation_glossary_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a glossary term
+         * @description Changes the fields sent; null leaves a field as it is. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `translation_idempotency_conflict`. `expected_version` is the version the change was made on; another one is 409 `translation_version_conflict`.
+         */
+        patch: operations["translation_glossary_update"];
+        trace?: never;
+    };
+    "/api/v1/translation/glossary/{term_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a glossary term without saving it
+         * @description Validates a change as `translation_glossary_update` would. Nothing is saved: the answer is what the write would leave, with `changes`, or the same 400, 403, 404 and 409 the write would answer.
+         */
+        post: operations["translation_glossary_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/glossary/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a new glossary term without adding it
+         * @description Validates a term as `translation_glossary_create` would. Nothing is saved: the answer is what the write would leave, with `changes`, or the same 400, 403, 404 and 409 the write would answer.
+         */
+        post: operations["translation_glossary_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/offer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What translation the company can order now
+         * @description Whether a translation can be ordered now and why not, the effective publication mode with its source, the automation's state, the price unit and every translation setting with its variants, bounds, defaults and pl/en labels.
+         */
+        get: operations["translation_offer_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company's translation settings
+         * @description Each setting with the company's own value (null: inherited), the value in force, its source and the operator's lock with the reason; the version token; who consented to the automation and whether content processing was acknowledged.
+         */
+        get: operations["translation_settings_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's translation settings
+         * @description Changes the publication mode, the automation and its monthly limit. An absent or null field stays as it is; `reset` takes keys back to the inherited value. Turning the automation on, and acknowledging processing, is the consent of the person sending it and is refused to API keys and to the assistant on its own. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `translation_idempotency_conflict`. `expected_version` is the version the change was made on; another one is 409 `translation_version_conflict`.
+         */
+        patch: operations["translation_settings_update"];
+        trace?: never;
+    };
+    "/api/v1/translation/settings/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a settings change without saving it
+         * @description Validates a change as `translation_settings_update` would. Nothing is saved: the answer is what the write would leave, with `changes`, or the same 400, 403, 404 and 409 the write would answer.
+         */
+        post: operations["translation_settings_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5398,6 +5550,15 @@ export interface components {
          * @enum {string}
          */
         AutomationPolicyEnum: "manual" | "proposed" | "automated";
+        AutomationState: {
+            /**
+             * Format: uuid
+             * @description The person whose consent the automation acts on.
+             */
+            consent_membership_id: string | null;
+            /** Format: date-time */
+            consent_at: string | null;
+        };
         AwayInterval: {
             /** Format: date-time */
             starts_at: string;
@@ -6558,6 +6719,71 @@ export interface components {
         GenericMessage: {
             detail: string;
         };
+        GlossaryPage: {
+            items: components["schemas"]["GlossaryTerm"][];
+            next_cursor: string | null;
+        };
+        GlossaryTerm: {
+            /** Format: uuid */
+            readonly id: string;
+            term: string;
+            rule: components["schemas"]["RuleEnum"];
+            source_locale: string;
+            target_locale?: string;
+            translation?: string;
+            forms?: unknown;
+            version?: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        GlossaryTermInput: {
+            /** @description As written in the source. */
+            term: string;
+            /**
+             * @description keep: unchanged everywhere; name: a person's name, transliterated into Cyrillic; translate_as: your translation.
+             *
+             *     * `keep` - Keep
+             *     * `name` - Name
+             *     * `translate_as` - Translate as
+             */
+            rule: components["schemas"]["RuleEnum"];
+            source_locale: string;
+            /** @description Empty: every language. */
+            target_locale?: string;
+            /** @description translate_as only. */
+            translation?: string;
+            /** @description Inflected forms in the source language, at most 10. */
+            forms?: string[];
+        };
+        GlossaryTermPreview: {
+            /** Format: uuid */
+            readonly id: string;
+            term: string;
+            rule: components["schemas"]["RuleEnum"];
+            source_locale: string;
+            target_locale?: string;
+            translation?: string;
+            forms?: unknown;
+            version?: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly changes: {
+                [key: string]: unknown;
+            };
+        };
+        GlossaryTermUpdate: {
+            term?: string | null;
+            rule?: components["schemas"]["RuleEnum"] | components["schemas"]["NullEnum"];
+            source_locale?: string | null;
+            target_locale?: string | null;
+            translation?: string | null;
+            forms?: string[] | null;
+            expected_version: number;
+        };
         GrantRevoke: {
             reason: string;
         };
@@ -7378,6 +7604,26 @@ export interface components {
             visible: boolean;
         };
         NullEnum: null;
+        OfferAutomation: {
+            /**
+             * Format: uuid
+             * @description The person whose consent the automation acts on.
+             */
+            consent_membership_id: string | null;
+            /** Format: date-time */
+            consent_at: string | null;
+            enabled: boolean;
+            monthly_limit: number;
+        };
+        OfferBilling: {
+            /** @description credits, or platform_budget for the platform workspace. */
+            mode: string;
+            operation_key: string;
+            /** @description Visible source characters in one unit, per target language. */
+            unit_characters: number;
+            /** @description Null while the price is not set (operation_unpriced). */
+            credits_per_unit: number | null;
+        };
         OperationStatus: {
             idempotency_key: string;
             found: boolean;
@@ -7776,6 +8022,15 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        PatchedGlossaryTermUpdate: {
+            term?: string | null;
+            rule?: components["schemas"]["RuleEnum"] | components["schemas"]["NullEnum"];
+            source_locale?: string | null;
+            target_locale?: string | null;
+            translation?: string | null;
+            forms?: string[] | null;
+            expected_version?: number;
+        };
         /** @description A change to a group: only the fields sent change. */
         PatchedGroupUpdate: {
             name?: string;
@@ -7922,6 +8177,25 @@ export interface components {
         PatchedTeamUpdate: {
             name?: string;
             member_ids?: string[];
+        };
+        PatchedTranslationSettingsUpdate: {
+            /**
+             * @description automatic or review; null leaves it as it is.
+             *
+             *     * `automatic` - automatic
+             *     * `review` - review
+             */
+            mode?: components["schemas"]["TranslationModeEnum"] | components["schemas"]["NullEnum"];
+            /** @description Translate changes automatically. Turning it on is your consent: the automation will act as you. */
+            auto_changes?: boolean | null;
+            /** @description Credits a month translations without a click may spend; 0 turns it off. */
+            auto_monthly_limit?: number | null;
+            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA. Only true is accepted. */
+            processing_acknowledged?: boolean | null;
+            /** @description Keys to take back to the inherited value. */
+            reset?: ("translation.settings.mode" | "translation.settings.auto_changes" | "translation.settings.auto_monthly_limit")[] | null;
+            /** @description The settings version this change was made on. */
+            expected_version?: number;
         };
         /** @description What a person may change about themselves from the panel. */
         PatchedUserUpdate: {
@@ -8658,6 +8932,13 @@ export interface components {
             limited: boolean;
             version: number;
         };
+        /**
+         * @description * `keep` - Keep
+         *     * `name` - Name
+         *     * `translate_as` - Translate as
+         * @enum {string}
+         */
+        RuleEnum: "keep" | "name" | "translate_as";
         ScheduleCreate: {
             kind: components["schemas"]["ScheduleCreateKindEnum"];
             /** Format: uuid */
@@ -8812,6 +9093,26 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
+        SettingDeclaration: {
+            key: string;
+            /** @description enum, bool or int. */
+            kind: string;
+            /** @description organization or platform. */
+            scope: string;
+            /** @description override, or restrict: the strictest of company, operator and ceiling. */
+            strategy: string;
+            default: unknown;
+            variants: components["schemas"]["SettingVariant"][];
+            minimum: number | null;
+            maximum: number | null;
+            unit: string;
+            labels: {
+                [key: string]: string;
+            };
+            help: {
+                [key: string]: string;
+            };
+        };
         /**
          * @description One setting a company may choose, with what it may choose; the shape of
          *     an entry of the settings registry's schema (ADR-078 pkt 11).
@@ -8853,9 +9154,28 @@ export interface components {
          * @enum {string}
          */
         SettingUnitEnum: "minute" | "hour" | "day" | "percent";
+        SettingValue: {
+            /** @description The company's own value; null when it inherits. */
+            value: unknown | null;
+            /** @description What applies now, after defaults and locks. */
+            effective: unknown;
+            /** @description code, product, organization, operator or platform. */
+            source: string;
+            /** @description The operator or the deployment decides it now. */
+            locked: boolean;
+            lock_reason: string | null;
+            /** @description The operator's reason, shown to the company. */
+            operator_reason: string | null;
+        };
         SettingValueOption: {
             value: string;
             label: components["schemas"]["LocalizedText"];
+        };
+        SettingVariant: {
+            value: string;
+            labels: {
+                [key: string]: string;
+            };
         };
         Setup: {
             services: components["schemas"]["ServiceSetup"][];
@@ -9621,6 +9941,22 @@ export interface components {
             secret: string;
             provisioning_uri: string;
         };
+        /**
+         * @description * `automatic` - automatic
+         *     * `review` - review
+         * @enum {string}
+         */
+        TranslationModeEnum: "automatic" | "review";
+        TranslationOffer: {
+            available: boolean;
+            /** @description Why not: processor_not_listed, model_not_selected, operation_unpriced, worker_unavailable, disabled, suspended, processing_ack_required. */
+            reasons: string[];
+            mode: components["schemas"]["SettingValue"];
+            automation: components["schemas"]["OfferAutomation"];
+            billing: components["schemas"]["OfferBilling"];
+            settings: components["schemas"]["SettingDeclaration"][];
+            glossary_limit: number;
+        };
         TranslationOverview: {
             locales: string[];
             items: components["schemas"]["TranslationOverviewRow"][];
@@ -9661,6 +9997,57 @@ export interface components {
          * @enum {string}
          */
         TranslationOverviewRowKindEnum: "page" | "entry";
+        TranslationSettings: {
+            group: string;
+            /** @description Send it back as `expected_version`. */
+            version: number;
+            /** @description By setting key: translation.settings.mode, .auto_changes, .auto_monthly_limit. */
+            values: {
+                [key: string]: components["schemas"]["SettingValue"];
+            };
+            automation: components["schemas"]["AutomationState"];
+            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA. */
+            processing_acknowledged: boolean;
+            /** Format: date-time */
+            processing_ack_at: string | null;
+        };
+        TranslationSettingsPreview: {
+            group: string;
+            /** @description Send it back as `expected_version`. */
+            version: number;
+            /** @description By setting key: translation.settings.mode, .auto_changes, .auto_monthly_limit. */
+            values: {
+                [key: string]: components["schemas"]["SettingValue"];
+            };
+            automation: components["schemas"]["AutomationState"];
+            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA. */
+            processing_acknowledged: boolean;
+            /** Format: date-time */
+            processing_ack_at: string | null;
+            /** @description What would change, as the history keeps it. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        TranslationSettingsUpdate: {
+            /**
+             * @description automatic or review; null leaves it as it is.
+             *
+             *     * `automatic` - automatic
+             *     * `review` - review
+             */
+            mode?: components["schemas"]["TranslationModeEnum"] | components["schemas"]["NullEnum"];
+            /** @description Translate changes automatically. Turning it on is your consent: the automation will act as you. */
+            auto_changes?: boolean | null;
+            /** @description Credits a month translations without a click may spend; 0 turns it off. */
+            auto_monthly_limit?: number | null;
+            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA. Only true is accepted. */
+            processing_acknowledged?: boolean | null;
+            /** @description Keys to take back to the inherited value. */
+            reset?: ("translation.settings.mode" | "translation.settings.auto_changes" | "translation.settings.auto_monthly_limit")[] | null;
+            /** @description The settings version this change was made on. */
+            expected_version: number;
+        };
         TrialActivationCreate: {
             checkout_session_id: string;
         };
@@ -25544,6 +25931,507 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteTemplate"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_glossary_list: {
+        parameters: {
+            query?: {
+                /** @description From the previous page. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlossaryPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_glossary_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GlossaryTermInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GlossaryTermInput"];
+                "multipart/form-data": components["schemas"]["GlossaryTermInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlossaryTerm"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_glossary_delete: {
+        parameters: {
+            query: {
+                expected_version: number;
+            };
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_glossary_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedGlossaryTermUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedGlossaryTermUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedGlossaryTermUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlossaryTerm"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_glossary_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GlossaryTermUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["GlossaryTermUpdate"];
+                "multipart/form-data": components["schemas"]["GlossaryTermUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlossaryTermPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_glossary_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GlossaryTermInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GlossaryTermInput"];
+                "multipart/form-data": components["schemas"]["GlossaryTermInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlossaryTermPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_offer_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationOffer"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_settings_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_settings_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTranslationSettingsUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTranslationSettingsUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedTranslationSettingsUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_settings_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranslationSettingsUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["TranslationSettingsUpdate"];
+                "multipart/form-data": components["schemas"]["TranslationSettingsUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationSettingsPreview"];
                 };
             };
             400: {

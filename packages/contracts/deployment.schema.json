@@ -94,6 +94,12 @@
         }
       }
     },
+    "settingsDefaults": {
+      "description": "The product's starting values for settings (ADR-078 pkt 14): setting key → value, e.g. {\"translation.settings.mode\": \"review\"}. A starting value only, never a ceiling; each module checks its keys when the backend starts.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" },
+      "additionalProperties": { "type": ["boolean", "string", "number"] }
+    },
     "features": {
       "type": "object",
       "additionalProperties": {

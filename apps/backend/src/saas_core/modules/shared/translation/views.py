@@ -1,0 +1,293 @@
+"""`/api/v1/translation/` — operable by the AI assistant (ADR-069 pkt 28, ADR-076 pkt 7).
+
+Every operation has an explicit id and description; every write a required
+Idempotency-Key; every preview `x-dry-run`; validation errors are 400
+ProblemDetails with `errors [{field, code, message}]`.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework.exceptions import ParseError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+
+from .serializers import (
+    GlossaryDeleteQuerySerializer,
+    GlossaryPageSerializer,
+    GlossaryQuerySerializer,
+    GlossaryTermInputSerializer,
+    GlossaryTermPreviewSerializer,
+    GlossaryTermSerializer,
+    GlossaryTermUpdateSerializer,
+    TranslationOfferSerializer,
+    TranslationSettingsPreviewSerializer,
+    TranslationSettingsSerializer,
+    TranslationSettingsUpdateSerializer,
+)
+from .services import (
+    change_settings,
+    create_glossary_term,
+    delete_glossary_term,
+    list_glossary,
+    read_settings,
+    translation_offer,
+    update_glossary_term,
+)
+
+IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
+_PROBLEMS = {
+    400: ProblemDetailsSerializer,
+    403: ProblemDetailsSerializer,
+    404: ProblemDetailsSerializer,
+    409: ProblemDetailsSerializer,
+}
+_PREVIEW = {"x-dry-run": True}
+_PREVIEW_NOTE = (
+    " Nothing is saved: the answer is what the write would leave, with `changes`, or the same "
+    "400, 403, 404 and 409 the write would answer."
+)
+_WRITE_NOTE = (
+    " A repeated Idempotency-Key answers the first result again; the key reused on another "
+    "request is 409 `translation_idempotency_conflict`. `expected_version` is the version the "
+    "change was made on; another one is 409 `translation_version_conflict`."
+)
+
+
+def _idem(request: Request) -> str:
+    value = request.headers.get("Idempotency-Key", "").strip()
+    if not value or len(value) > 160:
+        raise ParseError("Wymagany jest prawidłowy Idempotency-Key.")
+    return value
+
+
+class TranslationOfferView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_offer_retrieve",
+        summary="What translation the company can order now",
+        description="Whether a translation can be ordered now and why not, the effective "
+        "publication mode with its source, the automation's state, the price unit and every "
+        "translation setting with its variants, bounds, defaults and pl/en labels.",
+        tags=["translation"],
+        responses={200: TranslationOfferSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(TranslationOfferSerializer(translation_offer()).data)
+
+
+def _settings_input(request: Request) -> tuple[dict[str, Any], list[str], int]:
+    serializer = TranslationSettingsUpdateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    return (
+        serializer.changes(),
+        list(serializer.validated_data.get("reset") or ()),
+        serializer.validated_data["expected_version"],
+    )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TranslationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_settings_retrieve",
+        summary="The company's translation settings",
+        description="Each setting with the company's own value (null: inherited), the value "
+        "in force, its source and the operator's lock with the reason; the version token; who "
+        "consented to the automation and whether content processing was acknowledged.",
+        tags=["translation"],
+        responses={200: TranslationSettingsSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(TranslationSettingsSerializer(read_settings()).data)
+
+    @extend_schema(
+        operation_id="translation_settings_update",
+        summary="Change the company's translation settings",
+        description="Changes the publication mode, the automation and its monthly limit. An "
+        "absent or null field stays as it is; `reset` takes keys back to the inherited value. "
+        "Turning the automation on, and acknowledging processing, is the consent of the person "
+        "sending it and is refused to API keys and to the assistant on its own." + _WRITE_NOTE,
+        tags=["translation"],
+        parameters=[IDEMPOTENCY],
+        request=TranslationSettingsUpdateSerializer,
+        responses={200: TranslationSettingsSerializer, **_PROBLEMS},
+    )
+    def patch(self, request: Request) -> Response:
+        changes, reset, version = _settings_input(request)
+        saved = change_settings(
+            changes=changes,
+            reset=reset,
+            expected_version=version,
+            idempotency_key=_idem(request),
+        )
+        return Response(TranslationSettingsSerializer(saved.value).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TranslationSettingsPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_settings_preview",
+        summary="Check a settings change without saving it",
+        description="Validates a change as `translation_settings_update` would." + _PREVIEW_NOTE,
+        tags=["translation"],
+        request=TranslationSettingsUpdateSerializer,
+        responses={200: TranslationSettingsPreviewSerializer, **_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        changes, reset, version = _settings_input(request)
+        saved = change_settings(
+            changes=changes, reset=reset, expected_version=version, preview=True
+        )
+        return Response(
+            TranslationSettingsPreviewSerializer({**saved.value, "changes": saved.changes}).data
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class GlossaryListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_glossary_list",
+        summary="The company's glossary",
+        description="Terms a translation keeps or renders the company's way, ordered by "
+        "language and term, paged by `cursor`.",
+        tags=["translation"],
+        parameters=[GlossaryQuerySerializer],
+        responses={
+            200: GlossaryPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = GlossaryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        items, next_cursor = list_glossary(
+            cursor=query.validated_data.get("cursor"), limit=query.validated_data["limit"]
+        )
+        return Response({
+            "items": GlossaryTermSerializer(items, many=True).data,
+            "next_cursor": next_cursor,
+        })
+
+    @extend_schema(
+        operation_id="translation_glossary_create",
+        summary="Add a glossary term",
+        description="Adds a term: one line of at most 120 characters, no tokens, up to 10 "
+        "inflected forms; a company has at most 500. Terms are data for the model, never "
+        "instructions." + _WRITE_NOTE,
+        tags=["translation"],
+        parameters=[IDEMPOTENCY],
+        request=GlossaryTermInputSerializer,
+        responses={201: GlossaryTermSerializer, **_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = GlossaryTermInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        saved = create_glossary_term(
+            data=dict(serializer.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(GlossaryTermSerializer(saved.value).data, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class GlossaryCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_glossary_create_preview",
+        summary="Check a new glossary term without adding it",
+        description="Validates a term as `translation_glossary_create` would." + _PREVIEW_NOTE,
+        tags=["translation"],
+        request=GlossaryTermInputSerializer,
+        responses={200: GlossaryTermPreviewSerializer, **_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        serializer = GlossaryTermInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        saved = create_glossary_term(data=dict(serializer.validated_data), preview=True)
+        return Response({**GlossaryTermSerializer(saved.value).data, "changes": saved.changes})
+
+
+def _term_update(request: Request) -> tuple[dict[str, Any], int]:
+    serializer = GlossaryTermUpdateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = dict(serializer.validated_data)
+    return data, data.pop("expected_version")
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class GlossaryDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_glossary_update",
+        summary="Change a glossary term",
+        description="Changes the fields sent; null leaves a field as it is." + _WRITE_NOTE,
+        tags=["translation"],
+        parameters=[IDEMPOTENCY],
+        request=GlossaryTermUpdateSerializer,
+        responses={200: GlossaryTermSerializer, **_PROBLEMS},
+    )
+    def patch(self, request: Request, term_id: UUID) -> Response:
+        data, version = _term_update(request)
+        saved = update_glossary_term(
+            term_id=term_id, data=data, expected_version=version, idempotency_key=_idem(request)
+        )
+        return Response(GlossaryTermSerializer(saved.value).data)
+
+    @extend_schema(
+        operation_id="translation_glossary_delete",
+        summary="Remove a glossary term",
+        description="Removes the term at the version given in `expected_version`." + _WRITE_NOTE,
+        tags=["translation"],
+        parameters=[IDEMPOTENCY, GlossaryDeleteQuerySerializer],
+        responses={204: None, **_PROBLEMS},
+    )
+    def delete(self, request: Request, term_id: UUID) -> Response:
+        query = GlossaryDeleteQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        delete_glossary_term(
+            term_id=term_id,
+            expected_version=query.validated_data["expected_version"],
+            idempotency_key=_idem(request),
+        )
+        return Response(status=204)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class GlossaryUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_glossary_update_preview",
+        summary="Check a change to a glossary term without saving it",
+        description="Validates a change as `translation_glossary_update` would." + _PREVIEW_NOTE,
+        tags=["translation"],
+        request=GlossaryTermUpdateSerializer,
+        responses={200: GlossaryTermPreviewSerializer, **_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, term_id: UUID) -> Response:
+        data, version = _term_update(request)
+        saved = update_glossary_term(
+            term_id=term_id, data=data, expected_version=version, preview=True
+        )
+        return Response({**GlossaryTermSerializer(saved.value).data, "changes": saved.changes})

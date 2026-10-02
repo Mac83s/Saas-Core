@@ -15444,6 +15444,516 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/translation/glossary/:
+    get:
+      operationId: translation_glossary_list
+      description: Terms a translation keeps or renders the company's way, ordered
+        by language and term, paged by `cursor`.
+      summary: The company's glossary
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          minLength: 1
+        description: From the previous page.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlossaryPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: translation_glossary_create
+      description: 'Adds a term: one line of at most 120 characters, no tokens, up
+        to 10 inflected forms; a company has at most 500. Terms are data for the model,
+        never instructions. A repeated Idempotency-Key answers the first result again;
+        the key reused on another request is 409 `translation_idempotency_conflict`.
+        `expected_version` is the version the change was made on; another one is 409
+        `translation_version_conflict`.'
+      summary: Add a glossary term
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlossaryTerm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/glossary/{term_id}/:
+    patch:
+      operationId: translation_glossary_update
+      description: Changes the fields sent; null leaves a field as it is. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `translation_idempotency_conflict`. `expected_version` is the
+        version the change was made on; another one is 409 `translation_version_conflict`.
+      summary: Change a glossary term
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: term_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGlossaryTermUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGlossaryTermUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGlossaryTermUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlossaryTerm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: translation_glossary_delete
+      description: Removes the term at the version given in `expected_version`. A
+        repeated Idempotency-Key answers the first result again; the key reused on
+        another request is 409 `translation_idempotency_conflict`. `expected_version`
+        is the version the change was made on; another one is 409 `translation_version_conflict`.
+      summary: Remove a glossary term
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: expected_version
+        schema:
+          type: integer
+          minimum: 1
+        required: true
+      - in: path
+        name: term_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/glossary/{term_id}/preview/:
+    post:
+      operationId: translation_glossary_update_preview
+      description: 'Validates a change as `translation_glossary_update` would. Nothing
+        is saved: the answer is what the write would leave, with `changes`, or the
+        same 400, 403, 404 and 409 the write would answer.'
+      summary: Check a change to a glossary term without saving it
+      parameters:
+      - in: path
+        name: term_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlossaryTermPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/translation/glossary/preview/:
+    post:
+      operationId: translation_glossary_create_preview
+      description: 'Validates a term as `translation_glossary_create` would. Nothing
+        is saved: the answer is what the write would leave, with `changes`, or the
+        same 400, 403, 404 and 409 the write would answer.'
+      summary: Check a new glossary term without adding it
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GlossaryTermInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlossaryTermPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/translation/offer/:
+    get:
+      operationId: translation_offer_retrieve
+      description: Whether a translation can be ordered now and why not, the effective
+        publication mode with its source, the automation's state, the price unit and
+        every translation setting with its variants, bounds, defaults and pl/en labels.
+      summary: What translation the company can order now
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationOffer'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/settings/:
+    get:
+      operationId: translation_settings_retrieve
+      description: 'Each setting with the company''s own value (null: inherited),
+        the value in force, its source and the operator''s lock with the reason; the
+        version token; who consented to the automation and whether content processing
+        was acknowledged.'
+      summary: The company's translation settings
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: translation_settings_update
+      description: Changes the publication mode, the automation and its monthly limit.
+        An absent or null field stays as it is; `reset` takes keys back to the inherited
+        value. Turning the automation on, and acknowledging processing, is the consent
+        of the person sending it and is refused to API keys and to the assistant on
+        its own. A repeated Idempotency-Key answers the first result again; the key
+        reused on another request is 409 `translation_idempotency_conflict`. `expected_version`
+        is the version the change was made on; another one is 409 `translation_version_conflict`.
+      summary: Change the company's translation settings
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTranslationSettingsUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTranslationSettingsUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTranslationSettingsUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/settings/preview/:
+    post:
+      operationId: translation_settings_preview
+      description: 'Validates a change as `translation_settings_update` would. Nothing
+        is saved: the answer is what the write would leave, with `changes`, or the
+        same 400, 403, 404 and 409 the write would answer.'
+      summary: Check a settings change without saving it
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslationSettingsUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TranslationSettingsUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TranslationSettingsUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
 components:
   schemas:
     ActiveOrganization:
@@ -16284,6 +16794,23 @@ components:
         * `manual` - manual
         * `proposed` - proposed
         * `automated` - automated
+    AutomationState:
+      type: object
+      properties:
+        consent_membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The person whose consent the automation acts on.
+        consent_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - consent_at
+      - consent_membership_id
     AwayInterval:
       type: object
       properties:
@@ -19220,6 +19747,185 @@ components:
           type: string
       required:
       - detail
+    GlossaryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GlossaryTerm'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+      required:
+      - items
+      - next_cursor
+    GlossaryTerm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        term:
+          type: string
+          maxLength: 120
+        rule:
+          $ref: '#/components/schemas/RuleEnum'
+        source_locale:
+          type: string
+          maxLength: 10
+        target_locale:
+          type: string
+          maxLength: 10
+        translation:
+          type: string
+          maxLength: 120
+        forms: {}
+        version:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - rule
+      - source_locale
+      - term
+      - updated_at
+    GlossaryTermInput:
+      type: object
+      properties:
+        term:
+          type: string
+          description: As written in the source.
+          maxLength: 120
+        rule:
+          allOf:
+          - $ref: '#/components/schemas/RuleEnum'
+          description: |-
+            keep: unchanged everywhere; name: a person's name, transliterated into Cyrillic; translate_as: your translation.
+
+            * `keep` - Keep
+            * `name` - Name
+            * `translate_as` - Translate as
+        source_locale:
+          type: string
+          maxLength: 10
+        target_locale:
+          type: string
+          description: 'Empty: every language.'
+          maxLength: 10
+        translation:
+          type: string
+          description: translate_as only.
+          maxLength: 120
+        forms:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          description: Inflected forms in the source language, at most 10.
+          maxItems: 10
+      required:
+      - rule
+      - source_locale
+      - term
+    GlossaryTermPreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        term:
+          type: string
+          maxLength: 120
+        rule:
+          $ref: '#/components/schemas/RuleEnum'
+        source_locale:
+          type: string
+          maxLength: 10
+        target_locale:
+          type: string
+          maxLength: 10
+        translation:
+          type: string
+          maxLength: 120
+        forms: {}
+        version:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        changes:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+      required:
+      - changes
+      - created_at
+      - id
+      - rule
+      - source_locale
+      - term
+      - updated_at
+    GlossaryTermUpdate:
+      type: object
+      properties:
+        term:
+          type:
+          - string
+          - 'null'
+          maxLength: 120
+        rule:
+          oneOf:
+          - $ref: '#/components/schemas/RuleEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        source_locale:
+          type:
+          - string
+          - 'null'
+          maxLength: 10
+        target_locale:
+          type:
+          - string
+          - 'null'
+          maxLength: 10
+        translation:
+          type:
+          - string
+          - 'null'
+          maxLength: 120
+        forms:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 10
+        expected_version:
+          type: integer
+          minimum: 1
+      required:
+      - expected_version
     GrantRevoke:
       type: object
       properties:
@@ -21171,6 +21877,50 @@ components:
       - page_id
     NullEnum:
       type: 'null'
+    OfferAutomation:
+      type: object
+      properties:
+        consent_membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The person whose consent the automation acts on.
+        consent_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        enabled:
+          type: boolean
+        monthly_limit:
+          type: integer
+      required:
+      - consent_at
+      - consent_membership_id
+      - enabled
+      - monthly_limit
+    OfferBilling:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: credits, or platform_budget for the platform workspace.
+        operation_key:
+          type: string
+        unit_characters:
+          type: integer
+          description: Visible source characters in one unit, per target language.
+        credits_per_unit:
+          type:
+          - integer
+          - 'null'
+          description: Null while the price is not set (operation_unpriced).
+      required:
+      - credits_per_unit
+      - mode
+      - operation_key
+      - unit_characters
     OperationStatus:
       type: object
       properties:
@@ -22188,6 +22938,44 @@ components:
           type: string
         active:
           type: boolean
+    PatchedGlossaryTermUpdate:
+      type: object
+      properties:
+        term:
+          type:
+          - string
+          - 'null'
+          maxLength: 120
+        rule:
+          oneOf:
+          - $ref: '#/components/schemas/RuleEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        source_locale:
+          type:
+          - string
+          - 'null'
+          maxLength: 10
+        target_locale:
+          type:
+          - string
+          - 'null'
+          maxLength: 10
+        translation:
+          type:
+          - string
+          - 'null'
+          maxLength: 120
+        forms:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 10
+        expected_version:
+          type: integer
+          minimum: 1
     PatchedGroupUpdate:
       type: object
       description: 'A change to a group: only the fields sent change.'
@@ -22545,6 +23333,57 @@ components:
             type: string
             format: uuid
           maxItems: 100
+    PatchedTranslationSettingsUpdate:
+      type: object
+      properties:
+        mode:
+          description: |-
+            automatic or review; null leaves it as it is.
+
+            * `automatic` - automatic
+            * `review` - review
+          oneOf:
+          - $ref: '#/components/schemas/TranslationModeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        auto_changes:
+          type:
+          - boolean
+          - 'null'
+          description: 'Translate changes automatically. Turning it on is your consent:
+            the automation will act as you.'
+        auto_monthly_limit:
+          type:
+          - integer
+          - 'null'
+          maximum: 100000
+          minimum: 0
+          description: Credits a month translations without a click may spend; 0 turns
+            it off.
+        processing_acknowledged:
+          type:
+          - boolean
+          - 'null'
+          description: Confirm once that content goes to OpenRouter and model providers
+            outside the EEA. Only true is accepted.
+        reset:
+          type:
+          - array
+          - 'null'
+          items:
+            enum:
+            - translation.settings.mode
+            - translation.settings.auto_changes
+            - translation.settings.auto_monthly_limit
+            type: string
+            description: |-
+              * `translation.settings.mode` - translation.settings.mode
+              * `translation.settings.auto_changes` - translation.settings.auto_changes
+              * `translation.settings.auto_monthly_limit` - translation.settings.auto_monthly_limit
+          description: Keys to take back to the inherited value.
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The settings version this change was made on.
     PatchedUserUpdate:
       type: object
       description: What a person may change about themselves from the panel.
@@ -24383,6 +25222,16 @@ components:
       - permissions
       - scope
       - version
+    RuleEnum:
+      enum:
+      - keep
+      - name
+      - translate_as
+      type: string
+      description: |-
+        * `keep` - Keep
+        * `name` - Name
+        * `translate_as` - Translate as
     ScheduleCreate:
       type: object
       properties:
@@ -24793,6 +25642,56 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SettingDeclaration:
+      type: object
+      properties:
+        key:
+          type: string
+        kind:
+          type: string
+          description: enum, bool or int.
+        scope:
+          type: string
+          description: organization or platform.
+        strategy:
+          type: string
+          description: 'override, or restrict: the strictest of company, operator
+            and ceiling.'
+        default: {}
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingVariant'
+        minimum:
+          type:
+          - integer
+          - 'null'
+        maximum:
+          type:
+          - integer
+          - 'null'
+        unit:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        help:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - default
+      - help
+      - key
+      - kind
+      - labels
+      - maximum
+      - minimum
+      - scope
+      - strategy
+      - unit
+      - variants
     SettingOption:
       type: object
       description: |-
@@ -24889,6 +25788,38 @@ components:
         * `hour` - hour
         * `day` - day
         * `percent` - percent
+    SettingValue:
+      type: object
+      properties:
+        value:
+          oneOf:
+          - {}
+          - type: 'null'
+          description: The company's own value; null when it inherits.
+        effective:
+          description: What applies now, after defaults and locks.
+        source:
+          type: string
+          description: code, product, organization, operator or platform.
+        locked:
+          type: boolean
+          description: The operator or the deployment decides it now.
+        lock_reason:
+          type:
+          - string
+          - 'null'
+        operator_reason:
+          type:
+          - string
+          - 'null'
+          description: The operator's reason, shown to the company.
+      required:
+      - effective
+      - lock_reason
+      - locked
+      - operator_reason
+      - source
+      - value
     SettingValueOption:
       type: object
       properties:
@@ -24898,6 +25829,18 @@ components:
           $ref: '#/components/schemas/LocalizedText'
       required:
       - label
+      - value
+    SettingVariant:
+      type: object
+      properties:
+        value:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - labels
       - value
     Setup:
       type: object
@@ -26797,6 +27740,45 @@ components:
       required:
       - provisioning_uri
       - secret
+    TranslationModeEnum:
+      enum:
+      - automatic
+      - review
+      type: string
+      description: |-
+        * `automatic` - automatic
+        * `review` - review
+    TranslationOffer:
+      type: object
+      properties:
+        available:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+          description: 'Why not: processor_not_listed, model_not_selected, operation_unpriced,
+            worker_unavailable, disabled, suspended, processing_ack_required.'
+        mode:
+          $ref: '#/components/schemas/SettingValue'
+        automation:
+          $ref: '#/components/schemas/OfferAutomation'
+        billing:
+          $ref: '#/components/schemas/OfferBilling'
+        settings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingDeclaration'
+        glossary_limit:
+          type: integer
+      required:
+      - automation
+      - available
+      - billing
+      - glossary_limit
+      - mode
+      - reasons
+      - settings
     TranslationOverview:
       type: object
       properties:
@@ -26884,6 +27866,128 @@ components:
       description: |-
         * `page` - page
         * `entry` - entry
+    TranslationSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: integer
+          description: Send it back as `expected_version`.
+        values:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SettingValue'
+          description: 'By setting key: translation.settings.mode, .auto_changes,
+            .auto_monthly_limit.'
+        automation:
+          $ref: '#/components/schemas/AutomationState'
+        processing_acknowledged:
+          type: boolean
+          description: The company confirmed that content goes to OpenRouter and model
+            providers outside the EEA.
+        processing_ack_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - automation
+      - group
+      - processing_ack_at
+      - processing_acknowledged
+      - values
+      - version
+    TranslationSettingsPreview:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: integer
+          description: Send it back as `expected_version`.
+        values:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SettingValue'
+          description: 'By setting key: translation.settings.mode, .auto_changes,
+            .auto_monthly_limit.'
+        automation:
+          $ref: '#/components/schemas/AutomationState'
+        processing_acknowledged:
+          type: boolean
+          description: The company confirmed that content goes to OpenRouter and model
+            providers outside the EEA.
+        processing_ack_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        changes:
+          type: object
+          additionalProperties: {}
+          description: What would change, as the history keeps it.
+      required:
+      - automation
+      - changes
+      - group
+      - processing_ack_at
+      - processing_acknowledged
+      - values
+      - version
+    TranslationSettingsUpdate:
+      type: object
+      properties:
+        mode:
+          description: |-
+            automatic or review; null leaves it as it is.
+
+            * `automatic` - automatic
+            * `review` - review
+          oneOf:
+          - $ref: '#/components/schemas/TranslationModeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        auto_changes:
+          type:
+          - boolean
+          - 'null'
+          description: 'Translate changes automatically. Turning it on is your consent:
+            the automation will act as you.'
+        auto_monthly_limit:
+          type:
+          - integer
+          - 'null'
+          maximum: 100000
+          minimum: 0
+          description: Credits a month translations without a click may spend; 0 turns
+            it off.
+        processing_acknowledged:
+          type:
+          - boolean
+          - 'null'
+          description: Confirm once that content goes to OpenRouter and model providers
+            outside the EEA. Only true is accepted.
+        reset:
+          type:
+          - array
+          - 'null'
+          items:
+            enum:
+            - translation.settings.mode
+            - translation.settings.auto_changes
+            - translation.settings.auto_monthly_limit
+            type: string
+            description: |-
+              * `translation.settings.mode` - translation.settings.mode
+              * `translation.settings.auto_changes` - translation.settings.auto_changes
+              * `translation.settings.auto_monthly_limit` - translation.settings.auto_monthly_limit
+          description: Keys to take back to the inherited value.
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The settings version this change was made on.
+      required:
+      - expected_version
     TrialActivationCreate:
       type: object
       properties:

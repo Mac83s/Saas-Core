@@ -161,6 +161,9 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "shared.inventory": lambda: [
         path("api/v1/inventory/", include("saas_core.modules.shared.inventory.urls"))
     ],
+    "shared.translation": lambda: [
+        path("api/v1/translation/", include("saas_core.modules.shared.translation.urls"))
+    ],
     "shared.model-port": lambda: [
         path("api/v1/model-port/", include("saas_core.modules.shared.model_port.urls"))
     ],

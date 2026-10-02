@@ -232,7 +232,12 @@
       "booking_team_updated": "Team changed",
       "booking_team_deleted": "Team deleted",
       "booking_appointment_crew_changed": "Visit crew changed",
-      "booking_appointment_place_changed": "Changed the visit's place"
+      "booking_appointment_place_changed": "Changed the visit's place",
+      "translation_settings_changed": "Changed the translation settings",
+      "translation_glossary_term_created": "Added a glossary term",
+      "translation_glossary_term_updated": "Changed a glossary term",
+      "translation_glossary_term_deleted": "Removed a glossary term",
+      "translation_operator_override": "The operator changed the translation settings"
     },
     "fields": {
       "name": "Name",

@@ -232,7 +232,12 @@
       "booking_team_updated": "Zmieniono zespół",
       "booking_team_deleted": "Usunięto zespół",
       "booking_appointment_crew_changed": "Zmieniono skład wizyty",
-      "booking_appointment_place_changed": "Zmieniono miejsce wizyty"
+      "booking_appointment_place_changed": "Zmieniono miejsce wizyty",
+      "translation_settings_changed": "Zmieniono ustawienia tłumaczeń",
+      "translation_glossary_term_created": "Dodano termin do glosariusza",
+      "translation_glossary_term_updated": "Zmieniono termin glosariusza",
+      "translation_glossary_term_deleted": "Usunięto termin z glosariusza",
+      "translation_operator_override": "Operator zmienił ustawienia tłumaczeń"
     },
     "fields": {
       "name": "Nazwa",

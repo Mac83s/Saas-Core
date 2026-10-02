@@ -867,6 +867,9 @@ SPECTACULAR_SETTINGS = {
         "TypeEnum": ["module_run.finished"],
         "SettingTypeEnum": "saas_core.modules.core.organizations.options.SETTING_TYPES",
         "SettingUnitEnum": "saas_core.modules.core.organizations.options.SETTING_UNITS",
+        # The translation mode must not rename the warehouse document's mode.
+        "ModeEnum": ["consume", "sale"],
+        "TranslationModeEnum": ["automatic", "review"],
     },
 }
 
@@ -925,6 +928,9 @@ MODEL_PORT_WEB_CALLS_PER_PROCESS = int(os.environ.get("MODEL_PORT_WEB_CALLS_PER_
 #: The CMD of the backend image reads the same variable, so a call made from a
 #: request is cut to what a graceful restart waits for.
 GUNICORN_GRACEFUL_TIMEOUT = float(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", "20"))
+#: The product's starting values for settings (ADR-078 pkt 14): key → value.
+#: A starting value, never a ceiling; each module checks its own keys at start.
+SETTINGS_DEFAULTS: dict[str, Any] = dict(_deployment_profile.get("settingsDefaults") or {})
 #: The profile's `ai.sendableDataClasses`: what may reach a model at all.
 MODEL_PORT_SENDABLE_DATA_CLASSES = tuple(
     (_deployment_profile.get("ai") or {}).get("sendableDataClasses")
