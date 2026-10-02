@@ -124,6 +124,23 @@ def test_registration_validation_uses_problem_details_without_losing_field_error
     assert response["Content-Type"] == "application/problem+json"
     assert response.data["code"] == "invalid"
     assert "password" in response.data["detail"]
+    # The field's own length check answers first; Django's validators never see it.
+    assert [(error["field"], error["code"]) for error in response.data["errors"]] == [
+        ("password", "min_length")
+    ]
+
+
+def test_a_password_validator_code_reaches_the_field_errors() -> None:
+    response = APIClient().post(
+        REGISTER_URL,
+        {"email": "digits@example.com", "password": "481516234207", "locale": "pl"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert ("password", "password_entirely_numeric") in {
+        (error["field"], error["code"]) for error in response.data["errors"]
+    }
 
 
 def test_resend_has_the_same_response_for_present_and_missing_accounts() -> None:

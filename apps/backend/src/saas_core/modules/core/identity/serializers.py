@@ -39,13 +39,54 @@ class CsrfTokenSerializer(serializers.Serializer[dict[str, Any]]):
     csrf_token = serializers.CharField()
 
 
+class ProblemFieldErrorSerializer(serializers.Serializer[dict[str, Any]]):
+    field = serializers.CharField(
+        allow_null=True,
+        help_text=(
+            "Path of the failing value in the request data (body or query): segments "
+            "joined with dots, list positions as numbers (`address.city`, `items.1.name`). "
+            "Null when the error concerns the request as a whole."
+        ),
+    )
+    code = serializers.CharField(
+        help_text=(
+            "Machine-readable reason: a validation code (`required`, `max_length`, "
+            "`invalid_choice`), a Django validator's code or a domain code."
+        )
+    )
+    message = serializers.CharField(
+        help_text="A sentence for a person, in the server's language; for display only."
+    )
+
+
 class ProblemDetailsSerializer(serializers.Serializer[dict[str, Any]]):
-    type = serializers.CharField()
-    title = serializers.CharField()
-    status = serializers.IntegerField()
-    code = serializers.CharField()
-    detail = serializers.JSONField()
-    correlation_id = serializers.CharField(allow_null=True)
+    type = serializers.CharField(help_text="Always `about:blank`; `code` names the problem.")
+    title = serializers.CharField(help_text="A fixed, generic title in the server's language.")
+    status = serializers.IntegerField(help_text="The HTTP status of the response.")
+    code = serializers.CharField(
+        help_text=(
+            "Stable machine-readable code of the problem; clients branch on it. Input "
+            "validation answers `invalid` unless the operation names a domain code."
+        )
+    )
+    detail = serializers.JSONField(
+        help_text=(
+            "For display only: a sentence, or for input validation a map of field to "
+            "messages. A program reads `code` and `errors` instead."
+        )
+    )
+    correlation_id = serializers.CharField(
+        allow_null=True,
+        help_text="The request's `X-Correlation-ID`, to quote when reporting the problem.",
+    )
+    errors = ProblemFieldErrorSerializer(  # type: ignore[assignment]
+        many=True,
+        required=False,
+        help_text=(
+            "On 400 and 422 only, never empty: each problem the caller can act on, with "
+            "the failing field (or null for the whole request), its code and a message."
+        ),
+    )
 
 
 class LoginSerializer(serializers.Serializer[dict[str, Any]]):
