@@ -779,16 +779,20 @@ function NewAppointmentForm({
     form.setFocus("time");
   }
 
+  // A group the section gives replaces the whole group: switching from one
+  // farm to another must not keep the first one's street or phone.
   function fill(values: ProductVisitFill) {
-    const set = (field: keyof NewValues, value?: string) => {
-      if (value !== undefined)
-        form.setValue(field, value, { shouldDirty: true });
-    };
-    set("display_name", values.customer?.display_name);
-    set("phone", values.customer?.phone);
-    set("email", values.customer?.email);
-    set("place_town", values.place?.town);
-    set("place_address", values.place?.address);
+    const set = (field: keyof NewValues, value = "") =>
+      form.setValue(field, value, { shouldDirty: true });
+    if (values.customer) {
+      set("display_name", values.customer.display_name);
+      set("phone", values.customer.phone);
+      set("email", values.customer.email);
+    }
+    if (values.place) {
+      set("place_town", values.place.town);
+      set("place_address", values.place.address);
+    }
   }
 
   function add(value: string) {
@@ -845,9 +849,9 @@ function NewAppointmentForm({
         ? { materials: materialsInput(edited) }
         : {}),
     };
-    const checked = section?.check(sectionValue, input);
-    setSectionErrors(checked ?? {});
-    if (checked) {
+    const checked = section?.check(sectionValue, input) ?? {};
+    setSectionErrors(checked);
+    if (Object.keys(checked).length) {
       setProblem(t("sectionInvalid"));
       return;
     }
@@ -1421,7 +1425,7 @@ function AppointmentDetails({
             <dd>
               <a
                 className="font-medium break-all text-primary hover:underline"
-                href={`mailto:${appointment.customer_email}`}
+                href={`mailto:${encodeURIComponent(appointment.customer_email)}`}
               >
                 {appointment.customer_email}
               </a>

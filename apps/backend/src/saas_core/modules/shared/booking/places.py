@@ -10,15 +10,23 @@ Core knows no product by name, so a module registers from its own
 
 - `register_appointment_place`: the town of visits it knows (a herd visit's
   farm), shown where the visit's own place is empty;
-- `register_place_search`: places the company keeps (its farms), offered in the
-  visit form, so choosing one fills the town and the address.
+- `register_place_search`: places the company keeps, offered in the visit
+  form as „Zapisane miejsce”, so choosing one fills the town and the address.
+  (HoofCare offers its farms in its own section of the form instead, ADR-067.)
+
+A provider answers without its module's permission with nothing, never with an
+error; one that fails anyway is logged and skipped, inside a savepoint, so the
+change the caller has just made and the rest of the list stand.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from uuid import UUID
+
+from django.db import transaction
 
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
@@ -45,6 +53,8 @@ PlaceSearch = Callable[[str, int], Sequence[PlaceSuggestion]]
 _providers: dict[str, PlaceProvider] = {}
 _searches: dict[str, PlaceSearch] = {}
 
+logger = logging.getLogger(__name__)
+
 
 def register_appointment_place(name: str, provider: PlaceProvider) -> None:
     _providers[name] = provider
@@ -60,8 +70,14 @@ def appointment_places(ids: Sequence[UUID]) -> dict[UUID, str]:
     places: dict[UUID, str] = {}
     if not ids:
         return places
-    for provider in _providers.values():
-        for key, value in provider(ids).items():
+    for name, provider in _providers.items():
+        try:
+            with transaction.atomic():
+                answer = provider(ids)
+        except Exception:
+            logger.exception("Dostawca miejsca wizyty zawiódł.", extra={"provider": name})
+            continue
+        for key, value in answer.items():
             if value:
                 places.setdefault(key, value)
     return places
@@ -78,8 +94,13 @@ def search_places(query: str = "", limit: int = 200) -> list[PlaceSuggestion]:
     authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
     limit = max(1, min(limit, 500))
     found: list[PlaceSuggestion] = []
-    for search in _searches.values():
-        found.extend(search(query.strip(), limit - len(found)))
+    for name, search in _searches.items():
+        try:
+            with transaction.atomic():
+                found.extend(search(query.strip(), limit - len(found)))
+        except Exception:
+            logger.exception("Wyszukiwanie miejsc zawiodło.", extra={"provider": name})
+            continue
         if len(found) >= limit:
             break
     return found[:limit]

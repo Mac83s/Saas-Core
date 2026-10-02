@@ -47,9 +47,11 @@ concurrency are both harder than they look.
   `place_address` say it first (set in the form or `PUT …/place/`); where they
   are empty, a product's `booking.api.register_appointment_place(name,
   provider)` may — ids in, town per id out, one call per list. The panel shows
-  the result as `place`. A product's `register_place_search` offers the
-  company's places in the form (HoofCare: farms). The street can be a
-  customer's home: never in the audit, cleared on anonymization.
+  the result as `place`. A product's `register_place_search` may offer the
+  company's places in the form as „Zapisane miejsce” (HoofCare offers its farms
+  in its own section instead, ADR-067). The street can be a customer's home:
+  never in the audit, cleared on anonymization, and in a visit's payload only
+  for whoever sees the customer's phone.
 - **A product's kind of visit is booked by the product (ADR-067).** The slot
   `src/product/calendar.tsx` puts its section in „Nowa wizyta” for its
   `appointment_kind`s; the section takes over „Zapisz” and books atomically

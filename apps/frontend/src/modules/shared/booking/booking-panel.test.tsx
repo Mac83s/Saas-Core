@@ -81,6 +81,17 @@ vi.mock("../../../product/calendar", () => ({
           >
             Pick the farm
           </button>
+          <button
+            onClick={() =>
+              props.fill({
+                customer: { display_name: "Ewa Nowak" },
+                place: { town: "Zalesie" },
+              })
+            }
+            type="button"
+          >
+            Pick another farm
+          </button>
           {props.errors.farm ? <p>{props.errors.farm}</p> : null}
         </fieldset>
       );
@@ -157,6 +168,8 @@ const appointment = {
   location_name: "Centrum",
   resource_name: "Room",
   place: null,
+  place_town: "",
+  place_address: "",
   appointment_kind: "",
   flags: [],
   customer_phone: null,
@@ -695,6 +708,17 @@ test("a product's kind of visit: its section fills the form and books the visit 
   expect(window.location.search).toContain(`service_id=${FIELD}`);
   expect(window.location.search).toContain("farm=farm-1");
 
+  // Another farm replaces the whole customer and place, not just what it names.
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Pick the farm" }),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Pick another farm" }),
+  );
+  expect(within(dialog).getByLabelText("Phone")).toHaveValue("");
+  expect(
+    within(dialog).getByLabelText("Address (street and number)"),
+  ).toHaveValue("");
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Pick the farm" }),
   );
@@ -728,6 +752,98 @@ test("a product's kind of visit: its section fills the form and books the visit 
   expect(api.createBookingAppointment).not.toHaveBeenCalled();
 });
 
+test("a link's farm belongs to the form it opened, not to the next one", async () => {
+  address.params = new URLSearchParams(`new=1&service_id=${FIELD}&farm=farm-1`);
+  api.getBookingCatalog.mockResolvedValue({
+    ...catalog,
+    services: [
+      ...catalog.services,
+      {
+        ...catalog.services[0],
+        id: FIELD,
+        name: "Field visit",
+        appointment_kind: "test.field",
+      },
+    ],
+  });
+  renderCalendar({ access: ACCESS });
+  const first = await screen.findByRole("dialog", { name: "New appointment" });
+  expect(within(first).getByLabelText("Service")).toHaveValue(FIELD);
+  fireEvent.click(within(first).getByRole("button", { name: "Cancel" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "New appointment" }),
+    ).toBeNull(),
+  );
+  expect(window.location.search).not.toContain("farm=");
+  fireEvent.click(screen.getByRole("button", { name: "New appointment" }));
+  const second = await screen.findByRole("dialog", {
+    name: "New appointment",
+  });
+  expect(within(second).getByLabelText("Service")).toHaveValue("");
+  expect(window.location.search).not.toContain("farm=");
+});
+
+test("the server's word on a field is shown at that field", async () => {
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T07:00:00Z",
+        ends_at: "2026-08-20T07:30:00Z",
+        staff_id: ALEX,
+        resource_id: ROOM,
+      },
+    ],
+  });
+  api.createBookingAppointment.mockRejectedValue(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Bad request",
+      status: 400,
+      code: "invalid",
+      detail: { place_town: ["Podaj miejscowość do tej ulicy."] },
+      correlation_id: null,
+    }),
+  );
+  renderCalendar();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "New appointment" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  fireEvent.change(within(dialog).getByLabelText("Service"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "09:00" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Full name"), {
+    target: { value: "Jan Kowalski" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Phone"), {
+    target: { value: "600 100 200" },
+  });
+  fireEvent.change(
+    within(dialog).getByLabelText("Address (street and number)"),
+    { target: { value: "Polna 3" } },
+  );
+  await waitFor(() =>
+    expect(within(dialog).getByText("This time is free.")).not.toBeNull(),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Save appointment" }),
+  );
+  expect(
+    await within(dialog).findByText("Podaj miejscowość do tej ulicy."),
+  ).not.toBeNull();
+  expect(within(dialog).getByLabelText("Town")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+});
+
 test("a visit's details: phone and e-mail to use, a map to the place, and the product's part", async () => {
   api.listBookingAppointments.mockResolvedValue([
     {
@@ -749,7 +865,7 @@ test("a visit's details: phone and e-mail to use, a map to the place, and the pr
   ).toHaveAttribute("href", "tel:+48600100200");
   expect(
     within(details).getByRole("link", { name: "jan@wies.test" }),
-  ).toHaveAttribute("href", "mailto:jan@wies.test");
+  ).toHaveAttribute("href", "mailto:jan%40wies.test");
   expect(
     within(details)
       .getByRole("link", { name: /Navigate/ })

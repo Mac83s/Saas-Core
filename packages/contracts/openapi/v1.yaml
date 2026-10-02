@@ -1221,6 +1221,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/appointments/{appointment_id}/reschedule/:
     post:
       operationId: api_v1_booking_appointments_reschedule_create
@@ -1451,6 +1469,12 @@ paths:
                 $ref: '#/components/schemas/VisitPlaceSuggestionList'
           description: ''
         '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
           content:
             application/json:
               schema:
@@ -12193,7 +12217,8 @@ components:
             (ADR-067).
         place_address:
           type: string
-          description: Street and number of the visit's own place, or empty.
+          description: Street and number of the visit's own place, or empty; empty
+            also for whoever may not see the customer's phone.
         resource_name:
           type:
           - string
@@ -12253,6 +12278,8 @@ components:
       - location_name
       - needs_assignment
       - place
+      - place_address
+      - place_town
       - queue_reason
       - queued_at
       - requested_staff_id
@@ -12315,7 +12342,7 @@ components:
           maxLength: 120
         place_address:
           type: string
-          description: Street and number in that town; optional.
+          description: Street and number in that town; optional, and only with a town.
           maxLength: 240
       required:
       - customer
@@ -18630,7 +18657,8 @@ components:
             (ADR-067).
         place_address:
           type: string
-          description: Street and number of the visit's own place, or empty.
+          description: Street and number of the visit's own place, or empty; empty
+            also for whoever may not see the customer's phone.
         resource_name:
           type:
           - string
@@ -18690,6 +18718,8 @@ components:
       - location_name
       - needs_assignment
       - place
+      - place_address
+      - place_town
       - queue_reason
       - queued_at
       - requested_staff_id
@@ -20876,7 +20906,7 @@ components:
           maxLength: 120
         address:
           type: string
-          description: Street and number; optional.
+          description: Street and number; optional, and only with a town.
           maxLength: 240
       required:
       - town

@@ -49,11 +49,11 @@ def worker(member: Membership, email: str, *, role: str = "staff") -> Membership
     return Membership.objects.create(organization=member.organization, user=user, role=system)
 
 
-def contacts(member: Membership) -> dict[str, tuple[Any, Any]]:
+def contacts(member: Membership) -> dict[str, tuple[Any, Any, Any]]:
     response = authenticated_client(member).get("/api/v1/booking/appointments/")
     assert response.status_code == 200, response.content
     return {
-        item["id"]: (item["customer_phone"], item["customer_email"])
+        item["id"]: (item["customer_phone"], item["customer_email"], item["place_address"])
         for item in response.json()["items"]
     }
 
@@ -66,7 +66,10 @@ def test_the_phone_is_for_whoever_plans_and_whoever_goes(monkeypatch: pytest.Mon
     with tenant(owner):
         visit.customer.phone = "+48 600 100 200"
         visit.customer.save(update_fields=["phone"])
+        visit.place_town, visit.place_address = "Wólka", "Polna 3"
+        visit.save(update_fields=["place_town", "place_address"])
     going = worker(owner, "jedzie@example.test")
+    leading = worker(owner, "prowadzi@example.test")
     staying = worker(owner, "zostaje@example.test")
     manager = worker(owner, "biuro@example.test", role="manager")
     with tenant(owner):
@@ -83,16 +86,37 @@ def test_the_phone_is_for_whoever_plans_and_whoever_goes(monkeypatch: pytest.Mon
             staff=person,
             occupied_range=(visit.occupied_from, visit.occupied_until),
         )
-    seen = ("+48 600 100 200", "jan@example.test")
+        # „leading” is the visit's lead, with no vacancy on it.
+        configured["staff"].membership_id = leading.id
+        configured["staff"].save(update_fields=["membership_id"])
+    seen = ("+48 600 100 200", "jan@example.test", "Polna 3")
+    hidden = (None, None, "")
     assert contacts(owner) == {str(visit.id): seen}
     assert contacts(manager) == {str(visit.id): seen}
     assert contacts(going) == {str(visit.id): seen}
-    # Somebody of the same company who does not go sees the visit, not the number.
-    assert contacts(staying) == {str(visit.id): (None, None)}
+    assert contacts(leading) == {str(visit.id): seen}
+    # Somebody of the same company who does not go sees the visit and its town,
+    # not the number or the street.
+    assert contacts(staying) == {str(visit.id): hidden}
+    response = authenticated_client(staying).get("/api/v1/booking/appointments/")
+    assert response.json()["items"][0]["place"] == "Wólka"
 
     with tenant(owner):
         AppointmentStaffAllocation.all_objects.filter(staff=person).update(active=False)
-    assert contacts(going) == {str(visit.id): (None, None)}
+    assert contacts(going) == {str(visit.id): hidden}
+
+    # A called-off visit: whoever was on it still sees whom to tell.
+    with tenant(owner):
+        AppointmentStaffAllocation.all_objects.filter(staff=person).update(active=True)
+    cancel = authenticated_client(owner).post(
+        f"/api/v1/booking/appointments/{visit.id}/cancel/",
+        {},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="kontakt-odwolanie",
+    )
+    assert cancel.status_code == 200, cancel.content
+    assert contacts(going) == {str(visit.id): seen}
+    assert contacts(staying) == {str(visit.id): hidden}
 
 
 def test_a_visit_says_its_kind_and_the_flags_a_product_puts_on_it(
@@ -117,3 +141,20 @@ def test_a_visit_says_its_kind_and_the_flags_a_product_puts_on_it(
     assert item["flags"] == ["farm_missing"]
     # One question for the list, each visit with its kind.
     assert asked == [{visit.id: ""}]
+
+    # A provider that fails costs its own flags, never the list or a change.
+    def broken(kinds: Mapping[UUID, str]) -> dict[UUID, list[str]]:
+        raise RuntimeError("module down")
+
+    register_appointment_flags("test-broken", broken)
+    response = client.get("/api/v1/booking/appointments/")
+    assert response.status_code == 200
+    assert response.json()["items"][0]["flags"] == ["farm_missing"]
+    canceled = client.post(
+        f"/api/v1/booking/appointments/{visit.id}/cancel/",
+        {},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="znaczniki-odwolanie",
+    )
+    assert canceled.status_code == 200, canceled.content
+    assert canceled.json()["status"] == "canceled"

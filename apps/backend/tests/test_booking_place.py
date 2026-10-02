@@ -155,6 +155,11 @@ def test_only_whoever_books_visits_sets_the_place_and_never_on_a_called_off_one(
     assert stranger.put(url, {"town": "X"}, format="json").status_code == 404
     too_long = client.put(url, {"town": "x" * 121}, format="json")
     assert too_long.status_code == 400
+    # A street needs its town; the answer names the field.
+    street_only = client.put(url, {"town": "", "address": "Polna 3"}, format="json")
+    assert street_only.status_code == 400
+    assert "town" in street_only.json()["detail"]
+    assert book(client, configured, "p-2", place_address="Polna 3").status_code == 400
 
     client.post(
         f"/api/v1/booking/appointments/{visit['id']}/cancel/",

@@ -213,9 +213,15 @@ class DemoRun:
             user = User.objects.create_user(email, self.password, status=UserStatus.ACTIVE)
             self.log(f"+ konto {email}")
         else:
+            # An operator's or a switched-off account is never a demo account,
+            # whatever its address: the seed does not reset it.
+            if user.is_staff or user.is_superuser or user.status != UserStatus.ACTIVE:
+                raise ValueError(
+                    f"Konto {email} nie jest kontem demo (operator albo wyłączone); "
+                    "dane demo go nie zmienią."
+                )
             # Demo accounts only (.test): the password is the one given now.
             user.set_password(self.password)
-            user.status = UserStatus.ACTIVE
         user.first_name, user.last_name = person.first_name, person.last_name
         user.save()
         self.users[email] = user
@@ -224,6 +230,18 @@ class DemoRun:
     def _organization(self, spec: DemoOrganization, owner: User) -> Organization:
         found = Organization.objects.using(PRE_TENANT_DB).filter(slug=spec.slug).first()
         if found is not None:
+            # A slug is not a claim: the seed goes on only with an organization
+            # its own scenario's owner owns, never takes over somebody else's.
+            with transaction.atomic():
+                set_local_organization_id(found.id)
+                owned = Membership.objects.filter(
+                    organization=found, user=owner, role__key="owner"
+                ).exists()
+            if not owned:
+                raise ValueError(
+                    f"Organizacja {spec.slug} należy do kogoś innego niż {owner.email}; "
+                    "dane demo jej nie przejmą."
+                )
             self.log(f"= organizacja {spec.name}")
             return found
         organization_type = spec.organization_type or str(settings.DEFAULT_ORGANIZATION_TYPE)

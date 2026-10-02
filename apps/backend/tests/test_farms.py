@@ -178,6 +178,30 @@ def test_the_search_finds_a_card_by_phone_or_e_mail_and_can_skip_closed_ones() -
         assert closed.id not in [item.id for item in list_farms(active_only=True)]
 
 
+def test_a_card_is_written_only_with_its_own_fields() -> None:
+    import uuid  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.services import create_farm, update_farm  # noqa: PLC0415
+
+    member = membership("tylko-pola")
+    other = membership("tylko-pola-obca")
+    foreign = uuid.uuid4()
+    with tenant(member) as request:
+        # A caller of the public API cannot pick the row's id or its company.
+        farm = create_farm(
+            request=request,
+            data={"name": "Kowal", "id": foreign, "organization_id": other.organization_id},
+        )
+        assert farm.id != foreign
+        assert farm.organization_id == member.organization_id
+        moved = update_farm(
+            request=request,
+            farm_id=farm.id,
+            data={"village": "Wólka", "organization_id": other.organization_id},
+        )
+        assert (moved.village, moved.organization_id) == ("Wólka", member.organization_id)
+
+
 def test_a_farm_is_identified_by_its_herd_number_and_audited() -> None:
     from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
         create_farm,

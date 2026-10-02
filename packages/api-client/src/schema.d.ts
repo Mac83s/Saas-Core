@@ -4118,7 +4118,7 @@ export interface components {
             /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
             /** @description The visit's own „Miejsce wizyty”: its town, or empty. */
-            place_town?: string;
+            place_town: string;
             /** @description The customer's phone, for whoever plans visits and the people on it. */
             customer_phone: string | null;
             /** @description The customer's e-mail, for whoever plans visits and the people on it. */
@@ -4127,8 +4127,8 @@ export interface components {
             appointment_kind: string;
             /** @description Marks a product puts on the visit's card, e.g. farm_missing (ADR-067). */
             flags: string[];
-            /** @description Street and number of the visit's own place, or empty. */
-            place_address?: string;
+            /** @description Street and number of the visit's own place, or empty; empty also for whoever may not see the customer's phone. */
+            place_address: string;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
@@ -4165,7 +4165,7 @@ export interface components {
             customer_notes?: string;
             /** @description „Miejsce wizyty”: the town, when the visit is not at the company's location. */
             place_town?: string;
-            /** @description Street and number in that town; optional. */
+            /** @description Street and number in that town; optional, and only with a town. */
             place_address?: string;
         };
         AppointmentList: {
@@ -6665,15 +6665,15 @@ export interface components {
             /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
             /** @description The visit's own „Miejsce wizyty”: its town, or empty. */
-            place_town?: string;
+            place_town: string;
             customer_phone: string;
             customer_email: string;
             /** @description The kind of the visit's service; a product's own kinds name its visits. */
             appointment_kind: string;
             /** @description Marks a product puts on the visit's card, e.g. farm_missing (ADR-067). */
             flags: string[];
-            /** @description Street and number of the visit's own place, or empty. */
-            place_address?: string;
+            /** @description Street and number of the visit's own place, or empty; empty also for whoever may not see the customer's phone. */
+            place_address: string;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
@@ -7569,7 +7569,7 @@ export interface components {
         VisitPlaceInput: {
             /** @description The town. */
             town: string;
-            /** @description Street and number; optional. */
+            /** @description Street and number; optional, and only with a town. */
             address?: string;
         };
         /** @description A place the company keeps (a farm, say); choosing it fills the visit's place. */
@@ -8992,6 +8992,30 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     api_v1_booking_appointments_reschedule_create: {
@@ -9209,6 +9233,14 @@ export interface operations {
                 };
             };
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

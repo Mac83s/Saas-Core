@@ -20,6 +20,8 @@ from django.core.management.base import BaseCommand, CommandError, CommandParser
 from ...demo import run_demo
 
 MINIMUM_PASSWORD_LENGTH = 12
+#: The stacks demo data may land on: a developer's machine, the staging VPS, tests.
+DEMO_ENVIRONMENTS = frozenset({"local", "staging", "test"})
 
 
 class Command(BaseCommand):
@@ -38,7 +40,9 @@ class Command(BaseCommand):
     def handle(self, *_args: Any, **options: Any) -> None:
         if os.environ.get("DEMO_SEED_ENABLED") != "1":
             raise CommandError("Dane demo są wyłączone: ustaw DEMO_SEED_ENABLED=1 na tym stosie.")
-        if settings.APP_ENV == "production" or getattr(settings, "STRIPE_LIVEMODE", False):
+        # An allowlist, not a deny list: an environment added later (production)
+        # is refused until somebody decides otherwise.
+        if settings.APP_ENV not in DEMO_ENVIRONMENTS or getattr(settings, "STRIPE_LIVEMODE", False):
             raise CommandError("Dane demo nie trafiają na produkcję ani do Stripe w trybie live.")
         password = self._password(bool(options["password_stdin"]))
         try:

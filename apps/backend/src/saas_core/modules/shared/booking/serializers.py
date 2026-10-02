@@ -103,8 +103,19 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         allow_blank=True,
         max_length=240,
-        help_text="Street and number in that town; optional.",
+        help_text="Street and number in that town; optional, and only with a town.",
     )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        _street_needs_town(
+            attrs.get("place_town", ""), attrs.get("place_address", ""), "place_town"
+        )
+        return attrs
+
+
+def _street_needs_town(town: str, address: str, town_field: str) -> None:
+    if address.strip() and not town.strip():
+        raise serializers.ValidationError({town_field: "Podaj miejscowość do tej ulicy."})
 
 
 class VisitPlaceInputSerializer(serializers.Serializer[dict[str, Any]]):
@@ -115,8 +126,12 @@ class VisitPlaceInputSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         allow_blank=True,
         max_length=240,
-        help_text="Street and number; optional.",
+        help_text="Street and number; optional, and only with a town.",
     )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        _street_needs_town(attrs.get("town", ""), attrs.get("address", ""), "town")
+        return attrs
 
 
 class VisitPlaceSuggestionSerializer(serializers.Serializer[dict[str, Any]]):
@@ -185,7 +200,7 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
         ),
     )
     place_town = serializers.CharField(
-        required=False, help_text="The visit's own „Miejsce wizyty”: its town, or empty."
+        help_text="The visit's own „Miejsce wizyty”: its town, or empty."
     )
     #: Null when the caller may not see it: only who plans visits and the
     #: people on this visit do (ADR-067).
@@ -205,7 +220,11 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Marks a product puts on the visit's card, e.g. farm_missing (ADR-067).",
     )
     place_address = serializers.CharField(
-        required=False, help_text="Street and number of the visit's own place, or empty."
+        allow_blank=True,
+        help_text=(
+            "Street and number of the visit's own place, or empty; empty also for "
+            "whoever may not see the customer's phone."
+        ),
     )
     resource_name = serializers.CharField(allow_null=True)
     #: Tylko w panelu firmy; klient w self-service tego nie dostaje.

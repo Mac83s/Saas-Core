@@ -41,7 +41,13 @@ szczegół produktu (`HerdVisit`) zapisane razem.
    wszystkich produktów): widzi je ten, kto planuje wizyty
    (`booking.appointment.manage`), i osoby na tej wizycie (prowadzący bez wakatu
    albo z zablokowanym czasem; po odwołaniu — ci, którzy byli). Pozostali
-   dostają `null`. Kolejka „Do przydzielenia” bez zmian (tylko planujący).
+   dostają `null`, a ulicę miejsca wizyty (`place_address`) — pustą, bo bywa
+   domem klienta; miejscowość widzą wszyscy (przegląd 02.10). Kolejka „Do
+   przydzielenia” bez zmian (tylko planujący).
+7. **Dostawcy produktu nie psują rdzenia**: dostawca miejsc, znaczników i
+   wyszukiwania bez uprawnienia swojego modułu odpowiada niczym; taki, który
+   mimo to rzuci wyjątek, jest logowany i pomijany w punkcie zapisu (savepoint),
+   więc lista i właśnie zapisana zmiana zostają.
 6. **Wyszukiwanie kart gospodarstw** (`GET /farms/?q=&active=1`) obejmuje e-mail
    i telefon (ostatnie dziewięć cyfr, jakkolwiek wpisany), z jawnym filtrem
    organizacji, i może pominąć karty wyłączone.

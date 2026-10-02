@@ -115,6 +115,7 @@ const OWN_PARAMS = new Set([
   "new",
   "service_id",
 ]);
+const NO_PARAMS: Readonly<Record<string, string>> = {};
 
 export function BookingPanel({
   access,
@@ -186,13 +187,27 @@ export function BookingPanel({
   const [creating, setCreating] = useState(
     () => canManage && asked("new") === "1",
   );
-  const [linked] = useState(() => asked("new") === "1");
-  const [newService] = useState(() => asked("service_id"));
-  const [productParams] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      [...(params?.entries() ?? [])].filter(([key]) => !OWN_PARAMS.has(key)),
-    ),
+  // The link's context belongs to the form it opened, not to every later
+  // „Nowa wizyta”: closing or saving that form forgets it, so the next one
+  // does not preselect the same farm with somebody else's details.
+  const [link, setLink] = useState<
+    { serviceId: string; params: Record<string, string> } | undefined
+  >(() =>
+    asked("new") === "1"
+      ? {
+          serviceId: asked("service_id"),
+          params: Object.fromEntries(
+            [...(params?.entries() ?? [])].filter(
+              ([key]) => !OWN_PARAMS.has(key),
+            ),
+          ),
+        }
+      : undefined,
   );
+  const openForm = (open: boolean) => {
+    setCreating(open);
+    if (!open) setLink(undefined);
+  };
   const [notice, setNotice] = useState("");
   const opener = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -210,10 +225,10 @@ export function BookingPanel({
     if (staffFilter) query.set("staff", staffFilter);
     if (serviceFilter) query.set("service", serviceFilter);
     // While the form is open a refresh reopens it as the link asked.
-    if (creating && linked) {
+    if (creating && link) {
       query.set("new", "1");
-      if (newService) query.set("service_id", newService);
-      for (const [key, value] of Object.entries(productParams))
+      if (link.serviceId) query.set("service_id", link.serviceId);
+      for (const [key, value] of Object.entries(link.params))
         query.set(key, value);
     }
     const search = query.toString();
@@ -223,17 +238,7 @@ export function BookingPanel({
       "",
       `${window.location.pathname}${search ? `?${search}` : ""}`,
     );
-  }, [
-    creating,
-    cursor,
-    linked,
-    newService,
-    productParams,
-    serviceFilter,
-    staffFilter,
-    today,
-    view,
-  ]);
+  }, [creating, cursor, link, serviceFilter, staffFilter, today, view]);
   const refresh = () => setReloads((value) => value + 1);
 
   const byDay = useMemo(() => {
@@ -850,6 +855,10 @@ export function BookingPanel({
           >
             <ChevronRightIcon aria-hidden="true" />
           </Button>
+          {/* On a phone the page's description gives way; its zone stays here. */}
+          <p className="w-full text-xs text-muted-foreground sm:hidden">
+            {t("zoneNote", { zone: zone.replaceAll("_", " ") })}
+          </p>
           <h2
             aria-live="polite"
             className="ml-1 text-lg font-semibold outline-none first-letter:uppercase sm:text-xl"
@@ -944,13 +953,14 @@ export function BookingPanel({
           canUseInventory={canUseInventory}
           catalog={catalog}
           day={cursor}
-          params={productParams}
-          serviceId={newService}
+          params={link?.params ?? NO_PARAMS}
+          serviceId={link?.serviceId ?? ""}
           // A free window on the board names the person and the time.
           staffId={plan?.staffId ?? chosenStaff}
           time={plan?.time}
           onCreated={(appointment) => {
             setCreating(false);
+            setLink(undefined);
             setPlan(undefined);
             setNotice(
               t("created", {
@@ -961,7 +971,7 @@ export function BookingPanel({
             setCursor(wallClock(appointment.starts_at, zone).day);
             refresh();
           }}
-          onOpenChange={setCreating}
+          onOpenChange={openForm}
           open={creating}
           restoreFocus={restoreFocus}
           teams={teams}

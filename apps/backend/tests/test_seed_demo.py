@@ -14,6 +14,7 @@ from django.utils import timezone
 from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.demo import run_demo
 from saas_core.modules.core.organizations.models import Membership, Organization
+from saas_core.modules.core.organizations.role_catalog import system_role
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
 from saas_core.modules.shared.booking.models import Appointment, Service, StaffMember
 from saas_core.modules.shared.inventory.models import (
@@ -105,6 +106,27 @@ def test_an_item_whose_category_the_profile_lacks_goes_without_one(monkeypatch) 
     run_demo(password=PASSWORD, log=lambda line: None, now=tomorrow_morning())
     gloves = InventoryItem.all_objects.get(sku="DEMO-GLV")
     assert gloves.category is None
+
+
+def test_the_seed_takes_over_neither_somebody_elses_company_nor_an_operator() -> None:
+    owner = User.objects.create_user("ktos@inny.test", "Haslo-Inne-2026", status=UserStatus.ACTIVE)
+    stranger = Organization.objects.create(name="Cudza", slug="studio-testowe")
+    Membership.objects.create(organization=stranger, user=owner, role=system_role("", "owner"))
+    with pytest.raises(ValueError, match="należy do kogoś innego"):
+        run_demo(password=PASSWORD, log=lambda line: None, now=tomorrow_morning())
+    stranger.slug = "cudza"
+    stranger.save(update_fields=["slug"])
+
+    # The first run made the demo owner's account before it stopped; an
+    # operator with that address is not reset either.
+    operator = User.objects.get(email="wlasciciel@saas.test")
+    operator.is_staff = True
+    operator.set_password("Haslo-Operatora-2026")
+    operator.save()
+    with pytest.raises(ValueError, match="nie jest kontem demo"):
+        run_demo(password=PASSWORD, log=lambda line: None, now=tomorrow_morning())
+    operator.refresh_from_db()
+    assert operator.check_password("Haslo-Operatora-2026")
 
 
 def test_the_command_refuses_without_the_flag_and_on_production(monkeypatch, settings) -> None:

@@ -2374,7 +2374,8 @@
     "opensNewTab": " (opens in a new tab)",
     "idempotencyConflict": "These details differ from the ones just sent — if the visit was saved, it is in the calendar. Close the form and open it again.",
     "sectionInvalid": "Fill in the marked fields.",
-    "flags": {}
+    "flags": {},
+    "zoneNote": "Times in the {zone} zone."
   },
   "DayBoard": {
     "label": "Day board",

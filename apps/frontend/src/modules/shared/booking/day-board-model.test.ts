@@ -34,6 +34,8 @@ const visit = (
   staff_membership_id: null,
   location_name: "Centrum",
   place: null,
+  place_town: "",
+  place_address: "",
   appointment_kind: "",
   flags: [],
   customer_phone: null,

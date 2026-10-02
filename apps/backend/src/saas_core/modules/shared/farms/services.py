@@ -75,8 +75,25 @@ def _unique[T](write: Callable[[], T]) -> T:
         raise ValidationError({field: message}) from error
 
 
+#: What a card is written with; anything else a caller sends is not a field
+#: of the card (an id, an organization) and never reaches the row.
+FARM_FIELDS = (
+    "name",
+    "herd_number",
+    "tax_id",
+    "village",
+    "address",
+    "keeper_name",
+    "email",
+    "phone",
+    "housing",
+    "notes",
+    "active",
+)
+
+
 def _clean_farm(data: dict[str, Any]) -> dict[str, Any]:
-    cleaned = dict(data)
+    cleaned = {key: data[key] for key in FARM_FIELDS if key in data}
     if "herd_number" in cleaned:
         cleaned["herd_number"] = normalize_herd_number(cleaned["herd_number"] or "")
         if cleaned["herd_number"] and not HERD_NUMBER.fullmatch(cleaned["herd_number"]):

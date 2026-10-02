@@ -235,7 +235,9 @@ def _appointment_payload(
         # The visit's own place first, then the module that knows it (ADR-066).
         "place": value.place_town or known.places.get(value.id),
         "place_town": value.place_town,
-        "place_address": value.place_address,
+        # The street can be the customer's home: the same people as the phone
+        # see it (ADR-067); the town is everybody's.
+        "place_address": value.place_address if seen else "",
         "customer_phone": value.customer.phone if seen else None,
         "customer_email": value.customer.email if seen else None,
         "appointment_kind": value.service.appointment_kind,
@@ -742,7 +744,13 @@ class AppointmentPlaceView(APIView):
             "(appointment_not_changeable)."
         ),
         request=VisitPlaceInputSerializer,
-        responses={200: AppointmentSerializer, 400: ProblemDetailsSerializer},
+        responses={
+            200: AppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
     )
     def put(self, request: Request, appointment_id: UUID) -> Response:
         s = VisitPlaceInputSerializer(data=request.data)
@@ -779,7 +787,11 @@ class BookingPlacesView(APIView):
                 description="At most this many (1–500, default 200).",
             ),
         ],
-        responses={200: VisitPlaceSuggestionListSerializer, 400: ProblemDetailsSerializer},
+        responses={
+            200: VisitPlaceSuggestionListSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
     )
     def get(self, request: Request) -> Response:
         try:
