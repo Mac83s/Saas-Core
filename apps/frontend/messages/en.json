@@ -241,7 +241,11 @@
       "translation_job_created": "Ordered a translation",
       "translation_job_succeeded": "Translation finished",
       "translation_job_partial": "Translation partly finished",
-      "translation_job_failed": "Translation failed"
+      "translation_job_failed": "Translation failed",
+      "translation_review_accepted": "Accepted translations",
+      "translation_review_discarded": "Discarded translations",
+      "translation_job_reverted": "Took back a translation job",
+      "translation_job_canceled": "Stopped a translation job"
     },
     "fields": {
       "name": "Name",

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -58,10 +59,12 @@ from .models import (
     ItemState,
     JobState,
     PartState,
+    ReviewState,
     TranslationGlossaryTerm,
     TranslationJob,
     TranslationJobItem,
     TranslationJobPart,
+    TranslationReviewItem,
 )
 from .permissions import TRANSLATION_REQUEST
 from .prompts import PROMPT_VERSION, answered, build_request
@@ -493,6 +496,8 @@ def _write(organization_id: UUID, job: TranslationJob, one: _Work) -> None:
                         published_in_job=frozenset(published),
                     ),
                 )
+        if outcomes:
+            record_reviews(job, current, one.read, outcomes, {**live, **flagged})
         # Billed is what this attempt delivered; a requeued item keeps it.
         current.delivered_characters += sum(
             visible_characters(units[key].text)
@@ -530,12 +535,82 @@ def _write(organization_id: UUID, job: TranslationJob, one: _Work) -> None:
                 for code in one.failed.values()
             ),
         ]
+        failed_reasons = Counter(code.split(":")[0] for code in one.failed.values())
+        for reason, count in sorted(failed_reasons.items()):
+            open_review(job, current, one.read, reason=reason, keys=count)
         written = any(entry["state"] not in ("refused", "failed") for entry in current.outcomes)
         current.state = ItemState.WRITTEN if written or not one.failed else ItemState.FAILED
         current.error_code = "" if written else next(iter(one.failed.values()), "")[:80]
         current.delivered = {}
         current.finished_at = timezone.now()
         current.save()
+
+
+# --- What waits for a person ------------------------------------------------------
+
+
+def open_review(
+    job: TranslationJob,
+    item: TranslationJobItem,
+    read: SourceRead,
+    *,
+    reason: str,
+    keys: int,
+    texts: dict[str, Any] | None = None,
+    target_version: str | None = None,
+) -> TranslationReviewItem:
+    """One result waiting for a person; a newer one for the same pair and
+    reason supersedes the open one (ADR-069 pkt 19)."""
+    TranslationReviewItem.all_objects.filter(
+        organization_id=job.organization_id,
+        source_key=item.source_key,
+        object_id=item.object_id,
+        locale=item.locale,
+        reason=reason,
+        state=ReviewState.OPEN,
+    ).update(state=ReviewState.SUPERSEDED, texts={}, updated_at=timezone.now())
+    return TranslationReviewItem.all_objects.create(
+        organization_id=job.organization_id,
+        job=job,
+        source_key=item.source_key,
+        object_id=item.object_id,
+        locale=item.locale,
+        basis=item.basis,
+        basis_version=read.basis_version,
+        target_version=target_version or read.target_version or "",
+        reason=reason,
+        keys=keys,
+        texts=texts or {},
+    )
+
+
+def record_reviews(
+    job: TranslationJob,
+    item: TranslationJobItem,
+    read: SourceRead,
+    outcomes: Sequence[WriteOutcome],
+    texts: dict[str, tuple[str, Provenance]],
+) -> None:
+    """Every `pending` the source answered becomes a review item. A live record
+    keeps nothing pending, so its texts wait here (§6.3)."""
+    live_record = translation_source(item.source_key).staging == "live_record"
+    for outcome in outcomes:
+        if outcome.state != "pending":
+            continue
+        kept = (
+            {key: [texts[key][0], texts[key][1].as_dict()] for key in outcome.keys if key in texts}
+            if live_record and outcome.reason != "gate_failed"
+            else {}
+        )
+        open_review(
+            job,
+            item,
+            read,
+            reason=outcome.reason or "pending",
+            keys=len(outcome.keys),
+            texts=kept,
+            target_version=outcome.target_version,
+        )
 
 
 # --- Parts and the end of a job --------------------------------------------------------
@@ -621,7 +696,9 @@ def _close(job: TranslationJob) -> None:
     written = items.filter(state=ItemState.WRITTEN).count()
     total = items.count()
     job.state = (
-        JobState.SUCCEEDED
+        JobState.CANCELED
+        if job.error_code == "canceled"
+        else JobState.SUCCEEDED
         if written == total
         else (JobState.PARTIAL if written else JobState.FAILED)
     )

@@ -33,6 +33,14 @@ from .jobs import (
     quote_payload,
     quote_translation,
 )
+from .review import (
+    ReviewChoice,
+    cancel_job,
+    decide_review,
+    list_review,
+    revert_job,
+    review_payload,
+)
 from .serializers import (
     GlossaryDeleteQuerySerializer,
     GlossaryPageSerializer,
@@ -46,6 +54,10 @@ from .serializers import (
     OrderRequestSerializer,
     QuoteRequestSerializer,
     QuoteSerializer,
+    ReviewDecisionResultSerializer,
+    ReviewDecisionSerializer,
+    ReviewPageSerializer,
+    ReviewQuerySerializer,
     TranslationOfferSerializer,
     TranslationSettingsPreviewSerializer,
     TranslationSettingsSerializer,
@@ -438,3 +450,125 @@ class JobDetailView(APIView):
     )
     def get(self, _request: Request, job_id: UUID) -> Response:
         return Response(JobSerializer(job_payload(get_job(job_id))).data)
+
+
+def _choices(request: Request) -> list[ReviewChoice]:
+    serializer = ReviewDecisionSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    return [
+        ReviewChoice(id=item["id"], version=item["version"])
+        for item in serializer.validated_data["items"]
+    ]
+
+
+class ReviewListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_review_list",
+        summary="Translations waiting for a person",
+        description="Results that wait, with why: a legal document, review mode, a person's "
+        "text they would replace, the first appearance of a language, a soft-check flag — "
+        "and those the checks refused, to translate by hand. Oldest first, paged by `cursor`.",
+        tags=["translation"],
+        parameters=[ReviewQuerySerializer],
+        responses={
+            200: ReviewPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = ReviewQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        rows, next_cursor = list_review(
+            cursor=query.validated_data.get("cursor"),
+            limit=query.validated_data["limit"],
+            reason=query.validated_data.get("reason"),
+        )
+        return Response({
+            "items": [review_payload(row) for row in rows],
+            "next_cursor": next_cursor,
+        })
+
+
+def _decision_view(action: str, operation_id: str, summary: str, description: str) -> type[APIView]:
+    @method_decorator(csrf_protect, name="dispatch")
+    class DecisionView(APIView):
+        permission_classes = [IsAuthenticated]
+
+        @extend_schema(
+            operation_id=operation_id,
+            summary=summary,
+            description=description
+            + " A person's decision: a job or the assistant without a consent click is 403 "
+            "`person_required`. An item decided meanwhile or at another version is 409 "
+            "`translation_review_changed`. A repeated Idempotency-Key answers the first result.",
+            tags=["translation"],
+            parameters=[IDEMPOTENCY],
+            request=ReviewDecisionSerializer,
+            responses={200: ReviewDecisionResultSerializer, **_PROBLEMS},
+        )
+        def post(self, request: Request) -> Response:
+            saved = decide_review(
+                action=action, choices=_choices(request), idempotency_key=_idem(request)
+            )
+            return Response(ReviewDecisionResultSerializer({"items": saved.value}).data)
+
+    DecisionView.__name__ = f"Review{action.title()}View"
+    return DecisionView
+
+
+ReviewAcceptView = _decision_view(
+    "accept",
+    "translation_review_accept",
+    "Accept waiting translations",
+    "Publishes the chosen results the way their source publishes: one derived publication "
+    "for a site's pages, a write for a live record.",
+)
+ReviewDiscardView = _decision_view(
+    "discard",
+    "translation_review_discard",
+    "Discard waiting translations",
+    "Drops the chosen results; what is public stays as it is. A discarded result is billed "
+    "like a delivered one (ADR-069 pkt 24).",
+)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class JobRevertView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_job_revert",
+        summary="Take back a translation job",
+        description="Returns every source the job wrote to its texts from before it, through "
+        "one derived publication each. Credits are not returned. A person's decision: 403 "
+        "`person_required` otherwise.",
+        tags=["translation"],
+        parameters=[IDEMPOTENCY],
+        request=None,
+        responses={200: JobSerializer, **_PROBLEMS},
+    )
+    def post(self, request: Request, job_id: UUID) -> Response:
+        saved = revert_job(job_id=job_id, idempotency_key=_idem(request))
+        return Response(JobSerializer(job_payload(saved.value)).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class JobCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_job_cancel",
+        summary="Stop a translation job",
+        description="Stops sending: items not started are cancelled, items in flight finish, "
+        "what was delivered is settled and the rest of the held credits are released.",
+        tags=["translation"],
+        parameters=[IDEMPOTENCY],
+        request=None,
+        responses={200: JobSerializer, **_PROBLEMS},
+    )
+    def post(self, request: Request, job_id: UUID) -> Response:
+        saved = cancel_job(job_id=job_id, idempotency_key=_idem(request))
+        return Response(JobSerializer(job_payload(saved.value)).data)

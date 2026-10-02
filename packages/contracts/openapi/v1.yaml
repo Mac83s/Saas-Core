@@ -16279,6 +16279,114 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/translation/jobs/{job_id}/cancel/:
+    post:
+      operationId: translation_job_cancel
+      description: 'Stops sending: items not started are cancelled, items in flight
+        finish, what was delivered is settled and the rest of the held credits are
+        released.'
+      summary: Stop a translation job
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/jobs/{job_id}/revert/:
+    post:
+      operationId: translation_job_revert
+      description: 'Returns every source the job wrote to its texts from before it,
+        through one derived publication each. Credits are not returned. A person''s
+        decision: 403 `person_required` otherwise.'
+      summary: Take back a translation job
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/translation/offer/:
     get:
       operationId: translation_offer_retrieve
@@ -16353,6 +16461,181 @@ paths:
           description: ''
       x-quality-exempt:
         idempotency-key: 'A calculation: nothing is saved, a repeat answers the same.'
+  /api/v1/translation/review/:
+    get:
+      operationId: translation_review_list
+      description: 'Results that wait, with why: a legal document, review mode, a
+        person''s text they would replace, the first appearance of a language, a soft-check
+        flag — and those the checks refused, to translate by hand. Oldest first, paged
+        by `cursor`.'
+      summary: Translations waiting for a person
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          minLength: 1
+        description: From the previous page.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      - in: query
+        name: reason
+        schema:
+          type: string
+          minLength: 1
+        description: Only items waiting for this reason.
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/review/accept/:
+    post:
+      operationId: translation_review_accept
+      description: 'Publishes the chosen results the way their source publishes: one
+        derived publication for a site''s pages, a write for a live record. A person''s
+        decision: a job or the assistant without a consent click is 403 `person_required`.
+        An item decided meanwhile or at another version is 409 `translation_review_changed`.
+        A repeated Idempotency-Key answers the first result.'
+      summary: Accept waiting translations
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDecisionResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/translation/review/discard/:
+    post:
+      operationId: translation_review_discard
+      description: 'Drops the chosen results; what is public stays as it is. A discarded
+        result is billed like a delivered one (ADR-069 pkt 24). A person''s decision:
+        a job or the assistant without a consent click is 403 `person_required`. An
+        item decided meanwhile or at another version is 409 `translation_review_changed`.
+        A repeated Idempotency-Key answers the first result.'
+      summary: Discard waiting translations
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - translation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDecisionResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/translation/settings/:
     get:
       operationId: translation_settings_retrieve
@@ -21905,6 +22188,11 @@ components:
           - string
           - 'null'
           format: date-time
+        reverted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
         parts:
           type: array
           items:
@@ -21923,6 +22211,7 @@ components:
       - items
       - next_attempt_at
       - parts
+      - reverted_at
       - started_at
       - state
       - trigger
@@ -26346,6 +26635,158 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    ReviewChoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - id
+      - version
+    ReviewDecided:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          description: Send it back with a decision.
+        job_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        source_key:
+          type: string
+        object_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        reason:
+          type: string
+          description: legal_document, review_mode, operator_forced_review, publisher_required,
+            locale_first_appearance, mass_publication, overwrites_human, qa_flagged,
+            gate_failed, qa_failed or model_refused.
+        keys:
+          type: integer
+          description: Units waiting.
+        acceptable:
+          type: boolean
+          description: False when there is no text to accept (gate_failed, qa_failed,
+            model_refused).
+        state:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        outcomes:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: 'What the source answered: [{state, reason, keys}].'
+      required:
+      - acceptable
+      - created_at
+      - id
+      - job_id
+      - keys
+      - locale
+      - object_id
+      - outcomes
+      - reason
+      - source_key
+      - state
+      - version
+    ReviewDecision:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewChoice'
+          description: The items decided, at the versions the person saw.
+      required:
+      - items
+    ReviewDecisionResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewDecided'
+      required:
+      - items
+    ReviewItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          description: Send it back with a decision.
+        job_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        source_key:
+          type: string
+        object_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        reason:
+          type: string
+          description: legal_document, review_mode, operator_forced_review, publisher_required,
+            locale_first_appearance, mass_publication, overwrites_human, qa_flagged,
+            gate_failed, qa_failed or model_refused.
+        keys:
+          type: integer
+          description: Units waiting.
+        acceptable:
+          type: boolean
+          description: False when there is no text to accept (gate_failed, qa_failed,
+            model_refused).
+        state:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - acceptable
+      - created_at
+      - id
+      - job_id
+      - keys
+      - locale
+      - object_id
+      - reason
+      - source_key
+      - state
+      - version
+    ReviewPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewItem'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+      required:
+      - items
+      - next_cursor
     RiskEnum:
       enum:
       - read

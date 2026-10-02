@@ -241,7 +241,11 @@
       "translation_job_created": "Zlecono tłumaczenie",
       "translation_job_succeeded": "Tłumaczenie zakończone",
       "translation_job_partial": "Tłumaczenie zakończone częściowo",
-      "translation_job_failed": "Tłumaczenie nie powiodło się"
+      "translation_job_failed": "Tłumaczenie nie powiodło się",
+      "translation_review_accepted": "Zaakceptowano tłumaczenia",
+      "translation_review_discarded": "Odrzucono tłumaczenia",
+      "translation_job_reverted": "Cofnięto zlecenie tłumaczenia",
+      "translation_job_canceled": "Zatrzymano zlecenie tłumaczenia"
     },
     "fields": {
       "name": "Nazwa",

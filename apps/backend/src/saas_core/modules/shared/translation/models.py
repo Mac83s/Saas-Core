@@ -254,6 +254,8 @@ class TranslationJob(TenantScopedModel):
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    # „Cofnij ostatnie zadanie”: the sources went back to their texts from before.
+    reverted_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
 
@@ -338,3 +340,47 @@ class TranslationJobItem(TenantScopedModel):
             )
         ]
         indexes = [models.Index(fields=["job", "state", "position"])]
+
+
+class ReviewState(models.TextChoices):
+    OPEN = "open", "Open"
+    ACCEPTED = "accepted", "Accepted"
+    DISCARDED = "discarded", "Discarded"
+    SUPERSEDED = "superseded", "Superseded"
+
+
+class TranslationReviewItem(TenantScopedModel):
+    """A result waiting for a person, with the reason (ADR-069 pkt 21).
+
+    A versioned source keeps the text itself (pages: `body_pending`) and takes
+    the decision through `review`; a live record keeps nothing pending, so the
+    text waits here and an acceptance is a write with the `acceptance` trigger
+    (docs/architecture/translation-sources.md §6.3, §6.6). A newer result for
+    the same pair supersedes an open one.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    job = models.ForeignKey(
+        TranslationJob, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviews"
+    )
+    source_key = models.CharField(max_length=100)
+    object_id = models.UUIDField()
+    locale = models.CharField(max_length=10)
+    basis = models.CharField(max_length=16)
+    basis_version = models.CharField(max_length=200)
+    target_version = models.CharField(max_length=200, blank=True)
+    reason = models.CharField(max_length=40)
+    keys = models.PositiveIntegerField(default=0)
+    # Live records only: unit key → [text, provenance]. Customer content,
+    # cleared once decided.
+    texts = models.JSONField(default=dict, blank=True)
+    state = models.CharField(max_length=16, choices=ReviewState.choices, default=ReviewState.OPEN)
+    version = models.PositiveIntegerField(default=1)
+    decided_by_membership_id = models.UUIDField(null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        indexes = [models.Index(fields=["organization", "state", "created_at"])]

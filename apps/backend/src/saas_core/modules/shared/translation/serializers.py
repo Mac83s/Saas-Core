@@ -315,6 +315,7 @@ class JobSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField()
     started_at = serializers.DateTimeField(allow_null=True)
     finished_at = serializers.DateTimeField(allow_null=True)
+    reverted_at = serializers.DateTimeField(allow_null=True)
     parts = JobPartSerializer(many=True)
     items = JobItemSerializer(many=True)
 
@@ -322,3 +323,54 @@ class JobSerializer(serializers.Serializer[dict[str, Any]]):
 class JobPageSerializer(serializers.Serializer[dict[str, Any]]):
     items = JobSerializer(many=True)
     next_cursor = serializers.CharField(allow_null=True)
+
+
+class ReviewItemSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    version = serializers.IntegerField(help_text="Send it back with a decision.")
+    job_id = serializers.UUIDField(allow_null=True)
+    source_key = serializers.CharField()
+    object_id = serializers.UUIDField()
+    locale = serializers.CharField()
+    reason = serializers.CharField(
+        help_text="legal_document, review_mode, operator_forced_review, publisher_required, "
+        "locale_first_appearance, mass_publication, overwrites_human, qa_flagged, gate_failed, "
+        "qa_failed or model_refused."
+    )
+    keys = serializers.IntegerField(help_text="Units waiting.")
+    acceptable = serializers.BooleanField(
+        help_text="False when there is no text to accept (gate_failed, qa_failed, model_refused)."
+    )
+    state = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+
+class ReviewPageSerializer(serializers.Serializer[dict[str, Any]]):
+    items = ReviewItemSerializer(many=True)
+    next_cursor = serializers.CharField(allow_null=True)
+
+
+class ReviewQuerySerializer(GlossaryQuerySerializer):
+    reason = serializers.CharField(required=False, help_text="Only items waiting for this reason.")
+
+
+class ReviewChoiceSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    version = serializers.IntegerField(min_value=1)
+
+
+class ReviewDecisionSerializer(serializers.Serializer[dict[str, Any]]):
+    items = ReviewChoiceSerializer(
+        many=True, help_text="The items decided, at the versions the person saw."
+    )
+
+
+class ReviewDecidedSerializer(ReviewItemSerializer):
+    outcomes = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="What the source answered: [{state, reason, keys}].",
+    )
+
+
+class ReviewDecisionResultSerializer(serializers.Serializer[dict[str, Any]]):
+    items = ReviewDecidedSerializer(many=True)

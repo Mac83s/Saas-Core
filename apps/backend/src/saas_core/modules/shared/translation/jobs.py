@@ -452,6 +452,7 @@ def job_payload(job: TranslationJob) -> dict[str, Any]:
         "created_at": job.created_at,
         "started_at": job.started_at,
         "finished_at": job.finished_at,
+        "reverted_at": job.reverted_at,
         "parts": list(
             job.parts.order_by("index").values(
                 "index",

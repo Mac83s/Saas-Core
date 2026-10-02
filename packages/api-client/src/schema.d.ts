@@ -5319,6 +5319,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/translation/jobs/{job_id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a translation job
+         * @description Stops sending: items not started are cancelled, items in flight finish, what was delivered is settled and the rest of the held credits are released.
+         */
+        post: operations["translation_job_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/jobs/{job_id}/revert/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a translation job
+         * @description Returns every source the job wrote to its texts from before it, through one derived publication each. Credits are not returned. A person's decision: 403 `person_required` otherwise.
+         */
+        post: operations["translation_job_revert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/translation/offer/": {
         parameters: {
             query?: never;
@@ -5353,6 +5393,66 @@ export interface paths {
          * @description Counts what would be translated for each (object, language), what it costs, what would wait for a person and why, and seals it in a digest an order must carry. Nothing is saved; the same content gives the same digest.
          */
         post: operations["translation_quote_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/review/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Translations waiting for a person
+         * @description Results that wait, with why: a legal document, review mode, a person's text they would replace, the first appearance of a language, a soft-check flag — and those the checks refused, to translate by hand. Oldest first, paged by `cursor`.
+         */
+        get: operations["translation_review_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/review/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept waiting translations
+         * @description Publishes the chosen results the way their source publishes: one derived publication for a site's pages, a write for a live record. A person's decision: a job or the assistant without a consent click is 403 `person_required`. An item decided meanwhile or at another version is 409 `translation_review_changed`. A repeated Idempotency-Key answers the first result.
+         */
+        post: operations["translation_review_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/translation/review/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard waiting translations
+         * @description Drops the chosen results; what is public stays as it is. A discarded result is billed like a delivered one (ADR-069 pkt 24). A person's decision: a job or the assistant without a consent click is 403 `person_required`. An item decided meanwhile or at another version is 409 `translation_review_changed`. A repeated Idempotency-Key answers the first result.
+         */
+        post: operations["translation_review_discard"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7555,6 +7655,8 @@ export interface components {
             started_at: string | null;
             /** Format: date-time */
             finished_at: string | null;
+            /** Format: date-time */
+            reverted_at: string | null;
             parts: components["schemas"]["JobPart"][];
             items: components["schemas"]["JobItem"][];
         };
@@ -9375,6 +9477,68 @@ export interface components {
             description?: string;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
+        };
+        ReviewChoice: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+        };
+        ReviewDecided: {
+            /** Format: uuid */
+            id: string;
+            /** @description Send it back with a decision. */
+            version: number;
+            /** Format: uuid */
+            job_id: string | null;
+            source_key: string;
+            /** Format: uuid */
+            object_id: string;
+            locale: string;
+            /** @description legal_document, review_mode, operator_forced_review, publisher_required, locale_first_appearance, mass_publication, overwrites_human, qa_flagged, gate_failed, qa_failed or model_refused. */
+            reason: string;
+            /** @description Units waiting. */
+            keys: number;
+            /** @description False when there is no text to accept (gate_failed, qa_failed, model_refused). */
+            acceptable: boolean;
+            state: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description What the source answered: [{state, reason, keys}]. */
+            outcomes: {
+                [key: string]: unknown;
+            }[];
+        };
+        ReviewDecision: {
+            /** @description The items decided, at the versions the person saw. */
+            items: components["schemas"]["ReviewChoice"][];
+        };
+        ReviewDecisionResult: {
+            items: components["schemas"]["ReviewDecided"][];
+        };
+        ReviewItem: {
+            /** Format: uuid */
+            id: string;
+            /** @description Send it back with a decision. */
+            version: number;
+            /** Format: uuid */
+            job_id: string | null;
+            source_key: string;
+            /** Format: uuid */
+            object_id: string;
+            locale: string;
+            /** @description legal_document, review_mode, operator_forced_review, publisher_required, locale_first_appearance, mass_publication, overwrites_human, qa_flagged, gate_failed, qa_failed or model_refused. */
+            reason: string;
+            /** @description Units waiting. */
+            keys: number;
+            /** @description False when there is no text to accept (gate_failed, qa_failed, model_refused). */
+            acceptable: boolean;
+            state: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReviewPage: {
+            items: components["schemas"]["ReviewItem"][];
+            next_cursor: string | null;
         };
         /**
          * @description * `read` - read
@@ -27285,6 +27449,116 @@ export interface operations {
             };
         };
     };
+    translation_job_cancel: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_job_revert: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     translation_offer_retrieve: {
         parameters: {
             query?: never;
@@ -27352,6 +27626,165 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_review_list: {
+        parameters: {
+            query?: {
+                /** @description From the previous page. */
+                cursor?: string;
+                limit?: number;
+                /** @description Only items waiting for this reason. */
+                reason?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_review_accept: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDecision"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReviewDecision"];
+                "multipart/form-data": components["schemas"]["ReviewDecision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDecisionResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_review_discard: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDecision"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReviewDecision"];
+                "multipart/form-data": components["schemas"]["ReviewDecision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDecisionResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

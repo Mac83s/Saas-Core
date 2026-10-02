@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -131,13 +132,20 @@ def translator(
     return complete
 
 
-@pytest.fixture
-def source(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
+@contextmanager
+def installed_source(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
+    """The pages registered, the model answering, a worker seen, a price set."""
     pages = JobSource()
     monkeypatch.setattr(FAKE, "complete", translator())
     cache.set(WORKER_SEEN, 1, 300)
     CreditOperation.objects.filter(key="translation.characters").update(is_active=True, cost=2)
     with registered_translation_source(pages):
+        yield pages
+
+
+@pytest.fixture
+def source(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
+    with installed_source(monkeypatch) as pages:
         yield pages
 
 
