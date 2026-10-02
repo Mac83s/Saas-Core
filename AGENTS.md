@@ -53,11 +53,15 @@ wymaga nowego ADR, nie cichego odstępstwa w kodzie.
   memex `saas-core-asystent-ai-zakladanie-i-konfiguracja-firmy`.
 - **Co firma mogłaby chcieć inaczej, jest ustawieniem** (decyzja właściciela
   2026-10-02, ADR-078). Nowy próg, czas, limit, okno, przełącznik, odbiorca albo
-  tekst do klienta nie trafia na sztywno do kodu, `.env` ani komponentu. Do czasu
-  rejestru ustawień (faza R1 planu memex `saas-core-ustawienia-firmy`) taka reguła
-  żyje w jednej nazwanej stałej modułu (wartość, granice, warianty, etykiety
-  pl/en), wystawionej przez API; R1 przenosi ją do deklaracji bez zmiany wejścia
-  API i poleceń. `.env` zostaje dla sekretów, infrastruktury i limitów ochronnych.
+  tekst do klienta nie trafia na sztywno do kodu, `.env` ani komponentu. Ustawienie
+  całej firmy deklarujesz w rejestrze (`SettingGroup`/`SettingSpec`,
+  `register_setting_group` z `core.organizations.api` w `AppConfig.ready`; wzór
+  `shared/booking/company_settings.py`), a kod czyta je wyłącznie przez `setting()`
+  / `resolve()`. Ustawienie węższego zasięgu (miejsce, oferta, osoba) do czasu swojej
+  pierwszej deklaracji w rejestrze żyje w jednej nazwanej stałej modułu (wartość,
+  granice, warianty, etykiety pl/en), wystawionej przez API (plan memex
+  `saas-core-ustawienia-firmy`). `.env` zostaje dla sekretów, infrastruktury i
+  limitów ochronnych.
 
 ## Mapa ścieżek do skills
 

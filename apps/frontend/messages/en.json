@@ -352,6 +352,7 @@
     "sectionCompany": "Company",
     "sectionHistory": "Change history",
     "sectionServices": "Services & schedule",
+    "sectionBookings": "Bookings",
     "canceled": "Plan canceled",
     "theme": "Theme",
     "themeLight": "Light theme",
@@ -2547,6 +2548,8 @@
     }
   },
   "PublicBooking": {
+    "paused": "Online booking is paused for now. To book a visit, contact the company.",
+    "pausedUntil": "Online booking is paused and returns on {date}. Until then, book directly with the company.",
     "title": "Book a time",
     "description": "Choose a service, location, and available time.",
     "service": "Service",
@@ -2837,6 +2840,8 @@
     "noAccess": "Your role cannot change this part of the settings. Ask the company owner.",
     "servicesTitle": "Services & schedule",
     "servicesDescription": "What customers can book, how long it takes, how many people it needs, who does it and where.",
+    "bookingsTitle": "Bookings",
+    "bookingsDescription": "Reminders for customers and booking through the company's site — for the whole company.",
     "setupTitle": "What your calendar has",
     "setupDescription": "The services, people, places and resources free slots are made from.",
     "setupEmpty": "Nothing here yet. Add a service, a staff member and a location, then set the schedule — your first free slots will appear.",
@@ -3906,5 +3911,25 @@
     "closureNote": "Note (for the company only)",
     "closureDatesRequired": "Enter the first and the last day.",
     "closureEndBeforeStart": "The last day cannot be before the first."
+  },
+  "CompanySettings": {
+    "loadError": "The settings could not be loaded. Refresh the page.",
+    "saveError": "The settings could not be saved. Try again.",
+    "conflict": "Someone changed these settings meanwhile — the current ones are shown. Make your change again.",
+    "locked": "The company's plan does not cover these settings. The values stay saved, but changing them needs a plan with bookings.",
+    "restore": "Restore the default",
+    "saved": "Settings saved.",
+    "saving": "Saving…",
+    "save": "Save changes",
+    "confirmTitle": "Save the change?",
+    "confirmDescription": "This change does more at once than store a value:",
+    "cancel": "Cancel",
+    "confirm": "Save",
+    "source": {
+      "code": "Default",
+      "platform": "Platform default",
+      "organization": "Set for the company",
+      "default": "Back to the default once saved"
+    }
   }
 }

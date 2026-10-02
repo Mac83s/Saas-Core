@@ -7,6 +7,7 @@ import type {
   CustomerBillingOverview,
   OrganizationSummary,
   SettingOptions,
+  SettingsSchema,
   UserSummary,
 } from "@saas-core/api-client";
 
@@ -18,6 +19,13 @@ export async function getServerUser(): Promise<UserSummary | null> {
 
 export async function getServerCurrentOrganization(): Promise<OrganizationSummary | null> {
   return serverGet<OrganizationSummary>("/api/v1/organizations/current/");
+}
+
+/** Every settings group the company has, with what it may choose (ADR-078). */
+export async function getServerSettingsSchema(): Promise<SettingsSchema | null> {
+  return serverGet<SettingsSchema>(
+    "/api/v1/organizations/current/settings/schema/",
+  );
 }
 
 /** What a company may choose for its basic settings (ADR-078). */

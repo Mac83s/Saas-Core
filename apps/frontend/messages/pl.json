@@ -352,6 +352,7 @@
     "sectionCompany": "Firma",
     "sectionHistory": "Historia zmian",
     "sectionServices": "Usługi i grafik",
+    "sectionBookings": "Rezerwacje",
     "canceled": "Plan anulowany",
     "theme": "Motyw",
     "themeLight": "Jasny motyw",
@@ -2547,6 +2548,8 @@
     }
   },
   "PublicBooking": {
+    "paused": "Rezerwacje online są chwilowo wstrzymane. Aby umówić wizytę, skontaktuj się z firmą.",
+    "pausedUntil": "Rezerwacje online są wstrzymane — wracają {date}. Do tego czasu umów wizytę bezpośrednio z firmą.",
     "title": "Umów termin",
     "description": "Wybierz usługę, lokalizację i dostępny termin.",
     "service": "Usługa",
@@ -2837,6 +2840,8 @@
     "noAccess": "Twoja rola nie pozwala zmieniać tej części ustawień. Poproś o to właściciela firmy.",
     "servicesTitle": "Usługi i grafik",
     "servicesDescription": "Co klienci mogą zamówić, ile to trwa, ilu osób potrzeba, kto to wykonuje i gdzie.",
+    "bookingsTitle": "Rezerwacje",
+    "bookingsDescription": "Przypomnienia dla klientów i rezerwacja przez stronę firmy — dla całej firmy.",
     "setupTitle": "Co już jest w kalendarzu",
     "setupDescription": "Usługi, osoby, miejsca i zasoby, z których powstają wolne terminy.",
     "setupEmpty": "Nic tu jeszcze nie ma. Dodaj usługę, pracownika i lokalizację, a potem ustaw grafik — wtedy pojawią się pierwsze wolne terminy.",
@@ -3906,5 +3911,25 @@
     "closureNote": "Notatka (tylko dla firmy)",
     "closureDatesRequired": "Podaj pierwszy i ostatni dzień.",
     "closureEndBeforeStart": "Ostatni dzień nie może być przed pierwszym."
+  },
+  "CompanySettings": {
+    "loadError": "Nie udało się wczytać ustawień. Odśwież stronę.",
+    "saveError": "Nie udało się zapisać ustawień. Spróbuj ponownie.",
+    "conflict": "Ktoś w międzyczasie zmienił te ustawienia — pokazujemy aktualne. Wprowadź zmianę jeszcze raz.",
+    "locked": "Plan firmy nie obejmuje tych ustawień. Wartości zostają zapisane, ale ich zmiana wymaga planu z rezerwacjami.",
+    "restore": "Przywróć domyślne",
+    "saved": "Zapisano ustawienia.",
+    "saving": "Zapisywanie…",
+    "save": "Zapisz zmiany",
+    "confirmTitle": "Zapisać zmianę?",
+    "confirmDescription": "Ta zmiana zrobi od razu więcej niż zapisanie wartości:",
+    "cancel": "Anuluj",
+    "confirm": "Zapisz",
+    "source": {
+      "code": "Domyślne",
+      "platform": "Domyślne platformy",
+      "organization": "Ustawione dla firmy",
+      "default": "Po zapisaniu wróci do domyślnej"
+    }
   }
 }

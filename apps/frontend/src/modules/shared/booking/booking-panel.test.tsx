@@ -230,6 +230,7 @@ beforeEach(() => {
     services: catalog.services,
     resources: catalog.resources,
     timezone: "Europe/Warsaw",
+    online: { paused: false, resume_on: null },
   });
   api.listBookingAppointments.mockResolvedValue([appointment, completed]);
   api.listTeams.mockResolvedValue([]);
@@ -1671,6 +1672,7 @@ test("„Do kogo?”: a chosen team narrows the times and goes with the booking 
     teams: [{ id: NORTH, name: "Brygada Północ" }],
     people: [],
     timezone: "Europe/Warsaw",
+    online: { paused: false, resume_on: null },
   });
   api.createPublicBookingAppointment.mockResolvedValue({
     ...publicAppointment,
@@ -1769,4 +1771,22 @@ test("the customer's page names the person shown to customers", async () => {
     </NextIntlClientProvider>,
   );
   expect(await screen.findByText("Przyjmie Cię: dr Anna Nowak")).not.toBeNull();
+});
+
+test("a company that paused online booking says so instead of a form (ADR-078)", async () => {
+  api.getPublicBookingCatalog.mockResolvedValue({
+    locations: catalog.locations,
+    services: catalog.services,
+    resources: catalog.resources,
+    timezone: "Europe/Warsaw",
+    online: { paused: true, resume_on: "2026-09-01" },
+  });
+  renderPublic("pl");
+
+  expect(
+    await screen.findByText(
+      "Rezerwacje online są wstrzymane — wracają 1 września 2026. Do tego czasu umów wizytę bezpośrednio z firmą.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Usługa")).toBeNull();
 });

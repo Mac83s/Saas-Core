@@ -4,3 +4,4 @@ export { HistoryPanel } from "./history-panel";
 export { RolesPanel } from "./roles-panel";
 export { InvitationAcceptance } from "./invitation-acceptance";
 export { OrganizationOnboarding } from "./organization-onboarding";
+export { SettingsGroupForm } from "./settings-group-form";

@@ -127,7 +127,7 @@ describe("ustawienia", () => {
     limited: true,
   };
 
-  it("Firma, Historia zmian, Konto, Usługi i grafik, Zaawansowane, a na końcu zakładki produktu", () => {
+  it("Firma, Historia zmian, Konto, Usługi i grafik, Rezerwacje, Zaawansowane, a na końcu zakładki produktu", () => {
     const tabs = sectionTabs("/panel/settings/account", {
       ...OWNER,
       modules: [...OWNER.modules, "shared.booking", "vertical.demo"],
@@ -137,6 +137,7 @@ describe("ustawienia", () => {
       "/panel/settings/history",
       "/panel/settings/account",
       "/panel/settings/services",
+      "/panel/settings/bookings",
       "/panel/integrations",
       "/panel/settings/field-work",
     ]);

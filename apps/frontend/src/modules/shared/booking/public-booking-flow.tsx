@@ -307,6 +307,25 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         </CardContent>
       </Card>
     );
+  // The company paused online booking (ADR-078, booking.online): say so
+  // instead of a form the server would refuse.
+  if (catalog?.online.paused)
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription role="status">
+            {catalog.online.resume_on
+              ? t("pausedUntil", {
+                  date: new Intl.DateTimeFormat(locale, {
+                    dateStyle: "long",
+                  }).format(new Date(`${catalog.online.resume_on}T12:00:00`)),
+                })
+              : t("paused")}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   return (
     <Card>
       <CardHeader>

@@ -214,6 +214,12 @@ export const PANEL_SECTIONS = {
       permission: "booking.appointment.manage",
     },
     {
+      href: "/panel/settings/bookings",
+      labelKey: "sectionBookings",
+      module: "shared.booking",
+      permission: "organization.settings.manage",
+    },
+    {
       href: "/panel/integrations",
       labelKey: "sectionAdvanced",
       module: "shared.notifications",
