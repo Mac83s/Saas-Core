@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { AppSidebar } from "#components/panel/app-sidebar";
+import { PanelDocumentTitle } from "#components/panel/document-title";
 import { MobileTabBar } from "#components/panel/mobile-tab-bar";
 import { PanelHeader } from "#components/panel/panel-header";
 import { PanelMain, PanelWidthProvider } from "#components/panel/panel-width";
@@ -75,6 +76,7 @@ export default async function PanelLayout({
           initialWide={jar.get(PANEL_WIDTH_COOKIE)?.value === "full"}
         >
           <PanelHeader access={access} user={user} />
+          <PanelDocumentTitle company={organization?.name ?? ""} />
           <PanelMain>
             {/* On a phone the menu is a drawer away; the section's pages
                 stay one tap apart above the content. */}

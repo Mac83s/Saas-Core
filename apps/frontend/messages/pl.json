@@ -414,7 +414,12 @@
     "calendarQueue": "Do przydzielenia",
     "teamTeams": "Zespoły",
     "waiting": "{count, plural, one {# wizyta czeka} few {# wizyty czekają} many {# wizyt czeka} other {# wizyty czeka}}",
-    "teamPerformance": "Wydajność"
+    "teamPerformance": "Wydajność",
+    "siteAddressShort": "Domeny",
+    "teamRolesShort": "Role",
+    "messagesAutomationShort": "Automatyczne",
+    "messagesInquiriesShort": "Zapytania",
+    "inventoryLotsShort": "Partie"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",

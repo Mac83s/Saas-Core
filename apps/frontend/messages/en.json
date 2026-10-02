@@ -414,7 +414,12 @@
     "calendarQueue": "To assign",
     "teamTeams": "Teams",
     "waiting": "{count, plural, one {# visit waiting} other {# visits waiting}}",
-    "teamPerformance": "Performance"
+    "teamPerformance": "Performance",
+    "siteAddressShort": "Domains",
+    "teamRolesShort": "Roles",
+    "messagesAutomationShort": "Automatic",
+    "messagesInquiriesShort": "Inquiries",
+    "inventoryLotsShort": "Lots"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
