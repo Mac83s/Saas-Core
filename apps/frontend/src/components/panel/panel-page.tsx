@@ -72,7 +72,8 @@ export function PanelPage({
           ) : null}
         </div>
         {actions ? (
-          <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+          // A phone's two actions fit one row with a little less padding.
+          <div className="flex flex-wrap items-center gap-2 max-sm:*:px-3 lg:shrink-0 lg:justify-end">
             {actions}
           </div>
         ) : null}

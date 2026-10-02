@@ -379,7 +379,7 @@ export function BookingSettings({
 
   return (
     <div className="space-y-10">
-      <p className="text-sm text-success-foreground" role="status">
+      <p className="text-sm text-success-foreground empty:hidden" role="status">
         {notice}
       </p>
       {problem ? (
