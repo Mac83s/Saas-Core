@@ -32,6 +32,7 @@ from saas_core.modules.shared.sites.services import (
     assert_person_required,
     publish_site,
     save_draft,
+    set_page_automation_policy,
     set_page_type,
 )
 from test_sites_api import (
@@ -250,3 +251,17 @@ def test_a_label_opens_for_one_consented_run_within_its_channels_ceiling(
         replace(assistant, acting_opened=frozenset({"Cennik"}))
     with pytest.raises(ValueError):
         replace(person, acting_opened=frozenset({"Cennik"}))
+
+
+def test_who_writes_a_page_is_chosen_by_the_person_not_the_assistant() -> None:
+    """ADR-035:142-143: an assistant must not hand a page to the automation
+    without the person (company-settings plan, finding of 2026-10-02)."""
+    client, person, assistant = person_and_assistant("acting-policy")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    with activate_tenant_context(assistant), pytest.raises(PersonRequired):
+        set_page_automation_policy(page_id=page.data["id"], policy="automated")
+    with activate_tenant_context(person):
+        page_now = set_page_automation_policy(page_id=page.data["id"], policy="automated")
+    assert page_now.automation_policy == "automated"

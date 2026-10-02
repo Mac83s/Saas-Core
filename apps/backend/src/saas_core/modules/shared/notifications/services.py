@@ -17,11 +17,11 @@ from rest_framework.exceptions import APIException, NotFound, PermissionDenied
 
 from saas_core.modules.core.identity.mfa import has_confirmed_mfa
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import field_changes, record_audit
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.context import TenantContext, require_tenant_context
 from saas_core.modules.core.organizations.events import DomainEvent
-from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.observability import correlation_id
@@ -135,15 +135,32 @@ class IssuedApiKey:
     secret: str
 
 
+@transaction.atomic
 def upsert_preferences(*, locale: str, marketing_enabled: bool) -> NotificationPreference:
+    """A member's own choices; a change is a row of the company's history (the
+    person's own settings, ADR-078 pkt 9), with what changed."""
     context = authorize_entitled(NOTIFICATIONS_PREFERENCES, "notifications.enabled")
     if locale not in {"pl", "en"}:
         raise ValidationError("Nieobsługiwane locale.")
+    before = get_preferences()
     preference, _ = NotificationPreference.all_objects.update_or_create(
         organization_id=context.organization_id,
         user_id=context.actor_id,
         defaults={"locale": locale, "marketing_enabled": marketing_enabled},
     )
+    changes = field_changes(
+        {"locale": before.locale, "marketing_enabled": before.marketing_enabled},
+        {"locale": locale, "marketing_enabled": marketing_enabled},
+    )
+    if changes:
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=OrganizationAuditAction.SETTINGS_CHANGED,
+            actor=preference.user,
+            target_type="notifications.preferences",
+            target_id=context.actor_id,
+            metadata={"fields": sorted(changes), "changes": changes},
+        )
     return preference
 
 

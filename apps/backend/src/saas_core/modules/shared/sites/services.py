@@ -1262,10 +1262,13 @@ def hold_page_editing_lock(*, page_id: UUID) -> Page:
 @transaction.atomic
 def set_page_automation_policy(*, page_id: UUID, policy: str) -> Page:
     """Only a person changes this. The automation authenticates with a grant, and
-    a grant that could widen its own scope would not be a limit at all."""
+    a grant that could widen its own scope would not be a limit at all; the
+    assistant acting for a person passes only with that person's consent
+    (ADR-035:142-143, ADR-076 pkt 6)."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if _is_automation(context):
         raise PageAutomationForbidden
+    assert_person_required(context, "Kto pisze treść podstrony")
     if policy not in PageAutomationPolicy.values:
         raise NavigationInvalidTree
     page = (
