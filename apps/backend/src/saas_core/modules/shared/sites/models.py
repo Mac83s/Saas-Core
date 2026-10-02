@@ -552,6 +552,9 @@ class PageTranslation(TenantScopedModel):
     )
     body_version = models.PositiveBigIntegerField(default=0)
     pending_reason = models.CharField(max_length=40, blank=True, default="")
+    # Set when a person takes the language version off the site (ADR-070
+    # pkt 12); publications leave it out until somebody publishes it again.
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

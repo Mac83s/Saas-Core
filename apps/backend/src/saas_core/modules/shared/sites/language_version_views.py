@@ -14,7 +14,20 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .language_decisions import (
+    LanguageDecision,
+    accept_locale_version,
+    accept_locale_versions,
+    batch_digest,
+    publish_locale_version,
+    reject_locale_version,
+    withdraw_locale_version,
+)
 from .language_version_serializers import (
+    LanguageDecisionSerializer,
+    LocaleAcceptSerializer,
+    LocaleBatchAcceptSerializer,
+    LocaleBatchResultSerializer,
     LocaleBodyCopySerializer,
     LocaleBodyRebaseSerializer,
     LocaleBodyRestoreSerializer,
@@ -349,3 +362,190 @@ class SiteTranslationOverviewView(APIView):
             ],
             "next_cursor": next_cursor,
         })
+
+
+def _decision(decision: LanguageDecision) -> dict[str, Any]:
+    return {
+        "page_id": decision.page.id,
+        "locale": decision.translation.locale,
+        "published": decision.publication is not None and decision.skipped is None,
+        "publication_id": decision.publication.id if decision.publication else None,
+        "skipped": decision.skipped,
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageLocaleAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_locale_accept",
+        summary="Accept a language version waiting for review",
+        description="Makes the waiting version current and, if it may go out (ADR-070 pkt 6), "
+        "publishes it as a derived publication of the published state — nobody's drafts go "
+        "with it. A person's decision only.",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=LocaleAcceptSerializer,
+        responses={200: LanguageDecisionSerializer, **PROBLEMS},
+    )
+    def post(self, request: Request, page_id: UUID, locale: str) -> Response:
+        serializer = LocaleAcceptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        decision = accept_locale_version(
+            page_id=page_id,
+            locale=locale,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(_decision(decision))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageLocaleRejectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_locale_reject",
+        summary="Reject a language version waiting for review",
+        description="Drops the waiting version; the current one and the site stay as they "
+        "were. A person's decision only.",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=LocaleAcceptSerializer,
+        responses={200: LanguageDecisionSerializer, **PROBLEMS},
+    )
+    def post(self, request: Request, page_id: UUID, locale: str) -> Response:
+        serializer = LocaleAcceptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        decision = reject_locale_version(
+            page_id=page_id,
+            locale=locale,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(_decision(decision))
+
+
+def _single_decision_view(operation: str, action: Any, summary: str, description: str) -> Any:
+    @method_decorator(csrf_protect, name="dispatch")
+    class View(APIView):
+        permission_classes = [IsAuthenticated]
+
+        @extend_schema(
+            operation_id=f"sites_page_locale_{operation}",
+            summary=summary,
+            description=description,
+            tags=["sites"],
+            parameters=[IDEMPOTENCY_PARAMETER],
+            request=None,
+            responses={200: LanguageDecisionSerializer, **PROBLEMS},
+        )
+        def post(self, request: Request, page_id: UUID, locale: str) -> Response:
+            return Response(
+                _decision(
+                    action(
+                        page_id=page_id,
+                        locale=locale,
+                        idempotency_key=request.headers.get("Idempotency-Key", ""),
+                    )
+                )
+            )
+
+    @method_decorator(csrf_protect, name="dispatch")
+    class Preview(APIView):
+        permission_classes = [IsAuthenticated]
+
+        @extend_schema(
+            operation_id=f"sites_page_locale_{operation}_preview",
+            summary=f"{summary} — preview",
+            description=f"{description} Nothing changes.",
+            tags=["sites"],
+            request=None,
+            responses={200: LanguageDecisionSerializer, **PROBLEMS},
+            extensions={"x-dry-run": True},
+        )
+        def post(self, _request: Request, page_id: UUID, locale: str) -> Response:
+            return Response(
+                _decision(action(page_id=page_id, locale=locale, idempotency_key="", preview=True))
+            )
+
+    View.__name__ = f"PageLocale{operation.title()}View"
+    Preview.__name__ = f"PageLocale{operation.title()}PreviewView"
+    return View, Preview
+
+
+PageLocalePublishView, PageLocalePublishPreviewView = _single_decision_view(
+    "publish",
+    publish_locale_version,
+    "Publish this language version",
+    "Publishes the version's current body as a derived publication of the published "
+    "state, if it may go out; otherwise answers why (`skipped`). A person's decision only.",
+)
+PageLocaleWithdrawView, PageLocaleWithdrawPreviewView = _single_decision_view(
+    "withdraw",
+    withdraw_locale_version,
+    "Take this language version off the site",
+    "Its address answers 308 to the page in the source language until it is published "
+    "again. A person's decision only.",
+)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteLocaleBatchAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_translations_accept",
+        summary="Accept several language versions in one publication",
+        description="Accepts the listed waiting versions, home pages first, and publishes "
+        "those that may go out in one derived publication. Send the digest of the preview "
+        "for more than one item.",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=LocaleBatchAcceptSerializer,
+        responses={200: LocaleBatchResultSerializer, **PROBLEMS},
+    )
+    def post(self, request: Request, site_id: UUID) -> Response:
+        return _batch(request, site_id, preview=False)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteLocaleBatchAcceptPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_translations_accept_preview",
+        summary="See what accepting several language versions would publish",
+        description="What each listed version would do, and the digest to send back.",
+        tags=["sites"],
+        request=LocaleBatchAcceptSerializer,
+        responses={200: LocaleBatchResultSerializer, **PROBLEMS},
+        extensions={"x-dry-run": True},
+    )
+    def post(self, request: Request, site_id: UUID) -> Response:
+        return _batch(request, site_id, preview=True)
+
+
+def _batch(request: Request, site_id: UUID, *, preview: bool) -> Response:
+    serializer = LocaleBatchAcceptSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    items = [
+        (item["page_id"], item["locale"], item["expected_body_version"])
+        for item in serializer.validated_data["items"]
+    ]
+    decisions = accept_locale_versions(
+        items=items,
+        digest=serializer.validated_data["digest"] or None,
+        idempotency_key=request.headers.get("Idempotency-Key", ""),
+        preview=preview,
+        site_id=site_id,
+    )
+    return Response({
+        "items": [_decision(decision) for decision in decisions],
+        "digest": (
+            batch_digest([(decision.page, decision.translation) for decision in decisions])
+            if preview
+            else None
+        ),
+    })

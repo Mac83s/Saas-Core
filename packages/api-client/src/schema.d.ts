@@ -3127,6 +3127,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/translations/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept several language versions in one publication
+         * @description Accepts the listed waiting versions, home pages first, and publishes those that may go out in one derived publication. Send the digest of the preview for more than one item.
+         */
+        post: operations["sites_translations_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/translations/accept/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what accepting several language versions would publish
+         * @description What each listed version would do, and the digest to send back.
+         */
+        post: operations["sites_translations_accept_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/blueprint-catalog/": {
         parameters: {
             query?: never;
@@ -3751,6 +3791,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a language version waiting for review
+         * @description Makes the waiting version current and, if it may go out (ADR-070 pkt 6), publishes it as a derived publication of the published state — nobody's drafts go with it. A person's decision only.
+         */
+        post: operations["sites_page_locale_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/pages/{page_id}/translations/{locale}/body/copy/": {
         parameters: {
             query?: never;
@@ -3791,6 +3851,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish this language version
+         * @description Publishes the version's current body as a derived publication of the published state, if it may go out; otherwise answers why (`skipped`). A person's decision only.
+         */
+        post: operations["sites_page_locale_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/publish/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish this language version — preview
+         * @description Publishes the version's current body as a derived publication of the published state, if it may go out; otherwise answers why (`skipped`). A person's decision only. Nothing changes.
+         */
+        post: operations["sites_page_locale_publish_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/": {
         parameters: {
             query?: never;
@@ -3825,6 +3925,26 @@ export interface paths {
          * @description The body as the move would leave it: carried, reused, untranslated and suggested units. Nothing is written.
          */
         post: operations["sites_page_locale_body_rebase_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a language version waiting for review
+         * @description Drops the waiting version; the current one and the site stay as they were. A person's decision only.
+         */
+        post: operations["sites_page_locale_reject"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3885,6 +4005,46 @@ export interface paths {
          * @description A new version with the old text and the old binding; a version bound to an older source must be moved onto the current one before it can be published.
          */
         post: operations["sites_page_locale_body_version_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take this language version off the site
+         * @description Its address answers 308 to the page in the source language until it is published again. A person's decision only.
+         */
+        post: operations["sites_page_locale_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/withdraw/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take this language version off the site — preview
+         * @description Its address answers 308 to the page in the source language until it is published again. A person's decision only. Nothing changes.
+         */
+        post: operations["sites_page_locale_withdraw_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5806,6 +5966,29 @@ export interface components {
          * @enum {string}
          */
         KindFd3Enum: "section" | "page";
+        LanguageDecision: {
+            /** Format: uuid */
+            page_id: string;
+            locale: string;
+            /** @description Whether the version went out. */
+            published: boolean;
+            /**
+             * Format: uuid
+             * @description The derived publication made by this decision.
+             */
+            publication_id: string | null;
+            /**
+             * @description Why the version did not go out (ADR-070 pkt 6).
+             *
+             *     * `metadata_incomplete` - metadata_incomplete
+             *     * `untranslated_units` - untranslated_units
+             *     * `source_placeholder` - source_placeholder
+             *     * `locale_home_missing` - locale_home_missing
+             *     * `source_unpublished` - source_unpublished
+             *     * `source_outdated` - source_outdated
+             */
+            skipped: components["schemas"]["SkippedEnum"] | components["schemas"]["NullEnum"];
+        };
         /**
          * @description * `card` - Wizytówka
          *     * `cover` - Ze zdjęciem na całą szerokość
@@ -5815,6 +5998,28 @@ export interface components {
         LayoutEnum: "card" | "cover" | "compact";
         LifecycleResult: {
             status: string;
+        };
+        LocaleAccept: {
+            expected_body_version: number;
+        };
+        LocaleBatchAccept: {
+            items: components["schemas"]["LocaleBatchItem"][];
+            /**
+             * @description The digest the preview returned; required for more than one item.
+             * @default
+             */
+            digest: string;
+        };
+        LocaleBatchItem: {
+            /** Format: uuid */
+            page_id: string;
+            locale: string;
+            expected_body_version: number;
+        };
+        LocaleBatchResult: {
+            items: components["schemas"]["LanguageDecision"][];
+            /** @description Present on a preview: send it back to accept this list. */
+            digest: string | null;
         };
         LocaleBody: {
             /** Format: uuid */
@@ -7518,6 +7723,16 @@ export interface components {
             source_page_id?: string | null;
             expected_version: number;
         };
+        /**
+         * @description * `metadata_incomplete` - metadata_incomplete
+         *     * `untranslated_units` - untranslated_units
+         *     * `source_placeholder` - source_placeholder
+         *     * `locale_home_missing` - locale_home_missing
+         *     * `source_unpublished` - source_unpublished
+         *     * `source_outdated` - source_outdated
+         * @enum {string}
+         */
+        SkippedEnum: "metadata_incomplete" | "untranslated_units" | "source_placeholder" | "locale_home_missing" | "source_unpublished" | "source_outdated";
         Slot: {
             /** Format: date-time */
             starts_at: string;
@@ -17527,6 +17742,127 @@ export interface operations {
             };
         };
     };
+    sites_translations_accept: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBatchAccept"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBatchAccept"];
+                "multipart/form-data": components["schemas"]["LocaleBatchAccept"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBatchResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_translations_accept_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBatchAccept"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBatchAccept"];
+                "multipart/form-data": components["schemas"]["LocaleBatchAccept"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBatchResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_blueprint_catalog: {
         parameters: {
             query: {
@@ -19733,6 +20069,69 @@ export interface operations {
             };
         };
     };
+    sites_page_locale_accept: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleAccept"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleAccept"];
+                "multipart/form-data": components["schemas"]["LocaleAccept"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageDecision"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_page_locale_body_copy: {
         parameters: {
             query?: never;
@@ -19864,6 +20263,117 @@ export interface operations {
             };
         };
     };
+    sites_page_locale_publish: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageDecision"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_publish_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageDecision"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_page_locale_body_rebase: {
         parameters: {
             query?: never;
@@ -19959,6 +20469,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_reject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleAccept"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleAccept"];
+                "multipart/form-data": components["schemas"]["LocaleAccept"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageDecision"];
                 };
             };
             400: {
@@ -20140,6 +20713,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_withdraw: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageDecision"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_withdraw_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageDecision"];
                 };
             };
             400: {

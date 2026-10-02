@@ -79,8 +79,13 @@ def language_entries(
             source = sources[page.id]
             key = (str(page.id), locale)
             row = rows.get((page.id, locale))
+            if row is not None and row.withdrawn_at is not None:
+                # Taken off by a person: its address keeps answering 308 to
+                # the source page until somebody publishes it again.
+                result.entries[key] = withdrawn_entry(site, row)
+                continue
             entry, reason = (
-                _fresh(site, page, row, source, blocks.get(source.id, []))
+                fresh_entry(site, row, source, blocks.get(source.id, []))
                 if row is not None
                 else (None, None)
             )
@@ -105,13 +110,13 @@ def language_entries(
     return result
 
 
-def _fresh(
+def fresh_entry(
     site: Site,
-    page: Page,
     row: PageTranslation,
     source: PageVersion,
     source_blocks: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, str | None]:
+    """The entry for `row`'s current body against `source`, or why there is none."""
     if not (row.slug and row.title.strip() and row.description.strip()):
         return None, METADATA_INCOMPLETE
     body = row.body_current
@@ -261,4 +266,79 @@ def previous_source_ids(previous: Mapping[str, Any] | None, default_locale: str)
     return {
         UUID(str(entry["source_version_id"]))
         for entry in _previous_entries(previous, default_locale).values()
+    }
+
+
+def withdrawn_entry(site: Site, row: PageTranslation) -> dict[str, Any]:
+    """A language version a person took off: an address without a body of its
+    own, which the reading rule answers with 308 to the source page."""
+    path = localized_path(default_locale=site.default_locale, locale=row.locale, slug=row.slug)
+    return {
+        "locale": row.locale,
+        "translation_id": str(row.id),
+        "slug": row.slug,
+        "path": path,
+        "canonical_path": path,
+        "withdrawn": True,
+    }
+
+
+def snapshot_home(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
+    pages = [page for page in snapshot.get("pages", []) if isinstance(page, dict)]
+    return next((page for page in pages if page.get("page_type") == "homepage"), None) or (
+        pages[0] if pages else None
+    )
+
+
+def with_language_entry(
+    snapshot: Mapping[str, Any], *, page_id: str, locale: str, entry: dict[str, Any] | None
+) -> dict[str, Any]:
+    """The snapshot with one language entry of one page replaced, and only
+    what follows from it: that page's hreflang and the live languages. A
+    snapshot of schema 1 comes back as 2, without its other-language entries
+    that never had a body of their own (ADR-070 pkt 8)."""
+    default_locale = str(snapshot.get("default_locale"))
+    pages: list[dict[str, Any]] = []
+    for page in snapshot.get("pages", []):
+        if not isinstance(page, dict):
+            continue
+        locales = [
+            item
+            for item in page.get("locales", [])
+            if isinstance(item, dict)
+            and (
+                item.get("locale") == default_locale
+                or "blocks" in item
+                or item.get("withdrawn")
+            )
+            and not (page.get("page_id") == page_id and item.get("locale") == locale)
+        ]
+        if page.get("page_id") == page_id and entry is not None:
+            locales.append(entry)
+        pages.append({
+            **page,
+            "locales": locales,
+            "hreflang": {
+                str(item["locale"]): str(item["path"])
+                for item in locales
+                if item.get("path")
+                and (item.get("locale") == default_locale or "blocks" in item)
+                and not item.get("withheld")
+            },
+        })
+    home = snapshot_home({"pages": pages})
+    live = [default_locale] + sorted(
+        str(item["locale"])
+        for item in (home or {}).get("locales", [])
+        if item.get("locale") != default_locale and "blocks" in item
+    )
+    return {
+        **snapshot,
+        "pages": pages,
+        "live_locales": live,
+        "skipped_locales": [
+            item
+            for item in snapshot.get("skipped_locales", [])
+            if not (item.get("page_id") == page_id and item.get("locale") == locale)
+        ],
     }

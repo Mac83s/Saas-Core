@@ -152,9 +152,13 @@ każdą publikację tłumaczeń. Zestawy zmian SCR adresują bloki pozycją wobe
 12. **Decyzje o wersji językowej należą do osoby.** Akceptacja oczekującej,
     odrzucenie, „Opublikuj tę wersję językową”, akceptacja zbiorcza (podgląd i
     digest) oraz „Zdejmij tę wersję językową” (wpis znika, adres odpowiada 308 do
-    strony źródłowej, wraca ponowną publikacją) idą przez `assert_person_required`
-    i są publikacjami pochodnymi. Akceptacja przenosi `body_pending` do
-    `body_current` w tej samej transakcji. Wynik zadania w trybie automatycznym
+    strony źródłowej) idą przez `assert_person_required` i są publikacjami
+    pochodnymi. Zdjęta wersja (`PageTranslation.withdrawn_at`) zostaje zdjęta także
+    w publikacjach całej witryny; wraca tylko „Opublikuj tę wersję językową” albo
+    akceptacją nowej. Wersja związana z nowszym, nieopublikowanym szkicem źródła nie
+    wychodzi (`source_unpublished`) — wyjdzie z publikacją tego szkicu przez osobę.
+    Akceptacja przenosi `body_pending` do `body_current` w tej samej transakcji, a
+    akceptacja zbiorcza obejmuje jedną witrynę. Wynik zadania w trybie automatycznym
     nie jest decyzją osoby: publikuje go pochodna publikacja `translation_job`
     według ADR-069, z zadaniem działającym jako członkostwo osoby, która raz
     wyraziła zgodę.

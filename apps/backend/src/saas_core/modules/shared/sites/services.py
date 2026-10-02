@@ -2820,7 +2820,9 @@ def _publication_snapshot(
         return {
             str(entry["locale"]): str(entry["path"])
             for entry in entries
-            if entry.get("path") and not entry.get("withheld")
+            if entry.get("path")
+            and not entry.get("withheld")
+            and (entry.get("locale") == site.default_locale or "blocks" in entry)
         }
 
     page_locales = {page.id: locales(page) for page in pages}

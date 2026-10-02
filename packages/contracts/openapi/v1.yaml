@@ -9088,6 +9088,134 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/translations/accept/:
+    post:
+      operationId: sites_translations_accept
+      description: Accepts the listed waiting versions, home pages first, and publishes
+        those that may go out in one derived publication. Send the digest of the preview
+        for more than one item.
+      summary: Accept several language versions in one publication
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBatchAccept'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBatchAccept'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBatchAccept'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBatchResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/{site_id}/translations/accept/preview/:
+    post:
+      operationId: sites_translations_accept_preview
+      description: What each listed version would do, and the digest to send back.
+      summary: See what accepting several language versions would publish
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBatchAccept'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBatchAccept'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBatchAccept'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBatchResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/sites/blueprint-catalog/:
     get:
       operationId: sites_blueprint_catalog
@@ -11276,6 +11404,79 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/accept/:
+    post:
+      operationId: sites_page_locale_accept
+      description: Makes the waiting version current and, if it may go out (ADR-070
+        pkt 6), publishes it as a derived publication of the published state — nobody's
+        drafts go with it. A person's decision only.
+      summary: Accept a language version waiting for review
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleAccept'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleAccept'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleAccept'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageDecision'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/translations/{locale}/body/copy/:
     post:
       operationId: sites_page_locale_body_copy
@@ -11394,6 +11595,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/publish/:
+    post:
+      operationId: sites_page_locale_publish
+      description: Publishes the version's current body as a derived publication of
+        the published state, if it may go out; otherwise answers why (`skipped`).
+        A person's decision only.
+      summary: Publish this language version
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageDecision'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/publish/preview/:
+    post:
+      operationId: sites_page_locale_publish_preview
+      description: Publishes the version's current body as a derived publication of
+        the published state, if it may go out; otherwise answers why (`skipped`).
+        A person's decision only. Nothing changes.
+      summary: Publish this language version — preview
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageDecision'
           description: ''
         '400':
           content:
@@ -11566,6 +11883,78 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/reject/:
+    post:
+      operationId: sites_page_locale_reject
+      description: Drops the waiting version; the current one and the site stay as
+        they were. A person's decision only.
+      summary: Reject a language version waiting for review
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleAccept'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleAccept'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleAccept'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageDecision'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/:
     get:
       operationId: sites_page_locale_body_versions_list
@@ -11763,6 +12152,120 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/withdraw/:
+    post:
+      operationId: sites_page_locale_withdraw
+      description: Its address answers 308 to the page in the source language until
+        it is published again. A person's decision only.
+      summary: Take this language version off the site
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageDecision'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/withdraw/preview/:
+    post:
+      operationId: sites_page_locale_withdraw_preview
+      description: Its address answers 308 to the page in the source language until
+        it is published again. A person's decision only. Nothing changes.
+      summary: Take this language version off the site — preview
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageDecision'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/sites/pages/{page_id}/type/:
     put:
       operationId: sites_page_type_set
@@ -16699,6 +17202,42 @@ components:
       description: |-
         * `section` - section
         * `page` - page
+    LanguageDecision:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        published:
+          type: boolean
+          description: Whether the version went out.
+        publication_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The derived publication made by this decision.
+        skipped:
+          description: |-
+            Why the version did not go out (ADR-070 pkt 6).
+
+            * `metadata_incomplete` - metadata_incomplete
+            * `untranslated_units` - untranslated_units
+            * `source_placeholder` - source_placeholder
+            * `locale_home_missing` - locale_home_missing
+            * `source_unpublished` - source_unpublished
+            * `source_outdated` - source_outdated
+          oneOf:
+          - $ref: '#/components/schemas/SkippedEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - locale
+      - page_id
+      - publication_id
+      - published
+      - skipped
     LayoutEnum:
       enum:
       - card
@@ -16716,6 +17255,60 @@ components:
           type: string
       required:
       - status
+    LocaleAccept:
+      type: object
+      properties:
+        expected_body_version:
+          type: integer
+          minimum: 0
+      required:
+      - expected_body_version
+    LocaleBatchAccept:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleBatchItem'
+          maxItems: 100
+        digest:
+          type: string
+          default: ''
+          description: The digest the preview returned; required for more than one
+            item.
+      required:
+      - items
+    LocaleBatchItem:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+          pattern: ^[a-z]{2}$
+        expected_body_version:
+          type: integer
+          minimum: 0
+      required:
+      - expected_body_version
+      - locale
+      - page_id
+    LocaleBatchResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LanguageDecision'
+        digest:
+          type:
+          - string
+          - 'null'
+          description: 'Present on a preview: send it back to accept this list.'
+      required:
+      - digest
+      - items
     LocaleBody:
       type: object
       properties:
@@ -21026,6 +21619,22 @@ components:
       required:
       - blocks
       - expected_version
+    SkippedEnum:
+      enum:
+      - metadata_incomplete
+      - untranslated_units
+      - source_placeholder
+      - locale_home_missing
+      - source_unpublished
+      - source_outdated
+      type: string
+      description: |-
+        * `metadata_incomplete` - metadata_incomplete
+        * `untranslated_units` - untranslated_units
+        * `source_placeholder` - source_placeholder
+        * `locale_home_missing` - locale_home_missing
+        * `source_unpublished` - source_unpublished
+        * `source_outdated` - source_outdated
     Slot:
       type: object
       properties:

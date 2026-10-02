@@ -21,6 +21,7 @@ from .domain_views import (
 )
 from .inquiry_views import SiteInquiryDetailView, SiteInquiryListView, SiteInquiryReadView
 from .language_version_views import (
+    PageLocaleAcceptView,
     PageLocaleBodyCopyView,
     PageLocaleBodyPreviewView,
     PageLocaleBodyRebasePreviewView,
@@ -29,6 +30,13 @@ from .language_version_views import (
     PageLocaleBodyVersionListView,
     PageLocaleBodyVersionView,
     PageLocaleBodyView,
+    PageLocalePublishPreviewView,
+    PageLocalePublishView,
+    PageLocaleRejectView,
+    PageLocaleWithdrawPreviewView,
+    PageLocaleWithdrawView,
+    SiteLocaleBatchAcceptPreviewView,
+    SiteLocaleBatchAcceptView,
     SiteTranslationOverviewView,
 )
 from .measurement_views import SiteMetricsView
@@ -327,6 +335,46 @@ urlpatterns = [
         "pages/<uuid:page_id>/translations/<str:locale>/body/copy/",
         PageLocaleBodyCopyView.as_view(),
         name="page-locale-body-copy",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/accept/",
+        PageLocaleAcceptView.as_view(),
+        name="page-locale-accept",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/reject/",
+        PageLocaleRejectView.as_view(),
+        name="page-locale-reject",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/publish/",
+        PageLocalePublishView.as_view(),
+        name="page-locale-publish",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/publish/preview/",
+        PageLocalePublishPreviewView.as_view(),
+        name="page-locale-publish-preview",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/withdraw/",
+        PageLocaleWithdrawView.as_view(),
+        name="page-locale-withdraw",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/withdraw/preview/",
+        PageLocaleWithdrawPreviewView.as_view(),
+        name="page-locale-withdraw-preview",
+    ),
+    path(
+        "<uuid:site_id>/translations/accept/",
+        SiteLocaleBatchAcceptView.as_view(),
+        name="site-translations-accept",
+    ),
+    path(
+        "<uuid:site_id>/translations/accept/preview/",
+        SiteLocaleBatchAcceptPreviewView.as_view(),
+        name="site-translations-accept-preview",
     ),
     path(
         "pages/<uuid:page_id>/translations/<str:locale>/body/rebase/",

@@ -25,6 +25,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.content_protocol.provenance import (
+    ORIGIN_AI,
     ORIGIN_COPY,
     ORIGIN_HUMAN,
     ORIGIN_UNTRANSLATED,
@@ -195,11 +196,17 @@ def save_locale_body(
     units: Mapping[str, str],
     idempotency_key: str,
     preview: bool = False,
+    provenance_model: str = "",
 ) -> MutationResult[LocaleBody]:
-    """Writes the given units over the current ones, as a person's text.
+    """Writes the given units over the current ones.
 
-    Units not named keep what they had. With `preview` nothing is saved: the
-    answer is the body as it would be, with every problem a save would raise.
+    A person's text, unless somebody acts for the person (the assistant, a
+    translation job — `acting_via`): then it is AI text, keeps the machine
+    marker and is not protected like a person's correction, and the version
+    names who acted (`acting_ref`). `provenance_model` is the model that wrote
+    it, when the caller knows. Units not named keep what they had. With
+    `preview` nothing is saved: the answer is the body as it would be, with
+    every problem a save would raise.
     """
     return _write(
         page_id=page_id,
@@ -209,8 +216,16 @@ def save_locale_body(
         idempotency_key=idempotency_key,
         preview=preview,
         origin=ORIGIN_SAVE,
-        changes=lambda body: _written(body, units, ORIGIN_HUMAN),
-        request={"units": dict(sorted(units.items()))},
+        changes=lambda body, context: _written(
+            body,
+            units,
+            ORIGIN_AI if context.acting_via else ORIGIN_HUMAN,
+            model=provenance_model,
+        ),
+        request={
+            "units": dict(sorted(units.items())),
+            **({"provenance_model": provenance_model} if provenance_model else {}),
+        },
     )
 
 
@@ -234,7 +249,7 @@ def copy_source_into_locale_body(
         idempotency_key=idempotency_key,
         preview=False,
         origin=ORIGIN_COPY_SOURCE,
-        changes=lambda body: _written(
+        changes=lambda body, _context: _written(
             body,
             {
                 state.unit.key: state.unit.text
@@ -554,7 +569,9 @@ def _body(page: Page, translation: PageTranslation) -> LocaleBody:
     )
 
 
-def _written(body: LocaleBody, texts: Mapping[str, str], origin: str) -> dict[str, dict[str, Any]]:
+def _written(
+    body: LocaleBody, texts: Mapping[str, str], origin: str, *, model: str = ""
+) -> dict[str, dict[str, Any]]:
     """Stored entries for the given texts. A key the source has no unit for
     passes through bare, so assembling names it with every other problem."""
     units = {state.unit.key: state.unit for state in body.units}
@@ -567,6 +584,7 @@ def _written(body: LocaleBody, texts: Mapping[str, str], origin: str) -> dict[st
                     origin=origin,
                     source_hash=units[key].source_hash,
                     written_hash=unit_hash(units[key].kind, text),
+                    model=model,
                     at=at,
                 ).as_dict(),
             }
@@ -609,7 +627,7 @@ def _write(
     if body.source_version.id != source_version_id:
         raise SourceVersionMismatch
     current = dict(body.version.units) if body.version is not None else {}
-    written = changes(body)
+    written = changes(body, context)
     merged = {**current, **written}
     blocks = _source_blocks(body.source_version)
     try:
@@ -626,7 +644,7 @@ def _write(
         actor_id=context.actor_id,
         credential_id=None,
         origin=origin,
-        origin_ref="",
+        origin_ref=context.acting_ref if context.acting_via else "",
         idempotency_key=key,
         request_hash=request_hash,
     )

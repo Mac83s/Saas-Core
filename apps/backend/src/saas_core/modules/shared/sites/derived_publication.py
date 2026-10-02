@@ -44,6 +44,7 @@ def publish_derived(
     actor: User,
     idempotency_key: str,
     reason: str,
+    snapshot_schema_version: int | None = None,
 ) -> Publication:
     """Publishes `snapshot`, derived from the site's current publication.
 
@@ -61,7 +62,12 @@ def publish_derived(
         organization_id=context.organization_id,
         site=site,
         sequence=(previous.sequence + 1 if previous is not None else 1),
-        snapshot_schema_version=(current.snapshot_schema_version if current else 1),
+        # The current one's, unless the caller rewrote the snapshot to a newer
+        # schema (a language decision on a schema 1 snapshot writes 2).
+        snapshot_schema_version=(
+            snapshot_schema_version
+            or (current.snapshot_schema_version if current else 1)
+        ),
         snapshot=snapshot,
         snapshot_hash="",
         created_by=actor,

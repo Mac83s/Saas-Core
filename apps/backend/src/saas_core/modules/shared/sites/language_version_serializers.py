@@ -140,3 +140,63 @@ class TranslationOverviewSerializer(serializers.Serializer[dict[str, Any]]):
     locales = serializers.ListField(child=serializers.CharField())
     items = TranslationOverviewRowSerializer(many=True)
     next_cursor = serializers.UUIDField(allow_null=True)
+
+
+SKIP_REASONS = [
+    "metadata_incomplete",
+    "untranslated_units",
+    "source_placeholder",
+    "locale_home_missing",
+    "source_unpublished",
+    "source_outdated",
+]
+
+
+class LanguageDecisionSerializer(serializers.Serializer[dict[str, Any]]):
+    page_id = serializers.UUIDField()
+    locale = serializers.CharField()
+    published = serializers.BooleanField(help_text="Whether the version went out.")
+    publication_id = serializers.UUIDField(
+        allow_null=True, help_text="The derived publication made by this decision."
+    )
+    skipped = serializers.ChoiceField(
+        choices=SKIP_REASONS,
+        allow_null=True,
+        help_text="Why the version did not go out (ADR-070 pkt 6).",
+    )
+
+
+class LocaleAcceptSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_body_version = serializers.IntegerField(min_value=0)
+
+
+class LocaleBatchItemSerializer(serializers.Serializer[dict[str, Any]]):
+    page_id = serializers.UUIDField()
+    locale = serializers.RegexField(r"^[a-z]{2}$")
+    expected_body_version = serializers.IntegerField(min_value=0)
+
+
+class LocaleBatchAcceptSerializer(serializers.Serializer[dict[str, Any]]):
+    items = serializers.ListField(
+        child=LocaleBatchItemSerializer(), allow_empty=False, max_length=100
+    )
+    digest = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="The digest the preview returned; required for more than one item.",
+    )
+
+    def validate_items(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if len({(item["page_id"], item["locale"]) for item in items}) != len(items):
+            raise serializers.ValidationError(
+                "Każda wersja językowa może być na liście tylko raz.", code="duplicate"
+            )
+        return items
+
+
+class LocaleBatchResultSerializer(serializers.Serializer[dict[str, Any]]):
+    items = LanguageDecisionSerializer(many=True)
+    digest = serializers.CharField(
+        allow_null=True, help_text="Present on a preview: send it back to accept this list."
+    )
