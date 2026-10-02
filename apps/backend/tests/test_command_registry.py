@@ -147,6 +147,16 @@ REFUSED: dict[str, tuple[dict[str, Any], str]] = {
     "empty exposure": ({"exposure": frozenset()}, "ekspozycja"),
     "unknown exposure": ({"exposure": frozenset({"web"})}, "ekspozycja"),
     "input root is a list": ({"input_schema": {"type": "array", "items": TEXT}}, "korzeniem"),
+    "input root without its type": (
+        {
+            "input_schema": {
+                "additionalProperties": False,
+                "required": ["name"],
+                "properties": {"name": TEXT},
+            }
+        },
+        "korzeniem",
+    ),
     "input field without description": (
         {"input_schema": _input(name={"type": "string"})},
         "input_schema.name: pole wymaga description",

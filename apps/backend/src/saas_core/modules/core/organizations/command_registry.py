@@ -263,7 +263,9 @@ def _input_schema_problems(schema: Mapping[str, Any]) -> list[str]:
     except SchemaError as error:
         return [f"input_schema nie jest JSON Schema 2020-12: {error.message}"]
     problems: list[str] = []
-    if not _is_object(schema):
+    # Exactly `type: object`: the model port refuses a tool whose root says
+    # less, and one such tool would fail every turn it is offered in.
+    if schema.get("type") != "object":
         problems.append("input_schema: korzeniem jest obiekt")
     _walk_input(schema, "input_schema", problems)
     return problems
@@ -300,7 +302,7 @@ def _output_schema_problems(spec: CommandSpec) -> list[str]:
     except SchemaError as error:
         return [f"output_schema nie jest JSON Schema 2020-12: {error.message}"]
     problems: list[str] = []
-    if not _is_object(schema):
+    if schema.get("type") != "object":
         problems.append("output_schema: korzeniem jest obiekt")
     classes: set[str] = set()
     _walk_output(schema, "output_schema", None, problems, classes)
