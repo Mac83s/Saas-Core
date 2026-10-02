@@ -15,8 +15,12 @@ class TranslationConfig(AppConfig):
 
         register_translation_policy(ENGINE_POLICY)
 
+        from saas_core.modules.shared.model_port.api import register_task
+
         from .command_declarations import register_translation_commands
+        from .evals.runner import JUDGE_SPEC
         from .notify import register_templates
 
         register_translation_commands()
         register_templates()
+        register_task(JUDGE_SPEC)
