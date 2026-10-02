@@ -2811,6 +2811,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/public-locales/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's languages
+         * @description The company's content languages in order (the first is its customers' language), their own version, the languages this product offers, the plan's limit and the languages that cannot be removed. The assistant reads the same through organization.public_locales.read@1.
+         */
+        get: operations["organizations_public_locales_retrieve"];
+        /**
+         * Change the company's languages
+         * @description Replaces the list, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). Adding a language counts against the plan (`quota_exceeded`, `plan_access_denied`); removing and reordering always work, except for a site's source language (`site_default_not_removable`), and removing is a person's decision (403 person_required for the assistant without consent). The assistant changes the same through organization.public_locales.update@1.
+         */
+        put: operations["organizations_public_locales_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/public-locales/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's languages would do
+         * @description The same checks as the change, and nothing saved: what is added and removed, the version after, the plan's limit and the decisions only a person makes.
+         */
+        post: operations["organizations_public_locales_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/roles/": {
         parameters: {
             query?: never;
@@ -7766,6 +7810,52 @@ export interface components {
             staff_choice: string;
             team_ids: string[];
             person_ids: string[];
+        };
+        PublicLocaleOption: {
+            /** @description Kod języka z rejestru platformy. */
+            code: string;
+            /** @description Nazwa języka w nim samym, np. Deutsch. */
+            native_name: string;
+            english_name: string;
+        };
+        PublicLocales: {
+            /** @description Języki firmy w kolejności; pierwszy to język jej klientów. */
+            public_locales: string[];
+            /** @description Wersja języków firmy; zapis z nieaktualną daje 409 settings_version_conflict. */
+            version: number;
+            /** @description Języki, które firma tego produktu może wybrać. */
+            offered: components["schemas"]["PublicLocaleOption"][];
+            limit: components["schemas"]["PublicLocalesLimit"];
+            /** @description Języki, których nie da się usunąć, z kodem powodu (site_default_not_removable — język źródłowy strony). */
+            protected: {
+                [key: string]: string;
+            };
+        };
+        PublicLocalesChange: {
+            /** @description Nowa lista języków firmy w kolejności; pierwszy to język jej klientów. */
+            public_locales: string[];
+            /** @description Wersja z odczytu (`version`). */
+            expected_version: number;
+        };
+        PublicLocalesLimit: {
+            /** @description Czy plan pozwala teraz dodać język. */
+            allowed: boolean;
+            /** @description Ile języków poza pierwszym daje plan; null — bez limitu. */
+            additional_max: number | null;
+            /** @description Dlaczego nie, gdy `allowed` jest fałszem. */
+            reason: string;
+        };
+        PublicLocalesPlan: {
+            before: string[];
+            /** @description Języki firmy po zmianie. */
+            public_locales: string[];
+            added: string[];
+            removed: string[];
+            /** @description Wersja po zmianie. */
+            version: number;
+            limit: components["schemas"]["PublicLocalesLimit"];
+            /** @description Decyzje, które podejmuje tylko osoba (usunięcie języka). */
+            person_gates: string[];
         };
         PublicName: {
             /** Format: uuid */
@@ -17447,6 +17537,150 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organizations_public_locales_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicLocales"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organizations_public_locales_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicLocalesChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicLocalesChange"];
+                "multipart/form-data": components["schemas"]["PublicLocalesChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicLocalesPlan"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organizations_public_locales_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicLocalesChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicLocalesChange"];
+                "multipart/form-data": components["schemas"]["PublicLocalesChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicLocalesPlan"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

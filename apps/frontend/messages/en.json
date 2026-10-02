@@ -109,6 +109,7 @@
     "actions": {
       "organization_created": "Organization created",
       "organization_updated": "Company details changed",
+      "organization_settings_changed": "Company settings changed",
       "commands_consent_granted": "Consent to the assistant's action",
       "organization_archived": "Organization archived",
       "invitation_created": "Invitation sent",

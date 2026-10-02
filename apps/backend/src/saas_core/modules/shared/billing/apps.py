@@ -19,6 +19,7 @@ class BillingConfig(AppConfig):
 
         from saas_core.modules.core.organizations.api import (  # noqa: PLC0415
             register_command_gate,
+            register_public_locales_limit,
             register_seat_limit,
         )
         from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
@@ -26,6 +27,7 @@ class BillingConfig(AppConfig):
         )
 
         from .command_gate import plan_features  # noqa: PLC0415
+        from .public_locales import public_locales_limit  # noqa: PLC0415
         from .seats import team_members_limit  # noqa: PLC0415
         from .signals import grant_free_plan_on_create  # noqa: PLC0415
 
@@ -36,6 +38,8 @@ class BillingConfig(AppConfig):
         )
         # An invitation takes a seat of the plan; Core asks through this.
         register_seat_limit(team_members_limit)
+        # Adding a language counts against the plan; removing never does.
+        register_public_locales_limit(public_locales_limit)
         # Whether the plan lets a channel act at all, asked on every command.
         register_command_gate("features", plan_features)
         # A demo organization's plan, before any module needs it (seed_demo).

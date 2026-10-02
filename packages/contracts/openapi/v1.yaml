@@ -7938,6 +7938,149 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/current/public-locales/:
+    get:
+      operationId: organizations_public_locales_retrieve
+      description: The company's content languages in order (the first is its customers'
+        language), their own version, the languages this product offers, the plan's
+        limit and the languages that cannot be removed. The assistant reads the same
+        through organization.public_locales.read@1.
+      summary: Read the company's languages
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLocales'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: organizations_public_locales_update
+      description: Replaces the list, guarded by `expected_version` (a stale one answers
+        409 settings_version_conflict). Adding a language counts against the plan
+        (`quota_exceeded`, `plan_access_denied`); removing and reordering always work,
+        except for a site's source language (`site_default_not_removable`), and removing
+        is a person's decision (403 person_required for the assistant without consent).
+        The assistant changes the same through organization.public_locales.update@1.
+      summary: Change the company's languages
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicLocalesChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicLocalesChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicLocalesChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLocalesPlan'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/public-locales/preview/:
+    post:
+      operationId: organizations_public_locales_preview
+      description: 'The same checks as the change, and nothing saved: what is added
+        and removed, the version after, the plan''s limit and the decisions only a
+        person makes.'
+      summary: See what a change of the company's languages would do
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicLocalesChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicLocalesChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicLocalesChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLocalesPlan'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/organizations/current/roles/:
     get:
       operationId: api_v1_organizations_current_roles_retrieve
@@ -21943,6 +22086,130 @@ components:
       - public_slug
       - staff_choice
       - team_ids
+    PublicLocaleOption:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Kod języka z rejestru platformy.
+        native_name:
+          type: string
+          description: Nazwa języka w nim samym, np. Deutsch.
+        english_name:
+          type: string
+      required:
+      - code
+      - english_name
+      - native_name
+    PublicLocales:
+      type: object
+      properties:
+        public_locales:
+          type: array
+          items:
+            type: string
+          description: Języki firmy w kolejności; pierwszy to język jej klientów.
+        version:
+          type: integer
+          description: Wersja języków firmy; zapis z nieaktualną daje 409 settings_version_conflict.
+        offered:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicLocaleOption'
+          description: Języki, które firma tego produktu może wybrać.
+        limit:
+          $ref: '#/components/schemas/PublicLocalesLimit'
+        protected:
+          type: object
+          additionalProperties:
+            type: string
+          description: Języki, których nie da się usunąć, z kodem powodu (site_default_not_removable
+            — język źródłowy strony).
+      required:
+      - limit
+      - offered
+      - protected
+      - public_locales
+      - version
+    PublicLocalesChange:
+      type: object
+      properties:
+        public_locales:
+          type: array
+          items:
+            type: string
+            description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+              włączony dla firmy.'
+            maxLength: 2
+            minLength: 2
+            pattern: ^[a-z]{2}$
+          description: Nowa lista języków firmy w kolejności; pierwszy to język jej
+            klientów.
+          maxItems: 5
+          minItems: 1
+        expected_version:
+          type: integer
+          minimum: 0
+          description: Wersja z odczytu (`version`).
+      required:
+      - expected_version
+      - public_locales
+    PublicLocalesLimit:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          description: Czy plan pozwala teraz dodać język.
+        additional_max:
+          type:
+          - integer
+          - 'null'
+          description: Ile języków poza pierwszym daje plan; null — bez limitu.
+        reason:
+          type: string
+          description: Dlaczego nie, gdy `allowed` jest fałszem.
+      required:
+      - additional_max
+      - allowed
+      - reason
+    PublicLocalesPlan:
+      type: object
+      properties:
+        before:
+          type: array
+          items:
+            type: string
+        public_locales:
+          type: array
+          items:
+            type: string
+          description: Języki firmy po zmianie.
+        added:
+          type: array
+          items:
+            type: string
+        removed:
+          type: array
+          items:
+            type: string
+        version:
+          type: integer
+          description: Wersja po zmianie.
+        limit:
+          $ref: '#/components/schemas/PublicLocalesLimit'
+        person_gates:
+          type: array
+          items:
+            type: string
+          description: Decyzje, które podejmuje tylko osoba (usunięcie języka).
+      required:
+      - added
+      - before
+      - limit
+      - person_gates
+      - public_locales
+      - removed
+      - version
     PublicName:
       type: object
       properties:

@@ -116,7 +116,15 @@ def decide_feature(
     )
 
 
-def decide_quota(quota_key: str, *, at: datetime | None = None) -> QuotaDecision:
+def decide_quota(
+    quota_key: str,
+    *,
+    operation: FeatureOperation = FeatureOperation.READ,
+    at: datetime | None = None,
+) -> QuotaDecision:
+    """The plan's number for `quota_key`. A limit asked for before a write
+    (`operation=WRITE`) is unavailable on a read-only subscription, so adding is
+    refused while the things already there keep working (ADR-071 pkt 7)."""
     require_tenant_context()
     snapshot = cast(EntitlementSnapshot | None, EntitlementSnapshot.objects.first())
     evidence = _evidence(snapshot, quota_key, at=at)
@@ -136,7 +144,7 @@ def decide_quota(quota_key: str, *, at: datetime | None = None) -> QuotaDecision
             DecisionReason.UNKNOWN_QUOTA,
             evidence,
         )
-    access_reason = _access_denial(snapshot, operation=FeatureOperation.READ, at=at)
+    access_reason = _access_denial(snapshot, operation=operation, at=at)
     if access_reason is not None:
         return QuotaDecision(quota_key, 0, False, access_reason, evidence)
     value = _quota_value(snapshot, quota_key, at=at)

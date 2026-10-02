@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .public_locales_views import PublicLocalesPreviewView, PublicLocalesView
 from .views import (
     CommandConsentView,
     CurrentOrganizationView,
@@ -38,6 +39,16 @@ urlpatterns = [
         name="organization-command-consent",
     ),
     path("current/seats/", SeatUsageView.as_view(), name="organization-seats"),
+    path(
+        "current/public-locales/",
+        PublicLocalesView.as_view(),
+        name="organization-public-locales",
+    ),
+    path(
+        "current/public-locales/preview/",
+        PublicLocalesPreviewView.as_view(),
+        name="organization-public-locales-preview",
+    ),
     path("current/roles/", RoleListCreateView.as_view(), name="organization-roles"),
     path(
         "current/roles/<slug:role_key>/",

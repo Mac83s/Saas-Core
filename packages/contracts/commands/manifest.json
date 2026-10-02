@@ -447,6 +447,164 @@
       "version_field": "expected_version"
     },
     {
+      "command": "organization.public_locales.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's content languages in order (the first is its customers' language), their version, the languages this product offers, how many languages beyond the first the plan allows (null: no limit), whether adding is allowed now, and the languages that cannot be removed (a site's source language). Use it before proposing a change of languages. It does not translate anything.",
+      "modifiers": [],
+      "module": "core.organizations",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "adding_allowed": {
+            "type": "boolean"
+          },
+          "additional_max": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offered": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "protected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "public_locales": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The languages the company speaks to customers in, and what can be added.",
+        "pl": "Języki, w których firma mówi do klientów, i co można dodać."
+      },
+      "title": {
+        "en": "Read the company's languages",
+        "pl": "Odczytaj języki firmy"
+      },
+      "tool_name": "organization_public_locales_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "organization.public_locales.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "public_locales": {
+            "description": "The company's languages after the change, in order; the first is its customers' language.",
+            "items": {
+              "enum": [
+                "pl",
+                "en"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "public_locales"
+        ],
+        "type": "object"
+      },
+      "model_description": "Replaces the company's content languages with the given ordered list; the first becomes its customers' language. Read them first with organization.public_locales.read@1 and pass the whole new list. Adding a language only enables it — nothing is translated and no credits are spent; the plan may limit how many languages are added. Removing a language takes its pages off the site at once and needs the person's confirmation; a site's source language cannot be removed. Do not use it for the panel's language (organization.update@1).",
+      "modifiers": [],
+      "module": "core.organizations",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "adding_allowed": {
+            "type": "boolean"
+          },
+          "additional_max": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offered": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "protected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "public_locales": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [
+        "Usunięcie języka firmy"
+      ],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Adds, removes or reorders the languages the company speaks to customers in.",
+        "pl": "Dodaje, usuwa albo porządkuje języki, w których firma mówi do klientów."
+      },
+      "title": {
+        "en": "Change the company's languages",
+        "pl": "Zmień języki firmy"
+      },
+      "tool_name": "organization_public_locales_update_v1",
+      "undo": "command:organization.public_locales.update@1",
+      "version_field": "version"
+    },
+    {
       "command": "organization.read@1",
       "entitlement": null,
       "exposure": [

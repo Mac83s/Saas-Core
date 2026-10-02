@@ -91,6 +91,9 @@ class Organization(models.Model):
     # Wider than a code on purpose: varchar(2)[] would truncate "deu" to "de"
     # on an explicit cast, so the length is left to the format check.
     public_locales = ArrayField(models.CharField(max_length=10), default=default_public_locales)
+    #: The languages' own version (ADR-078 pkt 7): a change of the time zone
+    #: must not make an open languages form stale, so not `version`.
+    public_locales_version = models.PositiveBigIntegerField(default=0)
     timezone = models.CharField(max_length=64, default="Europe/Warsaw")
     currency = models.CharField(
         max_length=3,
@@ -501,6 +504,8 @@ class OrganizationAuditAction(models.TextChoices):
     ORGANIZATION_CREATED = "organization.created", "Utworzono organizację"
     ORGANIZATION_UPDATED = "organization.updated", "Zmieniono organizację"
     ORGANIZATION_ARCHIVED = "organization.archived", "Zarchiwizowano organizację"
+    #: A settings group changed; the group is the target type (ADR-078 pkt 9).
+    SETTINGS_CHANGED = "organization.settings_changed", "Zmieniono ustawienia"
     INVITATION_CREATED = "invitation.created", "Utworzono zaproszenie"
     INVITATION_REVOKED = "invitation.revoked", "Wycofano zaproszenie"
     INVITATION_ACCEPTED = "invitation.accepted", "Przyjęto zaproszenie"
@@ -685,3 +690,45 @@ class CommandReceipt(models.Model):
 
     def __str__(self) -> str:
         return f"{self.command}:{self.idempotency_key}"
+
+
+class PublicLocalesChangeOrigin(models.TextChoices):
+    SETTINGS = "settings", "Ustawienia"
+    #: A site started in a language the company did not have (ADR-071 pkt 6).
+    SITE_SOURCE = "site_source", "Język nowej strony"
+
+
+class PublicLocalesChange(models.Model):
+    """One change of the company's languages (ADR-071 pkt 5): the list before
+    and after, who and why — and the receipt of the request that made it, so a
+    repeat with the same key returns this change instead of making another."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="+")
+    #: `public_locales_version` after this change.
+    version = models.PositiveBigIntegerField()
+    before = ArrayField(models.CharField(max_length=10))
+    after = ArrayField(models.CharField(max_length=10))
+    origin = models.CharField(max_length=16, choices=PublicLocalesChangeOrigin)
+    actor_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name="+"
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-version",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                name="organizations_public_locales_change_idem_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "version"],
+                name="organizations_public_locales_change_version_uq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization_id}:{self.version}"

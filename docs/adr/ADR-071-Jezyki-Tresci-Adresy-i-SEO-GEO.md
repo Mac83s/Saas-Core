@@ -61,7 +61,14 @@ korzeniem. Strony firm nie mają JSON-LD.
    Zmienia osoba z `organization.settings.manage`; usunięcie języka tylko osoba,
    a dla asystenta to polecenie wysokiego ryzyka z potwierdzeniem. Podgląd pokazuje
    decyzję limitu i adresy, które przejdą na 308. Dodanie języka niczego nie
-   tłumaczy i nie wydaje kredytów (ADR-069).
+   tłumaczy i nie wydaje kredytów (ADR-069). Języki mają własną wersję
+   (`Organization.public_locales_version`, 409 `settings_version_conflict`), audyt
+   to `organization.settings_changed` z grupą `organization.public_locales`
+   (ADR-078 pkt 7, 9), a kody pola `public_locales`: `locale_not_in_registry`,
+   `locale_not_supported` (nie ma go w produkcie), `duplicate`,
+   `site_default_not_removable`, `quota_exceeded`, `plan_access_denied`. Asystent
+   zmienia je poleceniem `organization.public_locales.update@1`; usunięcie to
+   bramka osoby „Usunięcie języka firmy”, otwierana tylko zgodą z kliknięcia.
 6. **Język źródłowy strony.** `Site.default_locale` odpowiada bez prefiksu, musi być
    na liście firmy i nie da się go z niej usunąć (`site_default_not_removable`), a
    po założeniu strony się nie zmienia (ADR-070 pkt 19). Wolno nim być tylko

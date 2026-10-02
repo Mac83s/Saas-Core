@@ -24,19 +24,25 @@ from saas_core.modules.core.organizations.api import (
     ResourceReferenceRejected,
     copy_resource_references,
     dispatch_domain_event,
+    include_site_source_locale,
     list_resource_reference_ids,
     record_resource_references,
 )
+
+# Moved to the core with the company's languages (ADR-078 pkt 8); re-exported
+# under the same names for the sites code and tests that import them from here.
+from saas_core.modules.core.organizations.api import PersonRequired as PersonRequired
+from saas_core.modules.core.organizations.api import (
+    assert_person_required as assert_person_required,
+)
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import (
-    ACTING_PERSON_GATE_ALLOWED,
     TenantContext,
     require_tenant_context,
 )
 from saas_core.modules.core.organizations.locales import (
     LOCALE_NOT_SEEDED,
     assert_organization_content_locale,
-    include_site_source_locale,
 )
 from saas_core.modules.core.organizations.models import Organization, WorkspaceKind
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
@@ -323,12 +329,6 @@ class AutomationLinkHostForbidden(APIException):
     default_code = "automation_link_host_forbidden"
 
 
-class PersonRequired(APIException):
-    status_code = 403
-    default_detail = "Ta operacja wymaga decyzji człowieka."
-    default_code = "person_required"
-
-
 class PageAutomationForbidden(APIException):
     status_code = 403
     default_detail = "Ta podstrona nie jest udostępniona automatyzacji treści."
@@ -511,6 +511,7 @@ def create_site(
         organization_id=context.organization_id,
         code=default_locale,
         first=not Site.all_objects.filter(organization_id=context.organization_id).exists(),
+        idempotency_key=_quota_idempotency_key(context.actor_id, normalized_key),
     )
     organization = Organization.objects.get(pk=context.organization_id)
     actor = User.objects.get(pk=context.actor_id)
@@ -1202,24 +1203,6 @@ def assert_person_blocks(
         assert_person_required(context, "Cytaty i opinie")
     if _captions(blocks) - _captions(before) - _catalogue_words(_captions):
         assert_person_required(context, "Podpisy zdjęć w galerii")
-
-
-def assert_person_required(context: TenantContext, what: str) -> None:
-    """Refuses an automation outright, with the reason in the message.
-
-    These are the operations ADR-035 §4 keeps for a person no matter which mode
-    the grant carries: domains, the main menu, legal pages, the price list,
-    removals and anything site-wide. A grant is a limit on what an integration
-    may do routinely, not a way of buying past the short list of things nobody
-    wants a machine deciding alone.
-    """
-    # A membership acting through the assistant or a translation job is
-    # refused too, unless a person's consent opened this label for this run,
-    # within what its channel may ever reach (ADR-076 §6).
-    opened = ACTING_PERSON_GATE_ALLOWED.get(context.acting_via, frozenset()) & context.acting_opened
-    if not _is_automation(context) and (not context.acting_via or what in opened):
-        return
-    raise PersonRequired(detail=f"{what} wymaga decyzji człowieka.")
 
 
 def assert_page_writable(

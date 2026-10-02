@@ -109,6 +109,7 @@
     "actions": {
       "organization_created": "Utworzono organizację",
       "organization_updated": "Zmieniono dane firmy",
+      "organization_settings_changed": "Zmieniono ustawienia firmy",
       "commands_consent_granted": "Zgoda na działanie asystenta",
       "organization_archived": "Zarchiwizowano organizację",
       "invitation_created": "Wysłano zaproszenie",

@@ -25,9 +25,12 @@ ACTING_TRIGGER_KINDS = frozenset({"user", "api_key", "schedule", "conversation"}
 #: an acting context may ever reach, per `acting_via` — a ceiling, not an
 #: opening. A label opens only for one run that a person's consent covers: the
 #: command executor sets `acting_opened` for the call it runs (assistant), and
-#: the translation worker from the consent stored on its job (ADR-069). Empty
-#: until A4 and ADR-069 name the labels they need.
-ACTING_PERSON_GATE_ALLOWED: dict[str, frozenset[str]] = {}
+#: the translation worker from the consent stored on its job (ADR-069).
+ACTING_PERSON_GATE_ALLOWED: dict[str, frozenset[str]] = {
+    # Removing a company language, with the person's click on the consent that
+    # shows which language goes (ADR-071 pkt 5: a high-risk command).
+    "assistant": frozenset({"Usunięcie języka firmy"}),
+}
 
 
 class MissingTenantContext(RuntimeError):

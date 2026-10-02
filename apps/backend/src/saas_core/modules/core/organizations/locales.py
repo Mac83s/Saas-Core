@@ -67,25 +67,6 @@ def assert_organization_content_locale(
     return assert_content_locale(code, organization=organization, field=field)
 
 
-def include_site_source_locale(*, organization_id: Any, code: str, first: bool) -> None:
-    """A site's source language is always one of the company's (ADR-071 pkt 6).
-
-    Starting a site in a language of the profile that the company has not
-    listed yet adds it — at the front when it is the company's first site, so
-    the language the company chose to speak becomes its customers' language,
-    at the end otherwise. Plan TL10 moves this into the one service that
-    changes the company's languages, with history and the plan's limit.
-    """
-    organization = Organization.objects.select_for_update().get(pk=organization_id)
-    if code in organization.public_locales:
-        return
-    if code not in settings.SITES_SUPPORTED_LOCALES:
-        assert_content_locale(code, organization=organization, field="default_locale")
-    locales = list(organization.public_locales)
-    organization.public_locales = [code, *locales] if first else [*locales, code]
-    organization.save(update_fields=["public_locales", "updated_at"])
-
-
 def clamp_content_locale(code: str | None, *, organization: Organization) -> str:
     """The language to use for a visitor's choice: theirs when the company has
     it, otherwise the company's first — a booking is never refused over a

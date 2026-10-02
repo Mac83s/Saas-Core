@@ -45,6 +45,11 @@ from saas_core.modules.core.organizations.models import (
     OrganizationStatus,
     Role,
 )
+from saas_core.modules.shared.billing.models import (
+    AccessMode,
+    EntitlementSnapshot,
+    SubscriptionState,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -70,6 +75,13 @@ def owner(slug: str, key: str) -> TenantContext:
     user.save()
     organization = Organization.objects.create(
         name="Domki", slug=slug, status=OrganizationStatus.ACTIVE
+    )
+    # A company on a plan without limits: a command's own limits have their
+    # own tests, like the plan's features (`features_on`).
+    EntitlementSnapshot.all_objects.create(
+        organization=organization,
+        subscription_state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
     )
     membership = Membership.objects.create(
         organization=organization,

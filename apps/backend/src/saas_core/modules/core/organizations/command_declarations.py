@@ -14,6 +14,13 @@ from typing import Any
 from .command_registry import CommandSpec, Effect, Preview, register_command
 from .models import Organization
 from .permissions import ORGANIZATION_READ, SETTINGS_MANAGE
+from .public_locales import (
+    PUBLIC_LOCALES_GROUP,
+    REMOVAL_GATE,
+    change_public_locales,
+    offered_locales,
+    read_public_locales,
+)
 from .serializers import OrganizationUpdateSerializer
 from .services import current_organization, planned_organization, update_current_organization
 
@@ -177,6 +184,157 @@ ORGANIZATION_UPDATE_COMMAND = CommandSpec(
 )
 
 
+_LOCALES_OUTPUT = {
+    "type": "object",
+    "x-data-class": "public",
+    "properties": {
+        "public_locales": {"type": "array", "items": {"type": "string"}},
+        "version": {"type": "integer"},
+        "offered": {"type": "array", "items": {"type": "string"}},
+        "additional_max": {"type": ["integer", "null"]},
+        "adding_allowed": {"type": "boolean"},
+        "protected": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+
+def _locales() -> dict[str, Any]:
+    state = read_public_locales()
+    return {
+        "public_locales": list(state.locales),
+        "version": state.version,
+        "offered": list(state.offered),
+        "additional_max": state.limit.additional_max,
+        "adding_allowed": state.limit.allowed,
+        "protected": sorted(state.protected),
+    }
+
+
+def _read_locales(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    return _locales()
+
+
+def _locales_resource(call: Any) -> str:
+    return f"{PUBLIC_LOCALES_GROUP}:{call.context.organization_id}"
+
+
+def _preview_locales(arguments: Mapping[str, Any], call: Any) -> Preview:
+    current = read_public_locales()
+    plan = change_public_locales(
+        locales=arguments["public_locales"],
+        expected_version=current.version,
+        idempotency_key="",
+        preview=True,
+    )
+    summary = {
+        "pl": f"Języki firmy: {', '.join(plan.before)} → {', '.join(plan.after)}",
+        "en": f"Company languages: {', '.join(plan.before)} → {', '.join(plan.after)}",
+    }
+    effects = (
+        (
+            Effect(
+                kind="updated",
+                resource=PUBLIC_LOCALES_GROUP,
+                resource_id=str(call.context.organization_id),
+                summary=summary,
+            ),
+        )
+        if plan.after != plan.before
+        else ()
+    )
+    return Preview(
+        effects=effects,
+        observed_versions={_locales_resource(call): current.version},
+        # Removing a language takes its pages off the site at once.
+        escalate_to="publish" if plan.removed else None,
+        person_gates=plan.person_gates,
+    )
+
+
+def _update_locales(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    change_public_locales(
+        locales=arguments["public_locales"],
+        expected_version=int(call.preview.observed_versions[_locales_resource(call)]),
+        idempotency_key=f"command:{call.idempotency_key}",
+    )
+    return _locales()
+
+
+PUBLIC_LOCALES_READ_COMMAND = CommandSpec(
+    name="organization.public_locales.read",
+    version=1,
+    module="core.organizations",
+    title={"pl": "Odczytaj języki firmy", "en": "Read the company's languages"},
+    summary={
+        "pl": "Języki, w których firma mówi do klientów, i co można dodać.",
+        "en": "The languages the company speaks to customers in, and what can be added.",
+    },
+    model_description=(
+        "Returns the company's content languages in order (the first is its customers' "
+        "language), their version, the languages this product offers, how many languages "
+        "beyond the first the plan allows (null: no limit), whether adding is allowed now, "
+        "and the languages that cannot be removed (a site's source language). Use it before "
+        "proposing a change of languages. It does not translate anything."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": [],
+        "properties": {},
+    },
+    output_schema=_LOCALES_OUTPUT,
+    permission=ORGANIZATION_READ,
+    risk="read",
+    run=_read_locales,
+    undo="none:a read changes nothing",
+    no_preview_reason="A read changes nothing, so there is nothing to show first.",
+    no_version_reason="A read checks no version.",
+)
+
+PUBLIC_LOCALES_UPDATE_COMMAND = CommandSpec(
+    name="organization.public_locales.update",
+    version=1,
+    module="core.organizations",
+    title={"pl": "Zmień języki firmy", "en": "Change the company's languages"},
+    summary={
+        "pl": "Dodaje, usuwa albo porządkuje języki, w których firma mówi do klientów.",
+        "en": "Adds, removes or reorders the languages the company speaks to customers in.",
+    },
+    model_description=(
+        "Replaces the company's content languages with the given ordered list; the first "
+        "becomes its customers' language. Read them first with "
+        "organization.public_locales.read@1 and pass the whole new list. Adding a language "
+        "only enables it — nothing is translated and no credits are spent; the plan may "
+        "limit how many languages are added. Removing a language takes its pages off the "
+        "site at once and needs the person's confirmation; a site's source language cannot "
+        "be removed. Do not use it for the panel's language (organization.update@1)."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["public_locales"],
+        "properties": {
+            "public_locales": {
+                "type": "array",
+                "items": {"type": "string", "enum": list(offered_locales())},
+                "description": "The company's languages after the change, in order; the "
+                "first is its customers' language.",
+            },
+        },
+    },
+    output_schema=_LOCALES_OUTPUT,
+    permission=SETTINGS_MANAGE,
+    risk="apply",
+    run=_update_locales,
+    undo="command:organization.public_locales.update@1",
+    preview=_preview_locales,
+    version_field="version",
+    person_gates=frozenset({REMOVAL_GATE}),
+)
+
+
 def register_organization_commands() -> None:
     register_command(ORGANIZATION_READ_COMMAND)
     register_command(ORGANIZATION_UPDATE_COMMAND)
+    register_command(PUBLIC_LOCALES_READ_COMMAND)
+    register_command(PUBLIC_LOCALES_UPDATE_COMMAND)
