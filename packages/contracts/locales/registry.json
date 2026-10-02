@@ -1,0 +1,56 @@
+{
+  "$schema": "./registry.schema.json",
+  "schemaVersion": 1,
+  "locales": [
+    {
+      "code": "pl",
+      "nativeName": "Polski",
+      "englishName": "Polish",
+      "ogLocale": "pl_PL",
+      "searchCode": "pl",
+      "script": "Latn",
+      "paginationSegment": "strona",
+      "appLocale": true
+    },
+    {
+      "code": "en",
+      "nativeName": "English",
+      "englishName": "English",
+      "ogLocale": "en_US",
+      "searchCode": "en",
+      "script": "Latn",
+      "paginationSegment": "page",
+      "appLocale": true
+    },
+    {
+      "code": "de",
+      "nativeName": "Deutsch",
+      "englishName": "German",
+      "ogLocale": "de_DE",
+      "searchCode": "de",
+      "script": "Latn",
+      "paginationSegment": "seite",
+      "appLocale": false
+    },
+    {
+      "code": "es",
+      "nativeName": "Español",
+      "englishName": "Spanish",
+      "ogLocale": "es_ES",
+      "searchCode": "es",
+      "script": "Latn",
+      "paginationSegment": "pagina",
+      "appLocale": false
+    },
+    {
+      "code": "ru",
+      "nativeName": "Русский",
+      "englishName": "Russian",
+      "ogLocale": "ru_RU",
+      "searchCode": "ru",
+      "script": "Cyrl",
+      "paginationSegment": "stranitsa",
+      "appLocale": false
+    }
+  ]
+}

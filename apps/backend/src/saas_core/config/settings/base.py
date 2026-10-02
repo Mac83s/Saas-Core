@@ -21,6 +21,11 @@ from saas_core.config.composition import (
     select_by_module,
     verify_artifact,
 )
+from saas_core.config.locales import (
+    LocaleRegistryError,
+    load_locale_registry,
+    profile_locales_problem,
+)
 
 
 def _deployment_billing_plan_keys(profile: dict[str, Any], modules: list[str]) -> tuple[str, ...]:
@@ -99,13 +104,25 @@ except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
 if _deployment_id != DEPLOYMENT:
     raise ImproperlyConfigured(f"Profil {_deployment_id} nie odpowiada deploymentowi {DEPLOYMENT}")
 BILLING_PLAN_KEYS = _deployment_billing_plan_keys(_deployment_profile, _deployment_modules)
-if (
-    not isinstance(_deployment_supported_locales, list)
-    or not _deployment_supported_locales
-    or any(locale not in {"pl", "en"} for locale in _deployment_supported_locales)
-    or _deployment_default_locale not in _deployment_supported_locales
-):
-    raise ImproperlyConfigured("Profil deploymentu zawiera nieobsługiwaną konfigurację locale")
+#: The content languages the platform knows (ADR-071 pkt 2), from the same file
+#: the Node deployment check reads, so CI and boot agree on what a code is.
+LOCALE_REGISTRY_PATH = Path(
+    os.environ.get(
+        "LOCALE_REGISTRY_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "locales" / "registry.json",
+    )
+)
+try:
+    LOCALE_REGISTRY = load_locale_registry(LOCALE_REGISTRY_PATH)
+except LocaleRegistryError as error:
+    raise ImproperlyConfigured(str(error)) from error
+#: The languages of the panel and of e-mails to the team (ADR-071 pkt 1).
+APP_LOCALES = tuple(code for code, entry in LOCALE_REGISTRY.items() if entry.app_locale)
+_locales_problem = profile_locales_problem(
+    _deployment_supported_locales, _deployment_default_locale, LOCALE_REGISTRY
+)
+if _locales_problem is not None:
+    raise ImproperlyConfigured(f"Profil deploymentu {DEPLOYMENT}: {_locales_problem}")
 SITES_SUPPORTED_LOCALES = tuple(dict.fromkeys(_deployment_supported_locales))
 SITES_DEFAULT_LOCALE = _deployment_default_locale
 SITES_PLATFORM_DOMAIN = str(_deployment_platform_domain).strip().lower().rstrip(".")

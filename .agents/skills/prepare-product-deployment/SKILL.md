@@ -23,6 +23,12 @@ a new directory in that repository, never in Saas-Core. Saas-Core carries only
    `shared.billing`.
    Optional `organizationTypes` declares the kinds of organization and what
    each may use — see `develop-organization-types`.
+   `product.supportedLocales` and `defaultLocale` name content languages from
+   `packages/contracts/locales/registry.json` (two letters, `cs` not `cz`);
+   a code outside the registry fails the check and stops the backend at start
+   (ADR-071). Labels (`label`, `description`) need `pl` and `en`; other
+   registry languages are optional. A new language is a registry entry, not a
+   profile edit alone.
 2. `pnpm deployment:check --profile <name>` until it passes.
 3. `pnpm deployment:artifact` — writes `deployments/<name>/module-artifact.json`
    and commits it. The hash is computed by that one generator; nothing else

@@ -18,6 +18,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     DEPLOYMENT=${DEPLOYMENT} \
     DEPLOYMENT_PROFILE_PATH=/app/deployment.json \
     MODULE_CATALOG_PATH=/app/contracts/modules \
+    LOCALE_REGISTRY_PATH=/app/contracts/locales/registry.json \
     MODULE_ARTIFACT_PATH=/app/module-artifact.json
 
 WORKDIR /app
@@ -35,6 +36,9 @@ COPY packages/contracts/catalog ./contracts/catalog
 # The catalog the profile composes from: without it the process cannot say
 # which modules it is made of, so it refuses to start rather than guess.
 COPY packages/contracts/modules ./contracts/modules
+# The content languages a profile may name (ADR-071 pkt 2): settings refuse to
+# start without them, like without the module catalog.
+COPY packages/contracts/locales ./contracts/locales
 COPY deployments/${DEPLOYMENT}/deployment.json ./deployment.json
 COPY deployments/${DEPLOYMENT}/module-artifact.json ./module-artifact.json
 
@@ -59,6 +63,7 @@ ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
     CONTENT_OPERATIONS_CONTRACTS_PATH=/app/contracts/content-operations \
     CATALOG_CONTRACTS_PATH=/app/contracts/catalog \
     MODULE_CATALOG_PATH=/app/contracts/modules \
+    LOCALE_REGISTRY_PATH=/app/contracts/locales/registry.json \
     MODULE_ARTIFACT_PATH=/app/module-artifact.json \
     PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \

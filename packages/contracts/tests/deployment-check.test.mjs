@@ -7,6 +7,7 @@ import { after, test } from "node:test";
 import {
   assertBillingConfiguration,
   effectiveOrganizationTypes,
+  loadLocaleRegistry,
   repositoryRoot,
   validateDeployment,
 } from "../scripts/deployment-check.mjs";
@@ -70,11 +71,17 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
   const root = await temporaryRoot("saas-core-catalog-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(contracts, "locales"), { recursive: true });
   await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
   // The backend tree has to exist for the check to run at all — its absence
   // is what lets the frontend image build without the backend source.
   await mkdir(path.join(root, "apps/backend/src"), { recursive: true });
-  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+  for (const file of [
+    "deployment.schema.json",
+    "module.schema.json",
+    "locales/registry.json",
+    "locales/registry.schema.json",
+  ]) {
     await cp(
       path.join(repositoryRoot, "packages/contracts", file),
       path.join(contracts, file),
@@ -128,8 +135,14 @@ test("bez drzewa backendu sprawdzenie aplikacji jest pomijane", async () => {
   const root = await temporaryRoot("saas-core-nobackend-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(contracts, "locales"), { recursive: true });
   await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
-  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+  for (const file of [
+    "deployment.schema.json",
+    "module.schema.json",
+    "locales/registry.json",
+    "locales/registry.schema.json",
+  ]) {
     await cp(
       path.join(repositoryRoot, "packages/contracts", file),
       path.join(contracts, file),
@@ -178,8 +191,14 @@ test("moduł nie może zadeklarować cudzej tabeli jako publicznej", async () =>
   const root = await temporaryRoot("saas-core-public-tables-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(contracts, "locales"), { recursive: true });
   await mkdir(path.join(root, "deployments/only-health"), { recursive: true });
-  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+  for (const file of [
+    "deployment.schema.json",
+    "module.schema.json",
+    "locales/registry.json",
+    "locales/registry.schema.json",
+  ]) {
     await cp(
       path.join(repositoryRoot, "packages/contracts", file),
       path.join(contracts, file),
@@ -330,8 +349,14 @@ const singleModuleRoot = async (backend) => {
   const root = await temporaryRoot("saas-core-extension-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(contracts, "locales"), { recursive: true });
   await mkdir(path.join(root, "deployments/only-health"), { recursive: true });
-  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+  for (const file of [
+    "deployment.schema.json",
+    "module.schema.json",
+    "locales/registry.json",
+    "locales/registry.schema.json",
+  ]) {
     await cp(
       path.join(repositoryRoot, "packages/contracts", file),
       path.join(contracts, file),
@@ -701,4 +726,66 @@ test("kategorie katalogu należą do typu i wymagają modułu profili", async ()
       pattern,
     );
   }
+});
+
+const localeProfileRoot = async (product) => {
+  const root = await typedProfileRoot(undefined);
+  const profilePath = path.join(root, "deployments/typed/deployment.json");
+  const profile = JSON.parse(await readFile(profilePath, "utf8"));
+  delete profile.organizationTypes;
+  profile.product = { ...profile.product, ...product };
+  await writeFile(profilePath, JSON.stringify(profile));
+  return root;
+};
+
+test("profil z językami pl, en, de, es i ru z rejestru przechodzi (ADR-071)", async () => {
+  const root = await localeProfileRoot({
+    supportedLocales: ["pl", "en", "de", "es", "ru"],
+  });
+  const result = await validateDeployment("typed", root);
+  assert.deepEqual(result.profile.product.supportedLocales, [
+    "pl",
+    "en",
+    "de",
+    "es",
+    "ru",
+  ]);
+});
+
+test("język spoza rejestru albo kod spoza ISO 639-1 jest odrzucany", async () => {
+  for (const [locale, message] of [
+    ["cz", /nie jest w rejestrze/],
+    ["deu", /pattern/],
+    ["pl-PL", /pattern/],
+  ]) {
+    const root = await localeProfileRoot({
+      supportedLocales: ["pl", locale],
+    });
+    await assert.rejects(validateDeployment("typed", root), message);
+  }
+});
+
+test("etykieta w języku spoza rejestru jest odrzucana", async () => {
+  const root = await typedProfileRoot([
+    {
+      key: "company",
+      label: { pl: "Firma", en: "Company", de: "Firma", xx: "?" },
+      modules: ["shared.billing"],
+      planKeys: ["profile"],
+      selfSignup: true,
+    },
+  ]);
+  await assert.rejects(validateDeployment("typed", root), /spoza rejestru: xx/);
+});
+
+test("rejestr języków ma unikalne kody i języki panelu pl i en", async () => {
+  const registry = await loadLocaleRegistry();
+  const codes = registry.locales.map((entry) => entry.code);
+  assert.equal(new Set(codes).size, codes.length);
+  assert.deepEqual(
+    registry.locales
+      .filter((entry) => entry.appLocale)
+      .map((entry) => entry.code),
+    ["pl", "en"],
+  );
 });

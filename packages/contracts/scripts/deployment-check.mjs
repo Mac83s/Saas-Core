@@ -45,6 +45,63 @@ const assertNoSecretKeys = (value, location = "/") => {
   }
 };
 
+// The content languages a profile may name (ADR-071 pkt 2). The backend reads
+// the same file at start, so CI and boot agree on what a language code is.
+export const loadLocaleRegistry = async (root = repositoryRoot) => {
+  const directory = path.join(root, "packages/contracts/locales");
+  const registry = await parseJson(path.join(directory, "registry.json"));
+  const validate = createValidator(
+    await parseJson(path.join(directory, "registry.schema.json")),
+  );
+  if (!validate(registry)) {
+    throw new Error(`Rejestr języków: ${formatErrors(validate.errors)}`);
+  }
+  const codes = registry.locales.map((entry) => entry.code);
+  if (new Set(codes).size !== codes.length) {
+    throw new Error("Rejestr języków: powtórzony kod języka");
+  }
+  return registry;
+};
+
+const localizedLabels = (value, location = "/") => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      localizedLabels(item, `${location}${index}/`),
+    );
+  }
+  if (!value || typeof value !== "object") return [];
+  if (typeof value.pl === "string" && typeof value.en === "string") {
+    return [[location, value]];
+  }
+  return Object.entries(value).flatMap(([key, child]) =>
+    localizedLabels(child, `${location}${key}/`),
+  );
+};
+
+export const assertLocales = (profile, registry, profileName = profile.id) => {
+  const known = new Set(registry.locales.map((entry) => entry.code));
+  const { defaultLocale, supportedLocales } = profile.product;
+  for (const locale of supportedLocales) {
+    if (!known.has(locale)) {
+      throw new Error(
+        `Profil ${profileName}: język ${locale} nie jest w rejestrze packages/contracts/locales/registry.json`,
+      );
+    }
+  }
+  if (!supportedLocales.includes(defaultLocale)) {
+    throw new Error("Domyślne locale musi należeć do supportedLocales");
+  }
+  for (const [location, label] of localizedLabels(profile)) {
+    for (const locale of Object.keys(label)) {
+      if (!known.has(locale)) {
+        throw new Error(
+          `Profil ${profileName}: etykieta ${location} ma język spoza rejestru: ${locale}`,
+        );
+      }
+    }
+  }
+};
+
 export const assertBillingConfiguration = (
   profile,
   profileName = profile.id,
@@ -433,11 +490,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
       `Id profilu ${profile.id} nie zgadza się z katalogiem ${profileName}`,
     );
   }
-  if (
-    !profile.product.supportedLocales.includes(profile.product.defaultLocale)
-  ) {
-    throw new Error("Domyślne locale musi należeć do supportedLocales");
-  }
+  assertLocales(profile, await loadLocaleRegistry(root), profileName);
   assertBillingConfiguration(profile, profileName);
   assertOrganizationTypes(profile, profileName);
 

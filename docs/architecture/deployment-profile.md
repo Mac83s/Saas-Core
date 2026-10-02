@@ -67,6 +67,10 @@ Walidator kończy proces kodem różnym od zera, gdy:
 - brakuje zależności bezpośredniej lub przechodniej;
 - graf zawiera cykl albo import w niedozwolonym kierunku;
 - locale domyślne nie należy do listy obsługiwanych;
+- język z `supportedLocales` albo klucz etykiety (`label`, `description`) nie
+  jest w rejestrze `packages/contracts/locales/registry.json` (ADR-071 pkt 2);
+  ten sam rejestr czyta backend przy starcie (`LOCALE_REGISTRY_PATH`) i bez niego
+  się nie uruchamia;
 - profil z aktywnym `shared.billing` nie zawiera dokładnie trzech unikalnych
   kluczy `billing.planKeys`;
 - profil zawiera klucz oznaczony jako sekret;

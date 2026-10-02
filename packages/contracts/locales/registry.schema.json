@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saas-core.local/contracts/locales/registry.schema.json",
+  "title": "Rejestr języków treści (ADR-071 pkt 2)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "locales"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "locales": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "nativeName",
+          "englishName",
+          "ogLocale",
+          "searchCode",
+          "script",
+          "paginationSegment",
+          "appLocale"
+        ],
+        "properties": {
+          "code": {
+            "description": "ISO 639-1. Czeski to cs, nigdy cz.",
+            "type": "string",
+            "pattern": "^[a-z]{2}$"
+          },
+          "nativeName": { "type": "string", "minLength": 1 },
+          "englishName": { "type": "string", "minLength": 1 },
+          "ogLocale": {
+            "description": "og:locale, np. pl_PL.",
+            "type": "string",
+            "pattern": "^[a-z]{2}_[A-Z]{2}$"
+          },
+          "searchCode": {
+            "description": "Kod języka dla wyszukiwarki i hreflang.",
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+          },
+          "script": { "enum": ["Latn", "Cyrl"] },
+          "paginationSegment": {
+            "description": "Słowo „strona” w adresie kolejnych stron listy, ASCII.",
+            "type": "string",
+            "pattern": "^[a-z]{2,24}$"
+          },
+          "appLocale": {
+            "description": "Język panelu i e-maili do zespołu (oś aplikacji, ADR-071 pkt 1).",
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
