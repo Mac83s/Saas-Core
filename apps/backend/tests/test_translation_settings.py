@@ -410,6 +410,8 @@ def test_bad_starting_values_stop_the_start() -> None:
     ):
         ids = sorted(error.id for error in check_translation_settings_defaults())
     assert ids == ["translation.E001", "translation.E002", "translation.E002", "translation.E002"]
+    with override_settings(SETTINGS_DEFAULTS={AUTO: True}):
+        assert [error.id for error in check_translation_settings_defaults()] == ["translation.E003"]
 
 
 @pytest.mark.parametrize(

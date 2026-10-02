@@ -221,7 +221,8 @@ def settings_state(organization_id: UUID) -> dict[str, Any]:
     if limit_cap is not None:
         limit = min(limit, limit_cap)
     auto_own = row.auto_changes if row is not None else None
-    auto = auto_own if auto_own is not None else profile_default(defaults, AUTO_CHANGES)
+    # A person's consent: never a product's starting value (translation.E003).
+    auto = auto_own if auto_own is not None else AUTO_CHANGES.default
     mode_locked = effective.source in ("operator", "platform")
     return {
         "group": SETTINGS_GROUP,
