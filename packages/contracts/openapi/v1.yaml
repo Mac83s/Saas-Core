@@ -11005,6 +11005,483 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/:
+    get:
+      operationId: sites_page_locale_body_retrieve
+      description: Every text unit of the source version this language follows, with
+        this language's text, who wrote it and what is still untranslated (ADR-070).
+      summary: Read a page body in another language
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_page_locale_body_save
+      description: Writes the named units as a person's text; structure comes from
+        the source version. 422 `locale_unit_invalid` names every unit that does not
+        fit (`errors[].field` = `units.<key>`, `errors[].code`). The page's own version
+        does not move.
+      summary: Save text units of a page body in another language
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBodySave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBodySave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBodySave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/copy/:
+    post:
+      operationId: sites_page_locale_body_copy
+      description: Fills every unit with no text yet with the source text. A copy
+        stays untranslated until somebody changes it or saves it as it is.
+      summary: Start a manual translation from the source text
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyCopy'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyCopy'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyCopy'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/preview/:
+    post:
+      operationId: sites_page_locale_body_preview
+      description: The body as the save would leave it, or the same 409 and 422 the
+        save would answer. Nothing is written.
+      summary: Check a save of text units without saving
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBodySave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBodySave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBodySave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/:
+    get:
+      operationId: sites_page_locale_body_versions_list
+      summary: History of a page body in another language
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBodyVersionList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/{version_id}/:
+    get:
+      operationId: sites_page_locale_body_version_retrieve
+      summary: A past version of a page body in another language, as blocks
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBodyVersionPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/{version_id}/restore/:
+    post:
+      operationId: sites_page_locale_body_version_restore
+      summary: Make a past version of a page body in another language current again
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRestore'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRestore'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRestore'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/type/:
     put:
       operationId: sites_page_type_set
@@ -14291,6 +14768,14 @@ components:
       - plan_version
       - state
       - trial_end
+    DataClassEnum:
+      enum:
+      - public
+      - public_personal
+      type: string
+      description: |-
+        * `public` - public
+        * `public_personal` - public_personal
     DataExport:
       type: object
       properties:
@@ -15925,6 +16410,211 @@ components:
           type: string
       required:
       - status
+    LocaleBody:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        source_version_id:
+          type: string
+          format: uuid
+          description: The source version this language follows; send it back when
+            saving.
+        source_version:
+          type: integer
+          description: Its number in the page's history.
+        outdated:
+          type: boolean
+          description: The source has a newer version than the one this language follows.
+        body_version:
+          type: integer
+          description: This language's own lock; send it back as `expected_body_version`.
+        version:
+          type:
+          - integer
+          - 'null'
+          description: Number of the current body version; null before the first.
+        untranslated:
+          type: integer
+          description: Units still without a translation.
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleBodyUnit'
+      required:
+      - body_version
+      - locale
+      - outdated
+      - page_id
+      - source_version
+      - source_version_id
+      - units
+      - untranslated
+      - version
+    LocaleBodyCopy:
+      type: object
+      properties:
+        source_version_id:
+          type: string
+          format: uuid
+        expected_body_version:
+          type: integer
+          minimum: 0
+      required:
+      - expected_body_version
+      - source_version_id
+    LocaleBodyRestore:
+      type: object
+      properties:
+        expected_body_version:
+          type: integer
+          minimum: 0
+      required:
+      - expected_body_version
+    LocaleBodySave:
+      type: object
+      properties:
+        source_version_id:
+          type: string
+          format: uuid
+        expected_body_version:
+          type: integer
+          minimum: 0
+        units:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 12000
+          description: Unit key → text. Units not named keep what they have. Inline
+            units keep their tokens.
+      required:
+      - expected_body_version
+      - source_version_id
+      - units
+    LocaleBodyUnit:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Block position and JSON path, e.g. `2/items/0/question`. Stable
+            for one source version.
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/LocaleBodyUnitKindEnum'
+          description: |-
+            `inline` carries its marks as tokens ⟦n⟧…⟦/n⟧ that must stay; `name` and `address` are copied into every language unless overridden.
+
+            * `text` - text
+            * `inline` - inline
+            * `name` - name
+            * `address` - address
+        source_text:
+          type: string
+          description: The text in the source language.
+        text:
+          type:
+          - string
+          - 'null'
+          description: This language's text; null where nothing was written.
+        origin:
+          type:
+          - string
+          - 'null'
+          description: 'Who wrote it: human, ai, integration, template, import, or
+            copy (the source text standing in, still untranslated).'
+        translated:
+          type: boolean
+        data_class:
+          $ref: '#/components/schemas/DataClassEnum'
+        placeholder:
+          type: boolean
+          description: 'The source holds an owner''s [Uzupełnij: …] slot; the language
+            version waits until the owner fills the source.'
+        max_length:
+          type:
+          - integer
+          - 'null'
+        required_text:
+          type: boolean
+          description: The unit may not be left empty.
+      required:
+      - data_class
+      - key
+      - kind
+      - max_length
+      - origin
+      - placeholder
+      - required_text
+      - source_text
+      - text
+      - translated
+    LocaleBodyUnitKindEnum:
+      enum:
+      - text
+      - inline
+      - name
+      - address
+      type: string
+      description: |-
+        * `text` - text
+        * `inline` - inline
+        * `name` - name
+        * `address` - address
+    LocaleBodyVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        source_version_id:
+          type: string
+          format: uuid
+        source_version:
+          type: integer
+        origin:
+          type: string
+          description: save, copy, restore, or a translation job.
+        origin_ref:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - number
+      - origin
+      - origin_ref
+      - source_version
+      - source_version_id
+    LocaleBodyVersionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleBodyVersion'
+      required:
+      - items
+    LocaleBodyVersionPreview:
+      type: object
+      properties:
+        version:
+          $ref: '#/components/schemas/LocaleBodyVersion'
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: The blocks a visitor would get.
+      required:
+      - blocks
+      - version
     LocaleE35Enum:
       enum:
       - pl

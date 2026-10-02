@@ -3675,6 +3675,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a page body in another language
+         * @description Every text unit of the source version this language follows, with this language's text, who wrote it and what is still untranslated (ADR-070).
+         */
+        get: operations["sites_page_locale_body_retrieve"];
+        /**
+         * Save text units of a page body in another language
+         * @description Writes the named units as a person's text; structure comes from the source version. 422 `locale_unit_invalid` names every unit that does not fit (`errors[].field` = `units.<key>`, `errors[].code`). The page's own version does not move.
+         */
+        put: operations["sites_page_locale_body_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/copy/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a manual translation from the source text
+         * @description Fills every unit with no text yet with the source text. A copy stays untranslated until somebody changes it or saves it as it is.
+         */
+        post: operations["sites_page_locale_body_copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a save of text units without saving
+         * @description The body as the save would leave it, or the same 409 and 422 the save would answer. Nothing is written.
+         */
+        post: operations["sites_page_locale_body_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History of a page body in another language */
+        get: operations["sites_page_locale_body_versions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/{version_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A past version of a page body in another language, as blocks */
+        get: operations["sites_page_locale_body_version_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/{version_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make a past version of a page body in another language current again */
+        post: operations["sites_page_locale_body_version_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/pages/{page_id}/type/": {
         parameters: {
             query?: never;
@@ -4929,6 +5044,12 @@ export interface components {
             grace_period_end: string | null;
             cancel_at_period_end: boolean;
         };
+        /**
+         * @description * `public` - public
+         *     * `public_personal` - public_personal
+         * @enum {string}
+         */
+        DataClassEnum: "public" | "public_personal";
         DataExport: {
             /** Format: uuid */
             id: string;
@@ -5589,6 +5710,101 @@ export interface components {
         LayoutEnum: "card" | "cover" | "compact";
         LifecycleResult: {
             status: string;
+        };
+        LocaleBody: {
+            /** Format: uuid */
+            page_id: string;
+            locale: string;
+            /**
+             * Format: uuid
+             * @description The source version this language follows; send it back when saving.
+             */
+            source_version_id: string;
+            /** @description Its number in the page's history. */
+            source_version: number;
+            /** @description The source has a newer version than the one this language follows. */
+            outdated: boolean;
+            /** @description This language's own lock; send it back as `expected_body_version`. */
+            body_version: number;
+            /** @description Number of the current body version; null before the first. */
+            version: number | null;
+            /** @description Units still without a translation. */
+            untranslated: number;
+            units: components["schemas"]["LocaleBodyUnit"][];
+        };
+        LocaleBodyCopy: {
+            /** Format: uuid */
+            source_version_id: string;
+            expected_body_version: number;
+        };
+        LocaleBodyRestore: {
+            expected_body_version: number;
+        };
+        LocaleBodySave: {
+            /** Format: uuid */
+            source_version_id: string;
+            expected_body_version: number;
+            /** @description Unit key → text. Units not named keep what they have. Inline units keep their tokens. */
+            units: {
+                [key: string]: string;
+            };
+        };
+        LocaleBodyUnit: {
+            /** @description Block position and JSON path, e.g. `2/items/0/question`. Stable for one source version. */
+            key: string;
+            /**
+             * @description `inline` carries its marks as tokens ⟦n⟧…⟦/n⟧ that must stay; `name` and `address` are copied into every language unless overridden.
+             *
+             *     * `text` - text
+             *     * `inline` - inline
+             *     * `name` - name
+             *     * `address` - address
+             */
+            kind: components["schemas"]["LocaleBodyUnitKindEnum"];
+            /** @description The text in the source language. */
+            source_text: string;
+            /** @description This language's text; null where nothing was written. */
+            text: string | null;
+            /** @description Who wrote it: human, ai, integration, template, import, or copy (the source text standing in, still untranslated). */
+            origin: string | null;
+            translated: boolean;
+            data_class: components["schemas"]["DataClassEnum"];
+            /** @description The source holds an owner's [Uzupełnij: …] slot; the language version waits until the owner fills the source. */
+            placeholder: boolean;
+            max_length: number | null;
+            /** @description The unit may not be left empty. */
+            required_text: boolean;
+        };
+        /**
+         * @description * `text` - text
+         *     * `inline` - inline
+         *     * `name` - name
+         *     * `address` - address
+         * @enum {string}
+         */
+        LocaleBodyUnitKindEnum: "text" | "inline" | "name" | "address";
+        LocaleBodyVersion: {
+            /** Format: uuid */
+            id: string;
+            number: number;
+            /** Format: uuid */
+            source_version_id: string;
+            source_version: number;
+            /** @description save, copy, restore, or a translation job. */
+            origin: string;
+            origin_ref: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        LocaleBodyVersionList: {
+            items: components["schemas"]["LocaleBodyVersion"][];
+        };
+        LocaleBodyVersionPreview: {
+            version: components["schemas"]["LocaleBodyVersion"];
+            /** @description The blocks a visitor would get. */
+            blocks: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * @description * `pl` - Polski
@@ -19080,6 +19296,459 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageTranslation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_save: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBodySave"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBodySave"];
+                "multipart/form-data": components["schemas"]["LocaleBodySave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_copy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBodyCopy"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBodyCopy"];
+                "multipart/form-data": components["schemas"]["LocaleBodyCopy"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBodySave"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBodySave"];
+                "multipart/form-data": components["schemas"]["LocaleBodySave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_versions_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBodyVersionList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_version_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBodyVersionPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_version_restore: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBodyRestore"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBodyRestore"];
+                "multipart/form-data": components["schemas"]["LocaleBodyRestore"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
                 };
             };
             400: {

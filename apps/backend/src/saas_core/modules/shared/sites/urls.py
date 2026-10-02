@@ -20,6 +20,14 @@ from .domain_views import (
     SitePlatformDomainView,
 )
 from .inquiry_views import SiteInquiryDetailView, SiteInquiryListView, SiteInquiryReadView
+from .language_version_views import (
+    PageLocaleBodyCopyView,
+    PageLocaleBodyPreviewView,
+    PageLocaleBodyRestoreView,
+    PageLocaleBodyVersionListView,
+    PageLocaleBodyVersionView,
+    PageLocaleBodyView,
+)
 from .measurement_views import SiteMetricsView
 from .onboarding_views import (
     SiteOnboardingCompleteView,
@@ -301,5 +309,35 @@ urlpatterns = [
         "pages/<uuid:page_id>/translations/<str:locale>/",
         PageTranslationView.as_view(),
         name="page-translation",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/",
+        PageLocaleBodyView.as_view(),
+        name="page-locale-body",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/preview/",
+        PageLocaleBodyPreviewView.as_view(),
+        name="page-locale-body-preview",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/copy/",
+        PageLocaleBodyCopyView.as_view(),
+        name="page-locale-body-copy",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/versions/",
+        PageLocaleBodyVersionListView.as_view(),
+        name="page-locale-body-versions",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/versions/<uuid:version_id>/",
+        PageLocaleBodyVersionView.as_view(),
+        name="page-locale-body-version",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/versions/<uuid:version_id>/restore/",
+        PageLocaleBodyRestoreView.as_view(),
+        name="page-locale-body-restore",
     ),
 ]
