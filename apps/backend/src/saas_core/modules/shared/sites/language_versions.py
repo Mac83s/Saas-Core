@@ -326,7 +326,7 @@ def rebase_locale_body(
 
     A unit whose source text did not change keeps its translation wherever it
     moved, and a source sentence already translated on another page of the
-    site is taken from there: matched by the hash of the source text, never
+    site (its current body) is taken from there: matched by the hash of the source text, never
     by position. A changed unit starts untranslated, and a person's or an
     integration's text for its old wording stays beside it as a suggestion —
     never dropped silently, never shipped as a translation of words it did
@@ -454,16 +454,19 @@ def _translated_by_source(entries: Any) -> dict[str, dict[str, Any]]:
 
 def translation_memory(*, page: Page, locale: str) -> dict[str, dict[str, Any]]:
     """The site's translations into one language, by the hash of the source
-    text: the units of every page's current and waiting body in that
-    language. No table of its own — the bodies are the memory."""
-    pointers = PageTranslation.all_objects.filter(
-        organization_id=page.organization_id, site_id=page.site_id, locale=locale
-    ).values_list("body_current_id", "body_pending_id")
-    ids = {identifier for pair in pointers for identifier in pair if identifier is not None}
+    text: the units of every page's current body in that language. Waiting
+    bodies stay out — text nobody has reviewed must not reach another page
+    for free. No table of its own: the bodies are the memory."""
+    ids = PageTranslation.all_objects.filter(
+        organization_id=page.organization_id,
+        site_id=page.site_id,
+        locale=locale,
+        body_current__isnull=False,
+    ).values_list("body_current_id", flat=True)
     entries = (
         entry
         for units in PageLocaleVersion.all_objects.filter(
-            organization_id=page.organization_id, id__in=ids
+            organization_id=page.organization_id, id__in=list(ids)
         ).values_list("units", flat=True)
         for entry in units.values()
     )
