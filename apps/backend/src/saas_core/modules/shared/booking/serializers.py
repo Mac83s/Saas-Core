@@ -483,8 +483,6 @@ class SetupOptionValueSerializer(serializers.Serializer[dict[str, Any]]):
     label = LocalizedTextSerializer()  # type: ignore[assignment]
 
 
-
-
 class SetupOptionSerializer(serializers.Serializer[dict[str, Any]]):
     """One setting of an offer, in the shape of the settings registry (ADR-078)."""
 
