@@ -20,6 +20,11 @@ test("a sentence with a slot is left out, the rest stays", () => {
     ),
   ).toBe("Przyjeżdżamy z poskromem. Po wizycie zostawiamy zapis.");
   expect(withoutSlots("[Uzupełnij: nazwa projektu]")).toBe("");
+  // A slot's own full stop („np.”) does not cut it in two.
+  expect(withoutSlots("[Uzupełnij: np. czy przyjść na czczo]")).toBe("");
+  expect(
+    withoutSlots("Przyjdź wcześniej. [Uzupełnij: np. 10 min. przed wizytą]"),
+  ).toBe("Przyjdź wcześniej.");
   expect(withoutSlots("Bez miejsc do uzupełnienia.")).toBe(
     "Bez miejsc do uzupełnienia.",
   );
@@ -107,4 +112,110 @@ test("a published page leaves them out; the owner's preview keeps them", () => {
     ),
   );
   expect(preview).toContain("[Uzupełnij: powiaty]");
+});
+
+const ASSET = "01a0d300-0000-7000-8000-000000000001";
+
+test("a gallery of slots stays a valid block: optional words go, a photo stays, else as it was", () => {
+  const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+  const valid = (block: {
+    block_type: string;
+    schema_version: number;
+    data: unknown;
+  }) => {
+    try {
+      registry.validate(block as never);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const gallery = (items: unknown[]) => ({
+    block_type: "core.gallery",
+    schema_version: 1,
+    data: { title: "Realizacje", items },
+  });
+  // Photos with slot titles and captions: the words go, the photos stay.
+  const [photos] = withoutTemplateLeftovers(
+    [
+      gallery([
+        {
+          image: { asset_id: ASSET, alt: "Obora" },
+          title: "[Uzupełnij: nazwa projektu]",
+          caption: "[Uzupełnij: co zrobiliście]",
+        },
+        { image: { asset_id: ASSET, alt: "Racica" }, title: "Po korekcji" },
+      ]),
+    ],
+    valid,
+  );
+  expect(photos!.data).toEqual({
+    title: "Realizacje",
+    items: [
+      { image: { asset_id: ASSET, alt: "Obora" } },
+      { image: { asset_id: ASSET, alt: "Racica" }, title: "Po korekcji" },
+    ],
+  });
+  expect(valid(photos!)).toBe(true);
+  // An item that was only slots goes; the others stay, without their slots.
+  const [mixed] = withoutTemplateLeftovers(
+    [
+      gallery([
+        { title: "[Uzupełnij: nazwa]", caption: "[Uzupełnij: opis]" },
+        { title: "Obora wolnostanowiskowa", caption: "[Uzupełnij: efekt]" },
+      ]),
+    ],
+    valid,
+  );
+  expect(mixed!.data).toEqual({
+    title: "Realizacje",
+    items: [{ title: "Obora wolnostanowiskowa" }],
+  });
+  expect(valid(mixed!)).toBe(true);
+  // Nothing but slots: no cleaning keeps it valid, so the page goes without it.
+  const onlySlots = gallery([{ title: "[Uzupełnij: nazwa]" }]);
+  expect(withoutTemplateLeftovers([onlySlots], valid)).toEqual([]);
+  // A block without leftovers is passed through untouched, even if odd.
+  const plain = gallery([{ title: "Obora" }]);
+  expect(withoutTemplateLeftovers([plain], () => false)).toEqual([plain]);
+});
+
+test("a published page with such a gallery renders instead of failing", () => {
+  const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+  const markup = renderToStaticMarkup(
+    renderPublishedPage(
+      {
+        kind: "publication",
+        publicationId: "publication-2",
+        snapshotHash: "d".repeat(64),
+        designTokens: {
+          schemaVersion: 1,
+          palette: "blue",
+          typography: "sans",
+          radius: "medium",
+          spacing: "comfortable",
+        },
+        blocks: [
+          {
+            block_type: "core.gallery",
+            schema_version: 1,
+            data: {
+              items: [
+                {
+                  image: { asset_id: ASSET, alt: "Obora" },
+                  title: "[Uzupełnij: nazwa projektu]",
+                  caption: "[Uzupełnij: co zrobiliście]",
+                },
+                { title: "[Uzupełnij: nazwa]", caption: "[Uzupełnij: opis]" },
+                { title: "Po korekcji", caption: "[Uzupełnij: efekt]" },
+              ],
+            },
+          },
+        ],
+      },
+      registry,
+    ),
+  );
+  expect(markup).toContain("Po korekcji");
+  expect(markup).not.toContain("Uzupełnij");
 });

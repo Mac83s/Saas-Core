@@ -279,8 +279,16 @@ export function renderPublishedPage(
     throw new TypeError("Renderer publiczny wymaga zweryfikowanej publikacji.");
   }
   return renderDocument(
-    // A visitor never reads a template's slot or its sample contact (UX-038).
-    withoutTemplateLeftovers(document.blocks),
+    // A visitor never reads a template's slot or its sample contact (UX-038);
+    // a block the cleaning would make invalid stays as it was.
+    withoutTemplateLeftovers(document.blocks, (block) => {
+      try {
+        registry.validate(block);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
     document.designTokens,
     registry,
     document.navigation ?? [],
