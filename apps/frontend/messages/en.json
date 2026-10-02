@@ -231,7 +231,8 @@
       "booking_team_created": "Team created",
       "booking_team_updated": "Team changed",
       "booking_team_deleted": "Team deleted",
-      "booking_appointment_crew_changed": "Visit crew changed"
+      "booking_appointment_crew_changed": "Visit crew changed",
+      "booking_appointment_place_changed": "Changed the visit's place"
     },
     "fields": {
       "name": "Name",
@@ -287,7 +288,8 @@
       "performers": "Who does it",
       "locations": "Places",
       "resources": "Resources",
-      "materials": "Warehouse products"
+      "materials": "Warehouse products",
+      "place_town": "Town of the visit"
     }
   },
   "Panel": {

@@ -231,7 +231,8 @@
       "booking_team_created": "Utworzono zespół",
       "booking_team_updated": "Zmieniono zespół",
       "booking_team_deleted": "Usunięto zespół",
-      "booking_appointment_crew_changed": "Zmieniono skład wizyty"
+      "booking_appointment_crew_changed": "Zmieniono skład wizyty",
+      "booking_appointment_place_changed": "Zmieniono miejsce wizyty"
     },
     "fields": {
       "name": "Nazwa",
@@ -287,7 +288,8 @@
       "performers": "Kto wykonuje",
       "locations": "Miejsca",
       "resources": "Zasoby",
-      "materials": "Produkty z magazynu"
+      "materials": "Produkty z magazynu",
+      "place_town": "Miejscowość wizyty"
     }
   },
   "Panel": {

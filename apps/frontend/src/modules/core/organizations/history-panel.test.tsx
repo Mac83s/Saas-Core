@@ -194,3 +194,24 @@ test("a failed load says so and retries", async () => {
   const table = await screen.findByRole("table");
   expect(within(table).getByText("Zmieniono dane firmy")).toBeTruthy();
 });
+
+test("a visit's new place reads as words in both languages, without keys", async () => {
+  api.readOrganizationHistory.mockResolvedValue(
+    page([
+      entry({
+        action: "booking.appointment.place_changed",
+        target_type: "appointment",
+        changes: { place_town: { from: "Piątnica", to: "Zambrów" } },
+      }),
+    ]),
+  );
+  view();
+  // The most frequent row of the review read as its raw key (UX plan W6).
+  expect(await screen.findByText("Zmieniono miejsce wizyty")).toBeTruthy();
+  expect(
+    screen.getByText("Miejscowość wizyty: Piątnica → Zambrów"),
+  ).toBeTruthy();
+  expect(
+    englishMessages.History.actions.booking_appointment_place_changed,
+  ).toBe("Changed the visit's place");
+});
