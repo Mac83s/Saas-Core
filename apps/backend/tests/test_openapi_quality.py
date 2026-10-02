@@ -155,7 +155,8 @@ def violations(method: str, path: str, operation: Mapping[str, Any]) -> list[str
     """The rules an operation breaks, in `RULES` order."""
     operation_id = str(operation.get("operationId") or "")
     parameters = operation.get("parameters") or []
-    responses = {str(status): answer for status, answer in (operation.get("responses") or {}).items()}
+    declared = operation.get("responses") or {}
+    responses = {str(status): answer for status, answer in declared.items()}
     broken = {
         "operation-id": not SNAKE_CASE.fullmatch(operation_id)
         or operation_id in automatic_operation_ids(method, path),
@@ -181,7 +182,9 @@ def contract_problems(document: Document) -> list[str]:
     and an exemption that cannot be honoured."""
     found = []
     if "ProblemDetails" not in ((document.get("components") or {}).get("schemas") or {}):
-        found.append("Brak komponentu ProblemDetails, na który mają wskazywać odpowiedzi 400 i 422.")
+        found.append(
+            "Brak komponentu ProblemDetails, na który mają wskazywać odpowiedzi 400 i 422."
+        )
     ids = {operation.get("operationId") for _, _, operation in operations(document)}
     for method, path, operation in operations(document):
         key = operation_key(method, path)
@@ -365,8 +368,12 @@ def floor_problems(
     for key, entry in owned["operations"].items():
         if key not in current:
             found.append(f"{key}: operacji już nie ma w kontrakcie; usuń wpis przez {WRITE}.")
-        elif fixed := [rule for rule in entry["violations"] if rule not in current[key]["violations"]]:
-            found.append(f"{key}: naprawione {', '.join(fixed)}; zmniejsz linię bazową przez {WRITE}.")
+        elif fixed := [
+            rule for rule in entry["violations"] if rule not in current[key]["violations"]
+        ]:
+            found.append(
+                f"{key}: naprawione {', '.join(fixed)}; zmniejsz linię bazową przez {WRITE}."
+            )
     if in_product and product is None and found:
         found.append(
             f"Produkt nie ma jeszcze {PRODUCT_BASELINE}: dług własnych operacji zapisz raz "
@@ -599,7 +606,8 @@ def test_automatic_operation_ids_are_recognised() -> None:
     assert "api_v1_booking_places_retrieve" in automatic_operation_ids(
         "get", "/api/v1/booking/places/"
     )
-    assert automatic_operation_ids("put", "/api/v1/booking/appointments/{appointment_id}/place/") == {
+    place = "/api/v1/booking/appointments/{appointment_id}/place/"
+    assert automatic_operation_ids("put", place) == {
         "api_v1_booking_appointments_place_update"
     }
     assert automatic_operation_ids("post", "/api/v1/auth/email-verifications/confirm/") == {
