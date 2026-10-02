@@ -135,13 +135,30 @@ not in PostgreSQL.
 
 ## Operable by the AI assistant
 
-Setup (services, locations, resources, staff, teams, schedules) is what the
-in-product assistant will configure first, and today it has neither idempotency
-keys nor resource versions. A new or changed setup endpoint adds both and meets
-`change-api-and-events` § "Operable by the AI assistant". New setup writes
-store the key in `BookingSetupMutation` (not `BookingMutation`, which points at
-a visit) and carry `expected_version` — 409 `booking_version_conflict`
-(ADR-072 §11).
+Setup (services, places, resources, a person's week) is what the in-product
+assistant configures first, through the same functions the panel calls. Every
+setup write goes through `setup.setup_write` (ADR-072 §11):
+
+- **a key with a receipt** — `BookingSetupMutation` (not `BookingMutation`,
+  which points at a visit); the same key answers the first result again, a
+  key reused on another request is 409 `booking_idempotency_conflict`. The
+  receipt is written only after the write succeeded;
+- **a version** — `Service.version`, `Location.version`, `Resource.version`,
+  `StaffMember.hours_version` (the week, not the person: a team change must
+  not stale an open week). A change names it (`expected_version`); a stale one
+  is 409 `booking_version_conflict`. Bump it only when something changed;
+- **a preview** — `preview=True` runs the same write in a savepoint that is
+  rolled back, so it refuses exactly what the write would and stores nothing
+  (no receipt, no history, no queued work). The API has `…/preview/` next to
+  each write, `x-dry-run`.
+
+What an offer can be set to lives in one constant, `offer_settings.py`
+(`OFFER_SETTINGS`): bounds, variants, today's defaults, labels. The input
+serializer takes its bounds from it and `GET /booking/setup/options/` serves it
+in the settings registry's shape (ADR-078), so the registry (R1) replaces the
+constant without changing the API. A new offer setting goes there first, never
+as a number in a serializer or a component. A new setup write uses
+`setup_write`, `check_version` and the floor of `change-api-and-events`.
 
 ## Done means
 

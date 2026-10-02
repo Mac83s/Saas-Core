@@ -7,20 +7,21 @@ invitations; the calendar books a person by their services and hours.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from itertools import pairwise
-from typing import Any
+from typing import Any, NoReturn
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.text import slugify
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import field_changes, record_audit
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.lifecycle import (
@@ -65,6 +66,7 @@ from .models import (
     TimeOff,
 )
 from .services import BOOKING_ENABLED, BOOKING_MANAGE, BOOKING_READ, _assert_member_of
+from .setup import Saved, check_version, setup_write
 
 #: Own hours and time off, where the product lets a working role set them
 #: (owner's answer 7: Business yes, HoofCare's trimmer no).
@@ -310,7 +312,23 @@ def _set_services(staff: StaffMember, service_ids: list[UUID]) -> None:
     _offer_where_worked(staff)
 
 
-def _set_hours(staff: StaffMember, rules: list[Hours]) -> None:
+#: Where a refusal of one weekly rule points: `rules.<i>.<field>` for a week
+#: sent rule by rule (ADR-076 pkt 5).
+type RulePath = Callable[[int, str], tuple[str | int, ...]]
+
+
+def _rule_path(index: int, name: str) -> tuple[str | int, ...]:
+    return ("rules", index, name)
+
+
+def _refuse(path: tuple[str | int, ...], message: str, code: str) -> NoReturn:
+    detail: Any = [ErrorDetail(message, code=code)]
+    for part in reversed(path):
+        detail = {part: detail}
+    raise ValidationError(detail)
+
+
+def _set_hours(staff: StaffMember, rules: list[Hours], at: RulePath = _rule_path) -> None:
     """Replaces the person's week. Old rules are switched off, not deleted:
     what the calendar offered last month stays readable."""
     places = set(
@@ -320,18 +338,22 @@ def _set_hours(staff: StaffMember, rules: list[Hours]) -> None:
             pk__in={rule.location_id for rule in rules},
         ).values_list("pk", flat=True)
     )
-    for rule in rules:
+    for index, rule in enumerate(rules):
         if rule.location_id not in places:
-            raise ValidationError({"location_id": "Nie ma takiego miejsca pracy."})
+            _refuse(at(index, "location_id"), "Nie ma takiego miejsca pracy.", "location_unknown")
         if rule.local_end <= rule.local_start:
-            raise ValidationError({"hours": "Koniec pracy musi być po jej początku."})
-    ordered = sorted(rules, key=lambda rule: (rule.weekday, rule.local_start))
+            _refuse(
+                at(index, "local_end"), "Koniec pracy musi być po jej początku.", "end_before_start"
+            )
+    ordered = sorted(enumerate(rules), key=lambda item: (item[1].weekday, item[1].local_start))
     # One person is in one place at a time, whatever the location.
-    if any(
-        before.weekday == after.weekday and after.local_start < before.local_end
-        for before, after in pairwise(ordered)
-    ):
-        raise ValidationError({"hours": "Godziny jednego dnia nachodzą na siebie."})
+    for (_, before), (index, after) in pairwise(ordered):
+        if before.weekday == after.weekday and after.local_start < before.local_end:
+            _refuse(
+                at(index, "local_start"),
+                "Godziny jednego dnia nachodzą na siebie.",
+                "hours_overlap",
+            )
     AvailabilityRule.all_objects.filter(
         organization_id=staff.organization_id, staff=staff, active=True
     ).update(active=False)
@@ -344,7 +366,7 @@ def _set_hours(staff: StaffMember, rules: list[Hours]) -> None:
             local_start=rule.local_start,
             local_end=rule.local_end,
         )
-        for rule in ordered
+        for _, rule in ordered
     ])
     _offer_where_worked(staff)
 
@@ -404,7 +426,15 @@ def add_person(
         else []
     )
     if rules:
-        _set_hours(staff, rules)
+        _set_hours(
+            staff,
+            rules,
+            # The add dialog sends one set of hours for its weekdays, or names
+            # the person whose week it copies.
+            (lambda _index, _name: ("copy_hours_from",))
+            if copy_hours_from
+            else (lambda _index, name: ("hours", name)),
+        )
     teams = list(dict.fromkeys(team_ids or []))
     if StaffTeam.all_objects.filter(organization=organization, pk__in=teams).count() != len(teams):
         raise ValidationError({"team_ids": "Nie ma takiego zespołu."})
@@ -457,18 +487,74 @@ def set_person_services(*, staff_id: UUID, service_ids: list[UUID]) -> PersonDet
 
 
 @transaction.atomic
-def set_person_hours(*, staff_id: UUID, rules: list[dict[str, Any]]) -> PersonDetail:
+def set_person_hours(
+    *,
+    staff_id: UUID,
+    rules: list[dict[str, Any]],
+    expected_version: int | None = None,
+    idempotency_key: str = "",
+    preview: bool = False,
+) -> Saved[PersonDetail]:
+    """Replaces the person's week — at the week's version the caller saw
+    (`StaffMember.hours_version`, ADR-072 §11)."""
     context, staff = _schedule_context(staff_id)
-    _set_hours(staff, [Hours(**rule) for rule in rules])
-    record_audit(
-        organization=Organization.objects.get(pk=context.organization_id),
-        action=OrganizationAuditAction.BOOKING_STAFF_HOURS_CHANGED,
-        actor=_actor(context),
-        target_type="staff",
+    return setup_write(
+        context=context,
+        action="staff.hours.set",
         target_id=staff.id,
-        metadata={"rules": len(rules)},
+        request={"rules": rules, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_hours(context, staff, rules, expected_version),
+        replay=lambda item_id: _saved_hours(item_id, replayed=True),
     )
-    return person_detail(staff.id)
+
+
+def _week(staff: StaffMember) -> list[list[Any]]:
+    return [
+        [
+            rule.weekday,
+            rule.local_start.isoformat("minutes"),
+            rule.local_end.isoformat("minutes"),
+            str(rule.location_id),
+        ]
+        for rule in AvailabilityRule.all_objects.filter(
+            organization_id=staff.organization_id, staff=staff, active=True
+        ).order_by("weekday", "local_start")
+    ]
+
+
+def _saved_hours(
+    staff_id: UUID, *, changes: dict[str, Any] | None = None, replayed: bool = False
+) -> Saved[PersonDetail]:
+    detail = person_detail(staff_id)
+    return Saved(
+        detail, staff_id, detail.person.staff.hours_version, False, changes or {}, replayed
+    )
+
+
+def _write_hours(
+    context: TenantContext,
+    staff: StaffMember,
+    rules: list[dict[str, Any]],
+    expected_version: int | None,
+) -> Saved[PersonDetail]:
+    check_version(staff.hours_version, expected_version)
+    before = _week(staff)
+    _set_hours(staff, [Hours(**rule) for rule in rules])
+    changes = field_changes({"hours": before}, {"hours": _week(staff)})
+    if changes:
+        staff.hours_version += 1
+        staff.save(update_fields=["hours_version", "updated_at"])
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=OrganizationAuditAction.BOOKING_STAFF_HOURS_CHANGED,
+            actor=_actor(context),
+            target_type="staff",
+            target_id=staff.id,
+            metadata={"rules": len(rules)},
+        )
+    return _saved_hours(staff.id, changes=changes)
 
 
 @transaction.atomic

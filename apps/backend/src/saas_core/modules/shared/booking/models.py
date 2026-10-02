@@ -45,6 +45,8 @@ class Location(TenantScopedModel):
     public_slug = models.SlugField(max_length=80)
     address = models.CharField(max_length=240, blank=True)
     active = models.BooleanField(default=True)
+    #: Bumped by every setup write that changes the place (ADR-072 §11).
+    version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -93,6 +95,10 @@ class StaffMember(TenantScopedModel):
         related_name="+",
     )
     active = models.BooleanField(default=True)
+    #: The person's week as one setup item: bumped by every change of the
+    #: hours, and only by that, so editing a team never stales a week someone
+    #: has open (ADR-072 §11).
+    hours_version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -156,6 +162,7 @@ class Resource(TenantScopedModel):
     name = models.CharField(max_length=160)
     kind = models.CharField(max_length=80, default="generic")
     active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -197,6 +204,7 @@ class Service(TenantScopedModel):
         max_length=8, choices=StaffChoice, default=StaffChoice.NONE
     )
     active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -526,6 +534,34 @@ class BookingMutation(TenantScopedModel):
             models.UniqueConstraint(
                 fields=["organization", "action", "principal_ref", "idempotency_key"],
                 name="booking_mutation_idem_uq",
+            )
+        ]
+
+
+class BookingSetupMutation(TenantScopedModel):
+    """The receipt of a setup write (ADR-072 §11): the same key again gets the
+    first answer back instead of a second service. `BookingMutation` points at
+    a visit, so setup keeps its own. The item the write made or changed is
+    named by kind and id: one receipt table serves four kinds of item.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    #: `service.create`, `service.update`, `location.create`, `location.update`,
+    #: `resource.create`, `resource.update`, `staff.hours.set`.
+    action = models.CharField(max_length=40)
+    principal_ref = models.CharField(max_length=80)
+    idempotency_key = models.CharField(max_length=160)
+    request_hash = models.CharField(max_length=64)
+    result_kind = models.CharField(max_length=24)
+    result_id = models.UUIDField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "action", "principal_ref", "idempotency_key"],
+                name="booking_setup_mutation_idem_uq",
             )
         ]
 

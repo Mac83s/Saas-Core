@@ -860,6 +860,13 @@ SPECTACULAR_SETTINGS = {
         "ImageGenerationAspectEnum": ["16:9", "4:3", "3:2"],
         # One name for a lot's expiry state, on a balance and on a lot.
         "LotStatusEnum": "saas_core.modules.shared.inventory.serializers.LOT_STATUS",
+        # A setting's type and unit, in the shape of the settings registry (ADR-078);
+        # its `unit` and `type` must not rename the warehouse's unit and the SEO
+        # callback's type.
+        "UnitEnum": "saas_core.modules.shared.inventory.models.ItemUnit",
+        "TypeEnum": ["module_run.finished"],
+        "SettingTypeEnum": "saas_core.modules.shared.booking.serializers.SETTING_TYPES",
+        "SettingUnitEnum": "saas_core.modules.shared.booking.serializers.SETTING_UNITS",
     },
 }
 

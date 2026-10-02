@@ -5,17 +5,27 @@ hides. People and their hours live in Zespół, not here (ADR-058 §1).
 
 Editing never touches booked visits: a visit keeps its service name, its
 people and the number of people it was booked with.
+
+Every write here is a setup write (ADR-072 §11): it carries an idempotency key,
+whose receipt is a `BookingSetupMutation`, changes an item only at the version
+its caller saw (409 `booking_version_conflict`), and runs as a preview with
+nothing saved — the same code in a savepoint that is rolled back, so a preview
+refuses exactly what the write would. The panel and the assistant's commands
+call these same functions.
 """
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from django.db import transaction
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db import connection, transaction
 from django.utils.text import slugify
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, ParseError, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import (
@@ -23,12 +33,15 @@ from saas_core.modules.core.organizations.audit import (
     field_changes,
     record_audit,
 )
+from saas_core.modules.core.organizations.canonical import canonical_json_hash
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.authorization import authorize_entitled
+from saas_core.modules.shared.billing.decisions import FeatureOperation
 
 from . import materials as stock
 from .models import (
+    BookingSetupMutation,
     Location,
     PublicBookingRoute,
     Resource,
@@ -39,7 +52,14 @@ from .models import (
     StaffChoice,
     StaffMember,
 )
-from .services import BOOKING_ENABLED, BOOKING_MANAGE, _assert_appointment_kind_available
+from .offer_settings import offer_options
+from .services import (
+    BOOKING_ENABLED,
+    BOOKING_MANAGE,
+    BookingIdempotencyConflict,
+    BookingVersionConflict,
+    _assert_appointment_kind_available,
+)
 
 #: What the history keeps of a service; the links go in as counts.
 _SERVICE_FIELDS = (
@@ -75,13 +95,113 @@ class Setup:
     staff: list[StaffMember]
 
 
-def _manage() -> tuple[TenantContext, Organization]:
-    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+@dataclass(frozen=True, slots=True)
+class Saved[T]:
+    """What a setup write answers (ADR-072 §11)."""
+
+    value: T
+    item_id: UUID
+    #: The item's version after the write — for a preview, after it would be.
+    version: int
+    created: bool
+    #: What changed, as the history keeps it (`{field: {"from", "to"}}`);
+    #: empty for a new item, for a write that changed nothing and for a
+    #: repeated key.
+    changes: dict[str, Any] = field(default_factory=dict)
+    #: The first answer of this key again: nothing was written now.
+    replayed: bool = False
+
+
+class _Previewed(Exception):
+    """Carries a preview's answer out of the savepoint it rolls back."""
+
+    def __init__(self, saved: Saved[Any]) -> None:
+        super().__init__()
+        self.saved = saved
+
+
+def setup_write[T](
+    *,
+    context: TenantContext,
+    action: str,
+    target_id: UUID | None,
+    request: Mapping[str, Any],
+    idempotency_key: str,
+    preview: bool,
+    write: Callable[[], Saved[T]],
+    replay: Callable[[UUID], Saved[T]],
+) -> Saved[T]:
+    """One setup write under its key: the first answer again for a repeated
+    key, 409 `booking_idempotency_conflict` for a key reused on another
+    request, and with `preview` the same write rolled back. The receipt is
+    written only after the write succeeded, so a refused request may be fixed
+    and sent again with its key."""
+    if preview:
+        try:
+            with transaction.atomic():
+                raise _Previewed(write())
+        except _Previewed as done:
+            return done.saved
+    key = idempotency_key.strip()
+    if not key or len(key) > 160:
+        raise ParseError("Wymagany jest prawidłowy Idempotency-Key.")
+    principal_ref = str(context.actor_id)
+    request_hash = canonical_json_hash(
+        json.loads(
+            json.dumps({"action": action, "target_id": target_id, **request}, cls=DjangoJSONEncoder)
+        )
+    )
+    with connection.cursor() as cursor:
+        # One key at a time: a retry sent while the first request still runs
+        # waits for it and finds its item, instead of creating a second one
+        # and failing on the receipt's index.
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            [f"booking-setup:{context.organization_id}:{principal_ref}:{action}:{key}"],
+        )
+    receipt = BookingSetupMutation.all_objects.filter(
+        organization_id=context.organization_id,
+        action=action,
+        principal_ref=principal_ref,
+        idempotency_key=key,
+    ).first()
+    if receipt is not None:
+        if receipt.request_hash != request_hash:
+            raise BookingIdempotencyConflict
+        return replay(receipt.result_id)
+    saved = write()
+    BookingSetupMutation.all_objects.create(
+        organization_id=context.organization_id,
+        action=action,
+        principal_ref=principal_ref,
+        idempotency_key=key,
+        request_hash=request_hash,
+        result_kind=action.split(".", 1)[0],
+        result_id=saved.item_id,
+    )
+    return saved
+
+
+def check_version(current: int, expected: int | None) -> None:
+    """A change applies to the version its caller saw, or to none."""
+    if expected is None:
+        raise ValidationError(
+            {"expected_version": "Podaj wersję, którą zmieniasz."}, code="required"
+        )
+    if current != expected:
+        raise BookingVersionConflict
+
+
+def _manage(
+    operation: FeatureOperation = FeatureOperation.WRITE,
+) -> tuple[TenantContext, Organization]:
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=operation)
     return context, Organization.objects.get(pk=context.organization_id)
 
 
 def list_setup() -> Setup:
-    _, organization = _manage()
+    # A read: it keeps working when the plan has lapsed to read-only.
+    _, organization = _manage(FeatureOperation.READ)
     links: dict[UUID, dict[str, list[UUID]]] = {}
     sources: tuple[tuple[type[Any], str, str, dict[str, Any]], ...] = (
         (ServiceStaff, "staff", "staff_id", {}),
@@ -107,6 +227,12 @@ def list_setup() -> Setup:
         resources=list(Resource.all_objects.filter(organization=organization)),
         staff=list(StaffMember.all_objects.filter(organization=organization, active=True)),
     )
+
+
+def setup_options() -> list[dict[str, Any]]:
+    """What can be set on a service, for whoever sets services up."""
+    _manage(FeatureOperation.READ)
+    return offer_options()
 
 
 def _free_slug(model: type[Any], organization: Organization, name: str) -> str:
@@ -172,15 +298,83 @@ def _audit(
     )
 
 
+def _service_links(organization: Organization, service: Service) -> ServiceSetup:
+    links = {
+        column: list(
+            model.all_objects.filter(organization=organization, service=service, **extra)
+            .order_by("id")
+            .values_list(column, flat=True)
+        )
+        for model, column, extra in (
+            (ServiceStaff, "staff_id", {}),
+            (ServiceLocation, "location_id", {}),
+            (ServiceResource, "resource_id", {"required": True}),
+        )
+    }
+    return ServiceSetup(service, links["staff_id"], links["location_id"], links["resource_id"])
+
+
 @transaction.atomic
-def save_service(*, service_id: UUID | None, data: dict[str, Any]) -> ServiceSetup:
+def save_service(
+    *,
+    service_id: UUID | None,
+    data: dict[str, Any],
+    idempotency_key: str = "",
+    expected_version: int | None = None,
+    preview: bool = False,
+) -> Saved[ServiceSetup]:
     """Creates a service or changes one, with its people, places and resource.
 
     `staff_ids`, `location_ids` and `resource_ids`, when given, replace the
-    links; `materials` replaces what each visit takes from the warehouse.
+    links; `materials` replaces what each visit takes from the warehouse. A
+    change names the version it was made on (`expected_version`).
     """
     context, organization = _manage()
-    values = dict(data)
+    created = service_id is None
+    return setup_write(
+        context=context,
+        action="service.create" if created else "service.update",
+        target_id=service_id,
+        request={"data": data, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_service(
+            context, organization, service_id, dict(data), expected_version
+        ),
+        replay=lambda item_id: _saved_service(
+            organization,
+            Service.all_objects.get(organization=organization, pk=item_id),
+            created=created,
+            replayed=True,
+        ),
+    )
+
+
+def _saved_service(
+    organization: Organization,
+    service: Service,
+    *,
+    created: bool,
+    changes: dict[str, Any] | None = None,
+    replayed: bool = False,
+) -> Saved[ServiceSetup]:
+    return Saved(
+        _service_links(organization, service),
+        service.id,
+        service.version,
+        created,
+        changes or {},
+        replayed,
+    )
+
+
+def _write_service(
+    context: TenantContext,
+    organization: Organization,
+    service_id: UUID | None,
+    values: dict[str, Any],
+    expected_version: int | None,
+) -> Saved[ServiceSetup]:
     staff_ids = values.pop("staff_ids", None)
     location_ids = values.pop("location_ids", None)
     resource_ids = values.pop("resource_ids", None)
@@ -202,6 +396,7 @@ def save_service(*, service_id: UUID | None, data: dict[str, Any]) -> ServiceSet
         )
         if found is None:
             raise NotFound("Nie ma takiej usługi.")
+        check_version(found.version, expected_version)
         service = found
         before = audit_snapshot(service, _SERVICE_FIELDS)
         for name, value in values.items():
@@ -244,29 +439,57 @@ def save_service(*, service_id: UUID | None, data: dict[str, Any]) -> ServiceSet
             service.save(update_fields=["materials", "updated_at"])
             if before:
                 changes["materials"] = {"changed": True}
+    if changes:
+        service.version += 1
+        service.save(update_fields=["version", "updated_at"])
     # The public form finds the company by its slug from the first service on.
     PublicBookingRoute.objects.get_or_create(
         public_slug=organization.slug, defaults={"organization_id": organization.id}
     )
     _audit(organization, context, "service", service.id, changes, created=not before)
-    links = {
-        column: list(
-            model.all_objects.filter(organization=organization, service=service, **extra)
-            .order_by("id")
-            .values_list(column, flat=True)
-        )
-        for model, column, extra in (
-            (ServiceStaff, "staff_id", {}),
-            (ServiceLocation, "location_id", {}),
-            (ServiceResource, "resource_id", {"required": True}),
-        )
-    }
-    return ServiceSetup(service, links["staff_id"], links["location_id"], links["resource_id"])
+    return _saved_service(organization, service, created=not before, changes=changes)
 
 
 @transaction.atomic
-def save_location(*, location_id: UUID | None, data: dict[str, Any]) -> Location:
+def save_location(
+    *,
+    location_id: UUID | None,
+    data: dict[str, Any],
+    idempotency_key: str = "",
+    expected_version: int | None = None,
+    preview: bool = False,
+) -> Saved[Location]:
     context, organization = _manage()
+    created = location_id is None
+    return setup_write(
+        context=context,
+        action="location.create" if created else "location.update",
+        target_id=location_id,
+        request={"data": data, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_location(context, organization, location_id, data, expected_version),
+        replay=lambda item_id: _saved(
+            Location.all_objects.get(organization=organization, pk=item_id),
+            created=created,
+            replayed=True,
+        ),
+    )
+
+
+def _saved[T: (Location, Resource)](
+    item: T, *, created: bool, changes: dict[str, Any] | None = None, replayed: bool = False
+) -> Saved[T]:
+    return Saved(item, item.id, item.version, created, changes or {}, replayed)
+
+
+def _write_location(
+    context: TenantContext,
+    organization: Organization,
+    location_id: UUID | None,
+    data: dict[str, Any],
+    expected_version: int | None,
+) -> Saved[Location]:
     if location_id is None:
         location = Location(
             organization=organization,
@@ -282,23 +505,57 @@ def save_location(*, location_id: UUID | None, data: dict[str, Any]) -> Location
         )
         if found is None:
             raise NotFound("Nie ma takiego miejsca.")
+        check_version(found.version, expected_version)
         location = found
         before = audit_snapshot(location, _PLACE_FIELDS)
         for name, value in data.items():
             setattr(location, name, value)
-    location.save()
     changes = (
         field_changes(before, audit_snapshot(location, _PLACE_FIELDS), private=("address",))
         if before
         else {}
     )
+    if changes:
+        location.version += 1
+    location.save()
     _audit(organization, context, "location", location.id, changes, created=not before)
-    return location
+    return _saved(location, created=not before, changes=changes)
 
 
 @transaction.atomic
-def save_resource(*, resource_id: UUID | None, data: dict[str, Any]) -> Resource:
+def save_resource(
+    *,
+    resource_id: UUID | None,
+    data: dict[str, Any],
+    idempotency_key: str = "",
+    expected_version: int | None = None,
+    preview: bool = False,
+) -> Saved[Resource]:
     context, organization = _manage()
+    created = resource_id is None
+    return setup_write(
+        context=context,
+        action="resource.create" if created else "resource.update",
+        target_id=resource_id,
+        request={"data": data, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_resource(context, organization, resource_id, data, expected_version),
+        replay=lambda item_id: _saved(
+            Resource.all_objects.get(organization=organization, pk=item_id),
+            created=created,
+            replayed=True,
+        ),
+    )
+
+
+def _write_resource(
+    context: TenantContext,
+    organization: Organization,
+    resource_id: UUID | None,
+    data: dict[str, Any],
+    expected_version: int | None,
+) -> Saved[Resource]:
     if resource_id is None:
         resource = Resource(organization=organization, **data)
         before: dict[str, Any] = {}
@@ -310,11 +567,14 @@ def save_resource(*, resource_id: UUID | None, data: dict[str, Any]) -> Resource
         )
         if found is None:
             raise NotFound("Nie ma takiego zasobu.")
+        check_version(found.version, expected_version)
         resource = found
         before = audit_snapshot(resource, _RESOURCE_FIELDS)
         for name, value in data.items():
             setattr(resource, name, value)
-    resource.save()
     changes = field_changes(before, audit_snapshot(resource, _RESOURCE_FIELDS)) if before else {}
+    if changes:
+        resource.version += 1
+    resource.save()
     _audit(organization, context, "resource", resource.id, changes, created=not before)
-    return resource
+    return _saved(resource, created=not before, changes=changes)

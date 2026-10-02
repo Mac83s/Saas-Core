@@ -48,6 +48,7 @@ from .serializers import (
     PersonCreateSerializer,
     PersonDetailSerializer,
     PersonHoursInputSerializer,
+    PersonHoursPreviewSerializer,
     PersonInvitationInputSerializer,
     PersonInvitationSerializer,
     PersonListQuerySerializer,
@@ -56,17 +57,24 @@ from .serializers import (
     PersonServicesInputSerializer,
     PersonUpdateSerializer,
     PlaceInputSerializer,
+    PlaceSetupPreviewSerializer,
     PlaceSetupSerializer,
+    PlaceUpdateSerializer,
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
     QueueSerializer,
     RescheduleSerializer,
     ResourceInputSerializer,
+    ResourceSetupPreviewSerializer,
     ResourceSetupSerializer,
+    ResourceUpdateSerializer,
     ScheduleCreateSerializer,
     ServiceInputSerializer,
+    ServiceSetupPreviewSerializer,
     ServiceSetupSerializer,
+    ServiceUpdateSerializer,
+    SetupOptionsSerializer,
     SetupSerializer,
     SlotDayListSerializer,
     SlotListSerializer,
@@ -101,7 +109,14 @@ from .services import (
     update_staff,
     visible_contacts,
 )
-from .setup import ServiceSetup, list_setup, save_location, save_resource, save_service
+from .setup import (
+    ServiceSetup,
+    list_setup,
+    save_location,
+    save_resource,
+    save_service,
+    setup_options,
+)
 from .staff import (
     Person,
     PersonDetail,
@@ -121,6 +136,33 @@ from .staff import (
 from .teams import create_team, delete_team, list_teams, member_ids, update_team
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
+
+#: What a setup write answers besides 2xx (ADR-072 §11).
+_SETUP_PROBLEMS = {
+    400: ProblemDetailsSerializer,
+    403: ProblemDetailsSerializer,
+    404: ProblemDetailsSerializer,
+    409: ProblemDetailsSerializer,
+}
+_PREVIEW = {"x-dry-run": True}
+_PREVIEW_NOTE = (
+    " Nothing is saved: the answer is the item as the write would leave it, with `changes`, "
+    "or the same 400, 404 and 409 the write would answer."
+)
+_WRITE_NOTE = (
+    " A repeated Idempotency-Key answers the first result again; the key reused on another "
+    "request is 409 `booking_idempotency_conflict`."
+)
+_UPDATE_NOTE = (
+    " Only the fields sent change. `expected_version` is the version the change was made on; "
+    "another one is 409 `booking_version_conflict`." + _WRITE_NOTE
+)
+
+
+def _with_changes(payload: dict[str, Any], changes: dict[str, Any]) -> dict[str, Any]:
+    return {**payload, "changes": changes}
+
+
 SLOT_QUERY = [
     OpenApiParameter("service_id", UUID, OpenApiParameter.QUERY, required=True),
     OpenApiParameter("location_id", UUID, OpenApiParameter.QUERY, required=True),
@@ -1138,6 +1180,7 @@ def _person_detail_payload(detail: PersonDetail) -> dict[str, Any]:
             }
             for item in detail.time_off
         ],
+        "hours_version": detail.person.staff.hours_version,
     }
 
 
@@ -1256,19 +1299,52 @@ class StaffHoursView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_staff_hours_set",
+        summary="Replace a person's weekly hours",
+        description="Replaces the person's whole week; an empty list clears it. Management "
+        "sets anyone's hours, a person their own where the product allows it. A service the "
+        "person does becomes bookable where they work. `expected_version` is the week's "
+        "`hours_version`; another one is 409 `booking_version_conflict`." + _WRITE_NOTE,
         tags=["booking"],
+        parameters=[IDEMPOTENCY],
         request=PersonHoursInputSerializer,
-        responses={
-            200: PersonDetailSerializer,
-            400: ProblemDetailsSerializer,
-            403: ProblemDetailsSerializer,
-        },
+        responses={200: PersonDetailSerializer, **_SETUP_PROBLEMS},
     )
     def put(self, request: Request, staff_id: UUID) -> Response:
         serializer = PersonHoursInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        detail = set_person_hours(staff_id=staff_id, rules=serializer.validated_data["rules"])
-        return Response(_person_detail_payload(detail))
+        saved = set_person_hours(
+            staff_id=staff_id,
+            rules=serializer.validated_data["rules"],
+            expected_version=serializer.validated_data["expected_version"],
+            idempotency_key=_idem(request),
+        )
+        return Response(_person_detail_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffHoursPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_staff_hours_set_preview",
+        summary="Check a person's new weekly hours without saving them",
+        description="Validates the week as `booking_staff_hours_set` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=PersonHoursInputSerializer,
+        responses={200: PersonHoursPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, staff_id: UUID) -> Response:
+        serializer = PersonHoursInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        saved = set_person_hours(
+            staff_id=staff_id,
+            rules=serializer.validated_data["rules"],
+            expected_version=serializer.validated_data["expected_version"],
+            preview=True,
+        )
+        return Response(_with_changes(_person_detail_payload(saved.value), saved.changes))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1622,15 +1698,22 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "resource_ids": value.resource_ids,
         "materials": service.materials,
         "takes_materials": stock.takes_materials(service.appointment_kind),
+        "version": service.version,
     }
 
 
 def _place_payload(value: Location) -> dict[str, Any]:
-    return {"id": value.id, "name": value.name, "address": value.address, "active": value.active}
+    return {
+        "id": value.id,
+        "name": value.name,
+        "address": value.address,
+        "active": value.active,
+        "version": value.version,
+    }
 
 
 def _resource_payload(value: Resource) -> dict[str, Any]:
-    return {"id": value.id, "name": value.name, "active": value.active}
+    return {"id": value.id, "name": value.name, "active": value.active, "version": value.version}
 
 
 class BookingSetupView(APIView):
@@ -1638,7 +1721,15 @@ class BookingSetupView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=["booking"], responses={200: SetupSerializer})
+    @extend_schema(
+        operation_id="booking_setup_retrieve",
+        summary="Read services, places, resources and people as setup edits them",
+        description="Every service with who does it, where and with which resource, every "
+        "place and resource, switched-off ones included, and the company's current people. "
+        "Each item carries the version a change of it names.",
+        tags=["booking"],
+        responses={200: SetupSerializer, 403: ProblemDetailsSerializer},
+    )
     def get(self, request: Request) -> Response:
         del request
         value = list_setup()
@@ -1646,8 +1737,28 @@ class BookingSetupView(APIView):
             "services": [_service_setup_payload(item) for item in value.services],
             "locations": [_place_payload(item) for item in value.locations],
             "resources": [_resource_payload(item) for item in value.resources],
-            "staff": [{"id": item.id, "name": item.display_name} for item in value.staff],
+            "staff": [
+                {"id": item.id, "name": item.display_name, "hours_version": item.hours_version}
+                for item in value.staff
+            ],
         })
+
+
+class BookingSetupOptionsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_options_retrieve",
+        summary="Read what can be set on a service, with bounds and defaults",
+        description="Every setting of an offer: type, bounds, unit, variants with labels, the "
+        "default a new service gets and a description. The entries have the shape of the "
+        "company settings registry (ADR-078).",
+        tags=["booking"],
+        responses={200: SetupOptionsSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"keys": setup_options()})
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1655,15 +1766,48 @@ class SetupServiceListView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_setup_service_create",
+        summary="Add a service",
+        description="Creates a service with who does it, where, the resource a visit takes "
+        "and the products it uses." + _WRITE_NOTE,
         tags=["booking"],
+        parameters=[IDEMPOTENCY],
         request=ServiceInputSerializer,
-        responses={201: ServiceSetupSerializer, 400: ProblemDetailsSerializer},
+        responses={201: ServiceSetupSerializer, **_SETUP_PROBLEMS},
     )
     def post(self, request: Request) -> Response:
         s = ServiceInputSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        value = save_service(service_id=None, data=dict(s.validated_data))
-        return Response(_service_setup_payload(value), status=201)
+        saved = save_service(
+            service_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(_service_setup_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupServiceCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_service_create_preview",
+        summary="Check a new service without adding it",
+        description="Validates a new service as `booking_setup_service_create` would."
+        + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ServiceInputSerializer,
+        responses={200: ServiceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = ServiceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_service(service_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_service_setup_payload(saved.value), saved.changes))
+
+
+def _update(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    values = dict(data)
+    return values, values.pop("expected_version")
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1671,15 +1815,49 @@ class SetupServiceDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_setup_service_update",
+        summary="Change a service",
+        description="Changes a service's settings, people, places, resource or products; "
+        "booked visits keep what they were booked with." + _UPDATE_NOTE,
         tags=["booking"],
-        request=ServiceInputSerializer,
-        responses={200: ServiceSetupSerializer, 400: ProblemDetailsSerializer},
+        parameters=[IDEMPOTENCY],
+        request=ServiceUpdateSerializer,
+        responses={200: ServiceSetupSerializer, **_SETUP_PROBLEMS},
     )
     def patch(self, request: Request, service_id: UUID) -> Response:
-        s = ServiceInputSerializer(data=request.data, partial=True)
+        s = ServiceUpdateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        value = save_service(service_id=service_id, data=dict(s.validated_data))
-        return Response(_service_setup_payload(value))
+        data, version = _update(s.validated_data)
+        saved = save_service(
+            service_id=service_id,
+            data=data,
+            expected_version=version,
+            idempotency_key=_idem(request),
+        )
+        return Response(_service_setup_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupServiceUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_service_update_preview",
+        summary="Check a change to a service without saving it",
+        description="Validates a change as `booking_setup_service_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ServiceUpdateSerializer,
+        responses={200: ServiceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, service_id: UUID) -> Response:
+        s = ServiceUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_service(
+            service_id=service_id, data=data, expected_version=version, preview=True
+        )
+        return Response(_with_changes(_service_setup_payload(saved.value), saved.changes))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1687,17 +1865,42 @@ class SetupLocationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_setup_location_create",
+        summary="Add a place of work",
+        description="Creates a place where the company works and takes visits." + _WRITE_NOTE,
         tags=["booking"],
+        parameters=[IDEMPOTENCY],
         request=PlaceInputSerializer,
-        responses={201: PlaceSetupSerializer, 400: ProblemDetailsSerializer},
+        responses={201: PlaceSetupSerializer, **_SETUP_PROBLEMS},
     )
     def post(self, request: Request) -> Response:
         s = PlaceInputSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        return Response(
-            _place_payload(save_location(location_id=None, data=dict(s.validated_data))),
-            status=201,
+        saved = save_location(
+            location_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
         )
+        return Response(_place_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupLocationCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_location_create_preview",
+        summary="Check a new place without adding it",
+        description="Validates a new place as `booking_setup_location_create` would."
+        + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=PlaceInputSerializer,
+        responses={200: PlaceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = PlaceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_location(location_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_place_payload(saved.value), saved.changes))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1705,16 +1908,48 @@ class SetupLocationDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_setup_location_update",
+        summary="Change a place of work",
+        description="Renames a place, changes its address or switches it off." + _UPDATE_NOTE,
         tags=["booking"],
-        request=PlaceInputSerializer,
-        responses={200: PlaceSetupSerializer, 400: ProblemDetailsSerializer},
+        parameters=[IDEMPOTENCY],
+        request=PlaceUpdateSerializer,
+        responses={200: PlaceSetupSerializer, **_SETUP_PROBLEMS},
     )
     def patch(self, request: Request, location_id: UUID) -> Response:
-        s = PlaceInputSerializer(data=request.data, partial=True)
+        s = PlaceUpdateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        return Response(
-            _place_payload(save_location(location_id=location_id, data=dict(s.validated_data)))
+        data, version = _update(s.validated_data)
+        saved = save_location(
+            location_id=location_id,
+            data=data,
+            expected_version=version,
+            idempotency_key=_idem(request),
         )
+        return Response(_place_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupLocationUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_location_update_preview",
+        summary="Check a change to a place without saving it",
+        description="Validates a change as `booking_setup_location_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=PlaceUpdateSerializer,
+        responses={200: PlaceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, location_id: UUID) -> Response:
+        s = PlaceUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_location(
+            location_id=location_id, data=data, expected_version=version, preview=True
+        )
+        return Response(_with_changes(_place_payload(saved.value), saved.changes))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1722,17 +1957,43 @@ class SetupResourceListView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_setup_resource_create",
+        summary="Add a resource",
+        description="Creates a resource — a room, a chair, a device — that a visit can take."
+        + _WRITE_NOTE,
         tags=["booking"],
+        parameters=[IDEMPOTENCY],
         request=ResourceInputSerializer,
-        responses={201: ResourceSetupSerializer, 400: ProblemDetailsSerializer},
+        responses={201: ResourceSetupSerializer, **_SETUP_PROBLEMS},
     )
     def post(self, request: Request) -> Response:
         s = ResourceInputSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        return Response(
-            _resource_payload(save_resource(resource_id=None, data=dict(s.validated_data))),
-            status=201,
+        saved = save_resource(
+            resource_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
         )
+        return Response(_resource_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupResourceCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_resource_create_preview",
+        summary="Check a new resource without adding it",
+        description="Validates a new resource as `booking_setup_resource_create` would."
+        + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ResourceInputSerializer,
+        responses={200: ResourceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = ResourceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_resource(resource_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_resource_payload(saved.value), saved.changes))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1740,16 +2001,48 @@ class SetupResourceDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_setup_resource_update",
+        summary="Change a resource",
+        description="Renames a resource or switches it off." + _UPDATE_NOTE,
         tags=["booking"],
-        request=ResourceInputSerializer,
-        responses={200: ResourceSetupSerializer, 400: ProblemDetailsSerializer},
+        parameters=[IDEMPOTENCY],
+        request=ResourceUpdateSerializer,
+        responses={200: ResourceSetupSerializer, **_SETUP_PROBLEMS},
     )
     def patch(self, request: Request, resource_id: UUID) -> Response:
-        s = ResourceInputSerializer(data=request.data, partial=True)
+        s = ResourceUpdateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        return Response(
-            _resource_payload(save_resource(resource_id=resource_id, data=dict(s.validated_data)))
+        data, version = _update(s.validated_data)
+        saved = save_resource(
+            resource_id=resource_id,
+            data=data,
+            expected_version=version,
+            idempotency_key=_idem(request),
         )
+        return Response(_resource_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupResourceUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_resource_update_preview",
+        summary="Check a change to a resource without saving it",
+        description="Validates a change as `booking_setup_resource_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ResourceUpdateSerializer,
+        responses={200: ResourceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, resource_id: UUID) -> Response:
+        s = ResourceUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_resource(
+            resource_id=resource_id, data=data, expected_version=version, preview=True
+        )
+        return Response(_with_changes(_resource_payload(saved.value), saved.changes))
 
 
 _PERIOD = [

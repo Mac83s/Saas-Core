@@ -103,6 +103,14 @@ class BookingIdempotencyConflict(APIException):
     default_code = "booking_idempotency_conflict"
 
 
+class BookingVersionConflict(APIException):
+    """A setup item changed since its caller read it (ADR-072 §11)."""
+
+    status_code = 409
+    default_detail = "Ktoś zmienił to w międzyczasie. Odśwież i spróbuj jeszcze raz."
+    default_code = "booking_version_conflict"
+
+
 @dataclass(frozen=True, slots=True)
 class CreatedAppointment:
     appointment: Appointment
@@ -571,7 +579,7 @@ def create_appointment(
     occupied_from = starts_at - timedelta(minutes=before)
     occupied_until = ends_at + timedelta(minutes=after)
     token, digest = issue_self_service_token()
-    expires = timezone.now() + timedelta(days=settings.BOOKING_SELF_SERVICE_TTL_DAYS)
+    expires = _self_service_expiry(ends_at)
     lookup = {
         person.id: person
         for person in StaffMember.all_objects.filter(pk__in=candidates, active=True)
@@ -781,8 +789,23 @@ def reschedule_appointment(
     previous = appointment.starts_at
     appointment.starts_at, appointment.ends_at = starts_at, ends
     appointment.occupied_from, appointment.occupied_until = occupied_from, occupied_until
+    # A visit moved past its link's life takes the link with it; a link never
+    # gets shorter.
+    expires = max(appointment.self_service_expires_at, ends)
+    if expires != appointment.self_service_expires_at:
+        appointment.self_service_expires_at = expires
+        SelfServiceRoute.objects.filter(
+            appointment_id=appointment.id, revoked_at__isnull=True
+        ).update(expires_at=expires)
     appointment.save(
-        update_fields=["starts_at", "ends_at", "occupied_from", "occupied_until", "updated_at"]
+        update_fields=[
+            "starts_at",
+            "ends_at",
+            "occupied_from",
+            "occupied_until",
+            "self_service_expires_at",
+            "updated_at",
+        ]
     )
     try:
         for person in StaffMember.all_objects.filter(pk__in=kept):
@@ -1324,6 +1347,14 @@ def _announce(change: AppointmentChange) -> None:
     and take the booking down with it.
     """
     transaction.on_commit(lambda: notify_appointment_change(change))
+
+
+def _self_service_expiry(ends_at: datetime) -> datetime:
+    """The self-service link lives `BOOKING_SELF_SERVICE_TTL_DAYS` from now and
+    at least until the booking ends (ADR-072, Konsekwencje): the reminder
+    the day before a visit two months ahead carries this link, and so will the
+    reminder of a balance due before a stay."""
+    return max(timezone.now() + timedelta(days=settings.BOOKING_SELF_SERVICE_TTL_DAYS), ends_at)
 
 
 def _hash(value: dict[str, Any]) -> str:

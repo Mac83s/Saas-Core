@@ -4,7 +4,18 @@ from typing import Any
 
 from rest_framework import serializers
 
+from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
+
 from .models import StaffChoice
+from .offer_settings import offer_setting
+
+
+def _changes() -> serializers.DictField:
+    return serializers.DictField(
+        child=serializers.JSONField(),
+        help_text="What the write changes, per field: `{from, to}`, or `{changed: true}` for "
+        "a private value and a list of links. Empty for a new item and for no change.",
+    )
 
 
 class CatalogCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -390,6 +401,9 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     materials = MaterialInputSerializer(many=True)
     #: False when the visit's module takes its own material (ADR-055).
     takes_materials = serializers.BooleanField()
+    version = serializers.IntegerField(
+        help_text="The service's version; a change names it (`expected_version`)."
+    )
 
 
 class PlaceSetupSerializer(serializers.Serializer[dict[str, Any]]):
@@ -397,17 +411,77 @@ class PlaceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
     address = serializers.CharField()
     active = serializers.BooleanField()
+    version = serializers.IntegerField(
+        help_text="The place's version; a change names it (`expected_version`)."
+    )
 
 
 class ResourceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
     active = serializers.BooleanField()
+    version = serializers.IntegerField(
+        help_text="The resource's version; a change names it (`expected_version`)."
+    )
+
+
+class ServiceSetupPreviewSerializer(ServiceSetupSerializer):
+    """The service as the write would leave it; nothing is saved."""
+
+    changes = _changes()
+
+
+class PlaceSetupPreviewSerializer(PlaceSetupSerializer):
+    """The place as the write would leave it; nothing is saved."""
+
+    changes = _changes()
+
+
+class ResourceSetupPreviewSerializer(ResourceSetupSerializer):
+    """The resource as the write would leave it; nothing is saved."""
+
+    changes = _changes()
 
 
 class SetupPersonSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
+    hours_version = serializers.IntegerField(
+        help_text="The version of the person's week, for a change of their hours."
+    )
+
+
+class SetupOptionValueSerializer(serializers.Serializer[dict[str, Any]]):
+    value = serializers.CharField()
+    label = LocalizedTextSerializer()  # type: ignore[assignment]
+
+
+#: The registry's types and units (ADR-078); one enum name each in the contract.
+SETTING_TYPES = ("int", "decimal", "bool", "enum", "text")
+SETTING_UNITS = ("minute", "hour", "day", "percent")
+
+
+class SetupOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    """One setting of an offer, in the shape of the settings registry (ADR-078)."""
+
+    key = serializers.CharField(help_text="`booking.offer.<field>`; the field is the key's tail.")
+    type = serializers.ChoiceField(choices=SETTING_TYPES)
+    minimum = serializers.IntegerField(allow_null=True)
+    maximum = serializers.IntegerField(allow_null=True)
+    unit = serializers.ChoiceField(choices=SETTING_UNITS, allow_null=True)
+    values = SetupOptionValueSerializer(
+        many=True, allow_null=True, help_text="The variants of an `enum`, in order."
+    )
+    default = serializers.JSONField(help_text="What a new offer gets when nothing is said.")
+    label = LocalizedTextSerializer()  # type: ignore[assignment]
+    help = LocalizedTextSerializer(allow_null=True)
+    description = serializers.CharField(help_text="What the value does, for the assistant.")
+    scopes = serializers.ListField(child=serializers.CharField())
+    depends_on = serializers.CharField(allow_null=True)
+
+
+class SetupOptionsSerializer(serializers.Serializer[dict[str, Any]]):
+    keys = SetupOptionSerializer(many=True)
 
 
 class SetupSerializer(serializers.Serializer[dict[str, Any]]):
@@ -417,17 +491,35 @@ class SetupSerializer(serializers.Serializer[dict[str, Any]]):
     staff = SetupPersonSerializer(many=True)
 
 
+def _bounded(field: str, **kwargs: Any) -> serializers.IntegerField:
+    """An offer's number with the bounds `OFFER_SETTINGS` declares for it."""
+    setting = offer_setting(field)
+    assert setting.minimum is not None and setting.maximum is not None
+    return serializers.IntegerField(
+        min_value=setting.minimum,
+        max_value=setting.maximum,
+        help_text=setting.description,
+        **kwargs,
+    )
+
+
+def _expected_version() -> serializers.IntegerField:
+    return serializers.IntegerField(
+        min_value=1,
+        help_text="The version the change was made on, as the last read gave it; another "
+        "one answers 409 `booking_version_conflict`.",
+    )
+
+
 class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
-    """A new service, or — sent partially — a change to one."""
+    """A new service."""
 
     name = serializers.CharField(max_length=160)
-    duration_minutes = serializers.IntegerField(min_value=5, max_value=1440)
-    buffer_before_minutes = serializers.IntegerField(min_value=0, max_value=1440, required=False)
-    buffer_after_minutes = serializers.IntegerField(min_value=0, max_value=1440, required=False)
-    minimum_notice_minutes = serializers.IntegerField(
-        min_value=0, max_value=60 * 24 * 90, required=False
-    )
-    staff_count = serializers.IntegerField(min_value=1, max_value=10, required=False)
+    duration_minutes = _bounded("duration_minutes")
+    buffer_before_minutes = _bounded("buffer_before_minutes", required=False)
+    buffer_after_minutes = _bounded("buffer_after_minutes", required=False)
+    minimum_notice_minutes = _bounded("minimum_notice_minutes", required=False)
+    staff_count = _bounded("staff_count", required=False)
     public_staff_choice = serializers.ChoiceField(choices=StaffChoice.choices, required=False)
     active = serializers.BooleanField(required=False)
     #: A new service only: the kind of visit a module provides (ADR-050).
@@ -442,15 +534,42 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     materials = MaterialInputSerializer(many=True, required=False)
 
 
+class ServiceUpdateSerializer(ServiceInputSerializer):
+    """A change to a service: only the fields sent change."""
+
+    name = serializers.CharField(max_length=160, required=False)
+    duration_minutes = _bounded("duration_minutes", required=False)
+    appointment_kind = None  # type: ignore[assignment]
+    expected_version = _expected_version()
+
+
 class PlaceInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A new place where the company works."""
+
     name = serializers.CharField(max_length=160)
     address = serializers.CharField(max_length=240, required=False, allow_blank=True)
     active = serializers.BooleanField(required=False)
 
 
+class PlaceUpdateSerializer(PlaceInputSerializer):
+    """A change to a place: only the fields sent change."""
+
+    name = serializers.CharField(max_length=160, required=False)
+    expected_version = _expected_version()
+
+
 class ResourceInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A new resource (a room, a device) a visit can take."""
+
     name = serializers.CharField(max_length=160)
     active = serializers.BooleanField(required=False)
+
+
+class ResourceUpdateSerializer(ResourceInputSerializer):
+    """A change to a resource: only the fields sent change."""
+
+    name = serializers.CharField(max_length=160, required=False)
+    expected_version = _expected_version()
 
 
 class CustomerAnonymizedSerializer(serializers.Serializer[dict[str, Any]]):
@@ -632,6 +751,16 @@ class PersonDetailSerializer(PersonSerializer):
     hours = WorkingHoursSerializer(many=True)
     #: Current and coming absences.
     time_off = TimeOffSerializer(many=True)
+    hours_version = serializers.IntegerField(
+        help_text="The version of the person's week; a change of the hours names it "
+        "(`expected_version`)."
+    )
+
+
+class PersonHoursPreviewSerializer(PersonDetailSerializer):
+    """The person as the change of hours would leave them; nothing is saved."""
+
+    changes = _changes()
 
 
 class PersonInvitationInputSerializer(serializers.Serializer[dict[str, Any]]):
@@ -685,8 +814,17 @@ class HoursRuleInputSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PersonHoursInputSerializer(serializers.Serializer[dict[str, Any]]):
-    #: The person's whole week; an empty list clears it.
-    rules = serializers.ListField(child=HoursRuleInputSerializer(), max_length=70)
+    rules = serializers.ListField(
+        child=HoursRuleInputSerializer(),
+        max_length=70,
+        help_text="The person's whole week, rule by rule; an empty list clears it. A refusal "
+        "names the rule: `rules.<i>.location_id`, `rules.<i>.local_end`, `rules.<i>.local_start`.",
+    )
+    expected_version = serializers.IntegerField(
+        min_value=1,
+        help_text="The week's version (`hours_version`) the change was made on; another one "
+        "answers 409 `booking_version_conflict`.",
+    )
 
 
 class TimeOffInputSerializer(serializers.Serializer[dict[str, Any]]):

@@ -4,6 +4,7 @@ edits them (team phase 3c)."""
 from __future__ import annotations
 
 from datetime import time, timedelta
+from uuid import uuid4
 
 import pytest
 from django.utils import timezone
@@ -36,12 +37,18 @@ from test_tenant_context import authenticated_client
 pytestmark = pytest.mark.django_db
 
 
+def key() -> str:
+    return str(uuid4())
+
+
 def test_a_new_service_comes_with_its_people_place_and_resource() -> None:
     owner = membership("uslugi-nowa")
     configured = team(owner, people=2, hours=(time(8), time(16)), duration=60)
     first, second = configured["staff"]
     with tenant(owner):
-        room = save_resource(resource_id=None, data={"name": "Gabinet"})
+        room = save_resource(
+            resource_id=None, data={"name": "Gabinet"}, idempotency_key=key()
+        ).value
         created = save_service(
             service_id=None,
             data={
@@ -54,7 +61,8 @@ def test_a_new_service_comes_with_its_people_place_and_resource() -> None:
                 "location_ids": [configured["location"].id],
                 "resource_ids": [room.id],
             },
-        )
+            idempotency_key=key(),
+        ).value
     service = created.service
     # The slug is made from the name, Polish letters folded, never asked for.
     assert service.public_slug == "laczenie-racic"
@@ -92,7 +100,9 @@ def test_editing_a_service_keeps_the_visits_booked_before() -> None:
                 "staff_count": 2,
                 "staff_ids": [second.id, third.id],
             },
-        )
+            expected_version=1,
+            idempotency_key=key(),
+        ).value
     assert changed.staff_ids == [second.id, third.id]
     assert not ServiceStaff.all_objects.filter(service=changed.service, staff=first).exists()
     visit.refresh_from_db()
@@ -121,18 +131,35 @@ def test_the_settings_refuse_what_cannot_be_booked_or_is_not_the_companys() -> N
             save_service(
                 service_id=configured["service"].id,
                 data={"staff_count": 2, "public_staff_choice": "person"},
+                expected_version=1,
+                idempotency_key=key(),
             )
         for field, target in (
             ("staff_ids", foreign["staff"][0].id),
             ("location_ids", foreign["location"].id),
         ):
             with pytest.raises(ValidationError) as refused:
-                save_service(service_id=configured["service"].id, data={field: [target]})
+                save_service(
+                    service_id=configured["service"].id,
+                    data={field: [target]},
+                    expected_version=1,
+                    idempotency_key=key(),
+                )
             assert field in refused.value.detail
         with pytest.raises(NotFound):
-            save_service(service_id=foreign["service"].id, data={"name": "Cudza"})
+            save_service(
+                service_id=foreign["service"].id,
+                data={"name": "Cudza"},
+                expected_version=1,
+                idempotency_key=key(),
+            )
         with pytest.raises(NotFound):
-            save_location(location_id=foreign["location"].id, data={"name": "Cudze"})
+            save_location(
+                location_id=foreign["location"].id,
+                data={"name": "Cudze"},
+                expected_version=1,
+                idempotency_key=key(),
+            )
     assert Service.all_objects.get(pk=configured["service"].id).staff_count == 1
 
 
@@ -140,10 +167,21 @@ def test_a_switched_off_service_or_place_leaves_the_calendar_but_not_the_setting
     owner = membership("uslugi-wylacz")
     configured = team(owner, people=1, hours=(time(8), time(16)), duration=60)
     with tenant(owner):
-        second = save_location(location_id=None, data={"name": "Filia Łódź", "address": "ul. 1"})
+        second = save_location(
+            location_id=None,
+            data={"name": "Filia Łódź", "address": "ul. 1"},
+            idempotency_key=key(),
+        ).value
         assert second.public_slug == "filia-lodz"
-        save_service(service_id=configured["service"].id, data={"active": False})
-        save_location(location_id=second.id, data={"active": False})
+        save_service(
+            service_id=configured["service"].id,
+            data={"active": False},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+        save_location(
+            location_id=second.id, data={"active": False}, expected_version=1, idempotency_key=key()
+        )
         calendar = list_catalog()
         setup = list_setup()
     assert not [x for x in calendar["services"] if x.active]
@@ -159,13 +197,17 @@ def test_the_settings_api_answers_management_and_refuses_the_others() -> None:
     bookable(owner.organization)
     configured = team(owner, people=2, hours=(time(8), time(16)), duration=60)
     first, _second = configured["staff"]
-    headers = {"HTTP_X_CSRFTOKEN": csrf_value(client)}
+    csrf = csrf_value(client)
+
+    def headers() -> dict[str, str]:
+        return {"HTTP_X_CSRFTOKEN": csrf, "HTTP_IDEMPOTENCY_KEY": key()}
+
     place = client.post(
-        "/api/v1/booking/setup/locations/", {"name": "Baza"}, format="json", **headers
+        "/api/v1/booking/setup/locations/", {"name": "Baza"}, format="json", **headers()
     )
     assert place.status_code == 201, place.data
     thing = client.post(
-        "/api/v1/booking/setup/resources/", {"name": "Poskrom"}, format="json", **headers
+        "/api/v1/booking/setup/resources/", {"name": "Poskrom"}, format="json", **headers()
     )
     assert thing.status_code == 201, thing.data
     made = client.post(
@@ -178,25 +220,25 @@ def test_the_settings_api_answers_management_and_refuses_the_others() -> None:
             "resource_ids": [thing.json()["id"]],
         },
         format="json",
-        **headers,
+        **headers(),
     )
     assert made.status_code == 201, made.data
     service = made.json()
     assert (service["staff_count"], service["public_staff_choice"]) == (1, "none")
     changed = client.patch(
         f"/api/v1/booking/setup/services/{service['id']}/",
-        {"public_staff_choice": "person", "resource_ids": []},
+        {"public_staff_choice": "person", "resource_ids": [], "expected_version": 1},
         format="json",
-        **headers,
+        **headers(),
     )
     assert changed.status_code == 200, changed.data
     assert changed.json()["resource_ids"] == []
     assert changed.json()["public_staff_choice"] == "person"
     renamed = client.patch(
         f"/api/v1/booking/setup/locations/{place.json()['id']}/",
-        {"address": "Radziejów 1"},
+        {"address": "Radziejów 1", "expected_version": 1},
         format="json",
-        **headers,
+        **headers(),
     )
     assert renamed.json()["address"] == "Radziejów 1"
     listed = client.get("/api/v1/booking/setup/").json()
@@ -213,9 +255,10 @@ def test_the_settings_api_answers_management_and_refuses_the_others() -> None:
     assert worker_client.get("/api/v1/booking/setup/").status_code == 403
     refused = worker_client.patch(
         f"/api/v1/booking/setup/services/{service['id']}/",
-        {"name": "Moja"},
+        {"name": "Moja", "expected_version": 2},
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(worker_client),
+        HTTP_IDEMPOTENCY_KEY=key(),
     )
     assert refused.status_code == 403
     assert StaffMember.all_objects.filter(organization=owner.organization).count() == 2

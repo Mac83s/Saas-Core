@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from django.core.cache import cache
@@ -19,6 +20,7 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.test import APIClient
 
+from saas_core.http.exceptions import problem_errors
 from saas_core.modules.core.identity.models import User, UserSession, UserStatus
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.joining import SeatLimitReached, current_seat_usage
@@ -72,6 +74,11 @@ from test_organization_lifecycle import (
 )
 
 pytestmark = pytest.mark.django_db
+
+
+def key() -> str:
+    return str(uuid4())
+
 
 STAFF_URL = "/api/v1/booking/staff/"
 
@@ -188,20 +195,45 @@ def test_hours_replace_the_week_and_refuse_what_cannot_be_worked() -> None:
     staff: Any = configured["staff"]
     location = configured["location"]
     rule = {"weekday": 0, "location_id": location.id}
+    elsewhere = Location.all_objects.create(
+        organization=owner.organization, name="Zamknięte", public_slug="zamkniete", active=False
+    )
     with tenant(owner):
-        with pytest.raises(ValidationError, match="nachodzą"):
-            set_person_hours(
-                staff_id=staff.id,
-                rules=[
-                    {**rule, "local_start": time(8), "local_end": time(12)},
+        # A refusal names the rule it is about (ADR-076 pkt 5): the later of
+        # two overlapping ones, the end before the start, the unknown place.
+        for rules, field, code in (
+            (
+                [
+                    {**rule, "weekday": 2, "local_start": time(8), "local_end": time(9)},
                     {**rule, "local_start": time(11), "local_end": time(16)},
+                    {**rule, "local_start": time(8), "local_end": time(12)},
                 ],
-            )
-        with pytest.raises(ValidationError, match="po jej początku"):
-            set_person_hours(
-                staff_id=staff.id,
-                rules=[{**rule, "local_start": time(12), "local_end": time(8)}],
-            )
+                "rules.1.local_start",
+                "hours_overlap",
+            ),
+            ([{**rule, "local_start": time(12), "local_end": time(8)}], "rules.0.local_end", None),
+            (
+                [
+                    {**rule, "local_start": time(8), "local_end": time(9)},
+                    {
+                        **rule,
+                        "location_id": elsewhere.id,
+                        "local_start": time(10),
+                        "local_end": time(11),
+                    },
+                ],
+                "rules.1.location_id",
+                "location_unknown",
+            ),
+        ):
+            with pytest.raises(ValidationError) as refused:
+                set_person_hours(
+                    staff_id=staff.id, rules=rules, expected_version=1, idempotency_key=key()
+                )
+            [error] = problem_errors(refused.value)
+            assert error["field"] == field
+            if code:
+                assert error["code"] == code
         before = AvailabilityRule.all_objects.get(staff=staff)
         detail = set_person_hours(
             staff_id=staff.id,
@@ -209,7 +241,10 @@ def test_hours_replace_the_week_and_refuse_what_cannot_be_worked() -> None:
                 {**rule, "local_start": time(8), "local_end": time(12)},
                 {**rule, "local_start": time(13), "local_end": time(17)},
             ],
-        )
+            expected_version=1,
+            idempotency_key=key(),
+        ).value
+        assert detail.person.staff.hours_version == 2
         assert [(item.local_start, item.local_end) for item in detail.hours] == [
             (time(8), time(12)),
             (time(13), time(17)),
@@ -217,7 +252,8 @@ def test_hours_replace_the_week_and_refuse_what_cannot_be_worked() -> None:
         # Switched off, not deleted: last month's offer stays readable.
         before.refresh_from_db()
         assert before.active is False
-        with pytest.raises(ValidationError, match="miejsca pracy"):
+        # The add dialog sends one set of hours: its refusal points there.
+        with pytest.raises(ValidationError) as refused:
             add_person(
                 request=acting(owner),
                 name="Bez miejsca",
@@ -225,14 +261,10 @@ def test_hours_replace_the_week_and_refuse_what_cannot_be_worked() -> None:
                     "weekdays": [1],
                     "local_start": time(8),
                     "local_end": time(9),
-                    "location_id": Location.all_objects.create(
-                        organization=owner.organization,
-                        name="Stary",
-                        public_slug="stary",
-                        active=False,
-                    ).id,
+                    "location_id": elsewhere.id,
                 },
             )
+        assert [error["field"] for error in problem_errors(refused.value)] == ["hours.location_id"]
 
 
 def test_an_account_takes_a_seat_of_the_plan_and_a_subcontractor_does_not() -> None:
@@ -425,17 +457,25 @@ def test_own_hours_and_time_off_need_the_products_permission() -> None:
     ]
     tomorrow = timezone.now() + timedelta(days=1)
     with tenant(worker):
-        assert len(set_person_hours(staff_id=mine.id, rules=week).hours) == 1
+        saved = set_person_hours(
+            staff_id=mine.id, rules=week, expected_version=1, idempotency_key=key()
+        )
+        assert len(saved.value.hours) == 1
         item, _ = add_time_off(
             staff_id=mine.id, starts_at=tomorrow, ends_at=tomorrow + timedelta(hours=8)
         )
         remove_time_off(time_off_id=item.id)
         with pytest.raises(OrganizationPermissionDenied):
-            set_person_hours(staff_id=configured["staff"].id, rules=week)
+            set_person_hours(
+                staff_id=configured["staff"].id,
+                rules=week,
+                expected_version=1,
+                idempotency_key=key(),
+            )
     # Core's viewer has no `booking.schedule.own`: like HoofCare's trimmer,
     # their week is set by the office.
     with tenant(viewer), pytest.raises(OrganizationPermissionDenied):
-        set_person_hours(staff_id=theirs.id, rules=week)
+        set_person_hours(staff_id=theirs.id, rules=week, expected_version=1, idempotency_key=key())
 
 
 def test_an_absence_counts_the_visits_it_runs_into_and_hides_its_reason() -> None:
@@ -486,6 +526,8 @@ def test_the_days_hours_are_instants_on_the_night_the_clocks_go_back() -> None:
                     "location_id": configured["location"].id,
                 }
             ],
+            expected_version=1,
+            idempotency_key=key(),
         )
         day, zone, rows = people_day(night)
     assert (day, zone) == (night, "Europe/Warsaw")

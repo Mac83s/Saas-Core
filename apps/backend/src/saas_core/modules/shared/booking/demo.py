@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import uuid
 from datetime import time, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -136,7 +137,9 @@ def _seed_organization(run: DemoRun, key: str, data: dict[str, Any]) -> None:
         places = Location.all_objects.filter(organization=organization, active=True)
         location = places.filter(name=data["location"]["name"]).first() or places.first()
         if location is None:
-            location = save_location(location_id=None, data=dict(data["location"]))
+            location = save_location(
+                location_id=None, data=dict(data["location"]), idempotency_key=str(uuid.uuid4())
+            ).value
             run.log(f"+ miejsce {location.name}")
 
         people = {person.staff.membership_id: person for person in list_people()}
@@ -170,6 +173,7 @@ def _seed_organization(run: DemoRun, key: str, data: dict[str, Any]) -> None:
                         "location_ids": [location.id],
                         "staff_ids": [entry.id for entry in staff.values()],
                     },
+                    idempotency_key=str(uuid.uuid4()),
                 )
                 service = Service.all_objects.get(organization=organization, name=wanted["name"])
                 run.log(f"+ usługa {service.name}")
@@ -196,6 +200,8 @@ def _seed_organization(run: DemoRun, key: str, data: dict[str, Any]) -> None:
                         }
                         for weekday in hours["weekdays"]
                     ],
+                    expected_version=person.staff.hours_version,
+                    idempotency_key=str(uuid.uuid4()),
                 )
                 run.log(f"+ godziny pracy {entry.display_name}")
 

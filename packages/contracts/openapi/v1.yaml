@@ -1954,8 +1954,11 @@ paths:
           description: ''
   /api/v1/booking/setup/:
     get:
-      operationId: api_v1_booking_setup_retrieve
-      description: 'Ustawienia › Usługi i grafik: everything, switched-off items included.'
+      operationId: booking_setup_retrieve
+      description: Every service with who does it, where and with which resource,
+        every place and resource, switched-off ones included, and the company's current
+        people. Each item carries the version a change of it names.
+      summary: Read services, places, resources and people as setup edits them
       tags:
       - booking
       security:
@@ -1967,9 +1970,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/Setup'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/setup/locations/:
     post:
-      operationId: api_v1_booking_setup_locations_create
+      operationId: booking_setup_location_create
+      description: Creates a place where the company works and takes visits. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `booking_idempotency_conflict`.
+      summary: Add a place of work
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
       tags:
       - booking
       requestBody:
@@ -1999,9 +2018,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/setup/locations/{location_id}/:
     patch:
-      operationId: api_v1_booking_setup_locations_partial_update
+      operationId: booking_setup_location_update
+      description: Renames a place, changes its address or switches it off. Only the
+        fields sent change. `expected_version` is the version the change was made
+        on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a place of work
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaceUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaceUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaceUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/locations/{location_id}/preview/:
+    post:
+      operationId: booking_setup_location_update_preview
+      description: 'Validates a change as `booking_setup_location_update` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a place without saving it
       parameters:
       - in: path
         name: location_id
@@ -2015,13 +2122,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedPlaceInput'
+              $ref: '#/components/schemas/PlaceUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedPlaceInput'
+              $ref: '#/components/schemas/PlaceUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedPlaceInput'
+              $ref: '#/components/schemas/PlaceUpdate'
+        required: true
       security:
       - cookieAuth: []
       responses:
@@ -2029,7 +2137,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlaceSetup'
+                $ref: '#/components/schemas/PlaceSetupPreview'
           description: ''
         '400':
           content:
@@ -2037,9 +2145,117 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/locations/preview/:
+    post:
+      operationId: booking_setup_location_create_preview
+      description: 'Validates a new place as `booking_setup_location_create` would.
+        Nothing is saved: the answer is the item as the write would leave it, with
+        `changes`, or the same 400, 404 and 409 the write would answer.'
+      summary: Check a new place without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlaceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/options/:
+    get:
+      operationId: booking_setup_options_retrieve
+      description: 'Every setting of an offer: type, bounds, unit, variants with labels,
+        the default a new service gets and a description. The entries have the shape
+        of the company settings registry (ADR-078).'
+      summary: Read what can be set on a service, with bounds and defaults
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupOptions'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/setup/resources/:
     post:
-      operationId: api_v1_booking_setup_resources_create
+      operationId: booking_setup_resource_create
+      description: Creates a resource — a room, a chair, a device — that a visit can
+        take. A repeated Idempotency-Key answers the first result again; the key reused
+        on another request is 409 `booking_idempotency_conflict`.
+      summary: Add a resource
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
       tags:
       - booking
       requestBody:
@@ -2069,9 +2285,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/setup/resources/{resource_id}/:
     patch:
-      operationId: api_v1_booking_setup_resources_partial_update
+      operationId: booking_setup_resource_update
+      description: Renames a resource or switches it off. Only the fields sent change.
+        `expected_version` is the version the change was made on; another one is 409
+        `booking_version_conflict`. A repeated Idempotency-Key answers the first result
+        again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a resource
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/resources/{resource_id}/preview/:
+    post:
+      operationId: booking_setup_resource_update_preview
+      description: 'Validates a change as `booking_setup_resource_update` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a resource without saving it
       parameters:
       - in: path
         name: resource_id
@@ -2085,13 +2389,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedResourceInput'
+              $ref: '#/components/schemas/ResourceUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedResourceInput'
+              $ref: '#/components/schemas/ResourceUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedResourceInput'
+              $ref: '#/components/schemas/ResourceUpdate'
+        required: true
       security:
       - cookieAuth: []
       responses:
@@ -2099,7 +2404,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceSetup'
+                $ref: '#/components/schemas/ResourceSetupPreview'
           description: ''
         '400':
           content:
@@ -2107,9 +2412,93 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/resources/preview/:
+    post:
+      operationId: booking_setup_resource_create_preview
+      description: 'Validates a new resource as `booking_setup_resource_create` would.
+        Nothing is saved: the answer is the item as the write would leave it, with
+        `changes`, or the same 400, 404 and 409 the write would answer.'
+      summary: Check a new resource without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/services/:
     post:
-      operationId: api_v1_booking_setup_services_create
+      operationId: booking_setup_service_create
+      description: Creates a service with who does it, where, the resource a visit
+        takes and the products it uses. A repeated Idempotency-Key answers the first
+        result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Add a service
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
       tags:
       - booking
       requestBody:
@@ -2139,10 +2528,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/setup/services/{service_id}/:
     patch:
-      operationId: api_v1_booking_setup_services_partial_update
+      operationId: booking_setup_service_update
+      description: Changes a service's settings, people, places, resource or products;
+        booked visits keep what they were booked with. Only the fields sent change.
+        `expected_version` is the version the change was made on; another one is 409
+        `booking_version_conflict`. A repeated Idempotency-Key answers the first result
+        again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a service
       parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
       - in: path
         name: service_id
         schema:
@@ -2155,13 +2573,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedServiceInput'
+              $ref: '#/components/schemas/PatchedServiceUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedServiceInput'
+              $ref: '#/components/schemas/PatchedServiceUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedServiceInput'
+              $ref: '#/components/schemas/PatchedServiceUpdate'
       security:
       - cookieAuth: []
       responses:
@@ -2177,6 +2595,141 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/services/{service_id}/preview/:
+    post:
+      operationId: booking_setup_service_update_preview
+      description: 'Validates a change as `booking_setup_service_update` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a service without saving it
+      parameters:
+      - in: path
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/services/preview/:
+    post:
+      operationId: booking_setup_service_create_preview
+      description: 'Validates a new service as `booking_setup_service_create` would.
+        Nothing is saved: the answer is the item as the write would leave it, with
+        `changes`, or the same 400, 404 and 409 the write would answer.'
+      summary: Check a new service without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/slots/:
     get:
       operationId: api_v1_booking_slots_retrieve
@@ -2659,11 +3212,20 @@ paths:
           description: ''
   /api/v1/booking/staff/{staff_id}/hours/:
     put:
-      operationId: api_v1_booking_staff_hours_update
-      description: |-
-        The person's week: management always, the person where the product lets
-        them (owner's answer 7).
+      operationId: booking_staff_hours_set
+      description: Replaces the person's whole week; an empty list clears it. Management
+        sets anyone's hours, a person their own where the product allows it. A service
+        the person does becomes bookable where they work. `expected_version` is the
+        week's `hours_version`; another one is 409 `booking_version_conflict`. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `booking_idempotency_conflict`.
+      summary: Replace a person's weekly hours
       parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
       - in: path
         name: staff_id
         schema:
@@ -2705,6 +3267,80 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/hours/preview/:
+    post:
+      operationId: booking_staff_hours_set_preview
+      description: 'Validates the week as `booking_staff_hours_set` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a person's new weekly hours without saving them
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonHoursInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PersonHoursInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PersonHoursInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonHoursPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/staff/{staff_id}/invitation/:
     post:
       operationId: api_v1_booking_staff_invitation_create
@@ -19371,8 +20007,9 @@ components:
           - string
           - 'null'
           format: uuid
-    PatchedPlaceInput:
+    PatchedPlaceUpdate:
       type: object
+      description: 'A change to a place: only the fields sent change.'
       properties:
         name:
           type: string
@@ -19382,14 +20019,25 @@ components:
           maxLength: 240
         active:
           type: boolean
-    PatchedResourceInput:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+    PatchedResourceUpdate:
       type: object
+      description: 'A change to a resource: only the fields sent change.'
       properties:
         name:
           type: string
           maxLength: 160
         active:
           type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
     PatchedRoleUpdate:
       type: object
       properties:
@@ -19404,9 +20052,9 @@ components:
           items:
             type: string
             maxLength: 120
-    PatchedServiceInput:
+    PatchedServiceUpdate:
       type: object
-      description: A new service, or — sent partially — a change to one.
+      description: 'A change to a service: only the fields sent change.'
       properties:
         name:
           type: string
@@ -19415,29 +20063,34 @@ components:
           type: integer
           maximum: 1440
           minimum: 5
+          description: How long one visit of this service takes, in minutes.
         buffer_before_minutes:
           type: integer
           maximum: 1440
           minimum: 0
+          description: Minutes blocked in the calendar before each visit (travel,
+            preparation); customers do not see them.
         buffer_after_minutes:
           type: integer
           maximum: 1440
           minimum: 0
+          description: Minutes blocked in the calendar after each visit (tidying up,
+            travel); customers do not see them.
         minimum_notice_minutes:
           type: integer
           maximum: 129600
           minimum: 0
+          description: How many minutes before its start a visit can still be booked;
+            0 allows booking up to the start.
         staff_count:
           type: integer
           maximum: 10
           minimum: 1
+          description: How many of the company's people one visit needs; each is blocked.
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
         active:
           type: boolean
-        appointment_kind:
-          type: string
-          maxLength: 64
         staff_ids:
           type: array
           items:
@@ -19460,6 +20113,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialInput'
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
     PatchedSiteTemplateUpdate:
       type: object
       properties:
@@ -19860,11 +20518,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TimeOff'
+        hours_version:
+          type: integer
+          description: The version of the person's week; a change of the hours names
+            it (`expected_version`).
       required:
       - active
       - created_at
       - has_hours
       - hours
+      - hours_version
       - id
       - invitation_id
       - membership_id
@@ -19882,9 +20545,100 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HoursRuleInput'
+          description: 'The person''s whole week, rule by rule; an empty list clears
+            it. A refusal names the rule: `rules.<i>.location_id`, `rules.<i>.local_end`,
+            `rules.<i>.local_start`.'
           maxItems: 70
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The week's version (`hours_version`) the change was made on;
+            another one answers 409 `booking_version_conflict`.
       required:
+      - expected_version
       - rules
+    PersonHoursPreview:
+      type: object
+      description: The person as the change of hours would leave them; nothing is
+        saved.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        invitation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        phone:
+          type:
+          - string
+          - 'null'
+        active:
+          type: boolean
+        service_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        has_hours:
+          type: boolean
+        team_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        public_name:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+          format: date-time
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingHours'
+        time_off:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeOff'
+        hours_version:
+          type: integer
+          description: The version of the person's week; a change of the hours names
+            it (`expected_version`).
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - changes
+      - created_at
+      - has_hours
+      - hours
+      - hours_version
+      - id
+      - invitation_id
+      - membership_id
+      - name
+      - phone
+      - public_name
+      - public_slug
+      - service_ids
+      - team_ids
+      - time_off
     PersonInvitation:
       type: object
       properties:
@@ -19951,6 +20705,7 @@ components:
       - service_ids
     PlaceInput:
       type: object
+      description: A new place where the company works.
       properties:
         name:
           type: string
@@ -19974,11 +20729,63 @@ components:
           type: string
         active:
           type: boolean
+        version:
+          type: integer
+          description: The place's version; a change names it (`expected_version`).
       required:
       - active
       - address
       - id
       - name
+      - version
+    PlaceSetupPreview:
+      type: object
+      description: The place as the write would leave it; nothing is saved.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: The place's version; a change names it (`expected_version`).
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - address
+      - changes
+      - id
+      - name
+      - version
+    PlaceUpdate:
+      type: object
+      description: 'A change to a place: only the fields sent change.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        address:
+          type: string
+          maxLength: 240
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     PlatformDomainChange:
       type: object
       properties:
@@ -20880,6 +21687,7 @@ components:
       - name
     ResourceInput:
       type: object
+      description: A new resource (a room, a device) a visit can take.
       properties:
         name:
           type: string
@@ -20898,10 +21706,40 @@ components:
           type: string
         active:
           type: boolean
+        version:
+          type: integer
+          description: The resource's version; a change names it (`expected_version`).
       required:
       - active
       - id
       - name
+      - version
+    ResourceSetupPreview:
+      type: object
+      description: The resource as the write would leave it; nothing is saved.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: The resource's version; a change names it (`expected_version`).
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - changes
+      - id
+      - name
+      - version
     ResourceTypeEnum:
       enum:
       - page
@@ -20920,6 +21758,22 @@ components:
         * `content_entry` - content_entry
         * `content_entry_version` - content_entry_version
         * `content_entry_publication` - content_entry_publication
+    ResourceUpdate:
+      type: object
+      description: 'A change to a resource: only the fields sent change.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     RiskEnum:
       enum:
       - read
@@ -21097,7 +21951,7 @@ components:
       - staff_count
     ServiceInput:
       type: object
-      description: A new service, or — sent partially — a change to one.
+      description: A new service.
       properties:
         name:
           type: string
@@ -21106,22 +21960,30 @@ components:
           type: integer
           maximum: 1440
           minimum: 5
+          description: How long one visit of this service takes, in minutes.
         buffer_before_minutes:
           type: integer
           maximum: 1440
           minimum: 0
+          description: Minutes blocked in the calendar before each visit (travel,
+            preparation); customers do not see them.
         buffer_after_minutes:
           type: integer
           maximum: 1440
           minimum: 0
+          description: Minutes blocked in the calendar after each visit (tidying up,
+            travel); customers do not see them.
         minimum_notice_minutes:
           type: integer
           maximum: 129600
           minimum: 0
+          description: How many minutes before its start a visit can still be booked;
+            0 allows booking up to the start.
         staff_count:
           type: integer
           maximum: 10
           minimum: 1
+          description: How many of the company's people one visit needs; each is blocked.
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
         active:
@@ -21201,6 +22063,9 @@ components:
             $ref: '#/components/schemas/MaterialInput'
         takes_materials:
           type: boolean
+        version:
+          type: integer
+          description: The service's version; a change names it (`expected_version`).
       required:
       - active
       - appointment_kind
@@ -21217,6 +22082,148 @@ components:
       - staff_count
       - staff_ids
       - takes_materials
+      - version
+    ServiceSetupPreview:
+      type: object
+      description: The service as the write would leave it; nothing is saved.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        appointment_kind:
+          type: string
+        duration_minutes:
+          type: integer
+        buffer_before_minutes:
+          type: integer
+        buffer_after_minutes:
+          type: integer
+        minimum_notice_minutes:
+          type: integer
+        staff_count:
+          type: integer
+        public_staff_choice:
+          type: string
+        active:
+          type: boolean
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        location_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
+        takes_materials:
+          type: boolean
+        version:
+          type: integer
+          description: The service's version; a change names it (`expected_version`).
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - appointment_kind
+      - buffer_after_minutes
+      - buffer_before_minutes
+      - changes
+      - duration_minutes
+      - id
+      - location_ids
+      - materials
+      - minimum_notice_minutes
+      - name
+      - public_staff_choice
+      - resource_ids
+      - staff_count
+      - staff_ids
+      - takes_materials
+      - version
+    ServiceUpdate:
+      type: object
+      description: 'A change to a service: only the fields sent change.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        duration_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 5
+          description: How long one visit of this service takes, in minutes.
+        buffer_before_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+          description: Minutes blocked in the calendar before each visit (travel,
+            preparation); customers do not see them.
+        buffer_after_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+          description: Minutes blocked in the calendar after each visit (tidying up,
+            travel); customers do not see them.
+        minimum_notice_minutes:
+          type: integer
+          maximum: 129600
+          minimum: 0
+          description: How many minutes before its start a visit can still be booked;
+            0 allows booking up to the start.
+        staff_count:
+          type: integer
+          maximum: 10
+          minimum: 1
+          description: How many of the company's people one visit needs; each is blocked.
+        public_staff_choice:
+          $ref: '#/components/schemas/PublicStaffChoiceEnum'
+        active:
+          type: boolean
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        location_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     SessionSummary:
       type: object
       properties:
@@ -21243,6 +22250,32 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SettingTypeEnum:
+      enum:
+      - int
+      - decimal
+      - bool
+      - enum
+      - text
+      type: string
+      description: |-
+        * `int` - int
+        * `decimal` - decimal
+        * `bool` - bool
+        * `enum` - enum
+        * `text` - text
+    SettingUnitEnum:
+      enum:
+      - minute
+      - hour
+      - day
+      - percent
+      type: string
+      description: |-
+        * `minute` - minute
+        * `hour` - hour
+        * `day` - day
+        * `percent` - percent
     Setup:
       type: object
       properties:
@@ -21267,6 +22300,86 @@ components:
       - resources
       - services
       - staff
+    SetupOption:
+      type: object
+      description: One setting of an offer, in the shape of the settings registry
+        (ADR-078).
+      properties:
+        key:
+          type: string
+          description: '`booking.offer.<field>`; the field is the key''s tail.'
+        type:
+          $ref: '#/components/schemas/SettingTypeEnum'
+        minimum:
+          type:
+          - integer
+          - 'null'
+        maximum:
+          type:
+          - integer
+          - 'null'
+        unit:
+          oneOf:
+          - $ref: '#/components/schemas/SettingUnitEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        values:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/SetupOptionValue'
+          description: The variants of an `enum`, in order.
+        default:
+          description: What a new offer gets when nothing is said.
+        label:
+          $ref: '#/components/schemas/LocalizedText'
+        help:
+          oneOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          - type: 'null'
+        description:
+          type: string
+          description: What the value does, for the assistant.
+        scopes:
+          type: array
+          items:
+            type: string
+        depends_on:
+          type:
+          - string
+          - 'null'
+      required:
+      - default
+      - depends_on
+      - description
+      - help
+      - key
+      - label
+      - maximum
+      - minimum
+      - scopes
+      - type
+      - unit
+      - values
+    SetupOptionValue:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          $ref: '#/components/schemas/LocalizedText'
+      required:
+      - label
+      - value
+    SetupOptions:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SetupOption'
+      required:
+      - keys
     SetupPerson:
       type: object
       properties:
@@ -21275,7 +22388,11 @@ components:
           format: uuid
         name:
           type: string
+        hours_version:
+          type: integer
+          description: The version of the person's week, for a change of their hours.
       required:
+      - hours_version
       - id
       - name
     SeverityEnum:
