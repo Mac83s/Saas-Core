@@ -21,6 +21,8 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.organizations.locales import organization_content_locales
+from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
@@ -978,6 +980,9 @@ class PublicBookingCatalogView(APIView):
                 "people": [{"id": key, "name": name} for key, name in choices.people],
                 "timezone": _zone().key,
                 "online": {"paused": paused, "resume_on": resume_on},
+                "locales": list(
+                    organization_content_locales(Organization.objects.get(pk=org))
+                ),
             })
 
 

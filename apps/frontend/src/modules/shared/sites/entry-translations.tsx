@@ -7,7 +7,7 @@
  *  written weeks apart, and often only one of them ever exists. The shared
  *  group is what tells a search engine they are the same article. */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PlusIcon } from "lucide-react";
 
@@ -30,13 +30,12 @@ import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
 
-const LOCALES = ["pl", "en"] as const;
-type Locale = (typeof LOCALES)[number];
 
 export function EntryTranslations({
   entry,
@@ -52,7 +51,9 @@ export function EntryTranslations({
   const [title, setTitle] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [slug, setSlug] = useState("");
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocale] = useState("en");
+  // The company's languages, not a list written here (ADR-071 pkt 5).
+  const companyLocaleOptions = useCompanyLocales(["pl", "en"]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const receipt = useRef<MutationReceipt | undefined>(undefined);
@@ -79,14 +80,20 @@ export function EntryTranslations({
   // effect writing into a field the user is looking at.
   const address = slugEdited ? slug : slugifyTitle(title);
 
-  const missing = LOCALES.filter(
-    (candidate) => !translations.some((item) => item.locale === candidate),
+  const missing = companyLocaleOptions.filter(
+    (candidate) =>
+      candidate.code !== entry.locale &&
+      !translations.some((item) => item.locale === candidate.code),
   );
+  // The picked language while it is still missing, otherwise the first one.
+  const chosen = missing.some((candidate) => candidate.code === locale)
+    ? locale
+    : (missing[0]?.code ?? locale);
 
-  const submit = useCallback(() => {
+  const submit = () => {
     setBusy(true);
     setProblem(undefined);
-    const input = { locale, slug: address, title };
+    const input = { locale: chosen, slug: address, title };
     void createEntryTranslation(
       entry.id,
       input,
@@ -105,7 +112,7 @@ export function EntryTranslations({
       .finally(() => {
         setBusy(false);
       });
-  }, [address, entry.id, locale, onCreated, t, title]);
+  };
 
   const stateLabel = (item: ContentEntry) =>
     t(item.state === "published" ? "blogStatePublished" : "blogStateDraft");
@@ -171,12 +178,12 @@ export function EntryTranslations({
               </FieldLabel>
               <NativeSelect
                 id="translation-locale"
-                onChange={(event) => setLocale(event.target.value as Locale)}
-                value={missing.includes(locale) ? locale : missing[0]}
+                onChange={(event) => setLocale(event.target.value)}
+                value={chosen}
               >
                 {missing.map((candidate) => (
-                  <option key={candidate} value={candidate}>
-                    {t(candidate === "pl" ? "localePl" : "localeEn")}
+                  <option key={candidate.code} value={candidate.code}>
+                    {candidate.name}
                   </option>
                 ))}
               </NativeSelect>

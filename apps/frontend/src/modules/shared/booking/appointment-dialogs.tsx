@@ -77,6 +77,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 import { cn } from "@saas-core/ui/lib/utils";
 
+import { useCompanyLocales } from "#lib/company-locales";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import type {
   ProductVisitBooked,
@@ -692,8 +693,11 @@ function NewAppointmentForm({
 }) {
   const t = useTranslations("Calendar");
   const common = useTranslations("Common");
-  const locale = useLocale();
   const today = wallClock(new Date(), zone).day;
+  // The customer's language is one of the company's, its first unless picked;
+  // never the panel's (ADR-071 pkt 21). Empty: the server takes the first.
+  const customerLocales = useCompanyLocales([]);
+  const [customerLocale, setCustomerLocale] = useState("");
   // One key per opened form: a retry after a lost response gets the visit
   // already booked back instead of booking a second one.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -865,7 +869,7 @@ function NewAppointmentForm({
         display_name: values.display_name.trim(),
         email: values.email,
         phone: values.phone.trim(),
-        locale: locale === "en" ? "en" : "pl",
+        ...(customerLocale ? { locale: customerLocale } : {}),
       },
       ...(notes ? { customer_notes: notes } : {}),
       ...(town || address ? { place_town: town, place_address: address } : {}),
@@ -1159,6 +1163,24 @@ function NewAppointmentForm({
             />
             <FieldError errors={[errors.phone]} />
           </Field>
+          {customerLocales.length > 1 && (
+            <Field>
+              <FieldLabel htmlFor="appointment-customer-locale">
+                {t("customerLocale")}
+              </FieldLabel>
+              <NativeSelect
+                id="appointment-customer-locale"
+                onChange={(event) => setCustomerLocale(event.target.value)}
+                value={customerLocale || customerLocales[0]?.code}
+              >
+                {customerLocales.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
         </div>
         <FieldDescription>{t("contactHint")}</FieldDescription>
         <Field data-invalid={Boolean(errors.notes)}>

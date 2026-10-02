@@ -26208,7 +26208,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/PublicOnline'
           description: Whether the company takes online bookings now (ADR-078, booking.online).
+        locales:
+          type: array
+          items:
+            type: string
+          description: 'The company''s languages: a booking page in another one is
+            not offered (ADR-071 pkt 21).'
       required:
+      - locales
       - locations
       - online
       - people

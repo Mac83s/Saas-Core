@@ -11,6 +11,7 @@ from uuid import uuid7
 import pytest
 from django.core.cache import cache
 from django.test import override_settings
+from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.context import (
     acting_context,
@@ -245,3 +246,34 @@ def test_only_the_cheapest_plan_carries_the_limit():
         )
     }
     assert quotas == {"profile": 1, "starter": None, "pro": None}
+
+
+def test_a_profile_keeps_its_language_on_the_company_s_list():
+    from saas_core.modules.shared.profiles.models import PublicProfile
+
+    client, organization = _company("lang-profile", locales=["pl", "en"])
+    PublicProfile.all_objects.create(
+        organization=organization, subject_kind="organization", display_name="Studio", locale="en"
+    )
+
+    refused = _change(client, ["pl"], 0, key="profile")
+
+    assert ("public_locales", "profile_locale_not_removable") in _codes(refused)
+    assert read_protected(client) == {"en": "profile_locale_not_removable"}
+
+
+def read_protected(client: Any) -> dict[str, str]:
+    return client.get(URL).data["protected"]
+
+
+def test_the_booking_page_knows_the_company_s_languages():
+    from saas_core.modules.core.organizations.models import Organization as Company
+    from test_booking_public_choice import setup
+
+    configured = setup("lang-booking", people=1, need=1, choice="none")
+    Company.objects.filter(pk=configured["owner"].organization_id).update(public_locales=["pl"])
+
+    catalog = APIClient().get(configured["url"] + "/")
+
+    assert catalog.status_code == 200, catalog.data
+    assert catalog.data["locales"] == ["pl"]

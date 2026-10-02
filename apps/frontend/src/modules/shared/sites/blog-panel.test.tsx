@@ -32,6 +32,7 @@ const {
   withdrawContentEntry,
   listEntryTranslations,
   createEntryTranslation,
+  getPublicLocales,
 } = vi.hoisted(() => ({
   createContentCollection: vi.fn(),
   createContentEntry: vi.fn(),
@@ -49,6 +50,7 @@ const {
   withdrawContentEntry: vi.fn(),
   listEntryTranslations: vi.fn(),
   createEntryTranslation: vi.fn(),
+  getPublicLocales: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
@@ -69,6 +71,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   withdrawContentEntry,
   listEntryTranslations,
   createEntryTranslation,
+  getPublicLocales,
 }));
 
 const siteId = "019ff20d-a000-7000-8000-000000000010";
@@ -121,6 +124,7 @@ beforeEach(() => {
   listContentCollections.mockResolvedValue([collection]);
   listContentEntries.mockResolvedValue({ items: [entry], next_cursor: null });
   listEntryTranslations.mockResolvedValue([entry]);
+  getPublicLocales.mockResolvedValue(companyLanguages(["pl", "en"]));
   createEntryTranslation.mockResolvedValue({
     ...entry,
     id: "translated",
@@ -441,6 +445,43 @@ test("adds a language version and keeps it a separate publication", async () => 
     slug: "in-english",
     title: "In English",
   });
+});
+
+function companyLanguages(codes: string[]) {
+  const names: Record<string, string> = { pl: "Polski", en: "English", de: "Deutsch" };
+  return {
+    public_locales: codes,
+    version: 1,
+    offered: codes.map((code) => ({
+      code,
+      native_name: names[code] ?? code,
+      english_name: code,
+    })),
+    limit: { allowed: true, additional_max: null, reason: "" },
+    protected: {},
+  };
+}
+
+test("offers exactly the company's languages for an entry and its versions", async () => {
+  getPublicLocales.mockResolvedValue(companyLanguages(["pl", "de"]));
+  renderPanel();
+
+  expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
+  const picker = screen.getByLabelText("Język");
+  await waitFor(() =>
+    expect(
+      within(picker).getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["Polski", "Deutsch"]),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  const versions = await screen.findByLabelText("Język wersji");
+  await waitFor(() =>
+    expect(
+      within(versions).getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["Deutsch"]),
+  );
 });
 
 test("planuje publikację wpisu na wskazaną godzinę", async () => {

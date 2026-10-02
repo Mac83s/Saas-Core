@@ -964,6 +964,11 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     online = PublicOnlineSerializer(
         help_text="Whether the company takes online bookings now (ADR-078, booking.online)."
     )
+    locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The company's languages: a booking page in another one is not "
+        "offered (ADR-071 pkt 21).",
+    )
 
 
 class PersonSerializer(serializers.Serializer[dict[str, Any]]):

@@ -61,6 +61,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
@@ -72,7 +73,7 @@ import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
 
 type CollectionValues = { name: string; base_path: string };
-type EntryValues = { title: string; slug: string; locale: "pl" | "en" };
+type EntryValues = { title: string; slug: string; locale: string };
 
 export function BlogPanel({ siteId }: { siteId: string }) {
   const t = useTranslations("Sites");
@@ -111,11 +112,19 @@ export function BlogPanel({ siteId }: { siteId: string }) {
       z.object({
         title: z.string().min(2, t("required")),
         slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidSlug")),
-        locale: z.enum(["pl", "en"]),
+        locale: z.string().min(2),
       }),
     ),
     defaultValues: { title: "", slug: "", locale: "pl" },
   });
+  // An article is written in one of the company's languages (ADR-071 pkt 5).
+  const entryLocales = useCompanyLocales(["pl", "en"]);
+  useEffect(() => {
+    const first = entryLocales[0]?.code;
+    if (first && !entryLocales.some((item) => item.code === entryForm.getValues("locale"))) {
+      entryForm.setValue("locale", first);
+    }
+  }, [entryForm, entryLocales]);
 
   const [pathEdited, setPathEdited] = useState(false);
   const [slugEdited, setSlugEdited] = useState(false);
@@ -576,8 +585,11 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                       id="entry-locale"
                       {...entryForm.register("locale")}
                     >
-                      <option value="pl">{t("localePl")}</option>
-                      <option value="en">{t("localeEn")}</option>
+                      {entryLocales.map((item) => (
+                        <option key={item.code} value={item.code}>
+                          {item.name}
+                        </option>
+                      ))}
                     </NativeSelect>
                   </Field>
                 </FieldGroup>

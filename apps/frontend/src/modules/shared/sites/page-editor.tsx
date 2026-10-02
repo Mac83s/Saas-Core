@@ -116,6 +116,7 @@ import {
   type BlockFormValues,
   type BlockOption,
 } from "./block-form";
+import { useCompanyLocales } from "#lib/company-locales";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { privateMediaRenderer } from "./private-media-preview";
 import { TemplateSwapDialog } from "./template-swap-dialog";
@@ -350,6 +351,15 @@ export function PageEditor({
   const [translations, setTranslations] = useState<PageTranslation[]>([]);
   const [locale, setLocale] = useState("pl");
   const [baseLocale, setBaseLocale] = useState("pl");
+  const companyLocaleOptions = useCompanyLocales(["pl", "en"]);
+  // The company's languages, plus the page's own while it still has one the
+  // company has switched off since.
+  const localeOptions = [
+    ...companyLocaleOptions,
+    ...[...new Set([baseLocale, locale])]
+      .filter((code) => !companyLocaleOptions.some((item) => item.code === code))
+      .map((code) => ({ code, name: code.toUpperCase() })),
+  ];
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   // Read once per editor: a 403 or an unavailable offer hides the AI button.
   const [imageGeneration, setImageGeneration] =
@@ -1554,8 +1564,11 @@ export function PageEditor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pl">{common("polish")}</SelectItem>
-                        <SelectItem value="en">{common("english")}</SelectItem>
+                        {localeOptions.map((item) => (
+                          <SelectItem key={item.code} value={item.code}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </Field>

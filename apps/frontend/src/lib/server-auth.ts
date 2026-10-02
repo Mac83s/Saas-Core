@@ -48,6 +48,17 @@ export async function getServerBookingOverview(): Promise<BookingOverview | null
   return serverGet<BookingOverview>("/api/v1/booking/overview/");
 }
 
+/** The company's languages behind a public booking page; null when there is
+ *  no such page (the form says so itself). */
+export async function getServerPublicBookingLocales(
+  publicSlug: string,
+): Promise<string[] | null> {
+  const catalog = await serverGet<{ locales?: string[] }>(
+    `/api/v1/booking/public/${encodeURIComponent(publicSlug)}/`,
+  );
+  return catalog?.locales ?? null;
+}
+
 async function serverGet<T>(path: string): Promise<T | null> {
   const cookieStore = await cookies();
   const response = await fetch(`${backendUrl}${path}`, {

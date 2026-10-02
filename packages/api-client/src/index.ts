@@ -978,6 +978,56 @@ export async function getSeatUsage(): Promise<SeatUsage> {
   return data;
 }
 
+export type PublicLocales = components["schemas"]["PublicLocales"];
+export type PublicLocalesPlan = components["schemas"]["PublicLocalesPlan"];
+export type PublicLocalesChangeInput = components["schemas"]["PublicLocalesChange"];
+
+/** The company's content languages in order, the languages it may add and
+ *  the plan's limit (ADR-071 pkt 5). */
+export async function getPublicLocales(): Promise<PublicLocales> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/public-locales/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What a change of the company's languages would do; nothing is saved. */
+export async function previewPublicLocales(
+  input: PublicLocalesChangeInput,
+): Promise<PublicLocalesPlan> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/organizations/current/public-locales/preview/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function changePublicLocales(
+  input: PublicLocalesChangeInput,
+  idempotencyKey: string,
+): Promise<PublicLocalesPlan> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/organizations/current/public-locales/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type HistoryPage = components["schemas"]["HistoryPage"];
 export type HistoryEntry = components["schemas"]["HistoryEntry"];
 
@@ -3216,7 +3266,7 @@ export async function listContentEntries(
 
 export async function createContentEntry(
   collectionId: string,
-  input: { slug: string; locale: "pl" | "en"; title: string },
+  input: { slug: string; locale: string; title: string },
   idempotencyKey: string,
 ): Promise<ContentEntry> {
   const csrfToken = await getCsrfToken();
@@ -3253,7 +3303,7 @@ export async function listEntryTranslations(
 
 export async function createEntryTranslation(
   entryId: string,
-  input: { slug: string; locale: "pl" | "en"; title: string },
+  input: { slug: string; locale: string; title: string },
   idempotencyKey: string,
 ): Promise<ContentEntry> {
   const csrfToken = await getCsrfToken();

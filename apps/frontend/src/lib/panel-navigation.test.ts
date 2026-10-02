@@ -127,13 +127,14 @@ describe("ustawienia", () => {
     limited: true,
   };
 
-  it("Firma, Historia zmian, Konto, Usługi i grafik, Rezerwacje, Zaawansowane, a na końcu zakładki produktu", () => {
+  it("Firma, Języki, Historia zmian, Konto, Usługi i grafik, Rezerwacje, Zaawansowane, a na końcu zakładki produktu", () => {
     const tabs = sectionTabs("/panel/settings/account", {
       ...OWNER,
       modules: [...OWNER.modules, "shared.booking", "vertical.demo"],
     });
     expect(tabs?.map((tab) => tab.href)).toEqual([
       "/panel/settings/company",
+      "/panel/settings/languages",
       "/panel/settings/history",
       "/panel/settings/account",
       "/panel/settings/services",
@@ -148,6 +149,7 @@ describe("ustawienia", () => {
       sectionTabs("/panel/settings/account", OWNER)?.map((tab) => tab.href),
     ).toEqual([
       "/panel/settings/company",
+      "/panel/settings/languages",
       "/panel/settings/history",
       "/panel/settings/account",
       "/panel/integrations",

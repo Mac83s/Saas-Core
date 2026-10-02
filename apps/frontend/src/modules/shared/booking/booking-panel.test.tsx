@@ -1026,11 +1026,12 @@ test("a new appointment takes a free time and says when one is taken", async () 
     service_id: catalog.services[0].id,
     location_id: catalog.locations[0].id,
     starts_at: "2026-08-20T09:00:00Z",
+    // No language picked: the server takes the company's first, never the
+    // panel's (ADR-071 pkt 21).
     customer: {
       display_name: "Ewa Zielińska",
       email: "",
       phone: "+48 600 100 200",
-      locale: "en",
     },
   });
   // A retry of the same form keeps its idempotency key.

@@ -9259,6 +9259,8 @@ export interface components {
             timezone: string;
             /** @description Whether the company takes online bookings now (ADR-078, booking.online). */
             online: components["schemas"]["PublicOnline"];
+            /** @description The company's languages: a booking page in another one is not offered (ADR-071 pkt 21). */
+            locales: string[];
         };
         PublicChoiceService: {
             /** Format: uuid */
