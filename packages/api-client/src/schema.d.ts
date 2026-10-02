@@ -2266,13 +2266,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["api_v1_organizations_current_retrieve"];
+        /**
+         * Read the active company
+         * @description The active company's settings and the caller's membership in it. The assistant reads the same through the organization.read@1 command.
+         */
+        get: operations["organizations_current_retrieve"];
         put?: never;
         post?: never;
         delete: operations["api_v1_organizations_current_destroy"];
         options?: never;
         head?: never;
-        patch: operations["api_v1_organizations_current_partial_update"];
+        /**
+         * Change the active company's settings
+         * @description Name, panel language, time zone and currency, guarded by the company's `version`: a stale version answers 409 organization_version_conflict and changes nothing. The assistant changes the same through organization.update@1, with the same validation (planned_organization).
+         */
+        patch: operations["organizations_current_update"];
         trace?: never;
     };
     "/api/v1/organizations/current/command-consents/{digest}/": {
@@ -14867,7 +14875,7 @@ export interface operations {
             };
         };
     };
-    api_v1_organizations_current_retrieve: {
+    organizations_current_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -14937,7 +14945,7 @@ export interface operations {
             };
         };
     };
-    api_v1_organizations_current_partial_update: {
+    organizations_current_update: {
         parameters: {
             query?: never;
             header?: never;

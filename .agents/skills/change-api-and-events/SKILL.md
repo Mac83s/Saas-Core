@@ -142,6 +142,11 @@ operation also adds its registry entry (schema, risk level, preview, eval).
   declaration is checked at start. Then `pnpm commands:manifest` — `api:check`
   fails while the manifest and the registry disagree. A name announced in
   `packages/contracts/commands/planned.json` leaves that file in the same commit.
+  Every command also needs an entry in `apps/backend/tests/command_evals/` — the
+  battery in `test_command_evals.py` fails without it (permission, wrong
+  arguments by field, feature off, no writes in the preview or a read, one run
+  per step, stale consent, another company untouched). Pilot to copy:
+  `core/organizations/command_declarations.py`.
 
 ## Done means
 

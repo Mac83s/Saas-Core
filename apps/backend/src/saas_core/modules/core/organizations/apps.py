@@ -14,3 +14,7 @@ class OrganizationsConfig(AppConfig):
         from .role_catalog import sync_after_migrate  # noqa: PLC0415
 
         post_migrate.connect(sync_after_migrate, sender=self)
+        # The company's own assistant commands (ADR-076, A1b-9).
+        from .command_declarations import register_organization_commands  # noqa: PLC0415
+
+        register_organization_commands()

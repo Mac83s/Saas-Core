@@ -1,4 +1,162 @@
 {
-  "commands": [],
+  "commands": [
+    {
+      "command": "organization.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's basic settings: name, slug, panel language (pl or en), IANA time zone, ISO 4217 currency and the settings version. Use it before proposing a change to them. It does not return the site's public languages, the company profile or billing.",
+      "modifiers": [],
+      "module": "core.organizations",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "default_locale": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The company's name, panel language, time zone and currency.",
+        "pl": "Nazwa, język panelu, strefa czasowa i waluta firmy."
+      },
+      "title": {
+        "en": "Read company details",
+        "pl": "Odczytaj dane firmy"
+      },
+      "tool_name": "organization_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "organization.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "description": "ISO 4217 currency code such as PLN or EUR; null keeps it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default_locale": {
+            "description": "Language of the panel and of e-mails to the team; null keeps it.",
+            "enum": [
+              "pl",
+              "en",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The company's new name, up to 160 characters; null keeps it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timezone": {
+            "description": "IANA time zone such as Europe/Warsaw; null keeps it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "default_locale",
+          "timezone",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's name, panel language, time zone or currency. Pass null for every field that should stay as it is; at least one field must change. Use it when the person asks for one of these changes. Do not use it for the site's public languages, the public company profile or billing.",
+      "modifiers": [],
+      "module": "core.organizations",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "default_locale": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "The company's name, panel language, time zone or currency.",
+        "pl": "Nazwa, język panelu, strefa czasowa albo waluta firmy."
+      },
+      "title": {
+        "en": "Change company details",
+        "pl": "Zmień dane firmy"
+      },
+      "tool_name": "organization_update_v1",
+      "undo": "command:organization.update@1",
+      "version_field": "version"
+    }
+  ],
   "version": 1
 }

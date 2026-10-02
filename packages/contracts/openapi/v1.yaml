@@ -6206,7 +6206,10 @@ paths:
           description: ''
   /api/v1/organizations/current/:
     get:
-      operationId: api_v1_organizations_current_retrieve
+      operationId: organizations_current_retrieve
+      description: The active company's settings and the caller's membership in it.
+        The assistant reads the same through the organization.read@1 command.
+      summary: Read the active company
       tags:
       - api
       security:
@@ -6231,7 +6234,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
     patch:
-      operationId: api_v1_organizations_current_partial_update
+      operationId: organizations_current_update
+      description: 'Name, panel language, time zone and currency, guarded by the company''s
+        `version`: a stale version answers 409 organization_version_conflict and changes
+        nothing. The assistant changes the same through organization.update@1, with
+        the same validation (planned_organization).'
+      summary: Change the active company's settings
       tags:
       - api
       requestBody:
@@ -6272,6 +6280,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'Guarded by the version: a repeat answers 409 and changes
+          nothing; the assistant''s retries are answered by the command receipt.'
     delete:
       operationId: api_v1_organizations_current_destroy
       tags:

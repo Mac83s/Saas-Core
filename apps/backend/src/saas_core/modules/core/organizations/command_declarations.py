@@ -1,0 +1,182 @@
+"""The company's own commands: read its basic settings, change them (ADR-076 §1).
+
+The pilot of the command layer: it runs through the registry, the executor,
+consent, receipts, the manifest and the evals without any shared module. Both
+are thin adapters over the services the panel's `organizations/current/` view
+calls; validation, audit and the version check stay there.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from .command_registry import CommandSpec, Effect, Preview, register_command
+from .models import Organization
+from .permissions import ORGANIZATION_READ, SETTINGS_MANAGE
+from .serializers import OrganizationUpdateSerializer
+from .services import current_organization, planned_organization, update_current_organization
+
+_FIELDS = ("name", "default_locale", "timezone", "currency")
+_LABELS = {
+    "name": ("Nazwa", "Name"),
+    "default_locale": ("Język panelu", "Panel language"),
+    "timezone": ("Strefa czasowa", "Time zone"),
+    "currency": ("Waluta", "Currency"),
+}
+_OUTPUT = {
+    "type": "object",
+    "x-data-class": "public",
+    "properties": {
+        "name": {"type": "string"},
+        "slug": {"type": "string"},
+        "default_locale": {"type": "string"},
+        "timezone": {"type": "string"},
+        "currency": {"type": "string"},
+        "version": {"type": "integer"},
+    },
+}
+
+
+def _settings(organization: Organization) -> dict[str, Any]:
+    return {
+        "name": organization.name,
+        "slug": organization.slug,
+        "default_locale": organization.default_locale,
+        "timezone": organization.timezone,
+        "currency": organization.currency,
+        "version": organization.version,
+    }
+
+
+def _read(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    return _settings(current_organization())
+
+
+def _changes(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    """The fields to change, checked by the panel's own serializer; null keeps
+    a field as it is."""
+    given = {field: arguments[field] for field in _FIELDS if arguments[field] is not None}
+    serializer = OrganizationUpdateSerializer(data={**given, "version": 1})
+    serializer.is_valid(raise_exception=True)
+    return {
+        field: value for field, value in serializer.validated_data.items() if field != "version"
+    }
+
+
+def _preview_update(arguments: Mapping[str, Any], call: Any) -> Preview:
+    planned, changed = planned_organization(changes=_changes(arguments))
+    effects = (
+        (
+            Effect(
+                kind="updated",
+                resource="organization",
+                resource_id=str(planned.id),
+                summary={
+                    language: "; ".join(
+                        f"{_LABELS[field][index]}: {old} → {new}"
+                        for field, (old, new) in changed.items()
+                    )
+                    for index, language in enumerate(("pl", "en"))
+                },
+            ),
+        )
+        if changed
+        else ()
+    )
+    # The version the person sees; the save refuses if it moved since.
+    return Preview(effects=effects, observed_versions={_resource(call): planned.version})
+
+
+def _update(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    version = call.preview.observed_versions[_resource(call)]
+    access = update_current_organization(changes={**_changes(arguments), "version": version})
+    return _settings(access.organization)
+
+
+def _resource(call: Any) -> str:
+    return f"organization:{call.context.organization_id}"
+
+
+ORGANIZATION_READ_COMMAND = CommandSpec(
+    name="organization.read",
+    version=1,
+    module="core.organizations",
+    title={"pl": "Odczytaj dane firmy", "en": "Read company details"},
+    summary={
+        "pl": "Nazwa, język panelu, strefa czasowa i waluta firmy.",
+        "en": "The company's name, panel language, time zone and currency.",
+    },
+    model_description=(
+        "Returns the company's basic settings: name, slug, panel language (pl or en), "
+        "IANA time zone, ISO 4217 currency and the settings version. Use it before "
+        "proposing a change to them. It does not return the site's public languages, "
+        "the company profile or billing."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": [],
+        "properties": {},
+    },
+    output_schema=_OUTPUT,
+    permission=ORGANIZATION_READ,
+    risk="read",
+    run=_read,
+    undo="none:a read changes nothing",
+    no_preview_reason="A read changes nothing, so there is nothing to show first.",
+    no_version_reason="A read checks no version.",
+)
+
+ORGANIZATION_UPDATE_COMMAND = CommandSpec(
+    name="organization.update",
+    version=1,
+    module="core.organizations",
+    title={"pl": "Zmień dane firmy", "en": "Change company details"},
+    summary={
+        "pl": "Nazwa, język panelu, strefa czasowa albo waluta firmy.",
+        "en": "The company's name, panel language, time zone or currency.",
+    },
+    model_description=(
+        "Changes the company's name, panel language, time zone or currency. Pass null "
+        "for every field that should stay as it is; at least one field must change. "
+        "Use it when the person asks for one of these changes. Do not use it for the "
+        "site's public languages, the public company profile or billing."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": list(_FIELDS),
+        "properties": {
+            "name": {
+                "type": ["string", "null"],
+                "description": "The company's new name, up to 160 characters; null keeps it.",
+            },
+            "default_locale": {
+                "type": ["string", "null"],
+                "enum": ["pl", "en", None],
+                "description": "Language of the panel and of e-mails to the team; null keeps it.",
+            },
+            "timezone": {
+                "type": ["string", "null"],
+                "description": "IANA time zone such as Europe/Warsaw; null keeps it.",
+            },
+            "currency": {
+                "type": ["string", "null"],
+                "description": "ISO 4217 currency code such as PLN or EUR; null keeps it.",
+            },
+        },
+    },
+    output_schema=_OUTPUT,
+    permission=SETTINGS_MANAGE,
+    risk="apply",
+    run=_update,
+    undo="command:organization.update@1",
+    preview=_preview_update,
+    version_field="version",
+)
+
+
+def register_organization_commands() -> None:
+    register_command(ORGANIZATION_READ_COMMAND)
+    register_command(ORGANIZATION_UPDATE_COMMAND)

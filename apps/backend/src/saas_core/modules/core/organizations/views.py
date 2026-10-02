@@ -121,11 +121,15 @@ class OrganizationListCreateView(ProtectedOrganizationView):
 @method_decorator(csrf_protect, name="dispatch")
 class CurrentOrganizationView(ProtectedOrganizationView):
     @extend_schema(
+        operation_id="organizations_current_retrieve",
+        summary="Read the active company",
+        description="The active company's settings and the caller's membership in it. "
+        "The assistant reads the same through the organization.read@1 command.",
         responses={
             200: OrganizationSummarySerializer,
             403: ProblemDetailsSerializer,
             409: ProblemDetailsSerializer,
-        }
+        },
     )
     def get(self, _request: Request) -> Response:
         context = authorize(ORGANIZATION_READ)
@@ -136,12 +140,24 @@ class CurrentOrganizationView(ProtectedOrganizationView):
         )
 
     @extend_schema(
+        operation_id="organizations_current_update",
+        summary="Change the active company's settings",
+        description="Name, panel language, time zone and currency, guarded by the "
+        "company's `version`: a stale version answers 409 organization_version_conflict "
+        "and changes nothing. The assistant changes the same through organization.update@1, "
+        "with the same validation (planned_organization).",
         request=OrganizationUpdateSerializer,
         responses={
             200: OrganizationSummarySerializer,
             400: ProblemDetailsSerializer,
             403: ProblemDetailsSerializer,
             409: ProblemDetailsSerializer,
+        },
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Guarded by the version: a repeat answers 409 and changes "
+                "nothing; the assistant's retries are answered by the command receipt.",
+            }
         },
     )
     def patch(self, request: Request) -> Response:

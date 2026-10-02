@@ -27,7 +27,7 @@ from .models import (
     OrganizationStatus,
     WorkspaceKind,
 )
-from .permissions import ORGANIZATION_ARCHIVE, SETTINGS_MANAGE
+from .permissions import ORGANIZATION_ARCHIVE, ORGANIZATION_READ, SETTINGS_MANAGE
 from .platform_workspace import PlatformWorkspaceForbidden
 from .pre_tenant import PRE_TENANT_DB
 from .role_catalog import system_roles
@@ -196,10 +196,8 @@ def update_current_organization(*, changes: dict[str, Any]) -> OrganizationAcces
     if organization.version != expected_version:
         raise OrganizationVersionConflict
     before = audit_snapshot(organization, changes)
-    for field, value in changes.items():
-        setattr(organization, field, value)
+    _apply_changes(organization, changes)
     organization.version += 1
-    _validate_model(organization)
     organization.save()
     membership = Membership.objects.select_related("role").get(pk=context.membership_id)
     record_audit(
@@ -214,6 +212,34 @@ def update_current_organization(*, changes: dict[str, Any]) -> OrganizationAcces
         },
     )
     return OrganizationAccess(organization, membership, active=True)
+
+
+def current_organization() -> Organization:
+    context = authorize(ORGANIZATION_READ)
+    return Organization.objects.get(pk=context.organization_id)
+
+
+def planned_organization(
+    *, changes: dict[str, Any]
+) -> tuple[Organization, dict[str, tuple[Any, Any]]]:
+    """The organization as `changes` would leave it, unsaved, and each field
+    that would differ as (before, after) — checked by the same rules as the
+    save. The assistant's preview shows exactly what the panel's save does."""
+    context = authorize(SETTINGS_MANAGE)
+    organization = Organization.objects.get(pk=context.organization_id)
+    before = {field: getattr(organization, field) for field in changes}
+    _apply_changes(organization, changes)
+    return organization, {
+        field: (before[field], getattr(organization, field))
+        for field in sorted(changes)
+        if getattr(organization, field) != before[field]
+    }
+
+
+def _apply_changes(organization: Organization, changes: dict[str, Any]) -> None:
+    for field, value in changes.items():
+        setattr(organization, field, value)
+    _validate_model(organization)
 
 
 @transaction.atomic
