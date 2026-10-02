@@ -7657,6 +7657,8 @@ export interface components {
             finished_at: string | null;
             /** Format: date-time */
             reverted_at: string | null;
+            /** @description The platform's own content above the threshold waits for the operator. */
+            confirmation_required: boolean;
             parts: components["schemas"]["JobPart"][];
             items: components["schemas"]["JobItem"][];
         };

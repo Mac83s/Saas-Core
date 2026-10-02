@@ -16,5 +16,7 @@ class TranslationConfig(AppConfig):
         register_translation_policy(ENGINE_POLICY)
 
         from .command_declarations import register_translation_commands
+        from .notify import register_templates
 
         register_translation_commands()
+        register_templates()

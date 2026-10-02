@@ -256,6 +256,18 @@ class TranslationJob(TenantScopedModel):
     finished_at = models.DateTimeField(null=True, blank=True)
     # „Cofnij ostatnie zadanie”: the sources went back to their texts from before.
     reverted_at = models.DateTimeField(null=True, blank=True)
+    # The platform's own content above the confirmation threshold waits for
+    # the operator (ADR-069 pkt 26); the estimate is in USD micros.
+    estimated_usd_micros = models.PositiveBigIntegerField(null=True, blank=True)
+    confirmation_required = models.BooleanField(default=False)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
 

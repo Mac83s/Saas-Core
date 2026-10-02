@@ -159,3 +159,17 @@ def strictest(*modes: str) -> str:
 def profile_default(defaults: Mapping[str, Any], declaration: SettingDeclaration) -> Any:
     """The profile's starting value for a key, else the code's."""
     return defaults.get(declaration.key, declaration.default)
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except ValueError:
+        return default
+
+
+#: The platform's own content (e.g. Puppily) is paid from the deployment's USD
+#: budget, not credits; a job estimated above this waits for the operator's
+#: `translation_confirm_job` (ADR-069 pkt 26). Class A: the environment until
+#: the platform settings table.
+PLATFORM_CONFIRM_USD_MICROS = int(_env_float("TRANSLATION_PLATFORM_CONFIRM_USD", 5.0) * 1_000_000)

@@ -316,6 +316,9 @@ class JobSerializer(serializers.Serializer[dict[str, Any]]):
     started_at = serializers.DateTimeField(allow_null=True)
     finished_at = serializers.DateTimeField(allow_null=True)
     reverted_at = serializers.DateTimeField(allow_null=True)
+    confirmation_required = serializers.BooleanField(
+        help_text="The platform's own content above the threshold waits for the operator."
+    )
     parts = JobPartSerializer(many=True)
     items = JobItemSerializer(many=True)
 

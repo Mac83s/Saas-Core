@@ -143,3 +143,42 @@ test("wizyty w dzwonku: zdanie w strefie firmy i link do dnia w kalendarzu", asy
     }),
   ).not.toBeNull();
 });
+
+test("tłumaczenia w dzwonku: braki zlecenia i to, co czeka na decyzję", async () => {
+  const notice = (kind: string, payload: Record<string, unknown>) => ({
+    ...trialEnding,
+    id: `01a07000-0000-7000-8000-${kind.length.toString().padStart(12, "0")}`,
+    kind,
+    severity: "info" as const,
+    payload,
+  });
+  getNotificationInbox.mockResolvedValue({
+    unread: 2,
+    items: [
+      notice("translation.job_problem", {
+        job_id: "j",
+        state: "partial",
+        count: 5,
+        written: 3,
+      }),
+      notice("translation.review_waiting", {
+        count: 4,
+        reasons: { review_mode: 4 },
+      }),
+    ],
+  });
+  renderBell();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 2",
+    }),
+  );
+  expect(
+    await screen.findByText(
+      "Tłumaczenie zakończone z brakami: przetłumaczono 3 z 5 pozycji.",
+    ),
+  ).not.toBeNull();
+  expect(
+    screen.getByText("4 tłumaczenia czekają na Twoją decyzję."),
+  ).not.toBeNull();
+});

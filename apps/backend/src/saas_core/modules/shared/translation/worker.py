@@ -162,6 +162,8 @@ def _claim(organization_id: UUID, job_id: UUID) -> list[TranslationJobItem]:
     job = _locked_job(organization_id, job_id)
     if job is None or job.state in JOB_TERMINAL or job.next_attempt_at > now:
         return []
+    if job.confirmation_required and job.confirmed_at is None:
+        return []  # Waits for the operator's confirmation (ADR-069 pkt 26).
     part = job.parts.filter(state=PartState.RUNNING).order_by("index").first()
     if part is None:
         return []
@@ -704,6 +706,10 @@ def _close(job: TranslationJob) -> None:
     )
     job.finished_at = timezone.now()
     job.save(update_fields=["state", "finished_at", "updated_at"])
+    if job.state in (JobState.PARTIAL, JobState.FAILED):
+        from .notify import notify_job_problem
+
+        notify_job_problem(job, written=written, total=total)
     record_audit(
         organization=Organization.objects.get(pk=job.organization_id),
         action=f"translation.job_{job.state}",

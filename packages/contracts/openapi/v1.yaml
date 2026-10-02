@@ -22193,6 +22193,10 @@ components:
           - string
           - 'null'
           format: date-time
+        confirmation_required:
+          type: boolean
+          description: The platform's own content above the threshold waits for the
+            operator.
         parts:
           type: array
           items:
@@ -22203,6 +22207,7 @@ components:
             $ref: '#/components/schemas/JobItem'
       required:
       - billing
+      - confirmation_required
       - created_at
       - credits
       - error_code

@@ -43,6 +43,7 @@ def reconcile_translation_jobs() -> int:
                     organization_id=organization_id, next_attempt_at__lte=timezone.now()
                 )
                 .exclude(state__in=list(JOB_TERMINAL))
+                .exclude(confirmation_required=True, confirmed_at__isnull=True)
                 .order_by("next_attempt_at", "id")
                 .values_list("id", flat=True)[:50]
             )
@@ -50,3 +51,11 @@ def reconcile_translation_jobs() -> int:
             enqueue_job(organization_id, job_id)
             count += 1
     return count
+
+
+@shared_task  # type: ignore[untyped-decorator]
+def notify_translation_reviews() -> int:
+    """Once a day: results waiting for a decision, to whoever may decide."""
+    from .notify import notify_waiting_reviews
+
+    return notify_waiting_reviews()

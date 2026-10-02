@@ -245,7 +245,8 @@
       "translation_review_accepted": "Accepted translations",
       "translation_review_discarded": "Discarded translations",
       "translation_job_reverted": "Took back a translation job",
-      "translation_job_canceled": "Stopped a translation job"
+      "translation_job_canceled": "Stopped a translation job",
+      "translation_job_confirmed": "The operator confirmed a translation job"
     },
     "fields": {
       "name": "Name",
@@ -2977,7 +2978,9 @@
     "bookingAssigned": "You were put on a visit: {service}, {when}.",
     "bookingUnassigned": "You were taken off a visit: {service}, {when}.",
     "bookingMoved": "The {service} visit from {before} is now at {when}.",
-    "bookingCanceled": "A visit was called off: {service}, {when}."
+    "bookingCanceled": "A visit was called off: {service}, {when}.",
+    "translationJobProblem": "A translation finished with gaps: {written} of {count} items translated.",
+    "translationReviewWaiting": "{count, plural, one {# translation waits} other {# translations wait}} for your decision."
   },
   "Credits": {
     "eyebrow": "Subscription",

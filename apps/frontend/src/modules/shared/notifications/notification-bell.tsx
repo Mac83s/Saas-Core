@@ -167,6 +167,7 @@ function headline(
     company: String(payload.company_name ?? ""),
     reason: String(payload.reason ?? ""),
     service: String(payload.service_name ?? ""),
+    written: Number(payload.written ?? 0),
     when: at(payload.starts_at),
     before: at(payload.previous_starts_at),
   };
@@ -187,6 +188,10 @@ function headline(
       return t("bookingMoved", values);
     case "booking.canceled":
       return t("bookingCanceled", values);
+    case "translation.job_problem":
+      return t("translationJobProblem", values);
+    case "translation.review_waiting":
+      return t("translationReviewWaiting", values);
     default:
       return t("unknown");
   }

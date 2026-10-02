@@ -245,7 +245,8 @@
       "translation_review_accepted": "Zaakceptowano tłumaczenia",
       "translation_review_discarded": "Odrzucono tłumaczenia",
       "translation_job_reverted": "Cofnięto zlecenie tłumaczenia",
-      "translation_job_canceled": "Zatrzymano zlecenie tłumaczenia"
+      "translation_job_canceled": "Zatrzymano zlecenie tłumaczenia",
+      "translation_job_confirmed": "Operator potwierdził zlecenie tłumaczenia"
     },
     "fields": {
       "name": "Nazwa",
@@ -2977,7 +2978,9 @@
     "bookingAssigned": "Przydzielono Cię do wizyty: {service}, {when}.",
     "bookingUnassigned": "Usunięto Cię z wizyty: {service}, {when}.",
     "bookingMoved": "Wizyta {service} z {before} jest teraz {when}.",
-    "bookingCanceled": "Odwołano wizytę: {service}, {when}."
+    "bookingCanceled": "Odwołano wizytę: {service}, {when}.",
+    "translationJobProblem": "Tłumaczenie zakończone z brakami: przetłumaczono {written} z {count} pozycji.",
+    "translationReviewWaiting": "{count, plural, one {# tłumaczenie czeka} few {# tłumaczenia czekają} many {# tłumaczeń czeka} other {# tłumaczeń czeka}} na Twoją decyzję."
   },
   "Credits": {
     "eyebrow": "Abonament",

@@ -10,6 +10,7 @@ part's credits and hands the job to the worker.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
@@ -34,6 +35,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 from saas_core.modules.shared.billing.api import CreditPriceChanged, reserve_credits
 from saas_core.modules.shared.billing.models import CreditOperation
+from saas_core.modules.shared.model_port.api import ModelError, estimate
 
 from .engine_policy import ENGINE_POLICY
 from .models import (
@@ -44,8 +46,11 @@ from .models import (
     TranslationJobPart,
 )
 from .permissions import CREDIT_OPERATION, TRANSLATION_REQUEST
+from .prompts import TASK
 from .quotes import Quote, QuoteLine, billed_units, build_quote, quote_line
+from .segments import MAX_CALL_CHARACTERS
 from .services import Saved, field_errors, translation_offer, translation_write
+from .settings_spec import PLATFORM_CONFIRM_USD_MICROS
 
 #: Pairs one quote may name.
 MAX_TARGETS = 1_000
@@ -354,6 +359,10 @@ def _create_job(
                 quoted_characters=line.characters,
             )
             position += 1
+    if platform:
+        job.estimated_usd_micros = _usd_estimate(quote.characters)
+        job.confirmation_required = job.estimated_usd_micros > PLATFORM_CONFIRM_USD_MICROS
+        job.save(update_fields=["estimated_usd_micros", "confirmation_required", "updated_at"])
     first = job.parts.order_by("index").first()
     if first is not None:
         start_part(job, first)
@@ -374,6 +383,15 @@ def _create_job(
         },
     )
     return job
+
+
+def _usd_estimate(characters: int) -> int:
+    """What the job's calls may cost at most, by the task's model's prices."""
+    calls = max(1, math.ceil(characters / MAX_CALL_CHARACTERS))
+    try:
+        return calls * estimate(TASK, input_characters=math.ceil(characters / calls))
+    except ModelError:
+        return 0
 
 
 def start_part(job: TranslationJob, part: TranslationJobPart) -> None:
@@ -453,6 +471,7 @@ def job_payload(job: TranslationJob) -> dict[str, Any]:
         "started_at": job.started_at,
         "finished_at": job.finished_at,
         "reverted_at": job.reverted_at,
+        "confirmation_required": job.confirmation_required and job.confirmed_at is None,
         "parts": list(
             job.parts.order_by("index").values(
                 "index",
