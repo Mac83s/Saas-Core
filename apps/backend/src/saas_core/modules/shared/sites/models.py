@@ -60,11 +60,9 @@ class Site(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=160)
     slug = models.SlugField(max_length=80)
-    default_locale = models.CharField(
-        max_length=10,
-        choices=[("pl", "Polski"), ("en", "English")],
-        default="pl",
-    )
+    #: A content language (ADR-071 pkt 3): a registry code, checked by shape here
+    #: and against the company's languages by the service.
+    default_locale = models.CharField(max_length=10, default="pl")
     purpose = models.CharField(
         max_length=32,
         choices=SitePurpose.choices,
@@ -95,6 +93,10 @@ class Site(TenantScopedModel):
     class Meta:
         ordering = ("organization_id", "slug", "id")
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(default_locale__regex=r"^[a-z]{2}$"),
+                name="sites_site_locale_format_ck",
+            ),
             models.UniqueConstraint(
                 fields=["organization", "slug"],
                 name="sites_site_org_slug_uq",
@@ -314,11 +316,9 @@ class SiteOnboardingDraft(TenantScopedModel):
     )
     name = models.CharField(max_length=160, blank=True)
     subdomain_label = models.CharField(max_length=63, blank=True)
-    default_locale = models.CharField(
-        max_length=10,
-        choices=[("pl", "Polski"), ("en", "English")],
-        default="pl",
-    )
+    #: A content language (ADR-071 pkt 3): a registry code, checked by shape here
+    #: and against the company's languages by the service.
+    default_locale = models.CharField(max_length=10, default="pl")
     site = models.OneToOneField(
         Site,
         on_delete=models.PROTECT,
@@ -345,6 +345,10 @@ class SiteOnboardingDraft(TenantScopedModel):
     class Meta:
         ordering = ("organization_id", "id")
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(default_locale__regex=r"^[a-z]{2}$"),
+                name="sites_onboarding_locale_format_ck",
+            ),
             models.UniqueConstraint(
                 fields=["organization"],
                 name="sites_onboarding_org_uq",
@@ -523,10 +527,7 @@ class PageTranslation(TenantScopedModel):
         on_delete=models.PROTECT,
         related_name="translations",
     )
-    locale = models.CharField(
-        max_length=10,
-        choices=[("pl", "Polski"), ("en", "English")],
-    )
+    locale = models.CharField(max_length=10)
     slug = models.SlugField(max_length=80)
     title = models.CharField(max_length=160, blank=True)
     description = models.CharField(max_length=320, blank=True)
@@ -579,9 +580,11 @@ class PageTranslation(TenantScopedModel):
                 condition=models.Q(version__gte=1),
                 name="sites_translation_version_positive_ck",
             ),
+            # A shape, not a list (ADR-071 pkt 3): which languages exist is the
+            # registry's, which a company uses is its own.
             models.CheckConstraint(
-                condition=models.Q(locale__in=["pl", "en"]),
-                name="sites_translation_locale_supported_ck",
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="sites_translation_locale_format_ck",
             ),
         ]
         indexes = [
@@ -1421,10 +1424,7 @@ class ContentEntry(TenantScopedModel):
         Site, on_delete=models.PROTECT, related_name="content_entries"
     )
     slug = models.SlugField(max_length=140)
-    locale = models.CharField(
-        max_length=10,
-        choices=[("pl", "Polski"), ("en", "English")],
-    )
+    locale = models.CharField(max_length=10)
     # Entries sharing this are the same article in different languages. A new
     # entry starts as its own group of one, so an article that never gets
     # translated needs no special case anywhere.
@@ -1500,6 +1500,10 @@ class ContentEntry(TenantScopedModel):
     class Meta:
         ordering = ("organization_id", "collection_id", "-published_at", "id")
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="sites_entry_locale_format_ck",
+            ),
             models.UniqueConstraint(
                 fields=["organization", "collection", "locale", "slug"],
                 name="sites_entry_org_coll_locale_slug_uq",

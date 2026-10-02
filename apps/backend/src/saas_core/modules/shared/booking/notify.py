@@ -34,12 +34,16 @@ from saas_core.modules.core.organizations.models import (
     Organization,
 )
 from saas_core.modules.shared.notifications.api import (
+    AUDIENCE_CUSTOMER,
+    AUDIENCE_STAFF,
+    TEMPLATES,
     EmailTemplate,
     notify_in_app,
     queue_email,
     register_email_template,
+    resolve_template_locale,
+    staff_locale,
 )
-from saas_core.modules.shared.notifications.models import NotificationPreference
 from saas_core.modules.shared.notifications.security import decrypt_secret
 
 from .models import Appointment, AppointmentStatus, StaffMember
@@ -101,7 +105,9 @@ def customer_person_changed(appointment: Appointment, *, previous_lead_id: UUID)
     if not shown:
         return
     organization = Organization.objects.get(pk=appointment.organization_id)
-    locale = customer.locale if customer.locale in {"pl", "en"} else "pl"
+    # The customer's language, or the template's fallback when it has no such
+    # version yet — the link then opens the page in the language of the mail.
+    locale = resolve_template_locale(TEMPLATES[("booking.person_changed", 1)], customer.locale)
     token = decrypt_secret(appointment.self_service_token_ciphertext)
     with _as_the_organization(appointment.organization_id):
         queue_email(
@@ -210,11 +216,7 @@ def _as_the_organization(organization_id: UUID) -> Iterator[None]:
 
 
 def _locale(organization_id: UUID, user: Any) -> str:
-    preference = NotificationPreference.all_objects.filter(
-        organization_id=organization_id, user_id=user.id
-    ).first()
-    value = str(preference.locale) if preference is not None else str(user.locale or "pl")
-    return value if value in {"pl", "en"} else "pl"
+    return staff_locale(organization_id=organization_id, user=user)
 
 
 def manage_url(token: str, locale: str) -> str:
@@ -232,7 +234,13 @@ def _local(value: datetime, zone: str, locale: str) -> str:
     return local_time(value, zone, locale)
 
 
-def _template(key: str, subjects: dict[str, str], bodies: dict[str, str], fields: set[str]) -> None:
+def _template(
+    key: str,
+    subjects: dict[str, str],
+    bodies: dict[str, str],
+    fields: set[str],
+    audience: str = AUDIENCE_STAFF,
+) -> None:
     register_email_template(
         EmailTemplate(
             key=key,
@@ -241,6 +249,7 @@ def _template(key: str, subjects: dict[str, str], bodies: dict[str, str], fields
             subjects=subjects,
             bodies=bodies,
             allowed_context=frozenset(fields),
+            audience=audience,
         )
     )
 
@@ -306,4 +315,5 @@ def register_templates() -> None:
             ),
         },
         {"organization_name", "starts_at", "manage_url"},
+        audience=AUDIENCE_CUSTOMER,
     )

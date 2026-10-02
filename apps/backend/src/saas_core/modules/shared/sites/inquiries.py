@@ -20,7 +20,7 @@ from saas_core.modules.core.organizations.context import (
 from saas_core.modules.core.organizations.models import Membership, MembershipStatus, Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 from saas_core.modules.shared.billing.decisions import decide_feature
-from saas_core.modules.shared.notifications.api import queue_email
+from saas_core.modules.shared.notifications.api import queue_email, staff_locale
 
 from .inquiry_serializers import SiteInquirySubmitSerializer
 from .models import Publication, Site, SiteInquiry, canonical_json_hash
@@ -173,7 +173,9 @@ def submit_site_inquiry(
                     recipient_user=owner.user,
                     template_key="sites.inquiry_received",
                     template_version=1,
-                    locale=page.locale,
+                    # The owner reads it, in the panel's language — not the
+                    # language of the page the visitor wrote on (ADR-071 pkt 1).
+                    locale=staff_locale(organization_id=organization_id, user=owner.user),
                     template_context={
                         "site_name": site.name,
                         "name": data["name"],

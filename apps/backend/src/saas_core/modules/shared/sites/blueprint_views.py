@@ -3,17 +3,19 @@
 from typing import Any
 from uuid import UUID
 
-from django.conf import settings
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
+from rest_framework.exceptions import ErrorDetail
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.organizations.locales import LOCALE_NOT_SEEDED, ContentLocaleField
 from saas_core.modules.shared.notifications.api_key_middleware import IsSessionOrApiKey
 
 from .blueprints import import_blueprint, read_blueprint_catalog, read_blueprint_receipt
+from .page_templates import SEEDED_LOCALES
 
 # 503: a template photo met a busy malware scanner; nothing was stored, retry.
 ERRORS = {code: ProblemDetailsSerializer for code in (400, 401, 403, 404, 409, 422, 429, 503)}
@@ -48,7 +50,7 @@ class BlueprintInputSerializer(serializers.Serializer[Any]):
     slots = serializers.DictField(
         child=serializers.CharField(max_length=2000, trim_whitespace=False)
     )
-    locale = serializers.ChoiceField(choices=["pl", "en"])
+    locale = ContentLocaleField()
     name = serializers.CharField(max_length=160, trim_whitespace=False)
     key = serializers.RegexField(r"^[a-z0-9_-]{1,80}$")
     idempotency_key = serializers.CharField(max_length=120, trim_whitespace=False)
@@ -62,8 +64,16 @@ class BlueprintInputSerializer(serializers.Serializer[Any]):
             raise serializers.ValidationError({"slots": ["Only plain text is allowed."]})
         result: dict[str, Any] = super().to_internal_value(data)
         result["generation_id"] = str(result["generation_id"])
-        if result["locale"] not in settings.SITES_SUPPORTED_LOCALES:
-            raise serializers.ValidationError({"locale": ["Unsupported locale."]})
+        if result["locale"] not in SEEDED_LOCALES:
+            # A blueprint fills a recipe's slots, and recipes are written in pl
+            # and en only (ADR-071 pkt 6).
+            raise serializers.ValidationError({
+                "locale": [
+                    ErrorDetail(
+                        "Szablony są tylko po polsku i angielsku.", code=LOCALE_NOT_SEEDED
+                    )
+                ]
+            })
         return result
 
 
@@ -118,6 +128,16 @@ class BlueprintDraftView(APIView):
 
     @extend_schema(
         operation_id="sites_blueprint_draft_create",
+        summary="Create a page draft from a brief",
+        description="Fills a recipe's slots with plain text and saves the page as a draft "
+        "proposal. `locale` must be a language the recipes are written in "
+        "(`locale_not_seeded`, ADR-071 pkt 6).",
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The key travels in the body as idempotency_key, as in "
+                "SeoContentRank's contract; the same key answers the same receipt.",
+            }
+        },
         tags=["sites"],
         request=BlueprintInputSerializer,
         responses={200: BlueprintResultSerializer, 201: BlueprintResultSerializer, **ERRORS},

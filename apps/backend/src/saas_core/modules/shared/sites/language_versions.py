@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
@@ -35,6 +34,7 @@ from saas_core.content_protocol.provenance import (
 )
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_decoration import stored_block_payload
@@ -173,12 +173,10 @@ class LocaleBody:
 
 
 def site_locales(site: Site) -> tuple[str, ...]:
-    """The languages a site's content may have.
-
-    The deployment profile's languages today; the organization's own list,
-    within the profile's, once organizations choose theirs (plan TL10).
-    """
-    return tuple(settings.SITES_SUPPORTED_LOCALES)
+    """The languages a site's content may have: the company's own list, within
+    the profile's (ADR-071 pkt 4 and 8), with the site's source language first."""
+    company = organization_content_locales(site.organization)
+    return (site.default_locale, *(code for code in company if code != site.default_locale))
 
 
 def get_locale_body(*, page_id: UUID, locale: str) -> LocaleBody:

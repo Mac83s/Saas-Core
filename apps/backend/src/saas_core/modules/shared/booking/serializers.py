@@ -50,7 +50,13 @@ class CustomerInputSerializer(serializers.Serializer[dict[str, Any]]):
     display_name = serializers.CharField(min_length=1, max_length=160)
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(max_length=40, required=False, allow_blank=True)
-    locale = serializers.ChoiceField(choices=("pl", "en"), default="pl")
+    #: The visitor's language. Not refused when the company does not offer
+    #: it: the booking falls back to the company's first language (ADR-071 pkt 21).
+    locale = serializers.CharField(
+        max_length=10,
+        required=False,
+        help_text="Język klienta; spoza języków firmy zamieniany na pierwszy język firmy.",
+    )
 
 
 class MaterialInputSerializer(serializers.Serializer[dict[str, Any]]):

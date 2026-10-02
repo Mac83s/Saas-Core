@@ -45,7 +45,9 @@ class NotificationMessage(TenantScopedModel):
     )
     template_key = models.CharField(max_length=100)
     template_version = models.PositiveIntegerField(default=1)
-    locale = models.CharField(max_length=10, choices=(("pl", "Polski"), ("en", "English")))
+    #: The language the message was rendered in, resolved when it was queued:
+    #: a customer's content language or a member's pl/en (ADR-071 pkt 20).
+    locale = models.CharField(max_length=10)
     category = models.CharField(max_length=16, choices=MessageCategory)
     context = models.JSONField(default=dict)
     #: `<prefix>:<id>` of a file resolved at delivery (attachments.py); "" = none.
@@ -70,6 +72,10 @@ class NotificationMessage(TenantScopedModel):
     class Meta:
         ordering = ("organization_id", "-created_at", "id")
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="notifications_message_locale_format_ck",
+            ),
             models.UniqueConstraint(
                 fields=["organization", "idempotency_key"],
                 name="notifications_message_org_idem_uq",

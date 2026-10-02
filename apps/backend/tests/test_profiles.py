@@ -46,7 +46,10 @@ pytestmark = pytest.mark.django_db
 
 def _organization(slug: str) -> Organization:
     organization = Organization(
-        name=slug.title(), slug=slug, status=OrganizationStatus.ACTIVE
+        name=slug.title(),
+        slug=slug,
+        status=OrganizationStatus.ACTIVE,
+        public_locales=["pl", "en"],
     )
     set_local_organization_id(organization.id)
     organization.save()

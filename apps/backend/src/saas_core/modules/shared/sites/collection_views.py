@@ -202,6 +202,9 @@ class ContentEntryListCreateView(APIView):
 
     @extend_schema(
         operation_id="sites_entries_create",
+        summary="Create an entry in a collection",
+        description="A new article in one of the company's content languages; 400 "
+        "`locale_not_enabled` or `locale_not_in_registry` on `locale` (ADR-071 pkt 3).",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=ContentEntryCreateSerializer,
@@ -422,6 +425,9 @@ class ContentEntryTranslationView(APIView):
 
     @extend_schema(
         operation_id="sites_entry_translation_create",
+        summary="Start an entry in another language",
+        description="A sibling entry in the same translation group, in one of the company's "
+        "content languages; it is published on its own (ADR-070 pkt 16).",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=ContentEntryTranslationCreateSerializer,

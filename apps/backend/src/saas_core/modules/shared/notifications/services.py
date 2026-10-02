@@ -51,7 +51,7 @@ from .security import (
     recipient_digest,
     validate_webhook_url,
 )
-from .templates import TEMPLATES, render_template
+from .templates import TEMPLATES, render_template, resolve_template_locale
 
 NOTIFICATIONS_PREFERENCES = "notifications.preferences"
 NOTIFICATIONS_MANAGE = "notifications.manage"
@@ -147,6 +147,18 @@ def upsert_preferences(*, locale: str, marketing_enabled: bool) -> NotificationP
     return preference
 
 
+def staff_locale(*, organization_id: UUID, user: Any) -> str:
+    """A member's language for e-mails: their preference in this company, then
+    their account's — always pl or en, the panel's axis (ADR-071 pkt 1)."""
+    preference = NotificationPreference.all_objects.filter(
+        organization_id=organization_id, user_id=user.id
+    ).first()
+    for value in (preference.locale if preference else None, getattr(user, "locale", None)):
+        if value in settings.APP_LOCALES:
+            return str(value)
+    return "pl"
+
+
 def get_preferences() -> NotificationPreference:
     context = authorize_entitled(NOTIFICATIONS_PREFERENCES, "notifications.enabled")
     preference, _ = NotificationPreference.all_objects.get_or_create(
@@ -178,6 +190,9 @@ def queue_email(
     template = TEMPLATES.get((template_key, template_version))
     if template is None:
         raise ValidationError("Nieznany szablon wiadomości.")
+    # The chain requested → en → pl is resolved once, here, and stored: a later
+    # template version in German does not change what an old message said.
+    locale = resolve_template_locale(template, locale)
     render_template(
         key=template_key, version=template_version, locale=locale, context=template_context
     )

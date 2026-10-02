@@ -23,6 +23,10 @@ from saas_core.modules.core.organizations.audit import (
 )
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.locales import (
+    assert_organization_content_locale,
+    organization_content_locales,
+)
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
@@ -73,6 +77,8 @@ def _validated(profile: PublicProfile | PublicProfileTranslation) -> None:
         profile.full_clean(exclude=["organization"], validate_unique=False)
     except DjangoValidationError as error:
         raise ValidationError(error.message_dict) from error
+    # A profile speaks one of the company's languages (ADR-071 pkt 3 and 22).
+    assert_organization_content_locale(profile.locale, organization_id=profile.organization_id)
 
 
 def _validated_placement(profile: PublicProfile, organization_id: Any) -> None:
@@ -115,7 +121,10 @@ def organization_profile() -> PublicProfile:
             organization_id=context.organization_id,
             subject_kind=ProfileSubjectKind.ORGANIZATION,
             display_name=organization.name[:160],
-            locale=organization.default_locale,
+            # The customers' language, not the panel's (ADR-071 pkt 4).
+            locale=(
+                organization_content_locales(organization) or (organization.default_locale,)
+            )[0],
         )
         try:
             profile.save()

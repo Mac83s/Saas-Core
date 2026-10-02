@@ -30,6 +30,7 @@ from saas_core.modules.core.organizations.context import (
     require_tenant_context,
     set_local_organization_id,
 )
+from saas_core.modules.core.organizations.locales import assert_organization_content_locale
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 from saas_core.observability import correlation_id
@@ -312,6 +313,7 @@ def create_entry(
     idempotency_key: str,
 ) -> tuple[ContentEntry, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    locale = assert_organization_content_locale(locale, organization_id=context.organization_id)
     collection = ContentCollection.all_objects.filter(
         pk=collection_id, organization_id=context.organization_id
     ).first()
@@ -1127,6 +1129,7 @@ def create_entry_translation(
     own lifecycle while still being one article to a search engine.
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    locale = assert_organization_content_locale(locale, organization_id=context.organization_id)
     normalized_key = _idempotency_key(idempotency_key)
     source = (
         ContentEntry.all_objects.select_related("collection")

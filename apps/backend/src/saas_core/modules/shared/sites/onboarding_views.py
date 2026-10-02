@@ -93,6 +93,9 @@ class SiteOnboardingView(APIView):
 
     @extend_schema(
         operation_id="sites_onboarding_save",
+        summary="Save a step of the site wizard",
+        description="Stores the wizard's draft: address, name and the site's language (a "
+        "content language the templates are written in).",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=SiteOnboardingSaveSerializer,

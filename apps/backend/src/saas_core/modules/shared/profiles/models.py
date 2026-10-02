@@ -19,8 +19,6 @@ from django.db import models
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 
-LOCALE_CHOICES = [("pl", "Polski"), ("en", "English")]
-
 
 #: What a profile is about. A company has exactly one; a company has as many
 #: people as it employs, and a person without a panel account has one too —
@@ -100,7 +98,7 @@ class PublicProfile(TenantScopedModel):
     links = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
     specializations = models.JSONField(default=list, blank=True)
-    locale = models.CharField(max_length=10, choices=LOCALE_CHOICES, default="pl")
+    locale = models.CharField(max_length=10, default="pl")
     # Where the catalogue files this company and how its page looks. Kept on
     # the editable record rather than only on the catalogue row, because they
     # are edited long before anybody publishes, and a draft has to remember
@@ -119,6 +117,10 @@ class PublicProfile(TenantScopedModel):
     class Meta:
         ordering = ("organization_id", "subject_kind", "display_name", "id")
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="profiles_profile_locale_format_ck",
+            ),
             # One company profile per company, enforced where it cannot be
             # raced: two requests would otherwise each create their own.
             models.UniqueConstraint(
@@ -166,7 +168,7 @@ class PublicProfileTranslation(TenantScopedModel):
         on_delete=models.CASCADE,
         related_name="translations",
     )
-    locale = models.CharField(max_length=10, choices=LOCALE_CHOICES)
+    locale = models.CharField(max_length=10)
     headline = models.CharField(max_length=200, blank=True)
     bio = models.TextField(blank=True, max_length=4000)
     allow_headline_fallback = models.BooleanField(default=True)
@@ -180,6 +182,10 @@ class PublicProfileTranslation(TenantScopedModel):
     class Meta:
         ordering = ("organization_id", "profile_id", "locale")
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="profiles_translation_locale_format_ck",
+            ),
             models.UniqueConstraint(
                 fields=["organization", "profile", "locale"],
                 name="profiles_translation_org_profile_locale_uq",

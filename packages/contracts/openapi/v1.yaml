@@ -7783,6 +7783,11 @@ paths:
           description: ''
     post:
       operationId: sites_create
+      description: 'A new site in one of the company''s languages that template recipes
+        are written in (pl, en): 400 `locale_not_enabled`, `locale_not_in_registry`
+        or `locale_not_seeded` on `default_locale` (ADR-071 pkt 6). The language joins
+        the company''s list when it was not there yet.'
+      summary: Create a site
       parameters:
       - in: header
         name: Idempotency-Key
@@ -8014,6 +8019,10 @@ paths:
           description: ''
     post:
       operationId: sites_blueprint_draft_create
+      description: Fills a recipe's slots with plain text and saves the page as a
+        draft proposal. `locale` must be a language the recipes are written in (`locale_not_seeded`,
+        ADR-071 pkt 6).
+      summary: Create a page draft from a brief
       parameters:
       - in: path
         name: site_id
@@ -8098,6 +8107,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: The key travels in the body as idempotency_key, as in SeoContentRank's
+          contract; the same key answers the same receipt.
   /api/v1/sites/{site_id}/collections/:
     get:
       operationId: sites_collections_list
@@ -9336,6 +9348,9 @@ paths:
           description: ''
     post:
       operationId: sites_entries_create
+      description: A new article in one of the company's content languages; 400 `locale_not_enabled`
+        or `locale_not_in_registry` on `locale` (ADR-071 pkt 3).
+      summary: Create an entry in a collection
       parameters:
       - in: header
         name: Idempotency-Key
@@ -9590,6 +9605,9 @@ paths:
   /api/v1/sites/content-base/:
     get:
       operationId: sites_content_base_retrieve
+      description: The current blocks and version of a page or an entry in one content
+        language, for SeoContentRank's change sets (ADR-044).
+      summary: Read the base a change set is written against
       parameters:
       - in: query
         name: collection_id
@@ -9616,14 +9634,12 @@ paths:
       - in: query
         name: locale
         schema:
-          enum:
-          - pl
-          - en
           type: string
-          minLength: 1
-        description: |-
-          * `pl` - pl
-          * `en` - en
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+          włączony dla firmy.'
         required: true
       - in: query
         name: page_id
@@ -10154,6 +10170,9 @@ paths:
           description: ''
     post:
       operationId: sites_entry_translation_create
+      description: A sibling entry in the same translation group, in one of the company's
+        content languages; it is published on its own (ADR-070 pkt 16).
+      summary: Start an entry in another language
       parameters:
       - in: header
         name: Idempotency-Key
@@ -10347,6 +10366,9 @@ paths:
           description: ''
     put:
       operationId: sites_onboarding_save
+      description: 'Stores the wizard''s draft: address, name and the site''s language
+        (a content language the templates are written in).'
+      summary: Save a step of the site wizard
       parameters:
       - in: header
         name: Idempotency-Key
@@ -10922,6 +10944,10 @@ paths:
   /api/v1/sites/pages/{page_id}/template-import/:
     post:
       operationId: sites_page_template_import
+      description: The recipe becomes the page's next draft version. `locale` picks
+        the recipe's language; a language the recipes are not written in takes the
+        site's source-language seeds (ADR-071 pkt 6).
+      summary: Import a template into a page's draft
       parameters:
       - in: header
         name: Idempotency-Key
@@ -11784,11 +11810,9 @@ paths:
   /api/v1/sites/pages/{page_id}/url/:
     put:
       operationId: sites_page_url_change
-      description: |-
-        Moves a published page, leaving a redirect behind.
-
-        Session-only. The slug lock exists because every link and search result
-        points at the published address; this is the single audited way past it.
+      description: Changes the slug of the page in one language and leaves a 301 behind,
+        with the stated reason in the audit. A person only.
+      summary: Move a published page to a new address
       parameters:
       - in: path
         name: page_id
@@ -11843,6 +11867,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'Repeating the same move changes nothing: the page already
+          has that address and the call answers 409 redirect_target_unchanged.'
   /api/v1/sites/pages/{page_id}/versions/:
     get:
       operationId: sites_page_versions_list
@@ -13486,7 +13513,12 @@ components:
             type: string
             maxLength: 2000
         locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
         name:
           type: string
           maxLength: 160
@@ -14154,7 +14186,12 @@ components:
           type: string
           format: uuid
         locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
       required:
       - kind
       - locale
@@ -14383,7 +14420,12 @@ components:
           maxLength: 140
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
         title:
           type: string
           maxLength: 200
@@ -14475,7 +14517,12 @@ components:
           maxLength: 140
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
         title:
           type: string
           maxLength: 200
@@ -14917,9 +14964,10 @@ components:
           type: string
           maxLength: 40
         locale:
-          allOf:
-          - $ref: '#/components/schemas/LocaleEnum'
-          default: pl
+          type: string
+          description: Język klienta; spoza języków firmy zamieniany na pierwszy język
+            firmy.
+          maxLength: 10
       required:
       - display_name
     CustomerKindEnum:
@@ -17835,7 +17883,12 @@ components:
           items:
             $ref: '#/components/schemas/PageBlockInput'
         locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
         expected_version:
           type: integer
           minimum: 0
@@ -18003,7 +18056,12 @@ components:
       type: object
       properties:
         locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
         slug:
           type: string
           maxLength: 80
@@ -20216,9 +20274,13 @@ components:
           maxLength: 80
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         default_locale:
-          allOf:
-          - $ref: '#/components/schemas/LocaleEnum'
+          type: string
           default: pl
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
         subdomain_label:
           type: string
           maxLength: 80
@@ -20609,7 +20671,12 @@ components:
           type: string
           maxLength: 80
         default_locale:
-          $ref: '#/components/schemas/LocaleEnum'
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
       required:
       - default_locale
       - name

@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.api import (
@@ -32,6 +32,11 @@ from saas_core.modules.core.organizations.context import (
     ACTING_PERSON_GATE_ALLOWED,
     TenantContext,
     require_tenant_context,
+)
+from saas_core.modules.core.organizations.locales import (
+    LOCALE_NOT_SEEDED,
+    assert_organization_content_locale,
+    include_site_source_locale,
 )
 from saas_core.modules.core.organizations.models import Organization, WorkspaceKind
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
@@ -466,8 +471,7 @@ def create_site(
     subdomain_label: str | None = None,
 ) -> MutationResult[Site]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    if default_locale not in _supported_locales():
-        raise UnsupportedSiteLocale
+    _assert_source_locale(default_locale, organization_id=context.organization_id)
     normalized_key = _idempotency_key(idempotency_key)
     normalized_slug = slug.strip().lower()
     request_hash = canonical_json_hash({
@@ -502,6 +506,11 @@ def create_site(
     ).exists():
         raise SiteSlugConflict
 
+    include_site_source_locale(
+        organization_id=context.organization_id,
+        code=default_locale,
+        first=not Site.all_objects.filter(organization_id=context.organization_id).exists(),
+    )
     organization = Organization.objects.get(pk=context.organization_id)
     actor = User.objects.get(pk=context.actor_id)
     site = Site.all_objects.create(
@@ -1548,17 +1557,25 @@ def import_page_template(
     `appended` (F4-C) the page's own sections take the places the editor
     matched and the rest follow the template; only the photos of the
     template's sections that stay are brought into the organization."""
-    from .page_templates import bind_media, page_template_catalog
+    from .page_templates import SEEDED_LOCALES, bind_media, page_template_catalog
 
-    authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     template = page_template_catalog().get(
         template_id=template_id,
         version=template_version,
     )
     for entitlement in template.required_entitlements:
         authorize_entitled(SITE_CONTENT_EDIT, entitlement)
-    if locale not in ("pl", "en"):
-        raise ValidationError({"locale": "Unsupported template locale"})
+    if locale not in SEEDED_LOCALES:
+        # Recipes are written in pl and en. Content in another language starts
+        # from the site's source-language seeds and is translated (ADR-071 pkt 6).
+        locale = (
+            Page.all_objects.filter(pk=page_id, organization_id=context.organization_id)
+            .values_list("site__default_locale", flat=True)
+            .first()
+        ) or settings.SITES_DEFAULT_LOCALE
+        if locale not in SEEDED_LOCALES:
+            locale = SEEDED_LOCALES[0]
     blocks = template.draft_blocks(locale)
     request_context: dict[str, Any] = {
         "operation": "page_template_import",
@@ -1697,9 +1714,9 @@ def save_page_translation(
     idempotency_key: str,
 ) -> MutationResult[PageTranslation]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    normalized_locale = locale.strip().lower()
-    if normalized_locale not in _supported_locales():
-        raise UnsupportedSiteLocale
+    normalized_locale = assert_organization_content_locale(
+        locale.strip().lower(), organization_id=context.organization_id
+    )
     normalized_key = _idempotency_key(idempotency_key)
     values: dict[str, str | bool] = {
         "slug": slug.strip().lower(),
@@ -2654,6 +2671,26 @@ def _quota_idempotency_key(actor_id: UUID, idempotency_key: str) -> str:
 
 def _supported_locales() -> tuple[str, ...]:
     return tuple(settings.SITES_SUPPORTED_LOCALES)
+
+
+def _assert_source_locale(code: str, *, organization_id: UUID) -> None:
+    """A site's source language: one of the profile's, written in by the
+    template recipes, and from now on one of the company's (ADR-071 pkt 6)."""
+    from .page_templates import SEEDED_LOCALES
+
+    if code not in _supported_locales():
+        assert_organization_content_locale(
+            code, organization_id=organization_id, field="default_locale"
+        )
+    if code not in SEEDED_LOCALES:
+        raise ValidationError({
+            "default_locale": [
+                ErrorDetail(
+                    "Strona może zacząć tylko w języku, w którym są szablony (pl, en).",
+                    code=LOCALE_NOT_SEEDED,
+                )
+            ]
+        })
 
 
 def _page_version_media_asset_ids(

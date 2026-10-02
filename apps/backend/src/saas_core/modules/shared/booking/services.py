@@ -24,6 +24,7 @@ from saas_core.modules.core.organizations.audit import (
 )
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.locales import clamp_content_locale
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
@@ -547,7 +548,10 @@ def create_appointment(
             email=email,
             phone=phone,
             contact_hash=contact_hash,
-            locale=customer_data.get("locale", organization.default_locale),
+            locale=clamp_content_locale(
+                str(customer_data.get("locale") or "").strip().lower() or None,
+                organization=organization,
+            ),
         )
     if materials is not None:
         # Hand-picked products: whoever types them must be allowed to take stock.

@@ -5,6 +5,8 @@ from typing import Any
 from django.conf import settings
 from rest_framework import serializers
 
+from saas_core.modules.core.organizations.locales import ContentLocaleField
+
 from .models import PublicationReason
 
 
@@ -19,10 +21,7 @@ class SiteCreateSerializer(serializers.Serializer[dict[str, Any]]):
         r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
         max_length=80,
     )
-    default_locale = serializers.ChoiceField(
-        choices=settings.SITES_SUPPORTED_LOCALES,
-        default=settings.SITES_DEFAULT_LOCALE,
-    )
+    default_locale = ContentLocaleField(default=settings.SITES_DEFAULT_LOCALE)
     subdomain_label = serializers.CharField(
         required=False,
         allow_blank=False,
@@ -59,7 +58,7 @@ class SiteOnboardingSaveSerializer(serializers.Serializer[dict[str, Any]]):
         trim_whitespace=True,
         allow_blank=True,
     )
-    default_locale = serializers.ChoiceField(choices=settings.SITES_SUPPORTED_LOCALES)
+    default_locale = ContentLocaleField()
 
 
 class SiteOnboardingSerializer(serializers.Serializer[dict[str, Any]]):
@@ -240,13 +239,13 @@ class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):
 
 class ContentEntryTranslationCreateSerializer(serializers.Serializer[dict[str, Any]]):
     slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=140)
-    locale = serializers.ChoiceField(choices=["pl", "en"])
+    locale = ContentLocaleField()
     title = serializers.CharField(max_length=200, trim_whitespace=True)
 
 
 class ContentEntryCreateSerializer(serializers.Serializer[dict[str, Any]]):
     slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=140)
-    locale = serializers.ChoiceField(choices=["pl", "en"])
+    locale = ContentLocaleField()
     title = serializers.CharField(max_length=200, trim_whitespace=True)
 
 
@@ -303,7 +302,7 @@ class EntryScheduleStateSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PageUrlChangeSerializer(serializers.Serializer[dict[str, Any]]):
-    locale = serializers.ChoiceField(choices=["pl", "en"])
+    locale = ContentLocaleField()
     slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
     # Required, and stored: six months later the audit is the only thing that
     # explains why a ranking address moved.
@@ -359,7 +358,7 @@ class ContentBaseQuerySerializer(serializers.Serializer[dict[str, Any]]):
     page_id = serializers.UUIDField(required=False)
     collection_id = serializers.UUIDField(required=False)
     entry_id = serializers.UUIDField(required=False)
-    locale = serializers.ChoiceField(choices=["pl", "en"])
+    locale = ContentLocaleField()
 
 
 class ContentBaseStateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -644,7 +643,7 @@ class TemplateSwapSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PageTemplateImportSerializer(TemplateSwapSerializer):
-    locale = serializers.ChoiceField(choices=("pl", "en"), required=False)
+    locale = ContentLocaleField(required=False)
     expected_version = serializers.IntegerField(min_value=0)
     template_id = serializers.RegexField(
         r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",

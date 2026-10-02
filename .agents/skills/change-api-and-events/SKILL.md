@@ -129,6 +129,13 @@ operation also adds its registry entry (schema, risk level, preview, eval).
   before touching them.
 - **The frontend uses the generated client only.** No hand-written fetch types,
   no duplicated response shapes.
+- **Two kinds of language field (ADR-071).** What customers read — a page, an
+  entry, a profile, a booking — is a content language: `ContentLocaleField`
+  from `core.organizations.locales` (two letters from the locale registry,
+  never an enum) and `assert_organization_content_locale` in the service
+  (`locale_not_enabled`). The panel's own language stays `LocaleEnum` pl/en.
+  Changing a field from one to the other changes the operation's fingerprint,
+  so it then has to meet the OpenAPI floor (`pnpm api:check`).
 
 ## Done means
 

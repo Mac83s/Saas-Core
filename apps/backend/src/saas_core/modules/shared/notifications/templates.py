@@ -5,6 +5,15 @@ from html import escape
 from string import Formatter
 from typing import Any
 
+#: Who reads a template (ADR-071 pkt 20): `staff` — members of the company, in
+#: the panel's pl or en; `customer` — the company's customers, in a content
+#: language from the company's list.
+AUDIENCE_STAFF = "staff"
+AUDIENCE_CUSTOMER = "customer"
+#: When a template has no version in the requested language: English, then
+#: Polish — the chain is resolved once, when the message is queued.
+FALLBACK_LOCALES = ("en", "pl")
+
 
 @dataclass(frozen=True, slots=True)
 class EmailTemplate:
@@ -14,11 +23,13 @@ class EmailTemplate:
     subjects: dict[str, str]
     bodies: dict[str, str]
     allowed_context: frozenset[str]
+    audience: str = AUDIENCE_STAFF
 
 
 TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
     ("booking.confirmation", 1): EmailTemplate(
         key="booking.confirmation",
+        audience=AUDIENCE_CUSTOMER,
         version=1,
         category="required",
         subjects={"pl": "Potwierdzenie rezerwacji", "en": "Booking confirmation"},
@@ -37,6 +48,7 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
     # mails queued before it, since a published (key, version) never changes.
     ("booking.confirmation", 2): EmailTemplate(
         key="booking.confirmation",
+        audience=AUDIENCE_CUSTOMER,
         version=2,
         category="required",
         subjects={"pl": "Potwierdzenie rezerwacji", "en": "Booking confirmation"},
@@ -55,6 +67,7 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
     ),
     ("booking.rescheduled", 1): EmailTemplate(
         key="booking.rescheduled",
+        audience=AUDIENCE_CUSTOMER,
         version=1,
         category="required",
         subjects={"pl": "Zmiana terminu rezerwacji", "en": "Your booking was moved"},
@@ -74,6 +87,7 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
     ),
     ("booking.canceled", 1): EmailTemplate(
         key="booking.canceled",
+        audience=AUDIENCE_CUSTOMER,
         version=1,
         category="required",
         subjects={"pl": "Rezerwacja odwołana", "en": "Booking canceled"},
@@ -93,6 +107,7 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
     ),
     ("booking.reminder", 1): EmailTemplate(
         key="booking.reminder",
+        audience=AUDIENCE_CUSTOMER,
         version=1,
         category="required",
         subjects={"pl": "Przypomnienie o rezerwacji", "en": "Booking reminder"},
@@ -109,6 +124,7 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
     ),
     ("booking.reminder", 2): EmailTemplate(
         key="booking.reminder",
+        audience=AUDIENCE_CUSTOMER,
         version=2,
         category="required",
         subjects={"pl": "Przypomnienie o rezerwacji", "en": "Booking reminder"},
@@ -208,6 +224,15 @@ def register_email_template(template: EmailTemplate) -> None:
     TEMPLATES[(template.key, template.version)] = template
 
 
+def resolve_template_locale(template: EmailTemplate, requested: str) -> str:
+    """The language a message is rendered in: the requested one when the
+    template has it, otherwise English, then Polish (ADR-071 pkt 20)."""
+    for locale in (requested, *FALLBACK_LOCALES):
+        if locale in template.subjects:
+            return locale
+    return sorted(template.subjects)[0]
+
+
 def render_template(
     *, key: str, version: int, locale: str, context: dict[str, Any]
 ) -> tuple[str, str]:
@@ -240,6 +265,7 @@ def template_catalog() -> list[dict[str, object]]:
             "key": template.key,
             "version": template.version,
             "category": template.category,
+            "audience": template.audience,
             "locales": sorted(template.subjects),
             "context_fields": sorted(template.allowed_context),
         }

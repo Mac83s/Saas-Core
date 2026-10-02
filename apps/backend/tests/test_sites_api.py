@@ -86,6 +86,9 @@ def sites_client(
         name=slug,
         slug=slug,
         status=OrganizationStatus.ACTIVE,
+        # A company that has turned on every language of the profile (ADR-071
+        # pkt 4): what these tests exercise is the site, not the language list.
+        public_locales=list(settings.SITES_SUPPORTED_LOCALES),
     )
     Membership.objects.create(
         organization=organization,
@@ -1833,7 +1836,9 @@ def test_translation_rejects_unsupported_locale_base_fallback_and_foreign_tenant
     disabled = disabled_client.get(f"/api/v1/sites/{site.data['id']}/localization/")
 
     assert unsupported.status_code == 400
-    assert unsupported.data["code"] == "unsupported_site_locale"
+    # A language the deployment does not serve is one the company cannot have
+    # turned on (ADR-071 pkt 3).
+    assert unsupported.data["errors"][0]["code"] == "locale_not_enabled"
     assert base_fallback.status_code == 400
     assert base_fallback.data["code"] == "translation_fallback_conflict"
     assert foreign.status_code == 404
@@ -1845,12 +1850,14 @@ def test_translation_rejects_unsupported_locale_base_fallback_and_foreign_tenant
 
     site_model = Site.all_objects.get(pk=site.data["id"])
     page_model = Page.all_objects.get(pk=page.data["id"])
+    # The database checks a code's shape, not a pl/en list (ADR-071 pkt 3):
+    # "deu" is refused, "de" would be a language the service decides about.
     with pytest.raises(DatabaseError), transaction.atomic():
         PageTranslation.all_objects.create(
             organization=organization,
             site=site_model,
             page=page_model,
-            locale="de",
+            locale="deu",
             slug="angebot",
             title="Angebot",
             description="Beschreibung",

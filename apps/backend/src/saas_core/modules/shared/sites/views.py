@@ -181,6 +181,11 @@ class SiteListCreateView(APIView):
 
     @extend_schema(
         operation_id="sites_create",
+        summary="Create a site",
+        description="A new site in one of the company's languages that template recipes are "
+        "written in (pl, en): 400 `locale_not_enabled`, `locale_not_in_registry` or "
+        "`locale_not_seeded` on `default_locale` (ADR-071 pkt 6). The language joins the "
+        "company's list when it was not there yet.",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=SiteCreateSerializer,
@@ -324,6 +329,10 @@ class PageTemplateImportView(APIView):
 
     @extend_schema(
         operation_id="sites_page_template_import",
+        summary="Import a template into a page's draft",
+        description="The recipe becomes the page's next draft version. `locale` picks the "
+        "recipe's language; a language the recipes are not written in takes the site's "
+        "source-language seeds (ADR-071 pkt 6).",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=PageTemplateImportSerializer,
@@ -984,6 +993,9 @@ class ContentBaseView(APIView):
 
     @extend_schema(
         operation_id="sites_content_base_retrieve",
+        summary="Read the base a change set is written against",
+        description="The current blocks and version of a page or an entry in one content "
+        "language, for SeoContentRank's change sets (ADR-044).",
         tags=["sites"],
         parameters=[ContentBaseQuerySerializer],
         responses={
@@ -1382,6 +1394,16 @@ class PageUrlView(APIView):
 
     @extend_schema(
         operation_id="sites_page_url_change",
+        summary="Move a published page to a new address",
+        description="Changes the slug of the page in one language and leaves a 301 behind, "
+        "with the stated reason in the audit. A person only.",
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Repeating the same move changes nothing: the page "
+                "already has that address and the call answers 409 "
+                "redirect_target_unchanged.",
+            }
+        },
         tags=["sites"],
         request=PageUrlChangeSerializer,
         responses={

@@ -2852,6 +2852,10 @@ export interface paths {
         };
         get: operations["sites_list"];
         put?: never;
+        /**
+         * Create a site
+         * @description A new site in one of the company's languages that template recipes are written in (pl, en): 400 `locale_not_enabled`, `locale_not_in_registry` or `locale_not_seeded` on `default_locale` (ADR-071 pkt 6). The language joins the company's list when it was not there yet.
+         */
         post: operations["sites_create"];
         delete?: never;
         options?: never;
@@ -2884,6 +2888,10 @@ export interface paths {
         };
         get: operations["sites_blueprint_draft_receipt"];
         put?: never;
+        /**
+         * Create a page draft from a brief
+         * @description Fills a recipe's slots with plain text and saves the page as a draft proposal. `locale` must be a language the recipes are written in (`locale_not_seeded`, ADR-071 pkt 6).
+         */
         post: operations["sites_blueprint_draft_create"];
         delete?: never;
         options?: never;
@@ -3204,6 +3212,10 @@ export interface paths {
         };
         get: operations["sites_entries_list"];
         put?: never;
+        /**
+         * Create an entry in a collection
+         * @description A new article in one of the company's content languages; 400 `locale_not_enabled` or `locale_not_in_registry` on `locale` (ADR-071 pkt 3).
+         */
         post: operations["sites_entries_create"];
         delete?: never;
         options?: never;
@@ -3293,6 +3305,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Read the base a change set is written against
+         * @description The current blocks and version of a page or an entry in one content language, for SeoContentRank's change sets (ADR-044).
+         */
         get: operations["sites_content_base_retrieve"];
         put?: never;
         post?: never;
@@ -3407,6 +3423,10 @@ export interface paths {
         };
         get: operations["sites_entry_translations_list"];
         put?: never;
+        /**
+         * Start an entry in another language
+         * @description A sibling entry in the same translation group, in one of the company's content languages; it is published on its own (ADR-070 pkt 16).
+         */
         post: operations["sites_entry_translation_create"];
         delete?: never;
         options?: never;
@@ -3478,6 +3498,10 @@ export interface paths {
             cookie?: never;
         };
         get: operations["sites_onboarding_retrieve"];
+        /**
+         * Save a step of the site wizard
+         * @description Stores the wizard's draft: address, name and the site's language (a content language the templates are written in).
+         */
         put: operations["sites_onboarding_save"];
         post?: never;
         delete?: never;
@@ -3656,6 +3680,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Import a template into a page's draft
+         * @description The recipe becomes the page's next draft version. `locale` picks the recipe's language; a language the recipes are not written in takes the site's source-language seeds (ADR-071 pkt 6).
+         */
         post: operations["sites_page_template_import"];
         delete?: never;
         options?: never;
@@ -3885,10 +3913,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * @description Moves a published page, leaving a redirect behind.
-         *
-         *     Session-only. The slug lock exists because every link and search result
-         *     points at the published address; this is the single audited way past it.
+         * Move a published page to a new address
+         * @description Changes the slug of the page in one language and leaves a 301 behind, with the stated reason in the audit. A person only.
          */
         put: operations["sites_page_url_change"];
         post?: never;
@@ -4498,7 +4524,8 @@ export interface components {
             slots: {
                 [key: string]: string;
             };
-            locale: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale: string;
             name: string;
             key: string;
             idempotency_key: string;
@@ -4769,7 +4796,8 @@ export interface components {
             collection_id?: string;
             /** Format: uuid */
             entry_id?: string;
-            locale: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale: string;
         };
         /**
          * @description * `site_page` - site_page
@@ -4863,7 +4891,8 @@ export interface components {
         };
         ContentEntryCreate: {
             slug: string;
-            locale: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale: string;
             title: string;
         };
         ContentEntryDraft: {
@@ -4897,7 +4926,8 @@ export interface components {
         };
         ContentEntryTranslationCreate: {
             slug: string;
-            locale: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale: string;
             title: string;
         };
         /** @description Everything the caller may act on, as of one moment. */
@@ -5077,8 +5107,8 @@ export interface components {
             display_name: string;
             email?: string;
             phone?: string;
-            /** @default pl */
-            locale: components["schemas"]["LocaleEnum"];
+            /** @description Język klienta; spoza języków firmy zamieniany na pierwszy język firmy. */
+            locale?: string;
         };
         /**
          * @description * `company` - company
@@ -6259,7 +6289,8 @@ export interface components {
         PageTemplateImport: {
             kept?: components["schemas"]["KeptSection"][];
             appended?: components["schemas"]["PageBlockInput"][];
-            locale?: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale?: string;
             expected_version: number;
             template_id: string;
             template_version: number;
@@ -6331,7 +6362,8 @@ export interface components {
          */
         PageTypeEnum: "homepage" | "landing" | "service" | "about" | "contact" | "legal" | "article_index" | "article";
         PageUrlChange: {
-            locale: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale: string;
             slug: string;
             reason: string;
         };
@@ -7197,8 +7229,11 @@ export interface components {
         SiteCreate: {
             name: string;
             slug: string;
-            /** @default pl */
-            default_locale: components["schemas"]["LocaleEnum"];
+            /**
+             * @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy.
+             * @default pl
+             */
+            default_locale: string;
             subdomain_label?: string;
         };
         SiteDomain: {
@@ -7339,7 +7374,8 @@ export interface components {
             step: components["schemas"]["StepEnum"];
             name: string;
             subdomain_label: string;
-            default_locale: components["schemas"]["LocaleEnum"];
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            default_locale: string;
         };
         SitePageViewCount: {
             /** Format: date */
@@ -18031,11 +18067,8 @@ export interface operations {
                  *     * `content_entry` - content_entry
                  */
                 kind: "site_page" | "content_entry";
-                /**
-                 * @description * `pl` - pl
-                 *     * `en` - en
-                 */
-                locale: "pl" | "en";
+                /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+                locale: string;
                 page_id?: string;
                 site_id: string;
             };

@@ -5,15 +5,17 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.organizations.locales import ContentLocaleField
 
 from .catalog import catalog_entry_for, publish_profile, withdraw_profile
-from .models import LOCALE_CHOICES, CatalogEntry, PublicProfile, PublicProfileTranslation
+from .models import CatalogEntry, PublicProfile, PublicProfileTranslation
 from .public_views import site_url
 from .serializers import (
     OrganizationProfileSerializer,
@@ -137,10 +139,12 @@ class ProfileTranslationView(APIView):
         },
     )
     def put(self, request: Request, profile_id: UUID, locale: str) -> Response:
-        if locale not in {code for code, _label in LOCALE_CHOICES}:
-            return Response(
-                {"detail": "Nieobsługiwane locale."}, status=status.HTTP_400_BAD_REQUEST
-            )
+        # The language in the address is checked like a field: shape, registry,
+        # then the company's list in the service (ADR-071 pkt 3).
+        try:
+            ContentLocaleField().run_validation(locale)
+        except ValidationError as error:
+            raise ValidationError({"locale": error.detail}) from error
         serializer = ProfileTranslationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         translation = save_translation(

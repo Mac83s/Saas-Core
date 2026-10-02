@@ -2,7 +2,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import LOCALE_CHOICES, CatalogLayout, ProfileSubjectKind
+from .models import CatalogLayout, ProfileSubjectKind
 
 
 class ProfileWriteSerializer(serializers.Serializer[dict[str, Any]]):
@@ -17,7 +17,10 @@ class ProfileWriteSerializer(serializers.Serializer[dict[str, Any]]):
     links = serializers.ListField(child=serializers.DictField(), required=False)
     languages = serializers.ListField(child=serializers.CharField(), required=False)
     specializations = serializers.ListField(child=serializers.CharField(), required=False)
-    locale = serializers.ChoiceField(choices=LOCALE_CHOICES, required=False)
+    # Still pl/en in the API: the profile endpoints move to content languages in
+    # plan TL12, together with the OpenAPI floor they then have to meet. The
+    # service already checks the language against the company's list.
+    locale = serializers.ChoiceField(choices=[("pl", "Polski"), ("en", "English")], required=False)
     city_slug = serializers.CharField(max_length=80, allow_blank=True, required=False)
     category = serializers.CharField(max_length=64, allow_blank=True, required=False)
     layout = serializers.ChoiceField(choices=CatalogLayout.choices, required=False)

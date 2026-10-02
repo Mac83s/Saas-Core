@@ -77,6 +77,13 @@ class PageTemplate:
         bind_media(self.media_bindings, blocks, assets, locale)
 
 
+#: The languages template recipes are written in — their `localizedBlocks` and
+#: photo alts. A site may start only in one of them (`locale_not_seeded`); content
+#: in another language starts from its site's source-language seeds and is
+#: translated (ADR-071 pkt 6).
+SEEDED_LOCALES = ("pl", "en")
+
+
 def bind_media(
     bindings: tuple[dict[str, Any], ...],
     blocks: list[dict[str, Any]],
