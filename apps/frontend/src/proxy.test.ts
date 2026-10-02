@@ -41,9 +41,14 @@ describe("proxy (ADR-071)", () => {
   });
 
   it("answers the platform's own pages without the slash, in one 308", () => {
-    const response = visit("http://localhost/pricing/?plan=pro", "localhost");
+    const response = visit(
+      "http://localhost/pricing/?plan=pro",
+      "localhost:8080",
+    );
     expect(response.status).toBe(308);
-    expect(response.headers.get("location")).toBe("/pricing?plan=pro");
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:8080/pricing?plan=pro",
+    );
   });
 
   it.each(["localhost", "studio.example.test"])(

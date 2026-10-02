@@ -81,8 +81,10 @@ class PublicPage:
         # either way, and the other spelling answers one 308 to the canonical
         # one. The renderer passes the visitor's path as typed, so this is
         # not the loop it was while Next stripped the slash first.
-        if self.hostname == self.canonical_hostname and self.requested_path == self.canonical_path:
-            return None
+        if self.hostname == self.canonical_hostname:
+            # Same host: only the path, so the visitor keeps the scheme and the
+            # port they came on (a local stack is not on 443).
+            return None if self.requested_path == self.canonical_path else self.canonical_path
         return f"{settings.PUBLIC_SITE_SCHEME}://{self.canonical_hostname}{self.canonical_path}"
 
 
@@ -163,7 +165,9 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                 if target is None:
                     raise
                 raise PublicSiteMoved(
-                    f"{settings.PUBLIC_SITE_SCHEME}://{canonical.hostname}{target}"
+                    target
+                    if hostname == canonical.hostname
+                    else f"{settings.PUBLIC_SITE_SCHEME}://{canonical.hostname}{target}"
                 ) from None
     return _resolved(
         canonical=canonical,

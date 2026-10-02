@@ -51,13 +51,16 @@ function withSearchParams(
   location: string,
   values: Record<string, string | string[] | undefined>,
 ): string {
-  const target = new URL(location);
+  // On the same host the backend answers with a path, so the visitor keeps
+  // the scheme and port they came on; another host comes as a full address.
+  const relative = location.startsWith("/");
+  const target = new URL(location, "http://relative.invalid");
   for (const [key, rawValue] of Object.entries(values)) {
     for (const value of Array.isArray(rawValue) ? rawValue : [rawValue]) {
       if (value !== undefined) target.searchParams.append(key, value);
     }
   }
-  return target.toString();
+  return relative ? `${target.pathname}${target.search}` : target.toString();
 }
 
 async function publicRequest(params: PublicSiteRouteProps["params"]) {

@@ -113,7 +113,7 @@ def test_home_pages_answer_at_the_root_of_each_language():
     for path, target in (("/start/", "/"), ("/start", "/"), ("/en/home/", "/en/")):
         moved = _get(host, path)
         assert moved.status_code == 308, path
-        assert moved["Location"] == f"https://{host}{target}"
+        assert moved["Location"] == target
 
 
 def test_a_language_version_without_its_own_body_moves_to_the_source_page():
@@ -141,7 +141,7 @@ def test_a_language_version_without_its_own_body_moves_to_the_source_page():
     ):
         moved = _get(host, path)
         assert moved.status_code == 308, path
-        assert moved["Location"] == f"https://{host}{target}"
+        assert moved["Location"] == target
 
     offer = _get(host, "/oferta/")
     assert offer.status_code == 200
@@ -172,7 +172,7 @@ def test_an_address_answers_in_one_spelling():
     assert _get(host, "/oferta/").status_code == 200
     other = _get(host, "/oferta")
     assert other.status_code == 308
-    assert other["Location"] == f"https://{host}/oferta/"
+    assert other["Location"] == "/oferta/"
     assert _get(host, "/nie-ma/").status_code == 404
 
 

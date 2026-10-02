@@ -46,15 +46,17 @@ export default function proxy(request: NextRequest) {
     });
   }
   // The platform's own pages have no trailing slash; the other spelling is one
-  // 308 away, as Next did before customer sites needed the slash kept. A
-  // relative Location, so the redirect stays on the scheme the visitor used.
+  // 308 away, as Next did before customer sites needed the slash kept. Next
+  // wants an absolute Location from a proxy; built from the visitor's own host
+  // and the scheme the gateway saw, so it stays on their port.
   if (pathname.length > 1 && pathname.endsWith("/")) {
-    return new NextResponse(null, {
-      status: 308,
-      headers: {
-        location: `${pathname.replace(/\/+$/, "")}${request.nextUrl.search}`,
-      },
-    });
+    const scheme =
+      request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
+    const target = new URL(
+      `${pathname.replace(/\/+$/, "")}${request.nextUrl.search}`,
+      `${scheme}://${request.headers.get("host") ?? request.nextUrl.host}`,
+    );
+    return NextResponse.redirect(target, 308);
   }
   // The product's own sitemap and robots are app routes, not localized pages.
   if (METADATA_PATHS.has(pathname)) return NextResponse.next();

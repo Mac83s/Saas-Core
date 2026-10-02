@@ -664,7 +664,8 @@ def test_public_renderer_matches_paths_however_they_end() -> None:
     assert with_slash.status_code == 200
     assert with_slash.data["locale"] == "pl"
     assert without_slash.status_code == 308
-    assert without_slash["Location"] == f"https://{platform.hostname}/oferta/"
+    # Same host: only the path, so the visitor keeps scheme and port.
+    assert without_slash["Location"] == "/oferta/"
 
 
 @override_settings(PUBLIC_SITE_SCHEME="https")
