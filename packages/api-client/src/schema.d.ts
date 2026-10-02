@@ -2562,6 +2562,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * A published page of the site the host names
+         * @description What the renderer shows at `path` on this host: the page in that address's language, with its own blocks, head and menu. 308 when the address moved for good (another spelling, a deleted or renamed page, a language version without its own body); 307 while a language version is withheld because its source changed a fact (ADR-070 pkt 10). The Location is a path on the same host, a full address on another one.
+         */
         get: operations["public_site_page_retrieve"];
         put?: never;
         post?: never;
@@ -15560,6 +15564,7 @@ export interface operations {
     public_site_page_retrieve: {
         parameters: {
             query: {
+                /** @description The visitor's path as typed, trailing slash included. */
                 path: string;
             };
             header?: never;

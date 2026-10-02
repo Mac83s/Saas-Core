@@ -90,7 +90,6 @@
     "GET /api/v1/public/catalog/": {"fingerprint": "a06c1c2f608314bc", "violations": ["summary", "description", "error-400"]},
     "GET /api/v1/public/catalog/dictionary/": {"fingerprint": "dcbea0feec8d2238", "violations": ["summary"]},
     "GET /api/v1/public/catalog/{city_slug}/{slug}/": {"fingerprint": "792110c249c01540", "violations": ["summary", "description"]},
-    "GET /api/v1/public/site/": {"fingerprint": "b11b0a09962562b5", "violations": ["summary", "description"]},
     "GET /api/v1/seo/audit-offer/": {"fingerprint": "fd8b6a4503d2fa82", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/seo/audits/": {"fingerprint": "298a9f44161f6cee", "violations": ["summary", "description", "error-400"]},
     "GET /api/v1/seo/audits/{order_id}/": {"fingerprint": "4737b4bc6948c921", "violations": ["operation-id", "summary", "description"]},

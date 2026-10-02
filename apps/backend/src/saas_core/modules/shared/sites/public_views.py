@@ -48,6 +48,13 @@ class PublicSitePageView(APIView):
 
     @extend_schema(
         operation_id="public_site_page_retrieve",
+        summary="A published page of the site the host names",
+        description="What the renderer shows at `path` on this host: the page in that "
+        "address's language, with its own blocks, head and menu. 308 when the address moved "
+        "for good (another spelling, a deleted or renamed page, a language version without "
+        "its own body); 307 while a language version is withheld because its source "
+        "changed a fact (ADR-070 pkt 10). The Location is a path on the same host, a full "
+        "address on another one.",
         tags=["public-sites"],
         parameters=[
             OpenApiParameter(
@@ -55,6 +62,7 @@ class PublicSitePageView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 required=True,
+                description="The visitor's path as typed, trailing slash included.",
             )
         ],
         responses={
