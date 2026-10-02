@@ -284,6 +284,9 @@ CONTENT_APPROVAL_DIGEST_TTL = timedelta(
 #: (ADR-076 §3): enough to run the plan right after the click, too short to keep
 #: a consent for later. A security time, not a platform setting.
 COMMAND_CONSENT_TTL = 300
+#: How long a plan shown for consent waits for its click, in seconds; after
+#: that the assistant proposes it again on the state of that moment.
+COMMAND_PENDING_TTL = 1800
 
 
 def secret_setting(name: str, default: str = "") -> str:

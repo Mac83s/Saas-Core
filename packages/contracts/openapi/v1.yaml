@@ -6243,6 +6243,83 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/current/command-consents/{digest}/:
+    get:
+      operationId: organizations_command_consent_retrieve
+      description: 'The assistant''s plan for one consent group exactly as the server
+        previewed it: titles, typed effects, quote, risk class and whether a step-up
+        is due. The consent dialog renders this and nothing else (ADR-076 §3). Another
+        membership''s plan and an expired one both answer 404 consent_preview_not_found.'
+      summary: Show a plan waiting for consent
+      parameters:
+      - in: path
+        name: digest
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandConsent'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: organizations_command_consent_create
+      description: Mints the consent token for one plan group the person has just
+        seen. The token binds the membership, the assistant's conversation and the
+        plan's digest, and expires after COMMAND_CONSENT_TTL seconds; the executor
+        checks it against a fresh preview. A group that needs a step-up answers 403
+        step_up_required until one is confirmed.
+      summary: Consent to a plan
+      parameters:
+      - in: path
+        name: digest
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandConsentGrant'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Mints a stateless signature: repeating the call gives an
+          equivalent token for the same plan and changes nothing else.'
   /api/v1/organizations/current/history/:
     get:
       operationId: api_v1_organizations_current_history_retrieve
@@ -14655,6 +14732,93 @@ components:
           type: boolean
       required:
       - show_in_navigation
+    CommandConsent:
+      type: object
+      description: What the person is asked to agree to, exactly as the server previewed
+        it.
+      properties:
+        digest:
+          type: string
+        risk:
+          $ref: '#/components/schemas/RiskEnum'
+        step_up_required:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+        calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandConsentCall'
+      required:
+      - calls
+      - digest
+      - expires_at
+      - risk
+      - step_up_required
+    CommandConsentCall:
+      type: object
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        command:
+          type: string
+          description: name@version
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        summary:
+          $ref: '#/components/schemas/LocalizedText'
+        risk:
+          $ref: '#/components/schemas/RiskEnum'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandEffect'
+        quote:
+          oneOf:
+          - {}
+          - type: 'null'
+        person_gates:
+          type: array
+          items:
+            type: string
+      required:
+      - command
+      - effects
+      - person_gates
+      - quote
+      - risk
+      - step_id
+      - summary
+      - title
+    CommandConsentGrant:
+      type: object
+      properties:
+        consent_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - consent_token
+      - expires_at
+    CommandEffect:
+      type: object
+      properties:
+        kind:
+          type: string
+        resource:
+          type: string
+        resource_id:
+          type: string
+        summary:
+          $ref: '#/components/schemas/LocalizedText'
+      required:
+      - kind
+      - resource
+      - resource_id
+      - summary
     ContentBase:
       type: object
       properties:
@@ -17614,6 +17778,16 @@ components:
       - title
       - translation_id
       - version
+    LocalizedText:
+      type: object
+      properties:
+        pl:
+          type: string
+        en:
+          type: string
+      required:
+      - en
+      - pl
     Location:
       type: object
       properties:
@@ -20473,6 +20647,20 @@ components:
         * `content_entry` - content_entry
         * `content_entry_version` - content_entry_version
         * `content_entry_publication` - content_entry_publication
+    RiskEnum:
+      enum:
+      - read
+      - draft
+      - apply
+      - publish
+      - irreversible
+      type: string
+      description: |-
+        * `read` - read
+        * `draft` - draft
+        * `apply` - apply
+        * `publish` - publish
+        * `irreversible` - irreversible
     RoleCatalog:
       type: object
       properties:

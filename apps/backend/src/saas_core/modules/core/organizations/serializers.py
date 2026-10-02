@@ -5,6 +5,8 @@ from django.conf import settings
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
+from .command_registry import RISKS
+
 
 class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField(max_length=160, trim_whitespace=True)
@@ -218,3 +220,41 @@ class HistoryPageSerializer(serializers.Serializer[dict[str, Any]]):
     page_size = serializers.IntegerField()
     actions = serializers.ListField(child=serializers.CharField())
     items = HistoryEntrySerializer(many=True)
+
+
+class LocalizedTextSerializer(serializers.Serializer[dict[str, Any]]):
+    pl = serializers.CharField()
+    en = serializers.CharField()
+
+
+class CommandEffectSerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.CharField()
+    resource = serializers.CharField()
+    resource_id = serializers.CharField(allow_blank=True)
+    summary = LocalizedTextSerializer()
+
+
+class CommandConsentCallSerializer(serializers.Serializer[dict[str, Any]]):
+    step_id = serializers.UUIDField()
+    command = serializers.CharField(help_text="name@version")
+    title = LocalizedTextSerializer()
+    summary = LocalizedTextSerializer()
+    risk = serializers.ChoiceField(choices=list(RISKS))
+    effects = CommandEffectSerializer(many=True)
+    quote = serializers.JSONField(allow_null=True)
+    person_gates = serializers.ListField(child=serializers.CharField())
+
+
+class CommandConsentSerializer(serializers.Serializer[dict[str, Any]]):
+    """What the person is asked to agree to, exactly as the server previewed it."""
+
+    digest = serializers.CharField()
+    risk = serializers.ChoiceField(choices=list(RISKS))
+    step_up_required = serializers.BooleanField()
+    expires_at = serializers.DateTimeField()
+    calls = CommandConsentCallSerializer(many=True)
+
+
+class CommandConsentGrantSerializer(serializers.Serializer[dict[str, Any]]):
+    consent_token = serializers.CharField()
+    expires_at = serializers.DateTimeField()

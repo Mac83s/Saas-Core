@@ -27,7 +27,12 @@ SOURCE = Path(settings.BASE_DIR) / "src" / "saas_core"
 
 #: Where each door may be passed, how many times, and why.
 DECLARED: dict[str, dict[str, tuple[int, str]]] = {
-    "mint_consent": {},
+    "mint_consent": {
+        "modules/core/organizations/views.py::post": (
+            1,
+            "the panel's consent endpoint, for the person signed in with session and CSRF",
+        ),
+    },
     "acting_opened=": {
         "modules/core/organizations/context.py::acting_context": (
             1,

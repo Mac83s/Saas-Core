@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    CommandConsentView,
     CurrentOrganizationView,
     HistoryView,
     InvitationListCreateView,
@@ -29,6 +30,11 @@ urlpatterns = [
         name="organization-invitation-revoke",
     ),
     path("current/history/", HistoryView.as_view(), name="organization-history"),
+    path(
+        "current/command-consents/<str:digest>/",
+        CommandConsentView.as_view(),
+        name="organization-command-consent",
+    ),
     path("current/seats/", SeatUsageView.as_view(), name="organization-seats"),
     path("current/roles/", RoleListCreateView.as_view(), name="organization-roles"),
     path(

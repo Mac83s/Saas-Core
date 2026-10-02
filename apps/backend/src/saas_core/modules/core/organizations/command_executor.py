@@ -20,10 +20,14 @@ import logging
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from typing import Any, cast
 
+from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connection, transaction
+from django.utils import timezone
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError as SchemaViolation
 from rest_framework.exceptions import (
@@ -260,6 +264,43 @@ def preview_plan(invocations: Sequence[Invocation]) -> Plan:
         return Plan(reads=(), groups=(), refusals=tuple(refusals))
     reads = tuple(call for call in planned if call.risk == "read")
     return Plan(reads=reads, groups=_groups(context, planned), refusals=())
+
+
+def offer_plan(invocations: Sequence[Invocation]) -> Plan:
+    """The plan as the person will be asked about it (ADR-076 §3).
+
+    Previewed like any plan, and every group that needs a click is left on the
+    server under its digest with all the consent dialog shows: titles, typed
+    effects, the quote, the class and whether a step-up is due. The dialog
+    renders that entry and nothing else — never the model's own account of
+    what it is about to do, which a prompt injection could make up.
+    """
+    plan = preview_plan(invocations)
+    context = require_tenant_context()
+    expires_at = timezone.now() + timedelta(seconds=settings.COMMAND_PENDING_TTL)
+    for group in plan.groups:
+        cache.set(
+            _pending_key(group.digest),
+            _pending_entry(context, group, expires_at),
+            timeout=settings.COMMAND_PENDING_TTL,
+        )
+    return plan
+
+
+def pending_consent(context: TenantContext, digest: str) -> dict[str, Any] | None:
+    """The plan shown to this membership under this digest, if it still waits.
+
+    Another membership's plan and an expired one look the same — absent — so
+    the answer does not tell whether someone else's plan exists.
+    """
+    entry = cache.get(_pending_key(digest))
+    if (
+        not isinstance(entry, dict)
+        or entry.get("organization") != str(context.organization_id)
+        or entry.get("membership") != str(context.membership_id)
+    ):
+        return None
+    return entry
 
 
 def execute_plan(
@@ -682,6 +723,40 @@ def _run_write(context: TenantContext, call: PlannedCall) -> Mapping[str, Any]:
         result=output,
     )
     return cast(Mapping[str, Any], output)
+
+
+def _pending_key(digest: str) -> str:
+    return f"core.commands.pending:{digest}"
+
+
+def _pending_entry(
+    context: TenantContext, group: ConsentGroup, expires_at: datetime
+) -> dict[str, Any]:
+    return {
+        "digest": group.digest,
+        "group": group.id,
+        "organization": str(context.organization_id),
+        "membership": str(context.membership_id),
+        "acting_ref": context.acting_ref,
+        "risk": group.risk,
+        "step_up_required": group.step_up_required,
+        "expires_at": expires_at.isoformat(),
+        "calls": [_shown(call) for call in group.calls],
+    }
+
+
+def _shown(call: PlannedCall) -> dict[str, Any]:
+    described = call.describe()
+    return {
+        "step_id": call.step_id,
+        "command": call.spec.key,
+        "title": dict(call.spec.title),
+        "summary": dict(call.spec.summary),
+        "risk": call.risk,
+        "effects": described["effects"],
+        "quote": described["quote"],
+        "person_gates": described["person_gates"],
+    }
 
 
 def _request_hash(spec: CommandSpec, arguments: Mapping[str, Any]) -> str:

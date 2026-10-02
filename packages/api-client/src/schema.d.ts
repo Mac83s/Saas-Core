@@ -2255,6 +2255,30 @@ export interface paths {
         patch: operations["api_v1_organizations_current_partial_update"];
         trace?: never;
     };
+    "/api/v1/organizations/current/command-consents/{digest}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show a plan waiting for consent
+         * @description The assistant's plan for one consent group exactly as the server previewed it: titles, typed effects, quote, risk class and whether a step-up is due. The consent dialog renders this and nothing else (ADR-076 §3). Another membership's plan and an expired one both answer 404 consent_preview_not_found.
+         */
+        get: operations["organizations_command_consent_retrieve"];
+        put?: never;
+        /**
+         * Consent to a plan
+         * @description Mints the consent token for one plan group the person has just seen. The token binds the membership, the assistant's conversation and the plan's digest, and expires after COMMAND_CONSENT_TTL seconds; the executor checks it against a fresh preview. A group that needs a step-up answers 403 step_up_required until one is confirmed.
+         */
+        post: operations["organizations_command_consent_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/history/": {
         parameters: {
             query?: never;
@@ -4938,6 +4962,38 @@ export interface components {
         CollectionNavigation: {
             show_in_navigation: boolean;
         };
+        /** @description What the person is asked to agree to, exactly as the server previewed it. */
+        CommandConsent: {
+            digest: string;
+            risk: components["schemas"]["RiskEnum"];
+            step_up_required: boolean;
+            /** Format: date-time */
+            expires_at: string;
+            calls: components["schemas"]["CommandConsentCall"][];
+        };
+        CommandConsentCall: {
+            /** Format: uuid */
+            step_id: string;
+            /** @description name@version */
+            command: string;
+            title: components["schemas"]["LocalizedText"];
+            summary: components["schemas"]["LocalizedText"];
+            risk: components["schemas"]["RiskEnum"];
+            effects: components["schemas"]["CommandEffect"][];
+            quote: unknown | null;
+            person_gates: string[];
+        };
+        CommandConsentGrant: {
+            consent_token: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        CommandEffect: {
+            kind: string;
+            resource: string;
+            resource_id: string;
+            summary: components["schemas"]["LocalizedText"];
+        };
         ContentBase: {
             target: components["schemas"]["ContentBaseQuery"];
             base: components["schemas"]["ContentBaseState"];
@@ -6150,6 +6206,10 @@ export interface components {
             complete: boolean;
             slug_locked: boolean;
         };
+        LocalizedText: {
+            pl: string;
+            en: string;
+        };
         Location: {
             /** Format: uuid */
             id: string;
@@ -7280,6 +7340,15 @@ export interface components {
          * @enum {string}
          */
         ResourceTypeEnum: "page" | "page_version" | "site_publication" | "content_collection" | "content_entry" | "content_entry_version" | "content_entry_publication";
+        /**
+         * @description * `read` - read
+         *     * `draft` - draft
+         *     * `apply` - apply
+         *     * `publish` - publish
+         *     * `irreversible` - irreversible
+         * @enum {string}
+         */
+        RiskEnum: "read" | "draft" | "apply" | "publish" | "irreversible";
         RoleCatalog: {
             roles: components["schemas"]["RoleSummary"][];
             grantable_permissions: string[];
@@ -14830,6 +14899,80 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organizations_command_consent_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                digest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandConsent"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organizations_command_consent_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                digest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandConsentGrant"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

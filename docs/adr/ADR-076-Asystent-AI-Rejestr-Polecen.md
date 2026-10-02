@@ -411,3 +411,21 @@ bramkami. Miejsca, które wybijają zgodę (`mint_consent`), ustawiają
 `acting_opened=` albo wołają `acting_context(`, są policzone w
 `tests/test_command_doors.py` z powodem każdego; tam też etykiety sufitu i
 `person_gates` poleceń muszą istnieć jako etykiety bramek w kodzie.
+
+## Uzupełnienie 2026-10-02: plan czekający na zgodę i endpoint zgody (A1b-6)
+
+Doprecyzowanie pkt 3. Serwer podpisuje tylko to, co sam pokazał: `offer_plan`
+zostawia każdą grupę wymagającą kliknięcia w pamięci podręcznej pod jej
+digestem (`COMMAND_PENDING_TTL`, 30 min) — z tytułami, typowanymi skutkami,
+wyceną, klasą i informacją o step-upie. Panel czyta ją przez
+`GET /api/v1/organizations/current/command-consents/{digest}/`, a dialog zgody
+(A3) renderuje wyłącznie tę odpowiedź, nigdy opis planu z tekstu modelu, który
+wstrzyknięcie promptu mogłoby zmyślić. `POST` na ten sam adres wybija token
+(sesja, CSRF, principal `membership` bez `acting_via`; inaczej 403
+`consent_person_only`); rozmowę, którą token wiąże, bierze z zapisanego planu,
+nie z żądania. Plan innego członkostwa i plan wygasły dają to samo 404
+`consent_preview_not_found`. Grupa ze step-upem odpowiada 403
+`step_up_required`, dopóki step-up (A1b-7) nie zostanie potwierdzony. Kliknięcie
+trafia do historii organizacji jako `commands.consent.granted` (polecenia,
+klasa, prefiks digestu, rozmowa), bez `acting` — to decyzja osoby. Token
+oddaje się wykonawcy pod identyfikatorem grupy (pierwszy krok grupy).

@@ -1,20 +1,29 @@
-from typing import cast
+import re
+from datetime import timedelta
+from typing import Any, cast
 from uuid import UUID
 
+from django.conf import settings
 from django.http import HttpRequest
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .audit import record_audit
 from .authorization import authorize
-from .context import context_from_membership
+from .command_consent import mint_consent
+from .command_executor import StepUpRequired, pending_consent
+from .context import TenantContext, context_from_membership
 from .custom_roles import create_role, delete_role, list_roles, update_role
 from .history import history_item, list_history
 from .joining import current_seat_usage
@@ -33,6 +42,8 @@ from .permissions import ORGANIZATION_READ
 from .serializers import (
     ActiveOrganizationResultSerializer,
     ActiveOrganizationSerializer,
+    CommandConsentGrantSerializer,
+    CommandConsentSerializer,
     HistoryPageSerializer,
     HistoryQuerySerializer,
     InvitationAcceptSerializer,
@@ -472,3 +483,99 @@ class HistoryView(ProtectedOrganizationView):
             "actions": page.actions,
             "items": [history_item(entry) for entry in page.entries],
         })
+
+
+#: The consent click as an action of the organization's history.
+COMMAND_CONSENT_GRANTED = "commands.consent.granted"
+_DIGEST = re.compile(r"^[0-9a-f]{64}$")
+
+
+class ConsentPersonOnly(PermissionDenied):
+    default_detail = "Zgodę daje osoba zalogowana w panelu, nie integracja ani asystent."
+    default_code = "consent_person_only"
+
+
+class ConsentPreviewNotFound(NotFound):
+    default_detail = "Tego planu nie ma albo czas na zgodę minął; asystent pokaże go ponownie."
+    default_code = "consent_preview_not_found"
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class CommandConsentView(ProtectedOrganizationView):
+    """A plan the assistant showed, and the person's click on it (ADR-076 §3).
+
+    Only the person signed in to the panel gets here: an API key or a context
+    already acting for the person is refused, so no channel can consent on its
+    own behalf. The conversation the token binds is taken from the plan the
+    server stored, never from the request.
+    """
+
+    @extend_schema(
+        operation_id="organizations_command_consent_retrieve",
+        summary="Show a plan waiting for consent",
+        description="The assistant's plan for one consent group exactly as the server "
+        "previewed it: titles, typed effects, quote, risk class and whether a step-up is "
+        "due. The consent dialog renders this and nothing else (ADR-076 §3). Another "
+        "membership's plan and an expired one both answer 404 consent_preview_not_found.",
+        responses={
+            200: CommandConsentSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, digest: str) -> Response:
+        _context, entry = _waiting_plan(digest)
+        return Response(CommandConsentSerializer(entry).data)
+
+    @extend_schema(
+        operation_id="organizations_command_consent_create",
+        summary="Consent to a plan",
+        description="Mints the consent token for one plan group the person has just seen. "
+        "The token binds the membership, the assistant's conversation and the plan's "
+        "digest, and expires after COMMAND_CONSENT_TTL seconds; the executor checks it "
+        "against a fresh preview. A group that needs a step-up answers 403 "
+        "step_up_required until one is confirmed.",
+        request=None,
+        responses={
+            201: CommandConsentGrantSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Mints a stateless signature: repeating the call gives an "
+                "equivalent token for the same plan and changes nothing else.",
+            }
+        },
+    )
+    def post(self, request: Request, digest: str) -> Response:
+        context, entry = _waiting_plan(digest)
+        if entry["step_up_required"]:
+            raise StepUpRequired
+        token = mint_consent(context, digest=digest, acting_ref=entry["acting_ref"])
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=COMMAND_CONSENT_GRANTED,
+            actor=cast(User, request.user),
+            metadata={
+                "commands": [call["command"] for call in entry["calls"]],
+                "risk": entry["risk"],
+                "digest": digest[:12],
+                "conversation": entry["acting_ref"],
+            },
+        )
+        expires_at = timezone.now() + timedelta(seconds=settings.COMMAND_CONSENT_TTL)
+        return Response(
+            CommandConsentGrantSerializer({"consent_token": token, "expires_at": expires_at}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+def _waiting_plan(digest: str) -> tuple[TenantContext, dict[str, Any]]:
+    context = authorize(ORGANIZATION_READ)
+    if context.principal_kind != "membership" or context.acting_via:
+        raise ConsentPersonOnly
+    entry = pending_consent(context, digest) if _DIGEST.fullmatch(digest) else None
+    if entry is None:
+        raise ConsentPreviewNotFound
+    return context, entry
