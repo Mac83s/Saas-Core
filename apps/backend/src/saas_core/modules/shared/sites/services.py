@@ -1213,8 +1213,9 @@ def assert_person_required(context: TenantContext, what: str) -> None:
     wants a machine deciding alone.
     """
     # A membership acting through the assistant or a translation job is
-    # refused too, unless its channel was opened for this label (ADR-076 §6).
-    opened = ACTING_PERSON_GATE_ALLOWED.get(context.acting_via, frozenset())
+    # refused too, unless a person's consent opened this label for this run,
+    # within what its channel may ever reach (ADR-076 §6).
+    opened = ACTING_PERSON_GATE_ALLOWED.get(context.acting_via, frozenset()) & context.acting_opened
     if not _is_automation(context) and (not context.acting_via or what in opened):
         return
     raise PersonRequired(detail=f"{what} wymaga decyzji człowieka.")

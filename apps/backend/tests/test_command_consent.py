@@ -33,10 +33,12 @@ from saas_core.modules.core.organizations.command_registry import (
     register_command,
 )
 from saas_core.modules.core.organizations.context import (
+    ACTING_PERSON_GATE_ALLOWED,
     TenantContext,
     acting_context,
     activate_tenant_context,
     context_from_membership,
+    require_tenant_context,
 )
 from saas_core.modules.core.organizations.models import (
     CommandReceipt,
@@ -47,6 +49,7 @@ from saas_core.modules.core.organizations.models import (
     Role,
 )
 from saas_core.modules.core.organizations.services import update_current_organization
+from saas_core.modules.shared.sites.services import assert_person_required
 from test_command_executor import INPUT, OUTPUT, allow_all
 
 pytestmark = pytest.mark.django_db
@@ -325,3 +328,50 @@ def test_a_group_that_needs_a_step_up_stays_closed_until_there_is_one(
         (result,) = execute_plan(plan, tokens)
     assert (result.status, result.code) == ("refused", "step_up_required")
     assert RUNS == []
+
+
+def test_a_consented_call_passes_only_the_gates_its_preview_reported_and_only_while_it_runs(
+    owner: TenantContext, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[frozenset[str]] = []
+
+    def _price_list(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+        current = require_tenant_context()
+        seen.append(current.acting_opened)
+        assert_person_required(current, "Cennik")
+        return {"name": arguments["name"]}
+
+    def _reports(gates: frozenset[str]) -> Any:
+        def preview(arguments: Mapping[str, Any], call: Any) -> Preview:
+            return Preview(effects=(), observed_versions={}, person_gates=gates)
+
+        return preview
+
+    monkeypatch.setitem(ACTING_PERSON_GATE_ALLOWED, "assistant", frozenset({"Cennik"}))
+    gates = frozenset({"Cennik"})
+    register_command(
+        spec(
+            name="organization.prices", run=_price_list, preview=_reports(gates), person_gates=gates
+        )
+    )
+    register_command(
+        spec(
+            name="organization.prices_quiet",
+            run=_price_list,
+            preview=_reports(frozenset()),
+            person_gates=gates,
+        )
+    )
+    assistant = assistant_of(owner)
+    plan = [call("organization.prices@1"), call("organization.prices_quiet@1")]
+    tokens = consents(owner, assistant, plan)
+    with activate_tenant_context(assistant):
+        results = execute_plan(plan, tokens)
+        after = require_tenant_context().acting_opened
+
+    assert [(result.status, result.code) for result in results] == [
+        ("done", None),
+        ("refused", "person_required"),
+    ]
+    assert seen == [gates, frozenset()]
+    assert after == frozenset()

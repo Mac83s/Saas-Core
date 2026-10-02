@@ -204,11 +204,12 @@ def test_prices_and_new_quotes_are_a_persons_words_not_the_assistants() -> None:
         assert draft(page.data["id"], [TEXT, pricing, quote], "ab-person").created
 
 
-def test_a_label_opened_for_one_channel_lets_only_that_channel_through(
+def test_a_label_opens_for_one_consented_run_within_its_channels_ceiling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Nothing is open before a consent gate exists. Opening a label is per
-    channel and per label, and never reaches an integration."""
+    """Nothing is open before a label is in the ceiling. Even then the label
+    opens only for a run a consent covers (`acting_opened`), per channel and
+    per label, and never for an integration (ADR-076 §6)."""
     person = TenantContext(
         organization_id=uuid7(),
         membership_id=uuid7(),
@@ -219,15 +220,23 @@ def test_a_label_opened_for_one_channel_lets_only_that_channel_through(
     assistant = acting_context(person, via="assistant", ref=f"conversation:{uuid7()}")
     translation = acting_context(person, via="ai_translation", ref=f"translation_job:{uuid7()}")
     assert ACTING_PERSON_GATE_ALLOWED == {}
+    with pytest.raises(ValueError, match="acting_opened"):
+        replace(translation, acting_opened=frozenset({"Cennik"}))
 
     monkeypatch.setitem(ACTING_PERSON_GATE_ALLOWED, "ai_translation", frozenset({"Cennik"}))
+    consented = replace(translation, acting_opened=frozenset({"Cennik"}))
 
-    assert_person_required(translation, "Cennik")
+    assert_person_required(consented, "Cennik")
     assert_person_required(person, "Strona prawna")
     for context, what in (
-        (translation, "Strona prawna"),
+        (translation, "Cennik"),
+        (consented, "Strona prawna"),
         (assistant, "Cennik"),
         (replace(person, principal_kind="api_key"), "Cennik"),
     ):
         with pytest.raises(PersonRequired):
             assert_person_required(context, what)
+    with pytest.raises(ValueError, match="acting_opened"):
+        replace(assistant, acting_opened=frozenset({"Cennik"}))
+    with pytest.raises(ValueError):
+        replace(person, acting_opened=frozenset({"Cennik"}))

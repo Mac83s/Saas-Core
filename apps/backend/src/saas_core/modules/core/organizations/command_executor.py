@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, cast
 
 from django.core.exceptions import ImproperlyConfigured
@@ -49,7 +49,12 @@ from .command_registry import (
     command_for_tool,
     organization_modules,
 )
-from .context import TenantContext, require_tenant_context
+from .context import (
+    ACTING_PERSON_GATE_ALLOWED,
+    TenantContext,
+    activate_tenant_context,
+    require_tenant_context,
+)
 from .models import CommandReceipt
 
 logger = logging.getLogger(__name__)
@@ -652,10 +657,20 @@ def _run_write(context: TenantContext, call: PlannedCall) -> Mapping[str, Any]:
         if receipt.request_hash != request_hash:
             raise CommandIdempotencyConflict
         return cast(Mapping[str, Any], receipt.result)
-    output = call.spec.run(
-        call.arguments,
-        CommandCall(context=context, idempotency_key=call.idempotency_key, preview=call.preview),
+    # The person-only labels this call's own consent covers, and only those
+    # its channel may ever reach: open for this run, closed again after it.
+    opened = (
+        call.spec.person_gates
+        & (call.preview.person_gates if call.preview is not None else frozenset())
+        & ACTING_PERSON_GATE_ALLOWED.get(context.acting_via, frozenset())
     )
+    with activate_tenant_context(replace(context, acting_opened=opened)) as running:
+        output = call.spec.run(
+            call.arguments,
+            CommandCall(
+                context=running, idempotency_key=call.idempotency_key, preview=call.preview
+            ),
+        )
     Draft202012Validator(call.spec.output_schema).validate(output)
     CommandReceipt.objects.create(
         organization_id=context.organization_id,

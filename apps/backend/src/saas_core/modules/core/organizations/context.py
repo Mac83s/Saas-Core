@@ -22,9 +22,11 @@ ACTING_VIA: dict[str, str] = {
 ACTING_TRIGGER_KINDS = frozenset({"user", "api_key", "schedule", "conversation"})
 
 #: The person-only operations (`assert_person_required` labels, ADR-035 §4)
-#: an acting context may still reach, per `acting_via`. Acting for a person
-#: is not the person deciding, so it stays empty until a click-made consent
-#: (assistant, A1b) or ADR-069 (automatic translation) opens a label.
+#: an acting context may ever reach, per `acting_via` — a ceiling, not an
+#: opening. A label opens only for one run that a person's consent covers: the
+#: command executor sets `acting_opened` for the call it runs (assistant), and
+#: the translation worker from the consent stored on its job (ADR-069). Empty
+#: until A4 and ADR-069 name the labels they need.
 ACTING_PERSON_GATE_ALLOWED: dict[str, frozenset[str]] = {}
 
 
@@ -55,9 +57,13 @@ class TenantContext:
     acting_via: str = ""
     acting_ref: str = ""
     acting_trigger: str = ""
+    #: The person-only labels this one run may pass, within the ceiling
+    #: `ACTING_PERSON_GATE_ALLOWED[acting_via]`. Never carried into deferred
+    #: work: a task rebuilt from the membership starts with none.
+    acting_opened: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
-        if self.acting_via or self.acting_ref or self.acting_trigger:
+        if self.acting_via or self.acting_ref or self.acting_trigger or self.acting_opened:
             _check_acting(self)
 
     def has_permission(self, permission: str) -> bool:
@@ -74,13 +80,15 @@ def acting_context(
     """The same membership, acting for its person through `via` (ADR-076 §6).
 
     Rights stay exactly the membership's; the person-only gates refuse it
-    unless `ACTING_PERSON_GATE_ALLOWED` opens the label for `via`.
+    unless a consent opens a label for one run (`acting_opened`).
     """
     if context.acting_via:
         raise ValueError("Kontekst już działa w imieniu osoby; bez zagnieżdżania.")
     if via not in ACTING_VIA:
         raise ValueError(f"Nieznany kanał działania w imieniu osoby: {via!r}.")
-    return replace(context, acting_via=via, acting_ref=ref, acting_trigger=trigger)
+    return replace(
+        context, acting_via=via, acting_ref=ref, acting_trigger=trigger, acting_opened=frozenset()
+    )
 
 
 def _check_acting(context: TenantContext) -> None:
@@ -91,10 +99,10 @@ def _check_acting(context: TenantContext) -> None:
         raise ValueError("W imieniu osoby działa tylko jej membership.")
     if not _is_reference(context.acting_ref, frozenset({ref_kind})):
         raise ValueError(f"acting_ref musi mieć postać {ref_kind}:<uuid>.")
-    if context.acting_trigger and not _is_reference(
-        context.acting_trigger, ACTING_TRIGGER_KINDS
-    ):
+    if context.acting_trigger and not _is_reference(context.acting_trigger, ACTING_TRIGGER_KINDS):
         raise ValueError("acting_trigger musi być pusty albo mieć postać <rodzaj>:<uuid>.")
+    if context.acting_opened - ACTING_PERSON_GATE_ALLOWED.get(context.acting_via, frozenset()):
+        raise ValueError("acting_opened wykracza poza etykiety dozwolone dla tego kanału.")
 
 
 def _is_reference(value: object, kinds: frozenset[str]) -> bool:

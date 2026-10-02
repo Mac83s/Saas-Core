@@ -390,3 +390,24 @@ Odpowiedzi właściciela 30–32 (plan asystenta, faza A1b):
   ADR-072 §11, a polecenia `booking.*` z pkt 9 (A1b) powstają na nim — bez
   tymczasowych wersji `@1` z drugim mechanizmem idempotencji. Szkic strony z
   szablonu zostaje w A1b (pkt 9), nie w A4.
+
+## Uzupełnienie 2026-10-02: bramka osoby otwierana na jedno wykonanie (A1b-8)
+
+Zawężenie pkt 6 zgodne z jego intencją. `ACTING_PERSON_GATE_ALLOWED` jest
+**sufitem**, nie otwarciem: etykieta w tabeli nie przepuszcza żadnego kontekstu
+z `acting` sama z siebie. Przepuszcza dopiero pole kontekstu `acting_opened` —
+etykiety otwarte na jedno wykonanie, zawsze podzbiór sufitu kanału
+(sprawdzane przy tworzeniu kontekstu). Kto je ustawia, zależy od kanału:
+
+- `assistant` — wyłącznie wykonawca poleceń, dla wywołania, którego grupa ma
+  własną, zweryfikowaną zgodę: przecięcie `person_gates` deklaracji, bramek
+  zgłoszonych w podglądzie i sufitu kanału, tylko na czas `spec.run`;
+- `ai_translation` — worker tłumaczeń ze zgody zapisanej w wierszu zlecenia
+  (ADR-069), kiedy ADR-069 nazwie takie wyjątki.
+
+`acting_context`, `deferred_tenant_context` i kontrakt zadania nigdy nie
+przenoszą `acting_opened`, więc praca odroczona zaczyna z zamkniętymi
+bramkami. Miejsca, które wybijają zgodę (`mint_consent`), ustawiają
+`acting_opened=` albo wołają `acting_context(`, są policzone w
+`tests/test_command_doors.py` z powodem każdego; tam też etykiety sufitu i
+`person_gates` poleceń muszą istnieć jako etykiety bramek w kodzie.
