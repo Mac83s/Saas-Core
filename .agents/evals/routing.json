@@ -158,6 +158,10 @@
       "skill": "change-api-and-events",
       "note": "Port modeli AI (ADR-068, docs/architecture/model-port.md): rejestr zadań i adapterów, dopuszczenie pod sufitami USD na własnym aliasie bazy, telemetria bez treści, atrapa adaptera w testach; zmiany interfejsu najpierw w kontrakcie."
     },
+    "shared.translation": {
+      "skill": "change-api-and-events",
+      "note": "Silnik tłumaczeń AI (ADR-069, docs/architecture/translation-sources.md): moduły treści spotykają go tylko przez saas_core.content_protocol i zestaw kontraktu źródła; segmenty, glosariusz, kontrola jakości i wycena bez wywołania modelu, wywołanie przez port modeli; tabele według change-tenant-data."
+    },
     "shared.seo": {
       "skill": "change-api-and-events",
       "note": "Uses the general API and events procedure for signed SSA callbacks and durable audit reconciliation; tenant data follows change-tenant-data, with billing and immutable delivery rules defined by ADR-045."

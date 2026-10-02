@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:0282ffbf401e06bd9511e9c1a6dde26e622982b65e3334f1890c82c07e1044d9",
+  "profileHash": "sha256:fba53e31d9066c84f4a5155992220a205274a81398561077e6e635e71478d34d",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -31,6 +31,7 @@
         "shared.sites",
         "shared.image-generation",
         "shared.profiles",
+        "shared.translation",
         "shared.booking",
         "shared.seo",
         "shared.farms",
@@ -411,6 +412,47 @@
         "translationNamespaces": [
           "profiles"
         ]
+      }
+    },
+    {
+      "id": "shared.translation",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.notifications",
+        "shared.model-port"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.translation",
+        "urlPrefix": "/api/v1/translation",
+        "permissions": [
+          "translation.request",
+          "translation.manage"
+        ],
+        "roleGrants": {
+          "manager": [
+            "translation.request"
+          ],
+          "admin": [
+            "translation.request",
+            "translation.manage"
+          ],
+          "owner": [
+            "translation.request",
+            "translation.manage"
+          ]
+        },
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
       }
     },
     {

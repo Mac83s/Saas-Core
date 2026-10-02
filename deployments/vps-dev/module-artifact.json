@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:c7edcdc075af527e9bc0e41aab5ba35cd3195d374b93546b25b329adf00028ff",
+  "profileHash": "sha256:9cf89aa8135e2ea8fae8fa121c79ed4f91bb5df5d24a41e94c56dc1417f2a6f7",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -31,6 +31,7 @@
         "shared.sites",
         "shared.image-generation",
         "shared.profiles",
+        "shared.translation",
         "shared.booking",
         "shared.seo",
         "shared.inventory"
@@ -410,6 +411,47 @@
         "translationNamespaces": [
           "profiles"
         ]
+      }
+    },
+    {
+      "id": "shared.translation",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.notifications",
+        "shared.model-port"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.translation",
+        "urlPrefix": "/api/v1/translation",
+        "permissions": [
+          "translation.request",
+          "translation.manage"
+        ],
+        "roleGrants": {
+          "manager": [
+            "translation.request"
+          ],
+          "admin": [
+            "translation.request",
+            "translation.manage"
+          ],
+          "owner": [
+            "translation.request",
+            "translation.manage"
+          ]
+        },
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
       }
     },
     {

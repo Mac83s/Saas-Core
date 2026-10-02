@@ -58,7 +58,11 @@ przenosi stałe rodzajów i klas danych do `content_protocol/units.py`, a `sites
 importuje. Puppily dołoży `list`, `template` (zmienne jak `{breed}` maskowane) i
 `document` (długi rich text, kontrakt PU2) — nowy rodzaj to zmiana tego dokumentu, bo
 rodzaj wchodzi do skrótu. Slug nie jest fragmentem: liczy go moduł kodem z
-przetłumaczonego tytułu (ADR-070 pkt 18). Adresy linków, kotwice, zdjęcia i `rel` to
+przetłumaczonego tytułu (ADR-070 pkt 18) — `content_protocol.transliteration.slug_from_title`
+(ASCII, także z cyrylicy). Tą samą drogą `transliterate_name(text, script)` daje imię i
+nazwisko dla języka pisanego cyrylicą (`script` z rejestru języków); łacina zostawia je bez
+zmian. Reguły czytają polską pisownię; inną formę firma ustawia w glosariuszu
+(`translate_as`). Adresy linków, kotwice, zdjęcia i `rel` to
 struktura przepisywana ze źródła; liczby, daty i dane kontaktowe w osobnych polach nie
 są fragmentami.
 

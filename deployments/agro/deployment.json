@@ -19,6 +19,7 @@
     "shared.image-generation",
     "shared.profiles",
     "shared.notifications",
+    "shared.translation",
     "shared.booking",
     "shared.seo",
     "shared.farms",

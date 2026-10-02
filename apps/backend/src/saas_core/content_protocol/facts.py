@@ -16,7 +16,9 @@ import re
 from collections.abc import Callable
 
 URL_PATTERN = re.compile(r"(?:https?://|www\.)[^\s<>\"'⟦⟧]*[^\s<>\"'⟦⟧.,;:!?)\]]", re.IGNORECASE)
-EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# Anchored at the start of a run: without it a long run of letters with no
+# "@" is tried from every position, quadratic in the text's length.
+EMAIL_PATTERN = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 # A phone has at least nine digits; shorter runs are amounts and dates.
 PHONE_PATTERN = re.compile(r"(?<![\w+])\+?\d[\d \u00a0().-]{7,}\d(?!\w)")
 _TIME = re.compile(r"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])")

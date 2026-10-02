@@ -31,6 +31,17 @@ source_modules =
 forbidden_modules =
     saas_core.testing
 
+[importlinter:contract:content-modules-without-engine]
+name = Moduły treści nie zależą od silnika tłumaczeń (ADR-069 pkt 1, translation-sources.md §1)
+type = forbidden
+source_modules =
+    saas_core.modules.shared.sites
+    saas_core.modules.shared.profiles
+    saas_core.modules.shared.booking
+    saas_core.modules.vertical
+forbidden_modules =
+    saas_core.modules.shared.translation
+
 [importlinter:contract:model-port-alone]
 name = Port modeli nie zależy od innych modułów shared (ADR-068 pkt 1)
 type = forbidden
