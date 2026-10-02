@@ -201,8 +201,11 @@ def test_unknown_unexposed_and_unreachable_commands_are_one_refusal(
     register_command(
         spec(name="sites.page.rename", module="shared.sites", permission="site.content.edit")
     )
-    business = settings.ORGANIZATION_TYPES["business"]
-    settings.ORGANIZATION_TYPES = {"business": replace(business, modules=frozenset())}
+    # Every type without modules — a product's types are not core's.
+    settings.ORGANIZATION_TYPES = {
+        key: replace(kind, modules=frozenset())
+        for key, kind in settings.ORGANIZATION_TYPES.items()
+    }
     with activate_tenant_context(assistant(owner)):
         plan = preview_plan([
             call("organization.rename@9"),

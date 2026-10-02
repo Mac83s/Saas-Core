@@ -48,7 +48,8 @@ def _declared_tables_by_app(field: str) -> dict[str, set[str]]:
     for path in sorted(MODULES_PATH.glob("*.json")):
         descriptor: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         django_app = descriptor["backend"]["djangoApp"]
-        if django_app is not None:
+        # A module the profile does not compose has no tables here (a product).
+        if django_app is not None and apps.is_installed(django_app):
             declared[django_app] = set(descriptor["backend"][field])
     return declared
 
