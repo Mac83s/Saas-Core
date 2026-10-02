@@ -14,26 +14,40 @@
 
 ## 2. Błędy
 
-Odpowiedzi błędów używają `application/problem+json` zgodnego z RFC 9457:
+Odpowiedzi błędów używają `application/problem+json` (RFC 9457) z handlera
+`problem_details_exception_handler` (`apps/backend/src/saas_core/http/exceptions.py`).
+Kształt i podział statusów ustala ADR-076 §5:
 
 ```json
 {
-  "type": "https://docs.medplano.pl/problems/validation-error",
-  "title": "Dane formularza są nieprawidłowe",
-  "status": 422,
-  "code": "validation_error",
-  "detail": "Popraw oznaczone pola.",
-  "instance": "/api/v1/organizations/current",
+  "type": "about:blank",
+  "title": "Żądanie nie może zostać obsłużone",
+  "status": 400,
+  "code": "invalid",
+  "detail": {"legal_name": ["To pole jest wymagane."]},
   "correlation_id": "019c5f88-66c1-7b45-9ab4-3df6a5a6d7f0",
-  "errors": {
-    "legal_name": [{"code": "required", "message": "To pole jest wymagane."}]
-  }
+  "errors": [
+    {"field": "legal_name", "code": "required", "message": "To pole jest wymagane."}
+  ]
 }
 ```
 
-Frontend mapuje `errors` do React Hook Form, a pozostałe problemy prezentuje w
-spójnym komponencie z `packages/ui`. Tekst z backendu jest bezpiecznym fallback;
-znane kody domenowe frontend tłumaczy przez `next-intl`.
+- **400** — wszystko, co wołający może poprawić w danych. `code` to `invalid`
+  albo kod domenowy z podklasy `ValidationError` z `problem_code`.
+- **422** — tylko odmowy operacji treści (zestawy zmian, szkic z briefu, media
+  AI w slocie); mają jeden wpis `errors`.
+- `errors` ma każda odpowiedź 400 i 422: `field` to ścieżka w danych żądania
+  (segmenty łączone kropką, indeks listy jako liczba, `null` = całe żądanie),
+  `code` — kod pola z DRF, walidatora Django albo domenowy
+  (`ValidationError({...}, code="slug_taken")`), `message` — zdanie tylko do
+  wyświetlenia. Rozwijana jest wyłącznie `ValidationError`; inny wyjątek daje
+  jeden wpis z `problem_code` i opcjonalnym `problem_field`.
+- `detail` zostaje dla zgodności i tylko do wyświetlenia; nowy kod czyta `errors`.
+
+Frontend mapuje `errors` do React Hook Form (notacja ścieżek jak `path.join(".")`
+w Zod), a pozostałe problemy prezentuje w spójnym komponencie z `packages/ui`.
+Tekst z backendu jest bezpiecznym fallbackiem; znane kody domenowe frontend
+tłumaczy przez `next-intl`.
 
 ## 3. OpenAPI i klient TypeScript
 
@@ -46,10 +60,12 @@ Komendy wdrożone w W1:
 ```text
 pnpm api:schema        # zapisuje kanoniczny v1.yaml
 pnpm api:client        # generuje packages/api-client/src/schema.d.ts
-pnpm api:check         # generuje do pliku tymczasowego i wykrywa drift
+pnpm api:check         # dryf (generuje do pliku tymczasowego) i podłoga jakości
+pnpm api:quality       # sama podłoga; --write-baseline zmniejsza linię bazową
 ```
 
-CI uruchamia walidację schematu, diff zmian łamiących oraz `api:check`. Ręczne
+CI uruchamia `api:check`: dryf schematu i podłogę jakości nowych i zmienionych
+operacji (ADR-076 §7, `packages/contracts/openapi/README.md`). Ręczne
 typy odpowiedzi API w frontendzie są zabronione. Hooki use case'ów mogą być
 pisane ręcznie, ale opierają się wyłącznie na wygenerowanych typach.
 

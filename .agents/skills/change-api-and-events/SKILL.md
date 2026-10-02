@@ -63,18 +63,40 @@ assistant cannot reach:
   in the view or the frontend. No wizard whose state exists only in the
   browser, no step reachable only by a button. Long work is a job with a
   status to poll.
-- **Typed and described.** Input and output are serializers with field
-  `help_text`, enums for closed sets, units and bounds in the schema; the view
-  has a summary and description in the OpenAPI output.
-- **Errors a model can act on.** Problem Details with a stable `code` and, for
-  validation, the failing field and a human-readable message, so the caller can
-  fix the value or ask the user for it.
+- **Typed and described — the OpenAPI floor (ADR-076 §7).** Input and output
+  are serializers with field `help_text`, enums for closed sets, units and
+  bounds. Every new or changed operation has an explicit `operation_id`
+  (snake_case, not drf-spectacular's automatic `api_v1_…`), `summary`,
+  `description`, a required `Idempotency-Key` header on POST/PUT/PATCH/DELETE,
+  and a 400 → `ProblemDetailsSerializer` when it takes data. A side-effect-free
+  preview declares `extend_schema(extensions={"x-dry-run": True})` and needs no
+  key; a justified exception for `idempotency-key` or `error-400` only is
+  `extensions={"x-quality-exempt": {"<rule>": "<reason>"}}`. `pnpm api:check`
+  runs the drift check and `pnpm api:quality`; today's debt sits in
+  `packages/contracts/openapi/quality-baseline.json`, which only shrinks —
+  touching an old operation's parameters, request fields or success responses
+  brings it up to the floor. After fixing debt, `pnpm api:quality --write-baseline`.
+- **Errors a model can act on (ADR-076 §5).** Every 400 and 422 carries
+  `errors: [{field, code, message}]`, built from a `ValidationError` only: raise
+  `ValidationError({"slug": ["…"]}, code="slug_taken")` or with `ErrorDetail`
+  codes per field, so the code reaches the client. A domain top-level code is a
+  `ValidationError` subclass with `problem_code`; another exception names its
+  field with `problem_field`. Use 400 for anything the caller can fix in the
+  input; 422 only for content-operations refusals. Never raise Django's
+  `ValidationError` from a service an API calls — it ends as a 500.
 - **Preview before write.** A configuration operation can run as a dry run —
   validate and describe the effect without saving — or its docstring says why
   it cannot (an external side effect, for example).
-- **Actor in the audit.** Record who acted and in what capacity (`user`,
-  `assistant`, `integration`, `system`) and on whose behalf; the assistant never
-  gets broader rights than the person it talks to.
+- **Actor in the audit (ADR-076 §6).** `record_audit` writes the principal in
+  `channel` and, under `acting_context(context, via=…, ref=…, trigger=…)`, the
+  `acting_via` (`assistant`, `ai_translation`), `acting_ref` and
+  `acting_trigger` columns; the person stays `actor_user` ("on behalf of").
+  `user` = panel without acting, `assistant` = `acting_via=assistant`,
+  `integration` = `api_key`, `system` = a service principal. Acting never widens
+  rights: person-only gates (`assert_person_required`) refuse it unless
+  `ACTING_PERSON_GATE_ALLOWED` opens the label for that channel. Background work
+  re-applies acting through `deferred_tenant_context(..., acting_*)`; a task
+  contract cannot be issued under acting yet.
 - **Discoverable choices.** Allowed values and defaults (presets, plan limits,
   templates) are readable from an endpoint, not hard-coded in a component.
 - **Idempotent and versioned.** Mutations take an idempotency key; where two

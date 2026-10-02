@@ -14,8 +14,8 @@ ADR-033:137 (limit akcji asystenta → kredyty); ADR-070 pkt 2 w części o stat
 obowiązuje. Stosuje ADR-044 (digest i token podglądu), ADR-035 §4 (granice
 człowieka, ADR-035:127-129), ADR-045 (kredyty) i ADR-046 (pokwitowanie
 idempotencji, ADR-046:31-36). Dzieli mechanizm „w imieniu” z ADR-069 (tłumaczenia
-AI) i korzysta z portu modeli ADR-068 — oba numery są zarezerwowane dla sesji
-tłumaczeń i ich pliki jeszcze nie istnieją.
+AI) i korzysta z portu modeli ADR-068 (kontrakt `docs/architecture/model-port.md`;
+oba ADR-y powstają równolegle w sesji tłumaczeń).
 
 ## Kontekst
 
@@ -65,8 +65,9 @@ tłumaczeń i ich pliki jeszcze nie istnieją.
      strict wywołań narzędzi (obiekt na korzeniu, `additionalProperties: false`,
      każde pole w `required` i z `description`, pole opcjonalne jako unia z
      `null`, enumy, granice, jednostki), bez tenanta i klucza idempotencji; pola
-     wyjścia mają klasę danych (`public`, `personal`, `health`), a teksty z
-     cudzych źródeł znacznik `untrusted`;
+     wyjścia mają klasę danych — te same cztery klasy co port modeli (ADR-068):
+     `public`, `public_personal`, `personal`, `health` — a teksty z cudzych
+     źródeł znacznik `untrusted`;
    - `permission` i `entitlement` — po nich manifest filtruje polecenia, a
      wykonawca przy **każdym** wykonaniu woła `decide_feature` dla cechy kanału
      (`assistant.text.enabled`, `assistant.voice.enabled`, a dla poleceń strony

@@ -25,7 +25,7 @@ pnpm backend:migrations   # no drift
 pnpm backend:test
 pnpm test                 # every workspace, frontend components included
 pnpm typecheck
-pnpm api:check            # OpenAPI and the TypeScript client
+pnpm api:check            # OpenAPI drift, the quality floor (ADR-076 §7), the client
 ```
 
 `pnpm quality` runs the whole chain when you want one command. Report the

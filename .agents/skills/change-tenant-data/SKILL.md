@@ -96,6 +96,13 @@ compare indices, the way `apps/backend/tests/test_sites_grant_commands.py` does.
 - **Global catalogue rows.** `organizations_role` allows `organization_id IS
   NULL` on read and refuses it on write, so no tenant can grant itself a global
   role. Copy that asymmetry if you add another shared catalogue.
+- **A context rebuilt from a membership drops acting.** `context_from_membership`
+  returns the person acting directly; work done on someone's behalf (the
+  assistant, an automatic translation job — ADR-076 §6) must re-apply
+  `acting_via`, `acting_ref` and `acting_trigger` the way
+  `deferred_tenant_context(..., acting_*)` does, or its audit rows read as the
+  person's own and pass the person-only gates. A task contract cannot carry
+  acting yet: `issue_tenant_task_contract` refuses an acting context.
 
 ## Done means
 
