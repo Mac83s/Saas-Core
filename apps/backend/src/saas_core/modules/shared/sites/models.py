@@ -538,6 +538,27 @@ class PageTranslation(TenantScopedModel):
     allow_social_description_fallback = models.BooleanField(default=False)
     version = models.PositiveBigIntegerField(default=1)
     slug_locked_at = models.DateTimeField(null=True, blank=True)
+    # The body in this language (ADR-070). Its own lock, apart from `version`
+    # (the metadata) and from `Page.version` (the source): saving German text
+    # must not make a change set waiting for the Polish page stale.
+    # `body_current` is the working body; `body_pending` a translation
+    # waiting for a person's review, with the reason it waits.
+    body_current = models.ForeignKey(
+        "PageLocaleVersion",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    body_pending = models.ForeignKey(
+        "PageLocaleVersion",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    body_version = models.PositiveBigIntegerField(default=0)
+    pending_reason = models.CharField(max_length=40, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -867,6 +888,88 @@ class PageBlock(TenantScopedModel):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Blok wersji strony jest niemutowalny.")
+
+
+class PageLocaleVersion(TenantScopedModel):
+    """One version of a page body in another language (ADR-070).
+
+    Text units bound to one source version: `units` maps a unit key (block
+    position and JSON path, `localized_bodies`) to its text and provenance.
+    Blocks are not stored — they are assembled from `source_version` and the
+    units — so a language version has no structure of its own to drift.
+    Append-only like `PageVersion`.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
+    page = models.ForeignKey(Page, on_delete=models.PROTECT, related_name="locale_versions")
+    translation = models.ForeignKey(
+        PageTranslation, on_delete=models.PROTECT, related_name="body_versions"
+    )
+    locale = models.CharField(max_length=10)
+    number = models.PositiveBigIntegerField()
+    source_version = models.ForeignKey(
+        PageVersion, on_delete=models.PROTECT, related_name="locale_versions"
+    )
+    structure_signature = models.CharField(max_length=64)
+    units = models.JSONField(default=dict)
+    content_hash = models.CharField(max_length=64)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_page_locale_versions",
+    )
+    created_by_credential = models.UUIDField(null=True, blank=True)
+    # As on `PageVersion`: a save, a translation job, a restored version.
+    origin = models.CharField(max_length=24, blank=True, default="")
+    origin_ref = models.CharField(max_length=160, blank=True, default="")
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "translation_id", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "translation", "number"],
+                name="sites_localever_org_tr_number_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "translation", "created_by", "idempotency_key"],
+                name="sites_localever_org_tr_actor_idem_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(number__gte=1),
+                name="sites_localever_number_positive_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="sites_localever_locale_format_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "page", "locale"],
+                name="sites_localever_page_idx",
+            ),
+            models.Index(
+                fields=["organization", "source_version"],
+                name="sites_localever_source_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.page_id}:{self.locale}:v{self.number}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ValidationError("Wersja językowa treści strony jest niemutowalna.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Wersja językowa treści strony jest niemutowalna.")
 
 
 class Publication(TenantScopedModel):
