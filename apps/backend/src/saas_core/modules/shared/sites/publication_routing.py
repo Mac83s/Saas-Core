@@ -223,7 +223,9 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # An entry's snapshot carries no theme of its own; it inherits the
         # site's, and falls back to the default when the site has never been
         # published.
-        "design_tokens": publication_snapshot.get("design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS),
+        "design_tokens": publication_snapshot.get(
+            "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
+        ),
         "appearance": publication_snapshot.get("appearance"),
         # Only site pages carry one; entries, indexes and archives inherit.
         "page_presentation": page.page.get("page_presentation"),
@@ -272,15 +274,21 @@ def _ai_media_ids(page: PublicPage) -> list[str]:
         )
 
 
-def _absolute_pagination(pagination: dict[str, Any] | None, origin: str) -> dict[str, Any] | None:
+def _absolute_pagination(
+    pagination: dict[str, Any] | None, origin: str
+) -> dict[str, Any] | None:
     if pagination is None:
         return None
     return {
         **pagination,
         "previous_url": (
-            f"{origin}{pagination['previous_path']}" if pagination["previous_path"] else None
+            f"{origin}{pagination['previous_path']}"
+            if pagination["previous_path"]
+            else None
         ),
-        "next_url": (f"{origin}{pagination['next_path']}" if pagination["next_path"] else None),
+        "next_url": (
+            f"{origin}{pagination['next_path']}" if pagination["next_path"] else None
+        ),
     }
 
 
@@ -372,7 +380,9 @@ def _find_entry(
             "social_description": snapshot.get("excerpt", ""),
             "fallback_fields": [],
         }
-        siblings = _published_translations(organization_id=organization_id, entry=entry)
+        siblings = _published_translations(
+            organization_id=organization_id, entry=entry
+        )
         return (
             {
                 "page_id": snapshot["entry_id"],
@@ -393,7 +403,9 @@ def _find_entry(
                 "article": {
                     "author_name": str(snapshot.get("author_name", "")),
                     "published_at": (
-                        entry.published_at.isoformat() if entry.published_at is not None else None
+                        entry.published_at.isoformat()
+                        if entry.published_at is not None
+                        else None
                     ),
                     "updated_at": publication.created_at.isoformat(),
                     "tags": [
@@ -439,7 +451,9 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
             "excerpt": str(snapshot.get("excerpt", "")),
             "author_name": str(snapshot.get("author_name", "")),
             "tags": [
-                tag for tag in snapshot.get("tags", []) if isinstance(tag, dict) and tag.get("slug")
+                tag
+                for tag in snapshot.get("tags", [])
+                if isinstance(tag, dict) and tag.get("slug")
             ],
             "published_at": entry.published_at,
             # When the article last changed, which is when its current
@@ -457,7 +471,9 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
     return items
 
 
-def one_per_article(entries: list[dict[str, Any]], preferred_locale: str) -> list[dict[str, Any]]:
+def one_per_article(
+    entries: list[dict[str, Any]], preferred_locale: str
+) -> list[dict[str, Any]]:
     """Collapses an article's language versions to the one worth listing.
 
     Listing both would show the reader the same article twice under two
@@ -469,7 +485,8 @@ def one_per_article(entries: list[dict[str, Any]], preferred_locale: str) -> lis
         group = item["translation_group"]
         current = chosen.get(group)
         if current is None or (
-            current["locale"] != preferred_locale and item["locale"] == preferred_locale
+            current["locale"] != preferred_locale
+            and item["locale"] == preferred_locale
         ):
             chosen[group] = item
     return [item for item in entries if chosen.get(item["translation_group"]) is item]
@@ -557,7 +574,9 @@ def _find_collection_index(
     entries = one_per_article(
         [
             item
-            for item in published_entries(organization_id=organization_id, site_id=site_id)
+            for item in published_entries(
+                organization_id=organization_id, site_id=site_id
+            )
             if item["collection_id"] == str(collection.id)
         ],
         site_locale,
@@ -575,8 +594,8 @@ def _find_collection_index(
     if requested_page > total_pages:
         raise PublicSiteNotFound
     window = entries[(requested_page - 1) * page_size : requested_page * page_size]
-    path = (
-        first_path if requested_page == 1 else index_page_path(first_path, locale, requested_page)
+    path = first_path if requested_page == 1 else index_page_path(
+        first_path, locale, requested_page
     )
     locale_document: dict[str, Any] = {
         "locale": locale,
@@ -742,7 +761,9 @@ def _find_tag_archive(
     entries = one_per_article(
         [
             item
-            for item in published_entries(organization_id=organization_id, site_id=site_id)
+            for item in published_entries(
+                organization_id=organization_id, site_id=site_id
+            )
             if item["collection_id"] == str(collection.id)
             and any(tag.get("slug") == slug for tag in item["tags"])
         ],
@@ -819,7 +840,9 @@ def _find_tag_archive(
                     else (
                         archive_path
                         if requested_page == 2
-                        else index_page_path(archive_path, site_locale, requested_page - 1)
+                        else index_page_path(
+                            archive_path, site_locale, requested_page - 1
+                        )
                     )
                 ),
                 "next_path": (
