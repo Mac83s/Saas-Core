@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ChevronLeftIcon, InfoIcon } from "lucide-react";
 
 import { Link } from "#i18n/navigation";
+import { PanelEyebrow } from "./panel-eyebrow";
 
 /**
  * The one page of the client panel (ADR-057): a header with the section above
@@ -27,7 +28,10 @@ export function PanelPage({
   asideLabel,
   children,
 }: {
-  /** The section the page belongs to, e.g. "Magazyn" over "Dokumenty". */
+  /**
+   * Only for a page outside the menu: under a menu entry the eyebrow is that
+   * entry's name (R1, UX-003). With `eyebrowHref` it is the way back up.
+   */
   eyebrow?: ReactNode;
   /** Makes the eyebrow the way back up, e.g. a farm's page to the farms. */
   eyebrowHref?: string;
@@ -54,8 +58,10 @@ export function PanelPage({
 }) {
   return (
     <div className="space-y-4 lg:space-y-5">
-      <header className="flex flex-col gap-3 border-b pb-3 sm:pb-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
-        <div className="min-w-0 flex-1 space-y-1">
+      {/* One wrapping row: actions that fit stay by the title (a lone
+          icon), wider ones take the next line (UX-004). */}
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3 border-b pb-3 sm:pb-4">
+        <div className="min-w-0 flex-1 basis-64 space-y-1">
           {eyebrow && eyebrowHref ? (
             <Link
               className="-ml-1 inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -64,9 +70,9 @@ export function PanelPage({
               <ChevronLeftIcon aria-hidden="true" className="size-4" />
               {eyebrow}
             </Link>
-          ) : eyebrow ? (
-            <p className="text-sm font-medium text-primary">{eyebrow}</p>
-          ) : null}
+          ) : (
+            <PanelEyebrow fallback={eyebrow} title={title} />
+          )}
           <h1
             className="text-xl font-semibold tracking-tight wrap-anywhere sm:text-2xl"
             id={titleId}
@@ -83,7 +89,7 @@ export function PanelPage({
           ) : null}
         </div>
         {actions ? (
-          <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             {actions}
           </div>
         ) : null}

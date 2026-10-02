@@ -9,7 +9,7 @@ import {
   ChevronRightIcon,
   EyeIcon,
   PlusIcon,
-  Settings2Icon,
+  SettingsIcon,
 } from "lucide-react";
 
 import {
@@ -437,7 +437,7 @@ export function BookingPanel({
       <EmptyState
         action={
           <Link className={buttonVariants()} href="/panel/settings/services">
-            <Settings2Icon aria-hidden="true" />
+            <SettingsIcon aria-hidden="true" />
             {t("settingsLink")}
           </Link>
         }
@@ -821,19 +821,6 @@ export function BookingPanel({
       actions={
         canManage ? (
           <>
-            {/* On a phone only its icon: with the words, the two actions
-                need two rows of a header that should stay short. */}
-            <Link
-              className={buttonVariants({
-                variant: "ghost",
-                className: "max-sm:w-11 max-sm:px-0",
-              })}
-              href="/panel/settings/services"
-              title={t("settingsLink")}
-            >
-              <Settings2Icon aria-hidden="true" />
-              <span className="max-sm:sr-only">{t("settingsLink")}</span>
-            </Link>
             {ready ? (
               <Button
                 onClick={(event) => {
@@ -845,6 +832,19 @@ export function BookingPanel({
                 {t("newAppointment")}
               </Button>
             ) : null}
+            {/* The main action first; the settings by it as a cog, its name
+                for a screen reader on a phone (UX-004). */}
+            <Link
+              className={buttonVariants({
+                variant: "ghost",
+                className: "max-sm:w-11 max-sm:px-0",
+              })}
+              href="/panel/settings/services"
+              title={t("settingsLink")}
+            >
+              <SettingsIcon aria-hidden="true" />
+              <span className="max-sm:sr-only">{t("settingsLink")}</span>
+            </Link>
           </>
         ) : null
       }

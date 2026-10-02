@@ -224,14 +224,15 @@ export const PANEL_SECTIONS = {
       module: "shared.booking",
       permission: "organization.settings.manage",
     },
+    // The product's own settings (ProductSettingsSection) stand with the
+    // company's, before the technical page (UX-002).
+    ...(product.settingsSections ?? []),
     {
       href: "/panel/integrations",
       labelKey: "sectionAdvanced",
       module: "shared.notifications",
       permission: "integrations.manage",
     },
-    // The product's own settings come after core's (ProductSettingsSection).
-    ...(product.settingsSections ?? []),
   ],
 } satisfies Record<string, PanelSectionTab[]>;
 
@@ -484,6 +485,20 @@ export function ariaCurrent(
   )
     ? "true"
     : undefined;
+}
+
+/**
+ * The menu entry a page stands under — its name is the page's eyebrow (R1,
+ * UX-003): one source for the menu and the page, the deepest entry first.
+ */
+export function menuEntryFor(pathname: string): PanelNavItem | undefined {
+  const fromProduct = (product.navigation ?? []).map((item): PanelNavItem => ({
+    ...item,
+    group: item.group ?? "work",
+  }));
+  return [...WORK, ...COMPANY, ...fromProduct, SETTINGS]
+    .filter((item) => isActive(pathname, item))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 }
 
 export function isActive(pathname: string, item: PanelNavItem): boolean {

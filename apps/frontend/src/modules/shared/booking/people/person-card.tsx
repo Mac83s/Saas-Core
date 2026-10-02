@@ -32,6 +32,7 @@ import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
 import { cn } from "@saas-core/ui/lib/utils";
 
+import { PanelActions } from "#components/panel/panel-actions";
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
@@ -476,31 +477,36 @@ export function PersonCard({
     <PanelPage
       {...frame}
       actions={
-        <>
-          {canSchedule && detail ? (
-            <Button
-              onClick={(event) => {
-                setReturnTo(event.currentTarget);
-                setDialog("timeOff");
-              }}
-              variant="outline"
-            >
-              <CalendarOffIcon aria-hidden="true" />
-              {t("timeOff")}
-            </Button>
-          ) : null}
-          {canEdit && (detail?.active ?? member?.status === "active") ? (
-            <Button
-              onClick={(event) => {
-                setReturnTo(event.currentTarget);
-                setDialog("edit");
-              }}
-              variant="outline"
-            >
-              <PencilIcon aria-hidden="true" />
-              {t("edit")}
-            </Button>
-          ) : null}
+        // „Zaplanuj wizytę” first; time off and edit beside it, or under
+        // „…” on a phone (UX-004).
+        <PanelActions
+          more={[
+            ...(canSchedule && detail
+              ? [
+                  {
+                    label: t("timeOff"),
+                    icon: <CalendarOffIcon aria-hidden="true" />,
+                    onSelect: (trigger: HTMLElement) => {
+                      setReturnTo(trigger);
+                      setDialog("timeOff");
+                    },
+                  },
+                ]
+              : []),
+            ...(canEdit && (detail?.active ?? member?.status === "active")
+              ? [
+                  {
+                    label: t("edit"),
+                    icon: <PencilIcon aria-hidden="true" />,
+                    onSelect: (trigger: HTMLElement) => {
+                      setReturnTo(trigger);
+                      setDialog("edit");
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        >
           {canBook && takesVisits && detail?.active ? (
             <Link
               className={buttonVariants()}
@@ -510,7 +516,7 @@ export function PersonCard({
               {t("plan")}
             </Link>
           ) : null}
-        </>
+        </PanelActions>
       }
       // The role and the date one joined: data, kept on a phone (UX-005).
       subtitle={description}

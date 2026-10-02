@@ -22,7 +22,6 @@ import type { OrganizationSummary } from "@saas-core/api-client";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   useSidebar,
 } from "@saas-core/ui/components/sidebar";
@@ -71,12 +70,14 @@ export function AppSidebar({
       <SidebarContent>
         <NavGroup items={work} label={t("work")} />
         <NavGroup items={company} label={t("company")} />
+        {/* At the end of the list, scrolling with it: pinned to the bottom
+            it covered the last entries (UX-002). */}
+        {attention ? (
+          <div className="px-2 pb-2">
+            <AttentionCard attention={attention} onNavigate={closeMobile} />
+          </div>
+        ) : null}
       </SidebarContent>
-      {attention ? (
-        <SidebarFooter>
-          <AttentionCard attention={attention} onNavigate={closeMobile} />
-        </SidebarFooter>
-      ) : null}
     </Sidebar>
   );
 }
@@ -172,7 +173,10 @@ function NavEntry({ item }: { item: PanelNavEntry }) {
                 href={sub.href}
                 onClick={closeMobile}
               >
-                <span className="truncate">{t(sub.labelKey)}</span>
+                {/* Two lines rather than „Powiadomienia automatyc…” (UX-002). */}
+                <span className="min-w-0 py-1.5 leading-snug">
+                  {t(sub.labelKey)}
+                </span>
                 <PageCount count={sub.count} />
               </Link>
             </li>

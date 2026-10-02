@@ -127,7 +127,7 @@ describe("ustawienia", () => {
     limited: true,
   };
 
-  it("Firma, Języki, Historia zmian, Konto, Usługi i grafik, Rezerwacje, Zaawansowane, a na końcu zakładki produktu", () => {
+  it("Dane firmy, Języki, Historia zmian, Twoje konto, Usługi i grafik, Rezerwacje, zakładki produktu, a na końcu API i webhooki (UX-002)", () => {
     const tabs = sectionTabs("/panel/settings/account", {
       ...OWNER,
       modules: [...OWNER.modules, "shared.booking", "vertical.demo"],
@@ -139,8 +139,8 @@ describe("ustawienia", () => {
       "/panel/settings/account",
       "/panel/settings/services",
       "/panel/settings/bookings",
-      "/panel/integrations",
       "/panel/settings/field-work",
+      "/panel/integrations",
     ]);
   });
 

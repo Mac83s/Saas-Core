@@ -28,6 +28,7 @@ import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { PanelActions } from "#components/panel/panel-actions";
 import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
@@ -306,21 +307,28 @@ export function StockTab({
     </DataTableFilter>
   ) : null;
 
+  // „Przyjmij dostawę” first; issuing and a return beside it, or under „…”
+  // on a phone (UX-004).
   const actions = canManage ? (
-    <>
+    <PanelActions
+      more={[
+        {
+          label: t("issue"),
+          icon: <PackageCheckIcon aria-hidden="true" />,
+          onSelect: () => open("issue"),
+        },
+        {
+          label: t("return"),
+          icon: <PackageMinusIcon aria-hidden="true" />,
+          onSelect: () => open("return"),
+        },
+      ]}
+    >
       <Button onClick={() => open("receive")}>
         <PackagePlusIcon aria-hidden="true" />
         {t("receive")}
       </Button>
-      <Button onClick={() => open("issue")} variant="outline">
-        <PackageCheckIcon aria-hidden="true" />
-        {t("issue")}
-      </Button>
-      <Button onClick={() => open("return")} variant="outline">
-        <PackageMinusIcon aria-hidden="true" />
-        {t("return")}
-      </Button>
-    </>
+    </PanelActions>
   ) : null;
 
   return (
