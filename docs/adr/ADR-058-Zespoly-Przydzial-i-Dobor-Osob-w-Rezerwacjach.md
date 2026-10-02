@@ -51,9 +51,10 @@ wolno pokazać klientom).
 ### 2. Wiele osób na wizycie
 
 > Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
-> §2 (2026-10-02): oferta, która rezerwuje samą jednostkę, ma `staff_count` 0, a
-> jej rezerwacje puste `Appointment.staff` (`staff_required = 0`). Rezerwacji z
-> osobami ten punkt dotyczy bez zmian.
+> §2 (2026-10-02): oferta, której rezerwacja nie zajmuje osoby (jednostka,
+> miejsce w wydarzeniu), ma `staff_count` 0, a jej rezerwacje puste
+> `Appointment.staff` (`staff_required = 0`). Rezerwacji z osobami ten punkt
+> dotyczy bez zmian.
 
 `Appointment.staff` zostaje `NOT NULL` i znaczy „prowadzący”. Kolejne osoby to
 kolejne wiersze `AppointmentStaffAllocation`. Arbitrem kolizji pozostaje
@@ -66,11 +67,13 @@ wizyta ma znacznik wakatu”.
 
 ### 3. Rezerwacja bez wyboru osoby potwierdza się od razu
 
-> Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
-> §9 (2026-10-02): oferta „na prośbę” albo z wpłatą przed potwierdzeniem tworzy
-> rezerwację `pending_request` albo `pending_payment`, która trzyma termin pełną
-> alokacją do terminu ważności. Ofert z potwierdzeniem od razu ten punkt dotyczy
-> bez zmian.
+> Zawężone przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+> §9 (2026-10-02) na podstawie odpowiedzi właściciela 13a („zadatek 30% przelewem
+> w 3 dni, inaczej rezerwacja wygasa”): oferta „na prośbę” albo z wpłatą przed
+> potwierdzeniem (przelew, zadatek, całość) tworzy rezerwację `pending_request`
+> albo `pending_payment`, która trzyma termin jak potwierdzona, bez wyprzedzania.
+> Ofert z potwierdzeniem od razu i bez wpłaty przed potwierdzeniem ten punkt
+> dotyczy bez zmian.
 
 Odpowiedź właściciela 1 (24.09): rezerwacja, w której nikt nie wskazał osób
 (formularz, panel „dowolna osoba”, zespół jako wybór klienta), jest
@@ -191,7 +194,8 @@ prowadzącego, gdy ma pozycję, inaczej z magazynu głównego (odpowiedź 8), wi
 - zgłoszenie czekające na potwierdzenie z „wstępną” blokadą — odrzucone przez
   właściciela (odpowiedź 1), a technicznie wymagało trzech stanów i
   wyprzedzania blokad;
-  > Wraca w ADR-072 §9 (2026-10-02) jako wybór oferty, bez wyprzedzania blokad.
+  > Wraca w ADR-072 §9 (2026-10-02) dla ofert „na prośbę” albo z wpłatą przed
+  > potwierdzeniem (odpowiedź 13a), z pełną alokacją i bez wyprzedzania blokad.
 - wybór osoby w przeglądarce — nieautorytatywny i zawsze ten sam;
 - większy limit wyników — przesuwa problem, nie usuwa ucięcia dnia.
 
@@ -237,11 +241,17 @@ planie memex i w decyzji `zespo-faza-3-uwagi-klienta-zawsze-zmiana-osoby-z`.
   zapamiętuje `staff_required` z chwili rezerwacji; każda zmiana podbija
   `crew_version`, a przydział biura podaje wersję, którą widział (409
   `crew_changed` z nazwiskiem osoby, która zmieniła skład).
+  > Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+  > §2 (2026-10-02): rezerwacja bez osoby (`staff_required = 0`) nie ma
+  > prowadzącego, a `Appointment.staff` jest w niej puste.
 - §3: „Dobrano automatycznie” tylko, gdy system miał wybór, a osób nie
   wskazał nikt z firmy; takie wizyty i wakaty czekają w „Do przydzielenia”
   z powodem (strona, przełożenie przez klienta, nieobecność, odejście, za mało
   osób, dołączenie do innej wizyty) i czasem. Nieobecność i „Usuń z firmy”
   zdejmują osobę z wizyt — reszta składu zachowuje swój czas.
+  > Doprecyzowane przez [ADR-075](ADR-075-Synchronizacja-Kalendarzy-Zewnetrznych-iCal.md)
+  > (2026-10-02): dotyczy nieobecności wpisanej przez człowieka; blokada z
+  > importu kalendarza zewnętrznego nikogo z wizyty nie zdejmuje.
 - Produkt dokłada osoby przez `booking.api`: `join_visit_crew` (dołączenie do
   trwającej wizyty blokuje czas od chwili dołączenia do końca wizyty, a
   kolidująca wizyta tej osoby traci ją i czeka jako wakat — odpowiedź 3A),

@@ -129,6 +129,15 @@ eksport i usunięcie konta.
 
 ### 8. Zgody, eksport i usunięcie
 
+> Doprecyzowane przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §9 (2026-10-02): dokumentów sprzedaży platforma nie przechowuje — wystawia je
+> program do faktur (T15); zamówienie i księga to zapis transakcji, który po
+> anonimizacji klienta zostaje bez jego danych kontaktowych, więc usunięcie
+> konta anonimizuje połączonych klientów od razu (przechowywanie zamówień — na
+> liście prawnej). Zgody klientów wobec dokumentów firm to dziennik w
+> `shared.customers`, nie `PolicyAcknowledgement`.
+
 - `PolicyAcknowledgement(user, policy_key ∈ terms|privacy, version, locale,
   accepted_at)` w `core.identity`; obowiązujące wersje są konfiguracją
   deploymentu. Brak akceptacji nowej wersji blokuje tylko nowe operacje

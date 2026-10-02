@@ -12,9 +12,9 @@ osobną domeną; rozszerza ADR-030 o status `pending_payment` i pola ceny usług
 
 > Wraca z odroczenia 2026-10-02 przez
 > [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md):
-> §5–§7 i rodzaje wpisów `LedgerEntry` obowiązują jako źródło przepływu i
-> księgi płatności zamówienia; fragmenty zastąpione przez ADR-073 są oznaczone
-> w sekcjach niżej.
+> od tej daty Accepted w części, której ADR-073 nie zastąpił (zastąpione
+> fragmenty są oznaczone w sekcjach niżej); §5 pkt 1, 2 i 4, §6, §7 i rodzaje
+> wpisów `LedgerEntry` są źródłem przepływu i księgi płatności zamówienia.
 
 ## Kontekst
 
@@ -88,9 +88,14 @@ przegląd prawny i księgowy ma go potwierdzić albo obalić przed P5.
 > Częściowo zastąpione przez
 > [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
 > §4, §6 i §8 (2026-10-02): `Payment` opłaca zamówienie (`Order`), nie wizytę,
-> i niesie zwroty (`Refund`) oraz spory (`Dispute`); `PaymentProviderConnection`
-> dostaje `mode` i `adapter`; stawka podatku to kod pozycji zamówienia (`zw` to
-> nie `0`), nie `tax_rate_bp`. `LedgerEntry` i brak danych kart obowiązują.
+> i niesie zwroty (`Refund`) oraz spory (`Dispute`); suma wpisów `LedgerEntry`
+> liczy się per zamówienie, a kaucja ma własne rodzaje wpisów.
+> `PaymentProviderConnection` dostaje `mode` i `adapter`; zdanie „aktualizowane
+> wyłącznie z webhooka `account.updated` i rekonsyliacji, nigdy z formularza”
+> obowiązuje tylko w trybie `platform` — w `own` dane dostępowe wpisuje firma, a
+> gotowość daje udane wywołanie testowe API operatora. Stawka podatku to kod
+> pozycji zamówienia (`zw` to nie `0`), nie `tax_rate_bp`. Rodzaje `LedgerEntry`
+> i brak danych kart obowiązują.
 
 Wszystkie tabele są `TenantScopedModel` z wymuszonym RLS (ADR-022) i
 wyzwalaczem cross-tenant.
@@ -122,11 +127,14 @@ wyzwalaczem cross-tenant.
 
 > Częściowo zastąpione przez
 > [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
-> §5 i ADR-072 (2026-10-02): cena, reguły i polityki są danymi oferty
-> liczonymi przez `quote`, nie polami `Service`; polityka ma też `transfer`, a
-> okno ważności zależy od metody (online domyślnie 15 minut, przelew — dni z
-> oferty). Migawka w rezerwacji i `pending_payment` na tych samych alokacjach
-> obowiązują.
+> §5 i ADR-072 §6–§9 (2026-10-02): cenę, walutę i podatek liczy `quote` z reguł
+> cenowych oferty, nie pola `price_minor`, `currency` i `tax_rate_bp`; polityka
+> płatności (z nową wartością `transfer`), zadatek i progi anulowania (z
+> podstawą `deposit` albo `paid`) zostają danymi oferty (`Service`). Termin
+> `pending_payment` należy do płatności (`Payment.due_at`: online domyślnie 15
+> minut, przelew — dni z oferty) i wygasza go commerce, nie booking;
+> `Appointment.hold_expires_at` jest jego kopią do wyświetlania. Migawka w
+> rezerwacji i `pending_payment` na tych samych alokacjach obowiązują.
 
 - `Service` otrzymuje `price_minor`, `currency`, `tax_rate_bp`,
   `payment_policy` (`none | on_site | deposit | full`), `deposit_minor` albo
@@ -146,10 +154,13 @@ wyzwalaczem cross-tenant.
 > Częściowo zastąpione przez
 > [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
 > §1 i §5 (2026-10-02): w pkt 3 rezerwację potwierdza handler źródła wołany w
-> transakcji webhooka, nie zdarzenie `booking.appointment.confirmed` w
-> outboxie; w pkt 5 płatność z góry bez połączenia idzie najpierw przelewem z
-> terminem, gdy firma podała rachunek, a dopiero bez niego — na miejscu.
-> Pozostałe punkty obowiązują dla płatności zamówienia.
+> transakcji zmiany stanu zamówienia, nie zdarzenie
+> `booking.appointment.confirmed` w outboxie (gdy rezerwacji nie da się już
+> przyjąć, wpłata zostaje zapisana, a commerce zleca zwrot i zgłoszenie
+> operatorskie); w pkt 5 płatność z góry bez połączenia idzie najpierw przelewem
+> z terminem, gdy firma podała rachunek, a dopiero bez niego — na miejscu.
+> Pkt 1, 2 i 4 obowiązują dla płatności zamówienia (`Payment` zamiast
+> `AppointmentPayment`).
 
 1. klient wybiera slot; jeżeli polityka usługi to `deposit` albo `full` i
    organizacja ma `charges_enabled`, `create_appointment` tworzy wizytę
@@ -170,6 +181,13 @@ wyzwalaczem cross-tenant.
 
 ### 6. Webhooki, kolejność i rekonsyliacja
 
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §6 (2026-10-02): w trybie `own` firmę wyznacza losowy identyfikator trasy w
+> adresie powiadomienia, zanim podpis sprawdzi klucz firmy; skrzynka zdarzeń
+> trzyma tylko identyfikatory, a obiekt z danymi płacącego pobiera się od
+> operatora w kontekście firmy. Reszta punktu obowiązuje.
+
 - endpoint webhooka jest globalny (bez sesji), weryfikuje podpis, a tenant
   wyznacza z `external_account_id` przez PII-free indeks routingu — ten sam
   wzorzec co token self-service w ADR-030; dopiero potem aktywuje
@@ -184,6 +202,13 @@ wyzwalaczem cross-tenant.
   potwierdzić, odrzucić, zwrócić lub oznaczyć spór.
 
 ### 7. Zwroty, anulowania, spory i no-show
+
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §8 i Konsekwencje (2026-10-02): zwrot nie emituje zdarzenia, dopóki nie ma
+> ono konsumenta; próg zwrotu ma podstawę (`deposit` — zadatek, `paid` —
+> wszystkie wpłaty), a odwołanie przez firmę zwraca co najmniej wszystkie
+> wpłaty. Reszta punktu obowiązuje.
 
 - anulowanie przez klienta oblicza kwotę zwrotu z polityki zapisanej w
   snapshotcie wizyty; zwrot jest komendą z kluczem idempotencji, wpisem `refund`
@@ -201,10 +226,11 @@ wyzwalaczem cross-tenant.
 
 > Częściowo zastąpione przez
 > [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
-> §6 (2026-10-02): firma wybiera tryb `platform` (operator platformy, jeden na
-> deployment — `COMMERCE_PROVIDER`: `stripe_connect` | `simulated`) albo `own`
-> (własne konto, np. Przelewy24). Simulator poza produkcją i Mollie jako
-> kandydat na drugiego operatora obowiązują.
+> §6 (2026-10-02): zdanie „organizacja nie wybiera operatora” przestaje
+> obowiązywać — firma wybiera tryb `platform` (operator platformy) albo `own`
+> (własne konto, np. Przelewy24). Jeden operator trybu `platform` na deployment
+> (`COMMERCE_PROVIDER`: `stripe_connect` | `simulated`), simulator poza
+> produkcją i Mollie jako kandydat na drugiego operatora obowiązują.
 
 - wybór providera jest jawny przez `COMMERCE_PROVIDER` (`simulated | stripe`),
   analogicznie do `BILLING_PROVIDER` z ADR-034; local i staging używają
@@ -222,9 +248,9 @@ wyzwalaczem cross-tenant.
 > 2 — procent i kwota stała per plan, korekta proporcjonalna przy zwrocie
 > (odpowiedzi 3a, 11a); 4 — metody według operatora (Stripe: bez P24 dla
 > noclegów i medycyny, bez PayPal przy direct charges); 5 — faktury przez
-> integrację z programem do faktur (T15); 6 — pilotem płatności jest firma
-> noclegowa. 1 czeka na liście prawnej (decyzja 21), 3 — 15 minut zostaje
-> domyślną do potwierdzenia.
+> integrację (T15, decyzja techniczna planu), paragony i kasa fiskalna na
+> liście księgowej; 6 — pilotem płatności jest firma noclegowa. 1 czeka na
+> liście prawnej (decyzja 21), 3 — 15 minut zostaje domyślną do potwierdzenia.
 
 1. **Merchant of record** — potwierdzenie z prawnikiem i księgową, że
    organizacja jest sprzedawcą, a platforma operatorem pobierającym opłatę. Jeśli

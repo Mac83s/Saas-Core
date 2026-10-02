@@ -1,125 +1,134 @@
 # ADR-072 — Rezerwacje uniwersalne: modele czasu, jednostki i grupy, reguły i wycena, presety
 
-**Status:** Accepted — plan właściciela `saas-core-rezerwacje-uniwersalne-i-sprzedaz`
-(odpowiedzi 1–24 z 01–02.10.2026) i jego decyzje techniczne T1–T8, T13, T22, T23.
+**Status:** Accepted — decyzje właściciela (plan rezerwacji uniwersalnych,
+odpowiedzi 1–24 z 01–02.10.2026) i decyzje techniczne agenta (T1–T23 planu);
+pozostałe rozstrzygnięcia techniczne tego ADR-u (z powodem w tekście): puste
+`Appointment.staff` (§2), blokada jednostki jako alokacja (§4), VAT na pozycji
+(§7), podstawa zwrotu (§8), termin wpłaty w commerce (§9), okno odbioru jako
+`session` (§10), `BookingSetupMutation` (§11).
 **Data:** 2026-10-02
 **Właściciel:** zespół SaaS Core
-**Rozszerza:** ADR-030 — okres i wydarzenie (§1), horyzont 62 dni tylko dla
-terminów (§5), migawka wyceny (§7); punkt „płatność i zaliczka są poza pierwszym
-zakresem” przestaje obowiązywać (§6–§8 tutaj, pieniądze w ADR-073).
-**Zmienia:** ADR-058 §2 (oferta bez osoby — §2 tutaj) i §3 (rezerwacje
-oczekujące — §9 tutaj) wraz z odpowiadającymi im alternatywami odrzuconymi.
-**Powiązane:** ADR-073 (zamówienie i pieniądze; zastępuje ADR-037 §4 cennikiem
-z §6–§8), ADR-075 (import iCal na blokadach z §4); zarezerwowane, nienapisane:
-ADR-069–ADR-071 (tłumaczenia i języki treści), ADR-076 (rejestr poleceń asystenta).
+**Rozszerza:** ADR-030 — okres i wydarzenie (§1), blokady jednostek pod
+`EXCLUDE` (§4), horyzont 62 dni tylko dla terminów (§5), migawka wyceny (§7).
+**Zmienia:** ADR-030 w zdaniu „płatność i zaliczka są poza pierwszym zakresem
+W9” (§6–§8); ADR-058 §2 i niezmiennik prowadzącego z „Ustaleń fazy 3” (§2 tutaj)
+oraz ADR-058 §3 w zakresie zawężonym w §9, z ich alternatywami odrzuconymi.
+**Uzupełnia:** ADR-050, ADR-063 §2, ADR-073–ADR-075; zarezerwowane:
+ADR-069–ADR-071 (tłumaczenia, języki treści), ADR-076 (rejestr poleceń).
 
 ## Kontekst
 
 Pierwsze realne zapytanie — dwa domki na Mazurach — wymaga pobytu na noce,
 sezonów, zadatku i synchronizacji z portalami. Właściciel 01.10 (decyzja 1):
-rezerwacje powstają w rdzeniu i od razu obsługują każdy wariant — wizytę, okres
-i wydarzenie z miejscami; produkty dokładają swoje przez punkty rozszerzeń
-(ADR-049). Decyzja 22 (02.10): budujemy od razu, w tempie dni.
-
-Stan przed decyzją (main e381199): `Service.duration_minutes` ma 5–1440 min, bez
-ceny i podatku; wolne starty liczy się tylko z grafików osób; `Appointment.staff`
-jest wymagane, `staff_count` ma 1–10, a rezerwacja bez osoby jest odrzucana;
-wymagane zasoby usługi działają jak „pierwszy wolny według id”; `TimeOff` nie
-bierze udziału w `EXCLUDE`; stanu „czeka” nie ma (ADR-058 §3); `_check_horizon`
-ogranicza szerokość jednego zapytania do 62 dni, a okna rezerwacji naprzód nie
-ma; `serviceTemplates` (ADR-050) żyją tylko w pliku frontendu. Kształty, których
-plan nie przesądza (puste `Appointment.staff`, blokada jako alokacja,
-obserwatorzy, presety bez kwot), są decyzjami technicznymi tego ADR-u z powodem.
+rezerwacje powstają w rdzeniu i od razu obsługują wizytę, okres i wydarzenie z
+miejscami, a produkty dokładają swoje przez punkty rozszerzeń (ADR-049); 02.10
+(decyzja 22): budujemy od razu. Plan: memex
+`saas-core-rezerwacje-uniwersalne-i-sprzedaz`; stan kodu (main e381199) podaje
+każdy punkt.
 
 ## Decyzja
 
 ### 1. Jedna rezerwacja, trzy modele czasu (T1, T4)
 
 Każda rezerwacja — wizyta, pobyt, wynajem, miejsce na zajęciach — to
-`Appointment` z tymi samymi alokacjami, klientem, historią, samoobsługą,
-przypomnieniami i składem; nazwy modeli zostają, słowa daje oferta (§10).
+`Appointment` z tym samym klientem, historią, samoobsługą i przypomnieniami;
+czas trzymają aktywne alokacje rezerwacji, a w wydarzeniu — wystąpienie (§3).
 `Service.time_model` to `slot` (dzisiejszy silnik, ADR-058 §5), `range` (okres
 od–do wybrany przez klienta; `range_unit`: `night`, `day`, `hour`) albo
 `session` (miejsca w wystąpieniu z pojemnością). Istniejące oferty dostają
-`slot`; oferta z rezerwacjami nie zmienia modelu. `duration_minutes` opisuje
-`slot` i domyślne wystąpienie `session`; w `range` jest puste i CHECK długości go
-nie obejmuje.
+`slot`; oferta z rezerwacjami nie zmienia modelu. `duration_minutes` (dziś
+5–1440) opisuje `slot` i domyślne wystąpienie `session`; w `range` jest puste i
+CHECK długości go nie obejmuje, bo długość wynika z reguł.
 
 Noc to data lokalna z godziną zameldowania i wymeldowania oferty, przeliczona na
-UTC w strefie firmy (ADR-030); zajętość trwa od zameldowania do wymeldowania plus
-przerwa po, więc wyjazd 11:00 i przyjazd 16:00 tego dnia się nie kłócą. `day` ma
-tak samo godzinę odbioru i zwrotu, `hour` — start i koniec w godzinach otwarcia.
+UTC w strefie firmy (ADR-030); zajętość trwa od zameldowania do wymeldowania
+plus przerwa po, więc wyjazd 11:00 i przyjazd 16:00 tego dnia się nie kłócą.
+`day` ma godzinę odbioru i zwrotu, `hour` — start i koniec w godzinach otwarcia.
 
 ### 2. Oferta bez osoby (T5) — zmienia ADR-058 §2
 
-`staff_count` przyjmuje 0–10; zero tylko w ofercie, która rezerwuje jednostkę.
-`Appointment.staff` jest puste wtedy i tylko wtedy, gdy `staff_required = 0`
-(CHECK); przy co najmniej jednej osobie niezmiennik ADR-058 §2 i `crew.set_crew`
-działają bez zmian. Odrzucona w ADR-058 alternatywa „`Appointment.staff` jako
-pole opcjonalne” wraca w tym zakresie: jej powód — wakat opisuje znacznik — nie
-dotyczy rezerwacji bez żadnej osoby, a fikcyjny „pracownik jednostki” byłby tym
-samym błędem co fikcyjne członkostwo klienta (ADR-030). Godziny otwarcia
-jednostki to tygodniowe reguły jak grafik osoby: `AvailabilityRule` wskazuje
-osobę albo jednostkę (CHECK: dokładnie jedno), więc czas lokalny i DST liczy ten
-sam kod; `night` i `day` są całodobowe.
+`staff_count` przyjmuje 0–10 (dziś 1–10); zero w ofercie, której rezerwacja nie
+zajmuje osoby: jednostka albo miejsce w wydarzeniu (osobę i salę trzyma
+wystąpienie). Osobę przy jednostce wybiera firma w ofercie, nie klient (auto z
+kierowcą: `staff_count` ≥ 1). `Appointment.staff` jest puste wtedy i tylko
+wtedy, gdy `staff_required = 0` (CHECK); z osobami niezmiennik ADR-058 i
+`crew.set_crew` działają bez zmian. Alternatywa „`Appointment.staff` jako pole
+opcjonalne”, odrzucona w ADR-058, bo wakat opisuje znacznik, wraca w tym
+zakresie: rezerwacja bez osoby nie ma wakatu, a fikcyjny „pracownik jednostki”
+powtórzyłby błąd fikcyjnego członkostwa klienta (ADR-030). Godziny otwarcia
+jednostki to `AvailabilityRule` wskazująca osobę albo jednostkę (CHECK:
+dokładnie jedno), więc czas lokalny i DST liczy ten sam kod; `night` i `day` są
+całodobowe.
 
 ### 3. Jednostki, grupy i wydarzenia (T2, T3)
 
-- Jednostka to rozszerzony `Resource`: pojemność w osobach, opis, wyposażenie,
-  zdjęcia, `public_slug`, miejsce firmy (`Location`), miasto ze słownika katalogu
-  i współrzędne tylko na serwerze, flaga `public`, godziny otwarcia.
-- Grupa (`ResourceGroup`: „Domek 6-os.”, „Kajak 2-os.”) to pula identycznych
-  jednostek; jednostka należy najwyżej do jednej. Na N sztuk z grupy serwer
-  dobiera wolne najmniej obciążone (jak osoby, ADR-058 §4; zastępuje dzisiejszy
-  „pierwszy wolny według id”), każdą w osobnym punkcie zapisu; brak N wolnych to
-  konflikt terminu. O jednostkach rezerwacji mówią aktywne alokacje, a
-  `Appointment.resource` zostaje jako pierwsza z nich; przepięcie na inną
-  jednostkę grupy to operacja z oczekiwaną wersją (jak ADR-058 §9).
-- Liczone miejsca są tylko w wydarzeniu: wystąpienie samo zajmuje osobę i salę,
-  a miejsca liczy pod blokadą swojego wiersza — tu `select_for_update` działa,
-  bo wiersz istnieje (por. ADR-030). Kształt wystąpień ustala faza 8.
+- Jednostka to rozszerzony `Resource`: pojemność, opis, wyposażenie, zdjęcia,
+  `public_slug`, `Location`, miasto ze słownika katalogu, współrzędne tylko na
+  serwerze, flaga `public`, godziny otwarcia. Zdjęcia wskazuje niezmienna wersja
+  ich zestawu, bo referencje mediów są tylko do dopisywania; sprzątanie mediów i
+  publiczne źródła zdjęć obejmują je jak zdjęcia produktu (ADR-074).
+- Grupa (`ResourceGroup`: „Domek 6-os.”) to pula identycznych jednostek;
+  jednostka należy najwyżej do jednej, żeby dobór liczył jedną pulę. Na N sztuk
+  serwer dobiera wolne najmniej obciążone (ADR-058 §4); brak N wolnych to
+  konflikt terminu. Przepięcie na inną jednostkę grupy ma oczekiwaną wersję;
+  `Appointment.resource` to pierwsza aktywna alokacja.
+- Wymagane `ServiceResource` oferty `slot` zostają pulą „jeden z” (dziś pierwszy
+  wolny według id), od fazy 2 z doborem najmniej obciążonej, bez migracji do
+  grup; `range` wskazuje jednostkę albo grupę.
+- Liczone miejsca są tylko w wydarzeniu: wystąpienie zajmuje osobę i salę, a
+  miejsca liczy pod blokadą swojego wiersza (`select_for_update` działa, bo
+  wiersz istnieje). Kształt wystąpień ustala faza 8.
 
 ### 4. Blokady jednostek rozstrzyga `EXCLUDE`
 
-`TimeOff` dostaje `source` (`manual` albo `ical:<kanał>`, ADR-075) i
-`external_uid`. Blokada jednostki zajmuje czas w tej samej tabeli co rezerwacje:
-wiersz `AppointmentResourceAllocation` należy do rezerwacji albo do blokady
-(CHECK: dokładnie jedno), bo `EXCLUDE` nie sięga do drugiej tabeli. Ręczna
-blokada na rezerwację to 409; import nachodzący na rezerwację zapisuje blokadę
-bez aktywnej alokacji, ze znacznikiem konfliktu — alarm, nigdy odwołanie.
-Nieobecność osoby działa jak dziś (ADR-058). Blokady jednostek obsługuje API.
+`TimeOff` (dziś poza `EXCLUDE`) dostaje `source` (`manual` | `ical`), klucz obcy
+`import_channel` (kanał z ADR-075; usunięcie kanału usuwa jego blokady, strażnik
+relacji między tenantami obejmuje kolumnę) i `external_uid` (UID wydarzenia,
+przy powtórzeniu z początkiem wystąpienia), unikalny w kanale. Każda blokada
+jednostki — ręczna i z importu — trzyma czas własnym wierszem
+`AppointmentResourceAllocation`, który należy do rezerwacji albo do blokady
+(`appointment` | `time_off`, CHECK: dokładnie jedno), pod istniejącym `EXCLUDE`:
+ograniczenie nie sięga do drugiej tabeli, a sprawdzenie w Pythonie nie
+rozstrzyga wyścigu (ADR-030). Ręczna blokada na rezerwację to 409. Blokada z
+importu nachodząca na naszą rezerwację zostaje zapisana bez aktywnej alokacji i
+otwiera konflikt (`CalendarConflict`, ADR-075) — alarm, nigdy odwołanie; kolejny
+przebieg importu zakłada jej alokację, gdy nakładanie zniknie. Nieobecność osoby
+działa jak dziś (ADR-058). Import w fazie 6 obejmuje tylko jednostki (osoby
+później), eksport — jednostki i osoby.
 
 ### 5. Reguły i wyszukiwanie okresu (T6, T7) — rozszerza ADR-030
 
 `BookingRule` to wiersz z zakresem dat lokalnych (sezon) i zasięgiem — oferta,
 grupa albo jednostka; wygrywa bardziej szczegółowy, przy remisie późniejszy
-początek sezonu. Pola: minimalna i maksymalna długość, wielokrotność (7 — pełne
-tygodnie), dni początku i końca, wyprzedzenie, okno rezerwacji naprzód,
-zamknięcie, przerwa po. Bez sezonów cyklicznych: jawne daty i „skopiuj sezony na
-kolejny rok”. Oferta `slot` zachowuje dzisiejsze pola.
+początek. Pola: minimalna i maksymalna długość, wielokrotność (7 — pełne
+tygodnie), dni początku i końca, wyprzedzenie, okno naprzód, zamknięcie, przerwa
+po. Sezony to jawne daty ze „skopiuj na kolejny rok”, bo daty sobót przesuwają
+się co roku.
 
-Kalendarz okresu na 12–18 miesięcy to jedno zapytanie o aktywne alokacje i
-reguły jednostek; wynik to dni początku i końca. `BOOKING_SLOT_HORIZON_DAYS`
-(≤ 62) zostaje granicą szerokości zapytania o starty `slot`; kalendarz okresu ma
-własną (ustawienie platformy, domyślnie 18 miesięcy), a odległość od dziś
-ogranicza reguła okna. Rezerwacja sprawdza jeden pobyt walidacją, nie listą dni
-(jak ADR-058 §5). Ta sama funkcja kalendarza i wyceny posłuży wyszukiwarce
-katalogu (faza 16) w publicznym kontekście każdej firmy, bez `PRE_TENANT_DB`.
+Kalendarz okresu to jedno zapytanie o alokacje i blokady jednostek (§4) oraz ich
+reguły (T7); wynik to dni początku i końca. `BOOKING_SLOT_HORIZON_DAYS` (≤ 62)
+zostaje granicą zapytania o starty `slot`, nie oknem rezerwacji; kalendarz
+okresu ma własną (ustawienie platformy, domyślnie 18 miesięcy z T7, co mieści
+przykładowe okno planu 540 dni), a odległość od dziś ogranicza reguła okna.
+Rezerwacja sprawdza jeden pobyt walidacją, nie listą dni (ADR-058 §5). Tej samej
+funkcji kalendarza i wyceny użyje katalog (faza 16) w publicznym kontekście
+każdej firmy, bez `PRE_TENANT_DB`.
 
 ### 6. Cennik (T6, T22)
 
 - `PriceRule`: podstawa `per_booking`, `per_time_unit`, `per_person` albo
   `per_group`; zasięg i daty jak reguły; nadpisania dniem tygodnia i porą dnia;
-  osoby w cenie i dopłata za kolejną; ceny kategorii uczestników; rabat za
-  długość. Kategorie uczestników mają flagę „liczy się do pojemności”.
+  osoby w cenie i dopłata za kolejną; ceny kategorii uczestników (z flagą „liczy
+  się do pojemności”); rabat za długość.
 - `Extra`: nazwa, kwota, podstawa (także `per_person_per_time_unit`),
   obowiązkowa albo do wyboru, stawka VAT. Kaucja to osobna kwota, nie przychód.
-- Jedna waluta cennika firmy: `Organization.currency` z listy platformy (PLN,
-  EUR, USD — decyzja 16); każda kwota niesie walutę, a zmiana waluty firmy, która
-  ma cennik, jest odrzucana.
-- Firma wpisuje ceny brutto albo netto; stawka VAT to kod ze słownika (dziś 23,
-  8, 5, 0, `zw`, jak w magazynie, ADR-055 §1), nie punkty bazowe, bo zwolnienie to
-  nie 0%. ADR-040 dotyczy abonamentów platformy, nie cennika firmy.
+  Opłatę miejscową firma pobiera dla gminy, więc to pozycja bez VAT z kodem `np`
+  („nie podlega”), do potwierdzenia przez księgową.
+- Jedna waluta cennika: `Organization.currency` z listy platformy (PLN, EUR, USD
+  — decyzja 16); kwota niesie walutę, a zmianę waluty firmy z cennikiem odrzuca
+  ADR-073 §8 (`currency_in_use`). Ceny brutto albo netto według ustawienia
+  firmy; stawka VAT to kod (dziś 23, 8, 5, 0, `zw`, jak w magazynie, ADR-055
+  §1), bo zwolnienie to nie 0%; ADR-040 dotyczy tylko abonamentów platformy.
 
 ### 7. Jedna wycena `quote`, zamrożona w rezerwacji
 
@@ -127,11 +136,12 @@ katalogu (faza 16) w publicznym kontekście każdej firmy, bez `PRE_TENANT_DB`.
 uczestników i dopłat liczy pozycje (noce według sezonów, osoby, dopłaty, rabaty;
 kaucja osobno), sumy netto, VAT i brutto, walutę i polityki z §8, a przy
 naruszeniu reguł zwraca błędy z kodem i polem. Kwoty to liczby całkowite w
-jednostkach drobnych waluty; procent zaokrągla się raz na pozycję, połówki w
-górę. Widget, panel, asystent i zapis wołają tę samą funkcję; zapis liczy ją na
-nowo w transakcji i zamraża w `Appointment.quote`. Skrót pokazanej wyceny
-(`quote_digest`), który się nie zgadza, daje 409 `quote_changed` z nową wyceną.
-Pozycje migawki stają się pozycjami zamówienia (ADR-073).
+jednostkach drobnych; VAT i procent liczy się na pozycji (zaokrąglenie do
+jednostki drobnej, połówki w górę), bo pozycje przechodzą 1:1 do zamówienia
+(ADR-073) i programu do faktur (T15). Widget, panel, asystent i zapis wołają tę
+samą funkcję; zapis liczy ją na nowo w transakcji i zamraża w
+`Appointment.quote`, a niezgodny skrót pokazanej wyceny (`quote_digest`) daje
+409 `quote_changed` z nową wyceną.
 
 ### 8. Potwierdzenie, miejsce, płatność i anulowanie należą do oferty
 
@@ -139,107 +149,158 @@ Oferta niesie `confirmation` (`instant`, `on_request` z czasem odpowiedzi w
 godzinach, `quote_request` — faza 13), politykę płatności (`none`, `on_site`,
 `transfer`, `deposit`, `full`), zadatek procentem albo kwotą, termin przelewu w
 dniach, dopłatę reszty X dni przed albo na miejscu i progi anulowania „co
-najmniej N dni przed → % zwrotu”. Wszystko trafia do migawki, a zwrot liczy się z
-migawki. Pieniądze i tryby operatora opisuje ADR-073; profil bez modułu zamówień
-przyjmuje tylko `none` i `on_site`. Miejsce (`business`, `customer`, `online`,
-`pickup_return`) przy `customer` korzysta z miejsca wizyty (ADR-066). Pola własne
-formularza (tekst, liczba, wybór, data, zgoda) to dane klienta: nie trafiają do
+najmniej N dni przed → % zwrotu” z podstawą `appliesTo`: `deposit` (zadatek)
+albo `paid` (wszystkie wpłaty). Wszystko trafia do migawki, a zwrot liczy się z
+niej. Pieniądze opisuje ADR-073; gdzie zamówień nie ma (ADR-073 §1), oferta
+przyjmuje tylko `none` i `on_site`, więc `pending_payment` nie powstaje.
+
+Nocleg ma `deposit`, bo 13a mówi o „zwrocie zadatku”. O dopłacie, gdy gość
+rezygnuje na mniej niż 14 dni przed przyjazdem już po jej wpłacie, 13a milczy:
+do odpowiedzi właściciela dopłata wraca w całości, a progom podlega tylko
+zadatek. Odwołanie przez firmę zwraca co najmniej wszystkie wpłaty; czy przy
+zadatku należy się więcej (art. 394 § 1 KC), rozstrzyga lista prawna. Miejsce
+(`business`, `customer`, `online`, `pickup_return`) przy `customer` korzysta z
+miejsca wizyty (ADR-066). Pole typu `consent` zapisuje akceptację w dzienniku
+zgód (T16, ADR-073 §9); pozostałe pola własne to dane klienta: nie trafiają do
 e-maili, logów ani historii zmian, a anonimizacja je czyści.
 
-### 9. Rezerwacje oczekujące (T8) — zmienia ADR-058 §3
+### 9. Rezerwacje oczekujące (T8) — zawęża ADR-058 §3
 
 - `AppointmentStatus` dostaje `pending_request` (oferta `on_request`) i
-  `pending_payment` (wpłata przed potwierdzeniem: `transfer`, `deposit`, `full`).
-  Obie trzymają termin tymi samymi aktywnymi alokacjami co `confirmed` — bez
-  „wstępnych” blokad i bez ich wyprzedzania.
-- `Appointment.hold_expires_at`: godziny na odpowiedź firmy, dni na przelew
-  (Nocleg: 3, odpowiedź 13a) albo okno płatności online (ADR-073). Wygasza
-  zadanie przez trasę bez danych osobowych z kontraktem `service` organizacji
-  (wzorzec `ReminderRoute`, ADR-058 §7), nie zapytaniem po wszystkich tenantach.
-- Akceptacja (`POST /booking/appointments/{id}/accept/`) prowadzi do
-  `pending_payment` albo `confirmed`; odmowa (`…/reject/`), rezygnacja klienta i
-  wygaśnięcie — do `canceled` z powodem w historii; wpłata (ADR-073) potwierdza.
-- E-mail potwierdzenia, przypomnienie i rezerwacja materiałów (ADR-055 §7)
-  powstają przy przejściu do `confirmed`; oczekująca ma własne wiadomości i link
-  do rezygnacji. Przełożyć można tylko rezerwację potwierdzoną.
-- Obserwatorzy dostają `CREATED` przy potwierdzeniu, a o odmowie i wygaśnięciu
-  nic, więc produkty (HoofCare: `CREATED` → „zaplanowana”) nie widzą
-  niepotwierdzonych; nowe rodzaje zmian dojdą addytywnie, z konsumentem.
-- ADR-058 §3 obowiązuje dla ofert `instant`; odrzucona tam „wstępna blokada”
-  wraca tylko jako jawny wybór oferty i trzyma termin jak potwierdzona.
+  `pending_payment` (wpłata przed potwierdzeniem: `transfer`, `deposit`,
+  `full`); obie trzymają termin tymi samymi alokacjami co `confirmed`, bez
+  „wstępnych” blokad i ich wyprzedzania.
+- ADR-058 §3 (odpowiedź właściciela 1 z 24.09: bez stanów oczekujących i
+  wstępnych blokad) obowiązuje dalej dla ofert `instant` z polityką `none` albo
+  `on_site`. Oferta `on_request` albo z wpłatą przed potwierdzeniem — także
+  Nocleg według 13a („zadatek 30% przelewem w 3 dni, inaczej rezerwacja wygasa”)
+  — tworzy rezerwację oczekującą, która trzyma termin jak potwierdzona. Podstawą
+  zawężenia są 13a, oś „Potwierdzenie” planu i T8.
+- Termin `pending_request` (odpowiedź firmy w godzinach) wygasza booking przez
+  trasę bez danych osobowych z kontraktem `service` organizacji (wzorzec
+  `ReminderRoute`, ADR-058 §7), nie zapytaniem po tenantach. Termin
+  `pending_payment` należy do commerce: rozstrzyga `Payment.due_at`, a zadanie
+  terminów commerce (ten sam wzorzec) wygasza płatność, anuluje zamówienie, a
+  handler źródła zwalnia rezerwację w tej samej transakcji (ADR-073 §5);
+  `Appointment.hold_expires_at` to kopia `due_at` do wyświetlania.
+- Booking jest źródłem zamówień `R` (ADR-073 §1): handler potwierdza po wpłacie,
+  a rezerwacji, której nie da się już przyjąć (wygasła, termin zajęty), odmawia
+  bez wyjątku i commerce zleca zwrot. Formularz i link samoobsługi wołają
+  `commerce.api` w kontekście `public_booking_context` z zakresem
+  `commerce.public.pay`; token wiąże płatność z jednym zamówieniem, kwoty liczy
+  serwer.
+- Akceptacja prowadzi do `pending_payment` albo `confirmed`; odmowa, rezygnacja
+  i wygaśnięcie — do `canceled` z powodem w historii. E-mail potwierdzenia,
+  przypomnienie i rezerwacja materiałów (ADR-055 §7) przychodzą z `confirmed`;
+  przełożyć można tylko potwierdzoną. Obserwatorzy dostają `CREATED` przy
+  potwierdzeniu, a o odmowie, wygaśnięciu i rezygnacji z oczekującej — nic, więc
+  produkty (HoofCare: `CREATED` → „zaplanowana”) nie widzą niepotwierdzonych.
 
 ### 10. Presety jako dane (T13, T23; odpowiedzi 13a, 14 a+b)
 
-- Kontrakt `packages/contracts/booking-presets/`: schemat
-  `booking-preset.v1.schema.json` (JSON Schema 2020-12), `manifest.json` i pliki
-  `core.<klucz>.v<N>.json` dla 13 presetów katalogu planu; opublikowanej wersji
-  się nie zmienia. Pilnuje go test Ajv (strict) w `packages/contracts/tests`.
-- Preset niesie model czasu (z jednostką i godzinami), co się rezerwuje, ilość,
-  uczestników, potwierdzenie, miejsce, podstawę ceny, podpowiedzi płatności,
-  anulowania i dopłat, pola formularza, propozycję iCal, słownictwo pl i en
-  (kolejne języki opcjonalnie) oraz istniejące kategorię katalogu i szablon
-  strony. Kwot i stawek VAT nie niesie: zależą od waluty i kraju firmy.
-- `availability`: `ready` — rdzeń tej wersji przyjmuje takie rezerwacje (dziś
-  tylko „Wizyta u specjalisty”); `soon` — „wkrótce” z zapisem na listę i polem
-  „Czego Ci brakuje?” (14 a+b). `ready` przychodzi nową wersją presetu w fazie,
-  która go uruchamia; test pilnuje, by używał tylko tego, co umie silnik.
+- Kontrakt `packages/contracts/booking-presets/` (schemat JSON Schema 2020-12,
+  manifest i 13 presetów planu w plikach `core.<klucz>.v<N>.json`) pilnuje test
+  Ajv (strict); opublikowanej wersji się nie zmienia. Preset niesie wartości osi
+  oferty z planu, słownictwo pl i en, dane potrzebne od firmy (`requiredInputs`:
+  daty sezonów, minimum nocy, zdjęcia — z nich konfigurator asystenta liczy
+  brakujące pytania), kategorię katalogu i szablon strony (pomijane, gdy typ
+  organizacji ich nie ma); kwot i stawek VAT nie niesie, bo zależą od waluty i
+  kraju firmy.
+- `readiness`: `ready` — rdzeń tej wersji przyjmuje takie rezerwacje (dziś tylko
+  „Wizyta u specjalisty”; test pilnuje, by używał tylko tego, co umie silnik);
+  `soon` — „wkrótce” z zapisem na listę i „Czego Ci brakuje?” (14 a+b).
+  Słownictwa, pól, dopłat i uczestników schemat wymaga tylko od `ready`. Preset
+  `soon` niesie z planu nazwę, opis, model czasu i wartości z tabeli presetów;
+  wartości spoza tabeli to propozycje agenta, które zastąpi wersja `ready` z
+  fazy uruchamiającej preset (preset 9 w fazie 2: od razu albo na prośbę,
+  zapytanie ofertowe w fazie 13, jak w tabeli).
+- Preset 13 („Odbiór zamówienia w oknie”) to wystąpienia `session` z
+  pojemnością, choć tabela mówi „slot + sklep” — decyzja techniczna agenta:
+  zamówienia na okno to liczone miejsca, które T3 dopuszcza tylko w wydarzeniu,
+  a start `slot` idzie siatką 5 minut. Dostawa `pickup` sklepu wskazuje
+  wystąpienie, a zamówienie zajmuje jedno miejsce (ADR-074).
 - Wartości domyślne (Nocleg według 13a: od razu, zadatek 30% przelewem w 3 dni,
-  reszta 14 dni przed, zwrot 100/50/0% przy ≥ 30 / 14–29 / < 14 dniach, 16:00 i
-  11:00) są podpowiedzią: z rejestrem ustawień platformy (S-T1) staną się
-  ustawieniami klasy A z wartością z pliku jako domyślną, a API presetu nałoży
-  nadpisania operatora. Limity planów zostają w wersjach planów (T23).
-- Zastosowanie presetu to kopia, nie odwołanie (ADR-063 §2): powstaje nieaktywna
-  oferta z pochodzeniem (`preset_id`, wersja), a słownictwo staje się jej treścią.
-- Panel, strona i asystent czytają presety z API (`GET /booking/presets/`), nie
-  z frontendu, w którym `serviceTemplates` są dziś niewidoczne dla asystenta.
-  Faza, w której backend pierwszy raz je czyta, dodaje kopię w obrazie,
-  `BOOKING_PRESET_CONTRACTS_PATH`, system check i loader z
-  `Draft202012Validator`, jak przy szablonach stron.
+  reszta 14 dni przed, zwrot zadatku 100/50/0%, 16:00 i 11:00) są podpowiedzią.
+  Do rejestru ustawień platformy obowiązuje plik, a zmiana to nowa wersja
+  presetu; potem rejestr deklaruje ustawienie klasy A z wartością z pliku jako
+  domyślną, a operator ją nadpisuje (T23).
+- Zastosowanie to kopia, nie odwołanie (ADR-063 §2): powstaje nieaktywna oferta
+  z pochodzeniem (§11), a słownictwo staje się jej treścią. Panel, strona i
+  asystent czytają presety z `GET /api/v1/booking/presets/`; API i loader (kopia
+  w obrazie, `BOOKING_PRESET_CONTRACTS_PATH`, system check) powstają z pierwszym
+  czytelnikiem: fazą A2 asystenta albo fazą 5.
 - Produkt dokłada presety w profilu (`organizationTypes[]`, ten sam schemat,
-  własna przestrzeń nazw; `serviceTemplates` zostają); pole i walidację w
-  `deployment-check` dodaje faza 5 z wpisem w dokumentacji wydania (ADR-049).
+  własna przestrzeń nazw; `serviceTemplates` zostają). Pole i walidację w
+  `deployment-check` dodaje faza 5 z wpisem w dokumentacji wydania (ADR-049), a
+  reguły, które dziś sprawdza tylko test, przenosi do wspólnego modułu
+  kontraktu.
 
-### 11. Treść, rozszerzenia i asystent
+### 11. Treść, pochodzenie, rozszerzenia i asystent
 
-- Treść ofert, jednostek, grup, dopłat, kategorii i pól to źródła tłumaczeń w
-  rejestrze rdzenia (TL-T17, ADR-069), rejestrowane w fazie powstania, bez
-  własnych tabel tłumaczeń; język treści to `^[a-z]{2}$` sprawdzany w serwisie.
-- Produkt dokłada presety, tabelę szczegółów (`APPOINTMENT_MODEL`) i adaptery
-  przez porty rdzenia; rejestr składników ceny powstaje z pierwszym użytkownikiem.
-  `booking.api` zmienia się addytywnie (nowe argumenty `create_appointment` mają
-  wartości domyślne), więc HoofCare działa bez zmian.
-- Każda nowa operacja (oferta, jednostka, grupa, blokada, reguła, cena,
-  zastosowanie presetu, akceptacja, przepięcie) to serwis za widokiem: opisane
-  serializery z enumami i zakresami; Problem Details z kodem i polem
-  (`rule_min_length`, `unit_capacity_exceeded`, `quote_changed`,
-  `booking_version_conflict`…); podgląd `dry_run` dla konfiguracji; klucz
-  idempotencji i oczekiwana wersja (nieaktualna to 409 — dzisiejszy setup ich nie
-  ma); audyt w `OrganizationAuditAction` (z brakującym dziś
-  `booking.appointment.place_changed`; rodzaj aktora i „w imieniu” z A1a,
-  ADR-076); presety i wartości domyślne z API; listy stronicowane i filtrowane.
-  Zmiana cennika i polityk płatności wymaga od asystenta zgody z digestem
-  (ADR-033).
+- Treść ofert, jednostek, grup, dopłat, kategorii uczestników i pól ma wiersze
+  tłumaczeń na język we wspólnej bazie tłumaczeń booking (TL12 planu
+  wielojęzyczności; jak `PublicProfileTranslation`: język, wersja, flagi
+  zastępstw) i jest źródłem w rejestrze tłumaczeń rdzenia (ADR-069) od fazy
+  powstania encji, jak produkty sklepu (`ProductTranslation`, ADR-074). Kod
+  języka sprawdza serwis (`^[a-z]{2}$`), dopóki nie ma rejestru języków (TL1).
+- Encja konfiguracji (oferta, jednostka, grupa, reguła, reguła ceny, dopłata)
+  niesie pochodzenie: `preset_id` i wersję, gdy powstała z presetu, oraz
+  identyfikator przebiegu asystenta, gdy założył ją asystent — wtedy jest
+  nieaktywna do uruchomienia (plan asystenta, AI-T6).
+- Rezerwacja zapisuje kanał (`company_site`, `catalog`) i podpisany token
+  pochodzenia niezależnie od commerce; zamówienie je kopiuje, a sklep zapisuje
+  je na swoim zamówieniu; token jest w adresie albo stanie widgetu, nigdy w
+  ciasteczku. Przełącznik „Pokazuj wolne terminy w katalogu” (domyślnie
+  wyłączony) to operacja API, a odznakę „rezerwacja online” booking zgłasza
+  katalogowi rejestrem profiles (jak `register_catalog_terms`).
+- `booking.api` zmienia się addytywnie: nowe argumenty `create_appointment` mają
+  wartości domyślne (także dołączenie do istniejącego zamówienia — okno odbioru
+  sklepu nie dostaje osobnego zamówienia `R`, a potwierdzenie idzie w e-mailu
+  zamówienia); `list_appointments` i `appointment_for_tenant` pomijają
+  `pending_*`, jeśli produkt nie poda `include_pending=True`. Puste
+  `Appointment.staff` zmienia kształt danych produktów: wpis w dokumentacji
+  wydania (ADR-049) i poprawka HoofCare (rodzaj wizyty przed
+  `appointment.staff`) przychodzą z fazą 2.
+- Nowe operacje są obsługiwalne przez asystenta (AGENTS.md): błędy z kodem i
+  polem (`rule_min_length`, `unit_capacity_exceeded`, `quote_changed`,
+  `booking_version_conflict`…), `dry_run` konfiguracji, audyt z brakującym dziś
+  `booking.appointment.place_changed` („w imieniu” — ADR-076); cennik i polityki
+  płatności asystent zmienia za zgodą z digestem (ADR-033).
+- Klucz idempotencji konfiguracji zapisuje `BookingSetupMutation` (organizacja,
+  akcja, principal, klucz, skrót żądania, rodzaj i id wyniku; unikalny na
+  organizacji, akcji, principalu i kluczu jak `booking_mutation_idem_uq`; tabela
+  tenantowa z RLS), bo `BookingMutation` wskazuje wizytę; służy też kanałom
+  kalendarzy (ADR-075). Zapis niesie `expected_version`; nieaktualna to 409
+  `booking_version_conflict`.
 
 ## Konsekwencje
 
-- Fazy planu: 2 — §1–§5; 3 — §6–§7; 4 — §8–§9 z ADR-073; 5 — presety przy
-  zakładaniu i ich API; 8 — wydarzenia; 13 — pozostałe presety. Faza wydaje nowe
-  wersje presetów, które uruchamia.
-- Migracje `booking` są odwracalne; nowe tabele (`ResourceGroup`, `BookingRule`,
-  `PriceRule`, `Extra`, kategorie uczestników) mają wymuszone RLS, a każda nowa
-  kolumna FK trafia do `booking_validate_tenant_relations()` migracją, której
-  odwrócenie przywraca poprzednie ciało funkcji. Trasa wygaszania jest bez danych
-  osobowych i w `register_erasure_rows`.
-- Limit 12a to kwota `booking.units.max` (Profil 3, Starter 15, Pro 100) w nowych
-  wersjach planów; subskrypcje na starszych wersjach są bez limitu do zmiany planu.
-- Kod rozgałęziony na `confirmed` (przypomnienia, kolejka, skład, powiadomienia,
-  miary) obsługuje oczekujące według §9. Przełożenie pobytu przyjmuje początek i
-  koniec, liczy zajętość z migawki i dobiera jednostkę z grupy na nowo; link
-  samoobsługi (dziś 30 dni od utworzenia) liczy ważność od końca rezerwacji.
-- Otwarte: pobyt przecinający granicę sezonów (z pilotem); `day` jako doba czy
-  dzień kalendarzowy i siatka startów `hour`; okno naprzód dla `slot`; czy limit
-  liczy zasoby używane tylko obok osoby; stawki VAT firm spoza Polski; „Termin na
-  wyłączność” dla samych osób; numer rejestracyjny obiektu (UE 2024/1028).
+- Fazy planu: 2 — §1–§5; 3 — §6–§8 (także dla terminów); 4 — §9 z ADR-073; 5 —
+  presety przy zakładaniu; 6 — iCal (ADR-075); 8 — wydarzenia; 13 — pozostałe
+  presety. Faza wydaje wersje presetów, które uruchamia.
+- Migracje `booking` są odwracalne; nowe tabele mają wymuszone RLS, nowe kolumny
+  FK trafiają do `booking_validate_tenant_relations()` migracją, której
+  odwrócenie przywraca poprzednie ciało funkcji, a booking dostaje
+  `shared.media` w `dependsOn`. Istniejące blokady zasobów dostają alokacje; ta,
+  która już nachodzi na rezerwację (dziś nikt tego nie sprawdza) — nieaktywną, z
+  raportem migracji.
+- Limit 12a to kwota `booking.units.max` (Profil 3, Starter 15, Pro 100) w
+  nowych wersjach planów — tymczasowe odstępstwo od słów 12a („konfigurowalne w
+  panelu”), zgłoszone właścicielowi 01.10 (T23).
+- Kod rozgałęziony na `confirmed` (przypomnienia, kolejka, skład, miary)
+  obsługuje oczekujące według §9; przełożenie pobytu dobiera jednostkę z grupy
+  na nowo; link samoobsługi (dziś 30 dni od utworzenia) liczy ważność od końca
+  rezerwacji, żeby dożył terminu dopłaty.
+- Pytania do właściciela, z wartością tymczasową: zwrot dopłaty przy późnej
+  rezygnacji gościa (w całości, §8); dopłata niewpłacona w terminie
+  (przypomnienia i decyzja firmy, nic nie anuluje się samo); reguły pobytu
+  przecinającego granicę sezonów (z pilotem; do tego czasu sezon dnia
+  przyjazdu); stawki VAT spoza Polski (słownik polski).
+- Otwarte technicznie: `day` jako doba czy dzień kalendarzowy i siatka startów
+  `hour`; okno naprzód dla `slot`; czy limit liczy zasoby używane obok osoby;
+  „Termin na wyłączność” dla samych osób. Lista prawna: zadatek a zaliczka i
+  zwrot dopłaty (art. 394 KC), odwołanie przez firmę przy zadatku (art. 394 § 1
+  KC), opłata miejscowa bez VAT, numer obiektu (UE 2024/1028).
 
 ## Odrzucone
 
@@ -248,13 +309,12 @@ e-maili, logów ani historii zmian, a anonimizacja je czyści.
 - Nowy model jednostki obok `Resource` — dublowałby blokadę z `EXCLUDE` (T2).
 - Pula jako licznik „N sztuk” — `EXCLUDE` nie wyrazi „suma ≤ N” (T3).
 - Blokada jednostki tylko w `TimeOff` albo w osobnej tabeli — blokada i
-  rezerwacja gościa mogłyby obie wygrać.
-- Podniesienie `BOOKING_SLOT_HORIZON_DAYS` dla okresów — to granica szerokości
-  zapytania o starty, nie okno rezerwacji.
+  rezerwacja gościa mogłyby obie wygrać; import i tak nie odrzuca wydarzenia
+  portalu, tylko otwiera konflikt.
 - Cena jako pola `Service` (`price_minor`, `tax_rate_bp`, ADR-037 §4) — nie
   wyrazi sezonów, osób, dopłat ani zwolnienia z VAT.
-- Sezony cykliczne w pierwszej wersji — daty sobót przesuwają się co roku.
+- Wygaszanie `pending_payment` także w booking — dwa zadania na jednym terminie
+  ścigałyby się, a zamówienie zostałoby otwarte przy odwołanej rezerwacji.
 - Presety w kodzie albo jako `serviceTemplates` — 5–1440 min nie opisze okresu,
-  a dane tylko we froncie są niewidoczne dla asystenta.
+  a szablonów usług żadne API nie zwraca, więc asystent ich nie widzi.
 - Preset jako odwołanie — jego zmiana przepisałaby oferty firm.
-- Statusy „wygasła” i „odrzucona” — wystarczy `canceled` z powodem w historii.

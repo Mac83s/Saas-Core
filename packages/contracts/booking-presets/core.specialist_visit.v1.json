@@ -1,7 +1,7 @@
 {
   "id": "core.specialist_visit",
   "version": 1,
-  "availability": "ready",
+  "readiness": "ready",
   "labels": {
     "pl": {
       "name": "Wizyta u specjalisty",

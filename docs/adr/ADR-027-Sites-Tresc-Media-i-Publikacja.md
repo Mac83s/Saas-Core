@@ -39,10 +39,10 @@ publikację, nawet gdy draft jest już nowszy.
   publiczny renderer odczytuje wyłącznie bieżącą publikację.
 
 > Częściowo zmienione przez
-> [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) (2026-10-02):
-> cenę, dostępność i warianty produktów oraz zdjęcia aktywnych produktów
-> renderer czyta na żywo ze sklepu; treść strony nadal wyłącznie z bieżącej
-> publikacji.
+> [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 7 (2026-10-02):
+> cenę, dostępność i warianty produktów, zdjęcia bieżących wersji aktywnych
+> produktów oraz koszyk i zamówienie renderer czyta na żywo z publicznego API
+> sklepu; treść stron firmy nadal wyłącznie z bieżącej publikacji.
 
 ### Kontrakt kontrolowanych bloków
 
@@ -86,18 +86,23 @@ publikację, nawet gdy draft jest już nowszy.
   rozmiar, deklarowany MIME, magic bytes, dekodowanie obrazu i wynik skanera;
   usuwa EXIF przed utworzeniem wariantów. HTML, JavaScript i SVG są odrzucane w
   pierwszej wersji.
+  > Częściowo zmienione przez
+  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 5
+  > (2026-10-02): plik produktu cyfrowego to prywatny zasób spoza obrazów — bez
+  > dekodowania obrazu, EXIF i wariantów, nigdy publiczny. Listę typów, skaner i
+  > limit rozmiaru ustala faza 9 przed kodem, uzupełniając ADR-074.
 - Zapis assetu i naliczenie `storage.bytes` są idempotentne. Usuwanie jest
   dwuetapowe: najpierw tombstone i blokada nowych użyć, potem asynchroniczne
   usunięcie obiektu, gdy żadna publikacja go nie referencjonuje.
+  > Częściowo zmienione przez
+  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 2
+  > (2026-10-02): obiekt czeka też na bieżącą wersję niezarchiwizowanego
+  > produktu sklepu (`shop.product_version`).
 - Staging i production używają zewnętrznego S3 zgodnie z ADR-025. Lokalny Docker
   Desktop używa wyłącznie testowego SeaweedFS `4.41` w trybie `weed mini`, z
   przypiętym obrazem, prywatną siecią, losowymi sekretami plikowymi i
   preutworzonym bucketem. Emulator nie jest profilem stagingowym ani
   produkcyjnym.
-
-> Usuwanie częściowo zmienione przez
-> [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) (2026-10-02):
-> obiekt czeka też na referencje produktów sklepu (`shop.product`).
 
 ### Autoryzacja i UI
 

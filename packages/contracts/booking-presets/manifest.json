@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "schema": "booking-preset.v1.schema.json",
-  "comment": "ADR-072 §10. Katalog presetów rezerwacji z planu właściciela, w kolejności, w jakiej firma widzi je przy zakładaniu (odpowiedź 14 a+b: gotowe i „wkrótce”). Opublikowanej wersji się nie zmienia: zmiana treści albo gotowości to nowa wersja.",
+  "comment": "ADR-072 §10. Katalog presetów rezerwacji z planu właściciela, w kolejności, w jakiej firma widzi je przy zakładaniu (odpowiedź 14 a+b: gotowe i „wkrótce”). Opublikowanej wersji się nie zmienia: zmiana treści albo gotowości (readiness) to nowa wersja.",
   "presets": [
     {
       "id": "core.specialist_visit",

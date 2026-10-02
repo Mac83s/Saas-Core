@@ -76,6 +76,13 @@ od dostępności zewnętrznego panelu DNS.
 - Next.js rozpoznaje host panelu/platformy, a pozostałe hosty kieruje do
   oddzielnego publicznego route tree. Renderer używa wyłącznie kontrolowanego
   registry `@saas-core/site-blocks`;
+  > Częściowo zastąpione przez
+  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 7
+  > (2026-10-02): poza blokami z registry renderer pokazuje strony systemowe
+  > sklepu (produkt, koszyk, zakup, zamówienie), składane w warstwie aplikacji
+  > (`app/site-renderer/…`), i woła publiczne API sklepu
+  > (`/api/v1/public/shop/`), które wyznacza firmę z tego samego `Host`;
+  > `shared.sites` nie importuje sklepu.
 - alias domeny otrzymuje stałe przekierowanie na canonical host z zachowaniem
   ścieżki i query. Canonical, `hreflang` i `x-default` są budowane z canonical
   hosta oraz ścieżek zapisanych w publikacji;
@@ -97,6 +104,11 @@ od dostępności zewnętrznego panelu DNS.
   resolvera nie powoduje natychmiastowego outage istniejącej domeny;
 - publiczny renderer nie potrzebuje tenantowej sesji, ale jego jedynym źródłem
   danych pozostaje zatwierdzony snapshot;
+  > Częściowo zastąpione przez
+  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 7
+  > (2026-10-02): treść stron firmy nadal pochodzi wyłącznie ze snapshotu, ale
+  > cenę, dostępność, warianty i zdjęcia produktów oraz koszyk i zamówienie
+  > renderer czyta na żywo z publicznego API sklepu.
 - staging nadal wymaga prawdziwej domeny, rekordów DNS i publicznego ACME, aby
   potwierdzić issuance; testy lokalne dowodzą polityki, nie zewnętrznego faktu;
 - bez CDN/WAF origin jest widoczny i sam absorbuje ruch; ryzyko jest akceptowane

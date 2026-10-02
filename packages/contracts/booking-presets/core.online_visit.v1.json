@@ -1,7 +1,7 @@
 {
   "id": "core.online_visit",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Wizyta online",
@@ -18,7 +18,6 @@
   "participants": { "mode": "none" },
   "confirmation": "instant",
   "place": "online",
-  "price": { "basis": "per_booking" },
   "fields": [],
   "extras": [],
   "calendarSync": false,

@@ -1,7 +1,7 @@
 {
   "id": "core.pickup_window",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Odbiór zamówienia w oknie",

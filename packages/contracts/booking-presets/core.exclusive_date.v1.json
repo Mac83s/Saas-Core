@@ -1,7 +1,7 @@
 {
   "id": "core.exclusive_date",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Termin na wyłączność",
@@ -45,6 +45,5 @@
       "timeUnit": "day",
       "timeUnits": "days"
     }
-  },
-  "catalogCategory": "wydarzenia"
+  }
 }

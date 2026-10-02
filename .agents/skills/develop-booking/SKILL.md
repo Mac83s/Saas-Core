@@ -6,8 +6,11 @@ description: Working on scheduling in SaaS Core — services, staff, resources, 
 # Booking: time, conflicts and the end customer
 
 Read `docs/adr/ADR-030-Booking-Czas-Blokady-i-Self-Service.md` before changing
-anything here. Two thirds of the decisions in this module exist because time and
-concurrency are both harder than they look.
+anything here, and
+`docs/adr/ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md`
+before touching time models, units, rules, prices, pending bookings or presets.
+Two thirds of the decisions in this module exist because time and concurrency
+are both harder than they look.
 
 ## Time
 
@@ -21,9 +24,11 @@ concurrency are both harder than they look.
   produces **two** instants with different offsets. Results are sorted by UTC and
   deduplicated — a slot list that shows the same wall-clock hour twice in
   October is correct.
-- **A slot is the service duration plus its buffers**, not the duration. The
-  public horizon is at most 62 days, because an open horizon is a scraping
-  surface and a slow query at once. Search is days first (one free start per
+- **A `slot` start is the service duration plus its buffers**, not the
+  duration. One `slot` query spans at most `BOOKING_SLOT_HORIZON_DAYS` (≤ 62)
+  days, because an open window is a scraping surface and a slow query at once;
+  a `range` calendar counts days with its own bound and the offer's booking
+  window (ADR-072 §5). Search is days first (one free start per
   day), then the times of one day; a booking checks its one start with
   `validate_start` (ADR-058 §5). Never cap results in the middle of a day, and
   never validate a start by looking it up in a capped list — that is how a free
@@ -41,7 +46,9 @@ concurrency are both harder than they look.
   active allocation or the visit is a vacancy — bumps `crew_version` and tells
   the people. A product uses `booking.api` (`join_visit_crew`,
   `leave_visit_crew`, `crew_people`, `crew_member_filter`); writing an
-  allocation directly leaves a lead nobody blocked and a queue that lies.
+  allocation directly leaves a lead nobody blocked and a queue that lies. A
+  booking that takes no person (`staff_required = 0`: a unit, a seat in an
+  event — ADR-072 §2) has no lead and an empty `Appointment.staff`.
 - **Where a visit takes place (ADR-066).** The company's `Location` is where it
   is booked; a field visit happens elsewhere. The visit's own `place_town` and
   `place_address` say it first (set in the form or `PUT …/place/`); where they
@@ -113,8 +120,10 @@ not in PostgreSQL.
   as a `service` contract (`booking_reminder`) and re-armed by `_arm_reminder`
   on every move (ADR-058 §7). Signed with the caller's membership it dies when
   that person leaves — and an unopenable route used to head the queue forever.
-- **Payments are out of scope** until ADR-037 comes back with P5. Do not add a
-  deposit field "for later".
+- **Prices, payment and cancellation policies and pending states follow
+  ADR-072 §6–§9; money lives in the order (ADR-073).** Never add a price or
+  deposit field to `Service` or `Appointment` beyond the frozen quote and
+  policy snapshot.
 - **A person is a `StaffMember`, with an account or without one** (ADR-058 §1,
   `booking/staff.py`). The account joins the entry in one place:
   `staff.link_on_join`, registered through `organizations.joining` because

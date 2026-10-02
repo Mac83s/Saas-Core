@@ -1,7 +1,7 @@
 {
   "id": "core.course",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Kurs lub cykl",
@@ -36,6 +36,5 @@
       "participant": "Student",
       "participants": "Students"
     }
-  },
-  "catalogCategory": "edukacja"
+  }
 }

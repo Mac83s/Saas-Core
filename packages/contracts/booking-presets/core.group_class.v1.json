@@ -1,7 +1,7 @@
 {
   "id": "core.group_class",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Zajęcia grupowe",
@@ -36,6 +36,5 @@
       "participant": "Participant",
       "participants": "Participants"
     }
-  },
-  "catalogCategory": "sport-i-rekreacja"
+  }
 }

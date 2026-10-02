@@ -28,6 +28,9 @@ context i RLS.
 - zajętość pracownika i zasobu materializujemy w osobnych alokacjach.
   PostgreSQL `EXCLUDE USING gist` na `(organization, staff/resource, tstzrange)`
   dla aktywnych alokacji jest ostateczną blokadą wyścigu;
+  > Rozszerzone przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+  > §4 (2026-10-02): blokada jednostki (`TimeOff`), ręczna i z importu
+  > kalendarza (ADR-075), też trzyma czas własną alokacją pod tym `EXCLUDE`.
 - create, reschedule i cancel mają klucz idempotencji i hash żądania.
   Reschedule atomowo dezaktywuje stare i tworzy nowe alokacje;
 - `Customer` jest tenantową encją niezależną od `User`. Anonimizacja czyści dane
@@ -42,8 +45,9 @@ context i RLS.
   ogólne: organizacja, termin i bezpieczny link, bez danych medycznych;
 - płatność i zaliczka są poza pierwszym zakresem W9.
   > Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
-  > §6–§8 i ADR-073 (2026-10-02): cena, polityki płatności i anulowania należą do
-  > oferty, a pieniądze — do zamówienia.
+  > §6–§8 i [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+  > (2026-10-02): cena, polityki płatności i anulowania należą do oferty, a
+  > pieniądze — do zamówienia.
 
 ## Konsekwencje
 

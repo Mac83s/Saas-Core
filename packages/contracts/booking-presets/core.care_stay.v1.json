@@ -1,7 +1,7 @@
 {
   "id": "core.care_stay",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Pobyt z opieką",

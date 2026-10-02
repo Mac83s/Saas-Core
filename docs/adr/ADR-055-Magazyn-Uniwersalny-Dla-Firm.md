@@ -22,6 +22,13 @@ każdym z nich. Moduł jest domyślnie włączony we wszystkich produktach.
    sprzedaży netto i stawka VAT (23, 8, 5, 0, zw). Warianty (rozmiar, kolor) to
    osobne pozycje; sklep zgrupuje je w swojej karcie. Tłumaczenia nazwy, opis i
    zdjęcia dojdą razem ze sklepem.
+   > Doprecyzowane przez
+   > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 2
+   > (2026-10-02): cena sprzedaży netto i stawka VAT pozycji są ceną przy
+   > wizycie; w sklepie cenę niesie wariant, a stawkę produkt, a serwis zapisu
+   > wariantu podpowiada je z pozycji jako wartości domyślne. Wariant fizyczny
+   > wskazuje jedną pozycję, a pozycja należy do najwyżej jednego aktywnego
+   > wariantu; tłumaczenia, opis i zdjęcia ma produkt sklepu, nie pozycja.
 2. **Kategorie należą do firmy** (`InventoryCategory`), a ich zestaw startowy
    deklaruje produkt per typ organizacji: `organizationTypes[].inventory.categories`
    w profilu. Typ bez deklaracji dostaje zestaw rdzenia (Produkt, Materiał,

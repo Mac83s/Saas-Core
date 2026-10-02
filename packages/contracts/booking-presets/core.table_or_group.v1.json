@@ -1,7 +1,7 @@
 {
   "id": "core.table_or_group",
   "version": 1,
-  "availability": "soon",
+  "readiness": "soon",
   "labels": {
     "pl": {
       "name": "Stolik lub grupa",

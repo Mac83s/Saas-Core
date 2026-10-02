@@ -2,24 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.saas-core.local/booking-presets/booking-preset.v1.schema.json",
   "title": "SaaS Core booking preset v1",
-  "description": "Preset rezerwacji (ADR-072 §10): gotowa konfiguracja oferty jako dane. Zastosowanie kopiuje wartości do nowej, nieaktywnej oferty firmy. Preset nie niesie kwot ani stawek podatku: zależą od waluty i kraju firmy.",
+  "description": "Preset rezerwacji (ADR-072 §10): gotowa konfiguracja oferty jako dane. Zastosowanie kopiuje wartości do nowej, nieaktywnej oferty firmy z pochodzeniem (preset i wersja). Preset nie niesie kwot ani stawek podatku: zależą od waluty i kraju firmy.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "id",
     "version",
-    "availability",
+    "readiness",
     "labels",
     "timeModel",
     "booked",
     "quantity",
-    "participants",
     "confirmation",
     "place",
-    "fields",
-    "extras",
-    "calendarSync",
-    "vocabulary"
+    "calendarSync"
   ],
   "properties": {
     "id": {
@@ -29,8 +25,8 @@
       "maxLength": 80
     },
     "version": { "type": "integer", "minimum": 1 },
-    "availability": {
-      "description": "ready: rdzeń tej wersji przyjmuje rezerwacje tego presetu. soon: firma widzi preset z etykietą „wkrótce” i może zapisać się na listę zainteresowanych (odpowiedź 14 a+b). Zmiana na ready to nowa wersja presetu, wydana z kodem, który go obsługuje.",
+    "readiness": {
+      "description": "ready: rdzeń tej wersji przyjmuje rezerwacje tego presetu; dopiero taki preset musi nieść słownictwo, pola, dopłaty i uczestników. soon: firma widzi preset z etykietą „wkrótce” i może zapisać się na listę zainteresowanych (odpowiedź 14 a+b); niesie z planu nazwę, opis, model czasu i wartości z tabeli presetów, a reszta to propozycje agenta (ADR-072 §10). Zmiana na ready to nowa wersja presetu, wydana z kodem, który go obsługuje.",
       "enum": ["ready", "soon"]
     },
     "labels": { "$ref": "#/$defs/presetLabels" },
@@ -58,7 +54,7 @@
     "payment": { "$ref": "#/$defs/payment" },
     "cancellation": { "$ref": "#/$defs/cancellation" },
     "fields": {
-      "description": "Pola formularza ponad dane standardowe. Wartości to dane klienta: nie trafiają do e-maili, logów ani historii zmian.",
+      "description": "Pola formularza ponad dane standardowe. Wartości to dane klienta: nie trafiają do e-maili, logów ani historii zmian; pole consent zapisuje akceptację w dzienniku zgód, nie jako wartość (ADR-072 §8).",
       "type": "array",
       "maxItems": 20,
       "items": { "$ref": "#/$defs/field" }
@@ -74,19 +70,39 @@
       "type": "boolean"
     },
     "vocabulary": { "$ref": "#/$defs/vocabulary" },
+    "requiredInputs": {
+      "description": "Dane, których preset potrzebuje od firmy przed uruchomieniem oferty (np. season_dates, min_length, photos): konfigurator asystenta liczy z nich brakujące pytania (plan asystenta, A2). Klucze, nie teksty.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/key" }
+    },
     "catalogCategory": {
-      "description": "Podpowiedź kategorii katalogu publicznego; musi istnieć w słowniku katalogu (ADR-053 §7).",
+      "description": "Podpowiedź kategorii katalogu publicznego; musi istnieć w słowniku katalogu (ADR-053 §7). Zastosowanie pomija ją, gdy typ organizacji firmy jej nie ma (ADR-072 §10).",
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
       "maxLength": 64
     },
     "pageTemplate": {
-      "description": "Podpowiedź szablonu strony; musi istnieć w manifeście szablonów i nie być wycofany.",
+      "description": "Podpowiedź szablonu strony; musi istnieć w manifeście szablonów i nie być wycofany. Zastosowanie pomija ją, gdy typ organizacji firmy nie ma szablonu.",
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
     }
   },
   "allOf": [
+    {
+      "if": { "properties": { "readiness": { "const": "ready" } } },
+      "then": {
+        "required": ["participants", "fields", "extras", "vocabulary"],
+        "properties": {
+          "participants": {},
+          "fields": {},
+          "extras": {},
+          "vocabulary": {}
+        }
+      }
+    },
     {
       "if": { "properties": { "timeModel": { "const": "range" } } },
       "then": { "required": ["range"], "properties": { "range": {} } },
@@ -248,7 +264,7 @@
       }
     },
     "booked": {
-      "description": "subject: kto lub co trzyma czas (osoba, jednostka, jednostka z grupy z doborem, miejsce w wystąpieniu); staff: czy do rezerwacji dochodzi osoba.",
+      "description": "subject: kto lub co trzyma czas (osoba, jednostka, jednostka z grupy z doborem, miejsce w wystąpieniu). staff: required — osoba zawsze; optional — firma decyduje przy ofercie (staff_count 0 albo co najmniej 1), klient osoby nie wybiera; none — bez osoby (ADR-072 §2).",
       "type": "object",
       "additionalProperties": false,
       "required": ["subject", "staff"],
@@ -378,11 +394,12 @@
       ]
     },
     "cancellation": {
-      "description": "Progi zwrotu „co najmniej N dni przed początkiem → % wpłaconej kwoty”, od najdłuższego wyprzedzenia; zapisywane w migawce rezerwacji.",
+      "description": "Progi zwrotu „co najmniej N dni przed początkiem → % zwrotu”, od najdłuższego wyprzedzenia, zapisywane w migawce rezerwacji (ADR-072 §8). appliesTo: deposit — progi dotyczą zadatku, a pozostałe wpłaty (dopłata) wracają w całości do odpowiedzi właściciela; paid — progi dotyczą wszystkich wpłat.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["refunds"],
+      "required": ["appliesTo", "refunds"],
       "properties": {
+        "appliesTo": { "enum": ["deposit", "paid"] },
         "refunds": {
           "type": "array",
           "minItems": 1,
