@@ -5,7 +5,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.postgres.constraints import ExclusionConstraint
-from django.contrib.postgres.fields import DateTimeRangeField, RangeOperators
+from django.contrib.postgres.fields import ArrayField, DateTimeRangeField, RangeOperators
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Lower
@@ -402,6 +402,114 @@ class TimeOff(TenantScopedModel):
             models.CheckConstraint(
                 condition=models.Q(staff__isnull=False) | models.Q(resource__isnull=False),
                 name="booking_timeoff_target_ck",
+            ),
+        ]
+
+
+class BookingRule(TenantScopedModel):
+    """A season's booking rules for an offer, a group of units or one unit
+    (ADR-072 §5): a dated layer over the offer.
+
+    For a day the most specific active rule that covers it applies — a unit's
+    over its group's over the offer's; between two of one kind, the later
+    start. Seasons are explicit dates with „copy to next year”, because the
+    Saturdays move every year. Lengths count the offer's time units (nights,
+    days, hours).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    #: For the company: „Sezon wysoki”, „Majówka”.
+    name = models.CharField(max_length=160, blank=True)
+    service = models.ForeignKey(
+        Service, null=True, blank=True, on_delete=models.PROTECT, related_name="booking_rules"
+    )
+    group = models.ForeignKey(
+        ResourceGroup, null=True, blank=True, on_delete=models.PROTECT, related_name="booking_rules"
+    )
+    resource = models.ForeignKey(
+        Resource, null=True, blank=True, on_delete=models.PROTECT, related_name="booking_rules"
+    )
+    #: Local dates, both included.
+    starts_on = models.DateField()
+    ends_on = models.DateField()
+    min_length = models.PositiveSmallIntegerField(null=True, blank=True)
+    max_length = models.PositiveSmallIntegerField(null=True, blank=True)
+    #: 7 — whole weeks only.
+    length_multiple = models.PositiveSmallIntegerField(null=True, blank=True)
+    #: Weekdays a stay may begin and end on, 0 = Monday; empty — any.
+    start_weekdays = ArrayField(models.PositiveSmallIntegerField(), default=list, blank=True)
+    end_weekdays = ArrayField(models.PositiveSmallIntegerField(), default=list, blank=True)
+    #: At least this long before its start a booking can still be made.
+    notice_hours = models.PositiveIntegerField(null=True, blank=True)
+    #: At most this far ahead a booking can be made.
+    window_days = models.PositiveIntegerField(null=True, blank=True)
+    #: No bookings in this season at all.
+    closed = models.BooleanField(default=False)
+    #: The break after a booking (cleaning); empty — the offer's own.
+    buffer_after_minutes = models.PositiveIntegerField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "starts_on", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(service__isnull=False, group__isnull=True, resource__isnull=True)
+                    | models.Q(service__isnull=True, group__isnull=False, resource__isnull=True)
+                    | models.Q(service__isnull=True, group__isnull=True, resource__isnull=False)
+                ),
+                name="booking_rule_one_scope_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(ends_on__gte=models.F("starts_on")),
+                name="booking_rule_dates_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(min_length__isnull=True)
+                | models.Q(max_length__isnull=True)
+                | models.Q(max_length__gte=models.F("min_length")),
+                name="booking_rule_length_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(start_weekdays__contained_by=list(range(7)))
+                & models.Q(end_weekdays__contained_by=list(range(7))),
+                name="booking_rule_weekdays_ck",
+            ),
+        ]
+
+
+class BookingClosure(TenantScopedModel):
+    """The company, or one of its places, takes no bookings on these days —
+    Christmas Eve, a renovation (B11, ADR-078 pkt 17).
+
+    A closure always restricts: no rule of an offer, a group or a unit opens
+    it again, and it closes the calendar of people as well as of units.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    #: Empty — the whole company.
+    location = models.ForeignKey(
+        Location, null=True, blank=True, on_delete=models.PROTECT, related_name="closures"
+    )
+    #: Local dates, both included.
+    starts_on = models.DateField()
+    ends_on = models.DateField()
+    note = models.CharField(max_length=160, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "starts_on", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(ends_on__gte=models.F("starts_on")),
+                name="booking_closure_dates_ck",
             ),
         ]
 

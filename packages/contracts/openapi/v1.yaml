@@ -2026,6 +2026,439 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/setup/closures/:
+    get:
+      operationId: booking_closures_list
+      description: Every closure, by first day.
+      summary: List the days the company or a place is closed
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingClosureList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: booking_closure_create
+      description: No booking starts on these local days — not from the website, not
+        from the panel — whatever the hours or the seasons say. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Close the company or a place on some days
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingClosureInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingClosureInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingClosureInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingClosure'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/closures/{closure_id}/:
+    patch:
+      operationId: booking_closure_update
+      description: Changes a closure's days, place or note. Only the fields sent change.
+        `expected_version` is the version the change was made on; another one is 409
+        `booking_version_conflict`. A repeated Idempotency-Key answers the first result
+        again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a closure
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: closure_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingClosureUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingClosureUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingClosureUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingClosure'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: booking_closure_delete
+      description: Removes the closure; its days take bookings again. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Open the days of a closure again
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: closure_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: expected_version
+        schema:
+          type: integer
+        description: The version the deletion was decided on; another one is 409 `booking_version_conflict`.
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/closures/{closure_id}/preview/:
+    post:
+      operationId: booking_closure_update_preview
+      description: 'Validates a change as `booking_closure_update` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a closure without saving it
+      parameters:
+      - in: path
+        name: closure_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingClosureUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingClosureUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingClosureUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingClosurePreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/closures/copy-year/:
+    post:
+      operationId: booking_closures_copy_year
+      description: Every closure starting in `year` again a year later (Christmas
+        recurs). A repeated Idempotency-Key answers the first result again; the key
+        reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Copy a year's closures to the next year
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyYearResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/closures/copy-year/preview/:
+    post:
+      operationId: booking_closures_copy_year_preview
+      description: 'Answers as `booking_closures_copy_year` would. Nothing is saved:
+        the answer is the item as the write would leave it, with `changes`, or the
+        same 400, 404 and 409 the write would answer.'
+      summary: Count the closures a copy to the next year would make
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyYearResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/closures/preview/:
+    post:
+      operationId: booking_closure_create_preview
+      description: 'Validates a closure as `booking_closure_create` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a closure without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingClosureInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingClosureInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingClosureInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingClosurePreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/groups/:
     post:
       operationId: booking_setup_group_create
@@ -2944,6 +3377,444 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResourceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/rules/:
+    get:
+      operationId: booking_rules_list
+      description: Every season of the company's offers, groups and units, switched-off
+        ones included, by first day.
+      summary: List the seasons' booking rules
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRuleList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: booking_rule_create
+      description: 'Rules for exactly one offer, group or unit on local dates: shortest
+        and longest booking, whole weeks, arrival and departure weekdays, notice,
+        how far ahead, closed, the break after. For a day the unit''s rule beats its
+        group''s, which beats the offer''s; between two of one kind the later start.
+        A repeated Idempotency-Key answers the first result again; the key reused
+        on another request is 409 `booking_idempotency_conflict`.'
+      summary: Add a season's booking rules
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRuleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRuleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRuleInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRule'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/rules/{rule_id}/:
+    patch:
+      operationId: booking_rule_update
+      description: Changes a season's dates or rules, or switches it off. Only the
+        fields sent change. `expected_version` is the version the change was made
+        on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a season's rules
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: rule_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRuleUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRuleUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRuleUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRule'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: booking_rule_delete
+      description: Removes the season; bookings made under it keep what they were
+        booked with. A repeated Idempotency-Key answers the first result again; the
+        key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Delete a season's rules
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: expected_version
+        schema:
+          type: integer
+        description: The version the deletion was decided on; another one is 409 `booking_version_conflict`.
+        required: true
+      - in: path
+        name: rule_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/rules/{rule_id}/preview/:
+    post:
+      operationId: booking_rule_update_preview
+      description: 'Validates a change as `booking_rule_update` would. Nothing is
+        saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a season without saving it
+      parameters:
+      - in: path
+        name: rule_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRuleUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRuleUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRuleUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRulePreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/rules/copy-year/:
+    post:
+      operationId: booking_rules_copy_year
+      description: Every season starting in `year` again a year later, as new rules;
+        the weekdays move, so check the dates after. A repeated Idempotency-Key answers
+        the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Copy a year's seasons to the next year
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyYearResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/rules/copy-year/preview/:
+    post:
+      operationId: booking_rules_copy_year_preview
+      description: 'Answers as `booking_rules_copy_year` would. Nothing is saved:
+        the answer is the item as the write would leave it, with `changes`, or the
+        same 400, 404 and 409 the write would answer.'
+      summary: Count the seasons a copy to the next year would make
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyYearResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/rules/preview/:
+    post:
+      operationId: booking_rule_create_preview
+      description: 'Validates a season as `booking_rule_create` would. Nothing is
+        saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a season's rules without adding them
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRuleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRuleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRuleInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRulePreview'
           description: ''
         '400':
           content:
@@ -15680,6 +16551,512 @@ components:
       - labels
       - slots
       - version
+    BookingClosure:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        note:
+          type: string
+        version:
+          type: integer
+      required:
+      - ends_on
+      - id
+      - location_id
+      - note
+      - starts_on
+      - version
+    BookingClosureInput:
+      type: object
+      description: Days the company, or one of its places, takes no bookings.
+      properties:
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Null — the whole company.
+        starts_on:
+          type: string
+          format: date
+          description: First closed local day.
+        ends_on:
+          type: string
+          format: date
+          description: Last closed local day, included.
+        note:
+          type: string
+          maxLength: 160
+      required:
+      - ends_on
+      - starts_on
+    BookingClosureList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingClosure'
+      required:
+      - items
+    BookingClosurePreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        note:
+          type: string
+        version:
+          type: integer
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - changes
+      - ends_on
+      - id
+      - location_id
+      - note
+      - starts_on
+      - version
+    BookingClosureUpdate:
+      type: object
+      description: Days the company, or one of its places, takes no bookings.
+      properties:
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Null — the whole company.
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        note:
+          type: string
+          maxLength: 160
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
+    BookingRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        min_length:
+          type:
+          - integer
+          - 'null'
+        max_length:
+          type:
+          - integer
+          - 'null'
+        length_multiple:
+          type:
+          - integer
+          - 'null'
+        start_weekdays:
+          type: array
+          items:
+            type: integer
+        end_weekdays:
+          type: array
+          items:
+            type: integer
+        notice_hours:
+          type:
+          - integer
+          - 'null'
+        window_days:
+          type:
+          - integer
+          - 'null'
+        closed:
+          type: boolean
+        buffer_after_minutes:
+          type:
+          - integer
+          - 'null'
+        active:
+          type: boolean
+        version:
+          type: integer
+      required:
+      - active
+      - buffer_after_minutes
+      - closed
+      - end_weekdays
+      - ends_on
+      - group_id
+      - id
+      - length_multiple
+      - max_length
+      - min_length
+      - name
+      - notice_hours
+      - resource_id
+      - service_id
+      - start_weekdays
+      - starts_on
+      - version
+      - window_days
+    BookingRuleInput:
+      type: object
+      description: A season's rules for exactly one of an offer, a group or a unit.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+          description: First local day of the season.
+        ends_on:
+          type: string
+          format: date
+          description: Last local day of the season, included.
+        min_length:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+          description: Shortest booking, in the offer's time units (nights, days,
+            hours).
+        max_length:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+        length_multiple:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: 7 — whole weeks only.
+        start_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        end_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        notice_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 8760
+          minimum: 0
+          description: At least this many hours before its start a booking can be
+            made.
+        window_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 730
+          minimum: 1
+          description: At most this many days ahead a booking can be made.
+        closed:
+          type: boolean
+          description: No bookings in this season.
+        buffer_after_minutes:
+          type:
+          - integer
+          - 'null'
+          maximum: 10080
+          minimum: 0
+          description: The break after a booking (cleaning); null — the offer's own.
+        active:
+          type: boolean
+      required:
+      - ends_on
+      - starts_on
+    BookingRuleList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingRule'
+      required:
+      - items
+    BookingRulePreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        min_length:
+          type:
+          - integer
+          - 'null'
+        max_length:
+          type:
+          - integer
+          - 'null'
+        length_multiple:
+          type:
+          - integer
+          - 'null'
+        start_weekdays:
+          type: array
+          items:
+            type: integer
+        end_weekdays:
+          type: array
+          items:
+            type: integer
+        notice_hours:
+          type:
+          - integer
+          - 'null'
+        window_days:
+          type:
+          - integer
+          - 'null'
+        closed:
+          type: boolean
+        buffer_after_minutes:
+          type:
+          - integer
+          - 'null'
+        active:
+          type: boolean
+        version:
+          type: integer
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - buffer_after_minutes
+      - changes
+      - closed
+      - end_weekdays
+      - ends_on
+      - group_id
+      - id
+      - length_multiple
+      - max_length
+      - min_length
+      - name
+      - notice_hours
+      - resource_id
+      - service_id
+      - start_weekdays
+      - starts_on
+      - version
+      - window_days
+    BookingRuleUpdate:
+      type: object
+      description: A season's rules for exactly one of an offer, a group or a unit.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        min_length:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+          description: Shortest booking, in the offer's time units (nights, days,
+            hours).
+        max_length:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+        length_multiple:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: 7 — whole weeks only.
+        start_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        end_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        notice_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 8760
+          minimum: 0
+          description: At least this many hours before its start a booking can be
+            made.
+        window_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 730
+          minimum: 1
+          description: At most this many days ahead a booking can be made.
+        closed:
+          type: boolean
+          description: No bookings in this season.
+        buffer_after_minutes:
+          type:
+          - integer
+          - 'null'
+          maximum: 10080
+          minimum: 0
+          description: The break after a booking (cleaning); null — the offer's own.
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     CallbackEnvelope:
       type: object
       properties:
@@ -16867,6 +18244,24 @@ components:
       required:
       - name
       - slug
+    CopyYearInput:
+      type: object
+      properties:
+        year:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+          description: Items starting in this year are copied.
+      required:
+      - year
+    CopyYearResult:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: How many items the copy made (would make).
+      required:
+      - count
     CreditBalance:
       type: object
       properties:
@@ -20612,6 +22007,127 @@ components:
           type: string
         reviewed:
           type: boolean
+    PatchedBookingClosureUpdate:
+      type: object
+      description: Days the company, or one of its places, takes no bookings.
+      properties:
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Null — the whole company.
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        note:
+          type: string
+          maxLength: 160
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+    PatchedBookingRuleUpdate:
+      type: object
+      description: A season's rules for exactly one of an offer, a group or a unit.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+        min_length:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+          description: Shortest booking, in the offer's time units (nights, days,
+            hours).
+        max_length:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+        length_multiple:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: 7 — whole weeks only.
+        start_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        end_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        notice_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 8760
+          minimum: 0
+          description: At least this many hours before its start a booking can be
+            made.
+        window_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 730
+          minimum: 1
+          description: At most this many days ahead a booking can be made.
+        closed:
+          type: boolean
+          description: No bookings in this season.
+        buffer_after_minutes:
+          type:
+          - integer
+          - 'null'
+          maximum: 10080
+          minimum: 0
+          description: The break after a booking (cleaning); null — the offer's own.
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
     PatchedFarmUpdate:
       type: object
       description: |-

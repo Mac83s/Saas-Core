@@ -292,6 +292,11 @@ export type ResourceSetupUpdate = components["schemas"]["ResourceUpdate"];
 export type GroupSetup = components["schemas"]["GroupSetup"];
 export type GroupSetupInput = components["schemas"]["GroupInput"];
 export type GroupSetupUpdate = components["schemas"]["GroupUpdate"];
+/** Days the company or one of its places is closed (B11). */
+export type BookingClosure = components["schemas"]["BookingClosure"];
+export type BookingClosureInput = components["schemas"]["BookingClosureInput"];
+export type BookingClosureUpdate =
+  components["schemas"]["BookingClosureUpdate"];
 /** What can be set on a service, in the settings registry's shape (ADR-078). */
 export type SetupOption = components["schemas"]["SetupOption"];
 /** A visit in „Do przydzielenia”, with the customer's contact. */
@@ -2002,6 +2007,95 @@ export async function getBookingSetup(): Promise<BookingSetup> {
   });
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+export async function listBookingClosures(): Promise<BookingClosure[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/closures/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createBookingClosure(
+  input: BookingClosureInput,
+  idempotencyKey: string,
+): Promise<BookingClosure> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/closures/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBookingClosure(
+  closureId: string,
+  input: BookingClosureUpdate,
+  idempotencyKey: string,
+): Promise<BookingClosure> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/closures/{closure_id}/",
+    {
+      params: {
+        path: { closure_id: closureId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function deleteBookingClosure(
+  closureId: string,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/setup/closures/{closure_id}/",
+    {
+      params: {
+        path: { closure_id: closureId },
+        query: { expected_version: expectedVersion },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/** Every closure starting in `year` again a year later; answers how many. */
+export async function copyBookingClosuresToNextYear(
+  year: number,
+  idempotencyKey: string,
+): Promise<number> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/closures/copy-year/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { year },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.count;
 }
 
 export async function createSetupGroup(

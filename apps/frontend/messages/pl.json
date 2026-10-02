@@ -3862,6 +3862,27 @@
     "capacityHint": "Puste, gdy to pytanie nie ma sensu (np. stanowisko).",
     "capacityRange": "Pojemność to od 1 do 1000 osób.",
     "capacityShort": "{count, plural, one {# osoba} few {do # osób} many {do # osób} other {do # osoby}}",
-    "description": "Opis"
+    "description": "Opis",
+    "closuresTitle": "Dni zamknięte",
+    "closuresHint": "Dni, w które firma albo jedno z miejsc nie przyjmuje rezerwacji — ani ze strony, ani z panelu — niezależnie od godzin pracy, np. Wigilia albo remont.",
+    "closuresCaption": "Dni zamknięte firmy",
+    "noClosures": "Nie ma dni zamkniętych.",
+    "addClosure": "Dodaj dni zamknięte",
+    "copyClosures": "Skopiuj z {from} na {to}",
+    "closuresCopied": "{count, plural, =0 {Nie było czego skopiować na {year}.} one {Skopiowano # zamknięcie na {year} — sprawdź daty.} few {Skopiowano # zamknięcia na {year} — sprawdź daty.} other {Skopiowano # zamknięć na {year} — sprawdź daty.}}",
+    "colClosedDays": "Dni",
+    "wholeCompany": "Cała firma",
+    "removeClosure": "Usuń",
+    "closureRemoved": "Usunięto zamknięcie: {days}.",
+    "closureAdded": "Dodano zamknięcie: {days}.",
+    "closureSaved": "Zapisano zamknięcie: {days}.",
+    "newClosureTitle": "Nowe dni zamknięte",
+    "editClosureTitle": "Edytuj dni zamknięte",
+    "closureHint": "W te dni nie zacznie się żadna rezerwacja. Wizyty już zapisane zostają — przełóż je albo odwołaj sam.",
+    "closureFrom": "Od",
+    "closureTo": "Do (włącznie)",
+    "closureNote": "Notatka (tylko dla firmy)",
+    "closureDatesRequired": "Podaj pierwszy i ostatni dzień.",
+    "closureEndBeforeStart": "Ostatni dzień nie może być przed pierwszym."
   }
 }

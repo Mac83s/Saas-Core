@@ -29,6 +29,8 @@ from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
 from .models import (
+    BookingClosure,
+    BookingRule,
     Location,
     PublicBookingRoute,
     Resource,
@@ -38,15 +40,37 @@ from .models import (
 )
 from .places import appointment_places, has_place_search, search_places
 from .public import public_choices, public_people, shown_to_customer
+from .rules import (
+    copy_closures_to_next_year,
+    copy_rules_to_next_year,
+    delete_closure,
+    delete_rule,
+    list_closures,
+    list_rules,
+    save_closure,
+    save_rule,
+)
 from .security import public_booking_context, token_digest
 from .serializers import (
     AppointmentCreateSerializer,
     AppointmentListSerializer,
     AppointmentSerializer,
+    BookingClosureInputSerializer,
+    BookingClosureListSerializer,
+    BookingClosurePreviewSerializer,
+    BookingClosureSerializer,
+    BookingClosureUpdateSerializer,
+    BookingRuleInputSerializer,
+    BookingRuleListSerializer,
+    BookingRulePreviewSerializer,
+    BookingRuleSerializer,
+    BookingRuleUpdateSerializer,
     CandidateListSerializer,
     CandidateQuerySerializer,
     CatalogCreateSerializer,
     CatalogSerializer,
+    CopyYearInputSerializer,
+    CopyYearResultSerializer,
     CrewInputSerializer,
     CustomerAnonymizedSerializer,
     GroupInputSerializer,
@@ -2287,6 +2311,380 @@ def _window(request: Request) -> tuple[datetime, datetime]:
     if values[1] <= values[0]:
         raise ValidationError({"to": "Koniec okna musi być po jego początku."}, code="invalid")
     return values[0], values[1]
+
+
+def _rule_payload(value: BookingRule) -> dict[str, Any]:
+    return {
+        "id": value.id,
+        "name": value.name,
+        "service_id": value.service_id,
+        "group_id": value.group_id,
+        "resource_id": value.resource_id,
+        "starts_on": value.starts_on,
+        "ends_on": value.ends_on,
+        "min_length": value.min_length,
+        "max_length": value.max_length,
+        "length_multiple": value.length_multiple,
+        "start_weekdays": value.start_weekdays,
+        "end_weekdays": value.end_weekdays,
+        "notice_hours": value.notice_hours,
+        "window_days": value.window_days,
+        "closed": value.closed,
+        "buffer_after_minutes": value.buffer_after_minutes,
+        "active": value.active,
+        "version": value.version,
+    }
+
+
+def _closure_payload(value: BookingClosure) -> dict[str, Any]:
+    return {
+        "id": value.id,
+        "location_id": value.location_id,
+        "starts_on": value.starts_on,
+        "ends_on": value.ends_on,
+        "note": value.note,
+        "version": value.version,
+    }
+
+
+_VERSION_QUERY = OpenApiParameter(
+    "expected_version",
+    int,
+    OpenApiParameter.QUERY,
+    required=True,
+    description="The version the deletion was decided on; another one is 409 "
+    "`booking_version_conflict`.",
+)
+
+
+def _expected(request: Request) -> int:
+    raw = request.query_params.get("expected_version", "")
+    if not raw.isdigit() or int(raw) < 1:
+        raise ValidationError({"expected_version": "Podaj wersję, którą usuwasz."}, code="required")
+    return int(raw)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingRuleListView(APIView):
+    """Seasons of offers, groups and units (ADR-072 §5)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_rules_list",
+        summary="List the seasons' booking rules",
+        description="Every season of the company's offers, groups and units, switched-off "
+        "ones included, by first day.",
+        tags=["booking"],
+        responses={200: BookingRuleListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"items": [_rule_payload(item) for item in list_rules()]})
+
+    @extend_schema(
+        operation_id="booking_rule_create",
+        summary="Add a season's booking rules",
+        description="Rules for exactly one offer, group or unit on local dates: shortest and "
+        "longest booking, whole weeks, arrival and departure weekdays, notice, how far ahead, "
+        "closed, the break after. For a day the unit's rule beats its group's, which beats "
+        "the offer's; between two of one kind the later start." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=BookingRuleInputSerializer,
+        responses={201: BookingRuleSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = BookingRuleInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_rule(rule_id=None, data=dict(s.validated_data), idempotency_key=_idem(request))
+        return Response(_rule_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingRuleCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_rule_create_preview",
+        summary="Check a season's rules without adding them",
+        description="Validates a season as `booking_rule_create` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=BookingRuleInputSerializer,
+        responses={200: BookingRulePreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = BookingRuleInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_rule(rule_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_rule_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingRuleDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_rule_update",
+        summary="Change a season's rules",
+        description="Changes a season's dates or rules, or switches it off." + _UPDATE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=BookingRuleUpdateSerializer,
+        responses={200: BookingRuleSerializer, **_SETUP_PROBLEMS},
+    )
+    def patch(self, request: Request, rule_id: UUID) -> Response:
+        s = BookingRuleUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_rule(
+            rule_id=rule_id, data=data, expected_version=version, idempotency_key=_idem(request)
+        )
+        return Response(_rule_payload(saved.value))
+
+    @extend_schema(
+        operation_id="booking_rule_delete",
+        summary="Delete a season's rules",
+        description="Removes the season; bookings made under it keep what they were booked "
+        "with." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY, _VERSION_QUERY],
+        responses={204: None, **_SETUP_PROBLEMS},
+    )
+    def delete(self, request: Request, rule_id: UUID) -> Response:
+        delete_rule(
+            rule_id=rule_id, expected_version=_expected(request), idempotency_key=_idem(request)
+        )
+        return Response(status=204)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingRuleUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_rule_update_preview",
+        summary="Check a change to a season without saving it",
+        description="Validates a change as `booking_rule_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=BookingRuleUpdateSerializer,
+        responses={200: BookingRulePreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, rule_id: UUID) -> Response:
+        s = BookingRuleUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_rule(rule_id=rule_id, data=data, expected_version=version, preview=True)
+        return Response(_with_changes(_rule_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingRuleCopyYearView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_rules_copy_year",
+        summary="Copy a year's seasons to the next year",
+        description="Every season starting in `year` again a year later, as new rules; the "
+        "weekdays move, so check the dates after." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=CopyYearInputSerializer,
+        responses={201: CopyYearResultSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = CopyYearInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = copy_rules_to_next_year(
+            year=s.validated_data["year"], idempotency_key=_idem(request)
+        )
+        return Response({"count": len(saved.value)}, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingRuleCopyYearPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_rules_copy_year_preview",
+        summary="Count the seasons a copy to the next year would make",
+        description="Answers as `booking_rules_copy_year` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=CopyYearInputSerializer,
+        responses={200: CopyYearResultSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = CopyYearInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = copy_rules_to_next_year(year=s.validated_data["year"], preview=True)
+        return Response({"count": len(saved.value)})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingClosureListView(APIView):
+    """Days the company or a place is closed (B11, ADR-078 pkt 17)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_closures_list",
+        summary="List the days the company or a place is closed",
+        description="Every closure, by first day.",
+        tags=["booking"],
+        responses={200: BookingClosureListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"items": [_closure_payload(item) for item in list_closures()]})
+
+    @extend_schema(
+        operation_id="booking_closure_create",
+        summary="Close the company or a place on some days",
+        description="No booking starts on these local days — not from the website, not from "
+        "the panel — whatever the hours or the seasons say." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=BookingClosureInputSerializer,
+        responses={201: BookingClosureSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = BookingClosureInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_closure(
+            closure_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(_closure_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingClosureCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_closure_create_preview",
+        summary="Check a closure without adding it",
+        description="Validates a closure as `booking_closure_create` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=BookingClosureInputSerializer,
+        responses={200: BookingClosurePreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = BookingClosureInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_closure(closure_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_closure_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingClosureDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_closure_update",
+        summary="Change a closure",
+        description="Changes a closure's days, place or note." + _UPDATE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=BookingClosureUpdateSerializer,
+        responses={200: BookingClosureSerializer, **_SETUP_PROBLEMS},
+    )
+    def patch(self, request: Request, closure_id: UUID) -> Response:
+        s = BookingClosureUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_closure(
+            closure_id=closure_id,
+            data=data,
+            expected_version=version,
+            idempotency_key=_idem(request),
+        )
+        return Response(_closure_payload(saved.value))
+
+    @extend_schema(
+        operation_id="booking_closure_delete",
+        summary="Open the days of a closure again",
+        description="Removes the closure; its days take bookings again." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY, _VERSION_QUERY],
+        responses={204: None, **_SETUP_PROBLEMS},
+    )
+    def delete(self, request: Request, closure_id: UUID) -> Response:
+        delete_closure(
+            closure_id=closure_id,
+            expected_version=_expected(request),
+            idempotency_key=_idem(request),
+        )
+        return Response(status=204)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingClosureUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_closure_update_preview",
+        summary="Check a change to a closure without saving it",
+        description="Validates a change as `booking_closure_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=BookingClosureUpdateSerializer,
+        responses={200: BookingClosurePreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, closure_id: UUID) -> Response:
+        s = BookingClosureUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_closure(
+            closure_id=closure_id, data=data, expected_version=version, preview=True
+        )
+        return Response(_with_changes(_closure_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingClosureCopyYearView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_closures_copy_year",
+        summary="Copy a year's closures to the next year",
+        description="Every closure starting in `year` again a year later (Christmas recurs)."
+        + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=CopyYearInputSerializer,
+        responses={201: CopyYearResultSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = CopyYearInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = copy_closures_to_next_year(
+            year=s.validated_data["year"], idempotency_key=_idem(request)
+        )
+        return Response({"count": len(saved.value)}, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingClosureCopyYearPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_closures_copy_year_preview",
+        summary="Count the closures a copy to the next year would make",
+        description="Answers as `booking_closures_copy_year` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=CopyYearInputSerializer,
+        responses={200: CopyYearResultSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = CopyYearInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = copy_closures_to_next_year(year=s.validated_data["year"], preview=True)
+        return Response({"count": len(saved.value)})
 
 
 _PERIOD = [

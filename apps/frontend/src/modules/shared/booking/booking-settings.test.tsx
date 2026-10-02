@@ -16,11 +16,15 @@ import messages from "../../../../messages/pl.json";
 import { BookingSettings } from "./booking-settings";
 
 const api = vi.hoisted(() => ({
+  copyBookingClosuresToNextYear: vi.fn(),
+  createBookingClosure: vi.fn(),
   createSetupGroup: vi.fn(),
   createSetupLocation: vi.fn(),
   createSetupResource: vi.fn(),
   createSetupService: vi.fn(),
+  deleteBookingClosure: vi.fn(),
   getBookingSetup: vi.fn(),
+  listBookingClosures: vi.fn(),
   listInventoryBalances: vi.fn(),
   listInventoryItems: vi.fn(),
   updateSetupGroup: vi.fn(),
@@ -184,6 +188,7 @@ function renderSettings({
 beforeEach(() => {
   vi.clearAllMocks();
   api.getBookingSetup.mockResolvedValue(SETUP);
+  api.listBookingClosures.mockResolvedValue([]);
   api.createSetupService.mockImplementation(async (input) =>
     service({ ...input, id: "new" }),
   );
@@ -441,6 +446,64 @@ test("grupa jednostek i jednostka w grupie z pojemnością", async () => {
       expect.any(String),
     ),
   );
+});
+
+test("dni zamknięte: dodanie dla całej firmy i kopia na kolejny rok", async () => {
+  const christmas = {
+    id: "c-1",
+    location_id: null,
+    starts_on: "2027-12-24",
+    ends_on: "2027-12-26",
+    note: "Święta",
+    version: 1,
+  };
+  api.createBookingClosure.mockResolvedValue(christmas);
+  api.copyBookingClosuresToNextYear.mockResolvedValue(1);
+  renderSettings();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dodaj dni zamknięte" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Nowe dni zamknięte",
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Podaj pierwszy i ostatni dzień.",
+  );
+  fireEvent.change(within(dialog).getByLabelText("Od"), {
+    target: { value: "2027-12-24" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Do (włącznie)"), {
+    target: { value: "2027-12-26" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Notatka (tylko dla firmy)"), {
+    target: { value: "Święta" },
+  });
+  api.listBookingClosures.mockResolvedValue([christmas]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.createBookingClosure).toHaveBeenCalledWith(
+      {
+        starts_on: "2027-12-24",
+        ends_on: "2027-12-26",
+        location_id: null,
+        note: "Święta",
+      },
+      expect.any(String),
+    ),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Skopiuj z 2027 na 2028" }),
+  );
+  await waitFor(() =>
+    expect(api.copyBookingClosuresToNextYear).toHaveBeenCalledWith(
+      2027,
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText("Skopiowano 1 zamknięcie na 2028 — sprawdź daty."),
+  ).toBeInTheDocument();
 });
 
 test("zmiana, której ktoś w międzyczasie nie widział, mówi o tym zamiast nadpisać", async () => {

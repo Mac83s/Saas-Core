@@ -33,6 +33,7 @@ import {
   organizationType as organizationTypeInfo,
   typeText,
 } from "#lib/organization-types";
+import { ClosuresSection } from "./closures-section";
 import { problemText } from "./people/person-dialogs";
 import {
   ItemDialog,
@@ -601,6 +602,7 @@ export function BookingSettings({
           loading={!setup}
         />
       </PanelSection>
+      {setup ? <ClosuresSection places={setup.locations} /> : null}
       <p className="max-w-3xl text-sm text-muted-foreground">
         {t("peopleElsewhere")}{" "}
         <Link

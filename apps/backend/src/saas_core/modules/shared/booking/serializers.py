@@ -653,6 +653,147 @@ class UnitBlockListSerializer(serializers.Serializer[dict[str, Any]]):
     items = UnitBlockSerializer(many=True)
 
 
+def _weekdays() -> serializers.ListField:
+    return serializers.ListField(
+        child=serializers.IntegerField(min_value=0, max_value=6),
+        max_length=7,
+        required=False,
+        help_text="Weekdays, 0 = Monday … 6 = Sunday; empty — any.",
+    )
+
+
+class BookingRuleInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A season's rules for exactly one of an offer, a group or a unit."""
+
+    name = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    service_id = serializers.UUIDField(required=False, allow_null=True)
+    group_id = serializers.UUIDField(required=False, allow_null=True)
+    resource_id = serializers.UUIDField(required=False, allow_null=True)
+    starts_on = serializers.DateField(help_text="First local day of the season.")
+    ends_on = serializers.DateField(help_text="Last local day of the season, included.")
+    min_length = serializers.IntegerField(
+        min_value=1,
+        max_value=1000,
+        required=False,
+        allow_null=True,
+        help_text="Shortest booking, in the offer's time units (nights, days, hours).",
+    )
+    max_length = serializers.IntegerField(
+        min_value=1, max_value=1000, required=False, allow_null=True
+    )
+    length_multiple = serializers.IntegerField(
+        min_value=1,
+        max_value=365,
+        required=False,
+        allow_null=True,
+        help_text="7 — whole weeks only.",
+    )
+    start_weekdays = _weekdays()
+    end_weekdays = _weekdays()
+    notice_hours = serializers.IntegerField(
+        min_value=0,
+        max_value=24 * 365,
+        required=False,
+        allow_null=True,
+        help_text="At least this many hours before its start a booking can be made.",
+    )
+    window_days = serializers.IntegerField(
+        min_value=1,
+        max_value=730,
+        required=False,
+        allow_null=True,
+        help_text="At most this many days ahead a booking can be made.",
+    )
+    closed = serializers.BooleanField(required=False, help_text="No bookings in this season.")
+    buffer_after_minutes = serializers.IntegerField(
+        min_value=0,
+        max_value=60 * 24 * 7,
+        required=False,
+        allow_null=True,
+        help_text="The break after a booking (cleaning); null — the offer's own.",
+    )
+    active = serializers.BooleanField(required=False)
+
+
+class BookingRuleUpdateSerializer(BookingRuleInputSerializer):
+    starts_on = serializers.DateField(required=False)
+    ends_on = serializers.DateField(required=False)
+    expected_version = _expected_version()
+
+
+class BookingRuleSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    service_id = serializers.UUIDField(allow_null=True)
+    group_id = serializers.UUIDField(allow_null=True)
+    resource_id = serializers.UUIDField(allow_null=True)
+    starts_on = serializers.DateField()
+    ends_on = serializers.DateField()
+    min_length = serializers.IntegerField(allow_null=True)
+    max_length = serializers.IntegerField(allow_null=True)
+    length_multiple = serializers.IntegerField(allow_null=True)
+    start_weekdays = serializers.ListField(child=serializers.IntegerField())
+    end_weekdays = serializers.ListField(child=serializers.IntegerField())
+    notice_hours = serializers.IntegerField(allow_null=True)
+    window_days = serializers.IntegerField(allow_null=True)
+    closed = serializers.BooleanField()
+    buffer_after_minutes = serializers.IntegerField(allow_null=True)
+    active = serializers.BooleanField()
+    version = serializers.IntegerField()
+
+
+class BookingRulePreviewSerializer(BookingRuleSerializer):
+    changes = _changes()
+
+
+class BookingRuleListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = BookingRuleSerializer(many=True)
+
+
+class BookingClosureInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """Days the company, or one of its places, takes no bookings."""
+
+    location_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="Null — the whole company."
+    )
+    starts_on = serializers.DateField(help_text="First closed local day.")
+    ends_on = serializers.DateField(help_text="Last closed local day, included.")
+    note = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+
+class BookingClosureUpdateSerializer(BookingClosureInputSerializer):
+    starts_on = serializers.DateField(required=False)
+    ends_on = serializers.DateField(required=False)
+    expected_version = _expected_version()
+
+
+class BookingClosureSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    location_id = serializers.UUIDField(allow_null=True)
+    starts_on = serializers.DateField()
+    ends_on = serializers.DateField()
+    note = serializers.CharField()
+    version = serializers.IntegerField()
+
+
+class BookingClosurePreviewSerializer(BookingClosureSerializer):
+    changes = _changes()
+
+
+class BookingClosureListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = BookingClosureSerializer(many=True)
+
+
+class CopyYearInputSerializer(serializers.Serializer[dict[str, Any]]):
+    year = serializers.IntegerField(
+        min_value=2000, max_value=2100, help_text="Items starting in this year are copied."
+    )
+
+
+class CopyYearResultSerializer(serializers.Serializer[dict[str, Any]]):
+    count = serializers.IntegerField(help_text="How many items the copy made (would make).")
+
+
 class ResourceUpdateSerializer(ResourceInputSerializer):
     """A change to a resource: only the fields sent change."""
 

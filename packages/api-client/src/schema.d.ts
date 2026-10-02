@@ -874,6 +874,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/setup/closures/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the days the company or a place is closed
+         * @description Every closure, by first day.
+         */
+        get: operations["booking_closures_list"];
+        put?: never;
+        /**
+         * Close the company or a place on some days
+         * @description No booking starts on these local days — not from the website, not from the panel — whatever the hours or the seasons say. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_closure_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/closures/{closure_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Open the days of a closure again
+         * @description Removes the closure; its days take bookings again. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        delete: operations["booking_closure_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a closure
+         * @description Changes a closure's days, place or note. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_closure_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/closures/{closure_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a closure without saving it
+         * @description Validates a change as `booking_closure_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_closure_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/closures/copy-year/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a year's closures to the next year
+         * @description Every closure starting in `year` again a year later (Christmas recurs). A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_closures_copy_year"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/closures/copy-year/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Count the closures a copy to the next year would make
+         * @description Answers as `booking_closures_copy_year` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_closures_copy_year_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/closures/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a closure without adding it
+         * @description Validates a closure as `booking_closure_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_closure_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/setup/groups/": {
         parameters: {
             query?: never;
@@ -1172,6 +1300,134 @@ export interface paths {
          * @description Validates a new resource as `booking_setup_resource_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
          */
         post: operations["booking_setup_resource_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/rules/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the seasons' booking rules
+         * @description Every season of the company's offers, groups and units, switched-off ones included, by first day.
+         */
+        get: operations["booking_rules_list"];
+        put?: never;
+        /**
+         * Add a season's booking rules
+         * @description Rules for exactly one offer, group or unit on local dates: shortest and longest booking, whole weeks, arrival and departure weekdays, notice, how far ahead, closed, the break after. For a day the unit's rule beats its group's, which beats the offer's; between two of one kind the later start. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_rule_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/rules/{rule_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a season's rules
+         * @description Removes the season; bookings made under it keep what they were booked with. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        delete: operations["booking_rule_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a season's rules
+         * @description Changes a season's dates or rules, or switches it off. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_rule_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/rules/{rule_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a season without saving it
+         * @description Validates a change as `booking_rule_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_rule_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/rules/copy-year/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a year's seasons to the next year
+         * @description Every season starting in `year` again a year later, as new rules; the weekdays move, so check the dates after. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_rules_copy_year"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/rules/copy-year/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Count the seasons a copy to the next year would make
+         * @description Answers as `booking_rules_copy_year` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_rules_copy_year_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/rules/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a season's rules without adding them
+         * @description Validates a season as `booking_rule_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_rule_create_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5237,6 +5493,202 @@ export interface components {
             };
             slots: components["schemas"]["BlueprintSlot"][];
         };
+        BookingClosure: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            location_id: string | null;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            note: string;
+            version: number;
+        };
+        /** @description Days the company, or one of its places, takes no bookings. */
+        BookingClosureInput: {
+            /**
+             * Format: uuid
+             * @description Null — the whole company.
+             */
+            location_id?: string | null;
+            /**
+             * Format: date
+             * @description First closed local day.
+             */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description Last closed local day, included.
+             */
+            ends_on: string;
+            note?: string;
+        };
+        BookingClosureList: {
+            items: components["schemas"]["BookingClosure"][];
+        };
+        BookingClosurePreview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            location_id: string | null;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            note: string;
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Days the company, or one of its places, takes no bookings. */
+        BookingClosureUpdate: {
+            /**
+             * Format: uuid
+             * @description Null — the whole company.
+             */
+            location_id?: string | null;
+            /** Format: date */
+            starts_on?: string;
+            /** Format: date */
+            ends_on?: string;
+            note?: string;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
+        BookingRule: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            service_id: string | null;
+            /** Format: uuid */
+            group_id: string | null;
+            /** Format: uuid */
+            resource_id: string | null;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            min_length: number | null;
+            max_length: number | null;
+            length_multiple: number | null;
+            start_weekdays: number[];
+            end_weekdays: number[];
+            notice_hours: number | null;
+            window_days: number | null;
+            closed: boolean;
+            buffer_after_minutes: number | null;
+            active: boolean;
+            version: number;
+        };
+        /** @description A season's rules for exactly one of an offer, a group or a unit. */
+        BookingRuleInput: {
+            name?: string;
+            /** Format: uuid */
+            service_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /**
+             * Format: date
+             * @description First local day of the season.
+             */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description Last local day of the season, included.
+             */
+            ends_on: string;
+            /** @description Shortest booking, in the offer's time units (nights, days, hours). */
+            min_length?: number | null;
+            max_length?: number | null;
+            /** @description 7 — whole weeks only. */
+            length_multiple?: number | null;
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            start_weekdays?: number[];
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            end_weekdays?: number[];
+            /** @description At least this many hours before its start a booking can be made. */
+            notice_hours?: number | null;
+            /** @description At most this many days ahead a booking can be made. */
+            window_days?: number | null;
+            /** @description No bookings in this season. */
+            closed?: boolean;
+            /** @description The break after a booking (cleaning); null — the offer's own. */
+            buffer_after_minutes?: number | null;
+            active?: boolean;
+        };
+        BookingRuleList: {
+            items: components["schemas"]["BookingRule"][];
+        };
+        BookingRulePreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            service_id: string | null;
+            /** Format: uuid */
+            group_id: string | null;
+            /** Format: uuid */
+            resource_id: string | null;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            min_length: number | null;
+            max_length: number | null;
+            length_multiple: number | null;
+            start_weekdays: number[];
+            end_weekdays: number[];
+            notice_hours: number | null;
+            window_days: number | null;
+            closed: boolean;
+            buffer_after_minutes: number | null;
+            active: boolean;
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A season's rules for exactly one of an offer, a group or a unit. */
+        BookingRuleUpdate: {
+            name?: string;
+            /** Format: uuid */
+            service_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /** Format: date */
+            starts_on?: string;
+            /** Format: date */
+            ends_on?: string;
+            /** @description Shortest booking, in the offer's time units (nights, days, hours). */
+            min_length?: number | null;
+            max_length?: number | null;
+            /** @description 7 — whole weeks only. */
+            length_multiple?: number | null;
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            start_weekdays?: number[];
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            end_weekdays?: number[];
+            /** @description At least this many hours before its start a booking can be made. */
+            notice_hours?: number | null;
+            /** @description At most this many days ahead a booking can be made. */
+            window_days?: number | null;
+            /** @description No bookings in this season. */
+            closed?: boolean;
+            /** @description The break after a booking (cleaning); null — the offer's own. */
+            buffer_after_minutes?: number | null;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
         CallbackEnvelope: {
             /** Format: uuid */
             id: string;
@@ -5720,6 +6172,14 @@ export interface components {
         ContentTag: {
             slug: string;
             name: string;
+        };
+        CopyYearInput: {
+            /** @description Items starting in this year are copied. */
+            year: number;
+        };
+        CopyYearResult: {
+            /** @description How many items the copy made (would make). */
+            count: number;
         };
         CreditBalance: {
             available: number;
@@ -7240,6 +7700,55 @@ export interface components {
             status?: components["schemas"]["Status891Enum"];
             notes?: string;
             reviewed?: boolean;
+        };
+        /** @description Days the company, or one of its places, takes no bookings. */
+        PatchedBookingClosureUpdate: {
+            /**
+             * Format: uuid
+             * @description Null — the whole company.
+             */
+            location_id?: string | null;
+            /** Format: date */
+            starts_on?: string;
+            /** Format: date */
+            ends_on?: string;
+            note?: string;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
+        };
+        /** @description A season's rules for exactly one of an offer, a group or a unit. */
+        PatchedBookingRuleUpdate: {
+            name?: string;
+            /** Format: uuid */
+            service_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /** Format: date */
+            starts_on?: string;
+            /** Format: date */
+            ends_on?: string;
+            /** @description Shortest booking, in the offer's time units (nights, days, hours). */
+            min_length?: number | null;
+            max_length?: number | null;
+            /** @description 7 — whole weeks only. */
+            length_multiple?: number | null;
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            start_weekdays?: number[];
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            end_weekdays?: number[];
+            /** @description At least this many hours before its start a booking can be made. */
+            notice_hours?: number | null;
+            /** @description At most this many days ahead a booking can be made. */
+            window_days?: number | null;
+            /** @description No bookings in this season. */
+            closed?: boolean;
+            /** @description The break after a booking (cleaning); null — the offer's own. */
+            buffer_after_minutes?: number | null;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
         };
         /**
          * @description What a client may send; kept apart from the response so the generated
@@ -11400,6 +11909,442 @@ export interface operations {
             };
         };
     };
+    booking_closures_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingClosureList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closure_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingClosureInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingClosureInput"];
+                "multipart/form-data": components["schemas"]["BookingClosureInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingClosure"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closure_delete: {
+        parameters: {
+            query: {
+                /** @description The version the deletion was decided on; another one is 409 `booking_version_conflict`. */
+                expected_version: number;
+            };
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                closure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closure_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                closure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingClosureUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingClosureUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedBookingClosureUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingClosure"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closure_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                closure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingClosureUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingClosureUpdate"];
+                "multipart/form-data": components["schemas"]["BookingClosureUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingClosurePreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closures_copy_year: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CopyYearInput"];
+                "multipart/form-data": components["schemas"]["CopyYearInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyYearResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closures_copy_year_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CopyYearInput"];
+                "multipart/form-data": components["schemas"]["CopyYearInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyYearResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_closure_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingClosureInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingClosureInput"];
+                "multipart/form-data": components["schemas"]["BookingClosureInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingClosurePreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     booking_setup_group_create: {
         parameters: {
             query?: never;
@@ -12277,6 +13222,442 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResourceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rules_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRuleList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rule_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingRuleInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingRuleInput"];
+                "multipart/form-data": components["schemas"]["BookingRuleInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRule"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rule_delete: {
+        parameters: {
+            query: {
+                /** @description The version the deletion was decided on; another one is 409 `booking_version_conflict`. */
+                expected_version: number;
+            };
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rule_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingRuleUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingRuleUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedBookingRuleUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRule"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rule_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingRuleUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingRuleUpdate"];
+                "multipart/form-data": components["schemas"]["BookingRuleUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRulePreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rules_copy_year: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CopyYearInput"];
+                "multipart/form-data": components["schemas"]["CopyYearInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyYearResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rules_copy_year_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CopyYearInput"];
+                "multipart/form-data": components["schemas"]["CopyYearInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyYearResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_rule_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingRuleInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingRuleInput"];
+                "multipart/form-data": components["schemas"]["BookingRuleInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRulePreview"];
                 };
             };
             400: {

@@ -8,6 +8,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -18,6 +19,7 @@ from .models import (
     AppointmentResourceAllocation,
     AppointmentStaffAllocation,
     AvailabilityRule,
+    BookingClosure,
     Location,
     Service,
     ServiceLocation,
@@ -61,6 +63,8 @@ class _Schedule:
     time_off: list[tuple[UUID | None, UUID | None, datetime, datetime]]
     staff_allocations: list[tuple[UUID, Any]]
     resource_allocations: list[tuple[UUID, Any]]
+    #: Local days the company or the place is closed (B11): no start on them.
+    closed: frozenset[date] = frozenset()
 
 
 def available_slots(
@@ -179,7 +183,7 @@ def free_at(
         staff_ids=staff_ids,
         ignore_appointment_id=ignore_appointment_id,
     )
-    if schedule is None or starts_at < schedule.earliest:
+    if schedule is None or starts_at < schedule.earliest or day in schedule.closed:
         return []
     covered = dict.fromkeys(
         rule.staff_id
@@ -408,7 +412,28 @@ def _load(
         resource_allocations=list(
             resource_allocations.values_list("resource_id", "occupied_range")
         ),
+        closed=closed_days(context.organization_id, location_id, from_date, to_date),
     )
+
+
+def closed_days(
+    organization_id: UUID, location_id: UUID | None, first: date, last: date
+) -> frozenset[date]:
+    """The local days from `first` to `last` the company or the place is closed
+    (B11) — whatever any rule, hours or offer says."""
+    found = BookingClosure.all_objects.filter(
+        Q(location__isnull=True) | Q(location_id=location_id),
+        organization_id=organization_id,
+        starts_on__lte=last,
+        ends_on__gte=first,
+    ).values_list("starts_on", "ends_on")
+    days: set[date] = set()
+    for starts_on, ends_on in found:
+        day = max(starts_on, first)
+        while day <= min(ends_on, last):
+            days.add(day)
+            day += timedelta(days=1)
+    return frozenset(days)
 
 
 def _rule_on(rule: AvailabilityRule, day: date) -> bool:
@@ -421,6 +446,8 @@ def _rule_on(rule: AvailabilityRule, day: date) -> bool:
 
 def _day_slots(schedule: _Schedule, day: date) -> Iterator[AvailableSlot]:
     """Free starts of one local day, rule by rule; lazy, so a caller may stop early."""
+    if day in schedule.closed:
+        return
     schedule = _within_day(schedule, day)
     for rule in schedule.rules:
         if not _rule_on(rule, day):

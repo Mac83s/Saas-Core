@@ -3862,6 +3862,27 @@
     "capacityHint": "Leave empty where the question makes no sense (e.g. a station).",
     "capacityRange": "Capacity is 1 to 1000 people.",
     "capacityShort": "{count, plural, one {# person} other {up to # people}}",
-    "description": "Description"
+    "description": "Description",
+    "closuresTitle": "Closed days",
+    "closuresHint": "Days the company or one of its places takes no bookings — neither from the website nor from the panel — whatever the hours say, e.g. Christmas Eve or a renovation.",
+    "closuresCaption": "The company's closed days",
+    "noClosures": "No closed days.",
+    "addClosure": "Add closed days",
+    "copyClosures": "Copy from {from} to {to}",
+    "closuresCopied": "{count, plural, =0 {Nothing to copy to {year}.} one {Copied # closure to {year} — check the dates.} other {Copied # closures to {year} — check the dates.}}",
+    "colClosedDays": "Days",
+    "wholeCompany": "Whole company",
+    "removeClosure": "Remove",
+    "closureRemoved": "Closure removed: {days}.",
+    "closureAdded": "Closure added: {days}.",
+    "closureSaved": "Closure saved: {days}.",
+    "newClosureTitle": "New closed days",
+    "editClosureTitle": "Edit closed days",
+    "closureHint": "No booking starts on these days. Visits already booked stay — move or cancel them yourself.",
+    "closureFrom": "From",
+    "closureTo": "To (included)",
+    "closureNote": "Note (for the company only)",
+    "closureDatesRequired": "Enter the first and the last day.",
+    "closureEndBeforeStart": "The last day cannot be before the first."
   }
 }
