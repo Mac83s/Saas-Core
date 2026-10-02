@@ -210,8 +210,9 @@ TL10 (ADR-071 pkt 5).
 Idempotencję zapisu grupy `store` trzyma pokwitowanie w `core.organizations`
 (organizacja, principal, grupa, klucz, skrót żądania, wynik; unikalne jak
 `booking_mutation_idem_uq`; RLS) z semantyką ADR-046:31-36. Grupy w encjach używają
-pokwitowania właściciela: oferta i jednostki — `BookingSetupMutation` (ADR-072
-§11), sklep — `ShopMutation` (ADR-074). Dat wejścia w życie na poziomie firmy nie
+pokwitowania właściciela: oferty, miejsca, jednostki i tydzień godzin osoby —
+`BookingSetupMutation` (ADR-072 §11; token godzin osoby to
+`StaffMember.hours_version`), sklep — `ShopMutation` (ADR-074). Dat wejścia w życie na poziomie firmy nie
 ma (datowane są tylko `BookingRule` i wartości platformy); „Przywróć tę wartość” w
 historii to nowa zmiana.
 
@@ -269,8 +270,11 @@ ustawieniem.
   = klucze, `reset` jako lista z enumem kluczy, `expected_version`, wymagany
   `Idempotency-Key`. Każda operacja spełnia podłogę ADR-076 pkt 7. Nowy klucz
   zmienia odcisk operacji, więc widzi go `pnpm api:check`.
-- Grupy w encjach mają API właściciela (oferta: `/booking/setup/…`), z tym samym
-  kształtem pól, `reset` i błędów.
+- Grupy w encjach mają API właściciela, z tym samym kształtem pól, `reset` i
+  błędów. Rezerwacje: zapis `/booking/setup/{services|locations|resources}/…` i
+  `/booking/staff/{id}/hours/`, podgląd `POST …/preview/` (tworzenie) i
+  `…/{id}/preview/` (zmiana) z `x-dry-run: true`; odpowiedź podglądu to rekord, jaki
+  zostałby zapisany, `changes` w kształcie `field_changes` i `version`.
 
 ### 12. Polecenia piszą moduły (UF-T9)
 
@@ -335,12 +339,14 @@ wejścia API i poleceń.
 
 ### 17. Rezerwacje: §11, reguły, zamknięcia, presety i 28a (UF-T13)
 
-- **ADR-072 §11 jest magazynem idempotencji i wersji ustawień oferty.** Klucze
+- **ADR-072 §11 jest magazynem idempotencji i wersji ustawień konfiguracji
+  rezerwacji** — ofert, miejsc, jednostek i godzin osoby. Klucze
   zasięgu `offer` deklaruje `shared.booking` (do R1 w stałej modułu); wartości są
   kolumnami encji (`entity:booking.Service`), puste = dziedziczy (`live`) albo
   skopiowane przy utworzeniu (`copy_at_creation`). Zapis: `BookingSetupMutation`,
   `expected_version` oferty, 409 `booking_version_conflict`, `dry_run`; walidację,
-  podgląd i różnicę do historii bierze z rejestru.
+  podgląd i różnicę do historii bierze z rejestru (do R1 — z serializerów booking
+  i stałej modułu `OFFER_SETTINGS`).
 - **`BookingRule` jest warstwą datowaną** nad ofertą (pkt 3), z własną wersją; nie
   jest zasięgiem rejestru i nie trzyma niedatowanych wartości firmy.
 - **Zamknięcia (B11) to osobna encja `BookingClosure`** (zasięg firma albo
