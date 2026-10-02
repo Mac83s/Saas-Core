@@ -51,7 +51,8 @@ każdą publikację tłumaczeń. Zestawy zmian SCR adresują bloki pozycją wobe
    unieważnia oczekującego zestawu zmian PL.
 2. **Zapis wyłącznie fragmentami.** Panel i silnik wysyłają fragmenty; serwer
    składa bloki i sprawdza schemat. Wszystkie wadliwe fragmenty wracają naraz:
-   `422 locale_unit_invalid` z `errors[].field = units.<klucz>` i kodem;
+   `400 locale_unit_invalid` z błędem pola `units.<klucz>` i kodem (format
+   błędów pól z ADR-076 §5);
    nieaktualna blokada — `409 locale_body_version_conflict`; inna wersja źródła —
    `409 source_version_mismatch`; język źródłowy — `400 locale_is_source`. Całe
    bloki przyjmujemy tylko od SCR (pkt 17). Podpis struktury to bloki bez tekstu,
