@@ -2961,8 +2961,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The organization's history of changes, newest first (owner, admin). */
-        get: operations["api_v1_organizations_current_history_retrieve"];
+        /**
+         * Read the company's history of changes
+         * @description Who changed what and when, newest first, with before and after where the change recorded them and through which channel (panel, API key, assistant). Filter by `action`, by a settings `group` or by one setting's `key` (ADR-078).
+         */
+        get: operations["organizations_history_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3154,6 +3157,114 @@ export interface paths {
         };
         /** @description Accounts in use against the plan's limit, for the team screen. */
         get: operations["api_v1_organizations_current_seats_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.online/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Online booking
+         * @description Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_booking_online_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Online booking
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_booking_online_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.online/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Online booking
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_booking_online_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.reminders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Visit reminders
+         * @description Whether and when the customer gets a reminder e-mail before a confirmed visit. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_booking_reminders_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Visit reminders
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_booking_reminders_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.reminders/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Visit reminders
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_booking_reminders_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/schema/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the company may set
+         * @description Every settings group the company has, with its keys, types, bounds, allowed values and labels (pl, en), the default, who may change it and whether the plan lets the company change it now (ADR-078). The one source of a setting's variants for the panel and the assistant.
+         */
+        get: operations["organization_settings_schema_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5791,6 +5902,118 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
+        BookingOnlineSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["BookingOnlineSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["BookingOnlineSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        BookingOnlineSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingOnlineSettingsChangeResetEnum"][];
+            /** @description Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. */
+            paused?: boolean | null;
+            /**
+             * Format: date
+             * @description The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off.
+             */
+            resume_on?: string | null;
+        };
+        /**
+         * @description * `paused` - paused
+         *     * `resume_on` - resume_on
+         * @enum {string}
+         */
+        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on";
+        BookingOnlineSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["BookingOnlineSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        BookingOnlineSettingsSources: {
+            paused: components["schemas"]["SettingSourceEnum"];
+            resume_on: components["schemas"]["SettingSourceEnum"];
+        };
+        BookingOnlineSettingsValues: {
+            /** @description Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. */
+            paused: boolean;
+            /**
+             * Format: date
+             * @description The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off.
+             */
+            resume_on: string | null;
+        };
+        BookingRemindersSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["BookingRemindersSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["BookingRemindersSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        BookingRemindersSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingRemindersSettingsChangeResetEnum"][];
+            /** @description Whether customers get a reminder e-mail before a confirmed visit. Off: no reminder is sent and the planned ones are dropped. */
+            enabled?: boolean | null;
+            /** @description How many hours before the visit the reminder goes out, 1 to 168. A change re-plans the reminders not sent yet; a visit closer than that gets its reminder at once. */
+            lead_hours?: number | null;
+            /** @description A visit less than this many hours away when its reminder is planned gets none (a booking for this afternoon needs no reminder). 0 keeps today's behaviour: the reminder goes out at once. */
+            min_notice_hours?: number | null;
+        };
+        /**
+         * @description * `enabled` - enabled
+         *     * `lead_hours` - lead_hours
+         *     * `min_notice_hours` - min_notice_hours
+         * @enum {string}
+         */
+        BookingRemindersSettingsChangeResetEnum: "enabled" | "lead_hours" | "min_notice_hours";
+        BookingRemindersSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["BookingRemindersSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        BookingRemindersSettingsSources: {
+            enabled: components["schemas"]["SettingSourceEnum"];
+            lead_hours: components["schemas"]["SettingSourceEnum"];
+            min_notice_hours: components["schemas"]["SettingSourceEnum"];
+        };
+        BookingRemindersSettingsValues: {
+            /** @description Whether customers get a reminder e-mail before a confirmed visit. Off: no reminder is sent and the planned ones are dropped. */
+            enabled: boolean;
+            /** @description How many hours before the visit the reminder goes out, 1 to 168. A change re-plans the reminders not sent yet; a visit closer than that gets its reminder at once. */
+            lead_hours: number;
+            /** @description A visit less than this many hours away when its reminder is planned gets none (a booking for this afternoon needs no reminder). 0 keeps today's behaviour: the reminder goes out at once. */
+            min_notice_hours: number;
+        };
         BookingRule: {
             /** Format: uuid */
             id: string;
@@ -8115,6 +8338,31 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
+        PatchedBookingOnlineSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingOnlineSettingsChangeResetEnum"][];
+            /** @description Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. */
+            paused?: boolean | null;
+            /**
+             * Format: date
+             * @description The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off.
+             */
+            resume_on?: string | null;
+        };
+        PatchedBookingRemindersSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingRemindersSettingsChangeResetEnum"][];
+            /** @description Whether customers get a reminder e-mail before a confirmed visit. Off: no reminder is sent and the planned ones are dropped. */
+            enabled?: boolean | null;
+            /** @description How many hours before the visit the reminder goes out, 1 to 168. A change re-plans the reminders not sent yet; a visit closer than that gets its reminder at once. */
+            lead_hours?: number | null;
+            /** @description A visit less than this many hours away when its reminder is planned gets none (a booking for this afternoon needs no reminder). 0 keeps today's behaviour: the reminder goes out at once. */
+            min_notice_hours?: number | null;
+        };
         /** @description A season's rules for exactly one of an offer, a group or a unit. */
         PatchedBookingRuleUpdate: {
             name?: string;
@@ -8742,6 +8990,8 @@ export interface components {
             teams: components["schemas"]["PublicName"][];
             people: components["schemas"]["PublicName"][];
             timezone: string;
+            /** @description Whether the company takes online bookings now (ADR-078, booking.online). */
+            online: components["schemas"]["PublicOnline"];
         };
         PublicChoiceService: {
             /** Format: uuid */
@@ -8814,6 +9064,14 @@ export interface components {
             parent_page_id: string | null;
             title: string;
             path: string;
+        };
+        PublicOnline: {
+            paused: boolean;
+            /**
+             * Format: date
+             * @description The day booking resumes.
+             */
+            resume_on: string | null;
         };
         PublicPlan: {
             key: string;
@@ -9304,6 +9562,12 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
+        SettingEffect: {
+            kind: string;
+            resource: string;
+            resource_id: string;
+            summary: components["schemas"]["LocalizedText"];
+        };
         /**
          * @description One setting a company may choose, with what it may choose; the shape of
          *     an entry of the settings registry's schema (ADR-078 pkt 11).
@@ -9329,14 +9593,23 @@ export interface components {
             keys: components["schemas"]["SettingOption"][];
         };
         /**
+         * @description * `code` - code
+         *     * `platform` - platform
+         *     * `product` - product
+         *     * `organization` - organization
+         * @enum {string}
+         */
+        SettingSourceEnum: "code" | "platform" | "product" | "organization";
+        /**
          * @description * `int` - int
          *     * `decimal` - decimal
          *     * `bool` - bool
          *     * `enum` - enum
          *     * `text` - text
+         *     * `date` - date
          * @enum {string}
          */
-        SettingTypeEnum: "int" | "decimal" | "bool" | "enum" | "text";
+        SettingTypeEnum: "int" | "decimal" | "bool" | "enum" | "text" | "date";
         /**
          * @description * `minute` - minute
          *     * `hour` - hour
@@ -9361,6 +9634,25 @@ export interface components {
         SettingValueOption: {
             value: string;
             label: components["schemas"]["LocalizedText"];
+        };
+        SettingsGroupSchema: {
+            /** @description The group, e.g. booking.reminders. */
+            key: string;
+            module: string;
+            /** @description The panel's area the group belongs to. */
+            area: string;
+            title: components["schemas"]["LocalizedText"];
+            description: components["schemas"]["LocalizedText"];
+            /** @description Who may change the company's values. */
+            permission: string;
+            /** @description Whether the caller may change them now. */
+            can_change: boolean;
+            /** @description Why the plan does not let the company change them; empty. */
+            locked: string;
+            keys: components["schemas"]["SettingOption"][];
+        };
+        SettingsSchema: {
+            groups: components["schemas"]["SettingsGroupSchema"][];
         };
         Setup: {
             services: components["schemas"]["ServiceSetup"][];
@@ -19188,10 +19480,14 @@ export interface operations {
             };
         };
     };
-    api_v1_organizations_current_history_retrieve: {
+    organizations_history_list: {
         parameters: {
             query?: {
                 action?: string;
+                /** @description A settings group, e.g. booking.reminders. */
+                group?: string;
+                /** @description One setting, e.g. booking.reminders.lead_hours. */
+                key?: string;
                 page?: number;
                 page_size?: number;
             };
@@ -19207,6 +19503,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HistoryPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {
@@ -19866,6 +20170,337 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeatUsage"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_online_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOnlineSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_online_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingOnlineSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingOnlineSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedBookingOnlineSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOnlineSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_online_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingOnlineSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingOnlineSettingsChange"];
+                "multipart/form-data": components["schemas"]["BookingOnlineSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOnlineSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_reminders_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRemindersSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_reminders_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingRemindersSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingRemindersSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedBookingRemindersSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRemindersSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_reminders_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingRemindersSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingRemindersSettingsChange"];
+                "multipart/form-data": components["schemas"]["BookingRemindersSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRemindersSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_schema_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsSchema"];
                 };
             };
             403: {

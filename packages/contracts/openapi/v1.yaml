@@ -8493,8 +8493,12 @@ paths:
           equivalent token for the same plan and changes nothing else.'
   /api/v1/organizations/current/history/:
     get:
-      operationId: api_v1_organizations_current_history_retrieve
-      description: The organization's history of changes, newest first (owner, admin).
+      operationId: organizations_history_list
+      description: Who changed what and when, newest first, with before and after
+        where the change recorded them and through which channel (panel, API key,
+        assistant). Filter by `action`, by a settings `group` or by one setting's
+        `key` (ADR-078).
+      summary: Read the company's history of changes
       parameters:
       - in: query
         name: action
@@ -8503,6 +8507,22 @@ paths:
           default: ''
           maxLength: 64
           minLength: 1
+      - in: query
+        name: group
+        schema:
+          type: string
+          default: ''
+          maxLength: 120
+          minLength: 1
+        description: A settings group, e.g. booking.reminders.
+      - in: query
+        name: key
+        schema:
+          type: string
+          default: ''
+          maxLength: 120
+          minLength: 1
+        description: One setting, e.g. booking.reminders.lead_hours.
       - in: query
         name: page
         schema:
@@ -8526,6 +8546,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistoryPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '403':
           content:
@@ -9115,6 +9141,320 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SeatUsage'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/booking.online/:
+    get:
+      operationId: organization_settings_booking_online_retrieve
+      description: Whether customers book through the form on the company's site.
+        A pause does not affect visits added in the panel or changes to existing bookings.
+        The values that apply, where each comes from (code, platform or the company)
+        and the group's version token.
+      summary: 'Read the company''s settings: Online booking'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOnlineSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_booking_online_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Online booking'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingOnlineSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingOnlineSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingOnlineSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOnlineSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/booking.online/preview/:
+    post:
+      operationId: organization_settings_booking_online_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Online booking'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingOnlineSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingOnlineSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingOnlineSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingOnlineSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/booking.reminders/:
+    get:
+      operationId: organization_settings_booking_reminders_retrieve
+      description: Whether and when the customer gets a reminder e-mail before a confirmed
+        visit. The values that apply, where each comes from (code, platform or the
+        company) and the group's version token.
+      summary: 'Read the company''s settings: Visit reminders'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRemindersSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_booking_reminders_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Visit reminders'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRemindersSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRemindersSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRemindersSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRemindersSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/booking.reminders/preview/:
+    post:
+      operationId: organization_settings_booking_reminders_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Visit reminders'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRemindersSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRemindersSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRemindersSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRemindersSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/schema/:
+    get:
+      operationId: organization_settings_schema_retrieve
+      description: Every settings group the company has, with its keys, types, bounds,
+        allowed values and labels (pl, en), the default, who may change it and whether
+        the plan lets the company change it now (ADR-078). The one source of a setting's
+        variants for the panel and the assistant.
+      summary: What the company may set
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsSchema'
           description: ''
         '403':
           content:
@@ -17414,6 +17754,258 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    BookingOnlineSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingOnlineSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/BookingOnlineSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    BookingOnlineSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingOnlineSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        paused:
+          type:
+          - boolean
+          - 'null'
+          description: 'Paused: the booking form on the company''s site says online
+            booking is paused and refuses new bookings; the team still adds visits
+            in the panel and customers can still change or cancel theirs.'
+        resume_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: 'The day online booking resumes by itself, in the company''s
+            time zone (YYYY-MM-DD). Empty: paused until switched off.'
+      required:
+      - expected_version
+    BookingOnlineSettingsChangeResetEnum:
+      enum:
+      - paused
+      - resume_on
+      type: string
+      description: |-
+        * `paused` - paused
+        * `resume_on` - resume_on
+    BookingOnlineSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingOnlineSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    BookingOnlineSettingsSources:
+      type: object
+      properties:
+        paused:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        resume_on:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - paused
+      - resume_on
+    BookingOnlineSettingsValues:
+      type: object
+      properties:
+        paused:
+          type: boolean
+          description: 'Paused: the booking form on the company''s site says online
+            booking is paused and refuses new bookings; the team still adds visits
+            in the panel and customers can still change or cancel theirs.'
+        resume_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: 'The day online booking resumes by itself, in the company''s
+            time zone (YYYY-MM-DD). Empty: paused until switched off.'
+      required:
+      - paused
+      - resume_on
+    BookingRemindersSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingRemindersSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/BookingRemindersSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    BookingRemindersSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingRemindersSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        enabled:
+          type:
+          - boolean
+          - 'null'
+          description: 'Whether customers get a reminder e-mail before a confirmed
+            visit. Off: no reminder is sent and the planned ones are dropped.'
+        lead_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 168
+          minimum: 1
+          description: How many hours before the visit the reminder goes out, 1 to
+            168. A change re-plans the reminders not sent yet; a visit closer than
+            that gets its reminder at once.
+        min_notice_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 168
+          minimum: 0
+          description: 'A visit less than this many hours away when its reminder is
+            planned gets none (a booking for this afternoon needs no reminder). 0
+            keeps today''s behaviour: the reminder goes out at once.'
+      required:
+      - expected_version
+    BookingRemindersSettingsChangeResetEnum:
+      enum:
+      - enabled
+      - lead_hours
+      - min_notice_hours
+      type: string
+      description: |-
+        * `enabled` - enabled
+        * `lead_hours` - lead_hours
+        * `min_notice_hours` - min_notice_hours
+    BookingRemindersSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingRemindersSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    BookingRemindersSettingsSources:
+      type: object
+      properties:
+        enabled:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        lead_hours:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        min_notice_hours:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - enabled
+      - lead_hours
+      - min_notice_hours
+    BookingRemindersSettingsValues:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: 'Whether customers get a reminder e-mail before a confirmed
+            visit. Off: no reminder is sent and the planned ones are dropped.'
+        lead_hours:
+          type: integer
+          maximum: 168
+          minimum: 1
+          description: How many hours before the visit the reminder goes out, 1 to
+            168. A change re-plans the reminders not sent yet; a visit closer than
+            that gets its reminder at once.
+        min_notice_hours:
+          type: integer
+          maximum: 168
+          minimum: 0
+          description: 'A visit less than this many hours away when its reminder is
+            planned gets none (a booking for this afternoon needs no reminder). 0
+            keeps today''s behaviour: the reminder goes out at once.'
+      required:
+      - enabled
+      - lead_hours
+      - min_notice_hours
     BookingRule:
       type: object
       properties:
@@ -23179,6 +23771,66 @@ components:
           minimum: 1
           description: The version the change was made on, as the last read gave it;
             another one answers 409 `booking_version_conflict`.
+    PatchedBookingOnlineSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingOnlineSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        paused:
+          type:
+          - boolean
+          - 'null'
+          description: 'Paused: the booking form on the company''s site says online
+            booking is paused and refuses new bookings; the team still adds visits
+            in the panel and customers can still change or cancel theirs.'
+        resume_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: 'The day online booking resumes by itself, in the company''s
+            time zone (YYYY-MM-DD). Empty: paused until switched off.'
+    PatchedBookingRemindersSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingRemindersSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        enabled:
+          type:
+          - boolean
+          - 'null'
+          description: 'Whether customers get a reminder e-mail before a confirmed
+            visit. Off: no reminder is sent and the planned ones are dropped.'
+        lead_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 168
+          minimum: 1
+          description: How many hours before the visit the reminder goes out, 1 to
+            168. A change re-plans the reminders not sent yet; a visit closer than
+            that gets its reminder at once.
+        min_notice_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 168
+          minimum: 0
+          description: 'A visit less than this many hours away when its reminder is
+            planned gets none (a booking for this afternoon needs no reminder). 0
+            keeps today''s behaviour: the reminder goes out at once.'
     PatchedBookingRuleUpdate:
       type: object
       description: A season's rules for exactly one of an offer, a group or a unit.
@@ -24807,8 +25459,13 @@ components:
             $ref: '#/components/schemas/PublicName'
         timezone:
           type: string
+        online:
+          allOf:
+          - $ref: '#/components/schemas/PublicOnline'
+          description: Whether the company takes online bookings now (ADR-078, booking.online).
       required:
       - locations
+      - online
       - people
       - resources
       - services
@@ -25011,6 +25668,20 @@ components:
       - parent_page_id
       - path
       - title
+    PublicOnline:
+      type: object
+      properties:
+        paused:
+          type: boolean
+        resume_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: The day booking resumes.
+      required:
+      - paused
+      - resume_on
     PublicPlan:
       type: object
       properties:
@@ -26161,6 +26832,22 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SettingEffect:
+      type: object
+      properties:
+        kind:
+          type: string
+        resource:
+          type: string
+        resource_id:
+          type: string
+        summary:
+          $ref: '#/components/schemas/LocalizedText'
+      required:
+      - kind
+      - resource
+      - resource_id
+      - summary
     SettingOption:
       type: object
       description: |-
@@ -26231,6 +26918,18 @@ components:
             $ref: '#/components/schemas/SettingOption'
       required:
       - keys
+    SettingSourceEnum:
+      enum:
+      - code
+      - platform
+      - product
+      - organization
+      type: string
+      description: |-
+        * `code` - code
+        * `platform` - platform
+        * `product` - product
+        * `organization` - organization
     SettingTypeEnum:
       enum:
       - int
@@ -26238,6 +26937,7 @@ components:
       - bool
       - enum
       - text
+      - date
       type: string
       description: |-
         * `int` - int
@@ -26245,6 +26945,7 @@ components:
         * `bool` - bool
         * `enum` - enum
         * `text` - text
+        * `date` - date
     SettingUnitEnum:
       enum:
       - minute
@@ -26299,6 +27000,53 @@ components:
       required:
       - label
       - value
+    SettingsGroupSchema:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The group, e.g. booking.reminders.
+        module:
+          type: string
+        area:
+          type: string
+          description: The panel's area the group belongs to.
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        permission:
+          type: string
+          description: Who may change the company's values.
+        can_change:
+          type: boolean
+          description: Whether the caller may change them now.
+        locked:
+          type: string
+          description: Why the plan does not let the company change them; empty.
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingOption'
+      required:
+      - area
+      - can_change
+      - description
+      - key
+      - keys
+      - locked
+      - module
+      - permission
+      - title
+    SettingsSchema:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsGroupSchema'
+      required:
+      - groups
     Setup:
       type: object
       properties:
