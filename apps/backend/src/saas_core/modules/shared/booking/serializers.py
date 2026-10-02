@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
-from .models import StaffChoice
+from .models import StaffChoice, TimeOffSource
 from .offer_settings import offer_setting
 
 
@@ -420,8 +420,28 @@ class ResourceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
     active = serializers.BooleanField()
+    group_id = serializers.UUIDField(
+        allow_null=True, help_text="The pool of identical units it belongs to, if any."
+    )
+    location_id = serializers.UUIDField(
+        allow_null=True, help_text="Where the unit is, if anywhere."
+    )
+    capacity = serializers.IntegerField(allow_null=True, help_text="How many people it takes.")
+    description = serializers.CharField()
     version = serializers.IntegerField(
         help_text="The resource's version; a change names it (`expected_version`)."
+    )
+
+
+class GroupSetupSerializer(serializers.Serializer[dict[str, Any]]):
+    """A pool of identical units (ADR-072 §3)."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    active = serializers.BooleanField()
+    version = serializers.IntegerField(
+        help_text="The group's version; a change names it (`expected_version`)."
     )
 
 
@@ -439,6 +459,12 @@ class PlaceSetupPreviewSerializer(PlaceSetupSerializer):
 
 class ResourceSetupPreviewSerializer(ResourceSetupSerializer):
     """The resource as the write would leave it; nothing is saved."""
+
+    changes = _changes()
+
+
+class GroupSetupPreviewSerializer(GroupSetupSerializer):
+    """The group as the write would leave it; nothing is saved."""
 
     changes = _changes()
 
@@ -488,6 +514,7 @@ class SetupSerializer(serializers.Serializer[dict[str, Any]]):
     services = ServiceSetupSerializer(many=True)
     locations = PlaceSetupSerializer(many=True)
     resources = ResourceSetupSerializer(many=True)
+    groups = GroupSetupSerializer(many=True)
     staff = SetupPersonSerializer(many=True)
 
 
@@ -559,10 +586,75 @@ class PlaceUpdateSerializer(PlaceInputSerializer):
 
 
 class ResourceInputSerializer(serializers.Serializer[dict[str, Any]]):
-    """A new resource (a room, a device) a visit can take."""
+    """A new resource a visit can take, or a unit a stay takes (a room, a
+    device, a cottage, a kayak)."""
 
     name = serializers.CharField(max_length=160)
     active = serializers.BooleanField(required=False)
+    group_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        help_text="The pool of identical units it joins; null takes it out of one.",
+    )
+    location_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="The company's place where the unit is."
+    )
+    capacity = serializers.IntegerField(
+        min_value=1,
+        max_value=1000,
+        required=False,
+        allow_null=True,
+        help_text="How many people it takes; null where that makes no sense.",
+    )
+    description = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+
+
+class GroupInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A new pool of identical units, e.g. „Domek 6-os.”."""
+
+    name = serializers.CharField(max_length=160)
+    description = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    active = serializers.BooleanField(required=False)
+
+
+class GroupUpdateSerializer(GroupInputSerializer):
+    """A change to a group: only the fields sent change."""
+
+    name = serializers.CharField(max_length=160, required=False)
+    expected_version = _expected_version()
+
+
+class UnitBlockInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """The company keeps the unit for itself from `starts_at` to `ends_at`."""
+
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    reason = serializers.CharField(
+        max_length=160,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="For the company only, e.g. „remont”; never shown to customers.",
+    )
+
+
+class UnitBlockSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    resource_id = serializers.UUIDField()
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    reason = serializers.CharField()
+    source = serializers.ChoiceField(  # type: ignore[assignment]
+        choices=TimeOffSource.choices, help_text="`manual`, or `ical` for an imported one."
+    )
+    holds = serializers.BooleanField(
+        help_text="False for a block that could not take its time (it overlapped a booking); "
+        "the unit is still busy then."
+    )
+
+
+class UnitBlockListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = UnitBlockSerializer(many=True)
 
 
 class ResourceUpdateSerializer(ResourceInputSerializer):

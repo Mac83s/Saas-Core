@@ -854,6 +854,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/setup/blocks/{block_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a unit's block
+         * @description Lets the unit's time go; only a manual block can be removed here, an imported one goes with its calendar. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        delete: operations["booking_unit_block_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/groups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a group of identical units
+         * @description Creates a pool of identical units (e.g. „Domek 6-os.”); a booking of the group gets a free unit of it. A unit joins a group through its own `group_id`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_setup_group_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/groups/{group_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a group of units
+         * @description Renames a group, changes its description or switches it off. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_setup_group_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/groups/{group_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a group without saving it
+         * @description Validates a change as `booking_setup_group_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_group_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/groups/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a new group without adding it
+         * @description Validates a new group as `booking_setup_group_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_group_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/setup/locations/": {
         parameters: {
             query?: never;
@@ -992,6 +1092,50 @@ export interface paths {
          * @description Renames a resource or switches it off. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
          */
         patch: operations["booking_setup_resource_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/resources/{resource_id}/blocks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a unit's blocks in a window
+         * @description The unit's blocks — manual and imported — that touch the window, oldest first.
+         */
+        get: operations["booking_unit_blocks_list"];
+        put?: never;
+        /**
+         * Block a unit for a while
+         * @description Keeps the unit for the company (a renovation, own use). A block over a booking or another block of the unit is 409 `unit_busy`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_unit_block_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/resources/{resource_id}/blocks/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a unit's block without saving it
+         * @description Answers as `booking_unit_block_create` would, 409 `unit_busy` included. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_unit_block_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/booking/setup/resources/{resource_id}/preview/": {
@@ -5891,6 +6035,44 @@ export interface components {
         GrantRevoke: {
             reason: string;
         };
+        /** @description A new pool of identical units, e.g. „Domek 6-os.”. */
+        GroupInput: {
+            name: string;
+            description?: string;
+            active?: boolean;
+        };
+        /** @description A pool of identical units (ADR-072 §3). */
+        GroupSetup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            active: boolean;
+            /** @description The group's version; a change names it (`expected_version`). */
+            version: number;
+        };
+        /** @description The group as the write would leave it; nothing is saved. */
+        GroupSetupPreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            active: boolean;
+            /** @description The group's version; a change names it (`expected_version`). */
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A change to a group: only the fields sent change. */
+        GroupUpdate: {
+            name?: string;
+            description?: string;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
         GscAuthorization: {
             /** Format: uri */
             authorization_url: string;
@@ -7012,6 +7194,14 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        /** @description A change to a group: only the fields sent change. */
+        PatchedGroupUpdate: {
+            name?: string;
+            description?: string;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
+        };
         PatchedInventoryCategory: {
             /** Format: uuid */
             readonly id?: string;
@@ -7062,6 +7252,19 @@ export interface components {
         PatchedResourceUpdate: {
             name?: string;
             active?: boolean;
+            /**
+             * Format: uuid
+             * @description The pool of identical units it joins; null takes it out of one.
+             */
+            group_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The company's place where the unit is.
+             */
+            location_id?: string | null;
+            /** @description How many people it takes; null where that makes no sense. */
+            capacity?: number | null;
+            description?: string;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
@@ -7699,16 +7902,45 @@ export interface components {
             name: string;
             kind: string;
         };
-        /** @description A new resource (a room, a device) a visit can take. */
+        /**
+         * @description A new resource a visit can take, or a unit a stay takes (a room, a
+         *     device, a cottage, a kayak).
+         */
         ResourceInput: {
             name: string;
             active?: boolean;
+            /**
+             * Format: uuid
+             * @description The pool of identical units it joins; null takes it out of one.
+             */
+            group_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The company's place where the unit is.
+             */
+            location_id?: string | null;
+            /** @description How many people it takes; null where that makes no sense. */
+            capacity?: number | null;
+            description?: string;
         };
         ResourceSetup: {
             /** Format: uuid */
             id: string;
             name: string;
             active: boolean;
+            /**
+             * Format: uuid
+             * @description The pool of identical units it belongs to, if any.
+             */
+            group_id: string | null;
+            /**
+             * Format: uuid
+             * @description Where the unit is, if anywhere.
+             */
+            location_id: string | null;
+            /** @description How many people it takes. */
+            capacity: number | null;
+            description: string;
             /** @description The resource's version; a change names it (`expected_version`). */
             version: number;
         };
@@ -7718,6 +7950,19 @@ export interface components {
             id: string;
             name: string;
             active: boolean;
+            /**
+             * Format: uuid
+             * @description The pool of identical units it belongs to, if any.
+             */
+            group_id: string | null;
+            /**
+             * Format: uuid
+             * @description Where the unit is, if anywhere.
+             */
+            location_id: string | null;
+            /** @description How many people it takes. */
+            capacity: number | null;
+            description: string;
             /** @description The resource's version; a change names it (`expected_version`). */
             version: number;
             /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
@@ -7740,6 +7985,19 @@ export interface components {
         ResourceUpdate: {
             name?: string;
             active?: boolean;
+            /**
+             * Format: uuid
+             * @description The pool of identical units it joins; null takes it out of one.
+             */
+            group_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The company's place where the unit is.
+             */
+            location_id?: string | null;
+            /** @description How many people it takes; null where that makes no sense. */
+            capacity?: number | null;
+            description?: string;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
@@ -7943,6 +8201,7 @@ export interface components {
             services: components["schemas"]["ServiceSetup"][];
             locations: components["schemas"]["PlaceSetup"][];
             resources: components["schemas"]["ResourceSetup"][];
+            groups: components["schemas"]["GroupSetup"][];
             staff: components["schemas"]["SetupPerson"][];
         };
         /** @description One setting of an offer, in the shape of the settings registry (ADR-078). */
@@ -8340,6 +8599,12 @@ export interface components {
         SlotTimeList: {
             items: components["schemas"]["SlotTime"][];
         };
+        /**
+         * @description * `manual` - Ręczna
+         *     * `ical` - Kalendarz zewnętrzny
+         * @enum {string}
+         */
+        SourceEnum: "manual" | "ical";
         /**
          * @description * `cattle` - cattle
          *     * `sheep` - sheep
@@ -8749,6 +9014,41 @@ export interface components {
          * @enum {string}
          */
         TypeEnum: "module_run.finished";
+        UnitBlock: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            resource_id: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            reason: string;
+            /**
+             * @description `manual`, or `ical` for an imported one.
+             *
+             *     * `manual` - Ręczna
+             *     * `ical` - Kalendarz zewnętrzny
+             */
+            source: components["schemas"]["SourceEnum"];
+            /** @description False for a block that could not take its time (it overlapped a booking); the unit is still busy then. */
+            holds: boolean;
+        };
+        /** @description The company keeps the unit for itself from `starts_at` to `ends_at`. */
+        UnitBlockInput: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /**
+             * @description For the company only, e.g. „remont”; never shown to customers.
+             * @default
+             */
+            reason: string;
+        };
+        UnitBlockList: {
+            items: components["schemas"]["UnitBlock"][];
+        };
         /**
          * @description * `piece` - Sztuka
          *     * `pack` - Opakowanie
@@ -10907,6 +11207,296 @@ export interface operations {
             };
         };
     };
+    booking_unit_block_delete: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                block_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_group_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GroupInput"];
+                "multipart/form-data": components["schemas"]["GroupInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_group_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedGroupUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedGroupUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedGroupUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_group_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["GroupUpdate"];
+                "multipart/form-data": components["schemas"]["GroupUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_group_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GroupInput"];
+                "multipart/form-data": components["schemas"]["GroupInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     booking_setup_location_create: {
         parameters: {
             query?: never;
@@ -11254,6 +11844,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResourceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_unit_blocks_list: {
+        parameters: {
+            query: {
+                /** @description Window start. */
+                from: string;
+                /** @description Window end. */
+                to: string;
+            };
+            header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitBlockList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_unit_block_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitBlockInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["UnitBlockInput"];
+                "multipart/form-data": components["schemas"]["UnitBlockInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitBlock"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_unit_block_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitBlockInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["UnitBlockInput"];
+                "multipart/form-data": components["schemas"]["UnitBlockInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitBlock"];
                 };
             };
             400: {

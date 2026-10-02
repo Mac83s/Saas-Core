@@ -16,12 +16,14 @@ import messages from "../../../../messages/pl.json";
 import { BookingSettings } from "./booking-settings";
 
 const api = vi.hoisted(() => ({
+  createSetupGroup: vi.fn(),
   createSetupLocation: vi.fn(),
   createSetupResource: vi.fn(),
   createSetupService: vi.fn(),
   getBookingSetup: vi.fn(),
   listInventoryBalances: vi.fn(),
   listInventoryItems: vi.fn(),
+  updateSetupGroup: vi.fn(),
   updateSetupLocation: vi.fn(),
   updateSetupResource: vi.fn(),
   updateSetupService: vi.fn(),
@@ -69,6 +71,7 @@ const BASE = "11111111-1111-4111-8111-111111111111";
 const BRANCH = "11111111-1111-4111-8111-222222222222";
 const ROOM = "44444444-4444-4444-8444-444444444444";
 const HERD = "33333333-3333-4333-8333-333333333333";
+const GROUP = "55555555-5555-4555-8555-555555555555";
 const OLD = "33333333-3333-4333-8333-444444444444";
 
 const service = (over: Record<string, unknown>) => ({
@@ -114,7 +117,27 @@ const SETUP = {
     },
     { id: BRANCH, name: "Filia", address: "", active: false, version: 2 },
   ],
-  resources: [{ id: ROOM, name: "Poskrom", active: true, version: 1 }],
+  resources: [
+    {
+      id: ROOM,
+      name: "Poskrom",
+      active: true,
+      group_id: null,
+      location_id: BASE,
+      capacity: null,
+      description: "",
+      version: 1,
+    },
+  ],
+  groups: [
+    {
+      id: GROUP,
+      name: "Poskrom mobilny",
+      description: "",
+      active: true,
+      version: 2,
+    },
+  ],
   staff: [
     { id: MARCIN, name: "Marcin Kowalski", hours_version: 1 },
     { id: PIOTR, name: "Piotr Wiśniewski", hours_version: 1 },
@@ -355,6 +378,68 @@ test("a refusal from the server is shown in the dialog (EN)", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Save service" }));
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
     "Nie ma takiej pozycji.",
+  );
+});
+
+test("grupa jednostek i jednostka w grupie z pojemnością", async () => {
+  api.createSetupGroup.mockImplementation(async (input) => ({
+    id: "g-new",
+    description: "",
+    active: true,
+    version: 1,
+    ...input,
+  }));
+  api.updateSetupResource.mockImplementation(async (id, input) => ({
+    ...SETUP.resources[0],
+    ...input,
+    id,
+  }));
+  renderSettings();
+  fireEvent.click(await screen.findByRole("button", { name: "Dodaj grupę" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowa grupa" });
+  fireEvent.change(within(dialog).getByLabelText("Nazwa"), {
+    target: { value: "Domek 6-os." },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.createSetupGroup).toHaveBeenCalledWith(
+      { name: "Domek 6-os.", description: "" },
+      expect.any(String),
+    ),
+  );
+  expect(await screen.findByText("Dodano: Domek 6-os..")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Edytuj: Poskrom" }));
+  const unit = await screen.findByRole("dialog", {
+    name: "Edytuj zasób: Poskrom",
+  });
+  fireEvent.change(within(unit).getByLabelText("Grupa"), {
+    target: { value: GROUP },
+  });
+  fireEvent.change(within(unit).getByLabelText("Ile osób mieści"), {
+    target: { value: "0" },
+  });
+  fireEvent.click(within(unit).getByRole("button", { name: "Zapisz" }));
+  expect(await within(unit).findByRole("alert")).toHaveTextContent(
+    "Pojemność to od 1 do 1000 osób.",
+  );
+  fireEvent.change(within(unit).getByLabelText("Ile osób mieści"), {
+    target: { value: "6" },
+  });
+  fireEvent.click(within(unit).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.updateSetupResource).toHaveBeenCalledWith(
+      ROOM,
+      {
+        name: "Poskrom",
+        group_id: GROUP,
+        location_id: BASE,
+        capacity: 6,
+        description: "",
+        expected_version: 1,
+      },
+      expect.any(String),
+    ),
   );
 });
 

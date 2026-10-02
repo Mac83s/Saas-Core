@@ -45,6 +45,7 @@ from .models import (
     Location,
     PublicBookingRoute,
     Resource,
+    ResourceGroup,
     Service,
     ServiceLocation,
     ServiceResource,
@@ -73,7 +74,8 @@ _SERVICE_FIELDS = (
     "active",
 )
 _PLACE_FIELDS = ("name", "address", "active")
-_RESOURCE_FIELDS = ("name", "active")
+_RESOURCE_FIELDS = ("name", "active", "capacity", "description", "group_id", "location_id")
+_GROUP_FIELDS = ("name", "description", "active")
 # `slugify` drops what NFKD cannot fold: "Łódź" would become "odz".
 _FOLD = str.maketrans({"ł": "l", "Ł": "L"})
 
@@ -91,6 +93,8 @@ class Setup:
     services: list[ServiceSetup]
     locations: list[Location]
     resources: list[Resource]
+    #: Pools of identical units (ADR-072 §3).
+    groups: list[ResourceGroup]
     #: Who can be named as a performer: the company's current people.
     staff: list[StaffMember]
 
@@ -225,6 +229,7 @@ def list_setup() -> Setup:
         ],
         locations=list(Location.all_objects.filter(organization=organization)),
         resources=list(Resource.all_objects.filter(organization=organization)),
+        groups=list(ResourceGroup.all_objects.filter(organization=organization)),
         staff=list(StaffMember.all_objects.filter(organization=organization, active=True)),
     )
 
@@ -477,7 +482,7 @@ def save_location(
     )
 
 
-def _saved[T: (Location, Resource)](
+def _saved[T: (Location, Resource, ResourceGroup)](
     item: T, *, created: bool, changes: dict[str, Any] | None = None, replayed: bool = False
 ) -> Saved[T]:
     return Saved(item, item.id, item.version, created, changes or {}, replayed)
@@ -556,6 +561,10 @@ def _write_resource(
     data: dict[str, Any],
     expected_version: int | None,
 ) -> Saved[Resource]:
+    # A unit's group and place are the company's own; null takes it out of one.
+    for name, model in (("group_id", ResourceGroup), ("location_id", Location)):
+        if data.get(name) is not None:
+            _own(model, organization, [data[name]], name)
     if resource_id is None:
         resource = Resource(organization=organization, **data)
         before: dict[str, Any] = {}
@@ -578,3 +587,67 @@ def _write_resource(
     resource.save()
     _audit(organization, context, "resource", resource.id, changes, created=not before)
     return _saved(resource, created=not before, changes=changes)
+
+
+@transaction.atomic
+def save_group(
+    *,
+    group_id: UUID | None,
+    data: dict[str, Any],
+    idempotency_key: str = "",
+    expected_version: int | None = None,
+    preview: bool = False,
+) -> Saved[ResourceGroup]:
+    """A pool of identical units; a unit joins it through its own `group_id`."""
+    context, organization = _manage()
+    created = group_id is None
+    return setup_write(
+        context=context,
+        action="group.create" if created else "group.update",
+        target_id=group_id,
+        request={"data": data, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_group(context, organization, group_id, data, expected_version),
+        replay=lambda item_id: _saved(
+            ResourceGroup.all_objects.get(organization=organization, pk=item_id),
+            created=created,
+            replayed=True,
+        ),
+    )
+
+
+def _write_group(
+    context: TenantContext,
+    organization: Organization,
+    group_id: UUID | None,
+    data: dict[str, Any],
+    expected_version: int | None,
+) -> Saved[ResourceGroup]:
+    if group_id is None:
+        group = ResourceGroup(organization=organization, **data)
+        before: dict[str, Any] = {}
+    else:
+        found = (
+            ResourceGroup.all_objects.select_for_update()
+            .filter(organization=organization, pk=group_id)
+            .first()
+        )
+        if found is None:
+            raise NotFound("Nie ma takiej grupy.")
+        check_version(found.version, expected_version)
+        group = found
+        before = audit_snapshot(group, _GROUP_FIELDS)
+        for name, value in data.items():
+            setattr(group, name, value)
+    name_taken = ResourceGroup.all_objects.filter(
+        organization=organization, name__iexact=group.name
+    ).exclude(pk=group.pk)
+    if name_taken.exists():
+        raise ValidationError({"name": "Grupa o tej nazwie już jest."}, code="name_taken")
+    changes = field_changes(before, audit_snapshot(group, _GROUP_FIELDS)) if before else {}
+    if changes:
+        group.version += 1
+    group.save()
+    _audit(organization, context, "resource_group", group.id, changes, created=not before)
+    return _saved(group, created=not before, changes=changes)

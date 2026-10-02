@@ -30,6 +30,10 @@ from .views import (
     SelfServiceCancelView,
     SelfServiceRescheduleView,
     ServiceMaterialsView,
+    SetupGroupCreatePreviewView,
+    SetupGroupDetailView,
+    SetupGroupListView,
+    SetupGroupUpdatePreviewView,
     SetupLocationCreatePreviewView,
     SetupLocationDetailView,
     SetupLocationListView,
@@ -58,6 +62,9 @@ from .views import (
     TeamDetailView,
     TeamListView,
     TimeOffDetailView,
+    UnitBlockDetailView,
+    UnitBlockListView,
+    UnitBlockPreviewView,
 )
 
 app_name = "booking"
@@ -149,6 +156,29 @@ urlpatterns = [
         "setup/resources/<uuid:resource_id>/preview/",
         SetupResourceUpdatePreviewView.as_view(),
         name="setup-resource-preview",
+    ),
+    path(
+        "setup/resources/<uuid:resource_id>/blocks/",
+        UnitBlockListView.as_view(),
+        name="unit-blocks",
+    ),
+    path(
+        "setup/resources/<uuid:resource_id>/blocks/preview/",
+        UnitBlockPreviewView.as_view(),
+        name="unit-blocks-preview",
+    ),
+    path("setup/blocks/<uuid:block_id>/", UnitBlockDetailView.as_view(), name="unit-block"),
+    path("setup/groups/", SetupGroupListView.as_view(), name="setup-groups"),
+    path(
+        "setup/groups/preview/",
+        SetupGroupCreatePreviewView.as_view(),
+        name="setup-groups-preview",
+    ),
+    path("setup/groups/<uuid:group_id>/", SetupGroupDetailView.as_view(), name="setup-group"),
+    path(
+        "setup/groups/<uuid:group_id>/preview/",
+        SetupGroupUpdatePreviewView.as_view(),
+        name="setup-group-preview",
     ),
     path("slots/", BookingSlotsView.as_view(), name="slots"),
     path("slots/days/", BookingSlotDaysView.as_view(), name="slot-days"),

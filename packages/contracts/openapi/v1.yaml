@@ -1976,6 +1976,300 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/setup/blocks/{block_id}/:
+    delete:
+      operationId: booking_unit_block_delete
+      description: Lets the unit's time go; only a manual block can be removed here,
+        an imported one goes with its calendar. A repeated Idempotency-Key answers
+        the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Remove a unit's block
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: block_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/groups/:
+    post:
+      operationId: booking_setup_group_create
+      description: Creates a pool of identical units (e.g. „Domek 6-os.”); a booking
+        of the group gets a free unit of it. A unit joins a group through its own
+        `group_id`. A repeated Idempotency-Key answers the first result again; the
+        key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Add a group of identical units
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GroupInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GroupInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/groups/{group_id}/:
+    patch:
+      operationId: booking_setup_group_update
+      description: Renames a group, changes its description or switches it off. Only
+        the fields sent change. `expected_version` is the version the change was made
+        on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a group of units
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGroupUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGroupUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGroupUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/groups/{group_id}/preview/:
+    post:
+      operationId: booking_setup_group_update_preview
+      description: 'Validates a change as `booking_setup_group_update` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a group without saving it
+      parameters:
+      - in: path
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GroupUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GroupUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/groups/preview/:
+    post:
+      operationId: booking_setup_group_create_preview
+      description: 'Validates a new group as `booking_setup_group_create` would. Nothing
+        is saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a new group without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GroupInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GroupInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/locations/:
     post:
       operationId: booking_setup_location_create
@@ -2369,6 +2663,196 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/setup/resources/{resource_id}/blocks/:
+    get:
+      operationId: booking_unit_blocks_list
+      description: The unit's blocks — manual and imported — that touch the window,
+        oldest first.
+      summary: List a unit's blocks in a window
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date-time
+        description: Window start.
+        required: true
+      - in: path
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date-time
+        description: Window end.
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitBlockList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: booking_unit_block_create
+      description: Keeps the unit for the company (a renovation, own use). A block
+        over a booking or another block of the unit is 409 `unit_busy`. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `booking_idempotency_conflict`.
+      summary: Block a unit for a while
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitBlockInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UnitBlockInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitBlockInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitBlock'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/resources/{resource_id}/blocks/preview/:
+    post:
+      operationId: booking_unit_block_create_preview
+      description: 'Answers as `booking_unit_block_create` would, 409 `unit_busy`
+        included. Nothing is saved: the answer is the item as the write would leave
+        it, with `changes`, or the same 400, 404 and 409 the write would answer.'
+      summary: Check a unit's block without saving it
+      parameters:
+      - in: path
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitBlockInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UnitBlockInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitBlockInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitBlock'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/resources/{resource_id}/preview/:
     post:
       operationId: booking_setup_resource_update_preview
@@ -17175,6 +17659,90 @@ components:
           maxLength: 500
       required:
       - reason
+    GroupInput:
+      type: object
+      description: A new pool of identical units, e.g. „Domek 6-os.”.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 2000
+        active:
+          type: boolean
+      required:
+      - name
+    GroupSetup:
+      type: object
+      description: A pool of identical units (ADR-072 §3).
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: The group's version; a change names it (`expected_version`).
+      required:
+      - active
+      - description
+      - id
+      - name
+      - version
+    GroupSetupPreview:
+      type: object
+      description: The group as the write would leave it; nothing is saved.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        version:
+          type: integer
+          description: The group's version; a change names it (`expected_version`).
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - changes
+      - description
+      - id
+      - name
+      - version
+    GroupUpdate:
+      type: object
+      description: 'A change to a group: only the fields sent change.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 2000
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     GscAuthorization:
       type: object
       properties:
@@ -19915,6 +20483,23 @@ components:
           type: string
         active:
           type: boolean
+    PatchedGroupUpdate:
+      type: object
+      description: 'A change to a group: only the fields sent change.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 2000
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
     PatchedInventoryCategory:
       type: object
       properties:
@@ -20033,6 +20618,29 @@ components:
           maxLength: 160
         active:
           type: boolean
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The pool of identical units it joins; null takes it out of
+            one.
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The company's place where the unit is.
+        capacity:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+          description: How many people it takes; null where that makes no sense.
+        description:
+          type: string
+          maxLength: 2000
         expected_version:
           type: integer
           minimum: 1
@@ -21687,13 +22295,38 @@ components:
       - name
     ResourceInput:
       type: object
-      description: A new resource (a room, a device) a visit can take.
+      description: |-
+        A new resource a visit can take, or a unit a stay takes (a room, a
+        device, a cottage, a kayak).
       properties:
         name:
           type: string
           maxLength: 160
         active:
           type: boolean
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The pool of identical units it joins; null takes it out of
+            one.
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The company's place where the unit is.
+        capacity:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+          description: How many people it takes; null where that makes no sense.
+        description:
+          type: string
+          maxLength: 2000
       required:
       - name
     ResourceSetup:
@@ -21706,12 +22339,35 @@ components:
           type: string
         active:
           type: boolean
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The pool of identical units it belongs to, if any.
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Where the unit is, if anywhere.
+        capacity:
+          type:
+          - integer
+          - 'null'
+          description: How many people it takes.
+        description:
+          type: string
         version:
           type: integer
           description: The resource's version; a change names it (`expected_version`).
       required:
       - active
+      - capacity
+      - description
+      - group_id
       - id
+      - location_id
       - name
       - version
     ResourceSetupPreview:
@@ -21725,6 +22381,25 @@ components:
           type: string
         active:
           type: boolean
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The pool of identical units it belongs to, if any.
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Where the unit is, if anywhere.
+        capacity:
+          type:
+          - integer
+          - 'null'
+          description: How many people it takes.
+        description:
+          type: string
         version:
           type: integer
           description: The resource's version; a change names it (`expected_version`).
@@ -21736,8 +22411,12 @@ components:
             for no change.'
       required:
       - active
+      - capacity
       - changes
+      - description
+      - group_id
       - id
+      - location_id
       - name
       - version
     ResourceTypeEnum:
@@ -21767,6 +22446,29 @@ components:
           maxLength: 160
         active:
           type: boolean
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The pool of identical units it joins; null takes it out of
+            one.
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The company's place where the unit is.
+        capacity:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 1
+          description: How many people it takes; null where that makes no sense.
+        description:
+          type: string
+          maxLength: 2000
         expected_version:
           type: integer
           minimum: 1
@@ -22291,11 +22993,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceSetup'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupSetup'
         staff:
           type: array
           items:
             $ref: '#/components/schemas/SetupPerson'
       required:
+      - groups
       - locations
       - resources
       - services
@@ -23304,6 +24011,14 @@ components:
             $ref: '#/components/schemas/SlotTime'
       required:
       - items
+    SourceEnum:
+      enum:
+      - manual
+      - ical
+      type: string
+      description: |-
+        * `manual` - Ręczna
+        * `ical` - Kalendarz zewnętrzny
     SpeciesEnum:
       enum:
       - cattle
@@ -24272,6 +24987,70 @@ components:
       - module_run.finished
       type: string
       description: '* `module_run.finished` - module_run.finished'
+    UnitBlock:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          description: |-
+            `manual`, or `ical` for an imported one.
+
+            * `manual` - Ręczna
+            * `ical` - Kalendarz zewnętrzny
+        holds:
+          type: boolean
+          description: False for a block that could not take its time (it overlapped
+            a booking); the unit is still busy then.
+      required:
+      - ends_at
+      - holds
+      - id
+      - reason
+      - resource_id
+      - source
+      - starts_at
+    UnitBlockInput:
+      type: object
+      description: The company keeps the unit for itself from `starts_at` to `ends_at`.
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          default: ''
+          description: For the company only, e.g. „remont”; never shown to customers.
+          maxLength: 160
+      required:
+      - ends_at
+      - starts_at
+    UnitBlockList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnitBlock'
+      required:
+      - items
     UnitEnum:
       enum:
       - piece

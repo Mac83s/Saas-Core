@@ -285,6 +285,10 @@ export type PlaceSetupInput = components["schemas"]["PlaceInput"];
 export type PlaceSetupUpdate = components["schemas"]["PlaceUpdate"];
 export type ResourceSetupInput = components["schemas"]["ResourceInput"];
 export type ResourceSetupUpdate = components["schemas"]["ResourceUpdate"];
+/** A pool of identical units, e.g. „Domek 6-os.” (ADR-072 §3). */
+export type GroupSetup = components["schemas"]["GroupSetup"];
+export type GroupSetupInput = components["schemas"]["GroupInput"];
+export type GroupSetupUpdate = components["schemas"]["GroupUpdate"];
 /** What can be set on a service, in the settings registry's shape (ADR-078). */
 export type SetupOption = components["schemas"]["SetupOption"];
 /** A visit in „Do przydzielenia”, with the customer's contact. */
@@ -1983,6 +1987,47 @@ export async function getBookingSetup(): Promise<BookingSetup> {
     credentials: "same-origin",
     cache: "no-store",
   });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSetupGroup(
+  input: GroupSetupInput,
+  idempotencyKey: string,
+): Promise<GroupSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/groups/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Only the fields sent change; `expected_version` names the version read. */
+export async function updateSetupGroup(
+  groupId: string,
+  input: GroupSetupUpdate,
+  idempotencyKey: string,
+): Promise<GroupSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/groups/{group_id}/",
+    {
+      params: {
+        path: { group_id: groupId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
   if (error || !data) throwProblem(error, response);
   return data;
 }

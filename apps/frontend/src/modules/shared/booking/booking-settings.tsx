@@ -7,10 +7,12 @@ import { CreditCardIcon, PencilIcon, PlusIcon } from "lucide-react";
 import {
   ApiProblemError,
   getBookingSetup,
+  updateSetupGroup,
   updateSetupLocation,
   updateSetupResource,
   updateSetupService,
   type BookingSetup,
+  type GroupSetup,
   type PlaceSetup,
   type ResourceSetup,
   type ServiceSetup,
@@ -41,7 +43,8 @@ import {
 type Editing =
   | { kind: "service"; service?: ServiceSetup; template?: ServiceTemplate }
   | { kind: "location"; item?: PlaceSetup }
-  | { kind: "resource"; item?: ResourceSetup };
+  | { kind: "resource"; item?: ResourceSetup }
+  | { kind: "group"; item?: GroupSetup };
 
 /**
  * Settings › Services & schedule (team phase 3c, board 12): what customers can
@@ -284,8 +287,8 @@ export function BookingSettings({
   ];
 
   const itemActions = (
-    kind: "location" | "resource",
-    item: PlaceSetup | ResourceSetup,
+    kind: "location" | "resource" | "group",
+    item: PlaceSetup | ResourceSetup | GroupSetup,
   ): RowAction[] => [
     {
       label: t("editFor", { name: item.name }),
@@ -295,7 +298,9 @@ export function BookingSettings({
         open(
           kind === "location"
             ? { kind, item: item as PlaceSetup }
-            : { kind, item: item as ResourceSetup },
+            : kind === "group"
+              ? { kind, item: item as GroupSetup }
+              : { kind, item: item as ResourceSetup },
           trigger ?? null,
         ),
     },
@@ -310,7 +315,9 @@ export function BookingSettings({
             };
             return kind === "location"
               ? updateSetupLocation(item.id, change, key)
-              : updateSetupResource(item.id, change, key);
+              : kind === "group"
+                ? updateSetupGroup(item.id, change, key)
+                : updateSetupResource(item.id, change, key);
           },
           t(item.active ? "switchedOff" : "switchedOn", { name: item.name }),
         ),
@@ -356,6 +363,54 @@ export function BookingSettings({
     },
   ];
 
+  const groupNames = new Map(
+    (setup?.groups ?? []).map((group) => [group.id, group.name]),
+  );
+  const unitsOf = (groupId: string) =>
+    (setup?.resources ?? []).filter((thing) => thing.group_id === groupId)
+      .length;
+
+  const groupColumns: ColumnDef<GroupSetup, unknown>[] = [
+    {
+      id: "name",
+      accessorKey: "name",
+      header: t("colGroup"),
+      meta: { primary: true },
+      cell: ({ row: { original: group } }) => (
+        <>
+          <p className="font-medium wrap-anywhere">
+            {group.name}
+            {group.active ? null : inactive("inactiveResource")}
+          </p>
+          {group.description ? (
+            <p className="text-sm text-muted-foreground wrap-anywhere">
+              {group.description}
+            </p>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "units",
+      header: t("colUnits"),
+      enableSorting: false,
+      cell: ({ row: { original: group } }) =>
+        t("unitsCount", { count: unitsOf(group.id) }),
+    },
+    {
+      id: "actions",
+      header: t("colActions"),
+      enableSorting: false,
+      meta: { actions: true },
+      cell: ({ row: { original: group } }) => (
+        <RowActions
+          items={itemActions("group", group)}
+          label={t("actionsFor", { name: group.name })}
+        />
+      ),
+    },
+  ];
+
   const resourceColumns: ColumnDef<ResourceSetup, unknown>[] = [
     {
       id: "name",
@@ -363,11 +418,25 @@ export function BookingSettings({
       header: t("colResource"),
       meta: { primary: true },
       cell: ({ row: { original: thing } }) => (
-        <p className="font-medium wrap-anywhere">
-          {thing.name}
-          {thing.active ? null : inactive("inactiveResource")}
-        </p>
+        <>
+          <p className="font-medium wrap-anywhere">
+            {thing.name}
+            {thing.active ? null : inactive("inactiveResource")}
+          </p>
+          {thing.capacity ? (
+            <p className="text-sm text-muted-foreground">
+              {t("capacityShort", { count: thing.capacity })}
+            </p>
+          ) : null}
+        </>
       ),
+    },
+    {
+      id: "group",
+      header: t("colGroup"),
+      enableSorting: false,
+      cell: ({ row: { original: thing } }) =>
+        groupNames.get(thing.group_id ?? "") ?? "—",
     },
     {
       id: "services",
@@ -508,6 +577,30 @@ export function BookingSettings({
           loading={!setup}
         />
       </PanelSection>
+      <PanelSection
+        actions={
+          setup ? (
+            <Button
+              onClick={(event) => open({ kind: "group" }, event.currentTarget)}
+              variant="outline"
+            >
+              <PlusIcon aria-hidden="true" />
+              {t("addGroup")}
+            </Button>
+          ) : null
+        }
+        description={t("groupsHint")}
+        title={t("groupsTitle")}
+      >
+        <DataTable
+          caption={t("groupsCaption")}
+          columns={groupColumns}
+          data={setup?.groups ?? []}
+          getRowId={(group) => group.id}
+          labels={{ ...labels, empty: t("noGroupsYet") }}
+          loading={!setup}
+        />
+      </PanelSection>
       <p className="max-w-3xl text-sm text-muted-foreground">
         {t("peopleElsewhere")}{" "}
         <Link
@@ -537,6 +630,7 @@ export function BookingSettings({
           item={editing.item}
           kind={editing.kind}
           onOpenChange={(value) => (value ? undefined : close())}
+          setup={setup}
           onSaved={(name, created) =>
             saved(t(created ? "created" : "saved", { name }))
           }

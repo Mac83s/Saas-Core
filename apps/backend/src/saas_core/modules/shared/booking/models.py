@@ -157,10 +157,16 @@ class StaffTeamMember(TenantScopedModel):
         ]
 
 
-class Resource(TenantScopedModel):
+class ResourceGroup(TenantScopedModel):
+    """A pool of identical units — „Domek 6-os.”, „Kajak 2-os.” (ADR-072 §3).
+
+    A booking of the group gets a free unit of it, the least busy one; a unit
+    belongs to one group at most, so that pick counts one pool.
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=160)
-    kind = models.CharField(max_length=80, default="generic")
+    description = models.TextField(max_length=2000, blank=True)
     active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -169,6 +175,45 @@ class Resource(TenantScopedModel):
 
     class Meta:
         ordering = ("organization_id", "name", "id")
+        constraints = [
+            models.UniqueConstraint(
+                models.F("organization"), Lower("name"), name="booking_resourcegroup_org_name_uq"
+            ),
+        ]
+
+
+class Resource(TenantScopedModel):
+    """A resource a visit takes, or a unit a stay takes — a room, a chair, a
+    cottage, a kayak (ADR-072 §3). One unit is always one booking at a time:
+    a pool of identical ones is a group."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    name = models.CharField(max_length=160)
+    kind = models.CharField(max_length=80, default="generic")
+    active = models.BooleanField(default=True)
+    group = models.ForeignKey(
+        ResourceGroup, null=True, blank=True, on_delete=models.PROTECT, related_name="units"
+    )
+    #: Where the unit is; empty for a resource that goes wherever the visit does.
+    location = models.ForeignKey(
+        Location, null=True, blank=True, on_delete=models.PROTECT, related_name="units"
+    )
+    #: How many people it takes; empty where the question makes no sense.
+    capacity = models.PositiveSmallIntegerField(null=True, blank=True)
+    description = models.TextField(max_length=2000, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "name", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(capacity__isnull=True) | models.Q(capacity__gte=1),
+                name="booking_resource_capacity_ck",
+            ),
+        ]
 
 
 class Service(TenantScopedModel):
@@ -316,7 +361,21 @@ class AvailabilityRule(TenantScopedModel):
         ]
 
 
+class TimeOffSource(models.TextChoices):
+    MANUAL = "manual", "Ręczna"
+    ICAL = "ical", "Kalendarz zewnętrzny"
+
+
 class TimeOff(TenantScopedModel):
+    """A person's absence, or a unit's block (ADR-072 §4).
+
+    A unit's block holds its time with its own `AppointmentResourceAllocation`,
+    under the same exclusion constraint as a booking, so a block and a guest
+    cannot both win the same night. One that could not take its time (an
+    import over a booking) has no active allocation and still keeps the unit
+    busy in search.
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     staff = models.ForeignKey(
         StaffMember, null=True, blank=True, on_delete=models.PROTECT, related_name="time_off"
@@ -327,6 +386,9 @@ class TimeOff(TenantScopedModel):
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     reason = models.CharField(max_length=160, blank=True)
+    source = models.CharField(max_length=8, choices=TimeOffSource, default=TimeOffSource.MANUAL)
+    #: The event's UID in its calendar, for a block an import made (phase 6).
+    external_uid = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     all_objects = models.Manager()
 
@@ -496,9 +558,24 @@ class AppointmentStaffAllocation(TenantScopedModel):
 
 
 class AppointmentResourceAllocation(TenantScopedModel):
+    """The time a unit or resource is taken — by a booking or by a block,
+    exactly one of them (ADR-072 §4)."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     appointment = models.ForeignKey(
-        Appointment, on_delete=models.PROTECT, related_name="resource_allocations"
+        Appointment,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="resource_allocations",
+    )
+    #: A block's own hold; deleting the block lets the time go with it.
+    time_off = models.ForeignKey(
+        TimeOff,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="resource_allocations",
     )
     resource = models.ForeignKey(Resource, on_delete=models.PROTECT)
     occupied_range = DateTimeRangeField()
@@ -507,6 +584,13 @@ class AppointmentResourceAllocation(TenantScopedModel):
 
     class Meta:
         constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(appointment__isnull=False, time_off__isnull=True)
+                    | models.Q(appointment__isnull=True, time_off__isnull=False)
+                ),
+                name="booking_resource_allocation_owner_ck",
+            ),
             ExclusionConstraint(
                 name="booking_resource_no_overlap_excl",
                 expressions=[

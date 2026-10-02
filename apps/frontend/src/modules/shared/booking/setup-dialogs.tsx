@@ -7,13 +7,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import {
+  createSetupGroup,
   createSetupLocation,
   createSetupResource,
   createSetupService,
+  updateSetupGroup,
   updateSetupLocation,
   updateSetupResource,
   updateSetupService,
   type BookingSetup,
+  type GroupSetup,
   type PlaceSetup,
   type ResourceSetup,
   type ServiceSetup,
@@ -38,6 +41,7 @@ import {
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { Textarea } from "@saas-core/ui/components/textarea";
 
 import {
   draftsOf,
@@ -439,28 +443,55 @@ export function ItemDialog({
   finalFocus,
   item,
   kind,
+  setup,
   onOpenChange,
   onSaved,
 }: {
   finalFocus: HTMLElement | null;
-  item?: PlaceSetup | ResourceSetup;
-  kind: "location" | "resource";
+  item?: PlaceSetup | ResourceSetup | GroupSetup;
+  kind: "location" | "resource" | "group";
+  /** A unit's group and place are picked from these. */
+  setup?: BookingSetup;
   onOpenChange: (open: boolean) => void;
   onSaved: (name: string, created: boolean) => void;
 }) {
   const t = useTranslations("ServicesSetup");
   const common = useTranslations("Common");
+  const unit =
+    kind === "resource" ? (item as ResourceSetup | undefined) : undefined;
   const [name, setName] = useState(item?.name ?? "");
   const [address, setAddress] = useState(
     item && "address" in item ? item.address : "",
   );
+  const [groupId, setGroupId] = useState(unit?.group_id ?? "");
+  const [placeId, setPlaceId] = useState(unit?.location_id ?? "");
+  const [capacity, setCapacity] = useState(
+    unit?.capacity ? String(unit.capacity) : "",
+  );
+  const [description, setDescription] = useState(
+    item && "description" in item ? item.description : "",
+  );
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const groups = (setup?.groups ?? []).filter(
+    (group) => group.active || group.id === unit?.group_id,
+  );
+  const places = (setup?.locations ?? []).filter(
+    (place) => place.active || place.id === unit?.location_id,
+  );
+  const people = capacity.trim() ? Number(capacity) : null;
+  const badCapacity =
+    people !== null &&
+    (!Number.isInteger(people) || people < 1 || people > 1000);
 
   async function save() {
     if (!name.trim()) {
       setProblem(t("nameRequired"));
+      return;
+    }
+    if (badCapacity) {
+      setProblem(t("capacityRange"));
       return;
     }
     setBusy(true);
@@ -475,8 +506,23 @@ export function ItemDialog({
               idempotencyKey,
             )
           : createSetupLocation(body, idempotencyKey));
+      } else if (kind === "group") {
+        const body = { name: name.trim(), description: description.trim() };
+        await (item
+          ? updateSetupGroup(
+              item.id,
+              { ...body, expected_version: item.version },
+              idempotencyKey,
+            )
+          : createSetupGroup(body, idempotencyKey));
       } else {
-        const body = { name: name.trim() };
+        const body = {
+          name: name.trim(),
+          group_id: groupId || null,
+          location_id: placeId || null,
+          capacity: people,
+          description: description.trim(),
+        };
         await (item
           ? updateSetupResource(
               item.id,
@@ -490,12 +536,20 @@ export function ItemDialog({
       setProblem(
         problemText(error, t("failed"), t("forbidden"), {
           booking_version_conflict: t("versionConflict"),
+          name_taken: t("groupNameTaken"),
         }),
       );
     } finally {
       setBusy(false);
     }
   }
+
+  const titles = {
+    location: ["newPlaceTitle", "editPlaceTitle", "placeHint"],
+    resource: ["newResourceTitle", "editResourceTitle", "resourceHint"],
+    group: ["newGroupTitle", "editGroupTitle", "groupHint"],
+  } as const;
+  const [newTitle, editTitle, hint] = titles[kind];
 
   return (
     <Dialog onOpenChange={onOpenChange} open>
@@ -513,20 +567,9 @@ export function ItemDialog({
         >
           <DialogHeader>
             <DialogTitle>
-              {item
-                ? t(
-                    kind === "location"
-                      ? "editPlaceTitle"
-                      : "editResourceTitle",
-                    {
-                      name: item.name,
-                    },
-                  )
-                : t(kind === "location" ? "newPlaceTitle" : "newResourceTitle")}
+              {item ? t(editTitle, { name: item.name }) : t(newTitle)}
             </DialogTitle>
-            <DialogDescription>
-              {t(kind === "location" ? "placeHint" : "resourceHint")}
-            </DialogDescription>
+            <DialogDescription>{t(hint)}</DialogDescription>
           </DialogHeader>
           <Field>
             <FieldLabel htmlFor={`${kind}-name`}>{t("name")}</FieldLabel>
@@ -547,6 +590,75 @@ export function ItemDialog({
                 maxLength={240}
                 onChange={(event) => setAddress(event.target.value)}
                 value={address}
+              />
+            </Field>
+          ) : null}
+          {kind === "resource" ? (
+            <>
+              <Field>
+                <FieldLabel htmlFor="resource-group">
+                  {t("groupField")}
+                </FieldLabel>
+                <NativeSelect
+                  id="resource-group"
+                  onChange={(event) => setGroupId(event.target.value)}
+                  value={groupId}
+                >
+                  <option value="">{t("noGroup")}</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+                <FieldDescription>{t("groupFieldHint")}</FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="resource-place">
+                  {t("placeField")}
+                </FieldLabel>
+                <NativeSelect
+                  id="resource-place"
+                  onChange={(event) => setPlaceId(event.target.value)}
+                  value={placeId}
+                >
+                  <option value="">{t("noPlace")}</option>
+                  {places.map((place) => (
+                    <option key={place.id} value={place.id}>
+                      {place.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field data-invalid={badCapacity}>
+                <FieldLabel htmlFor="resource-capacity">
+                  {t("capacity")}
+                </FieldLabel>
+                <Input
+                  aria-invalid={badCapacity}
+                  id="resource-capacity"
+                  inputMode="numeric"
+                  max={1000}
+                  min={1}
+                  onChange={(event) => setCapacity(event.target.value)}
+                  type="number"
+                  value={capacity}
+                />
+                <FieldDescription>{t("capacityHint")}</FieldDescription>
+              </Field>
+            </>
+          ) : null}
+          {kind !== "location" ? (
+            <Field>
+              <FieldLabel htmlFor={`${kind}-description`}>
+                {t("description")}
+              </FieldLabel>
+              <Textarea
+                id={`${kind}-description`}
+                maxLength={2000}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={3}
+                value={description}
               />
             </Field>
           ) : null}

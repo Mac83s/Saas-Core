@@ -9,10 +9,11 @@ from uuid import UUID
 from django.conf import settings
 from django.http import HttpRequest
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework.exceptions import NotFound, ParseError
+from rest_framework.exceptions import NotFound, ParseError, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -27,7 +28,14 @@ from .availability import _zone, available_days, available_slots, available_time
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
-from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
+from .models import (
+    Location,
+    PublicBookingRoute,
+    Resource,
+    ResourceGroup,
+    SelfServiceRoute,
+    Service,
+)
 from .places import appointment_places, has_place_search, search_places
 from .public import public_choices, public_people, shown_to_customer
 from .security import public_booking_context, token_digest
@@ -41,6 +49,10 @@ from .serializers import (
     CatalogSerializer,
     CrewInputSerializer,
     CustomerAnonymizedSerializer,
+    GroupInputSerializer,
+    GroupSetupPreviewSerializer,
+    GroupSetupSerializer,
+    GroupUpdateSerializer,
     MaterialsInputSerializer,
     OverviewSerializer,
     PeopleDaySerializer,
@@ -88,6 +100,9 @@ from .serializers import (
     TeamUpdateSerializer,
     TimeOffCreatedSerializer,
     TimeOffInputSerializer,
+    UnitBlockInputSerializer,
+    UnitBlockListSerializer,
+    UnitBlockSerializer,
     VisitPlaceInputSerializer,
     VisitPlaceSuggestionListSerializer,
 )
@@ -112,6 +127,7 @@ from .services import (
 from .setup import (
     ServiceSetup,
     list_setup,
+    save_group,
     save_location,
     save_resource,
     save_service,
@@ -134,6 +150,7 @@ from .staff import (
     set_person_services,
 )
 from .teams import create_team, delete_team, list_teams, member_ids, update_team
+from .units import UnitBlock, add_unit_block, list_unit_blocks, remove_unit_block
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
 
@@ -1713,7 +1730,39 @@ def _place_payload(value: Location) -> dict[str, Any]:
 
 
 def _resource_payload(value: Resource) -> dict[str, Any]:
-    return {"id": value.id, "name": value.name, "active": value.active, "version": value.version}
+    return {
+        "id": value.id,
+        "name": value.name,
+        "active": value.active,
+        "group_id": value.group_id,
+        "location_id": value.location_id,
+        "capacity": value.capacity,
+        "description": value.description,
+        "version": value.version,
+    }
+
+
+def _group_payload(value: ResourceGroup) -> dict[str, Any]:
+    return {
+        "id": value.id,
+        "name": value.name,
+        "description": value.description,
+        "active": value.active,
+        "version": value.version,
+    }
+
+
+def _block_payload(value: UnitBlock) -> dict[str, Any]:
+    block = value.block
+    return {
+        "id": block.id,
+        "resource_id": block.resource_id,
+        "starts_at": block.starts_at,
+        "ends_at": block.ends_at,
+        "reason": block.reason,
+        "source": block.source,
+        "holds": value.holds,
+    }
 
 
 class BookingSetupView(APIView):
@@ -1737,6 +1786,7 @@ class BookingSetupView(APIView):
             "services": [_service_setup_payload(item) for item in value.services],
             "locations": [_place_payload(item) for item in value.locations],
             "resources": [_resource_payload(item) for item in value.resources],
+            "groups": [_group_payload(item) for item in value.groups],
             "staff": [
                 {"id": item.id, "name": item.display_name, "hours_version": item.hours_version}
                 for item in value.staff
@@ -2043,6 +2093,200 @@ class SetupResourceUpdatePreviewView(APIView):
             resource_id=resource_id, data=data, expected_version=version, preview=True
         )
         return Response(_with_changes(_resource_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupGroupListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_group_create",
+        summary="Add a group of identical units",
+        description="Creates a pool of identical units (e.g. „Domek 6-os.”); a booking of the "
+        "group gets a free unit of it. A unit joins a group through its own `group_id`."
+        + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=GroupInputSerializer,
+        responses={201: GroupSetupSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = GroupInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_group(
+            group_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(_group_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupGroupCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_group_create_preview",
+        summary="Check a new group without adding it",
+        description="Validates a new group as `booking_setup_group_create` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=GroupInputSerializer,
+        responses={200: GroupSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = GroupInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_group(group_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_group_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupGroupDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_group_update",
+        summary="Change a group of units",
+        description="Renames a group, changes its description or switches it off." + _UPDATE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=GroupUpdateSerializer,
+        responses={200: GroupSetupSerializer, **_SETUP_PROBLEMS},
+    )
+    def patch(self, request: Request, group_id: UUID) -> Response:
+        s = GroupUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_group(
+            group_id=group_id,
+            data=data,
+            expected_version=version,
+            idempotency_key=_idem(request),
+        )
+        return Response(_group_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupGroupUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_setup_group_update_preview",
+        summary="Check a change to a group without saving it",
+        description="Validates a change as `booking_setup_group_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=GroupUpdateSerializer,
+        responses={200: GroupSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, group_id: UUID) -> Response:
+        s = GroupUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_group(group_id=group_id, data=data, expected_version=version, preview=True)
+        return Response(_with_changes(_group_payload(saved.value), saved.changes))
+
+
+_BLOCK_WINDOW = [
+    OpenApiParameter(
+        "from", datetime, OpenApiParameter.QUERY, required=True, description="Window start."
+    ),
+    OpenApiParameter(
+        "to", datetime, OpenApiParameter.QUERY, required=True, description="Window end."
+    ),
+]
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class UnitBlockListView(APIView):
+    """A unit's blocks: the company keeps it for itself (ADR-072 §4)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_unit_blocks_list",
+        summary="List a unit's blocks in a window",
+        description="The unit's blocks — manual and imported — that touch the window, "
+        "oldest first.",
+        tags=["booking"],
+        parameters=_BLOCK_WINDOW,
+        responses={200: UnitBlockListSerializer, **_SETUP_PROBLEMS},
+    )
+    def get(self, request: Request, resource_id: UUID) -> Response:
+        window = _window(request)
+        items = list_unit_blocks(
+            resource_id=resource_id, starts_from=window[0], starts_until=window[1]
+        )
+        return Response({"items": [_block_payload(item) for item in items]})
+
+    @extend_schema(
+        operation_id="booking_unit_block_create",
+        summary="Block a unit for a while",
+        description="Keeps the unit for the company (a renovation, own use). A block over a "
+        "booking or another block of the unit is 409 `unit_busy`." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=UnitBlockInputSerializer,
+        responses={201: UnitBlockSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request, resource_id: UUID) -> Response:
+        s = UnitBlockInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = add_unit_block(
+            resource_id=resource_id, **s.validated_data, idempotency_key=_idem(request)
+        )
+        return Response(_block_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class UnitBlockPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_unit_block_create_preview",
+        summary="Check a unit's block without saving it",
+        description="Answers as `booking_unit_block_create` would, 409 `unit_busy` included."
+        + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=UnitBlockInputSerializer,
+        responses={200: UnitBlockSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, resource_id: UUID) -> Response:
+        s = UnitBlockInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = add_unit_block(resource_id=resource_id, **s.validated_data, preview=True)
+        return Response(_block_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class UnitBlockDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_unit_block_delete",
+        summary="Remove a unit's block",
+        description="Lets the unit's time go; only a manual block can be removed here, an "
+        "imported one goes with its calendar." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        responses={204: None, **_SETUP_PROBLEMS},
+    )
+    def delete(self, request: Request, block_id: UUID) -> Response:
+        remove_unit_block(time_off_id=block_id, idempotency_key=_idem(request))
+        return Response(status=204)
+
+
+def _window(request: Request) -> tuple[datetime, datetime]:
+    values = []
+    for name in ("from", "to"):
+        raw = request.query_params.get(name, "")
+        value = parse_datetime(raw) if raw else None
+        if value is None or value.tzinfo is None:
+            raise ValidationError({name: "Podaj chwilę ze strefą (ISO 8601)."}, code="invalid")
+        values.append(value)
+    if values[1] <= values[0]:
+        raise ValidationError({"to": "Koniec okna musi być po jego początku."}, code="invalid")
+    return values[0], values[1]
 
 
 _PERIOD = [

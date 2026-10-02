@@ -261,6 +261,11 @@ def configure_schedule(*, kind: str, data: dict[str, Any]) -> Any:
         item = AvailabilityRule.all_objects.create(organization=organization, **data)
     elif kind == "time_off":
         item = TimeOff.all_objects.create(organization=organization, **data)
+        if item.resource_id is not None:
+            # A unit's block holds its time like a booking does (ADR-072 §4).
+            from .units import hold
+
+            hold(item)
     elif kind == "service_staff":
         item = ServiceStaff.all_objects.create(organization=organization, **data)
     elif kind == "service_location":
