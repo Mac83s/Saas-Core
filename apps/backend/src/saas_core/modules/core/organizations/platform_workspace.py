@@ -103,7 +103,14 @@ def ensure_platform_workspace(*, name: str | None = None) -> tuple[Organization,
         slug=slug,
         workspace_kind=WorkspaceKind.PLATFORM,
         status=OrganizationStatus.ACTIVE,
-        default_locale=settings.SITES_DEFAULT_LOCALE,
+        # The panel speaks pl or en; the publisher's pages speak every
+        # language of the profile (ADR-071 pkt 1 and 4).
+        default_locale=(
+            settings.SITES_DEFAULT_LOCALE
+            if settings.SITES_DEFAULT_LOCALE in settings.APP_LOCALES
+            else "en"
+        ),
+        public_locales=list(settings.SITES_SUPPORTED_LOCALES),
     )
     organization.full_clean(validate_unique=False)
     # The identifier exists before the row does, so the workspace and its audit

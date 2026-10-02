@@ -6,10 +6,13 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import F, Func, Value
 from django.db.models.functions import Lower
+from django.db.models.lookups import Regex
 from django.utils import timezone
 
 
@@ -42,6 +45,11 @@ def default_organization_type() -> str:
     return str(settings.DEFAULT_ORGANIZATION_TYPE)
 
 
+def default_public_locales() -> list[str]:
+    """A new company speaks the product's first content language (ADR-071 pkt 4)."""
+    return [str(settings.SITES_DEFAULT_LOCALE)]
+
+
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=160)
@@ -69,11 +77,20 @@ class Organization(models.Model):
     #: `settings.ORGANIZATION_TYPES`. It decides which shared and vertical
     #: modules and which plans the organization gets; set once, at creation.
     organization_type = models.CharField(max_length=40, default=default_organization_type)
+    #: The language of the panel and of e-mails to the team — the application
+    #: axis, pl or en (ADR-071 pkt 1). What customers read is `public_locales`.
     default_locale = models.CharField(
         max_length=10,
         choices=[("pl", "Polski"), ("en", "English")],
         default="pl",
     )
+    #: The company's content languages in order, never empty; the first is its
+    #: customers' language — bookings, e-mails to customers, a new profile
+    #: (ADR-071 pkt 4). Codes come from the locale registry; which of them a
+    #: company may add is the plan's soft quota, checked by the service (TL10).
+    # Wider than a code on purpose: varchar(2)[] would truncate "deu" to "de"
+    # on an explicit cast, so the length is left to the format check.
+    public_locales = ArrayField(models.CharField(max_length=10), default=default_public_locales)
     timezone = models.CharField(max_length=64, default="Europe/Warsaw")
     currency = models.CharField(
         max_length=3,
@@ -107,6 +124,24 @@ class Organization(models.Model):
                 ),
                 name="organizations_archived_at_status_ck",
             ),
+            models.CheckConstraint(
+                condition=models.Q(public_locales__len__gte=1),
+                name="organizations_public_locales_nonempty_ck",
+            ),
+            # A shape, not a list: which languages exist is the registry's
+            # business and changes without a migration (ADR-071 pkt 3).
+            models.CheckConstraint(
+                condition=Regex(
+                    Func(
+                        F("public_locales"),
+                        Value(","),
+                        function="array_to_string",
+                        output_field=models.TextField(),
+                    ),
+                    r"^[a-z]{2}(,[a-z]{2})*$",
+                ),
+                name="organizations_public_locales_format_ck",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -123,6 +158,14 @@ class Organization(models.Model):
         self.currency = self.currency.strip().upper()
         if self.organization_type not in settings.ORGANIZATION_TYPES:
             raise ValidationError({"organization_type": "Nieznany typ organizacji."})
+        if (
+            not self.public_locales
+            or len(set(self.public_locales)) != len(self.public_locales)
+            or any(locale not in settings.LOCALE_REGISTRY for locale in self.public_locales)
+        ):
+            raise ValidationError({
+                "public_locales": "Języki firmy to niepusta lista kodów z rejestru, bez powtórzeń."
+            })
         try:
             ZoneInfo(self.timezone)
         except ZoneInfoNotFoundError as error:

@@ -1,0 +1,32 @@
+from typing import Any
+
+from django.db import migrations
+
+# ADR-071 pkt 4: an existing company's languages are its own, then the
+# languages its booking customers already have. Runs as the table owner, so FORCE RLS does
+# not hide other tenants' rows; the publisher already has every language.
+SQL = """
+UPDATE organizations_organization o
+SET public_locales = o.public_locales || ARRAY(
+    SELECT DISTINCT found.code FROM (
+        SELECT c.locale AS code FROM booking_customer c WHERE c.organization_id = o.id
+    ) found
+    WHERE found.code ~ '^[a-z]{2}$' AND NOT found.code = ANY(o.public_locales)
+    ORDER BY found.code
+)::varchar(10)[]
+WHERE o.workspace_kind <> 'platform'
+"""
+
+
+def append_locales(apps: Any, schema_editor: Any) -> None:
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(SQL)
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("booking", "0012_appointment_place"),
+        ("organizations", "0053_organization_public_locales"),
+    ]
+
+    operations = [migrations.RunPython(append_locales, migrations.RunPython.noop)]

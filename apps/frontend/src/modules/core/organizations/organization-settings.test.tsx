@@ -84,7 +84,7 @@ test("zapisuje tylko zmienione pola, z wersją, i odświeża menu", async () => 
   expect(router.refresh).toHaveBeenCalledOnce();
 
   // The next save names the version the first one returned.
-  fireEvent.change(screen.getByLabelText("Domyślny język"), {
+  fireEvent.change(screen.getByLabelText("Język panelu i e-maili do zespołu"), {
     target: { value: "en" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
