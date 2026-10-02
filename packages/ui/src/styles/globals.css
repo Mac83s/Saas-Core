@@ -370,16 +370,25 @@
     }
   }
 
-  /* The marketing site's sticky header (65px; 110px below lg with the Menu
-     row) covers the top of the page; focus and anchor scrolling stop below it
-     (WCAG 2.2, 2.4.11). Not "site": that word means customers' sites here. */
+  /* The marketing site's sticky header (65px; 110px with the Menu row)
+     covers the top of the page; focus and anchor scrolling stop below it
+     (WCAG 2.2, 2.4.11). The header names the breakpoint its links go inline
+     at (INLINE_NAV_BREAKPOINTS in the frontend's marketing/navigation.ts):
+     below it the Menu row is there. Not "site": that word means customers'
+     sites here. */
   html:has([data-marketing-header]) {
-    scroll-padding-top: 5rem;
+    scroll-padding-top: 7.5rem;
   }
 
-  @media (width < 64rem) {
-    html:has([data-marketing-header]) {
-      scroll-padding-top: 7.5rem;
+  @media (width >= 64rem) {
+    html:has([data-marketing-header="lg"]) {
+      scroll-padding-top: 5rem;
+    }
+  }
+
+  @media (width >= 80rem) {
+    html:has([data-marketing-header="xl"]) {
+      scroll-padding-top: 5rem;
     }
   }
 

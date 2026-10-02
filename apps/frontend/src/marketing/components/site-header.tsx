@@ -52,11 +52,12 @@ export async function SiteHeader() {
     },
     { catalog: productHasCatalog },
   );
-  const layout = INLINE_NAV[inlineNavFrom(links)];
+  const inline = inlineNavFrom(links);
+  const layout = INLINE_NAV[inline];
 
   return (
     <header
-      data-marketing-header
+      data-marketing-header={inline}
       className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur"
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-6 px-5">

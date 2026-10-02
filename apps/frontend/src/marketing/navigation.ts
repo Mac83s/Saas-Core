@@ -46,11 +46,20 @@ export function marketingLinks(
 }
 
 /**
+ * Tailwind's breakpoints the header can go inline at. Below its breakpoint the
+ * header has the "Menu" row, and the page's scroll padding in `globals.css`
+ * keeps anchors and focus below that taller header — one rule per entry here.
+ */
+export const INLINE_NAV_BREAKPOINTS = { lg: "64rem", xl: "80rem" } as const;
+
+/**
  * Where the header shows its links inline instead of under "Menu". Beside the
  * brand and the account buttons, five links fit from `lg` (1024 px); six —
  * MedPlano's three product pages, the catalogue, pricing and contact — wrap
  * there and need `xl`.
  */
-export function inlineNavFrom(links: readonly MarketingLink[]): "lg" | "xl" {
+export function inlineNavFrom(
+  links: readonly MarketingLink[],
+): keyof typeof INLINE_NAV_BREAKPOINTS {
   return links.length <= 5 ? "lg" : "xl";
 }

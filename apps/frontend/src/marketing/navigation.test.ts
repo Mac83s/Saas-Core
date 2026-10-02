@@ -1,8 +1,15 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { business } from "./content/business";
 import type { ProductCopy } from "./content";
-import { inlineNavFrom, marketingLinks } from "./navigation";
+import {
+  INLINE_NAV_BREAKPOINTS,
+  inlineNavFrom,
+  marketingLinks,
+} from "./navigation";
 
 const labels = {
   features: "Funkcje",
@@ -75,5 +82,23 @@ describe("marketingLinks", () => {
 
     expect(inlineNavFrom(four)).toBe("lg");
     expect(inlineNavFrom(six)).toBe("xl");
+  });
+
+  it("keeps anchors and focus below the taller header until its links go inline", () => {
+    // MedPlano at 1100 px: the Menu row makes the header 110 px, so the short
+    // 80 px padding there hid focused elements under it (WCAG 2.4.11).
+    // Tests run from apps/frontend; the stylesheet lives in the UI package.
+    const css = readFileSync(
+      path.resolve(process.cwd(), "../../packages/ui/src/styles/globals.css"),
+      "utf8",
+    );
+
+    for (const [inline, width] of Object.entries(INLINE_NAV_BREAKPOINTS)) {
+      expect(css).toMatch(
+        new RegExp(
+          `@media \\(width >= ${width}\\) \\{\\s*html:has\\(\\[data-marketing-header="${inline}"\\]\\)`,
+        ),
+      );
+    }
   });
 });
