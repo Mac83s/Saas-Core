@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { getServerUser } from "#lib/server-auth";
 import { AuthShell } from "../../../../modules/core/identity";
 import { InvitationAcceptance } from "../../../../modules/core/organizations";
+
+// An invitation is addressed to one person (ADR-071).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
 
 export default async function InvitationAcceptPage({
   params,

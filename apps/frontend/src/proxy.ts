@@ -11,8 +11,20 @@ const internationalization = createMiddleware(routing);
 /** Carries the visitor-facing path across the rewrite into `/site-renderer`,
  *  so the public layout can set `<html lang>` from the published page. */
 export const PUBLIC_SITE_PATH_HEADER = "x-saas-core-site-path";
+/** Whether the visitor's path ended with a slash. Route params drop it, and a
+ *  customer site's canonical addresses keep it (ADR-071), so the backend has
+ *  to hear the path as typed to answer the other spelling with one 308. */
+export const PUBLIC_SITE_TRAILING_SLASH_HEADER =
+  "x-saas-core-site-trailing-slash";
 
 export default function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  // The renderer is reachable only through the rewrite below, which sets the
+  // headers it trusts. Asked for directly, with headers of the visitor's own
+  // choosing, it would render any site under any address.
+  if (pathname === "/site-renderer" || pathname.startsWith("/site-renderer/")) {
+    return new NextResponse(null, { status: 404 });
+  }
   const hostname = normalizeRequestHostname(request.headers.get("host"));
   if (!isControlHostname(hostname)) {
     const rewritten = request.nextUrl.clone();
@@ -22,15 +34,30 @@ export default function proxy(request: NextRequest) {
     // header. Set, never appended: a visitor could otherwise supply their own
     // and steer which page's language the document claims.
     const forwarded = new Headers(request.headers);
-    forwarded.set(PUBLIC_SITE_PATH_HEADER, request.nextUrl.pathname);
+    forwarded.set(PUBLIC_SITE_PATH_HEADER, pathname);
+    forwarded.set(
+      PUBLIC_SITE_TRAILING_SLASH_HEADER,
+      pathname.length > 1 && pathname.endsWith("/") ? "1" : "0",
+    );
     // Same rule for the method, which decides whether this is a page view.
     forwarded.set(PUBLIC_SITE_METHOD_HEADER, request.method);
     return NextResponse.rewrite(rewritten, {
       request: { headers: forwarded },
     });
   }
+  // The platform's own pages have no trailing slash; the other spelling is one
+  // 308 away, as Next did before customer sites needed the slash kept. A
+  // relative Location, so the redirect stays on the scheme the visitor used.
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return new NextResponse(null, {
+      status: 308,
+      headers: {
+        location: `${pathname.replace(/\/+$/, "")}${request.nextUrl.search}`,
+      },
+    });
+  }
   // The product's own sitemap and robots are app routes, not localized pages.
-  if (METADATA_PATHS.has(request.nextUrl.pathname)) return NextResponse.next();
+  if (METADATA_PATHS.has(pathname)) return NextResponse.next();
   if (
     !deployment.features.publicBooking &&
     bookingPathDisabled(request.nextUrl.pathname)
@@ -66,7 +93,8 @@ function isControlHostname(hostname: string): boolean {
 
 export const config = {
   matcher: [
-    "/((?!api|healthz|site-renderer|_next|_vercel|.*\\..*).*)",
+    // `/site-renderer` is matched on purpose: the proxy refuses it.
+    "/((?!api|healthz|_next|_vercel|.*\\..*).*)",
     // The dot exclusion above exists to let static assets through
     // untouched, but it also swallowed the two addresses a feed reader and
     // a crawler ask for by name. They are public-site paths and need the

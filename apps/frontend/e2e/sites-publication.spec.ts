@@ -436,6 +436,15 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       try {
         const response = await visitor.goto(`http://${hostname}/${PAGE_SLUG}/`);
         expect(response?.status()).toBe(200);
+        // Served at the canonical address itself: `goto` follows redirects,
+        // so a 308 in front of the 200 shows only here (ADR-071).
+        expect(response?.request().redirectedFrom()).toBeNull();
+        // The other spelling is one 308 away, not a second copy of the page.
+        const other = await visitor.goto(`http://${hostname}/${PAGE_SLUG}`);
+        expect(other?.url()).toBe(`http://${hostname}/${PAGE_SLUG}/`);
+        const hop = other?.request().redirectedFrom();
+        expect(hop?.url()).toBe(`http://${hostname}/${PAGE_SLUG}`);
+        expect(hop?.redirectedFrom()).toBeNull();
         await expect(
           visitor.getByRole("heading", { name: shown, exact: true }),
         ).toBeVisible();

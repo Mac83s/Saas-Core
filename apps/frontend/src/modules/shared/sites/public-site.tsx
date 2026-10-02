@@ -71,14 +71,16 @@ function requestBackend(
   });
 }
 
-/** The address as the page route sees it: decoded segments, no trailing
- *  slash. The layout and the metadata build it the same way, so all three ask
- *  `getPublicSite` the same question and share one backend call — and one
- *  counted view. */
+/** The address as the visitor typed it: decoded segments, and the trailing
+ *  slash the route params drop (the proxy reports it). The layout and the
+ *  metadata build it the same way, so all three ask `getPublicSite` the same
+ *  question and share one backend call — and one counted view. */
 export function publicSitePath(
   segments: readonly string[] | undefined,
+  trailingSlash = false,
 ): string {
-  return `/${(segments ?? []).filter(Boolean).join("/")}`;
+  const path = `/${(segments ?? []).filter(Boolean).join("/")}`;
+  return trailingSlash && path !== "/" ? `${path}/` : path;
 }
 
 /** `countView` is part of the cached question on purpose: every caller in one
@@ -135,6 +137,9 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
       description: page.social_description || page.description,
       url: page.canonical_url,
     },
+    // In the document, not only by staying out of the sitemap: a crawler
+    // that follows a link never reads the sitemap.
+    ...(page.noindex ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

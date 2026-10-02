@@ -9,6 +9,7 @@ import {
   publicSitePath,
   PublicSiteRenderer,
 } from "../../../modules/shared/sites/public-site";
+import { PUBLIC_SITE_TRAILING_SLASH_HEADER } from "../../../proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,9 @@ function withSearchParams(
 async function publicRequest(params: PublicSiteRouteProps["params"]) {
   const [requestHeaders, route] = await Promise.all([headers(), params]);
   const host = requestHeaders.get("host") ?? "";
-  const path = publicSitePath(route.path);
+  const path = publicSitePath(
+    route.path,
+    requestHeaders.get(PUBLIC_SITE_TRAILING_SLASH_HEADER) === "1",
+  );
   return { host, path, countView: countsAsPageView(requestHeaders) };
 }

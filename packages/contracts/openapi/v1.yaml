@@ -19489,6 +19489,9 @@ components:
           items:
             type: string
             format: uuid
+        noindex:
+          type: boolean
+          description: The page asks search engines not to index it (robots noindex,follow).
       required:
       - ai_media_ids
       - article
@@ -19500,6 +19503,7 @@ components:
       - hreflang
       - locale
       - navigation
+      - noindex
       - pagination
       - publication_id
       - snapshot_hash

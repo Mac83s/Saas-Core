@@ -7,7 +7,10 @@ import {
   getPublicSite,
   publicSitePath,
 } from "../../modules/shared/sites/public-site";
-import { PUBLIC_SITE_PATH_HEADER } from "../../proxy";
+import {
+  PUBLIC_SITE_PATH_HEADER,
+  PUBLIC_SITE_TRAILING_SLASH_HEADER,
+} from "../../proxy";
 
 /** WCAG 2.2 requires the document to declare its language; without it a screen
  *  reader announces Polish copy with an English voice. The page below knows its
@@ -28,6 +31,7 @@ export default async function PublicSiteLayout({
     (requestHeaders.get(PUBLIC_SITE_PATH_HEADER) ?? "/")
       .split("/")
       .map(decodeSegment),
+    requestHeaders.get(PUBLIC_SITE_TRAILING_SLASH_HEADER) === "1",
   );
   let locale: string | undefined;
   try {

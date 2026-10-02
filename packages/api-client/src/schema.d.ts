@@ -6910,6 +6910,8 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             ai_media_ids: string[];
+            /** @description The page asks search engines not to index it (robots noindex,follow). */
+            noindex: boolean;
         };
         /**
          * @description * `none` - Nikogo

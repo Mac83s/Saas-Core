@@ -4,7 +4,11 @@ import { expect, test } from "vitest";
 
 import type { PublicSitePage } from "@saas-core/api-client";
 
-import { publicSiteMetadata, PublicSiteRenderer } from "./public-site";
+import {
+  publicSiteMetadata,
+  publicSitePath,
+  PublicSiteRenderer,
+} from "./public-site";
 
 const page: PublicSitePage = {
   publication_id: "019ff20d-a000-7000-8000-000000000020",
@@ -58,6 +62,7 @@ const page: PublicSitePage = {
   pagination: null,
   article: null,
   ai_media_ids: [],
+  noindex: false,
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -222,4 +227,19 @@ test("oznacza obrazy AI odznaką i dopiskiem w alt (ADR-059)", async () => {
   expect(badge?.textContent).toBe("AI");
   expect(badge?.getAttribute("aria-hidden")).toBe("true");
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("keeps the slash the visitor typed, except on the root", () => {
+  expect(publicSitePath(["oferta"], true)).toBe("/oferta/");
+  expect(publicSitePath(["oferta"], false)).toBe("/oferta");
+  expect(publicSitePath([], true)).toBe("/");
+  expect(publicSitePath(undefined)).toBe("/");
+});
+
+test("a page that asks not to be indexed says so in its head", () => {
+  expect(publicSiteMetadata(page).robots).toBeUndefined();
+  expect(publicSiteMetadata({ ...page, noindex: true }).robots).toEqual({
+    index: false,
+    follow: true,
+  });
 });
