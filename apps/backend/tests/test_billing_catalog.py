@@ -67,6 +67,8 @@ QUOTA_KEYS = {
     "pages.max",
     # Company templates, sections and pages together (billing 0025): 3, 10, 50.
     "sites.templates.max",
+    # Languages beyond the company's first (billing 0028): Profile 1, others none.
+    "public_locales.additional.max",
 } | (
     # The image generator's attempt limit comes with its module's migration
     # (image_generation 0003), so only a profile composing the module has it.
@@ -181,6 +183,8 @@ def test_assistant_features_walk_back_and_forward_without_touching_plans() -> No
         feature_keys=[*latest.feature_keys, "assistant.voice.enabled"],
         quotas=dict(latest.quotas),
     )
+    # The plans as 0026 left them: later migrations move plans of their own.
+    MigrationExecutor(connection).migrate([after])
     current = dict(Plan.objects.values_list("key", "current_version_id"))
 
     MigrationExecutor(connection).migrate([before])

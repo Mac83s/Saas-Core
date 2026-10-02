@@ -79,12 +79,6 @@
       "risk": "publish",
       "modifiers": [],
       "owner": "plan wielojęzyczności, TL9c"
-    },
-    {
-      "command": "organization.public_locales.update@1",
-      "risk": "apply",
-      "modifiers": [],
-      "owner": "plan wielojęzyczności, TL10 (usunięcie języka eskaluje do publish)"
     }
   ]
 }
