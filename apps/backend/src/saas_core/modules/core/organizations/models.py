@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -170,6 +170,11 @@ class Organization(models.Model):
             ZoneInfo(self.timezone)
         except ZoneInfoNotFoundError as error:
             raise ValidationError({"timezone": "Nieznana strefa czasowa."}) from error
+
+    def local_today(self) -> date:
+        """The company's day: dates on its documents and records follow its
+        time zone, not the server's UTC."""
+        return timezone.localdate(timezone=ZoneInfo(self.timezone))
 
     def archive(self) -> None:
         if self.status != OrganizationStatus.ARCHIVED:

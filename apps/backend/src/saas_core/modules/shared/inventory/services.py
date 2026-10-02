@@ -15,7 +15,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, cast
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -165,6 +164,7 @@ def ensure_catalog(organization_id: UUID) -> None:
                     "category": by_key.get(item.category),
                     "unit": item.unit,
                     "tracks_lots": item.tracks_lots,
+                    "currency": organization.currency,
                 },
             )
         try:
@@ -503,7 +503,13 @@ def create_item(*, request: HttpRequest, data: dict[str, Any]) -> InventoryItem:
         ).exists()
     ):
         raise ValidationError({"sku": "Ten kod SKU ma już inna pozycja."})
-    item = InventoryItem.all_objects.create(organization_id=context.organization_id, **values)
+    # The company's currency when the item is created, kept with it: costs
+    # already recorded are never renamed into another currency (ADR-078, UF-D3).
+    item = InventoryItem.all_objects.create(
+        organization_id=context.organization_id,
+        currency=_organization(context.organization_id).currency,
+        **values,
+    )
     _audit(
         request,
         context.organization_id,
@@ -764,7 +770,8 @@ def create_document(
                 **({"id": document_id} if document_id is not None else {}),
                 organization_id=context.organization_id,
                 kind=kind,
-                document_date=data.get("document_date") or timezone.localdate(),
+                document_date=data.get("document_date")
+                or organization_today(context.organization_id),
                 created_by_id=context.actor_id,
                 **{
                     key: value
@@ -938,7 +945,7 @@ def _correct(original: StockDocument, *, actor_id: UUID, note: str) -> StockDocu
     correction = StockDocument.all_objects.create(
         organization_id=original.organization_id,
         kind=original.kind,
-        document_date=timezone.localdate(),
+        document_date=organization_today(original.organization_id),
         source_location=original.source_location,
         target_location=original.target_location,
         supplier=original.supplier,
@@ -1052,8 +1059,9 @@ def _move(
 
 
 def organization_today(organization_id: UUID) -> date:
-    """Dzień firmy: partia z terminem na dziś jest ważna do końca tego dnia."""
-    return timezone.localdate(timezone=ZoneInfo(_organization(organization_id).timezone))
+    """Dzień firmy: partia z terminem na dziś jest ważna do końca tego dnia, a
+    dokument nosi datę i numer roku firmy, nie UTC serwera."""
+    return _organization(organization_id).local_today()
 
 
 def lot_status(expires_on: date | None, today: date) -> str:
@@ -1321,7 +1329,7 @@ def consume(
     document = StockDocument.all_objects.create(
         organization_id=organization_id,
         kind=kind,
-        document_date=timezone.localdate(),
+        document_date=organization_today(organization_id),
         source_location=location,
         source=source,
         source_reference=source_reference,

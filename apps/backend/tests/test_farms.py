@@ -1866,3 +1866,30 @@ def test_an_entry_is_corrected_by_its_author_as_its_next_revision() -> None:
                 data={"action": "withdraw", "reason": "Pomyłka"},
             )
         assert module.value.get_codes() == "entry_from_module"
+
+
+def test_an_entry_without_a_date_takes_the_companys_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Domyślna data wpisu to dzień firmy, nie UTC serwera (R2a planu ustawień)."""
+    from datetime import UTC, date, datetime  # noqa: PLC0415
+
+    from django.utils import timezone  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        record_health_entry,
+    )
+
+    member = membership("kartoteka-dzien")
+    with tenant(member) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Północ"})
+        cow = create_animal(
+            request=request, farm_id=farm.id, data={"national_id": "PL005432155001"}
+        )
+        # 23:30 UTC on 30 September is already 1 October in Warsaw.
+        monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 9, 30, 23, 30, tzinfo=UTC))
+        entry = record_health_entry(
+            request=request, animal_id=cow.id, data={"summary": "Obejrzana po porodzie."}
+        )
+
+    assert entry.occurred_on == date(2026, 10, 1)

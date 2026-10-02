@@ -7,6 +7,16 @@ from rest_framework import serializers
 
 from .command_registry import RISKS
 from .context import ACTING_VIA
+from .options import DEFAULT_CURRENCY, currency_codes
+
+
+def _offered_currency(value: str) -> str:
+    offered = currency_codes()
+    if value not in offered:
+        raise serializers.ValidationError(
+            f"Wybierz walutę z listy: {', '.join(offered)}.", code="currency_not_offered"
+        )
+    return value
 
 
 class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -21,7 +31,7 @@ class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
     )
     default_locale = serializers.ChoiceField(choices=["pl", "en"], default="pl")
     timezone = serializers.CharField(max_length=64, default="Europe/Warsaw")
-    currency = serializers.RegexField(r"^[A-Z]{3}$", default="PLN")
+    currency = serializers.RegexField(r"^[A-Z]{3}$", default=DEFAULT_CURRENCY)
     #: A key of a type the product lets people create themselves (ADR-050).
     #: Optional only where the product has exactly one such type.
     organization_type = serializers.CharField(max_length=40, required=False)
@@ -32,6 +42,9 @@ class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
         except ZoneInfoNotFoundError as error:
             raise serializers.ValidationError("Nieznana strefa czasowa.") from error
         return value
+
+    def validate_currency(self, value: str) -> str:
+        return _offered_currency(value)
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         offered = [
@@ -63,10 +76,45 @@ class OrganizationUpdateSerializer(serializers.Serializer[dict[str, Any]]):
             raise serializers.ValidationError("Nieznana strefa czasowa.") from error
         return value
 
+    def validate_currency(self, value: str) -> str:
+        return _offered_currency(value)
+
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         if set(attrs) == {"version"}:
             raise serializers.ValidationError("Podaj co najmniej jedno pole do zmiany.")
         return attrs
+
+
+class LocalizedTextSerializer(serializers.Serializer[dict[str, Any]]):
+    pl = serializers.CharField()
+    en = serializers.CharField()
+
+
+class SettingValueOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    value = serializers.CharField()
+    label = LocalizedTextSerializer()
+
+
+class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    """One setting a company may choose, with what it may choose; the shape of
+    an entry of the settings registry's schema (ADR-078 pkt 11)."""
+
+    key = serializers.CharField(help_text="Stable key, e.g. organization.currency.")
+    type = serializers.ChoiceField(choices=["bool", "int", "decimal", "enum", "text"])
+    minimum = serializers.IntegerField(allow_null=True)
+    maximum = serializers.IntegerField(allow_null=True)
+    unit = serializers.CharField(allow_null=True)
+    values = SettingValueOptionSerializer(many=True, allow_null=True)
+    default = serializers.JSONField(help_text="The value a new company starts with.")
+    label = LocalizedTextSerializer()
+    help = LocalizedTextSerializer(allow_null=True)
+    description = serializers.CharField(help_text="What the setting does, in English.")
+    scopes = serializers.ListField(child=serializers.CharField())
+    depends_on = serializers.CharField(allow_null=True)
+
+
+class SettingOptionsSerializer(serializers.Serializer[dict[str, Any]]):
+    keys = SettingOptionSerializer(many=True)
 
 
 class ActiveOrganizationSerializer(serializers.Serializer[dict[str, Any]]):

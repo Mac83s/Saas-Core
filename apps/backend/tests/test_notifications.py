@@ -22,6 +22,11 @@ from saas_core.modules.core.organizations.models import (
     RoleScope,
 )
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
+from saas_core.modules.shared.billing.models import (
+    AccessMode,
+    EntitlementSnapshot,
+    SubscriptionState,
+)
 from saas_core.modules.shared.notifications.delivery import (
     DeliveryDeferred,
     deliver_email,
@@ -32,18 +37,22 @@ from saas_core.modules.shared.notifications.models import (
     DeliveryStatus,
     EmailSuppression,
     NotificationMessage,
+    NotificationPreference,
 )
 from saas_core.modules.shared.notifications.providers import ProviderMessage
 from saas_core.modules.shared.notifications.security import validate_webhook_url
 from saas_core.modules.shared.notifications.services import (
     MfaRequired,
     authenticate_api_key,
+    get_preferences,
     ingest_provider_status,
     issue_api_key,
     queue_email,
     revoke_api_key,
     rotate_api_key,
+    staff_locale,
     support_retry_message,
+    upsert_preferences,
 )
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -379,3 +388,30 @@ def test_a_problem_carries_the_code_the_module_raised() -> None:
     explicit = APIException({"code": "x", "queue_mode": "herd"})
     explicit.problem_code = "visit_already_started"  # type: ignore[attr-defined]
     assert problem_code(explicit) == "visit_already_started"
+
+
+def test_reading_preferences_saves_nothing_and_follows_the_account_language() -> None:
+    member = membership(slug="preferences-read")
+    member.user.locale = "en"
+    member.user.save(update_fields=["locale"])
+    EntitlementSnapshot.all_objects.create(
+        organization=member.organization,
+        subscription_state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+        features={"notifications.enabled": True},
+        sources={"notifications.enabled": {"kind": "plan"}},
+    )
+
+    with tenant(member):
+        shown = get_preferences()
+        stored = NotificationPreference.all_objects.filter(
+            organization=member.organization
+        ).exists()
+        language = staff_locale(organization_id=member.organization_id, user=member.user)
+    # Opening the screen used to store "pl", which then outranked the account.
+    assert (shown.locale, shown.marketing_enabled, stored, language) == ("en", False, False, "en")
+
+    with tenant(member):
+        upsert_preferences(locale="pl", marketing_enabled=True)
+        again = get_preferences()
+    assert (again.locale, again.marketing_enabled) == ("pl", True)

@@ -344,3 +344,67 @@ def test_organization_endpoints_require_authentication() -> None:
 
     assert client.get(ORGANIZATIONS_URL).status_code == 403
     assert client.get(CURRENT_URL).status_code == 403
+
+
+def test_options_list_the_platform_currencies_and_panel_languages_before_any_company() -> None:
+    user = active_user()
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).status_code == 200
+
+    response = client.get(f"{ORGANIZATIONS_URL}options/")
+
+    assert response.status_code == 200
+    keys = {entry["key"]: entry for entry in response.data["keys"]}
+    currency = keys["organization.currency"]
+    assert [value["value"] for value in currency["values"]] == ["PLN", "EUR", "USD"]
+    assert currency["default"] == "PLN"
+    assert currency["label"] == {"pl": "Waluta", "en": "Currency"}
+    assert [value["value"] for value in keys["organization.default_locale"]["values"]] == [
+        "pl",
+        "en",
+    ]
+    assert APIClient().get(f"{ORGANIZATIONS_URL}options/").status_code == 403
+
+
+def test_a_currency_outside_the_platform_list_is_refused_by_field() -> None:
+    user = active_user()
+    membership = membership_for(user, slug="waluty")
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).status_code == 200
+
+    created = client.post(
+        ORGANIZATIONS_URL,
+        {
+            "name": "Funty",
+            "slug": "funty",
+            "organization_type": settings.DEFAULT_ORGANIZATION_TYPE,
+            "currency": "GBP",
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    updated = client.patch(
+        CURRENT_URL,
+        {"version": membership.organization.version, "currency": "GBP"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    accepted = client.patch(
+        CURRENT_URL,
+        {"version": membership.organization.version, "currency": "EUR"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+    for refused in (created, updated):
+        assert refused.status_code == 400
+        assert refused.data["errors"] == [
+            {
+                "field": "currency",
+                "code": "currency_not_offered",
+                "message": "Wybierz walutę z listy: PLN, EUR, USD.",
+            }
+        ]
+    assert not Organization.objects.filter(slug="funty").exists()
+    assert accepted.status_code == 200
+    assert accepted.data["currency"] == "EUR"

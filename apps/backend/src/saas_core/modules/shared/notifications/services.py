@@ -160,13 +160,22 @@ def staff_locale(*, organization_id: UUID, user: Any) -> str:
 
 
 def get_preferences() -> NotificationPreference:
+    """The member's preferences, or what applies without them — never saved by
+    reading: a stored row outranks the account's language (`staff_locale`), so
+    opening the screen must not switch the person's e-mails to Polish."""
     context = authorize_entitled(NOTIFICATIONS_PREFERENCES, "notifications.enabled")
-    preference, _ = NotificationPreference.all_objects.get_or_create(
+    preference = NotificationPreference.all_objects.filter(
+        organization_id=context.organization_id, user_id=context.actor_id
+    ).first()
+    if preference is not None:
+        return preference
+    user = User.objects.get(pk=context.actor_id)
+    return NotificationPreference(
         organization_id=context.organization_id,
-        user_id=context.actor_id,
-        defaults={"locale": "pl", "marketing_enabled": False},
+        user=user,
+        locale=staff_locale(organization_id=context.organization_id, user=user),
+        marketing_enabled=False,
     )
-    return preference
 
 
 @transaction.atomic

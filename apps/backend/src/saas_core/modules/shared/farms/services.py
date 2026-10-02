@@ -375,7 +375,8 @@ def record_health_entry(
         organization_id=context.organization_id,
         animal=animal,
         kind=data.get("kind") or HealthEntryKind.NOTE,
-        occurred_on=data.get("occurred_on") or timezone.localdate(),
+        occurred_on=data.get("occurred_on")
+        or Organization.objects.get(pk=context.organization_id).local_today(),
         source=MANUAL_SOURCE,
         source_reference=str(uuid.uuid7()),
         author_name=f"{user.first_name} {user.last_name}".strip() or user.email,

@@ -943,3 +943,31 @@ def test_a_sale_naming_a_lot_needs_that_lot_and_the_stock_page_shows_the_soonest
         assert held(owner.organization_id) == {}
         assert describe_items(owner.organization_id, [drug.id]) == {}
         assert drug.id in describe_items(owner.organization_id, [drug.id], include_hidden=True)
+
+
+def test_an_item_keeps_the_currency_and_a_document_the_day_of_its_company(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pozycja bierze walutę firmy przy założeniu i ją zachowuje (ADR-078,
+    UF-D3); dokument nosi dzień i rok firmy, nie UTC serwera (M1, M2)."""
+    from datetime import UTC, date, datetime  # noqa: PLC0415
+
+    from django.utils import timezone  # noqa: PLC0415
+
+    from saas_core.modules.shared.inventory.services import receive  # noqa: PLC0415
+
+    owner = membership("magazyn-strefa")
+    Organization.objects.filter(pk=owner.organization_id).update(currency="EUR")
+    # 23:30 UTC on New Year's Eve is already 2027 in Warsaw.
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 12, 31, 23, 30, tzinfo=UTC))
+    with tenant(owner) as request:
+        block = item(request)
+        document = receive(
+            request=request, item_id=block.id, quantity=Decimal(1), unit_cost_minor=100
+        )
+    Organization.objects.filter(pk=owner.organization_id).update(currency="USD")
+    block.refresh_from_db()
+
+    assert block.currency == "EUR"
+    assert document.document_date == date(2027, 1, 1)
+    assert document.number == "PZ/2027/0001"

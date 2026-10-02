@@ -44,6 +44,7 @@ from .lifecycle import (
     update_membership,
 )
 from .models import Invitation, InvitationStatus, Membership, Organization, Role
+from .options import organization_options
 from .permissions import ORGANIZATION_READ
 from .serializers import (
     ActiveOrganizationResultSerializer,
@@ -69,6 +70,7 @@ from .serializers import (
     RoleSummarySerializer,
     RoleUpdateSerializer,
     SeatUsageSerializer,
+    SettingOptionsSerializer,
 )
 from .services import (
     OrganizationAccess,
@@ -82,6 +84,21 @@ from .services import (
 
 class ProtectedOrganizationView(APIView):
     permission_classes = [IsAuthenticated]
+
+
+class OrganizationOptionsView(ProtectedOrganizationView):
+    @extend_schema(
+        operation_id="organization_options_retrieve",
+        summary="What a company may choose for its basic settings",
+        description="The allowed values, defaults and labels (pl, en) of the company's "
+        "basic settings — currency and panel language — for the form that creates a "
+        "company and for Settings › Company. Read it instead of hard-coding the lists: "
+        "the currencies are the platform's (ADR-078). Each entry has the shape of an "
+        "entry of the settings registry's schema.",
+        responses={200: SettingOptionsSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(organization_options())
 
 
 @method_decorator(csrf_protect, name="dispatch")

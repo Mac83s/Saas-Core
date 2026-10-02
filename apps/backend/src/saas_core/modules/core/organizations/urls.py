@@ -10,6 +10,7 @@ from .views import (
     MembershipListView,
     MembershipUpdateView,
     OrganizationListCreateView,
+    OrganizationOptionsView,
     OwnershipTransferView,
     RoleDetailView,
     RoleListCreateView,
@@ -18,6 +19,7 @@ from .views import (
 
 urlpatterns = [
     path("", OrganizationListCreateView.as_view(), name="organization-list-create"),
+    path("options/", OrganizationOptionsView.as_view(), name="organization-options"),
     path("current/", CurrentOrganizationView.as_view(), name="organization-current"),
     path(
         "current/invitations/",
