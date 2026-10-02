@@ -144,17 +144,29 @@ export function BookingSettings({
   };
 
   async function toggle(
-    action: () => Promise<unknown>,
+    action: (idempotencyKey: string) => Promise<unknown>,
     text: string,
   ): Promise<void> {
     setProblem(undefined);
     try {
-      await action();
+      await action(crypto.randomUUID());
       saved(text);
     } catch (error) {
-      setProblem(problemText(error, t("failed"), t("forbidden")));
+      setProblem(
+        problemText(error, t("failed"), t("forbidden"), {
+          booking_version_conflict: t("versionConflict"),
+        }),
+      );
+      // Somebody else changed it: the list shows their version now.
+      void load();
     }
   }
+
+  const close = () => {
+    setEditing(undefined);
+    // A dialog closed after a conflict leaves a stale row behind otherwise.
+    void load();
+  };
 
   const duration = (minutes: number) =>
     minutes < 60
@@ -250,8 +262,15 @@ export function BookingSettings({
               label: t(service.active ? "switchOffService" : "switchOnService"),
               onSelect: () =>
                 void toggle(
-                  () =>
-                    updateSetupService(service.id, { active: !service.active }),
+                  (key) =>
+                    updateSetupService(
+                      service.id,
+                      {
+                        active: !service.active,
+                        expected_version: service.version,
+                      },
+                      key,
+                    ),
                   t(service.active ? "switchedOff" : "switchedOn", {
                     name: service.name,
                   }),
@@ -284,10 +303,15 @@ export function BookingSettings({
       label: t(item.active ? "switchOff" : "switchOn"),
       onSelect: () =>
         void toggle(
-          () =>
-            kind === "location"
-              ? updateSetupLocation(item.id, { active: !item.active })
-              : updateSetupResource(item.id, { active: !item.active }),
+          (key) => {
+            const change = {
+              active: !item.active,
+              expected_version: item.version,
+            };
+            return kind === "location"
+              ? updateSetupLocation(item.id, change, key)
+              : updateSetupResource(item.id, change, key);
+          },
           t(item.active ? "switchedOff" : "switchedOn", { name: item.name }),
         ),
     },
@@ -498,7 +522,7 @@ export function BookingSettings({
         <ServiceDialog
           canUseInventory={canUseInventory}
           finalFocus={returnTo}
-          onOpenChange={(value) => (value ? undefined : setEditing(undefined))}
+          onOpenChange={(value) => (value ? undefined : close())}
           onSaved={(service, created) =>
             saved(t(created ? "created" : "saved", { name: service.name }))
           }
@@ -512,7 +536,7 @@ export function BookingSettings({
           finalFocus={returnTo}
           item={editing.item}
           kind={editing.kind}
-          onOpenChange={(value) => (value ? undefined : setEditing(undefined))}
+          onOpenChange={(value) => (value ? undefined : close())}
           onSaved={(name, created) =>
             saved(t(created ? "created" : "saved", { name }))
           }

@@ -591,7 +591,8 @@
     "publicShown": "Pokazuj klientom",
     "publicName": "Nazwa dla klientów",
     "publicNameHint": "Np. z tytułem: „dr Anna Nowak”.",
-    "publicSave": "Zapisz"
+    "publicSave": "Zapisz",
+    "hoursVersionConflict": "Ktoś zmienił w międzyczasie godziny tej osoby. Odśwież stronę i wprowadź zmianę jeszcze raz."
   },
   "Teams": {
     "eyebrow": "Zespół",
@@ -3837,6 +3838,7 @@
     "peopleElsewhere": "Pracowników, ich godziny pracy i nieobecności ustawiasz w Zespole.",
     "peopleLink": "Przejdź do Zespół › Pracownicy",
     "created": "Dodano: {name}.",
-    "saved": "Zapisano: {name}."
+    "saved": "Zapisano: {name}.",
+    "versionConflict": "Ktoś zmienił to w międzyczasie. Zamknij okno — lista pokaże aktualne dane — i wprowadź zmianę jeszcze raz."
   }
 }

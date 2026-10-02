@@ -87,6 +87,7 @@ const service = (over: Record<string, unknown>) => ({
   resource_ids: [],
   materials: [],
   takes_materials: true,
+  version: 3,
   ...over,
 });
 
@@ -104,13 +105,19 @@ const SETUP = {
     }),
   ],
   locations: [
-    { id: BASE, name: "Baza Radziejów", address: "ul. Polna 1", active: true },
-    { id: BRANCH, name: "Filia", address: "", active: false },
+    {
+      id: BASE,
+      name: "Baza Radziejów",
+      address: "ul. Polna 1",
+      active: true,
+      version: 1,
+    },
+    { id: BRANCH, name: "Filia", address: "", active: false, version: 2 },
   ],
-  resources: [{ id: ROOM, name: "Poskrom", active: true }],
+  resources: [{ id: ROOM, name: "Poskrom", active: true, version: 1 }],
   staff: [
-    { id: MARCIN, name: "Marcin Kowalski" },
-    { id: PIOTR, name: "Piotr Wiśniewski" },
+    { id: MARCIN, name: "Marcin Kowalski", hours_version: 1 },
+    { id: PIOTR, name: "Piotr Wiśniewski", hours_version: 1 },
   ],
 };
 
@@ -245,18 +252,24 @@ test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", 
   expect(
     await screen.findByText("Zapisano: Korekcja stada 60–150 krów."),
   ).toBeInTheDocument();
-  expect(api.updateSetupService).toHaveBeenCalledWith(HERD, {
-    name: "Korekcja stada 60–150 krów",
-    duration_minutes: 90,
-    buffer_before_minutes: 0,
-    buffer_after_minutes: 30,
-    minimum_notice_minutes: 60,
-    staff_count: 2,
-    public_staff_choice: "team",
-    staff_ids: [MARCIN, PIOTR],
-    location_ids: [BASE],
-    resource_ids: [ROOM],
-  });
+  expect(api.updateSetupService).toHaveBeenCalledWith(
+    HERD,
+    {
+      name: "Korekcja stada 60–150 krów",
+      duration_minutes: 90,
+      buffer_before_minutes: 0,
+      buffer_after_minutes: 30,
+      minimum_notice_minutes: 60,
+      staff_count: 2,
+      public_staff_choice: "team",
+      staff_ids: [MARCIN, PIOTR],
+      location_ids: [BASE],
+      resource_ids: [ROOM],
+      // The version the dialog was opened on (ADR-072 §11).
+      expected_version: 3,
+    },
+    expect.any(String),
+  );
   expect(api.getBookingSetup).toHaveBeenCalledTimes(2);
 });
 
@@ -297,9 +310,11 @@ test("wyłączenie usługi i nowe miejsce z adresem", async () => {
     await screen.findByRole("menuitem", { name: "Wyłącz usługę" }),
   );
   await waitFor(() =>
-    expect(api.updateSetupService).toHaveBeenCalledWith(HERD, {
-      active: false,
-    }),
+    expect(api.updateSetupService).toHaveBeenCalledWith(
+      HERD,
+      { active: false, expected_version: 3 },
+      expect.any(String),
+    ),
   );
   expect(
     await screen.findByText("Wyłączono: Korekcja stada 60–150 krów."),
@@ -317,10 +332,10 @@ test("wyłączenie usługi i nowe miejsce z adresem", async () => {
   });
   fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
   await waitFor(() =>
-    expect(api.createSetupLocation).toHaveBeenCalledWith({
-      name: "Gabinet Toruń",
-      address: "ul. Długa 2",
-    }),
+    expect(api.createSetupLocation).toHaveBeenCalledWith(
+      { name: "Gabinet Toruń", address: "ul. Długa 2" },
+      expect.any(String),
+    ),
   );
 });
 
@@ -341,6 +356,30 @@ test("a refusal from the server is shown in the dialog (EN)", async () => {
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
     "Nie ma takiej pozycji.",
   );
+});
+
+test("zmiana, której ktoś w międzyczasie nie widział, mówi o tym zamiast nadpisać", async () => {
+  api.updateSetupService.mockRejectedValue(
+    problem(409, "booking_version_conflict", "Ktoś zmienił to w międzyczasie."),
+  );
+  renderSettings();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Edytuj: Korekcja stada 60–150 krów",
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Edytuj usługę: Korekcja stada 60–150 krów",
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Zamknij okno — lista pokaże aktualne dane",
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Anuluj" }));
+  // Closing it reads the list again, with the other person's version.
+  await waitFor(() => expect(api.getBookingSetup).toHaveBeenCalledTimes(2));
 });
 
 test("bez rezerwacji w planie: właściciel idzie do planów, reszta pyta właściciela", async () => {

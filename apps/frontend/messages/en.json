@@ -591,7 +591,8 @@
     "publicShown": "Show to customers",
     "publicName": "Name for customers",
     "publicNameHint": "E.g. with a title: “Dr Anna Nowak”.",
-    "publicSave": "Save"
+    "publicSave": "Save",
+    "hoursVersionConflict": "Someone changed this person's hours in the meantime. Refresh the page and make the change again."
   },
   "Teams": {
     "eyebrow": "Team",
@@ -3837,6 +3838,7 @@
     "peopleElsewhere": "Staff, their working hours and absences are set in Team.",
     "peopleLink": "Go to Team › Staff",
     "created": "Added: {name}.",
-    "saved": "Saved: {name}."
+    "saved": "Saved: {name}.",
+    "versionConflict": "Someone changed this in the meantime. Close the window — the list will show the current data — and make the change again."
   }
 }

@@ -280,11 +280,13 @@ export type ServiceSetup = components["schemas"]["ServiceSetup"];
 export type PlaceSetup = components["schemas"]["PlaceSetup"];
 export type ResourceSetup = components["schemas"]["ResourceSetup"];
 export type ServiceSetupInput = components["schemas"]["ServiceInput"];
-export type ServiceSetupUpdate = components["schemas"]["PatchedServiceInput"];
+export type ServiceSetupUpdate = components["schemas"]["ServiceUpdate"];
 export type PlaceSetupInput = components["schemas"]["PlaceInput"];
-export type PlaceSetupUpdate = components["schemas"]["PatchedPlaceInput"];
+export type PlaceSetupUpdate = components["schemas"]["PlaceUpdate"];
 export type ResourceSetupInput = components["schemas"]["ResourceInput"];
-export type ResourceSetupUpdate = components["schemas"]["PatchedResourceInput"];
+export type ResourceSetupUpdate = components["schemas"]["ResourceUpdate"];
+/** What can be set on a service, in the settings registry's shape (ADR-078). */
+export type SetupOption = components["schemas"]["SetupOption"];
 /** A visit in „Do przydzielenia”, with the customer's contact. */
 export type QueueItem = components["schemas"]["QueueItem"];
 export type BookingOverview = components["schemas"]["Overview"];
@@ -1877,17 +1879,25 @@ export async function setPersonServices(
   return data;
 }
 
-/** Replaces the person's week; an empty list clears it. */
+/**
+ * Replaces the person's week; an empty list clears it. `expectedVersion` is
+ * the week's `hours_version` as last read (409 `booking_version_conflict`).
+ */
 export async function setPersonHours(
   staffId: string,
   rules: PersonHoursRule[],
+  expectedVersion: number,
+  idempotencyKey: string,
 ): Promise<PersonDetail> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PUT(
     "/api/v1/booking/staff/{staff_id}/hours/",
     {
-      params: { path: { staff_id: staffId } },
-      body: { rules },
+      params: {
+        path: { staff_id: staffId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { rules, expected_version: expectedVersion },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
@@ -1979,11 +1989,13 @@ export async function getBookingSetup(): Promise<BookingSetup> {
 
 export async function createSetupService(
   input: ServiceSetupInput,
+  idempotencyKey: string,
 ): Promise<ServiceSetup> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/booking/setup/services/",
     {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
@@ -1993,15 +2005,20 @@ export async function createSetupService(
   return data;
 }
 
+/** Only the fields sent change; `expected_version` names the version read. */
 export async function updateSetupService(
   serviceId: string,
   input: ServiceSetupUpdate,
+  idempotencyKey: string,
 ): Promise<ServiceSetup> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PATCH(
     "/api/v1/booking/setup/services/{service_id}/",
     {
-      params: { path: { service_id: serviceId } },
+      params: {
+        path: { service_id: serviceId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
@@ -2013,11 +2030,13 @@ export async function updateSetupService(
 
 export async function createSetupLocation(
   input: PlaceSetupInput,
+  idempotencyKey: string,
 ): Promise<PlaceSetup> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/booking/setup/locations/",
     {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
@@ -2027,15 +2046,20 @@ export async function createSetupLocation(
   return data;
 }
 
+/** Only the fields sent change; `expected_version` names the version read. */
 export async function updateSetupLocation(
   locationId: string,
   input: PlaceSetupUpdate,
+  idempotencyKey: string,
 ): Promise<PlaceSetup> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PATCH(
     "/api/v1/booking/setup/locations/{location_id}/",
     {
-      params: { path: { location_id: locationId } },
+      params: {
+        path: { location_id: locationId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
@@ -2047,11 +2071,13 @@ export async function updateSetupLocation(
 
 export async function createSetupResource(
   input: ResourceSetupInput,
+  idempotencyKey: string,
 ): Promise<ResourceSetup> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/booking/setup/resources/",
     {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
@@ -2061,15 +2087,20 @@ export async function createSetupResource(
   return data;
 }
 
+/** Only the fields sent change; `expected_version` names the version read. */
 export async function updateSetupResource(
   resourceId: string,
   input: ResourceSetupUpdate,
+  idempotencyKey: string,
 ): Promise<ResourceSetup> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PATCH(
     "/api/v1/booking/setup/resources/{resource_id}/",
     {
-      params: { path: { resource_id: resourceId } },
+      params: {
+        path: { resource_id: resourceId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { CalendarOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
@@ -77,6 +77,7 @@ export function PersonSchedule({
   const [week, setWeek] = useState<Week>(() => weekOf(detail));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
+  const idempotencyKey = useRef(crypto.randomUUID());
   const [adding, setAdding] = useState(false);
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
   const others = people.filter(
@@ -100,13 +101,19 @@ export function PersonSchedule({
             location_id: range.locationId || fallbackPlace,
           })),
         ),
+        detail.hours_version,
+        idempotencyKey.current,
       );
+      // The next change of the week is another request.
+      idempotencyKey.current = crypto.randomUUID();
       setWeek(weekOf(saved));
       onChanged(saved);
       onNotice(t("hoursSaved"));
     } catch (error) {
       setProblem(
-        problemText(error, people18n("failed"), people18n("forbidden")),
+        problemText(error, people18n("failed"), people18n("forbidden"), {
+          booking_version_conflict: people18n("hoursVersionConflict"),
+        }),
       );
     } finally {
       setBusy(false);

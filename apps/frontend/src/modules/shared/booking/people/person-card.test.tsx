@@ -116,6 +116,7 @@ const detail = {
       reason: "Urlop",
     },
   ],
+  hours_version: 4,
 };
 
 beforeEach(() => {
@@ -367,26 +368,32 @@ test("grafik: tydzień zapisuje się w całości, nieobecność to całe dni w s
   );
   fireEvent.click(screen.getByRole("button", { name: "Zapisz godziny pracy" }));
   await waitFor(() =>
-    expect(api.setPersonHours).toHaveBeenCalledWith("s-marcin", [
-      {
-        weekday: 0,
-        local_start: "07:00",
-        local_end: "16:00",
-        location_id: PLACE,
-      },
-      ...[1, 2, 3, 4].map((weekday) => ({
-        weekday,
-        local_start: "06:00",
-        local_end: "16:00",
-        location_id: PLACE,
-      })),
-      {
-        weekday: 5,
-        local_start: "08:00",
-        local_end: "16:00",
-        location_id: PLACE,
-      },
-    ]),
+    expect(api.setPersonHours).toHaveBeenCalledWith(
+      "s-marcin",
+      [
+        {
+          weekday: 0,
+          local_start: "07:00",
+          local_end: "16:00",
+          location_id: PLACE,
+        },
+        ...[1, 2, 3, 4].map((weekday) => ({
+          weekday,
+          local_start: "06:00",
+          local_end: "16:00",
+          location_id: PLACE,
+        })),
+        {
+          weekday: 5,
+          local_start: "08:00",
+          local_end: "16:00",
+          location_id: PLACE,
+        },
+      ],
+      // The week's version the card was read with (ADR-072 §11).
+      4,
+      expect.any(String),
+    ),
   );
   expect(
     await screen.findByText("Zapisano godziny pracy."),

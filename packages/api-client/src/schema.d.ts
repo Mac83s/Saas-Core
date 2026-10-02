@@ -841,8 +841,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Ustawienia › Usługi i grafik: everything, switched-off items included. */
-        get: operations["api_v1_booking_setup_retrieve"];
+        /**
+         * Read services, places, resources and people as setup edits them
+         * @description Every service with who does it, where and with which resource, every place and resource, switched-off ones included, and the company's current people. Each item carries the version a change of it names.
+         */
+        get: operations["booking_setup_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -860,7 +863,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["api_v1_booking_setup_locations_create"];
+        /**
+         * Add a place of work
+         * @description Creates a place where the company works and takes visits. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_setup_location_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -880,7 +887,71 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["api_v1_booking_setup_locations_partial_update"];
+        /**
+         * Change a place of work
+         * @description Renames a place, changes its address or switches it off. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_setup_location_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/locations/{location_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a place without saving it
+         * @description Validates a change as `booking_setup_location_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_location_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/locations/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a new place without adding it
+         * @description Validates a new place as `booking_setup_location_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_location_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/options/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read what can be set on a service, with bounds and defaults
+         * @description Every setting of an offer: type, bounds, unit, variants with labels, the default a new service gets and a description. The entries have the shape of the company settings registry (ADR-078).
+         */
+        get: operations["booking_setup_options_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/booking/setup/resources/": {
@@ -892,7 +963,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["api_v1_booking_setup_resources_create"];
+        /**
+         * Add a resource
+         * @description Creates a resource — a room, a chair, a device — that a visit can take. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_setup_resource_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -912,7 +987,51 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["api_v1_booking_setup_resources_partial_update"];
+        /**
+         * Change a resource
+         * @description Renames a resource or switches it off. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_setup_resource_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/resources/{resource_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a resource without saving it
+         * @description Validates a change as `booking_setup_resource_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_resource_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/resources/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a new resource without adding it
+         * @description Validates a new resource as `booking_setup_resource_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_resource_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/booking/setup/services/": {
@@ -924,7 +1043,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["api_v1_booking_setup_services_create"];
+        /**
+         * Add a service
+         * @description Creates a service with who does it, where, the resource a visit takes and the products it uses. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_setup_service_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -944,7 +1067,51 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["api_v1_booking_setup_services_partial_update"];
+        /**
+         * Change a service
+         * @description Changes a service's settings, people, places, resource or products; booked visits keep what they were booked with. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_setup_service_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/services/{service_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a service without saving it
+         * @description Validates a change as `booking_setup_service_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_service_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/services/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a new service without adding it
+         * @description Validates a new service as `booking_setup_service_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_setup_service_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/booking/slots/": {
@@ -1117,11 +1284,31 @@ export interface paths {
         };
         get?: never;
         /**
-         * @description The person's week: management always, the person where the product lets
-         *     them (owner's answer 7).
+         * Replace a person's weekly hours
+         * @description Replaces the person's whole week; an empty list clears it. Management sets anyone's hours, a person their own where the product allows it. A service the person does becomes bookable where they work. `expected_version` is the week's `hours_version`; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
          */
-        put: operations["api_v1_booking_staff_hours_update"];
+        put: operations["booking_staff_hours_set"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/hours/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a person's new weekly hours without saving them
+         * @description Validates the week as `booking_staff_hours_set` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_staff_hours_set_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6863,35 +7050,47 @@ export interface components {
             /** Format: uuid */
             membership_id?: string | null;
         };
-        PatchedPlaceInput: {
+        /** @description A change to a place: only the fields sent change. */
+        PatchedPlaceUpdate: {
             name?: string;
             address?: string;
             active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
         };
-        PatchedResourceInput: {
+        /** @description A change to a resource: only the fields sent change. */
+        PatchedResourceUpdate: {
             name?: string;
             active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
         };
         PatchedRoleUpdate: {
             version?: number;
             name?: string;
             permissions?: string[];
         };
-        /** @description A new service, or — sent partially — a change to one. */
-        PatchedServiceInput: {
+        /** @description A change to a service: only the fields sent change. */
+        PatchedServiceUpdate: {
             name?: string;
+            /** @description How long one visit of this service takes, in minutes. */
             duration_minutes?: number;
+            /** @description Minutes blocked in the calendar before each visit (travel, preparation); customers do not see them. */
             buffer_before_minutes?: number;
+            /** @description Minutes blocked in the calendar after each visit (tidying up, travel); customers do not see them. */
             buffer_after_minutes?: number;
+            /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
+            /** @description How many of the company's people one visit needs; each is blocked. */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
             active?: boolean;
-            appointment_kind?: string;
             staff_ids?: string[];
             location_ids?: string[];
             resource_ids?: string[];
             materials?: components["schemas"]["MaterialInput"][];
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
         };
         PatchedSiteTemplateUpdate: {
             name?: string;
@@ -7044,9 +7243,41 @@ export interface components {
             created_at: string;
             hours: components["schemas"]["WorkingHours"][];
             time_off: components["schemas"]["TimeOff"][];
+            /** @description The version of the person's week; a change of the hours names it (`expected_version`). */
+            hours_version: number;
         };
         PersonHoursInput: {
+            /** @description The person's whole week, rule by rule; an empty list clears it. A refusal names the rule: `rules.<i>.location_id`, `rules.<i>.local_end`, `rules.<i>.local_start`. */
             rules: components["schemas"]["HoursRuleInput"][];
+            /** @description The week's version (`hours_version`) the change was made on; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
+        /** @description The person as the change of hours would leave them; nothing is saved. */
+        PersonHoursPreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            /** Format: uuid */
+            membership_id: string | null;
+            /** Format: uuid */
+            invitation_id: string | null;
+            phone: string | null;
+            active: boolean;
+            service_ids: string[];
+            has_hours: boolean;
+            team_ids: string[];
+            public_name: string | null;
+            /** Format: date-time */
+            created_at: string;
+            hours: components["schemas"]["WorkingHours"][];
+            time_off: components["schemas"]["TimeOff"][];
+            /** @description The version of the person's week; a change of the hours names it (`expected_version`). */
+            hours_version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
         };
         PersonInvitation: {
             /** Format: uuid */
@@ -7073,6 +7304,7 @@ export interface components {
         PersonServicesInput: {
             service_ids: string[];
         };
+        /** @description A new place where the company works. */
         PlaceInput: {
             name: string;
             address?: string;
@@ -7084,6 +7316,30 @@ export interface components {
             name: string;
             address: string;
             active: boolean;
+            /** @description The place's version; a change names it (`expected_version`). */
+            version: number;
+        };
+        /** @description The place as the write would leave it; nothing is saved. */
+        PlaceSetupPreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            active: boolean;
+            /** @description The place's version; a change names it (`expected_version`). */
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A change to a place: only the fields sent change. */
+        PlaceUpdate: {
+            name?: string;
+            address?: string;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
         };
         PlatformDomainChange: {
             label: string;
@@ -7443,6 +7699,7 @@ export interface components {
             name: string;
             kind: string;
         };
+        /** @description A new resource (a room, a device) a visit can take. */
         ResourceInput: {
             name: string;
             active?: boolean;
@@ -7452,6 +7709,21 @@ export interface components {
             id: string;
             name: string;
             active: boolean;
+            /** @description The resource's version; a change names it (`expected_version`). */
+            version: number;
+        };
+        /** @description The resource as the write would leave it; nothing is saved. */
+        ResourceSetupPreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            active: boolean;
+            /** @description The resource's version; a change names it (`expected_version`). */
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
         };
         /**
          * @description * `page` - page
@@ -7464,6 +7736,13 @@ export interface components {
          * @enum {string}
          */
         ResourceTypeEnum: "page" | "page_version" | "site_publication" | "content_collection" | "content_entry" | "content_entry_version" | "content_entry_publication";
+        /** @description A change to a resource: only the fields sent change. */
+        ResourceUpdate: {
+            name?: string;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
         /**
          * @description * `read` - read
          *     * `draft` - draft
@@ -7542,13 +7821,18 @@ export interface components {
             materials?: components["schemas"]["MaterialInput"][];
             takes_materials?: boolean;
         };
-        /** @description A new service, or — sent partially — a change to one. */
+        /** @description A new service. */
         ServiceInput: {
             name: string;
+            /** @description How long one visit of this service takes, in minutes. */
             duration_minutes: number;
+            /** @description Minutes blocked in the calendar before each visit (travel, preparation); customers do not see them. */
             buffer_before_minutes?: number;
+            /** @description Minutes blocked in the calendar after each visit (tidying up, travel); customers do not see them. */
             buffer_after_minutes?: number;
+            /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
+            /** @description How many of the company's people one visit needs; each is blocked. */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
             active?: boolean;
@@ -7576,6 +7860,55 @@ export interface components {
             resource_ids: string[];
             materials: components["schemas"]["MaterialInput"][];
             takes_materials: boolean;
+            /** @description The service's version; a change names it (`expected_version`). */
+            version: number;
+        };
+        /** @description The service as the write would leave it; nothing is saved. */
+        ServiceSetupPreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            appointment_kind: string;
+            duration_minutes: number;
+            buffer_before_minutes: number;
+            buffer_after_minutes: number;
+            minimum_notice_minutes: number;
+            staff_count: number;
+            public_staff_choice: string;
+            active: boolean;
+            staff_ids: string[];
+            location_ids: string[];
+            resource_ids: string[];
+            materials: components["schemas"]["MaterialInput"][];
+            takes_materials: boolean;
+            /** @description The service's version; a change names it (`expected_version`). */
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A change to a service: only the fields sent change. */
+        ServiceUpdate: {
+            name?: string;
+            /** @description How long one visit of this service takes, in minutes. */
+            duration_minutes?: number;
+            /** @description Minutes blocked in the calendar before each visit (travel, preparation); customers do not see them. */
+            buffer_before_minutes?: number;
+            /** @description Minutes blocked in the calendar after each visit (tidying up, travel); customers do not see them. */
+            buffer_after_minutes?: number;
+            /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
+            minimum_notice_minutes?: number;
+            /** @description How many of the company's people one visit needs; each is blocked. */
+            staff_count?: number;
+            public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
+            active?: boolean;
+            staff_ids?: string[];
+            location_ids?: string[];
+            resource_ids?: string[];
+            materials?: components["schemas"]["MaterialInput"][];
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
         };
         SessionSummary: {
             /** Format: uuid */
@@ -7589,16 +7922,61 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
+        /**
+         * @description * `int` - int
+         *     * `decimal` - decimal
+         *     * `bool` - bool
+         *     * `enum` - enum
+         *     * `text` - text
+         * @enum {string}
+         */
+        SettingTypeEnum: "int" | "decimal" | "bool" | "enum" | "text";
+        /**
+         * @description * `minute` - minute
+         *     * `hour` - hour
+         *     * `day` - day
+         *     * `percent` - percent
+         * @enum {string}
+         */
+        SettingUnitEnum: "minute" | "hour" | "day" | "percent";
         Setup: {
             services: components["schemas"]["ServiceSetup"][];
             locations: components["schemas"]["PlaceSetup"][];
             resources: components["schemas"]["ResourceSetup"][];
             staff: components["schemas"]["SetupPerson"][];
         };
+        /** @description One setting of an offer, in the shape of the settings registry (ADR-078). */
+        SetupOption: {
+            /** @description `booking.offer.<field>`; the field is the key's tail. */
+            key: string;
+            type: components["schemas"]["SettingTypeEnum"];
+            minimum: number | null;
+            maximum: number | null;
+            unit: components["schemas"]["SettingUnitEnum"] | components["schemas"]["NullEnum"];
+            /** @description The variants of an `enum`, in order. */
+            values: components["schemas"]["SetupOptionValue"][] | null;
+            /** @description What a new offer gets when nothing is said. */
+            default: unknown;
+            label: components["schemas"]["LocalizedText"];
+            help: components["schemas"]["LocalizedText"] | null;
+            /** @description What the value does, for the assistant. */
+            description: string;
+            scopes: string[];
+            depends_on: string | null;
+        };
+        SetupOptionValue: {
+            value: string;
+            label: components["schemas"]["LocalizedText"];
+        };
+        SetupOptions: {
+            keys: components["schemas"]["SetupOption"][];
+        };
         SetupPerson: {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description The version of the person's week, for a change of their hours. */
+            hours_version: number;
         };
         /**
          * @description * `info` - info
@@ -10502,7 +10880,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_setup_retrieve: {
+    booking_setup_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -10519,12 +10897,22 @@ export interface operations {
                     "application/json": components["schemas"]["Setup"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    api_v1_booking_setup_locations_create: {
+    booking_setup_location_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -10552,12 +10940,38 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    api_v1_booking_setup_locations_partial_update: {
+    booking_setup_location_update: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 location_id: string;
             };
@@ -10565,9 +10979,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedPlaceInput"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedPlaceInput"];
-                "multipart/form-data": components["schemas"]["PatchedPlaceInput"];
+                "application/json": components["schemas"]["PatchedPlaceUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPlaceUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedPlaceUpdate"];
             };
         };
         responses: {
@@ -10587,12 +11001,181 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    api_v1_booking_setup_resources_create: {
+    booking_setup_location_update_preview: {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                location_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlaceUpdate"];
+                "multipart/form-data": components["schemas"]["PlaceUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_location_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlaceInput"];
+                "multipart/form-data": components["schemas"]["PlaceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_options_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupOptions"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_resource_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -10620,12 +11203,38 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    api_v1_booking_setup_resources_partial_update: {
+    booking_setup_resource_update: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 resource_id: string;
             };
@@ -10633,9 +11242,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedResourceInput"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedResourceInput"];
-                "multipart/form-data": components["schemas"]["PatchedResourceInput"];
+                "application/json": components["schemas"]["PatchedResourceUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedResourceUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedResourceUpdate"];
             };
         };
         responses: {
@@ -10655,12 +11264,154 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    api_v1_booking_setup_services_create: {
+    booking_setup_resource_update_preview: {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ResourceUpdate"];
+                "multipart/form-data": components["schemas"]["ResourceUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_resource_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ResourceInput"];
+                "multipart/form-data": components["schemas"]["ResourceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_service_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -10688,12 +11439,38 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    api_v1_booking_setup_services_partial_update: {
+    booking_setup_service_update: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 service_id: string;
             };
@@ -10701,9 +11478,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedServiceInput"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedServiceInput"];
-                "multipart/form-data": components["schemas"]["PatchedServiceInput"];
+                "application/json": components["schemas"]["PatchedServiceUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedServiceUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedServiceUpdate"];
             };
         };
         responses: {
@@ -10716,6 +11493,146 @@ export interface operations {
                 };
             };
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_service_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                service_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ServiceUpdate"];
+                "multipart/form-data": components["schemas"]["ServiceUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_setup_service_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ServiceInput"];
+                "multipart/form-data": components["schemas"]["ServiceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11149,10 +12066,12 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_staff_hours_update: {
+    booking_staff_hours_set: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 staff_id: string;
             };
@@ -11183,6 +12102,81 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_staff_hours_set_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonHoursInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PersonHoursInput"];
+                "multipart/form-data": components["schemas"]["PersonHoursInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonHoursPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

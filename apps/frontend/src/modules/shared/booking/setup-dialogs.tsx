@@ -208,6 +208,8 @@ export function ServiceDialog({
   const [drafts, setDrafts] = useState<MaterialDraft[]>();
   const errors = form.formState.errors;
   const short = staffIds.length > 0 && staffIds.length < staffCount;
+  // One key for the dialog: a double click or a retry saves once (ADR-072 §11).
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const submit = form.handleSubmit(async (values) => {
     setProblem(undefined);
@@ -232,12 +234,20 @@ export function ServiceDialog({
     try {
       onSaved(
         service
-          ? await updateSetupService(service.id, body)
-          : await createSetupService(body),
+          ? await updateSetupService(
+              service.id,
+              { ...body, expected_version: service.version },
+              idempotencyKey,
+            )
+          : await createSetupService(body, idempotencyKey),
         !service,
       );
     } catch (error) {
-      setProblem(problemText(error, t("failed"), t("forbidden")));
+      setProblem(
+        problemText(error, t("failed"), t("forbidden"), {
+          booking_version_conflict: t("versionConflict"),
+        }),
+      );
     }
   });
 
@@ -446,6 +456,7 @@ export function ItemDialog({
   );
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   async function save() {
     if (!name.trim()) {
@@ -458,17 +469,29 @@ export function ItemDialog({
       if (kind === "location") {
         const body = { name: name.trim(), address: address.trim() };
         await (item
-          ? updateSetupLocation(item.id, body)
-          : createSetupLocation(body));
+          ? updateSetupLocation(
+              item.id,
+              { ...body, expected_version: item.version },
+              idempotencyKey,
+            )
+          : createSetupLocation(body, idempotencyKey));
       } else {
         const body = { name: name.trim() };
         await (item
-          ? updateSetupResource(item.id, body)
-          : createSetupResource(body));
+          ? updateSetupResource(
+              item.id,
+              { ...body, expected_version: item.version },
+              idempotencyKey,
+            )
+          : createSetupResource(body, idempotencyKey));
       }
       onSaved(name.trim(), !item);
     } catch (error) {
-      setProblem(problemText(error, t("failed"), t("forbidden")));
+      setProblem(
+        problemText(error, t("failed"), t("forbidden"), {
+          booking_version_conflict: t("versionConflict"),
+        }),
+      );
     } finally {
       setBusy(false);
     }
