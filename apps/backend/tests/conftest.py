@@ -23,7 +23,8 @@ collect_ignore_glob = [
         if "shared.image-generation" in settings.ACTIVE_MODULES
         else ["test_image_generation_*.py", "test_template_photos_command.py"]
     ),
-    # HoofCare and MedPlano compose neither the model port nor translation.
+    # HoofCare and MedPlano compose neither the model port nor translation; a new
+    # test file importing either module at the top belongs on these lists.
     *([] if "shared.model-port" in settings.ACTIVE_MODULES else ["test_model_port.py"]),
     *(
         []
@@ -31,6 +32,7 @@ collect_ignore_glob = [
         else [
             "test_translation_commands.py",
             "test_translation_engine.py",
+            "test_translation_evals.py",
             "test_translation_jobs.py",
             "test_translation_notify.py",
             "test_translation_review.py",
