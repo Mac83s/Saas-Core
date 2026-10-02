@@ -50,6 +50,7 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "shared.sites",
     "shared.image-generation",
     "shared.profiles",
+    "shared.translation",
     "shared.booking",
     "shared.seo",
     "shared.inventory",
