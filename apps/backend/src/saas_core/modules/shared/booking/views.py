@@ -204,8 +204,13 @@ class _Known:
     contacts: set[UUID]
 
 
-def _known(ids: Sequence[UUID]) -> _Known:
-    return _Known(appointment_places(ids), appointment_flags(ids), visible_contacts(ids))
+def _known(items: Sequence[Any]) -> _Known:
+    ids = [item.id for item in items]
+    return _Known(
+        appointment_places(ids),
+        appointment_flags({item.id: item.service.appointment_kind for item in items}),
+        visible_contacts(ids),
+    )
 
 
 def _appointment_payload(
@@ -213,7 +218,7 @@ def _appointment_payload(
 ) -> dict[str, Any]:
     """`known`: what a list already asked; one visit asks for itself."""
     if known is None:
-        known = _known([value.id])
+        known = _known([value])
     seen = value.id in known.contacts
     return {
         "id": value.id,
@@ -601,7 +606,7 @@ class AppointmentListCreateView(APIView):
             mine=mine,
             limit=limit,
         )
-        known = _known([x.id for x in items])
+        known = _known(items)
         return Response({"items": [_appointment_payload(x, known=known) for x in items]})
 
     @extend_schema(
@@ -1497,7 +1502,7 @@ class BookingQueueView(APIView):
     def get(self, request: Request) -> Response:
         del request
         items = queue()
-        known = _known([item.id for item in items])
+        known = _known(items)
         return Response({"items": [_queue_payload(item, known) for item in items]})
 
 

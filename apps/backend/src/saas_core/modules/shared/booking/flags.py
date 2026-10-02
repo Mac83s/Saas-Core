@@ -12,8 +12,10 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from uuid import UUID
 
-#: Appointment ids → the flags of those it marks, e.g. ``["farm_missing"]``.
-FlagProvider = Callable[[Sequence[UUID]], Mapping[UUID, Sequence[str]]]
+#: The visits as id → `appointment_kind` → the flags of those it marks, e.g.
+#: ``["farm_missing"]``. The kind comes with the id, so a product picks its own
+#: visits without reading booking's tables.
+FlagProvider = Callable[[Mapping[UUID, str]], Mapping[UUID, Sequence[str]]]
 
 _providers: dict[str, FlagProvider] = {}
 
@@ -22,12 +24,12 @@ def register_appointment_flags(name: str, provider: FlagProvider) -> None:
     _providers[name] = provider
 
 
-def appointment_flags(ids: Sequence[UUID]) -> dict[UUID, list[str]]:
+def appointment_flags(kinds: Mapping[UUID, str]) -> dict[UUID, list[str]]:
     """One call per provider for the whole list, like the places."""
     flags: dict[UUID, list[str]] = {}
-    if not ids:
+    if not kinds:
         return flags
     for provider in _providers.values():
-        for key, values in provider(ids).items():
+        for key, values in provider(kinds).items():
             flags.setdefault(key, []).extend(value for value in values if value)
     return flags

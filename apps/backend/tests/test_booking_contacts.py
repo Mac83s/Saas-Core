@@ -3,7 +3,7 @@ ADR-067), the visit's kind, and the flags a product puts on its card."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
 
@@ -106,13 +106,14 @@ def test_a_visit_says_its_kind_and_the_flags_a_product_puts_on_it(
     (item,) = client.get("/api/v1/booking/appointments/").json()["items"]
     assert (item["appointment_kind"], item["flags"]) == ("", [])
 
-    asked: list[list[UUID]] = []
+    asked: list[dict[UUID, str]] = []
 
-    def farm_missing(ids: Sequence[UUID]) -> dict[UUID, list[str]]:
-        asked.append(list(ids))
+    def farm_missing(kinds: Mapping[UUID, str]) -> dict[UUID, list[str]]:
+        asked.append(dict(kinds))
         return {visit.id: ["farm_missing", ""]}
 
     register_appointment_flags("test-farms", farm_missing)
     (item,) = client.get("/api/v1/booking/appointments/").json()["items"]
     assert item["flags"] == ["farm_missing"]
-    assert len(asked) == 1
+    # One question for the list, each visit with its kind.
+    assert asked == [{visit.id: ""}]

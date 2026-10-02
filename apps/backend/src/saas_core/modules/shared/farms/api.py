@@ -28,7 +28,15 @@ from .models import (
     HealthEntryKind,
     VisitStatus,
 )
-from .services import FARMS_ENABLED, FARMS_MANAGE, FARMS_READ, create_animal
+from .services import (
+    FARMS_ENABLED,
+    FARMS_MANAGE,
+    FARMS_READ,
+    create_animal,
+    create_farm,
+    list_farms,
+    update_farm,
+)
 from .species import normalize_identifier
 
 #: Lazy references for another module's `ForeignKey`.
@@ -99,15 +107,18 @@ __all__ = [
     "HealthEntryKind",
     "Farm",
     "animal_for_tenant",
+    "create_farm",
     "farm_animals",
     "farm_for_tenant",
     "normalize_identifier",
     "FarmVisitEntry",
     "VisitStatus",
     "list_farm_visits",
+    "list_farms",
     "publish_farm_visit",
     "publish_health_entry",
     "record_own_health_entry",
     "resolve_animal",
     "retract_own_health_entry",
+    "update_farm",
 ]
