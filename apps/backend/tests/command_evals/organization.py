@@ -10,6 +10,11 @@ from django.db.models import F
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.public_locales import offered_locales
+from saas_core.modules.shared.billing.models import (
+    AccessMode,
+    EntitlementSnapshot,
+    SubscriptionState,
+)
 
 from . import CommandEval
 
@@ -39,6 +44,15 @@ def _one_more(_context: TenantContext) -> list[str]:
     settings, without a read: the battery counts the queries a refusal makes."""
     first = str(settings.SITES_DEFAULT_LOCALE)
     return [first, next(code for code in offered_locales() if code != first)]
+
+
+def _on_a_plan(context: TenantContext) -> None:
+    """A company on a plan without limits: adding a language asks the plan."""
+    EntitlementSnapshot.all_objects.create(
+        organization_id=context.organization_id,
+        subscription_state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+    )
 
 
 def _bump_locales(context: TenantContext) -> None:
@@ -75,10 +89,10 @@ EVALS = {
         state=_locales,
     ),
     "organization.public_locales.update@1": CommandEval(
-        # Adding: within a plan without a limit (the battery's companies have
-        # one); removing and the limit have their own tests in
-        # test_company_languages.py.
+        # Adding, on a plan without a limit; removing and the limit have their
+        # own tests in test_company_languages.py.
         arguments=lambda context: {"public_locales": _one_more(context)},
+        prepare=_on_a_plan,
         wrong_arguments={"public_locales": "pl"},
         wrong_field="public_locales",
         stale=_bump_locales,
