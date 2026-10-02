@@ -1,0 +1,39 @@
+{
+  "id": "core.pickup_window",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Odbiór zamówienia w oknie",
+      "description": "Click & collect, catering, torty na zamówienie: okno odbioru albo dostawy z limitem zamówień."
+    },
+    "en": {
+      "name": "Order pickup window",
+      "description": "Click & collect, catering, custom cakes: a pickup or delivery window with a limit of orders."
+    }
+  },
+  "timeModel": "session",
+  "session": { "schedule": "recurring", "waitlist": false },
+  "booked": { "subject": "seat", "staff": "none" },
+  "quantity": "seats",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "business",
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Odbiór",
+      "bookings": "Odbiory",
+      "participant": "Klient",
+      "participants": "Klienci"
+    },
+    "en": {
+      "booking": "Pickup",
+      "bookings": "Pickups",
+      "participant": "Customer",
+      "participants": "Customers"
+    }
+  }
+}

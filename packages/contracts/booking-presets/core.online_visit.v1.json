@@ -1,0 +1,39 @@
+{
+  "id": "core.online_visit",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Wizyta online",
+      "description": "Psycholog, doradca, dietetyk, korepetycje: rozmowa przez internet, link do niej w potwierdzeniu."
+    },
+    "en": {
+      "name": "Online appointment",
+      "description": "Psychologist, adviser, dietitian, tutoring: a video call, with its link in the confirmation."
+    }
+  },
+  "timeModel": "slot",
+  "booked": { "subject": "staff", "staff": "required" },
+  "quantity": "one",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "online",
+  "price": { "basis": "per_booking" },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Konsultacja",
+      "bookings": "Konsultacje",
+      "participant": "Klient",
+      "participants": "Klienci"
+    },
+    "en": {
+      "booking": "Consultation",
+      "bookings": "Consultations",
+      "participant": "Client",
+      "participants": "Clients"
+    }
+  }
+}

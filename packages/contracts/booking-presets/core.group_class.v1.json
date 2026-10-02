@@ -1,0 +1,41 @@
+{
+  "id": "core.group_class",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Zajęcia grupowe",
+      "description": "Joga, fitness, taniec, warsztaty: zajęcia z harmonogramu, z limitem miejsc i listą oczekujących."
+    },
+    "en": {
+      "name": "Group class",
+      "description": "Yoga, fitness, dance, workshops: classes on a recurring schedule, with a seat limit and a waiting list."
+    }
+  },
+  "timeModel": "session",
+  "session": { "schedule": "recurring", "waitlist": true },
+  "booked": { "subject": "seat", "staff": "none" },
+  "quantity": "seats",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "business",
+  "price": { "basis": "per_person" },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Zapis",
+      "bookings": "Zapisy",
+      "participant": "Uczestnik",
+      "participants": "Uczestnicy"
+    },
+    "en": {
+      "booking": "Sign-up",
+      "bookings": "Sign-ups",
+      "participant": "Participant",
+      "participants": "Participants"
+    }
+  },
+  "catalogCategory": "sport-i-rekreacja"
+}

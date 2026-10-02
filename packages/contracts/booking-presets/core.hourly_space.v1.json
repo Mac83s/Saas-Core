@@ -1,0 +1,48 @@
+{
+  "id": "core.hourly_space",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Wynajem przestrzeni na godziny",
+      "description": "Kort, sala, studio, sauna, gabinet do podnajmu, sala zabaw: obiekt bez osoby, w godzinach otwarcia, z ceną w szczycie i poza nim."
+    },
+    "en": {
+      "name": "Hourly space rental",
+      "description": "Court, hall, studio, sauna, room to sublet, playroom: a space without staff, within opening hours, with peak and off-peak prices."
+    }
+  },
+  "timeModel": "range",
+  "range": { "unit": "hour", "rules": { "minLength": 1 } },
+  "booked": { "subject": "unit", "staff": "none" },
+  "quantity": "one",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "business",
+  "price": { "basis": "per_time_unit", "variesBy": ["time_of_day"] },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "unit": "Obiekt",
+      "units": "Obiekty",
+      "booking": "Rezerwacja",
+      "bookings": "Rezerwacje",
+      "participant": "Klient",
+      "participants": "Klienci",
+      "timeUnit": "godzina",
+      "timeUnits": "godziny"
+    },
+    "en": {
+      "unit": "Space",
+      "units": "Spaces",
+      "booking": "Booking",
+      "bookings": "Bookings",
+      "participant": "Customer",
+      "participants": "Customers",
+      "timeUnit": "hour",
+      "timeUnits": "hours"
+    }
+  }
+}

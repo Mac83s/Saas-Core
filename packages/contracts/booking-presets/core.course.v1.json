@@ -1,0 +1,41 @@
+{
+  "id": "core.course",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Kurs lub cykl",
+      "description": "Kurs pływania, prawo jazdy, szkoła językowa, półkolonie: zapis na całą serię zajęć."
+    },
+    "en": {
+      "name": "Course or series",
+      "description": "Swimming course, driving lessons, language school, day camp: enrolment in a whole series."
+    }
+  },
+  "timeModel": "session",
+  "session": { "schedule": "series", "waitlist": false },
+  "booked": { "subject": "seat", "staff": "none" },
+  "quantity": "seats",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "business",
+  "price": { "basis": "per_person" },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Zapis",
+      "bookings": "Zapisy",
+      "participant": "Kursant",
+      "participants": "Kursanci"
+    },
+    "en": {
+      "booking": "Enrolment",
+      "bookings": "Enrolments",
+      "participant": "Student",
+      "participants": "Students"
+    }
+  },
+  "catalogCategory": "edukacja"
+}

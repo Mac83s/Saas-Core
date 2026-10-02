@@ -1,0 +1,50 @@
+{
+  "id": "core.exclusive_date",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Termin na wyłączność",
+      "description": "Sala weselna, fotograf ślubny, DJ, dom na event: cały dzień dla jednego klienta, zapytanie ofertowe i zadatek."
+    },
+    "en": {
+      "name": "Exclusive date",
+      "description": "Wedding venue, wedding photographer, DJ, event house: a whole day for one client, a quote request and a deposit."
+    }
+  },
+  "timeModel": "range",
+  "range": { "unit": "day" },
+  "booked": { "subject": "unit", "staff": "none" },
+  "quantity": "one",
+  "participants": { "mode": "none" },
+  "confirmation": "quote_request",
+  "place": "business",
+  "price": { "basis": "per_time_unit" },
+  "payment": { "policy": "deposit" },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "unit": "Obiekt",
+      "units": "Obiekty",
+      "booking": "Termin",
+      "bookings": "Terminy",
+      "participant": "Klient",
+      "participants": "Klienci",
+      "timeUnit": "dzień",
+      "timeUnits": "dni"
+    },
+    "en": {
+      "unit": "Venue",
+      "units": "Venues",
+      "booking": "Date",
+      "bookings": "Dates",
+      "participant": "Client",
+      "participants": "Clients",
+      "timeUnit": "day",
+      "timeUnits": "days"
+    }
+  },
+  "catalogCategory": "wydarzenia"
+}

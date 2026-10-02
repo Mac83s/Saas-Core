@@ -1,0 +1,38 @@
+{
+  "id": "core.specialist_visit",
+  "version": 1,
+  "availability": "ready",
+  "labels": {
+    "pl": {
+      "name": "Wizyta u specjalisty",
+      "description": "Fryzjer, kosmetyczka, lekarz, fizjoterapeuta, mechanik, korepetytor: klient wybiera termin u osoby albo zespołu."
+    },
+    "en": {
+      "name": "Appointment with a specialist",
+      "description": "Hairdresser, beautician, doctor, physiotherapist, mechanic, tutor: the customer picks a time with a person or a team."
+    }
+  },
+  "timeModel": "slot",
+  "booked": { "subject": "staff", "staff": "required" },
+  "quantity": "one",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "business",
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Wizyta",
+      "bookings": "Wizyty",
+      "participant": "Klient",
+      "participants": "Klienci"
+    },
+    "en": {
+      "booking": "Appointment",
+      "bookings": "Appointments",
+      "participant": "Client",
+      "participants": "Clients"
+    }
+  }
+}

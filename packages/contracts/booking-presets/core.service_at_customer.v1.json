@@ -1,0 +1,39 @@
+{
+  "id": "core.service_at_customer",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Usługa u klienta",
+      "description": "Hydraulik, elektryk, sprzątanie, ogrodnik, korekcja racic: praca pod adresem klienta, z oknem przyjazdu i dojazdem."
+    },
+    "en": {
+      "name": "Service at the customer's place",
+      "description": "Plumber, electrician, cleaning, gardener, hoof trimming: work at the customer's address, with an arrival window and travel time."
+    }
+  },
+  "timeModel": "slot",
+  "booked": { "subject": "staff", "staff": "required" },
+  "quantity": "one",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "customer",
+  "price": { "basis": "per_booking" },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Zlecenie",
+      "bookings": "Zlecenia",
+      "participant": "Klient",
+      "participants": "Klienci"
+    },
+    "en": {
+      "booking": "Job",
+      "bookings": "Jobs",
+      "participant": "Customer",
+      "participants": "Customers"
+    }
+  }
+}

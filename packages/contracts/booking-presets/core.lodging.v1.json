@@ -1,0 +1,111 @@
+{
+  "id": "core.lodging",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Nocleg",
+      "description": "Domek, apartament, pokój, agroturystyka, kemping, kamper: pobyt na noce z zameldowaniem i wymeldowaniem, sezonami i zadatkiem."
+    },
+    "en": {
+      "name": "Stay",
+      "description": "Cottage, apartment, room, farm stay, campsite, camper: a stay by the night with check-in and check-out, seasons and a deposit."
+    }
+  },
+  "timeModel": "range",
+  "range": { "unit": "night", "startTime": "16:00", "endTime": "11:00" },
+  "booked": { "subject": "unit", "staff": "none" },
+  "quantity": "one",
+  "participants": {
+    "mode": "categories",
+    "categories": [
+      {
+        "key": "adult",
+        "countsTowardCapacity": true,
+        "labels": { "pl": "Dorosły", "en": "Adult" }
+      },
+      {
+        "key": "child",
+        "countsTowardCapacity": true,
+        "labels": { "pl": "Dziecko", "en": "Child" }
+      },
+      {
+        "key": "animal",
+        "countsTowardCapacity": false,
+        "labels": { "pl": "Zwierzę", "en": "Pet" }
+      }
+    ]
+  },
+  "confirmation": "instant",
+  "place": "business",
+  "price": { "basis": "per_time_unit", "variesBy": ["season"] },
+  "payment": {
+    "policy": "deposit",
+    "depositPercent": 30,
+    "transferDueDays": 3,
+    "balanceDueDaysBefore": 14,
+    "securityDeposit": true
+  },
+  "cancellation": {
+    "refunds": [
+      { "minDaysBefore": 30, "refundPercent": 100 },
+      { "minDaysBefore": 14, "refundPercent": 50 },
+      { "minDaysBefore": 0, "refundPercent": 0 }
+    ]
+  },
+  "fields": [
+    {
+      "key": "arrival_time",
+      "type": "text",
+      "mandatory": false,
+      "labels": {
+        "pl": "Przybliżona godzina przyjazdu",
+        "en": "Approximate arrival time"
+      }
+    }
+  ],
+  "extras": [
+    {
+      "key": "final_cleaning",
+      "basis": "per_booking",
+      "mandatory": false,
+      "labels": { "pl": "Sprzątanie końcowe", "en": "Final cleaning" }
+    },
+    {
+      "key": "bed_linen",
+      "basis": "per_person",
+      "mandatory": false,
+      "labels": { "pl": "Pościel", "en": "Bed linen" }
+    },
+    {
+      "key": "local_tax",
+      "basis": "per_person_per_time_unit",
+      "mandatory": true,
+      "labels": { "pl": "Opłata miejscowa", "en": "Local tourist tax" }
+    }
+  ],
+  "calendarSync": true,
+  "vocabulary": {
+    "pl": {
+      "unit": "Domek",
+      "units": "Domki",
+      "booking": "Pobyt",
+      "bookings": "Pobyty",
+      "participant": "Gość",
+      "participants": "Goście",
+      "timeUnit": "noc",
+      "timeUnits": "noce"
+    },
+    "en": {
+      "unit": "Cottage",
+      "units": "Cottages",
+      "booking": "Stay",
+      "bookings": "Stays",
+      "participant": "Guest",
+      "participants": "Guests",
+      "timeUnit": "night",
+      "timeUnits": "nights"
+    }
+  },
+  "catalogCategory": "turystyka-i-noclegi"
+}

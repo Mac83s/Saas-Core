@@ -38,6 +38,12 @@ publikację, nawet gdy draft jest już nowszy.
 - Preview renderuje jawnie wskazaną wersję draftu i jest chroniony sesją panelu;
   publiczny renderer odczytuje wyłącznie bieżącą publikację.
 
+> Częściowo zmienione przez
+> [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) (2026-10-02):
+> cenę, dostępność i warianty produktów oraz zdjęcia aktywnych produktów
+> renderer czyta na żywo ze sklepu; treść strony nadal wyłącznie z bieżącej
+> publikacji.
+
 ### Kontrakt kontrolowanych bloków
 
 - Stabilny identyfikator bloku ma postać `<namespace>.<name>`, a każdy rekord ma
@@ -88,6 +94,10 @@ publikację, nawet gdy draft jest już nowszy.
   przypiętym obrazem, prywatną siecią, losowymi sekretami plikowymi i
   preutworzonym bucketem. Emulator nie jest profilem stagingowym ani
   produkcyjnym.
+
+> Usuwanie częściowo zmienione przez
+> [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) (2026-10-02):
+> obiekt czeka też na referencje produktów sklepu (`shop.product`).
 
 ### Autoryzacja i UI
 

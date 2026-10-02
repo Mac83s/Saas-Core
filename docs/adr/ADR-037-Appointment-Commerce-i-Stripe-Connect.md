@@ -10,6 +10,12 @@ który wchodzi, gdy tylko właściciel dostarczy konto Stripe
 **Nie zmienia:** ADR-026, ADR-032 i ADR-034 — billing abonamentu SaaS pozostaje
 osobną domeną; rozszerza ADR-030 o status `pending_payment` i pola ceny usługi
 
+> Wraca z odroczenia 2026-10-02 przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md):
+> §5–§7 i rodzaje wpisów `LedgerEntry` obowiązują jako źródło przepływu i
+> księgi płatności zamówienia; fragmenty zastąpione przez ADR-073 są oznaczone
+> w sekcjach niżej.
+
 ## Kontekst
 
 Booking (ADR-030) pozostawił płatność i zaliczkę poza pierwszym zakresem.
@@ -30,6 +36,13 @@ przegląd prawny i księgowy ma go potwierdzić albo obalić przed P5.
 
 ### 1. Osobny moduł `shared.commerce`
 
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §1 (2026-10-02): `shared.commerce` nie zależy od `shared.booking`, tylko od
+> `core.organizations`, `shared.billing`, `shared.customers` i
+> `shared.notifications`; booking używa commerce opcjonalnie. Reszta punktu
+> obowiązuje.
+
 - nowy moduł `shared.commerce` z deskryptorem `dependsOn:
   ["core.organizations", "shared.billing", "shared.booking",
   "shared.notifications"]` (billing dla entitlementów, booking dla wizyt,
@@ -47,6 +60,14 @@ przegląd prawny i księgowy ma go potwierdzić albo obalić przed P5.
 
 ### 2. Usługodawca jest sprzedawcą, platforma operatorem
 
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §6 i §7 (2026-10-02): konta połączone konfigurujemy według rekomendacji
+> Stripe z chwili fazy 7 (konta Express Stripe nazywa „legacy”), a stawki
+> prowizji są ustawieniem platformy z datą wejścia w życie, nie daną katalogu.
+> Direct charges, `application_fee`, KYB u Stripe i odrzucenie destination
+> charges obowiązują; model sprzedawcy czeka na potwierdzenie prawne.
+
 - organizacja jest merchant of record: sprzedaje usługę, wystawia dokument
   sprzedaży i odpowiada za podatek. SaaS Core nie wystawia faktur ani paragonów
   za wizyty i nie prowadzi rozliczeń podatkowych organizacji;
@@ -63,6 +84,13 @@ przegląd prawny i księgowy ma go potwierdzić albo obalić przed P5.
   gdy organizacje będą chciały własnego konta.
 
 ### 3. Model danych — tenantowy, RLS, bez danych kart
+
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §4, §6 i §8 (2026-10-02): `Payment` opłaca zamówienie (`Order`), nie wizytę,
+> i niesie zwroty (`Refund`) oraz spory (`Dispute`); `PaymentProviderConnection`
+> dostaje `mode` i `adapter`; stawka podatku to kod pozycji zamówienia (`zw` to
+> nie `0`), nie `tax_rate_bp`. `LedgerEntry` i brak danych kart obowiązują.
 
 Wszystkie tabele są `TenantScopedModel` z wymuszonym RLS (ADR-022) i
 wyzwalaczem cross-tenant.
@@ -92,6 +120,14 @@ wyzwalaczem cross-tenant.
 
 ### 4. Cena i polityka płatności należą do Booking (P4)
 
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §5 i ADR-072 (2026-10-02): cena, reguły i polityki są danymi oferty
+> liczonymi przez `quote`, nie polami `Service`; polityka ma też `transfer`, a
+> okno ważności zależy od metody (online domyślnie 15 minut, przelew — dni z
+> oferty). Migawka w rezerwacji i `pending_payment` na tych samych alokacjach
+> obowiązują.
+
 - `Service` otrzymuje `price_minor`, `currency`, `tax_rate_bp`,
   `payment_policy` (`none | on_site | deposit | full`), `deposit_minor` albo
   `deposit_percent` oraz `cancellation_policy` (okno bez opłat, potrącenie,
@@ -106,6 +142,14 @@ wyzwalaczem cross-tenant.
   zwalnia alokacje; klient nie może zająć slotu bez zapłaty na dłużej niż okno.
 
 ### 5. Przepływ płatności
+
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §1 i §5 (2026-10-02): w pkt 3 rezerwację potwierdza handler źródła wołany w
+> transakcji webhooka, nie zdarzenie `booking.appointment.confirmed` w
+> outboxie; w pkt 5 płatność z góry bez połączenia idzie najpierw przelewem z
+> terminem, gdy firma podała rachunek, a dopiero bez niego — na miejscu.
+> Pozostałe punkty obowiązują dla płatności zamówienia.
 
 1. klient wybiera slot; jeżeli polityka usługi to `deposit` albo `full` i
    organizacja ma `charges_enabled`, `create_appointment` tworzy wizytę
@@ -155,6 +199,13 @@ wyzwalaczem cross-tenant.
 
 ### 8. Provider i środowiska
 
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §6 (2026-10-02): firma wybiera tryb `platform` (operator platformy, jeden na
+> deployment — `COMMERCE_PROVIDER`: `stripe_connect` | `simulated`) albo `own`
+> (własne konto, np. Przelewy24). Simulator poza produkcją i Mollie jako
+> kandydat na drugiego operatora obowiązują.
+
 - wybór providera jest jawny przez `COMMERCE_PROVIDER` (`simulated | stripe`),
   analogicznie do `BILLING_PROVIDER` z ADR-034; local i staging używają
   `simulated`, który przechodzi ten sam port i te same stany, ale nie łączy się
@@ -166,6 +217,14 @@ wyzwalaczem cross-tenant.
   bramki P5 planu poaudytowego oraz zaliczenia W9.5.2S dla subskrypcji.
 
 ## Decyzje wymagające właściciela
+
+> Stan 2026-10-02 (plan memex `saas-core-rezerwacje-uniwersalne-i-sprzedaz`):
+> 2 — procent i kwota stała per plan, korekta proporcjonalna przy zwrocie
+> (odpowiedzi 3a, 11a); 4 — metody według operatora (Stripe: bez P24 dla
+> noclegów i medycyny, bez PayPal przy direct charges); 5 — faktury przez
+> integrację z programem do faktur (T15); 6 — pilotem płatności jest firma
+> noclegowa. 1 czeka na liście prawnej (decyzja 21), 3 — 15 minut zostaje
+> domyślną do potwierdzenia.
 
 1. **Merchant of record** — potwierdzenie z prawnikiem i księgową, że
    organizacja jest sprzedawcą, a platforma operatorem pobierającym opłatę. Jeśli

@@ -1,0 +1,56 @@
+{
+  "id": "core.rental",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Wypożyczalnia",
+      "description": "Auta, przyczepy, rowery, kajaki, łodzie, sprzęt budowlany i eventowy, stroje: identyczne sztuki z doborem, odbiór i zwrot, kaucja."
+    },
+    "en": {
+      "name": "Rental",
+      "description": "Cars, trailers, bikes, kayaks, boats, building and event equipment, costumes: identical items picked for the customer, pickup and return, a security deposit."
+    }
+  },
+  "timeModel": "range",
+  "range": { "unit": "day" },
+  "booked": { "subject": "unit_group", "staff": "optional" },
+  "quantity": "units",
+  "participants": { "mode": "none" },
+  "confirmation": "instant",
+  "place": "pickup_return",
+  "price": { "basis": "per_time_unit" },
+  "payment": { "securityDeposit": true },
+  "fields": [
+    {
+      "key": "driving_licence",
+      "type": "text",
+      "mandatory": false,
+      "labels": { "pl": "Numer prawa jazdy", "en": "Driving licence number" }
+    }
+  ],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "unit": "Sztuka",
+      "units": "Sztuki",
+      "booking": "Wypożyczenie",
+      "bookings": "Wypożyczenia",
+      "participant": "Klient",
+      "participants": "Klienci",
+      "timeUnit": "doba",
+      "timeUnits": "doby"
+    },
+    "en": {
+      "unit": "Item",
+      "units": "Items",
+      "booking": "Rental",
+      "bookings": "Rentals",
+      "participant": "Customer",
+      "participants": "Customers",
+      "timeUnit": "day",
+      "timeUnits": "days"
+    }
+  }
+}

@@ -82,6 +82,12 @@ przez współdzieloną bazę ani replikację użytkowników.
 
 ### 5. `Customer` pozostaje tenantowy; konto klienta jest dobrowolne
 
+> Częściowo zastąpione przez
+> [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
+> §2 (2026-10-02): `Customer` przechodzi do `shared.customers` (ta sama tabela
+> `booking_customer`); reszta punktu obowiązuje, a `Customer.user` powstanie
+> już tam.
+
 - `Customer` zostaje w `shared.booking` jako encja tenantowa (ADR-030) i
   dostaje nullable FK `user` do `User` (kierunek Shared → Core jest dozwolony);
 - rezerwacja gościnna pozostaje domyślna i pełnoprawna; konto nie jest

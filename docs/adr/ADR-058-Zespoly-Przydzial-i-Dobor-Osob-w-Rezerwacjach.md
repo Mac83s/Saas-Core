@@ -50,6 +50,11 @@ wolno pokazać klientom).
 
 ### 2. Wiele osób na wizycie
 
+> Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+> §2 (2026-10-02): oferta, która rezerwuje samą jednostkę, ma `staff_count` 0, a
+> jej rezerwacje puste `Appointment.staff` (`staff_required = 0`). Rezerwacji z
+> osobami ten punkt dotyczy bez zmian.
+
 `Appointment.staff` zostaje `NOT NULL` i znaczy „prowadzący”. Kolejne osoby to
 kolejne wiersze `AppointmentStaffAllocation`. Arbitrem kolizji pozostaje
 `EXCLUDE` (ADR-030). Usługa mówi, ilu ludzi trzeba (`Service.staff_count`,
@@ -60,6 +65,12 @@ serwisu, która pilnuje niezmiennika „prowadzący ma aktywną alokację albo
 wizyta ma znacznik wakatu”.
 
 ### 3. Rezerwacja bez wyboru osoby potwierdza się od razu
+
+> Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+> §9 (2026-10-02): oferta „na prośbę” albo z wpłatą przed potwierdzeniem tworzy
+> rezerwację `pending_request` albo `pending_payment`, która trzyma termin pełną
+> alokacją do terminu ważności. Ofert z potwierdzeniem od razu ten punkt dotyczy
+> bez zmian.
 
 Odpowiedź właściciela 1 (24.09): rezerwacja, w której nikt nie wskazał osób
 (formularz, panel „dowolna osoba”, zespół jako wybór klienta), jest
@@ -176,9 +187,11 @@ prowadzącego, gdy ma pozycję, inaczej z magazynu głównego (odpowiedź 8), wi
   źródła prawdy dla jednej osoby;
 - `Appointment.staff` jako pole opcjonalne — zmiana serializerów, przypomnień,
   samoobsługi i raportu bez zysku, skoro wakat opisuje znacznik;
+  > Wraca w ADR-072 §2 (2026-10-02) dla rezerwacji bez żadnej osoby.
 - zgłoszenie czekające na potwierdzenie z „wstępną” blokadą — odrzucone przez
   właściciela (odpowiedź 1), a technicznie wymagało trzech stanów i
   wyprzedzania blokad;
+  > Wraca w ADR-072 §9 (2026-10-02) jako wybór oferty, bez wyprzedzania blokad.
 - wybór osoby w przeglądarce — nieautorytatywny i zawsze ten sam;
 - większy limit wyników — przesuwa problem, nie usuwa ucięcia dnia.
 

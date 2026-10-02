@@ -1,0 +1,42 @@
+{
+  "id": "core.table_or_group",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Stolik lub grupa",
+      "description": "Restauracja, escape room, kręgle, bilard: termin dla grupy, ze stolikiem albo salą dobraną do liczby osób."
+    },
+    "en": {
+      "name": "Table or group",
+      "description": "Restaurant, escape room, bowling, billiards: a time for a group, with a table or room matched to its size."
+    }
+  },
+  "timeModel": "slot",
+  "booked": { "subject": "unit_group", "staff": "none" },
+  "quantity": "one",
+  "participants": { "mode": "count" },
+  "confirmation": "instant",
+  "place": "business",
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "unit": "Stolik",
+      "units": "Stoliki",
+      "booking": "Rezerwacja",
+      "bookings": "Rezerwacje",
+      "participant": "Gość",
+      "participants": "Goście"
+    },
+    "en": {
+      "unit": "Table",
+      "units": "Tables",
+      "booking": "Reservation",
+      "bookings": "Reservations",
+      "participant": "Guest",
+      "participants": "Guests"
+    }
+  }
+}

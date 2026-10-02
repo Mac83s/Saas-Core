@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "schema": "booking-preset.v1.schema.json",
+  "comment": "ADR-072 §10. Katalog presetów rezerwacji z planu właściciela, w kolejności, w jakiej firma widzi je przy zakładaniu (odpowiedź 14 a+b: gotowe i „wkrótce”). Opublikowanej wersji się nie zmienia: zmiana treści albo gotowości to nowa wersja.",
+  "presets": [
+    {
+      "id": "core.specialist_visit",
+      "latestVersion": 1,
+      "versions": { "1": "core.specialist_visit.v1.json" }
+    },
+    {
+      "id": "core.online_visit",
+      "latestVersion": 1,
+      "versions": { "1": "core.online_visit.v1.json" }
+    },
+    {
+      "id": "core.service_at_customer",
+      "latestVersion": 1,
+      "versions": { "1": "core.service_at_customer.v1.json" }
+    },
+    {
+      "id": "core.hourly_space",
+      "latestVersion": 1,
+      "versions": { "1": "core.hourly_space.v1.json" }
+    },
+    {
+      "id": "core.table_or_group",
+      "latestVersion": 1,
+      "versions": { "1": "core.table_or_group.v1.json" }
+    },
+    {
+      "id": "core.lodging",
+      "latestVersion": 1,
+      "versions": { "1": "core.lodging.v1.json" }
+    },
+    {
+      "id": "core.rental",
+      "latestVersion": 1,
+      "versions": { "1": "core.rental.v1.json" }
+    },
+    {
+      "id": "core.care_stay",
+      "latestVersion": 1,
+      "versions": { "1": "core.care_stay.v1.json" }
+    },
+    {
+      "id": "core.exclusive_date",
+      "latestVersion": 1,
+      "versions": { "1": "core.exclusive_date.v1.json" }
+    },
+    {
+      "id": "core.group_class",
+      "latestVersion": 1,
+      "versions": { "1": "core.group_class.v1.json" }
+    },
+    {
+      "id": "core.ticketed_event",
+      "latestVersion": 1,
+      "versions": { "1": "core.ticketed_event.v1.json" }
+    },
+    {
+      "id": "core.course",
+      "latestVersion": 1,
+      "versions": { "1": "core.course.v1.json" }
+    },
+    {
+      "id": "core.pickup_window",
+      "latestVersion": 1,
+      "versions": { "1": "core.pickup_window.v1.json" }
+    }
+  ]
+}

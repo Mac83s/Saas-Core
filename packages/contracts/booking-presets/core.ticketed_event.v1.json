@@ -1,0 +1,59 @@
+{
+  "id": "core.ticketed_event",
+  "version": 1,
+  "availability": "soon",
+  "labels": {
+    "pl": {
+      "name": "Wydarzenie z biletami",
+      "description": "Rejs, wycieczka, szkolenie, koncert: konkretne terminy i rodzaje biletów."
+    },
+    "en": {
+      "name": "Ticketed event",
+      "description": "Cruise, trip, training, concert: set dates and ticket types."
+    }
+  },
+  "timeModel": "session",
+  "session": { "schedule": "dated", "waitlist": false },
+  "booked": { "subject": "seat", "staff": "none" },
+  "quantity": "seats",
+  "participants": {
+    "mode": "categories",
+    "categories": [
+      {
+        "key": "standard",
+        "countsTowardCapacity": true,
+        "labels": { "pl": "Normalny", "en": "Standard" }
+      },
+      {
+        "key": "reduced",
+        "countsTowardCapacity": true,
+        "labels": { "pl": "Ulgowy", "en": "Reduced" }
+      },
+      {
+        "key": "child",
+        "countsTowardCapacity": true,
+        "labels": { "pl": "Dziecko", "en": "Child" }
+      }
+    ]
+  },
+  "confirmation": "instant",
+  "place": "business",
+  "price": { "basis": "per_person" },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Rezerwacja",
+      "bookings": "Rezerwacje",
+      "participant": "Uczestnik",
+      "participants": "Uczestnicy"
+    },
+    "en": {
+      "booking": "Booking",
+      "bookings": "Bookings",
+      "participant": "Attendee",
+      "participants": "Attendees"
+    }
+  }
+}

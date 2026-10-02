@@ -20,6 +20,9 @@ context i RLS.
   dwa różne instants. Wynik jest sortowany po UTC i deduplikowany;
 - slot obejmuje długość usługi oraz bufory. Publiczny horyzont ma najwyżej 62
   dni i twardy limit wyników;
+  > Rozszerzone przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+  > §5 (2026-10-02): 62 dni to szerokość jednego zapytania o terminy (`slot`);
+  > okres (`range`) ma kalendarz dni z własną granicą i okno rezerwacji z reguł.
 - `Appointment` zachowuje snapshot czasu i nazwy usługi. Późniejsza zmiana
   katalogu lub grafiku nie zmienia istniejącej wizyty;
 - zajętość pracownika i zasobu materializujemy w osobnych alokacjach.
@@ -38,6 +41,9 @@ context i RLS.
 - potwierdzenia i przypomnienia przechodzą przez trwałą kolejkę W8. Treści są
   ogólne: organizacja, termin i bezpieczny link, bez danych medycznych;
 - płatność i zaliczka są poza pierwszym zakresem W9.
+  > Zmienione przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+  > §6–§8 i ADR-073 (2026-10-02): cena, polityki płatności i anulowania należą do
+  > oferty, a pieniądze — do zamówienia.
 
 ## Konsekwencje
 
