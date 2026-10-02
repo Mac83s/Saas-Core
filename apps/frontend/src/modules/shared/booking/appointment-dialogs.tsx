@@ -178,7 +178,8 @@ export function VisitPlace({
     <span className={cn("flex min-w-0 items-center gap-1", className)}>
       <MapPinIcon aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="sr-only">{t("town")}: </span>
-      <span className="truncate">{place}</span>
+      {/* A product may say why the visit is elsewhere („Wizyta domowa”). */}
+      <span className="truncate">{t("placeAway", { place })}</span>
     </span>
   );
 }

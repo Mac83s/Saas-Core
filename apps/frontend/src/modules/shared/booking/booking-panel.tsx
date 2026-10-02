@@ -491,13 +491,16 @@ export function BookingPanel({
         </>
       ),
     },
-    // Only where a module says where its visits are: an empty column is noise.
-    ...(appointments?.some((item) => item.place)
+    // Where the visit is: its own place, else the location it is booked at
+    // (UX plan W5). Only when that tells visits apart: one place is noise.
+    ...(new Set(appointments?.map((item) => item.place ?? item.location_name))
+      .size > 1
       ? [
           {
-            id: "town",
-            accessorFn: (item: BookingAppointment) => item.place ?? "",
-            header: t("town"),
+            id: "place",
+            accessorFn: (item: BookingAppointment) =>
+              item.place ?? item.location_name,
+            header: t("location"),
           },
         ]
       : []),
@@ -1122,9 +1125,9 @@ function AppointmentCard({
 }) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
-  // The town says where better than the company's location; the day view
-  // names the location only for a visit without one.
-  const place = wide && !appointment.place ? appointment.location_name : null;
+  // The town says where better than the company's location; a visit without
+  // a place of its own names the location it is booked at (UX plan W5).
+  const place = !appointment.place ? appointment.location_name : null;
   // The crew gets a line of its own: a narrow week column still says who.
   const details = [appointment.service_name, place];
   // „+1” is for the eye; a screen reader hears every name.

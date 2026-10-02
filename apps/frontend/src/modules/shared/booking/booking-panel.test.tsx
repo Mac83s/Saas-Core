@@ -444,9 +444,11 @@ test("a visit's town shows in every view, and the list has a column for it", asy
   fireEvent.click(screen.getByRole("button", { name: "List" }));
   const table = screen.getByRole("table", { name: "Visits: August 2026" });
   expect(
-    within(table).getByRole("columnheader", { name: "Town" }),
+    within(table).getByRole("columnheader", { name: "Location" }),
   ).not.toBeNull();
   expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Wólka");
+  // A visit without a place of its own: the location it is booked at (W5).
+  expect(within(table).getAllByRole("row")[2]).toHaveTextContent("Centrum");
 
   fireEvent.click(
     within(table).getAllByRole("button", { name: "Visit details" })[0]!,
@@ -455,14 +457,14 @@ test("a visit's town shows in every view, and the list has a column for it", asy
   expect(within(details).getByText("Wólka")).not.toBeNull();
 });
 
-test("without a town the list has no empty column for it", async () => {
+test("when every visit is at the one location the list has no column for it", async () => {
   address.params = new URLSearchParams("view=list");
   renderCalendar();
   const table = await screen.findByRole("table", {
     name: "Visits: August 2026",
   });
   expect(
-    within(table).queryByRole("columnheader", { name: "Town" }),
+    within(table).queryByRole("columnheader", { name: "Location" }),
   ).toBeNull();
 });
 
@@ -1227,7 +1229,7 @@ test("a visit's crew shows on its card and in its details, and the office staffs
   // One name and a count for the eye, every name for a screen reader.
   expect(within(card).getByText("Alex +1")).not.toBeNull();
   expect(
-    within(card).getByText("Consultation, Alex (lead), Bea"),
+    within(card).getByText("Consultation, Alex (lead), Bea, Centrum"),
   ).not.toBeNull();
   expect(within(card).getByText("Vacancy: 1 person missing")).not.toBeNull();
   // Bea helps on the visit she does not lead: her filter shows it too.

@@ -2397,7 +2397,8 @@
     "idempotencyConflict": "These details differ from the ones just sent — if the visit was saved, it is in the calendar. Close the form and open it again.",
     "sectionInvalid": "Fill in the marked fields.",
     "flags": {},
-    "zoneNote": "Times in the {zone} zone."
+    "zoneNote": "Times in the {zone} zone.",
+    "placeAway": "{place}"
   },
   "DayBoard": {
     "label": "Day board",

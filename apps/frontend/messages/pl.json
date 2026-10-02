@@ -2397,7 +2397,8 @@
     "idempotencyConflict": "Te dane różnią się od wysłanych przed chwilą — jeśli wizyta już się zapisała, znajdziesz ją w kalendarzu. Zamknij formularz i otwórz go od nowa.",
     "sectionInvalid": "Uzupełnij zaznaczone pola.",
     "flags": {},
-    "zoneNote": "Godziny w strefie {zone}."
+    "zoneNote": "Godziny w strefie {zone}.",
+    "placeAway": "{place}"
   },
   "DayBoard": {
     "label": "Tablica dnia",
