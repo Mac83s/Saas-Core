@@ -48,6 +48,11 @@ DECLARED: dict[str, dict[str, tuple[int, str]]] = {
             1,
             "deferred work re-applies the acting its producer stored on the server row",
         ),
+        "modules/shared/translation/worker.py::job_context": (
+            1,
+            "a translation job acts for the person who ordered it or consented, rebuilt from "
+            "the job's row and checked at every claim (ADR-069 pkt 13)",
+        ),
     },
 }
 
