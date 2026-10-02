@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
@@ -19,8 +21,9 @@ from saas_core.modules.shared.notifications.api import (
     resolve_template_locale,
 )
 from saas_core.modules.shared.notifications.templates import AUDIENCE_STAFF
-from saas_core.modules.shared.sites.models import Site
-from test_sites_api import create_site, csrf_value, sites_client
+from saas_core.modules.shared.sites.models import Site, SiteInquiry
+from test_site_inquiries import published_form, submit  # noqa: F401 — the fixture
+from test_sites_api import create_page, create_site, csrf_value, sites_client
 from test_sites_collections import create_collection
 
 pytestmark = pytest.mark.django_db
@@ -139,3 +142,38 @@ def test_a_products_own_template_registers_as_before_and_is_for_staff() -> None:
 
     assert TEMPLATES[("test.report_ready", 1)].audience == AUDIENCE_STAFF
     assert TEMPLATES[("booking.confirmation", 2)].audience == "customer"
+
+
+def test_a_template_imported_for_another_language_starts_from_the_source_seeds() -> None:
+    client, _organization, _user = company_with(["pl", "de"], "firma-szablon")
+    site_id = create_site(client).data["id"]
+    page_id = create_page(client, site_id).data["id"]
+
+    imported = client.post(
+        f"/api/v1/sites/pages/{page_id}/template-import/",
+        {
+            "expected_version": 0,
+            "template_id": "core.profile",
+            "template_version": 1,
+            "locale": "de",
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="template-de",
+    )
+
+    assert imported.status_code == 201, imported.data
+
+
+def test_an_inquiry_reaches_the_owner_in_the_panels_language(
+    published_form: Any,  # noqa: F811 — the fixture imported above
+) -> None:
+    _client, _organization, owner, site, host = published_form
+    owner.locale = "en"
+    owner.save(update_fields=["locale"])
+
+    response = submit(site, host, key="inquiry-owner-language")
+
+    assert response.status_code == 201, response.data
+    inquiry = SiteInquiry.all_objects.get(id=response.data["reference"])
+    assert inquiry.notification_message.locale == "en"
