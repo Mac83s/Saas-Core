@@ -902,7 +902,10 @@ function NewAppointmentForm({
   return (
     <form className="space-y-6" noValidate onSubmit={form.handleSubmit(submit)}>
       <FieldSet>
-        <FieldLegend>{t("serviceAndPlace")}</FieldLegend>
+        {/* With one place there is no place to choose (UX plan W4). */}
+        <FieldLegend>
+          {t(catalog.locations.length > 1 ? "serviceAndPlace" : "service")}
+        </FieldLegend>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field data-invalid={Boolean(errors.service_id)}>
             <FieldLabel htmlFor="appointment-service">
@@ -1003,7 +1006,8 @@ function NewAppointmentForm({
               })}
             </ul>
           ) : (
-            <p className="text-sm">{t("crewAutoOn")}</p>
+            // Nobody named: one sentence says what happens (UX plan W4).
+            <p className="text-sm">{t("crewAutoHint")}</p>
           )}
           <div className="flex flex-wrap items-center gap-2">
             <NativeSelect
@@ -1057,7 +1061,9 @@ function NewAppointmentForm({
               </Button>
             ) : null}
           </div>
-          <FieldDescription>{t("crewAutoHint")}</FieldDescription>
+          {crew.length ? (
+            <FieldDescription>{t("crewAutoHint")}</FieldDescription>
+          ) : null}
           {crew.length && crew.length < need ? (
             <p className="text-sm text-warning-foreground">
               {t("crewShort", { count: need - crew.length })}

@@ -1322,9 +1322,12 @@ test("a visit for two is free only when both are, and books the crew named", asy
   expect(
     within(dialog).getByText("This service needs 2 people."),
   ).not.toBeNull();
+  // Nobody named: the form says once what happens (UX plan W4).
   expect(
-    within(dialog).getByText("We will pick automatically."),
-  ).not.toBeNull();
+    within(dialog).getAllByText(
+      "With nobody named we pick the least busy free people — you can change the crew later.",
+    ),
+  ).toHaveLength(1);
   fireEvent.change(within(dialog).getByLabelText("Date"), {
     target: { value: "2026-08-20" },
   });
