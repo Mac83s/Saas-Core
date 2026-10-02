@@ -1,6 +1,14 @@
 """Public extension API of the Organizations module."""
 
 from .canonical import canonical_json, canonical_json_hash
+from .command_executor import (
+    CHANNEL_FEATURES,
+    CommandGate,
+    Invocation,
+    execute_plan,
+    preview_plan,
+    register_command_gate,
+)
 from .command_registry import (
     CommandSpec,
     Effect,
@@ -37,12 +45,15 @@ from .references import (
 )
 
 __all__ = [
+    "CHANNEL_FEATURES",
+    "CommandGate",
     "CommandSpec",
     "DomainEvent",
     "DomainEventDeliveryError",
     "DomainEventHandler",
     "Effect",
     "InvitationAcceptedHandler",
+    "Invocation",
     "Preview",
     "ResourceReferenceConflict",
     "ResourceReferenceHandler",
@@ -56,10 +67,13 @@ __all__ = [
     "command_for_tool",
     "command_tools",
     "copy_resource_references",
+    "execute_plan",
+    "preview_plan",
     "dispatch_domain_event",
     "list_resource_reference_ids",
     "record_resource_references",
     "register_command",
+    "register_command_gate",
     "register_domain_event_handler",
     "register_invitation_accepted",
     "register_resource_reference_handler",

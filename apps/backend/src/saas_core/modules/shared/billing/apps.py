@@ -18,12 +18,14 @@ class BillingConfig(AppConfig):
         from django.db.models.signals import post_save  # noqa: PLC0415
 
         from saas_core.modules.core.organizations.api import (  # noqa: PLC0415
+            register_command_gate,
             register_seat_limit,
         )
         from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
             Organization,
         )
 
+        from .command_gate import plan_features  # noqa: PLC0415
         from .seats import team_members_limit  # noqa: PLC0415
         from .signals import grant_free_plan_on_create  # noqa: PLC0415
 
@@ -34,6 +36,8 @@ class BillingConfig(AppConfig):
         )
         # An invitation takes a seat of the plan; Core asks through this.
         register_seat_limit(team_members_limit)
+        # Whether the plan lets a channel act at all, asked on every command.
+        register_command_gate("features", plan_features)
         # A demo organization's plan, before any module needs it (seed_demo).
         from saas_core.modules.core.organizations.demo import (  # noqa: PLC0415
             register_demo_part,
