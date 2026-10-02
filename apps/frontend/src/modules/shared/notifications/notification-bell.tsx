@@ -78,10 +78,12 @@ export function NotificationBell() {
       >
         <BellIcon aria-hidden="true" className="size-5" />
         {unread > 0 ? (
+          // A solid red with a white figure and a ring of the bar's colour:
+          // 4.8:1 for the figure, at least 3:1 against the bar in either
+          // theme (UX-006, WCAG 1.4.11).
           <Badge
             aria-hidden="true"
-            className="absolute -right-1 -top-1 min-w-5 justify-center px-1 py-0 text-[0.625rem]"
-            variant="destructive"
+            className="absolute -top-1 -right-1 min-w-5 justify-center border-transparent bg-[#dc2626] px-1 py-0 text-[0.625rem] text-white ring-2 ring-background"
           >
             {unread > 9 ? "9+" : unread}
           </Badge>

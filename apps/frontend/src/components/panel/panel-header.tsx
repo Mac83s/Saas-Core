@@ -28,6 +28,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuLinkItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@saas-core/ui/components/dropdown-menu";
@@ -61,8 +63,12 @@ export function PanelHeader({
         <WidthToggle />
         <ConnectionStatus />
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <ThemeToggle />
-          <LocaleToggle />
+          {/* A phone keeps the bar for the day's work: the theme and the
+              language are in the account menu there (UX-006). */}
+          <div className="flex items-center gap-2 max-sm:hidden">
+            <ThemeToggle />
+            <LocaleToggle />
+          </div>
           <NotificationBell />
           {action && ActionIcon && allows(access, action) ? (
             <Link
@@ -84,6 +90,16 @@ export function PanelHeader({
   );
 }
 
+const PHONE = "(max-width: 639px)";
+
+function subscribePhone(onChange: () => void) {
+  const query = window.matchMedia?.(PHONE);
+  query?.addEventListener("change", onChange);
+  return () => query?.removeEventListener("change", onChange);
+}
+
+const isPhone = () => window.matchMedia?.(PHONE).matches ?? false;
+
 function subscribeOnline(onChange: () => void) {
   window.addEventListener("online", onChange);
   window.addEventListener("offline", onChange);
@@ -93,7 +109,10 @@ function subscribeOnline(onChange: () => void) {
   };
 }
 
-/** The design keeps room for offline work; today it reports the browser's connection. */
+/**
+ * Says something only when it matters: offline (UX-006). The live region
+ * stays in place, so the change is read out the moment it happens.
+ */
 function ConnectionStatus() {
   const t = useTranslations("DashboardNav");
   const online = useSyncExternalStore(
@@ -104,22 +123,18 @@ function ConnectionStatus() {
   return (
     <span
       className={cn(
-        "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
-        online
-          ? "bg-primary/10 text-primary"
-          : "bg-warning text-warning-foreground",
+        "flex items-center gap-2 rounded-full text-xs font-medium",
+        !online && "bg-warning px-3 py-1.5 text-warning-foreground",
       )}
       role="status"
     >
-      {online ? (
-        <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-      ) : (
-        // A shape, not only a colour, tells offline apart on a phone.
-        <WifiOffIcon aria-hidden="true" className="size-3.5" />
+      {online ? null : (
+        <>
+          {/* A shape, not only a colour, tells offline apart on a phone. */}
+          <WifiOffIcon aria-hidden="true" className="size-3.5" />
+          <span className="max-sm:sr-only">{t("offline")}</span>
+        </>
       )}
-      <span className="max-sm:sr-only">
-        {online ? t("online") : t("offline")}
-      </span>
     </span>
   );
 }
@@ -140,23 +155,8 @@ function ThemeToggle() {
     { value: "light", icon: SunIcon, label: t("themeLight") },
     { value: "dark", icon: MoonIcon, label: t("themeDark") },
   ] as const;
-  const next = scheme === "dark" ? options[0] : options[1];
   return (
     <>
-      {/* Phones get one button: the header has no room for two segments. */}
-      <button
-        aria-label={t("themeDark")}
-        aria-pressed={scheme === "dark"}
-        className={cn(
-          segment,
-          "rounded-lg border border-foreground/15 hover:bg-foreground/6 sm:hidden",
-        )}
-        onClick={() => setColorScheme(next.value)}
-        title={next.label}
-        type="button"
-      >
-        <next.icon aria-hidden="true" className="size-4" />
-      </button>
       <div
         aria-label={t("theme")}
         className="flex overflow-hidden rounded-lg border border-foreground/15 max-sm:hidden"
@@ -223,6 +223,14 @@ function AccountMenu({
   const t = useTranslations("DashboardNav");
   const panel = useTranslations("Panel");
   const router = useRouter();
+  const locale = useLocale();
+  const pathname = usePathname();
+  const phone = useSyncExternalStore(subscribePhone, isPhone, () => false);
+  const scheme = useSyncExternalStore(
+    subscribeColorScheme,
+    currentColorScheme,
+    (): ColorScheme => "light",
+  );
   const [pending, setPending] = useState(false);
   const name = [user.first_name, user.last_name].join(" ").trim();
   const initials = (
@@ -276,6 +284,46 @@ function AccountMenu({
           <SettingsIcon aria-hidden="true" />
           {t("accountSettings")}
         </DropdownMenuLinkItem>
+        {phone ? (
+          // On a phone the bar has no room for them (UX-006): the theme
+          // and the language, each showing which one is on.
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t("theme")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                onValueChange={(value) => setColorScheme(value as ColorScheme)}
+                value={scheme}
+              >
+                <DropdownMenuRadioItem value="light">
+                  <SunIcon aria-hidden="true" />
+                  {t("themeLight")}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="dark">
+                  <MoonIcon aria-hidden="true" />
+                  {t("themeDark")}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{panel("language")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                onValueChange={(value) =>
+                  router.replace(pathname, { locale: String(value) })
+                }
+                value={locale}
+              >
+                <DropdownMenuRadioItem lang="pl" value="pl">
+                  Polski
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem lang="en" value="en">
+                  English
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem disabled={pending} onClick={() => void logout()}>
           <LogOutIcon aria-hidden="true" />
           {pending ? panel("loggingOut") : panel("logout")}
