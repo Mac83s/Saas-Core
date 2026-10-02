@@ -1,53 +1,27 @@
 """What a company can set on an offer, declared once (ADR-072 §11, ADR-078).
 
-Until the settings registry exists (plan `saas-core-ustawienia-firmy`, R1) the
-offer's keys live in this one constant: bounds, variants, today's defaults and
-labels. The input serializer takes its bounds from here and
-`GET /booking/setup/options/` serves the entries in the shape of the
-registry's schema, so R1 moves them into declarations without changing the
-API or the assistant's commands.
+The offer's keys are declarations of the settings registry (`OFFER`, an entity
+group: the values are columns of `Service`, written by §11): bounds, variants,
+today's defaults and labels. The input serializer takes its bounds from here
+and `GET /booking/setup/options/` serves the registry's schema entries.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any
 
+from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec, schema_entry
+
 from .models import RangeUnit, StaffChoice, TimeModel
-
-
-@dataclass(frozen=True, slots=True)
-class OfferSetting:
-    key: str
-    #: `int`, `bool` or `enum`, as the registry names them.
-    type: str
-    #: What a new offer gets when the caller says nothing — today's form.
-    default: Any
-    label: Mapping[str, str]
-    #: English, for the model: what the value does and when to change it.
-    description: str
-    help: Mapping[str, str] | None = None
-    minimum: int | None = None
-    maximum: int | None = None
-    unit: str | None = None
-    values: tuple[tuple[str, Mapping[str, str]], ...] | None = None
-    scopes: tuple[str, ...] = ("offer",)
-    depends_on: str | None = None
-
-    @property
-    def field(self) -> str:
-        """The offer's column: `booking.offer.staff_count` → `staff_count`."""
-        return self.key.rsplit(".", 1)[1]
-
 
 _BUFFER_HELP = {
     "pl": "Czas na dojazd, przygotowanie albo sprzątanie — blokuje kalendarz, klient go nie widzi.",
     "en": "Time to travel, prepare or tidy up — it blocks the calendar, customers don't see it.",
 }
 
-OFFER_SETTINGS: tuple[OfferSetting, ...] = (
-    OfferSetting(
+OFFER_SETTINGS: tuple[SettingSpec, ...] = (
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.time_model",
         type="enum",
         default=TimeModel.SLOT.value,
@@ -60,14 +34,15 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             "pl": "Usługa z rezerwacjami nie zmienia sposobu rezerwacji.",
             "en": "A service with bookings keeps how it is booked.",
         },
-        description=(
+        model_description=(
             "`slot`: a visit of a set length at a start the calendar offers (people's hours). "
             "`range`: a stay or rental from–to the customer picks, taking a unit (a cottage, "
             "a kayak) by nights or days. Set when the service is created; a service with "
             "bookings never changes it."
         ),
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.range_unit",
         type="enum",
         default=RangeUnit.NIGHT.value,
@@ -76,13 +51,14 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             (RangeUnit.DAY.value, {"pl": "Dni", "en": "Days"}),
         ),
         label={"pl": "Liczymy", "en": "Counted in"},
-        description=(
+        model_description=(
             "For a `range` service: nights (check-in to check-out, a stay) or days (pickup on "
             "the first day to return on the last one, a rental)."
         ),
-        depends_on="booking.offer.time_model == 'range'",
+        depends_on="time_model == 'range'",
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.range_start_local",
         type="text",
         default="16:00",
@@ -91,10 +67,11 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             "pl": "Godzina, od której pobyt albo wynajem się zaczyna (dla dni domyślnie 9:00).",
             "en": "The time a stay or rental begins (for days 9:00 by default).",
         },
-        description="HH:MM local time a `range` booking begins on its first day.",
-        depends_on="booking.offer.time_model == 'range'",
+        model_description="HH:MM local time a `range` booking begins on its first day.",
+        depends_on="time_model == 'range'",
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.range_end_local",
         type="text",
         default="11:00",
@@ -103,10 +80,11 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             "pl": "Godzina, o której pobyt albo wynajem się kończy (dla dni domyślnie 18:00).",
             "en": "The time a stay or rental ends (for days 18:00 by default).",
         },
-        description="HH:MM local time a `range` booking ends on its last day.",
-        depends_on="booking.offer.time_model == 'range'",
+        model_description="HH:MM local time a `range` booking ends on its last day.",
+        depends_on="time_model == 'range'",
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.duration_minutes",
         type="int",
         default=30,
@@ -114,10 +92,11 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
         maximum=1440,
         unit="minute",
         label={"pl": "Czas trwania", "en": "Duration"},
-        description="How long one visit of a `slot` service takes, in minutes.",
-        depends_on="booking.offer.time_model == 'slot'",
+        model_description="How long one visit of a `slot` service takes, in minutes.",
+        depends_on="time_model == 'slot'",
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.buffer_before_minutes",
         type="int",
         default=0,
@@ -126,12 +105,13 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
         unit="minute",
         label={"pl": "Bufor przed", "en": "Buffer before"},
         help=_BUFFER_HELP,
-        description=(
+        model_description=(
             "Minutes blocked in the calendar before each visit (travel, preparation); "
             "customers do not see them."
         ),
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.buffer_after_minutes",
         type="int",
         default=0,
@@ -140,12 +120,13 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
         unit="minute",
         label={"pl": "Bufor po", "en": "Buffer after"},
         help=_BUFFER_HELP,
-        description=(
+        model_description=(
             "Minutes blocked in the calendar after each visit (tidying up, travel); "
             "customers do not see them."
         ),
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.minimum_notice_minutes",
         type="int",
         default=60,
@@ -157,12 +138,13 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             "pl": "Ile minut przed wizytą najpóźniej można ją zarezerwować.",
             "en": "How many minutes before a visit it can be booked at the latest.",
         },
-        description=(
+        model_description=(
             "How many minutes before its start a visit can still be booked; "
             "0 allows booking up to the start."
         ),
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.staff_count",
         type="int",
         default=1,
@@ -173,12 +155,13 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             "pl": "Tyle osób zablokujemy w kalendarzu przy każdej wizycie.",
             "en": "This many people are blocked in the calendar for every visit.",
         },
-        description=(
+        model_description=(
             "How many of the company's people one visit needs; each is blocked. 0 only for "
             "a `range` service whose booking takes a unit and nobody (ADR-072 §2)."
         ),
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.public_staff_choice",
         type="enum",
         default=StaffChoice.NONE.value,
@@ -195,50 +178,50 @@ OFFER_SETTINGS: tuple[OfferSetting, ...] = (
             "pl": "Konkretną osobę klient może wybrać tylko przy usługach jednoosobowych.",
             "en": "A customer can pick a person only for one-person services.",
         },
-        description=(
+        model_description=(
             "What a customer picks on the public booking form: nobody (the system "
             "picks), a team by name, or a person — `person` only when staff_count is 1."
         ),
     ),
-    OfferSetting(
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.active",
         type="bool",
         default=True,
         label={"pl": "Przyjmuje rezerwacje", "en": "Takes bookings"},
-        description=(
+        model_description=(
             "Whether the service can be booked at all; a switched-off service keeps "
             "its booked visits."
         ),
     ),
 )
 
+#: The offer's keys as an entity group of the settings registry (ADR-078 pkt 7):
+#: booking keeps the columns, the §11 writes, the preview and the commands.
+OFFER = SettingGroup(
+    key="booking.offer",
+    module="shared.booking",
+    title={"pl": "Usługa", "en": "Service"},
+    description={
+        "pl": "Jak przebiega rezerwacja usługi: model czasu, czas trwania, bufory, ile osób "
+        "potrzebuje i co wybiera klient.",
+        "en": "How a service is booked: the time model, duration, buffers, how many people "
+        "it needs and what the customer chooses.",
+    },
+    permission="booking.appointment.manage",
+    entitlement="booking.enabled",
+    area="services",
+    api="/api/v1/booking/setup/services/",
+    settings=OFFER_SETTINGS,
+)
+
 _BY_FIELD = {setting.field: setting for setting in OFFER_SETTINGS}
 
 
-def offer_setting(field: str) -> OfferSetting:
+def offer_setting(field: str) -> SettingSpec:
     return _BY_FIELD[field]
 
 
 def offer_options() -> list[dict[str, Any]]:
-    """The entries as the registry's schema will list them (ADR-078 pkt 11)."""
-    return [
-        {
-            "key": setting.key,
-            "type": setting.type,
-            "minimum": setting.minimum,
-            "maximum": setting.maximum,
-            "unit": setting.unit,
-            "values": (
-                [{"value": value, "label": dict(label)} for value, label in setting.values]
-                if setting.values
-                else None
-            ),
-            "default": setting.default,
-            "label": dict(setting.label),
-            "help": dict(setting.help) if setting.help else None,
-            "description": setting.description,
-            "scopes": list(setting.scopes),
-            "depends_on": setting.depends_on,
-        }
-        for setting in OFFER_SETTINGS
-    ]
+    """The entries as the registry's schema lists them (ADR-078 pkt 11)."""
+    return [schema_entry(setting) for setting in OFFER_SETTINGS]

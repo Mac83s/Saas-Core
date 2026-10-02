@@ -27953,6 +27953,14 @@ components:
           type:
           - string
           - 'null'
+        strategy:
+          allOf:
+          - $ref: '#/components/schemas/SettingStrategyEnum'
+          description: |-
+            restrict: the value in force may be stricter than the company's — the module applies its ceilings (operator, deployment) on top.
+
+            * `override` - override
+            * `restrict` - restrict
       required:
       - default
       - depends_on
@@ -27963,6 +27971,7 @@ components:
       - maximum
       - minimum
       - scopes
+      - strategy
       - type
       - unit
       - values
@@ -27987,6 +27996,14 @@ components:
         * `platform` - platform
         * `product` - product
         * `organization` - organization
+    SettingStrategyEnum:
+      enum:
+      - override
+      - restrict
+      type: string
+      description: |-
+        * `override` - override
+        * `restrict` - restrict
     SettingTypeEnum:
       enum:
       - int
@@ -28085,7 +28102,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SettingOption'
+        api:
+          type:
+          - string
+          - 'null'
+          description: 'The module''s own endpoint for a group it stores itself; null:
+            …/current/settings/<group>/.'
       required:
+      - api
       - area
       - can_change
       - description
@@ -28181,6 +28205,8 @@ components:
           type:
           - string
           - 'null'
+        strategy:
+          $ref: '#/components/schemas/SettingStrategyEnum'
       required:
       - default
       - depends_on
@@ -28191,6 +28217,7 @@ components:
       - maximum
       - minimum
       - scopes
+      - strategy
       - type
       - unit
       - values

@@ -4,7 +4,11 @@ from typing import Any
 
 from rest_framework import serializers
 
-from saas_core.modules.core.organizations.options import SETTING_TYPES, SETTING_UNITS
+from saas_core.modules.core.organizations.options import (
+    SETTING_STRATEGIES,
+    SETTING_TYPES,
+    SETTING_UNITS,
+)
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
 from .models import RangeUnit, StaffChoice, TimeModel, TimeOffSource
@@ -518,6 +522,7 @@ class SetupOptionSerializer(serializers.Serializer[dict[str, Any]]):
     description = serializers.CharField(help_text="What the value does, for the assistant.")
     scopes = serializers.ListField(child=serializers.CharField())
     depends_on = serializers.CharField(allow_null=True)
+    strategy = serializers.ChoiceField(choices=SETTING_STRATEGIES)
 
 
 class SetupOptionsSerializer(serializers.Serializer[dict[str, Any]]):
@@ -539,7 +544,7 @@ def _bounded(field: str, **kwargs: Any) -> serializers.IntegerField:
     return serializers.IntegerField(
         min_value=setting.minimum,
         max_value=setting.maximum,
-        help_text=setting.description,
+        help_text=setting.model_description,
         **kwargs,
     )
 
@@ -559,18 +564,22 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     time_model = serializers.ChoiceField(
         choices=[TimeModel.SLOT.value, TimeModel.RANGE.value],
         required=False,
-        help_text=offer_setting("time_model").description,
+        help_text=offer_setting("time_model").model_description,
     )
     range_unit = serializers.ChoiceField(
         choices=[RangeUnit.NIGHT.value, RangeUnit.DAY.value],
         required=False,
-        help_text=offer_setting("range_unit").description,
+        help_text=offer_setting("range_unit").model_description,
     )
     range_start_local = serializers.TimeField(
-        required=False, allow_null=True, help_text=offer_setting("range_start_local").description
+        required=False,
+        allow_null=True,
+        help_text=offer_setting("range_start_local").model_description,
     )
     range_end_local = serializers.TimeField(
-        required=False, allow_null=True, help_text=offer_setting("range_end_local").description
+        required=False,
+        allow_null=True,
+        help_text=offer_setting("range_end_local").model_description,
     )
     group_ids = serializers.ListField(
         child=serializers.UUIDField(),

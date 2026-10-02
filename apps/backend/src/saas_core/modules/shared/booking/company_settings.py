@@ -215,10 +215,14 @@ ONLINE = SettingGroup(
 
 
 def register_company_settings() -> None:
+    from .offer_settings import OFFER  # noqa: PLC0415
+
     for group in (REMINDERS, ONLINE):
         register_setting_group(group)
         for command in group_commands(group):
             register_command(command)
+    # The offer's keys: an entity group, its writes are §11's (ADR-078 pkt 17).
+    register_setting_group(OFFER)
 
 
 def reminder_due(starts_at: Any) -> Any:

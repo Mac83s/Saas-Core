@@ -10003,6 +10003,13 @@ export interface components {
             description: string;
             scopes: string[];
             depends_on: string | null;
+            /**
+             * @description restrict: the value in force may be stricter than the company's — the module applies its ceilings (operator, deployment) on top.
+             *
+             *     * `override` - override
+             *     * `restrict` - restrict
+             */
+            strategy: components["schemas"]["SettingStrategyEnum"];
         };
         SettingOptions: {
             keys: components["schemas"]["SettingOption"][];
@@ -10015,6 +10022,12 @@ export interface components {
          * @enum {string}
          */
         SettingSourceEnum: "code" | "platform" | "product" | "organization";
+        /**
+         * @description * `override` - override
+         *     * `restrict` - restrict
+         * @enum {string}
+         */
+        SettingStrategyEnum: "override" | "restrict";
         /**
          * @description * `int` - int
          *     * `decimal` - decimal
@@ -10065,6 +10078,8 @@ export interface components {
             /** @description Why the plan does not let the company change them; empty. */
             locked: string;
             keys: components["schemas"]["SettingOption"][];
+            /** @description The module's own endpoint for a group it stores itself; null: …/current/settings/<group>/. */
+            api: string | null;
         };
         SettingsSchema: {
             groups: components["schemas"]["SettingsGroupSchema"][];
@@ -10094,6 +10109,7 @@ export interface components {
             description: string;
             scopes: string[];
             depends_on: string | null;
+            strategy: components["schemas"]["SettingStrategyEnum"];
         };
         SetupOptionValue: {
             value: string;
