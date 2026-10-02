@@ -83,6 +83,9 @@ def domain_client(
         name=slug,
         slug=slug,
         status=OrganizationStatus.ACTIVE,
+        # The published fixtures speak Polish and English: a language the
+        # company has not switched on is not served (ADR-071 pkt 8).
+        public_locales=["pl", "en"],
     )
     Membership.objects.create(
         organization=organization,

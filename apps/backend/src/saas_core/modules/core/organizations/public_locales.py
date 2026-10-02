@@ -9,8 +9,11 @@ settings group. Modules hook in from `AppConfig.ready`:
 
 - `register_public_locales_limit` — how many languages beyond the first the
   plan allows (billing);
-- `register_public_locales_guard` — a language a module does not let go, with
-  its field code (sites: a site's source language);
+- `register_public_locales_guard` — a language a module does not let go or
+  take on, with its field code (sites: a site's source language, a page whose
+  address the new prefix would take);
+- `register_public_locales_impact` — what a removal does at once (sites: the
+  addresses that start answering 308);
 - `register_public_locales_changed` — a reaction in the same transaction.
 """
 
@@ -71,11 +74,23 @@ class PublicLocalesLimit:
     reason: str = ""
 
 
-PublicLocalesGuard = Callable[[UUID, frozenset[str]], Mapping[str, str]]
+@dataclass(frozen=True, slots=True)
+class LocaleRedirect:
+    """An address that answers 308 once its language is removed."""
+
+    locale: str
+    path: str
+    #: Where it leads: the same page in the source language; "" — nowhere (404).
+    target: str
+
+
+PublicLocalesGuard = Callable[[UUID, frozenset[str], frozenset[str]], Mapping[str, str]]
+PublicLocalesImpact = Callable[[UUID, frozenset[str]], Sequence[LocaleRedirect]]
 PublicLocalesChanged = Callable[[Organization, tuple[str, ...], tuple[str, ...]], None]
 
 _limits: list[Callable[[], PublicLocalesLimit]] = []
 _guards: list[PublicLocalesGuard] = []
+_impacts: list[PublicLocalesImpact] = []
 _changed: list[PublicLocalesChanged] = []
 
 
@@ -85,10 +100,16 @@ def register_public_locales_limit(limit: Callable[[], PublicLocalesLimit]) -> No
 
 
 def register_public_locales_guard(guard: PublicLocalesGuard) -> None:
-    """`guard(organization_id, removed)` → {code: field code} of the languages
-    it does not let go."""
+    """`guard(organization_id, added, removed)` → {code: field code} of the
+    languages it does not let the company take on or let go."""
     if guard not in _guards:
         _guards.append(guard)
+
+
+def register_public_locales_impact(impact: PublicLocalesImpact) -> None:
+    """`impact(organization_id, removed)` → the addresses the removal moves."""
+    if impact not in _impacts:
+        _impacts.append(impact)
 
 
 def register_public_locales_changed(handler: PublicLocalesChanged) -> None:
@@ -129,6 +150,8 @@ class PublicLocalesPlan:
     limit: PublicLocalesLimit
     #: The person-only decisions the change needs (a removal).
     person_gates: frozenset[str] = frozenset()
+    #: What a removal does at once: the addresses that answer 308 from now on.
+    redirects: tuple[LocaleRedirect, ...] = ()
     #: The stored change; None for a preview and for a change of nothing.
     change: PublicLocalesChange | None = None
 
@@ -154,7 +177,7 @@ def read_public_locales() -> PublicLocales:
         version=organization.public_locales_version,
         offered=offered_locales(),
         limit=_limit(organization),
-        protected=_protected(organization, frozenset(organization.public_locales)),
+        protected=_protected(organization, frozenset(), frozenset(organization.public_locales)),
     )
 
 
@@ -266,9 +289,10 @@ def _plan(organization: Organization, after: tuple[str, ...], *, field: str) -> 
                 ErrorDetail(f"Języka {code} nie ma w tym produkcie.", code=LOCALE_NOT_SUPPORTED)
             )
     removed = frozenset(code for code in before if code not in after)
-    for code, problem in sorted(_protected(organization, removed).items()):
-        problems.append(ErrorDetail(f"Języka {code} nie można usunąć.", code=problem))
     added = [code for code in after if code not in before]
+    for code, problem in sorted(_protected(organization, frozenset(added), removed).items()):
+        verb = "dodać" if code in added else "usunąć"
+        problems.append(ErrorDetail(f"Języka {code} nie można {verb}.", code=problem))
     limit = _limit(organization) if added else PublicLocalesLimit(allowed=True)
     if added and not limit.allowed:
         why = _DENIALS.get(limit.reason, limit.reason)
@@ -291,6 +315,11 @@ def _plan(organization: Organization, after: tuple[str, ...], *, field: str) -> 
         after=after,
         version=organization.public_locales_version + (1 if changed else 0),
         limit=limit,
+        redirects=tuple(
+            redirect
+            for impact in (tuple(_impacts) if removed else ())
+            for redirect in impact(organization.id, removed)
+        ),
     )
 
 
@@ -307,12 +336,14 @@ def _limit(organization: Organization) -> PublicLocalesLimit:
     return PublicLocalesLimit(allowed=True, additional_max=min(maxima) if maxima else None)
 
 
-def _protected(organization: Organization, codes: frozenset[str]) -> dict[str, str]:
-    if not codes:
+def _protected(
+    organization: Organization, added: frozenset[str], removed: frozenset[str]
+) -> dict[str, str]:
+    if not added and not removed:
         return {}
     found: dict[str, str] = {}
     for guard in tuple(_guards):
-        for code, problem in guard(organization.id, codes).items():
+        for code, problem in guard(organization.id, added, removed).items():
             found.setdefault(code, problem)
     return found
 

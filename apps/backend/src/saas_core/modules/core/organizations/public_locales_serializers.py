@@ -55,6 +55,14 @@ class PublicLocalesChangeSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class LocaleRedirectSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.CharField()
+    path = serializers.CharField(help_text="Adres wersji w usuwanym języku.")
+    target = serializers.CharField(
+        allow_blank=True, help_text="Ta sama strona w języku źródłowym; pusty — 404."
+    )
+
+
 class PublicLocalesPlanSerializer(serializers.Serializer[dict[str, Any]]):
     before = serializers.ListField(child=serializers.CharField())
     public_locales = serializers.ListField(
@@ -67,4 +75,8 @@ class PublicLocalesPlanSerializer(serializers.Serializer[dict[str, Any]]):
     person_gates = serializers.ListField(
         child=serializers.CharField(),
         help_text="Decyzje, które podejmuje tylko osoba (usunięcie języka).",
+    )
+    redirects = LocaleRedirectSerializer(
+        many=True,
+        help_text="Adresy, które po usunięciu języka od razu odpowiadają 308 (cel pusty — 404).",
     )

@@ -7225,6 +7225,13 @@ export interface components {
             complete: boolean;
             slug_locked: boolean;
         };
+        LocaleRedirect: {
+            locale: string;
+            /** @description Adres wersji w usuwanym języku. */
+            path: string;
+            /** @description Ta sama strona w języku źródłowym; pusty — 404. */
+            target: string;
+        };
         LocalizedText: {
             pl: string;
             en: string;
@@ -8367,6 +8374,8 @@ export interface components {
             limit: components["schemas"]["PublicLocalesLimit"];
             /** @description Decyzje, które podejmuje tylko osoba (usunięcie języka). */
             person_gates: string[];
+            /** @description Adresy, które po usunięciu języka od razu odpowiadają 308 (cel pusty — 404). */
+            redirects: components["schemas"]["LocaleRedirect"][];
         };
         PublicName: {
             /** Format: uuid */

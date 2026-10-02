@@ -17,8 +17,8 @@ from .publication_routing import (
     index_page_path,
     one_per_article,
     published_entries,
+    serving_locales,
     tag_archive_path,
-    tenant_is_servable,
     visible_snapshot,
 )
 
@@ -27,8 +27,9 @@ from .publication_routing import (
 FEED_LIMIT = 50
 
 
-def _resolve_site(host: str) -> tuple[Any, str]:
-    """The site behind a visitor's host, plus the address it calls its own.
+def _resolve_site(host: str) -> tuple[Any, str, frozenset[str]]:
+    """The site behind a visitor's host, the address it calls its own and the
+    languages a visitor may read there now (ADR-071 pkt 8).
 
     Every URL a feed or a sitemap emits has to be the canonical one: pointing a
     crawler at an alias teaches it the wrong address for the whole site.
@@ -43,7 +44,8 @@ def _resolve_site(host: str) -> tuple[Any, str]:
         .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )
-    if domain is None or not tenant_is_servable(domain.organization_id):
+    locales = serving_locales(domain.organization_id) if domain is not None else None
+    if domain is None or locales is None:
         raise PublicSiteNotFound
     canonical = Domain.all_objects.filter(
         site_id=domain.site_id,
@@ -53,14 +55,14 @@ def _resolve_site(host: str) -> tuple[Any, str]:
     if canonical is None:
         raise PublicSiteNotFound
     origin = settings.PUBLIC_SITE_SCHEME + "://" + canonical.hostname
-    return domain, origin
+    return domain, origin, locales | {domain.site.default_locale}
 
 
 def render_site_feed(*, host: str) -> HttpResponse:
     """RSS 2.0 over every published entry, newest first."""
-    domain, origin = _resolve_site(host)
+    domain, origin, available = _resolve_site(host)
     entries = published_entries(
-        organization_id=domain.organization_id, site_id=domain.site_id
+        organization_id=domain.organization_id, site_id=domain.site_id, available=available
     )[:FEED_LIMIT]
     items = []
     for entry in entries:
@@ -110,9 +112,9 @@ def render_site_atom(*, host: str) -> HttpResponse:
     month name, and an entry carries an author element that is a name rather
     than an email address.
     """
-    domain, origin = _resolve_site(host)
+    domain, origin, available = _resolve_site(host)
     entries = published_entries(
-        organization_id=domain.organization_id, site_id=domain.site_id
+        organization_id=domain.organization_id, site_id=domain.site_id, available=available
     )[:FEED_LIMIT]
     # The feed's own `updated` is the newest article's, and "now" when there is
     # none: a feed that claims to change every time it is fetched teaches a
@@ -165,18 +167,18 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
     A crawler that only follows links never reaches an article the menu does
     not point at, which is every article on a blog older than its front page.
     """
-    domain, origin = _resolve_site(host)
+    domain, origin, available = _resolve_site(host)
     locations: list[str] = []
     publication = domain.site.current_publication
     if publication is not None:
-        for raw_page in visible_snapshot(publication)["pages"]:
+        for raw_page in visible_snapshot(publication, available)["pages"]:
             if raw_page.get("noindex"):
                 continue
             for raw_locale in raw_page.get("locales", []):
                 if isinstance(raw_locale, dict) and raw_locale.get("path"):
                     locations.append(origin + str(raw_locale["path"]))
     entries = published_entries(
-        organization_id=domain.organization_id, site_id=domain.site_id
+        organization_id=domain.organization_id, site_id=domain.site_id, available=available
     )
     site_locale = domain.site.default_locale
     for collection in ContentCollection.all_objects.filter(
@@ -249,7 +251,7 @@ def render_site_robots(*, host: str) -> HttpResponse:
     it by hand in a search console, which is not something a client of ours is
     going to do.
     """
-    _domain, origin = _resolve_site(host)
+    _domain, origin, _available = _resolve_site(host)
     document = "User-agent: *\nAllow: /\nSitemap: " + origin + "/sitemap.xml\n"
     return HttpResponse(document, content_type="text/plain; charset=utf-8")
 

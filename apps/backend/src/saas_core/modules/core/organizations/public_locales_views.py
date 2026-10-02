@@ -58,6 +58,10 @@ def _plan(plan: PublicLocalesPlan) -> dict[str, Any]:
         "version": plan.version,
         "limit": _limit(plan.limit),
         "person_gates": sorted(plan.person_gates),
+        "redirects": [
+            {"locale": item.locale, "path": item.path, "target": item.target}
+            for item in plan.redirects
+        ],
     }
 
 

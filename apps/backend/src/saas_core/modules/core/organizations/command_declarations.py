@@ -226,9 +226,12 @@ def _preview_locales(arguments: Mapping[str, Any], call: Any) -> Preview:
         idempotency_key="",
         preview=True,
     )
+    moved = len(plan.redirects)
     summary = {
-        "pl": f"Języki firmy: {', '.join(plan.before)} → {', '.join(plan.after)}",
-        "en": f"Company languages: {', '.join(plan.before)} → {', '.join(plan.after)}",
+        "pl": f"Języki firmy: {', '.join(plan.before)} → {', '.join(plan.after)}"
+        + (f"; adresy przekierowane do języka źródłowego: {moved}" if moved else ""),
+        "en": f"Company languages: {', '.join(plan.before)} → {', '.join(plan.after)}"
+        + (f"; addresses redirected to the source language: {moved}" if moved else ""),
     }
     effects = (
         (

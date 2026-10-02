@@ -12,13 +12,17 @@ class SitesConfig(AppConfig):
     verbose_name = "Sites and content"
 
     def ready(self) -> None:
-        from saas_core.modules.core.organizations.api import register_public_locales_guard
+        from saas_core.modules.core.organizations.api import (
+            register_public_locales_guard,
+            register_public_locales_impact,
+        )
 
-        from .company_locales import site_source_locales
+        from .company_locales import removed_locale_redirects, site_locale_problems
         from .inquiry_emails import register_inquiry_email
 
         register_inquiry_email()
-        register_public_locales_guard(site_source_locales)
+        register_public_locales_guard(site_locale_problems)
+        register_public_locales_impact(removed_locale_redirects)
         register(check_content_contracts, "sites")
 
 

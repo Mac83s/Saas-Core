@@ -20824,6 +20824,21 @@ components:
       - title
       - translation_id
       - version
+    LocaleRedirect:
+      type: object
+      properties:
+        locale:
+          type: string
+        path:
+          type: string
+          description: Adres wersji w usuwanym języku.
+        target:
+          type: string
+          description: Ta sama strona w języku źródłowym; pusty — 404.
+      required:
+      - locale
+      - path
+      - target
     LocalizedText:
       type: object
       properties:
@@ -23723,12 +23738,19 @@ components:
           items:
             type: string
           description: Decyzje, które podejmuje tylko osoba (usunięcie języka).
+        redirects:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleRedirect'
+          description: Adresy, które po usunięciu języka od razu odpowiadają 308 (cel
+            pusty — 404).
       required:
       - added
       - before
       - limit
       - person_gates
       - public_locales
+      - redirects
       - removed
       - version
     PublicName:

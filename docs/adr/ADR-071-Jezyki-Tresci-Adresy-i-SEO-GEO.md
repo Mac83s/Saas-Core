@@ -66,7 +66,10 @@ korzeniem. Strony firm nie mają JSON-LD.
    to `organization.settings_changed` z grupą `organization.public_locales`
    (ADR-078 pkt 7, 9), a kody pola `public_locales`: `locale_not_in_registry`,
    `locale_not_supported` (nie ma go w produkcie), `duplicate`,
-   `site_default_not_removable`, `quota_exceeded`, `plan_access_denied`. Asystent
+   `site_default_not_removable`, `locale_path_conflict` (prefiks `/xx/` jest już
+   adresem strony albo bloga w języku źródłowym), `quota_exceeded`,
+   `plan_access_denied`; podgląd usunięcia wymienia adresy przechodzące na 308 i ich
+   cele (`redirects`). Asystent
    zmienia je poleceniem `organization.public_locales.update@1`; usunięcie to
    bramka osoby „Usunięcie języka firmy”, otwierana tylko zgodą z kliknięcia.
 6. **Język źródłowy strony.** `Site.default_locale` odpowiada bez prefiksu, musi być

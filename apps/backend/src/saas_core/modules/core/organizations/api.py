@@ -36,10 +36,12 @@ from .joining import (
 )
 from .person_gate import PersonRequired, assert_person_required
 from .public_locales import (
+    LocaleRedirect,
     PublicLocalesLimit,
     include_site_source_locale,
     register_public_locales_changed,
     register_public_locales_guard,
+    register_public_locales_impact,
     register_public_locales_limit,
 )
 from .references import (
@@ -61,6 +63,7 @@ __all__ = [
     "DomainEventHandler",
     "Effect",
     "InvitationAcceptedHandler",
+    "LocaleRedirect",
     "Invocation",
     "Preview",
     "PersonRequired",
@@ -90,6 +93,7 @@ __all__ = [
     "register_invitation_accepted",
     "register_public_locales_changed",
     "register_public_locales_guard",
+    "register_public_locales_impact",
     "register_public_locales_limit",
     "register_resource_reference_handler",
     "register_seat_limit",

@@ -9,6 +9,7 @@ from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import (
     WORKING_ORGANIZATION_STATUSES,
     Organization,
@@ -42,11 +43,25 @@ def tenant_is_servable(organization_id: Any) -> bool:
     policies would give one injection there the reach over every tenant's
     memberships and invitations that ADR-041 exists to take away.
     """
+    return serving_locales(organization_id) is not None
+
+
+def serving_locales(organization_id: Any) -> frozenset[str] | None:
+    """The company's languages this deployment serves, read together with
+    whether it may be served at all (None: it may not). Read on every request:
+    a language switched off is off at once (ADR-071 pkt 8)."""
     with transaction.atomic():
         set_local_organization_id(organization_id)
-        return Organization.objects.filter(
-            pk=organization_id, status__in=WORKING_ORGANIZATION_STATUSES
-        ).exists()
+        organization = (
+            Organization.objects.filter(
+                pk=organization_id, status__in=WORKING_ORGANIZATION_STATUSES
+            )
+            .only("id", "public_locales")
+            .first()
+        )
+    if organization is None:
+        return None
+    return frozenset(organization_content_locales(organization))
 
 
 DEFAULT_PUBLIC_DESIGN_TOKENS = {
@@ -74,6 +89,9 @@ class PublicPage:
     locale: str
     publication: Publication
     page: dict[str, Any]
+    #: The site's languages a visitor may read now: its source language and
+    #: the company's (ADR-071 pkt 8). None: every language the snapshot has.
+    available: frozenset[str] | None = None
 
     @property
     def redirect_url(self) -> str | None:
@@ -105,8 +123,10 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
         .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )
-    if domain is None or not tenant_is_servable(domain.organization_id):
+    locales = serving_locales(domain.organization_id) if domain is not None else None
+    if domain is None or locales is None:
         raise PublicSiteNotFound
+    available = locales | {domain.site.default_locale}
     canonical = Domain.all_objects.filter(
         site_id=domain.site_id,
         status=DomainStatus.VERIFIED,
@@ -118,7 +138,9 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     try:
         if publication is None:
             raise PublicSiteNotFound
-        page, locale_document = find_page(visible_snapshot(publication), normalized_path)
+        page, locale_document = find_page(
+            visible_snapshot(publication, available), normalized_path
+        )
     except PublicSiteNotFound:
         # Not a page, so it may be a collection entry, or the collection's own
         # index. Entries publish on their own (ADR-035 §1) and are therefore
@@ -130,6 +152,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                 site_id=domain.site_id,
                 default_locale=domain.site.default_locale,
                 requested_path=normalized_path,
+                available=available,
             )
         except PublicSiteNotFound:
             try:
@@ -137,6 +160,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                     organization_id=domain.organization_id,
                     site_id=domain.site_id,
                     requested_path=normalized_path,
+                    available=available,
                 )
             except PublicSiteNotFound:
                 try:
@@ -146,6 +170,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                         organization_id=domain.organization_id,
                         site_id=domain.site_id,
                         requested_path=normalized_path,
+                        available=available,
                     )
                 except PublicSiteNotFound:
                     pass
@@ -157,6 +182,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                         page=page,
                         path=normalized_path,
                         publication=publication,
+                        available=available,
                     )
                 # Nothing answers here any more, but something used to. A
                 # visitor following an old link, and a search engine holding an
@@ -164,6 +190,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                 found = _redirect_target(
                     publication=domain.site.current_publication,
                     requested_path=normalized_path,
+                    available=available,
                 )
                 if found is None:
                     raise
@@ -181,6 +208,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
         page=page,
         path=normalized_path,
         publication=publication,
+        available=available,
     )
 
 
@@ -192,6 +220,7 @@ def _resolved(
     page: dict[str, Any],
     path: str,
     publication: Any,
+    available: frozenset[str] | None = None,
 ) -> PublicPage:
     return PublicPage(
         organization_id=canonical.organization_id,
@@ -203,13 +232,14 @@ def _resolved(
         locale=str(locale_document["locale"]),
         publication=publication,
         page={**page, "selected_locale": locale_document},
+        available=available,
     )
 
 
 def public_page_payload(page: PublicPage) -> dict[str, Any]:
     selected_locale = page.page["selected_locale"]
     publication_snapshot = (
-        visible_snapshot(page.publication)
+        visible_snapshot(page.publication, page.available)
         if isinstance(page.publication, Publication)
         else page.publication.snapshot
     )
@@ -423,6 +453,7 @@ def _find_entry(
     site_id: Any,
     default_locale: str,
     requested_path: str,
+    available: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
     """Resolves a published blog entry and shapes it like a page.
 
@@ -457,9 +488,20 @@ def _find_entry(
             "social_description": snapshot.get("excerpt", ""),
             "fallback_fields": [],
         }
-        siblings = _published_translations(
-            organization_id=organization_id, entry=entry
-        )
+        siblings = {
+            locale: path
+            for locale, path in _published_translations(
+                organization_id=organization_id, entry=entry
+            ).items()
+            if available is None or locale in available
+        }
+        if available is not None and snapshot["locale"] not in available:
+            # A language the company switched off: the article in the site's
+            # language, when there is one, otherwise nothing (ADR-071 pkt 9).
+            target = siblings.get(default_locale) or next(iter(siblings.values()), None)
+            if target is None:
+                raise PublicSiteNotFound
+            raise PublicSiteMoved(target)
         return (
             {
                 "page_id": snapshot["entry_id"],
@@ -498,7 +540,9 @@ def _find_entry(
     raise PublicSiteNotFound
 
 
-def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, Any]]:
+def published_entries(
+    *, organization_id: Any, site_id: Any, available: frozenset[str] | None = None
+) -> list[dict[str, Any]]:
     """Every published entry of a site, newest first, as plain snapshot data.
 
     The feed, the sitemap and the blog index are the same projection read three
@@ -518,6 +562,8 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
             continue
         snapshot = publication.snapshot
         if bool(snapshot.get("noindex", False)):
+            continue
+        if available is not None and str(snapshot["locale"]) not in available:
             continue
         items.append({
             "collection_id": str(entry.collection_id),
@@ -615,6 +661,7 @@ def _find_collection_index(
     organization_id: Any,
     site_id: Any,
     requested_path: str,
+    available: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
     """The blog's own address, built from what is published rather than edited.
 
@@ -652,7 +699,7 @@ def _find_collection_index(
         [
             item
             for item in published_entries(
-                organization_id=organization_id, site_id=site_id
+                organization_id=organization_id, site_id=site_id, available=available
             )
             if item["collection_id"] == str(collection.id)
         ],
@@ -794,6 +841,7 @@ def _find_tag_archive(
     organization_id: Any,
     site_id: Any,
     requested_path: str,
+    available: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
     """Every published article on one subject, at one address.
 
@@ -839,7 +887,7 @@ def _find_tag_archive(
         [
             item
             for item in published_entries(
-                organization_id=organization_id, site_id=site_id
+                organization_id=organization_id, site_id=site_id, available=available
             )
             if item["collection_id"] == str(collection.id)
             and any(tag.get("slug") == slug for tag in item["tags"])
@@ -982,12 +1030,14 @@ class PublicSiteMoved(Exception):
         self.temporary = temporary
 
 
-def _redirect_target(*, publication: Any, requested_path: str) -> tuple[str, bool] | None:
+def _redirect_target(
+    *, publication: Any, requested_path: str, available: frozenset[str] | None = None
+) -> tuple[str, bool] | None:
     """Where an address answers now, and whether only for a while."""
     if publication is None:
         return None
     wanted = _comparable_path(requested_path)
-    visible = visible_snapshot(publication)
+    visible = visible_snapshot(publication, available)
     for entry in visible.get("redirects", []):
         if not isinstance(entry, dict):
             continue
@@ -1067,7 +1117,9 @@ _VISIBLE_SNAPSHOTS: dict[Any, dict[str, Any]] = {}
 _VISIBLE_SNAPSHOTS_LIMIT = 64
 
 
-def visible_snapshot(publication: Publication) -> dict[str, Any]:
+def visible_snapshot(
+    publication: Publication, available: frozenset[str] | None = None
+) -> dict[str, Any]:
     """A site publication as visitors get it (ADR-071, plan TL2).
 
     Two reading rules apply to every snapshot, old ones included, without
@@ -1087,16 +1139,19 @@ def visible_snapshot(publication: Publication) -> dict[str, Any]:
     sitemap too, but answers from `withheld` — a 307 until it is refreshed. A
     language whose home page is not live (`live_locales`) is not public.
     """
-    cached = _VISIBLE_SNAPSHOTS.get(publication.id)
+    # By the languages too: the same publication reads differently once the
+    # company switches one off, and at once (ADR-071 pkt 8, 9).
+    key = (publication.id, tuple(sorted(available)) if available is not None else None)
+    cached = _VISIBLE_SNAPSHOTS.get(key)
     if cached is None:
         if len(_VISIBLE_SNAPSHOTS) >= _VISIBLE_SNAPSHOTS_LIMIT:
             _VISIBLE_SNAPSHOTS.clear()
-        cached = _visible(publication.snapshot)
-        _VISIBLE_SNAPSHOTS[publication.id] = cached
+        cached = _visible(publication.snapshot, available)
+        _VISIBLE_SNAPSHOTS[key] = cached
     return cached
 
 
-def _visible(snapshot: dict[str, Any]) -> dict[str, Any]:
+def _visible(snapshot: dict[str, Any], available: frozenset[str] | None = None) -> dict[str, Any]:
     default_locale = snapshot.get("default_locale")
     pages = [page for page in snapshot.get("pages", []) if isinstance(page, dict)]
     # The page the root shows: the one marked as home, or the first.
@@ -1116,7 +1171,11 @@ def _visible(snapshot: dict[str, Any]) -> dict[str, Any]:
                 continue
             locale = str(raw_locale.get("locale", ""))
             if locale != default_locale and (
-                "blocks" not in raw_locale or (live is not None and locale not in live)
+                "blocks" not in raw_locale
+                or (live is not None and locale not in live)
+                # Switched off by the company: kept, answering 308 to the
+                # source page until switched on again (ADR-071 pkt 9).
+                or (available is not None and locale not in available)
             ):
                 hidden.append(raw_locale)
                 continue
