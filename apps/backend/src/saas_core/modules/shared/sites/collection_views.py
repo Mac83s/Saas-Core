@@ -347,8 +347,18 @@ class PageAutomationPolicyView(APIView):
 
     @extend_schema(
         operation_id="sites_page_policy_set",
+        summary="Choose who writes a page's content",
+        description="People only, proposals to accept, or the content automation (ADR-035). "
+        "A person's choice: an integration is refused, and the assistant acting for a person "
+        "needs that person's consent (person_required).",
         tags=["sites"],
         request=AutomationPolicySerializer,
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The whole policy is sent each time: a repeat sets the same "
+                "value and changes nothing.",
+            }
+        },
         responses={
             200: PageSummarySerializer,
             400: ProblemDetailsSerializer,

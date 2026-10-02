@@ -8400,6 +8400,10 @@ paths:
   /api/v1/notifications/preferences/:
     get:
       operationId: notification_preferences_get
+      description: 'Your language for e-mails from this company (pl or en) and whether
+        you take its marketing. Without a choice of your own: your account''s language
+        and no marketing — reading never stores anything.'
+      summary: Read your notification choices in this company
       tags:
       - notifications
       security:
@@ -8413,6 +8417,10 @@ paths:
           description: ''
     put:
       operationId: notification_preferences_update
+      description: Sets your language for e-mails from this company and whether you
+        take its marketing; a change is a row of the company's history. Only your
+        own.
+      summary: Change your notification choices in this company
       tags:
       - notifications
       requestBody:
@@ -8436,12 +8444,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/Preference'
           description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'The whole choice is sent each time: a repeat sets the same
+          values and changes nothing.'
   /api/v1/notifications/provider/status/:
     post:
       operationId: notification_provider_status
@@ -14056,6 +14073,10 @@ paths:
   /api/v1/sites/pages/{page_id}/policy/:
     put:
       operationId: sites_page_policy_set
+      description: 'People only, proposals to accept, or the content automation (ADR-035).
+        A person''s choice: an integration is refused, and the assistant acting for
+        a person needs that person''s consent (person_required).'
+      summary: Choose who writes a page's content
       parameters:
       - in: path
         name: page_id
@@ -14104,6 +14125,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'The whole policy is sent each time: a repeat sets the same
+          value and changes nothing.'
   /api/v1/sites/pages/{page_id}/preview/{version_id}/:
     get:
       operationId: sites_page_draft_preview_retrieve

@@ -74,6 +74,10 @@ class PreferencesView(APIView):
 
     @extend_schema(
         operation_id="notification_preferences_get",
+        summary="Read your notification choices in this company",
+        description="Your language for e-mails from this company (pl or en) and whether "
+        "you take its marketing. Without a choice of your own: your account's language "
+        "and no marketing — reading never stores anything.",
         tags=["notifications"],
         responses={200: PreferenceSerializer},
     )
@@ -84,9 +88,22 @@ class PreferencesView(APIView):
 
     @extend_schema(
         operation_id="notification_preferences_update",
+        summary="Change your notification choices in this company",
+        description="Sets your language for e-mails from this company and whether you take "
+        "its marketing; a change is a row of the company's history. Only your own.",
         tags=["notifications"],
         request=PreferenceSerializer,
-        responses={200: PreferenceSerializer, 403: ProblemDetailsSerializer},
+        responses={
+            200: PreferenceSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The whole choice is sent each time: a repeat sets the "
+                "same values and changes nothing.",
+            }
+        },
     )
     def put(self, request: Request) -> Response:
         serializer = PreferenceSerializer(data=request.data)

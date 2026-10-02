@@ -2905,7 +2905,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Read your notification choices in this company
+         * @description Your language for e-mails from this company (pl or en) and whether you take its marketing. Without a choice of your own: your account's language and no marketing — reading never stores anything.
+         */
         get: operations["notification_preferences_get"];
+        /**
+         * Change your notification choices in this company
+         * @description Sets your language for e-mails from this company and whether you take its marketing; a change is a row of the company's history. Only your own.
+         */
         put: operations["notification_preferences_update"];
         post?: never;
         delete?: never;
@@ -4668,6 +4676,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /**
+         * Choose who writes a page's content
+         * @description People only, proposals to accept, or the content automation (ADR-035). A person's choice: an integration is refused, and the assistant acting for a person needs that person's consent (person_required).
+         */
         put: operations["sites_page_policy_set"];
         post?: never;
         delete?: never;
@@ -19842,6 +19854,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Preference"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {
