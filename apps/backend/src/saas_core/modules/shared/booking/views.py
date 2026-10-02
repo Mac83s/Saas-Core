@@ -174,6 +174,7 @@ from .staff import (
     set_person_services,
 )
 from .teams import create_team, delete_team, list_teams, member_ids, update_team
+from .titles import appointment_titles
 from .units import UnitBlock, add_unit_block, list_unit_blocks, remove_unit_block
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
@@ -279,12 +280,13 @@ def _crew_payload(value: Any) -> list[dict[str, Any]]:
 
 @dataclass(frozen=True, slots=True)
 class _Known:
-    """What a list asks once for all its visits: the places and flags the
-    modules know, and whose customer contact the caller sees."""
+    """What a list asks once for all its visits: the places, flags and names
+    the modules know, and whose customer contact the caller sees."""
 
     places: Mapping[UUID, str]
     flags: Mapping[UUID, list[str]]
     contacts: set[UUID]
+    titles: Mapping[UUID, str]
 
 
 def _known(items: Sequence[Any]) -> _Known:
@@ -293,6 +295,7 @@ def _known(items: Sequence[Any]) -> _Known:
         appointment_places(ids),
         appointment_flags({item.id: item.service.appointment_kind for item in items}),
         visible_contacts(ids),
+        appointment_titles(ids),
     )
 
 
@@ -311,6 +314,9 @@ def _appointment_payload(
         "service_name": value.service_name,
         "status": value.status,
         "customer_name": value.customer.display_name,
+        # A module's name for the visit (a herd visit's farm), shown before
+        # the customer's; empty when no module knows one.
+        "title": known.titles.get(value.id, ""),
         "staff_id": value.staff_id,
         "staff_name": value.staff.display_name,
         "staff_membership_id": value.staff.membership_id,

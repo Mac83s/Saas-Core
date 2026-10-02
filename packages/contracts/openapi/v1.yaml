@@ -15850,6 +15850,10 @@ components:
           type: string
         customer_name:
           type: string
+        title:
+          type: string
+          description: What the module that owns the visit's detail calls it (a herd
+            visit's farm), shown before the customer's name; empty when none.
         staff_id:
           type: string
           format: uuid
@@ -15972,6 +15976,7 @@ components:
       - starts_at
       - status
       - timezone
+      - title
     AppointmentCreate:
       type: object
       properties:
@@ -23947,6 +23952,10 @@ components:
           type: string
         customer_name:
           type: string
+        title:
+          type: string
+          description: What the module that owns the visit's detail calls it (a herd
+            visit's farm), shown before the customer's name; empty when none.
         staff_id:
           type: string
           format: uuid
@@ -24061,6 +24070,7 @@ components:
       - starts_at
       - status
       - timezone
+      - title
     Registration:
       type: object
       properties:

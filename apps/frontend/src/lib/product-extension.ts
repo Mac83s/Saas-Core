@@ -160,4 +160,10 @@ export type ProductCalendar = {
   problemErrors?: (error: unknown) => Record<string, string> | null;
   /** Below a visit's details: the product's own actions on it. */
   detailsSection?: ComponentType<ProductVisitDetailsProps>;
+  /**
+   * The kinds whose details the section extends, `""` for a service without
+   * a kind (HoofCare turns such an old booking into a herd visit, UX plan W1);
+   * `kinds` when left out.
+   */
+  detailsKinds?: readonly string[];
 } & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;

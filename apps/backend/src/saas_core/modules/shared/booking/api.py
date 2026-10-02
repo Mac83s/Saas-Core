@@ -54,6 +54,7 @@ from .services import (
     reschedule_appointment,
     staff_for_membership,
 )
+from .titles import register_appointment_title
 
 #: Lazy reference for a vertical's `OneToOneField`/`ForeignKey`.
 APPOINTMENT_MODEL = "booking.Appointment"
@@ -94,6 +95,7 @@ __all__ = [
     "register_appointment_flags",
     "register_appointment_observer",
     "register_appointment_place",
+    "register_appointment_title",
     "register_place_search",
     "register_staff_facts",
     "reschedule_appointment",

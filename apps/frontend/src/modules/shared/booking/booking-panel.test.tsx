@@ -107,6 +107,8 @@ vi.mock("../../../product/calendar", () => ({
     detailsSection: ({ appointment }: { appointment: { id: string } }) => (
       <p>Product details of {appointment.id}</p>
     ),
+    // Also a service without a kind: the product turns such a visit into its own.
+    detailsKinds: ["test.field", ""],
   },
 }));
 // The calendar reads its view from the address (plan: phase 2).
@@ -168,6 +170,7 @@ const appointment = {
   service_name: "Consultation",
   status: "confirmed",
   customer_name: "Jan Kowalski",
+  title: "",
   staff_id: ALEX,
   staff_name: "Alex",
   staff_membership_id: null,
@@ -886,6 +889,26 @@ test("a visit's details: phone and e-mail to use, a map to the place, and the pr
   ).toContain(encodeURIComponent("Wólka, Polna 1"));
   // A flag without the product's wording still reads, as its key.
   expect(within(details).getByText("farm_missing")).not.toBeNull();
+  expect(
+    within(details).getByText(`Product details of ${appointment.id}`),
+  ).not.toBeNull();
+});
+
+test("a visit a module names goes by that name, the customer after it", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    { ...appointment, title: "Gospodarstwo Kowalski" },
+  ]);
+  renderCalendar({ access: ACCESS });
+  const card = await screen.findByRole("button", {
+    name: /Gospodarstwo Kowalski/,
+  });
+  expect(card).toHaveTextContent("Jan Kowalski");
+  fireEvent.click(card);
+  const details = await screen.findByRole("dialog", {
+    name: /Gospodarstwo Kowalski/,
+  });
+  expect(within(details).getByText("Jan Kowalski")).not.toBeNull();
+  // A booking of a service without a kind: the product's part is there too.
   expect(
     within(details).getByText(`Product details of ${appointment.id}`),
   ).not.toBeNull();

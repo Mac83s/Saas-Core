@@ -53,6 +53,7 @@ const picked = {
   service_name: "Korekcja stada",
   status: "confirmed",
   customer_name: "Gospodarstwo Kaczmarków",
+  title: "",
   staff_id: MARCIN,
   staff_name: "Marcin Kowalski",
   staff_membership_id: null,

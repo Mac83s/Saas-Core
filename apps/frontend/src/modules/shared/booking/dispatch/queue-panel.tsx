@@ -28,6 +28,7 @@ import { useDataTableLabels } from "#lib/data-table-labels";
 import { addDays, formatWhen, wallClock, weekStart } from "../calendar-time";
 import { problemText } from "../people/person-dialogs";
 import { CrewDialog } from "./crew-dialog";
+import { visitName, visitPerson } from "../visit-name";
 
 const BOOKING_MANAGE = "booking.appointment.manage";
 
@@ -136,7 +137,7 @@ export function QueuePanel({
         },
         crypto.randomUUID(),
       );
-      setNotice(t("kept", { customer: item.customer_name }));
+      setNotice(t("kept", { customer: visitName(item) }));
       await load();
       router.refresh();
     } catch (error) {
@@ -149,14 +150,14 @@ export function QueuePanel({
     const list: RowAction[] = [];
     if (!item.needs_assignment)
       list.push({
-        label: t("keepFor", { customer: item.customer_name }),
+        label: t("keepFor", { customer: visitName(item) }),
         icon: <CheckIcon aria-hidden="true" />,
         inline: true,
         onSelect: () => void keep(item),
       });
     list.push({
       label: t(item.needs_assignment ? "assignFor" : "changeFor", {
-        customer: item.customer_name,
+        customer: visitName(item),
       }),
       icon: <UsersIcon aria-hidden="true" />,
       inline: true,
@@ -196,11 +197,14 @@ export function QueuePanel({
     },
     {
       id: "customer",
-      accessorKey: "customer_name",
+      accessorFn: visitName,
       header: t("colCustomer"),
       cell: ({ row: { original: item } }) => (
         <>
-          <p className="font-medium">{item.customer_name}</p>
+          <p className="font-medium">{visitName(item)}</p>
+          {visitPerson(item) ? (
+            <p className="text-sm">{visitPerson(item)}</p>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {[item.customer_phone, item.customer_email]
               .filter(Boolean)
@@ -274,7 +278,7 @@ export function QueuePanel({
       cell: ({ row: { original: item } }) => (
         <RowActions
           items={actions(item)}
-          label={t("moreFor", { customer: item.customer_name })}
+          label={t("moreFor", { customer: visitName(item) })}
         />
       ),
     },
@@ -315,6 +319,7 @@ export function QueuePanel({
             loading={!items}
             searchText={(item) =>
               [
+                item.title,
                 item.customer_name,
                 item.customer_phone,
                 item.customer_email,
@@ -371,7 +376,7 @@ export function QueuePanel({
           onConflict={() => void load()}
           onOpenChange={(value) => (value ? undefined : setOpen(undefined))}
           onSaved={() => {
-            setNotice(t("assigned", { customer: current.customer_name }));
+            setNotice(t("assigned", { customer: visitName(current) }));
             setOpen(undefined);
             void load();
             router.refresh();

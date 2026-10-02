@@ -35,6 +35,7 @@ import {
 import { todayState } from "./people/people";
 import { useTodayText } from "./people/people-panel";
 import { TeamNames } from "./teams/team-names";
+import { visitName } from "./visit-name";
 
 const focusRing =
   "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -235,7 +236,7 @@ export function DayBoard({
               vacancies.map((item) => (
                 <button
                   aria-label={t("assignLabel", {
-                    customer: [item.customer_name, item.place]
+                    customer: [visitName(item), item.place]
                       .filter(Boolean)
                       .join(", "),
                     service: item.service_name,
@@ -252,13 +253,13 @@ export function DayBoard({
                       : handlers.onOpen(item, event.currentTarget)
                   }
                   style={at(span(item))}
-                  title={[item.customer_name, item.place, item.service_name]
+                  title={[visitName(item), item.place, item.service_name]
                     .filter(Boolean)
                     .join(" · ")}
                   type="button"
                 >
                   <span className="truncate font-semibold">
-                    {item.customer_name}
+                    {visitName(item)}
                   </span>
                   <span className="truncate">
                     {[item.place, item.service_name]
@@ -403,7 +404,7 @@ function VisitBlock({
     <button
       aria-label={[
         when,
-        item.customer_name,
+        visitName(item),
         item.place,
         item.service_name,
         statusLabel(calendar, item.status),
@@ -420,7 +421,7 @@ function VisitBlock({
       onClick={(event) => onOpen(item, event.currentTarget)}
       style={style}
       // A short block cuts the words; the pointer still reads them whole.
-      title={[item.customer_name, item.place, item.service_name, when]
+      title={[visitName(item), item.place, item.service_name, when]
         .filter(Boolean)
         .join(" · ")}
       type="button"
@@ -431,7 +432,7 @@ function VisitBlock({
             {t("leadShort")}
           </span>
         ) : null}
-        <span className="truncate">{item.customer_name}</span>
+        <span className="truncate">{visitName(item)}</span>
         {item.auto_assigned && !item.needs_assignment ? (
           <span className="shrink-0 rounded-sm bg-background/60 px-1">
             {calendar("autoShort")}
@@ -540,7 +541,7 @@ function Agenda({
                 <span className="font-semibold tabular-nums">
                   {time(item.starts_at)}–{time(item.ends_at)}
                 </span>
-                <span className="font-medium">{item.customer_name}</span>
+                <span className="font-medium">{visitName(item)}</span>
                 <VisitPlace
                   className="text-xs font-medium"
                   place={item.place}
@@ -560,7 +561,7 @@ function Agenda({
                 >
                   <UserPlusIcon aria-hidden="true" />
                   {canManage ? t("assign") : t("details")}
-                  <span className="sr-only">: {item.customer_name}</span>
+                  <span className="sr-only">: {visitName(item)}</span>
                 </Button>
               </li>
             ))}
@@ -586,7 +587,7 @@ function Agenda({
                 <span className="font-semibold tabular-nums">
                   {time(item.starts_at)}–{time(item.ends_at)}
                 </span>
-                <span className="font-medium">{item.customer_name}</span>{" "}
+                <span className="font-medium">{visitName(item)}</span>{" "}
                 <VisitPlace
                   className="text-xs font-medium"
                   place={item.place}

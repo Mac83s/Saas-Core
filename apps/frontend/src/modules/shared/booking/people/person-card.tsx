@@ -50,6 +50,7 @@ import {
 import { PersonHistory, PersonResults, PersonStock } from "./person-facts";
 import { PersonSchedule } from "./person-schedule";
 import { hoursSummary, todayState } from "./people";
+import { visitName } from "../visit-name";
 
 const MEMBERS_READ = "organization.members.read";
 const MEMBERS_MANAGE = "organization.members.manage";
@@ -415,7 +416,7 @@ export function PersonCard({
         </span>
       ),
     },
-    { id: "customer", accessorKey: "customer_name", header: t("colCustomer") },
+    { id: "customer", accessorFn: visitName, header: t("colCustomer") },
     { id: "service", accessorKey: "service_name", header: t("colService") },
     {
       id: "status",

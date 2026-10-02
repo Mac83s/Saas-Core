@@ -100,6 +100,7 @@ import {
   useWarehouse,
   type MaterialDraft,
 } from "./materials-editor";
+import { visitName, visitPerson } from "./visit-name";
 
 type Slot = BookingSlotList["items"][number];
 type Translate = ReturnType<typeof useTranslations>;
@@ -293,6 +294,14 @@ function productSection(access: PanelAccess | undefined, kind?: string) {
     allows(access, productCalendar)
     ? productCalendar
     : null;
+}
+
+/** The product whose part stands under a visit's details, for the kinds it extends. */
+function productDetails(access: PanelAccess | undefined, kind = "") {
+  if (!productCalendar || !access || !allows(access, productCalendar))
+    return null;
+  const kinds = productCalendar.detailsKinds ?? productCalendar.kinds;
+  return kinds.includes(kind) ? productCalendar : null;
 }
 
 /** Google Maps for the place's town and street: the person's own app opens it. */
@@ -1379,6 +1388,8 @@ function AppointmentDetails({
       : undefined);
   const rows = [
     [t("service"), appointment.service_name],
+    // The person behind a visit that goes by its farm's name (UX plan W2).
+    [t("customer"), visitPerson(appointment)],
     [
       appointment.crew.length > 1 ? t("crew") : t("staff"),
       crewNames(appointment, t) || t("crewNobody"),
@@ -1387,7 +1398,7 @@ function AppointmentDetails({
     [t("location"), appointment.location_name],
     [t("resource"), appointment.resource_name],
   ].filter((row): row is [string, string] => Boolean(row[1]));
-  const Details = productSection(
+  const Details = productDetails(
     access,
     appointment.appointment_kind,
   )?.detailsSection;
@@ -1401,7 +1412,7 @@ function AppointmentDetails({
     <>
       <DialogHeader>
         <DialogTitle className="outline-none" ref={title} tabIndex={-1}>
-          {appointment.customer_name}
+          {visitName(appointment)}
         </DialogTitle>
         <DialogDescription>{when}</DialogDescription>
       </DialogHeader>
@@ -1911,7 +1922,7 @@ function CancelDialog({
         <DialogHeader>
           <DialogTitle>{t("cancelTitle")}</DialogTitle>
           <DialogDescription>
-            {appointment.customer_name} · {when}
+            {visitName(appointment)} · {when}
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm">
@@ -1968,7 +1979,7 @@ function RescheduleDialog({
           <DialogTitle>{t("rescheduleTitle")}</DialogTitle>
           <DialogDescription>
             {t("rescheduleCurrent", {
-              customer: appointment.customer_name,
+              customer: visitName(appointment),
               when: formatWhen(appointment, locale, zone),
             })}
           </DialogDescription>

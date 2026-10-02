@@ -31,6 +31,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { dateFormat, formatWhen, wallClock } from "../calendar-time";
 import { problemText } from "../people/person-dialogs";
+import { visitName } from "../visit-name";
 
 /**
  * „Zmień osoby” and „Przydziel” (ADR-058 §9, board 9): who could do this
@@ -297,7 +298,7 @@ export function CrewDialog({
           <DialogHeader>
             <DialogTitle>
               {t(appointment.needs_assignment ? "titleAssign" : "titleChange", {
-                customer: appointment.customer_name,
+                customer: visitName(appointment),
               })}
             </DialogTitle>
             <DialogDescription>

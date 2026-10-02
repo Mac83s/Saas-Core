@@ -204,6 +204,13 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     service_name = serializers.CharField()
     status = serializers.CharField()
     customer_name = serializers.CharField()
+    title = serializers.CharField(
+        allow_blank=True,
+        help_text=(
+            "What the module that owns the visit's detail calls it (a herd "
+            "visit's farm), shown before the customer's name; empty when none."
+        ),
+    )
     staff_id = serializers.UUIDField()
     staff_name = serializers.CharField()
     #: The calendar entry's team member, for "my visits" (null: no account).

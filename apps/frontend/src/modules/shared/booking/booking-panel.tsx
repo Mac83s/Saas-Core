@@ -63,6 +63,7 @@ import {
 import { DayBoard } from "./day-board";
 import { boardRows } from "./day-board-model";
 import { CrewDialog } from "./dispatch/crew-dialog";
+import { visitName, visitPerson } from "./visit-name";
 
 type View = "day" | "week" | "month" | "list";
 /** The list is the month as a table: the same arrows, sortable and searchable. */
@@ -475,7 +476,21 @@ export function BookingPanel({
         </span>
       ),
     },
-    { id: "customer", accessorKey: "customer_name", header: t("customer") },
+    {
+      id: "customer",
+      accessorFn: visitName,
+      header: t("customer"),
+      cell: ({ row: { original: item } }) => (
+        <>
+          {visitName(item)}
+          {visitPerson(item) ? (
+            <span className="block text-xs text-muted-foreground">
+              {visitPerson(item)}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
     // Only where a module says where its visits are: an empty column is noise.
     ...(appointments?.some((item) => item.place)
       ? [
@@ -522,7 +537,7 @@ export function BookingPanel({
               },
             },
           ]}
-          label={t("actionsFor", { customer: item.customer_name })}
+          label={t("actionsFor", { customer: visitName(item) })}
         />
       ),
     },
@@ -561,6 +576,7 @@ export function BookingPanel({
         searchable
         searchText={(item) =>
           [
+            item.title,
             item.customer_name,
             item.place ?? "",
             item.service_name,
@@ -964,7 +980,7 @@ export function BookingPanel({
             setPlan(undefined);
             setNotice(
               t("created", {
-                customer: appointment.customer_name,
+                customer: visitName(appointment),
                 when: formatWhen(appointment, locale, zone),
               }),
             );
@@ -988,7 +1004,7 @@ export function BookingPanel({
           }
           onSaved={() => {
             setNotice(
-              t("assigned", { customer: assigning.appointment.customer_name }),
+              t("assigned", { customer: visitName(assigning.appointment) }),
             );
             setAssigning(undefined);
             refresh();
@@ -1143,8 +1159,13 @@ function AppointmentCard({
       {/* Spaces between the parts keep the spoken name from running together. */}
       <span className={cn("w-full min-w-0", wide && "sm:flex-1")}>
         <span className="block truncate font-medium">
-          {appointment.customer_name}
+          {visitName(appointment)}
         </span>{" "}
+        {visitPerson(appointment) ? (
+          <span className="block truncate text-xs">
+            {visitPerson(appointment)}
+          </span>
+        ) : null}{" "}
         <VisitPlace className="text-xs font-medium" place={appointment.place} />{" "}
         <span className="block truncate text-xs text-muted-foreground">
           <span aria-hidden="true">{details.filter(Boolean).join(" · ")}</span>
@@ -1205,7 +1226,7 @@ function MonthAppointment({
             timeZone: zone,
           }).format(new Date(appointment.starts_at))}
         </span>{" "}
-        <span className="truncate">{appointment.customer_name}</span>
+        <span className="truncate">{visitName(appointment)}</span>
       </span>{" "}
       <VisitPlace
         className="w-full text-muted-foreground"

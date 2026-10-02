@@ -5246,6 +5246,8 @@ export interface components {
             service_name: string;
             status: string;
             customer_name: string;
+            /** @description What the module that owns the visit's detail calls it (a herd visit's farm), shown before the customer's name; empty when none. */
+            title: string;
             /** Format: uuid */
             staff_id: string;
             staff_name: string;
@@ -8469,6 +8471,8 @@ export interface components {
             service_name: string;
             status: string;
             customer_name: string;
+            /** @description What the module that owns the visit's detail calls it (a herd visit's farm), shown before the customer's name; empty when none. */
+            title: string;
             /** Format: uuid */
             staff_id: string;
             staff_name: string;

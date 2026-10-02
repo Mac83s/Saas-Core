@@ -86,6 +86,7 @@ const visit = {
   service_name: "Consultation",
   status: "confirmed",
   customer_name: "Jan Kowalski",
+  title: "",
   staff_id: ALEX,
   staff_name: "Alex",
   staff_membership_id: null,

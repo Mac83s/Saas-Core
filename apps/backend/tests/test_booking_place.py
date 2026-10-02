@@ -18,10 +18,11 @@ from saas_core.modules.core.organizations.models import (
     RoleScope,
 )
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
-from saas_core.modules.shared.booking import places
+from saas_core.modules.shared.booking import places, titles
 from saas_core.modules.shared.booking.api import (
     PlaceSuggestion,
     register_appointment_place,
+    register_appointment_title,
     register_place_search,
 )
 from saas_core.modules.shared.booking.availability import available_slots
@@ -37,6 +38,7 @@ def no_product_places(monkeypatch: pytest.MonkeyPatch) -> None:
     """A product repository runs this suite with its own module registered."""
     monkeypatch.setattr(places, "_providers", {})
     monkeypatch.setattr(places, "_searches", {})
+    monkeypatch.setattr(titles, "_providers", {})
 
 
 def worker_of(member: Membership, email: str) -> Membership:
@@ -218,3 +220,27 @@ def test_anonymizing_the_customer_takes_the_street_and_keeps_the_town(
     with tenant(member):
         stored = Appointment.all_objects.get(pk=visit["id"])
     assert (stored.place_town, stored.place_address) == ("Piątnica", "")
+
+
+def test_a_module_names_its_visits_and_a_failing_one_names_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("nazwa-wizyty")
+    configured = {**catalog(member), "member": member}
+    client = authenticated_client(member)
+    visit = book(client, configured, "t-1").json()
+    # Without a module the customer is the visit's name.
+    assert (visit["title"], visit["customer_name"]) == ("", "Jan Nowak")
+
+    def farms(ids: Sequence[UUID]) -> dict[UUID, str]:
+        return dict.fromkeys(ids, "Gospodarstwo Nowak")
+
+    def broken(ids: Sequence[UUID]) -> dict[UUID, str]:
+        raise RuntimeError("provider down")
+
+    register_appointment_title("test-broken", broken)
+    register_appointment_title("test-farms", farms)
+    (listed,) = client.get("/api/v1/booking/appointments/").json()["items"]
+    # The farm first, the person who answers the phone still there (UX plan W2).
+    assert (listed["title"], listed["customer_name"]) == ("Gospodarstwo Nowak", "Jan Nowak")

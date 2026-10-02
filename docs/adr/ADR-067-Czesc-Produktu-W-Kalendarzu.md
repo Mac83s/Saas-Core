@@ -69,3 +69,22 @@ szczegół produktu (`HerdVisit`) zapisane razem.
   jest jedną transakcją; produkt robi to atomowo.
 - **Telefon klienta dla każdego, kto widzi Kalendarz** — w MedPlano to telefon
   pacjenta dla całego personelu.
+
+## Uzupełnienie 03.10 — nazwa wizyty od modułu, szczegóły wizyt bez rodzaju (plan UX/UI, W1–W2)
+
+Przegląd panelu z 02.10 (plan `saas-core-poprawki-ux-ui`, W2): ta sama wizyta
+w gospodarstwie nazywała się w Kalendarzu imieniem klienta („Jan Kowalski”), a w
+„Dziś” produktu nazwą gospodarstwa; rezerwacji starej usługi bez rodzaju nie
+dało się w Kalendarzu zamienić na wizytę produktu (W1).
+
+8. **Nazwa wizyty od modułu** (`booking.api.register_appointment_title`, jak
+   miejsca: jedno wywołanie na listę, pierwsza odpowiedź wygrywa, dostawca bez
+   uprawnienia swojego modułu odpowiada niczym, błąd w punkcie zapisu jest
+   logowany i pomijany). Odpowiedź wizyty ma `title` — pusty, gdy moduł nic nie
+   wie. Panel pokazuje `title`, a gdy jest, klienta w drugiej linii (karta
+   tygodnia, Lista, szczegóły — wiersz „Klient”); węższe widoki (miesiąc, tablica
+   dnia, kolejka) tylko nazwę. Wyszukiwanie listy i kolejki obejmuje obie.
+9. **Szczegóły dla innych rodzajów niż własne**: `ProductCalendar.detailsKinds`
+   (domyślnie `kinds`) mówi, pod szczegółami których wizyt stoi sekcja
+   produktu; `""` to usługa bez rodzaju. Formularz „Nowej wizyty” dalej
+   przejmuje tylko `kinds`.
