@@ -17650,6 +17650,7 @@ components:
             * `locale_home_missing` - locale_home_missing
             * `source_unpublished` - source_unpublished
             * `source_outdated` - source_outdated
+            * `media_unavailable` - media_unavailable
           oneOf:
           - $ref: '#/components/schemas/SkippedEnum'
           - $ref: '#/components/schemas/NullEnum'
@@ -21459,6 +21460,11 @@ components:
           format: uuid
         page_path:
           type: string
+        locale:
+          type:
+          - string
+          - 'null'
+          description: The language of the page the form was on.
         name:
           type: string
         email:
@@ -21483,6 +21489,7 @@ components:
       - email
       - email_status
       - id
+      - locale
       - message
       - name
       - page_path
@@ -21754,6 +21761,12 @@ components:
           type: string
         kind:
           $ref: '#/components/schemas/SitePageViewCountKindEnum'
+        locale:
+          type:
+          - string
+          - 'null'
+          description: The language of the address; null on days counted before it
+            was recorded.
         publication_id:
           type: string
           format: uuid
@@ -21762,6 +21775,7 @@ components:
       required:
       - day
       - kind
+      - locale
       - path
       - publication_id
       - views
@@ -22087,6 +22101,7 @@ components:
       - locale_home_missing
       - source_unpublished
       - source_outdated
+      - media_unavailable
       type: string
       description: |-
         * `metadata_incomplete` - metadata_incomplete
@@ -22095,6 +22110,7 @@ components:
         * `locale_home_missing` - locale_home_missing
         * `source_unpublished` - source_unpublished
         * `source_outdated` - source_outdated
+        * `media_unavailable` - media_unavailable
     Slot:
       type: object
       properties:

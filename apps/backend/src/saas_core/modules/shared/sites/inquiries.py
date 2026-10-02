@@ -25,7 +25,13 @@ from saas_core.modules.shared.notifications.api import queue_email, staff_locale
 from .inquiry_serializers import SiteInquirySubmitSerializer
 from .models import Publication, Site, SiteInquiry, canonical_json_hash
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
-from .publication_routing import PublicSiteMoved, PublicSiteNotFound, resolve_public_page
+from .publication_routing import (
+    PublicSiteMoved,
+    PublicSiteNotFound,
+    find_page,
+    resolve_public_page,
+    visible_snapshot,
+)
 from .services import SiteNotFound, _idempotency_key, assert_person_required
 
 INQUIRY_SUBMIT = "sites.inquiry.submit"
@@ -143,16 +149,21 @@ def submit_site_inquiry(
             if existing.request_hash != request_hash:
                 raise InquiryIdempotencyConflict
             return existing, False
-        if (
-            data["publication_id"] != page.publication.id
-            or site.current_publication_id != page.publication.id
+        if site.current_publication_id != page.publication.id:
+            raise InquiryPublicationChanged
+        position = data["block_position"]
+        block = _form_block(page.page, position)
+        if block is None or block.get("block_type") != "core.contact_form":
+            raise PublicSiteNotFound
+        # A form opened before a later publication is still the form, when
+        # that publication left it as it was in this language (ADR-070 pkt 14):
+        # a language accepted elsewhere on the site must not lose a message.
+        if data["publication_id"] != page.publication.id and block != _seen_form_block(
+            site=site, publication_id=data["publication_id"], path=data["path"], locale=page.locale,
+            position=position,
         ):
             raise InquiryPublicationChanged
-        blocks = page.page.get("blocks", [])
-        position = data["block_position"]
-        if position >= len(blocks) or blocks[position].get("block_type") != "core.contact_form":
-            raise PublicSiteNotFound
-        data = apply_contact_rules(blocks[position], data)
+        data = apply_contact_rules(block, data)
         inquiry_id = uuid7()
         notification = None
         if decide_feature("notifications.enabled").allowed:
@@ -194,6 +205,7 @@ def submit_site_inquiry(
             site=site,
             publication=page.publication,
             page_path=page.canonical_path,
+            locale=page.locale,
             block_position=position,
             name=data["name"],
             email=data["email"],
@@ -214,11 +226,40 @@ def submit_site_inquiry(
         return inquiry, True
 
 
+def _form_block(page: dict[str, Any], position: int) -> dict[str, Any] | None:
+    """The block at `position` in the language the page was resolved in."""
+    blocks = page["selected_locale"].get("blocks", page.get("blocks", []))
+    return blocks[position] if position < len(blocks) else None
+
+
+def _seen_form_block(
+    *, site: Site, publication_id: UUID, path: str, locale: str, position: int
+) -> dict[str, Any] | None:
+    """The block the visitor's form came from: the same address and position in
+    the publication they loaded, if it is one of this site's."""
+    seen = (
+        Publication.all_objects.defer("snapshot")
+        .filter(pk=publication_id, organization_id=site.organization_id, site_id=site.id)
+        .first()
+    )
+    if seen is None:
+        return None
+    try:
+        page, document = find_page(visible_snapshot(seen), path)
+    except PublicSiteNotFound:
+        return None
+    if document.get("locale") != locale:
+        return None
+    return _form_block({**page, "selected_locale": document}, position)
+
+
 def inquiry_payload(inquiry: SiteInquiry) -> dict[str, Any]:
     return {
         "id": inquiry.id,
         "site_id": inquiry.site_id,
         "page_path": inquiry.page_path,
+        # Blank on inquiries from before languages were recorded.
+        "locale": inquiry.locale or None,
         "name": inquiry.name,
         "email": inquiry.email,
         "phone": inquiry.phone,

@@ -54,6 +54,9 @@ class SiteInquirySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     site_id = serializers.UUIDField()
     page_path = serializers.CharField()
+    locale = serializers.CharField(
+        allow_null=True, help_text="The language of the page the form was on."
+    )
     name = serializers.CharField()
     email = serializers.EmailField()
     phone = serializers.CharField()

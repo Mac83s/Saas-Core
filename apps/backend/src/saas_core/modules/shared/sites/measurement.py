@@ -49,8 +49,8 @@ METRICS_MAX_DAYS = 92
 
 _UPSERT = f"""
 INSERT INTO {PageViewDay._meta.db_table}
-    (id, organization_id, site_id, day, path, kind, publication_id, views)
-VALUES (%s, %s, %s, %s, %s, %s, %s, 1)
+    (id, organization_id, site_id, day, path, kind, publication_id, locale, views)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)
 ON CONFLICT ON CONSTRAINT sites_pageviewday_key_uq
 DO UPDATE SET views = {PageViewDay._meta.db_table}.views + 1
 """
@@ -95,6 +95,7 @@ def record_page_view(page: PublicPage) -> None:
                         page.canonical_path,
                         _kind(page.publication),
                         page.publication.id,
+                        page.locale,
                     ],
                 )
     except DatabaseError:
@@ -156,6 +157,7 @@ def read_site_metrics(
                 "day": row.day,
                 "path": row.path,
                 "kind": row.kind,
+                "locale": row.locale or None,
                 "publication_id": row.publication_id,
                 "views": row.views,
             }

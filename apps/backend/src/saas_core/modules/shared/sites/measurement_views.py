@@ -24,6 +24,10 @@ class SitePageViewCountSerializer(serializers.Serializer[dict[str, Any]]):
     day = serializers.DateField()
     path = serializers.CharField()
     kind = serializers.ChoiceField(choices=["page", "entry", "collection"])
+    locale = serializers.CharField(
+        allow_null=True,
+        help_text="The language of the address; null on days counted before it was recorded.",
+    )
     publication_id = serializers.UUIDField()
     views = serializers.IntegerField()
 

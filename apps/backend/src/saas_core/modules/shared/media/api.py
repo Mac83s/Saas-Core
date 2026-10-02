@@ -24,6 +24,7 @@ from .services import (
     read_media_preview,
     stage_generated_media_asset,
     tombstone_media_asset,
+    unavailable_asset_ids,
 )
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     "read_media_preview",
     "stage_generated_media_asset",
     "tombstone_media_asset",
+    "unavailable_asset_ids",
 ]

@@ -149,6 +149,7 @@ SKIP_REASONS = [
     "locale_home_missing",
     "source_unpublished",
     "source_outdated",
+    "media_unavailable",
 ]
 
 

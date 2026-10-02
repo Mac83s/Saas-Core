@@ -18,7 +18,7 @@ from saas_core.modules.shared.media.storage import (
 
 from .domains import InvalidHostname, normalize_hostname
 from .models import ContentEntry, ContentEntryState, Domain, DomainStatus
-from .publication_routing import PublicSiteNotFound, tenant_is_servable
+from .publication_routing import PublicSiteNotFound, tenant_is_servable, visible_snapshot
 
 
 def _published_asset_ids(*, organization_id: Any, site_id: Any) -> set[str]:
@@ -29,14 +29,22 @@ def _published_asset_ids(*, organization_id: Any, site_id: Any) -> set[str]:
     published, and one added to a draft must not become public before it.
     """
     allowed: set[str] = set()
-    domain_site = Domain.all_objects.select_related("site__current_publication").filter(
-        site_id=site_id, organization_id=organization_id
-    ).first()
+    domain_site = (
+        Domain.all_objects.select_related("site__current_publication")
+        .defer("site__current_publication__snapshot")
+        .filter(site_id=site_id, organization_id=organization_id)
+        .first()
+    )
     publication = domain_site.site.current_publication if domain_site else None
     if publication is not None:
-        for raw_page in publication.snapshot.get("pages", []):
+        # Every picture of a page asks this; the snapshot is parsed once.
+        for raw_page in visible_snapshot(publication).get("pages", []):
             if isinstance(raw_page, dict):
                 allowed.update(str(item) for item in raw_page.get("media_asset_ids", []))
+                # A language version carried from an older source shows its
+                # pictures (ADR-070 pkt 11).
+                for document in raw_page.get("locales", []):
+                    allowed.update(str(item) for item in document.get("media_asset_ids", []))
     for entry in ContentEntry.all_objects.select_related("current_publication").filter(
         organization_id=organization_id,
         site_id=site_id,

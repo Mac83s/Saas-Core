@@ -49,6 +49,7 @@ from saas_core.modules.shared.billing.api import (
 from saas_core.modules.shared.media.api import (
     discard_approved_media_asset_objects,
     materialize_approved_media_asset,
+    unavailable_asset_ids,
 )
 from saas_core.observability import correlation_id
 
@@ -2184,12 +2185,6 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         )
         for page in pages
     }
-    all_media_ids = tuple(
-        sorted(
-            {asset_id for asset_ids in page_media_ids.values() for asset_id in asset_ids},
-            key=str,
-        )
-    )
     from .language_publication import language_entries, previous_source_ids
 
     current = site.current_publication.snapshot if site.current_publication else None
@@ -2209,6 +2204,19 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         blocks=source_blocks,
         translations=translations,
         previous=current,
+    )
+    all_media_ids = tuple(
+        sorted(
+            {asset_id for asset_ids in page_media_ids.values() for asset_id in asset_ids}
+            | _language_entry_media(
+                context=context,
+                languages=languages,
+                known={
+                    str(_current_version_id(page)): page_media_ids[page.id] for page in pages
+                },
+            ),
+            key=str,
+        )
     )
     snapshot = _publication_snapshot(
         site=site,
@@ -2705,6 +2713,52 @@ def _page_version_media_asset_ids(
         owner_type=PAGE_VERSION_REFERENCE_OWNER,
         owner_id=version_id,
     )
+
+
+def _language_entry_media(
+    *, context: TenantContext, languages: Any, known: dict[str, tuple[UUID, ...]]
+) -> set[UUID]:
+    """Gives every language entry with a body the pictures of the source
+    version it is bound to, and returns them.
+
+    A fresh entry shows the page's own pictures. One carried from an older
+    source shows that source's, which may have been deleted since: such an
+    entry is held back like one whose facts changed (307 to the source page,
+    `media_unavailable`) instead of stopping the publication.
+    """
+    from .language_publication import MEDIA_UNAVAILABLE
+
+    by_version = dict(known)
+    for entry in languages.entries.values():
+        if "blocks" in entry:
+            version = str(entry["source_version_id"])
+            if version not in by_version:
+                by_version[version] = _page_version_media_asset_ids(
+                    context=context, version_id=UUID(version)
+                )
+    unavailable = unavailable_asset_ids(
+        organization_id=context.organization_id,
+        asset_ids={
+            asset_id
+            for entry in languages.entries.values()
+            if "blocks" in entry
+            for asset_id in by_version[str(entry["source_version_id"])]
+        },
+    )
+    used: set[UUID] = set()
+    for (page_id, locale), entry in languages.entries.items():
+        if "blocks" not in entry:
+            continue
+        media = by_version[str(entry["source_version_id"])]
+        if unavailable.intersection(media):
+            entry["withheld"] = True
+            languages.skipped.append(
+                {"page_id": page_id, "locale": locale, "reason": MEDIA_UNAVAILABLE}
+            )
+            media = tuple(asset_id for asset_id in media if asset_id not in unavailable)
+        entry["media_asset_ids"] = [str(asset_id) for asset_id in media]
+        used.update(media)
+    return used
 
 
 def _navigation_snapshot(

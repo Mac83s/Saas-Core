@@ -78,7 +78,9 @@ def publish_derived(
         asset_id
         for entry in snapshot.get("pages", [])
         if isinstance(entry, dict)
-        for asset_id in entry.get("media_asset_ids", [])
+        for document in [entry, *entry.get("locales", [])]
+        if isinstance(document, dict)
+        for asset_id in document.get("media_asset_ids", [])
     })
     try:
         record_resource_references(

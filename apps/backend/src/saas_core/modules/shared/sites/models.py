@@ -2012,6 +2012,9 @@ class SiteInquiry(TenantScopedModel):
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="inquiries")
     publication = models.ForeignKey(Publication, on_delete=models.PROTECT)
     page_path = models.CharField(max_length=500)
+    # The language of the page the form was on (ADR-070 pkt 14); blank on
+    # inquiries from before it was recorded.
+    locale = models.CharField(max_length=2, blank=True, default="")
     block_position = models.PositiveIntegerField()
     name = models.CharField(max_length=120)
     # What a form requires depends on its variant: a call-back request may
@@ -2065,6 +2068,9 @@ class PageViewDay(TenantScopedModel):
     path = models.CharField(max_length=500)
     kind = models.CharField(max_length=16, choices=PageViewKind.choices)
     publication_id = models.UUIDField()
+    # The language of the address (ADR-070 pkt 14). Not in the key: the path
+    # already names it. Blank on days counted before it was recorded.
+    locale = models.CharField(max_length=2, blank=True, default="")
     views = models.PositiveBigIntegerField(default=0)
 
     all_objects = models.Manager()

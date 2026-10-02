@@ -38,7 +38,8 @@ def _resolve_site(host: str) -> tuple[Any, str]:
     except InvalidHostname as error:
         raise PublicSiteNotFound from error
     domain = (
-        Domain.all_objects.select_related("site")
+        Domain.all_objects.select_related("site__current_publication")
+        .defer("site__current_publication__snapshot")
         .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )

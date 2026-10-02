@@ -33,6 +33,7 @@ SOURCE_PLACEHOLDER = "source_placeholder"
 LOCALE_HOME_MISSING = "locale_home_missing"
 SOURCE_UNPUBLISHED = "source_unpublished"
 SOURCE_OUTDATED = "source_outdated"
+MEDIA_UNAVAILABLE = "media_unavailable"
 
 
 @dataclass(slots=True)

@@ -99,6 +99,9 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     # snapshot would make the blog depend on something unrelated to it.
     domain = (
         Domain.all_objects.select_related("site__current_publication")
+        # The snapshot is read once per process (`visible_snapshot`), not with
+        # every request for the site.
+        .defer("site__current_publication__snapshot")
         .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )
@@ -115,7 +118,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     try:
         if publication is None:
             raise PublicSiteNotFound
-        page, locale_document = _find_page(visible_snapshot(publication), normalized_path)
+        page, locale_document = find_page(visible_snapshot(publication), normalized_path)
     except PublicSiteNotFound:
         # Not a page, so it may be a collection entry, or the collection's own
         # index. Entries publish on their own (ADR-035 §1) and are therefore
@@ -210,6 +213,14 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         if isinstance(page.publication, Publication)
         else page.publication.snapshot
     )
+    blocks = selected_locale.get("blocks", page.page["blocks"])
+    appearance = publication_snapshot.get("appearance")
+    if (
+        isinstance(page.publication, Publication)
+        and page.locale != publication_snapshot.get("default_locale")
+    ):
+        links = _link_targets(publication_snapshot, page.locale)
+        blocks, appearance = localized_links(blocks, links), localized_links(appearance, links)
     canonical_origin = f"{settings.PUBLIC_SITE_SCHEME}://{page.canonical_hostname}"
     hreflang = {
         locale: f"{canonical_origin}{path}"
@@ -232,12 +243,12 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "design_tokens": publication_snapshot.get(
             "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
         ),
-        "appearance": publication_snapshot.get("appearance"),
+        "appearance": appearance,
         # Only site pages carry one; entries, indexes and archives inherit.
         "page_presentation": page.page.get("page_presentation"),
         # The language's own body (ADR-070); the source language uses the
         # page's blocks.
-        "blocks": selected_locale.get("blocks", page.page["blocks"]),
+        "blocks": blocks,
         "navigation": _navigation_links(publication_snapshot, page.locale),
         # Derived from the menu, never stored: a stored trail is wrong the
         # moment somebody reorders the tree, and the whole point of the
@@ -261,6 +272,60 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
     }
 
 
+#: Block and appearance fields that hold a link (`ctaHref`: core.hero v1;
+#: `privacy_href`: core.contact_form). `path` of core.entry_list names an
+#: entry, which has its own language siblings, so it is not one of them.
+LINK_FIELDS = frozenset({"href", "ctaHref", "privacy_href"})
+
+
+def _link_targets(snapshot: dict[str, Any], locale: str) -> dict[str, str]:
+    """Where a link to a page in the source language leads in `locale`: its
+    live version there, keyed by the source address without its trailing
+    slash. Old addresses of a page (`moved`) lead to the same place."""
+    default_locale = snapshot.get("default_locale")
+    targets: dict[str, str] = {}
+    for page in snapshot.get("pages", []):
+        documents = {
+            item.get("locale"): item for item in page.get("locales", []) if isinstance(item, dict)
+        }
+        source, target = documents.get(default_locale), documents.get(locale)
+        if source and target and source.get("path") and target.get("path"):
+            targets[_comparable_path(str(source["path"]))] = str(target["path"])
+    for old, new in snapshot.get("moved", {}).items():
+        if _comparable_path(new) in targets:
+            targets.setdefault(old, targets[_comparable_path(new)])
+    return targets
+
+
+def localized_links(value: Any, targets: dict[str, str]) -> Any:
+    """`value` with every internal link to a page that is live in the reader's
+    language pointing at that version (ADR-070 pkt 15). Everything else — the
+    query and fragment, `rel` (ADR-061), links to pages without that language
+    and to anything off the site — stays as written."""
+    if isinstance(value, list):
+        return [localized_links(item, targets) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: (
+                _localized_href(item, targets)
+                if key in LINK_FIELDS and isinstance(item, str)
+                else localized_links(item, targets)
+            )
+            for key, item in value.items()
+        }
+    return value
+
+
+def _localized_href(href: str, targets: dict[str, str]) -> str:
+    if not href.startswith("/") or href.startswith("//"):
+        return href
+    cut = min(
+        (index for index in (href.find("?"), href.find("#")) if index >= 0), default=len(href)
+    )
+    target = targets.get(_comparable_path(href[:cut]))
+    return href if target is None else target + href[cut:]
+
+
 def _ai_media_ids(page: PublicPage) -> list[str]:
     """AI images on the page, read at render time (ADR-059 pkt 7).
 
@@ -268,7 +333,11 @@ def _ai_media_ids(page: PublicPage) -> list[str]:
     was marked get the badge too. The operator switch hides the list; the XMP
     inside the files stays either way.
     """
-    asset_ids = page.page.get("media_asset_ids") or []
+    asset_ids = (
+        page.page["selected_locale"].get("media_asset_ids")
+        or page.page.get("media_asset_ids")
+        or []
+    )
     if not asset_ids or not badge_visible():
         return []
     # media_mediaasset forces RLS: the tenant the host named goes first.
@@ -918,13 +987,13 @@ def _redirect_target(*, publication: Any, requested_path: str) -> tuple[str, boo
     if publication is None:
         return None
     wanted = _comparable_path(requested_path)
-    for entry in publication.snapshot.get("redirects", []):
+    visible = visible_snapshot(publication)
+    for entry in visible.get("redirects", []):
         if not isinstance(entry, dict):
             continue
         if _comparable_path(str(entry.get("from_path", ""))) == wanted:
             target = str(entry.get("to_path", ""))
             return (target, False) if target else None
-    visible = visible_snapshot(publication)
     if wanted in visible["withheld"]:
         return visible["withheld"][wanted], True
     if wanted in visible["moved"]:
@@ -969,7 +1038,7 @@ def _comparable_path(value: str) -> str:
     return value.rstrip("/") or "/"
 
 
-def _find_page(
+def find_page(
     snapshot: dict[str, Any],
     requested_path: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:

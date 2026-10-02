@@ -6160,6 +6160,7 @@ export interface components {
              *     * `locale_home_missing` - locale_home_missing
              *     * `source_unpublished` - source_unpublished
              *     * `source_outdated` - source_outdated
+             *     * `media_unavailable` - media_unavailable
              */
             skipped: components["schemas"]["SkippedEnum"] | components["schemas"]["NullEnum"];
         };
@@ -7677,6 +7678,8 @@ export interface components {
             /** Format: uuid */
             site_id: string;
             page_path: string;
+            /** @description The language of the page the form was on. */
+            locale: string | null;
             name: string;
             /** Format: email */
             email: string;
@@ -7783,6 +7786,8 @@ export interface components {
             day: string;
             path: string;
             kind: components["schemas"]["SitePageViewCountKindEnum"];
+            /** @description The language of the address; null on days counted before it was recorded. */
+            locale: string | null;
             /** Format: uuid */
             publication_id: string;
             views: number;
@@ -7922,9 +7927,10 @@ export interface components {
          *     * `locale_home_missing` - locale_home_missing
          *     * `source_unpublished` - source_unpublished
          *     * `source_outdated` - source_outdated
+         *     * `media_unavailable` - media_unavailable
          * @enum {string}
          */
-        SkippedEnum: "metadata_incomplete" | "untranslated_units" | "source_placeholder" | "locale_home_missing" | "source_unpublished" | "source_outdated";
+        SkippedEnum: "metadata_incomplete" | "untranslated_units" | "source_placeholder" | "locale_home_missing" | "source_unpublished" | "source_outdated" | "media_unavailable";
         Slot: {
             /** Format: date-time */
             starts_at: string;

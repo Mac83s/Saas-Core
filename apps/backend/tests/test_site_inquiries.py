@@ -468,8 +468,10 @@ def test_stale_address_is_a_conflict_and_existing_receipt_survives_republish(pub
     )
     retry = submit(site, host)
     assert retry.status_code == 200 and retry.data == accepted.data
-    stale = submit(site, host, key="new-stale-request")
-    assert stale.status_code == 409
+    # The newer publication left the form as it was, so a form opened before
+    # it still sends (ADR-070 pkt 14).
+    unchanged = submit(site, host, key="form-opened-before")
+    assert unchanged.status_code == 201, unchanged.data
     page_id = site.pages.get().id
     moved = client.put(
         f"/api/v1/sites/pages/{page_id}/url/",
@@ -487,7 +489,7 @@ def test_stale_address_is_a_conflict_and_existing_receipt_survives_republish(pub
     )
     assert response.status_code == 409
     assert response.data["code"] == "site_inquiry_publication_changed"
-    assert SiteInquiry.all_objects.count() == 1
+    assert SiteInquiry.all_objects.count() == 2
 
 
 def test_broker_failure_keeps_outbox_and_retry_does_not_duplicate(

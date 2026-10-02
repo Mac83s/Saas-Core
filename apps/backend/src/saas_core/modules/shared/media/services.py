@@ -851,6 +851,22 @@ def ai_generated_asset_ids(*, organization_id: UUID, asset_ids: Iterable[str]) -
     }
 
 
+def unavailable_asset_ids(*, organization_id: UUID, asset_ids: Iterable[UUID]) -> set[UUID]:
+    """Of `asset_ids`, those a new reference would be refused for: not ready, or
+    deleted (`MediaAssetReferenceHandler`). The caller has set the tenant."""
+    ids = set(asset_ids)
+    if not ids:
+        return set()
+    return ids - set(
+        MediaAsset.all_objects.filter(
+            organization_id=organization_id,
+            pk__in=ids,
+            state=MediaAssetState.READY,
+            deleted_at__isnull=True,
+        ).values_list("pk", flat=True)
+    )
+
+
 def cleanup_media_source_object(
     *,
     asset_id: UUID,

@@ -326,7 +326,11 @@ def _entry_for(
             organization_id=page.organization_id, page_version_id=source.id
         ).order_by("position")
     ]
-    return fresh_entry(site, candidate, source, blocks)
+    entry, skipped = fresh_entry(site, candidate, source, blocks)
+    if entry is not None:
+        # Bound to the published source, so it shows that page's pictures.
+        entry["media_asset_ids"] = list(published.get("media_asset_ids", []))
+    return entry, skipped
 
 
 def _with_body(translation: PageTranslation, body: Any) -> PageTranslation:

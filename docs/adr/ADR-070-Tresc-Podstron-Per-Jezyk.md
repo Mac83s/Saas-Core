@@ -117,12 +117,17 @@ każdą publikację tłumaczeń. Zestawy zmian SCR adresują bloki pozycją wobe
    już v2. Budżet: 50 podstron × 5 języków ≤ 3 MB JSON i ≤ 50 ms parsowania
    (pomiar TL9 02.10 na najdłuższej recepcie: 2,3 MB, 10 ms); sparsowane migawki
    trzyma pamięć procesu, najwyżej 64, według identyfikatora — publikacje są
-   niezmienne.
+   niezmienne — a odczyt domeny, mediów i mapy strony pomija kolumnę migawki, więc
+   znanej publikacji proces ani nie pobiera, ani nie parsuje ponownie.
 9. **`publish_site` bierze wersje związane z publikowanym źródłem**, także
    przetłumaczone z tego szkicu przed publikacją. Wersja, która była publiczna, a
    nie jest już publikowalna, zostaje w ostatniej opublikowanej postaci
    (przeniesiona z poprzedniej migawki), więc adresy nie „migają”; tak samo
-   przechodzą wersje języka wyłączonego (ADR-071).
+   przechodzą wersje języka wyłączonego (ADR-071). Wpis wersji niesie zdjęcia
+   swojej wersji źródła (`media_asset_ids`, w referencjach publikacji i w
+   mediach publicznych); przeniesiona wersja, której zdjęcie usunięto z
+   biblioteki, jest wstrzymana jak w pkt 10 z powodem `media_unavailable`, a
+   publikacja przechodzi.
 10. **Wstrzymanie po zmianie faktów (odpowiedź 5a).** Fakty
     (`content_protocol.facts`: kwoty, ceny z walutą zapisaną jak w źródle,
     godziny, adresy www, e-mail, telefon) wersji źródła związanej z wersją
