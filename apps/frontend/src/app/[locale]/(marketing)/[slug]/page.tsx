@@ -4,7 +4,6 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { Link } from "#i18n/navigation";
-import { routing } from "#i18n/routing";
 import { productCopy, productName } from "../../../../marketing/content";
 import { localizedUrl, marketingMetadata } from "../../../../marketing/seo";
 import { Button } from "@saas-core/ui/components/button";
@@ -15,14 +14,11 @@ function detailPage(locale: string, slug: string) {
   return productCopy(locale).pages?.find((page) => page.slug === slug);
 }
 
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) =>
-    (productCopy(locale).pages ?? []).map((page) => ({
-      locale,
-      slug: page.slug,
-    })),
-  );
-}
+// No `generateStaticParams`, so every slug renders per request like the rest
+// of the site. A profile without product pages returned an empty list, which
+// Next.js reads as "render each slug once and keep it static" — and the site
+// header reads the locale from the request, so every unknown address answered
+// 500 instead of 404.
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
