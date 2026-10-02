@@ -7,6 +7,7 @@ import logging
 import secrets
 import struct
 from dataclasses import dataclass
+from datetime import datetime
 from urllib.parse import quote, urlencode
 from uuid import UUID
 
@@ -125,18 +126,8 @@ def confirm_totp_enrollment(
 def verify_mfa_code(*, user: User, code: str) -> None:
     now = timezone.now()
     with transaction.atomic():
-        try:
-            method = UserMfaMethod.objects.select_for_update().get(
-                user=user,
-                confirmed_at__isnull=False,
-            )
-        except UserMfaMethod.DoesNotExist as error:
-            raise InvalidMfaCode from error
-
-        counter = _matching_totp_counter(method=method, code=code, at=now.timestamp())
-        if counter is not None and counter > method.last_used_counter:
-            method.last_used_counter = counter
-            method.save(update_fields=["last_used_counter", "updated_at"])
+        method = _locked_method(user)
+        if _consume_totp(method, code, now):
             return
 
         normalized = _normalize_recovery_code(code)
@@ -153,6 +144,31 @@ def verify_mfa_code(*, user: User, code: str) -> None:
             raise InvalidMfaCode
         recovery.used_at = now
         recovery.save(update_fields=["used_at"])
+
+
+def verify_totp_code(*, user: User, code: str) -> None:
+    """A code from the authenticator app only. A recovery code gets a person
+    back into the account; it is not spent on confirming one operation."""
+    with transaction.atomic():
+        if not _consume_totp(_locked_method(user), code, timezone.now()):
+            raise InvalidMfaCode
+
+
+def _locked_method(user: User) -> UserMfaMethod:
+    try:
+        return UserMfaMethod.objects.select_for_update().get(user=user, confirmed_at__isnull=False)
+    except UserMfaMethod.DoesNotExist as error:
+        raise InvalidMfaCode from error
+
+
+def _consume_totp(method: UserMfaMethod, code: str, now: datetime) -> bool:
+    """A code counts once: one already used, or older than the last used, fails."""
+    counter = _matching_totp_counter(method=method, code=code, at=now.timestamp())
+    if counter is None or counter <= method.last_used_counter:
+        return False
+    method.last_used_counter = counter
+    method.save(update_fields=["last_used_counter", "updated_at"])
+    return True
 
 
 def has_confirmed_mfa(user: User) -> bool:

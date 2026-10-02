@@ -1,6 +1,8 @@
+from datetime import UTC, datetime, timedelta
 from typing import cast
 from uuid import UUID
 
+from django.conf import settings
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
 from django.utils import timezone
@@ -34,6 +36,8 @@ from .serializers import (
     ProblemDetailsSerializer,
     RegistrationSerializer,
     SessionSummarySerializer,
+    StepUpResultSerializer,
+    StepUpSerializer,
     TotpConfirmResultSerializer,
     TotpSetupSerializer,
     UserSummarySerializer,
@@ -57,6 +61,7 @@ from .sessions import (
     mfa_enrollment_user,
     revoke_user_session,
 )
+from .step_up import confirm_step_up
 
 
 class PublicIdentityView(APIView):
@@ -388,3 +393,43 @@ def _user_summary(user: User) -> dict[str, str]:
         "locale": user.locale,
         "timezone": user.timezone,
     }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StepUpView(ProtectedIdentityView):
+    throttle_scope = "identity_step_up"
+
+    @extend_schema(
+        operation_id="identity_step_up_create",
+        summary="Confirm the second factor once more",
+        description="A code from the authenticator app — never a password or a recovery "
+        "code — marks the session as stepped up for STEP_UP_MAX_AGE seconds. Accepting "
+        "legal documents and changing billing ask for it, in the panel and for the "
+        "assistant (owner answers 30a, 31b). An account without two-factor sign-in gets "
+        "403 step_up_mfa_setup_required; five wrong codes end the session (403 "
+        "step_up_locked).",
+        request=StepUpSerializer,
+        responses={
+            200: StepUpResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "A code counts once, so a repeat is refused; a new code "
+                "only moves the step-up time.",
+            }
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = StepUpSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        at = confirm_step_up(request=cast(HttpRequest, request), **serializer.validated_data)
+        stepped_up_at = datetime.fromtimestamp(at, tz=UTC)
+        return Response(
+            StepUpResultSerializer({
+                "stepped_up_at": stepped_up_at,
+                "expires_at": stepped_up_at + timedelta(seconds=settings.STEP_UP_MAX_AGE),
+            }).data
+        )

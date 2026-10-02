@@ -11,6 +11,7 @@ from .views import (
     RegistrationView,
     SessionListView,
     SessionRevokeView,
+    StepUpView,
     TotpConfirmView,
     TotpSetupView,
     VerificationConfirmView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path("register/", RegistrationView.as_view(), name="identity-register"),
     path("login/", LoginView.as_view(), name="identity-login"),
     path("login/mfa/", MfaLoginView.as_view(), name="identity-mfa-login"),
+    path("step-up/", StepUpView.as_view(), name="identity-step-up"),
     path("logout/", LogoutView.as_view(), name="identity-logout"),
     path("mfa/totp/setup/", TotpSetupView.as_view(), name="identity-mfa-totp-setup"),
     path(

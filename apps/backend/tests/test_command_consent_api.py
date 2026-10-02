@@ -211,11 +211,13 @@ def test_neither_an_integration_nor_the_assistant_consents() -> None:
 
 
 def test_a_plan_that_needs_a_step_up_waits_for_one() -> None:
+    """Without two-factor sign-in the person is told to turn it on (answer 31b);
+    with it, the click waits for a code (tests/test_identity_step_up.py)."""
     client, person = signed_in("consent-step-up")
     digest, _assistant = shown(person, "organization.bill@1")
 
     response = client.post(URL.format(digest), HTTP_X_CSRFTOKEN=csrf_value(client))
 
     assert response.status_code == 403
-    assert response.data["code"] == "step_up_required"
+    assert response.data["code"] == "step_up_mfa_setup_required"
     assert client.get(URL.format(digest)).data["step_up_required"] is True

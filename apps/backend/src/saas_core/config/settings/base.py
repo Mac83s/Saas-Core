@@ -287,6 +287,9 @@ COMMAND_CONSENT_TTL = 300
 #: How long a plan shown for consent waits for its click, in seconds; after
 #: that the assistant proposes it again on the state of that moment.
 COMMAND_PENDING_TTL = 1800
+#: How long a confirmed second factor stands for legal documents and billing,
+#: in seconds (owner answer 31b). A security time, not a platform setting.
+STEP_UP_MAX_AGE = 300
 
 
 def secret_setting(name: str, default: str = "") -> str:
@@ -829,6 +832,7 @@ REST_FRAMEWORK = {
         "identity_login": "5/min",
         "identity_mfa_challenge": "10/min",
         "identity_mfa_enrollment": "10/min",
+        "identity_step_up": "10/min",
         "identity_password_reset_request": "5/min",
         "identity_password_reset_confirm": "10/min",
         "identity_register": "5/min",

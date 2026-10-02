@@ -156,3 +156,15 @@ class PasswordResetConfirmSerializer(serializers.Serializer[dict[str, Any]]):
 
 class PasswordResetResultSerializer(serializers.Serializer[dict[str, Any]]):
     status = serializers.ChoiceField(choices=["password_updated"])
+
+
+class StepUpSerializer(serializers.Serializer[dict[str, Any]]):
+    code = serializers.CharField(write_only=True, min_length=6, max_length=32)
+
+    def validate_code(self, value: str) -> str:
+        return value.strip()
+
+
+class StepUpResultSerializer(serializers.Serializer[dict[str, Any]]):
+    stepped_up_at = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField()

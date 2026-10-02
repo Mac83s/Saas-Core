@@ -429,3 +429,18 @@ nie z żądania. Plan innego członkostwa i plan wygasły dają to samo 404
 trafia do historii organizacji jako `commands.consent.granted` (polecenia,
 klasa, prefiks digestu, rozmowa), bez `acting` — to decyzja osoby. Token
 oddaje się wykonawcy pod identyfikatorem grupy (pierwszy krok grupy).
+
+## Uzupełnienie 2026-10-02: step-up w `core.identity` (A1b-7)
+
+Wykonanie odpowiedzi 31 b. `core/identity/step_up.py` jest jedynym prymitywem
+dla asystenta, panelu i poziomu 2 operatora z planu ustawień platformy:
+`POST /api/v1/auth/step-up/` przyjmuje wyłącznie kod z aplikacji (kod zapasowy
+nie — służy do odzyskania konta), zapisuje czas w sesji na
+`STEP_UP_MAX_AGE` (300 s), a pięć błędnych kodów w 15 minut kończy sesję (403
+`step_up_locked`). Konto bez 2FA dostaje 403 `step_up_mfa_setup_required`.
+Serwis woła `require_step_up(user_id=…, reason=…)`. Żądanie panelu ma aktywny
+step-up swojej sesji (middleware sesji), a wykonawca poleceń na cały podgląd i
+wykonanie zastępuje go pustym i tylko na czas grupy aktywuje czas z tokenu
+zgody — endpoint zgody wpisuje do tokenu świeży step-up sesji, gdy grupa go
+wymaga. Step-up z panelu nigdy więc nie odpowiada za to, co asystent robi bez
+niego.

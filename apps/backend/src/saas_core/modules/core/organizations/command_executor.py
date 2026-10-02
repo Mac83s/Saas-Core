@@ -40,10 +40,11 @@ from rest_framework.exceptions import (
 from rest_framework.settings import api_settings
 
 from saas_core.http.exceptions import problem_code, problem_errors
+from saas_core.modules.core.identity.step_up import StepUpRequired, activate_step_up
 
 from .authorization import authorize
 from .canonical import canonical_json_hash
-from .command_consent import ConsentDigestMismatch, read_consent
+from .command_consent import Consent, ConsentDigestMismatch, read_consent
 from .command_registry import (
     RISKS,
     CommandSpec,
@@ -109,11 +110,6 @@ class CommandPlanConflict(ValidationError):
 class ConsentRequired(PermissionDenied):
     default_detail = "To polecenie wymaga zgody osoby."
     default_code = "consent_required"
-
-
-class StepUpRequired(PermissionDenied):
-    default_detail = "To polecenie wymaga ponownego potwierdzenia kodem z aplikacji."
-    default_code = "step_up_required"
 
 
 class CommandIdempotencyConflict(APIException):
@@ -248,6 +244,13 @@ def register_command_gate(name: str, gate: CommandGate) -> None:
 
 
 def preview_plan(invocations: Sequence[Invocation]) -> Plan:
+    # A step-up from the person's panel session never reaches a command: only
+    # the one a consent token carries, and only while its group runs.
+    with activate_step_up(None):
+        return _preview_plan(invocations)
+
+
+def _preview_plan(invocations: Sequence[Invocation]) -> Plan:
     context = _acting_context()
     planned: list[PlannedCall] = []
     refusals: list[CallRefusal] = []
@@ -317,11 +320,18 @@ def execute_plan(
     its own: the first that fails is undone and the groups after it do not run,
     while the groups before it stay done.
     """
+    with activate_step_up(None):
+        return _execute_plan(invocations, consents or {})
+
+
+def _execute_plan(
+    invocations: Sequence[Invocation], consents: Mapping[str, str]
+) -> tuple[CallResult, ...]:
     context = _acting_context()
     replayed = _replayed(context, invocations)
     if replayed is not None:
         return replayed
-    plan = preview_plan(invocations)
+    plan = _preview_plan(invocations)
     if plan.refusals:
         refused = {refusal.step_id: refusal for refusal in plan.refusals}
         return tuple(
@@ -331,10 +341,10 @@ def execute_plan(
             for invocation in invocations
         )
     results = {call.step_id: _run_read(call) for call in plan.reads}
-    verdicts = {group.id: _consent_verdict(context, group, consents or {}) for group in plan.groups}
+    verdicts = {group.id: _consent_verdict(context, group, consents) for group in plan.groups}
     halted = False
     for group in plan.groups:
-        verdict = verdicts[group.id]
+        verdict, consent = verdicts[group.id]
         if halted:
             results.update({
                 call.step_id: CallResult(step_id=call.step_id, status="skipped")
@@ -345,7 +355,8 @@ def execute_plan(
                 call.step_id: _refused(_refusal(call.step_id, verdict)) for call in group.calls
             })
         else:
-            group_results = _run_group(context, group)
+            with activate_step_up(consent.step_up_at if consent is not None else None):
+                group_results = _run_group(context, group)
             results.update(group_results)
             halted = any(result.status != "done" for result in group_results.values())
     return tuple(results[invocation.step_id] for invocation in invocations)
@@ -640,20 +651,19 @@ def _replayed(
 
 def _consent_verdict(
     context: TenantContext, group: ConsentGroup, consents: Mapping[str, str]
-) -> APIException | None:
+) -> tuple[APIException | None, Consent | None]:
     token = consents.get(group.id)
     if token is None:
-        return ConsentRequired()
+        return ConsentRequired(), None
     try:
         consent = read_consent(token, context=context)
     except APIException as error:
-        return error
+        return error, None
     if consent.digest != group.digest:
-        return ConsentDigestMismatch()
+        return ConsentDigestMismatch(), None
     if group.step_up_required and consent.step_up_at is None:
-        # Until the step-up exists (A1b-7) nothing that needs one runs.
-        return StepUpRequired()
-    return None
+        return StepUpRequired(), None
+    return None, consent
 
 
 def _run_group(context: TenantContext, group: ConsentGroup) -> dict[str, CallResult]:

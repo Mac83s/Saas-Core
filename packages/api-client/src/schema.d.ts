@@ -228,6 +228,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/step-up/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the second factor once more
+         * @description A code from the authenticator app — never a password or a recovery code — marks the session as stepped up for STEP_UP_MAX_AGE seconds. Accepting legal documents and changing billing ask for it, in the panel and for the assistant (owner answers 30a, 31b). An account without two-factor sign-in gets 403 step_up_mfa_setup_required; five wrong codes end the session (403 step_up_locked).
+         */
+        post: operations["identity_step_up_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/checkout/": {
         parameters: {
             query?: never;
@@ -2270,7 +2290,7 @@ export interface paths {
         put?: never;
         /**
          * Consent to a plan
-         * @description Mints the consent token for one plan group the person has just seen. The token binds the membership, the assistant's conversation and the plan's digest, and expires after COMMAND_CONSENT_TTL seconds; the executor checks it against a fresh preview. A group that needs a step-up answers 403 step_up_required until one is confirmed.
+         * @description Mints the consent token for one plan group the person has just seen. The token binds the membership, the assistant's conversation and the plan's digest, and expires after COMMAND_CONSENT_TTL seconds; the executor checks it against a fresh preview. A group that needs a step-up (legal documents, billing) takes the session's fresh step-up into the token, and answers 403 step_up_required without one — or step_up_mfa_setup_required for an account without two-factor sign-in.
          */
         post: operations["organizations_command_consent_create"];
         delete?: never;
@@ -7933,6 +7953,15 @@ export interface components {
          * @enum {string}
          */
         StepEnum: "address" | "details" | "review";
+        StepUp: {
+            code: string;
+        };
+        StepUpResult: {
+            /** Format: date-time */
+            stepped_up_at: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
         StockDocument: {
             /** Format: uuid */
             id: string;
@@ -8964,6 +8993,55 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    identity_step_up_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepUp"];
+                "application/x-www-form-urlencoded": components["schemas"]["StepUp"];
+                "multipart/form-data": components["schemas"]["StepUp"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StepUpResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

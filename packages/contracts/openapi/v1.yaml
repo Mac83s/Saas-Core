@@ -539,6 +539,60 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/auth/step-up/:
+    post:
+      operationId: identity_step_up_create
+      description: A code from the authenticator app — never a password or a recovery
+        code — marks the session as stepped up for STEP_UP_MAX_AGE seconds. Accepting
+        legal documents and changing billing ask for it, in the panel and for the
+        assistant (owner answers 30a, 31b). An account without two-factor sign-in
+        gets 403 step_up_mfa_setup_required; five wrong codes end the session (403
+        step_up_locked).
+      summary: Confirm the second factor once more
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepUp'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StepUp'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StepUp'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepUpResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: A code counts once, so a repeat is refused; a new code only
+          moves the step-up time.
   /api/v1/billing/checkout/:
     post:
       operationId: billing_checkout_create
@@ -6285,8 +6339,10 @@ paths:
       description: Mints the consent token for one plan group the person has just
         seen. The token binds the membership, the assistant's conversation and the
         plan's digest, and expires after COMMAND_CONSENT_TTL seconds; the executor
-        checks it against a fresh preview. A group that needs a step-up answers 403
-        step_up_required until one is confirmed.
+        checks it against a fresh preview. A group that needs a step-up (legal documents,
+        billing) takes the session's fresh step-up into the token, and answers 403
+        step_up_required without one — or step_up_mfa_setup_required for an account
+        without two-factor sign-in.
       summary: Consent to a plan
       parameters:
       - in: path
@@ -22116,6 +22172,28 @@ components:
         * `address` - address
         * `details` - details
         * `review` - review
+    StepUp:
+      type: object
+      properties:
+        code:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          minLength: 6
+      required:
+      - code
+    StepUpResult:
+      type: object
+      properties:
+        stepped_up_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - expires_at
+      - stepped_up_at
     StockDocument:
       type: object
       properties:

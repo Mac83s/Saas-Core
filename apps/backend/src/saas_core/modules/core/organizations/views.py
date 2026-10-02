@@ -16,13 +16,19 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from saas_core.modules.core.identity.mfa import has_confirmed_mfa
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.identity.step_up import (
+    StepUpMfaSetupRequired,
+    StepUpRequired,
+    session_step_up_at,
+)
 
 from .audit import record_audit
 from .authorization import authorize
 from .command_consent import mint_consent
-from .command_executor import StepUpRequired, pending_consent
+from .command_executor import pending_consent
 from .context import TenantContext, context_from_membership
 from .custom_roles import create_role, delete_role, list_roles, update_role
 from .history import history_item, list_history
@@ -533,8 +539,10 @@ class CommandConsentView(ProtectedOrganizationView):
         description="Mints the consent token for one plan group the person has just seen. "
         "The token binds the membership, the assistant's conversation and the plan's "
         "digest, and expires after COMMAND_CONSENT_TTL seconds; the executor checks it "
-        "against a fresh preview. A group that needs a step-up answers 403 "
-        "step_up_required until one is confirmed.",
+        "against a fresh preview. A group that needs a step-up (legal documents, billing) "
+        "takes the session's fresh step-up into the token, and answers 403 step_up_required "
+        "without one — or step_up_mfa_setup_required for an account without two-factor "
+        "sign-in.",
         request=None,
         responses={
             201: CommandConsentGrantSerializer,
@@ -550,13 +558,21 @@ class CommandConsentView(ProtectedOrganizationView):
     )
     def post(self, request: Request, digest: str) -> Response:
         context, entry = _waiting_plan(digest)
+        user = cast(User, request.user)
+        step_up_at = None
         if entry["step_up_required"]:
-            raise StepUpRequired
-        token = mint_consent(context, digest=digest, acting_ref=entry["acting_ref"])
+            step_up_at = session_step_up_at(cast(HttpRequest, request))
+            if not has_confirmed_mfa(user):
+                raise StepUpMfaSetupRequired
+            if step_up_at is None:
+                raise StepUpRequired
+        token = mint_consent(
+            context, digest=digest, acting_ref=entry["acting_ref"], step_up_at=step_up_at
+        )
         record_audit(
             organization=Organization.objects.get(pk=context.organization_id),
             action=COMMAND_CONSENT_GRANTED,
-            actor=cast(User, request.user),
+            actor=user,
             metadata={
                 "commands": [call["command"] for call in entry["calls"]],
                 "risk": entry["risk"],

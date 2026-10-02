@@ -8,6 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 
 from .models import User, UserSession
+from .step_up import activate_step_up, session_step_up_at
 from .tokens import digest_secret
 
 MANAGED_SESSION_KEY = "identity_user_session_id"
@@ -23,7 +24,10 @@ class ManagedUserSessionMiddleware:
     def __call__(self, request: HttpRequest) -> HttpResponse:
         if request.path.startswith(MANAGED_SESSION_PATHS) and request.user.is_authenticated:
             self._validate(request)
-        return self.get_response(request)
+        # The session's step-up, for the services that ask (`require_step_up`).
+        stepped_up = session_step_up_at(request) if request.user.is_authenticated else None
+        with activate_step_up(stepped_up):
+            return self.get_response(request)
 
     def _validate(self, request: HttpRequest) -> None:
         now = timezone.now()
