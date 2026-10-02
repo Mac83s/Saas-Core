@@ -78,7 +78,10 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 import { cn } from "@saas-core/ui/lib/utils";
 
 import { allows, type PanelAccess } from "#lib/panel-navigation";
-import type { ProductVisitFill } from "#lib/product-extension";
+import type {
+  ProductVisitBooked,
+  ProductVisitFill,
+} from "#lib/product-extension";
 import productCalendar from "../../../product/calendar";
 
 import {
@@ -611,7 +614,8 @@ export function NewAppointmentDialog({
   staffId?: string;
   /** "HH:mm" of a free window picked on the day board (plan: phase 4). */
   time?: string;
-  onCreated: (appointment: BookingAppointment) => void;
+  /** Whom and when: a product's section books its own kind itself. */
+  onCreated: (appointment: ProductVisitBooked) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   restoreFocus: FocusTarget;
@@ -669,7 +673,8 @@ function NewAppointmentForm({
   day: string;
   params: Readonly<Record<string, string>>;
   serviceId: string;
-  onCreated: (appointment: BookingAppointment) => void;
+  /** Whom and when: a product's section books its own kind itself. */
+  onCreated: (appointment: ProductVisitBooked) => void;
   staffId: string;
   teams: StaffTeam[];
   time: string;

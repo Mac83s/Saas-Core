@@ -130,6 +130,11 @@ export type ProductVisitFormProps = {
   /** The section's field errors: its own check, or the server's answer. */
   errors: Readonly<Record<string, string>>;
 };
+/** What the form needs of a booked visit: whom and when, for its notice. */
+export type ProductVisitBooked = Pick<
+  BookingAppointment,
+  "customer_name" | "starts_at" | "ends_at"
+>;
 export type ProductVisitDetailsProps = {
   appointment: BookingAppointment;
   access: PanelAccess;
@@ -149,7 +154,7 @@ export type ProductCalendar = {
     input: BookingAppointmentInput;
     value: unknown;
     idempotencyKey: string;
-  }) => Promise<BookingAppointment>;
+  }) => Promise<ProductVisitBooked>;
   /** The section's field errors in a server problem; null when not its own. */
   problemErrors?: (error: unknown) => Record<string, string> | null;
   /** Below a visit's details: the product's own actions on it. */
