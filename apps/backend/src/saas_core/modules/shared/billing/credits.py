@@ -110,8 +110,8 @@ class CreditSummary:
 # ------------------------------------------------------------------ catalog --
 
 
-def operation_cost(operation_key: str) -> int:
-    """What one operation costs now, or zero when it is not metered yet.
+def operation_cost(operation_key: str, quantity: int = 1) -> int:
+    """What `quantity` units of an operation cost now, or zero when it is not metered yet.
 
     An unknown key is an error rather than a free pass: a typo must not turn
     into silent free usage. A known but inactive operation costs nothing, which
@@ -120,7 +120,9 @@ def operation_cost(operation_key: str) -> int:
     operation = CreditOperation.objects.filter(key=operation_key).first()
     if operation is None:
         raise UnknownCreditOperation(f"Operacja {operation_key!r} nie jest w katalogu.")
-    return operation.cost if operation.is_active else 0
+    if quantity < 1:
+        raise ValueError("Ilość jednostek musi być dodatnia.")
+    return operation.cost * quantity if operation.is_active else 0
 
 
 # ------------------------------------------------------------------ balance --
@@ -166,6 +168,7 @@ def _write_entry(
     at: datetime,
     operation_key: str = "",
     operation_cost_value: int | None = None,
+    operation_quantity: int | None = None,
     reservation: CreditReservation | None = None,
     purchase: CreditPurchase | None = None,
     reason: str = "",
@@ -185,6 +188,7 @@ def _write_entry(
         balance_after=balance_after,
         operation_key=operation_key,
         operation_cost=operation_cost_value,
+        operation_quantity=operation_quantity,
         reservation=reservation,
         purchase=purchase,
         reason=reason,
@@ -290,19 +294,23 @@ def reserve_credits(
     at: datetime | None = None,
     expires_at: datetime | None = None,
     expected_cost: int | None = None,
+    quantity: int = 1,
 ) -> CreditReservation | None:
-    """Holds the credits one operation will cost. ``None`` means it is free."""
+    """Holds the credits `quantity` units of one operation will cost. ``None`` means
+    it is free. `expected_cost` is the total the customer was shown."""
     context = require_tenant_context()
     normalized = _normalized_key(idempotency_key)
     checked_at = at or datetime.now(UTC)
     if expires_at is not None and expires_at <= checked_at:
         raise ValueError("Wygaśnięcie rezerwacji musi przypadać w przyszłości.")
+    if quantity < 1:
+        raise ValueError("Ilość jednostek musi być dodatnia.")
 
     existing = CreditReservation.all_objects.filter(
         organization_id=context.organization_id, idempotency_key=normalized
     ).first()
     if existing is not None:
-        if existing.operation_key != operation_key:
+        if existing.operation_key != operation_key or existing.quantity != quantity:
             raise CreditReservationConflict
         return existing
 
@@ -312,11 +320,11 @@ def reserve_credits(
         operation = CreditOperation.objects.select_for_update().filter(key=operation_key).first()
         if operation is None:
             raise UnknownCreditOperation
-        cost = operation.cost if operation.is_active else 0
+        cost = operation.cost * quantity if operation.is_active else 0
         if cost != expected_cost:
             raise CreditPriceChanged
     else:
-        cost = operation_cost(operation_key)
+        cost = operation_cost(operation_key, quantity)
     if cost == 0:
         return None
 
@@ -338,8 +346,11 @@ def reserve_credits(
         idempotency_key=normalized,
         operation_key=operation_key,
         cost=cost,
+        quantity=quantity,
+        unit_cost=cost // quantity,
         allowance_amount=from_allowance,
         purchased_amount=from_purchased,
+        allowance_period_start=balance.allowance_period_start,
         expires_at=expires_at,
     )
 
@@ -395,30 +406,158 @@ def commit_credits(idempotency_key: str, *, at: datetime | None = None) -> Credi
             at=checked_at,
             operation_key=reservation.operation_key,
             operation_cost_value=reservation.cost,
+            operation_quantity=reservation.quantity,
             reservation=reservation,
             idempotency_key=reservation.idempotency_key,
         )
     reservation.state = CreditReservationState.COMMITTED
-    reservation.save(update_fields=["state", "updated_at"])
+    reservation.settled_quantity = reservation.quantity
+    reservation.save(update_fields=["state", "settled_quantity", "updated_at"])
     return reservation
 
 
 @transaction.atomic
-def release_credits(idempotency_key: str) -> CreditReservation:
-    """Gives back a hold that was never spent. Nothing reaches the ledger."""
+def release_credits(idempotency_key: str, *, at: datetime | None = None) -> CreditReservation:
+    """Gives back a hold that was never spent."""
     reservation, balance = _locked_pair(idempotency_key)
     if reservation.state == CreditReservationState.RELEASED:
         return reservation
     if reservation.state == CreditReservationState.COMMITTED:
         raise CreditReservationConflict
-    balance.allowance_reserved -= reservation.allowance_amount
-    balance.purchased_reserved -= reservation.purchased_amount
-    balance.version += 1
-    balance.save(
-        update_fields=["allowance_reserved", "purchased_reserved", "version", "updated_at"]
+    _release(
+        reservation,
+        balance,
+        allowance=reservation.allowance_amount,
+        purchased=reservation.purchased_amount,
+        at=at or datetime.now(UTC),
     )
     reservation.state = CreditReservationState.RELEASED
-    reservation.save(update_fields=["state", "updated_at"])
+    reservation.settled_quantity = 0
+    reservation.save(update_fields=["state", "settled_quantity", "updated_at"])
+    return reservation
+
+
+def _release(
+    reservation: CreditReservation,
+    balance: CreditBalance,
+    *,
+    allowance: int,
+    purchased: int,
+    at: datetime,
+) -> None:
+    """Un-holds credits — the one way back for release, settlement and the sweep.
+
+    Allowance held in an earlier period expires instead of joining the current
+    one: otherwise a September hold released in October would hand September's
+    allowance to October on top of its own (the leak ADR-069 pkt 23 closes).
+    Purchased credits never expire. Only that expiry reaches the ledger.
+    """
+    _sync_allowance(balance, at=at)
+    balance.allowance_reserved -= allowance
+    balance.purchased_reserved -= purchased
+    expired = 0
+    if (
+        allowance
+        and reservation.allowance_period_start is not None
+        and reservation.allowance_period_start != balance.allowance_period_start
+    ):
+        expired = allowance
+        balance.allowance_remaining -= expired
+    balance.version += 1
+    balance.save(
+        update_fields=[
+            "allowance_reserved",
+            "allowance_remaining",
+            "purchased_reserved",
+            "version",
+            "updated_at",
+        ]
+    )
+    if expired:
+        _write_entry(
+            balance,
+            kind=CreditLedgerKind.ALLOWANCE_EXPIRED,
+            bucket=CreditBucket.ALLOWANCE,
+            amount=-expired,
+            at=at,
+            operation_key=reservation.operation_key,
+            reservation=reservation,
+            reason="Zwolniona rezerwacja z poprzedniego okresu: pula tamtego okresu wygasa.",
+        )
+
+
+@transaction.atomic
+def settle_credits(
+    idempotency_key: str, quantity: int, *, at: datetime | None = None
+) -> CreditReservation:
+    """Spends what was delivered and gives back the rest, in one transaction.
+
+    For separable work (translations: 1,000 characters × language, ADR-069 pkt
+    23): `quantity` units at the reservation's price are committed — allowance
+    first — and the remainder released; 0 is a release. Works past `expires_at`
+    while the hold is still reserved, because a long job settles after its
+    deadline. Repeating the same settlement changes nothing; a different one is
+    a conflict.
+    """
+    checked_at = at or datetime.now(UTC)
+    if quantity < 0:
+        raise ValueError("Ilość jednostek nie może być ujemna.")
+    reservation, balance = _locked_pair(idempotency_key)
+    delivered = min(quantity, reservation.quantity)
+    if reservation.state != CreditReservationState.RESERVED:
+        if reservation.settled_quantity != delivered:
+            raise CreditReservationConflict
+        return reservation
+    unit_cost = reservation.unit_cost or reservation.cost // reservation.quantity
+    spent = min(delivered * unit_cost, reservation.cost)
+    from_allowance = min(spent, reservation.allowance_amount)
+    from_purchased = spent - from_allowance
+    if spent:
+        balance.allowance_reserved -= from_allowance
+        balance.allowance_remaining -= from_allowance
+        balance.purchased_reserved -= from_purchased
+        balance.purchased_remaining -= from_purchased
+        balance.version += 1
+        balance.save(
+            update_fields=[
+                "allowance_reserved",
+                "allowance_remaining",
+                "purchased_reserved",
+                "purchased_remaining",
+                "version",
+                "updated_at",
+            ]
+        )
+        for bucket, amount in (
+            (CreditBucket.ALLOWANCE, from_allowance),
+            (CreditBucket.PURCHASED, from_purchased),
+        ):
+            if amount == 0:
+                continue
+            _write_entry(
+                balance,
+                kind=CreditLedgerKind.CONSUMED,
+                bucket=bucket,
+                amount=-amount,
+                at=checked_at,
+                operation_key=reservation.operation_key,
+                operation_cost_value=unit_cost,
+                operation_quantity=delivered,
+                reservation=reservation,
+                idempotency_key=reservation.idempotency_key,
+            )
+    _release(
+        reservation,
+        balance,
+        allowance=reservation.allowance_amount - from_allowance,
+        purchased=reservation.purchased_amount - from_purchased,
+        at=checked_at,
+    )
+    reservation.state = (
+        CreditReservationState.COMMITTED if delivered else CreditReservationState.RELEASED
+    )
+    reservation.settled_quantity = delivered
+    reservation.save(update_fields=["state", "settled_quantity", "updated_at"])
     return reservation
 
 
@@ -687,18 +826,15 @@ def release_expired_credit_reservations(
                 if reservation.state != CreditReservationState.RESERVED:
                     continue
                 balance = _locked_balance(organization_id)
-                balance.allowance_reserved -= reservation.allowance_amount
-                balance.purchased_reserved -= reservation.purchased_amount
-                balance.version += 1
-                balance.save(
-                    update_fields=[
-                        "allowance_reserved",
-                        "purchased_reserved",
-                        "version",
-                        "updated_at",
-                    ]
+                _release(
+                    reservation,
+                    balance,
+                    allowance=reservation.allowance_amount,
+                    purchased=reservation.purchased_amount,
+                    at=checked_at,
                 )
                 reservation.state = CreditReservationState.RELEASED
-                reservation.save(update_fields=["state", "updated_at"])
+                reservation.settled_quantity = 0
+                reservation.save(update_fields=["state", "settled_quantity", "updated_at"])
                 released += 1
     return released

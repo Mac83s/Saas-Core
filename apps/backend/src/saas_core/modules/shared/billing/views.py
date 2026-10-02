@@ -22,6 +22,8 @@ from .serializers import (
     BillingSessionSerializer,
     CheckoutCreateSerializer,
     CreditCheckoutCreateSerializer,
+    CreditLedgerPageSerializer,
+    CreditLedgerQuerySerializer,
     CustomerBillingOverviewSerializer,
     CustomerCreditsOverviewSerializer,
     EntitlementSupportReportSerializer,
@@ -34,6 +36,7 @@ from .services import (
     create_credit_checkout,
     create_customer_portal,
     create_setup_checkout,
+    credit_ledger_page,
     customer_credits_overview,
     missing_billing_details,
     update_billing_details,
@@ -285,6 +288,48 @@ class BillingCreditsView(APIView):
     )
     def get(self, _request: Request) -> Response:
         return Response(customer_credits_overview())
+
+
+class BillingCreditLedgerView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_credit_ledger_list",
+        summary="List credit movements",
+        description="The company's credit ledger, newest first: allowance granted and expired, "
+        "purchases, consumption with its units (e.g. 1,000 characters × language), refunds "
+        "and operator corrections. Paged by `cursor`.",
+        tags=["billing"],
+        parameters=[CreditLedgerQuerySerializer],
+        responses={
+            200: CreditLedgerPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = CreditLedgerQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        rows, next_cursor = credit_ledger_page(
+            cursor=query.validated_data.get("cursor"), limit=query.validated_data["limit"]
+        )
+        return Response({
+            "items": [
+                {
+                    "id": row.id,
+                    "occurred_at": row.occurred_at,
+                    "kind": row.kind,
+                    "bucket": row.bucket,
+                    "amount": row.amount,
+                    "balance_after": row.balance_after,
+                    "operation_key": row.operation_key,
+                    "operation_quantity": row.operation_quantity,
+                    "reason": row.reason,
+                }
+                for row in rows
+            ],
+            "next_cursor": next_cursor,
+        })
 
 
 @method_decorator(csrf_protect, name="dispatch")

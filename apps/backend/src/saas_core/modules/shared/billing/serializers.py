@@ -147,6 +147,37 @@ class CreditPurchaseSerializer(serializers.Serializer[dict[str, Any]]):
     completed_at = serializers.DateTimeField(allow_null=True)
 
 
+class CreditLedgerQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    cursor = serializers.UUIDField(
+        required=False, allow_null=True, help_text="Ostatni wpis poprzedniej strony."
+    )
+    limit = serializers.IntegerField(min_value=1, max_value=100, default=50)
+
+
+class CreditLedgerEntrySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    occurred_at = serializers.DateTimeField()
+    kind = serializers.CharField(
+        help_text="allowance_granted, allowance_expired, purchased, consumed, refunded "
+        "albo operator_adjustment."
+    )
+    bucket = serializers.CharField(help_text="allowance (pula planu) albo purchased (dokupione).")
+    amount = serializers.IntegerField(
+        help_text="Zmiana w kredytach; ujemna przy zużyciu i wygaśnięciu."
+    )
+    balance_after = serializers.IntegerField(help_text="Stan tej puli po zmianie.")
+    operation_key = serializers.CharField(allow_blank=True)
+    operation_quantity = serializers.IntegerField(
+        allow_null=True, help_text="Jednostki operacji, np. 1000 znaków × język."
+    )
+    reason = serializers.CharField(allow_blank=True)
+
+
+class CreditLedgerPageSerializer(serializers.Serializer[dict[str, Any]]):
+    items = CreditLedgerEntrySerializer(many=True)
+    next_cursor = serializers.UUIDField(allow_null=True)
+
+
 class CustomerCreditsOverviewSerializer(serializers.Serializer[dict[str, Any]]):
     can_buy = serializers.BooleanField()
     plan_required = serializers.BooleanField()

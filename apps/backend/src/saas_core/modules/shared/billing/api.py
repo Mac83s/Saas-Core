@@ -1,7 +1,13 @@
 """Public authorization and quota API for Shared and Vertical modules."""
 
 from .authorization import EntitlementRequired, authorize_entitled
-from .credits import commit_credits, operation_cost, release_credits, reserve_credits
+from .credits import (
+    commit_credits,
+    operation_cost,
+    release_credits,
+    reserve_credits,
+    settle_credits,
+)
 from .decisions import FeatureOperation, decide_feature, decide_quota
 from .quotas import (
     QuotaExceeded,
@@ -39,5 +45,6 @@ __all__ = [
     "commit_credits",
     "release_credits",
     "operation_cost",
+    "settle_credits",
     "billing_organization_ids",
 ]

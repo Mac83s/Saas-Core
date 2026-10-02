@@ -1080,7 +1080,11 @@ class CreditOperation(models.Model):
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    #: Credits for one unit. Most operations are one unit each (an image, an
+    #: audit); a metered one prices its unit, e.g. 1,000 source characters in
+    #: one target language for `translation.characters` (ADR-069 pkt 23).
     cost = models.PositiveIntegerField()
+    unit = models.CharField(max_length=40, default="operation")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1172,9 +1176,17 @@ class CreditReservation(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     idempotency_key = models.CharField(max_length=120)
     operation_key = models.CharField(max_length=100)
+    #: Credits held: `quantity` × `unit_cost`.
     cost = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField(default=1)
+    unit_cost = models.PositiveIntegerField(null=True, blank=True)
     allowance_amount = models.PositiveIntegerField(default=0)
     purchased_amount = models.PositiveIntegerField(default=0)
+    #: The allowance period the allowance part was held from. Released in a
+    #: later period, that part expires instead of joining the new month's pool.
+    allowance_period_start = models.DateField(null=True, blank=True)
+    #: How many units a partial settlement committed; empty until settled.
+    settled_quantity = models.PositiveIntegerField(null=True, blank=True)
     state = models.CharField(
         max_length=16, choices=CreditReservationState, default=CreditReservationState.RESERVED
     )
@@ -1193,6 +1205,10 @@ class CreditReservation(TenantScopedModel):
             ),
             models.CheckConstraint(
                 condition=models.Q(cost__gt=0), name="billing_credit_reservation_cost_ck"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gte=1),
+                name="billing_credit_reservation_quantity_ck",
             ),
             models.CheckConstraint(
                 condition=models.Q(
@@ -1219,6 +1235,9 @@ class CreditLedgerEntry(TenantScopedModel):
     balance_after = models.PositiveBigIntegerField()
     operation_key = models.CharField(max_length=100, blank=True)
     operation_cost = models.PositiveIntegerField(null=True, blank=True)
+    #: Units the entry stands for, for a metered operation (1,000 characters ×
+    #: language): what the customer can read next to the credits.
+    operation_quantity = models.PositiveIntegerField(null=True, blank=True)
     reservation = models.ForeignKey(
         CreditReservation,
         on_delete=models.PROTECT,

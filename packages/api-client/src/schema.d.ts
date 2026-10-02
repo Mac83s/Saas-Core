@@ -296,6 +296,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/credits/ledger/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List credit movements
+         * @description The company's credit ledger, newest first: allowance granted and expired, purchases, consumption with its units (e.g. 1,000 characters × language), refunds and operator corrections. Paged by `cursor`.
+         */
+        get: operations["billing_credit_ledger_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/details/": {
         parameters: {
             query?: never;
@@ -5318,6 +5338,29 @@ export interface components {
         CreditCheckoutCreate: {
             pack: string;
         };
+        CreditLedgerEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description allowance_granted, allowance_expired, purchased, consumed, refunded albo operator_adjustment. */
+            kind: string;
+            /** @description allowance (pula planu) albo purchased (dokupione). */
+            bucket: string;
+            /** @description Zmiana w kredytach; ujemna przy zużyciu i wygaśnięciu. */
+            amount: number;
+            /** @description Stan tej puli po zmianie. */
+            balance_after: number;
+            operation_key: string;
+            /** @description Jednostki operacji, np. 1000 znaków × język. */
+            operation_quantity: number | null;
+            reason: string;
+        };
+        CreditLedgerPage: {
+            items: components["schemas"]["CreditLedgerEntry"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
         CreditPack: {
             key: string;
             name: string;
@@ -9306,6 +9349,45 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    billing_credit_ledger_list: {
+        parameters: {
+            query?: {
+                /** @description Ostatni wpis poprzedniej strony. */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditLedgerPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

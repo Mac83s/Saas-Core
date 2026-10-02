@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     BillingCheckoutView,
     BillingCreditCheckoutView,
+    BillingCreditLedgerView,
     BillingCreditsView,
     BillingDetailsView,
     BillingEntitlementSupportView,
@@ -24,6 +25,7 @@ urlpatterns = [
     ),
     path("checkout/", BillingCheckoutView.as_view(), name="billing-checkout"),
     path("credits/", BillingCreditsView.as_view(), name="billing-credits"),
+    path("credits/ledger/", BillingCreditLedgerView.as_view(), name="billing-credit-ledger"),
     path(
         "credits/checkout/",
         BillingCreditCheckoutView.as_view(),

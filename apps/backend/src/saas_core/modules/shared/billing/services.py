@@ -7,7 +7,7 @@ from uuid import UUID
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
@@ -523,6 +523,33 @@ def create_customer_portal() -> PortalResult:
         metadata={"stripe_portal_session_id": portal.id},
     )
     return PortalResult(portal.id, portal.url)
+
+
+def credit_ledger_page(*, cursor: UUID | None, limit: int) -> tuple[list[Any], UUID | None]:
+    """The company's credit movements, newest first, a page at a time.
+
+    What the credits page lists next to the balance: grants, purchases,
+    consumption with its units (1,000 characters × language for translations),
+    refunds, expiry. Reading needs only membership, like the balance.
+    """
+    context = authorize(ORGANIZATION_READ)
+    from .models import CreditLedgerEntry
+
+    entries = CreditLedgerEntry.all_objects.filter(
+        organization_id=context.organization_id
+    ).order_by("-occurred_at", "-id")
+    if cursor is not None:
+        anchor = (
+            CreditLedgerEntry.all_objects.filter(organization_id=context.organization_id, pk=cursor)
+            .values_list("occurred_at", "id")
+            .first()
+        )
+        if anchor is not None:
+            entries = entries.filter(
+                Q(occurred_at__lt=anchor[0]) | Q(occurred_at=anchor[0], id__lt=anchor[1])
+            )
+    rows = list(entries[: limit + 1])
+    return rows[:limit], rows[limit - 1].id if len(rows) > limit else None
 
 
 def customer_credits_overview() -> dict[str, Any]:
