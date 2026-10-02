@@ -38,6 +38,15 @@ def organization_contact(organization_id: UUID) -> dict[str, str]:
     }
 
 
+def business_card_contact(organization_id: UUID) -> tuple[str, str]:
+    """The phone and e-mail the company's business card shows — only what it
+    chose to show, never the billing e-mail, because a website is public."""
+    profile = PublicProfile.all_objects.filter(
+        organization_id=organization_id, subject_kind=ProfileSubjectKind.ORGANIZATION
+    ).first()
+    return (profile.contact_phone, profile.contact_email) if profile else ("", "")
+
+
 def _saved(profile: PublicProfile) -> PublicProfile:
     try:
         profile.full_clean(exclude=["organization"], validate_unique=False)
@@ -97,6 +106,7 @@ def person_names(organization_id: UUID, profile_ids: Iterable[UUID | None]) -> d
 __all__ = [
     "catalog_changed",
     "create_person_profile",
+    "business_card_contact",
     "organization_contact",
     "person_names",
     "register_catalog_terms",

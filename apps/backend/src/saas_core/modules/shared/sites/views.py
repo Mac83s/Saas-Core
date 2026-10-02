@@ -514,9 +514,7 @@ class SiteTemplateListCreateView(APIView):
     )
     def get(self, request: Request) -> Response:
         kind = request.query_params.get("kind")
-        items, limit = list_site_templates(
-            kind=kind if kind in ("section", "page") else None
-        )
+        items, limit = list_site_templates(kind=kind if kind in ("section", "page") else None)
         return Response({"items": [_own_template(item) for item in items], "limit": limit})
 
     @extend_schema(
@@ -963,9 +961,19 @@ def _localization_report(report: SiteLocalizationReport) -> dict[str, Any]:
                 "locales": [_locale_resolution(locale) for locale in page.locales],
                 "hreflang": page.hreflang,
                 "x_default": page.x_default,
+                # What the draft still says only to its owner (UX-038).
+                **_page_content(report, page.page.id),
             }
             for page in report.pages
         ],
+    }
+
+
+def _page_content(report: SiteLocalizationReport, page_id: UUID) -> dict[str, Any]:
+    content = report.content.get(page_id)
+    return {
+        "placeholders": content.placeholders if content else 0,
+        "template_contact": content.template_contact if content else False,
     }
 
 
@@ -1217,18 +1225,26 @@ class ContentProposalAcceptView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        operation_id="sites_content_proposal_accept", tags=["sites"],
+        operation_id="sites_content_proposal_accept",
+        tags=["sites"],
         request=ProposalAcceptSerializer,
-        responses={200: ProposalAcceptResultSerializer, 400: ProblemDetailsSerializer,
-                   403: ProblemDetailsSerializer, 404: ProblemDetailsSerializer,
-                   409: ProblemDetailsSerializer},
+        responses={
+            200: ProposalAcceptResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
     )
     def post(self, request: Request, proposal_id: UUID) -> Response:
         serializer = ProposalAcceptSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(accept_proposal(
-            proposal_id=proposal_id, review_token=serializer.validated_data["review_token"],
-        ))
+        return Response(
+            accept_proposal(
+                proposal_id=proposal_id,
+                review_token=serializer.validated_data["review_token"],
+            )
+        )
 
 
 class ContentProposalDiscardView(APIView):
@@ -1551,4 +1567,3 @@ class PageIncomingLinksView(APIView):
     )
     def get(self, _request: Request, page_id: UUID) -> Response:
         return Response({"items": incoming_links(page_id=page_id)})
-

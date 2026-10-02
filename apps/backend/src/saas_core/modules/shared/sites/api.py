@@ -7,6 +7,7 @@ from .block_contracts import (
     UnknownSiteBlockVersion,
     validate_site_block,
 )
+from .content_checks import register_company_contact
 from .page_templates import PageTemplate, PageTemplateNotFound, page_template_catalog
 from .services import (
     DraftVersionConflict,
@@ -44,6 +45,7 @@ from .services import (
 )
 
 __all__ = [
+    "register_company_contact",
     "badge_visible",
     "DraftVersionConflict",
     "InvalidSiteBlockData",

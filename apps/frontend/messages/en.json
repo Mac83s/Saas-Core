@@ -1636,7 +1636,8 @@
         "samplesSections": "Sections with sample details",
         "deadAnchors": "{count, plural, one {A link leads to a place this page does not have: {anchors}.} other {# links lead to places this page does not have: {anchors}.}}",
         "deadAnchorsHint": "Add a section with that anchor (e.g. a form with the anchor “contact”) or change the link's address.",
-        "deadAnchorsSections": "Sections with links to nowhere"
+        "deadAnchorsSections": "Sections with links to nowhere",
+        "sampleChip": "template sample: {values}"
       }
     },
     "uploadAndCrop": "Upload and crop",
@@ -2169,7 +2170,12 @@
       }
     },
     "pageNotFound": "This page is not here — it may have been deleted.",
-    "pageKindTitle": "Page type and automation"
+    "pageKindTitle": "Page type and automation",
+    "readyUnfinished": "To complete before publishing",
+    "unfinishedSlots": "{count, plural, one {# place to fill in} other {# places to fill in}}",
+    "unfinishedContact": "the template's phone or e-mail",
+    "unfinishedShow": "Show: {page}",
+    "unfinishedPublish": "Visitors will not see the sentences with places to fill in, nor the buttons with the template's phone and e-mail — they are left out of the page. Fill them in before you publish."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

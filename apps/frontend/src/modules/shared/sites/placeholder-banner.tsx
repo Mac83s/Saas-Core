@@ -116,10 +116,22 @@ export function PlaceholderBanner({
             })}
           </p>
           <p>{t("studio.leftovers.samplesHint")}</p>
+          {/* Each chip says what is in its section, so a section that also
+              holds slots does not look like the same chip twice (UX-038). */}
           {sectionButtons(
             t("studio.leftovers.samplesSections"),
             where(samples),
-            () => null,
+            (index) => (
+              <span className="text-xs text-muted-foreground">
+                {t("studio.leftovers.sampleChip", {
+                  values: unique(
+                    samples
+                      .filter((sample) => sample.blockIndex === index)
+                      .map((sample) => sample.text),
+                  ).join(", "),
+                })}
+              </span>
+            ),
           )}
         </div>
       ) : null}

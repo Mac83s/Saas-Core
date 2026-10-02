@@ -1636,7 +1636,8 @@
         "samplesSections": "Sekcje z przykładowymi danymi",
         "deadAnchors": "{count, plural, one {Link prowadzi do miejsca, którego nie ma na tej stronie: {anchors}.} few {# linki prowadzą do miejsc, których nie ma na tej stronie: {anchors}.} many {# linków prowadzi do miejsc, których nie ma na tej stronie: {anchors}.} other {# linku prowadzi do miejsc, których nie ma na tej stronie: {anchors}.}}",
         "deadAnchorsHint": "Dodaj sekcję z tą kotwicą (np. formularz z kotwicą „kontakt”) albo zmień adres linku.",
-        "deadAnchorsSections": "Sekcje z linkami donikąd"
+        "deadAnchorsSections": "Sekcje z linkami donikąd",
+        "sampleChip": "przykład z szablonu: {values}"
       }
     },
     "uploadAndCrop": "Wgraj i skadruj",
@@ -2169,7 +2170,12 @@
       }
     },
     "pageNotFound": "Tej podstrony nie ma — mogła zostać usunięta.",
-    "pageKindTitle": "Rodzaj podstrony i automatyzacja"
+    "pageKindTitle": "Rodzaj podstrony i automatyzacja",
+    "readyUnfinished": "Do uzupełnienia przed publikacją",
+    "unfinishedSlots": "{count, plural, one {# miejsce do uzupełnienia} few {# miejsca do uzupełnienia} many {# miejsc do uzupełnienia} other {# miejsca do uzupełnienia}}",
+    "unfinishedContact": "telefon albo e-mail z szablonu",
+    "unfinishedShow": "Pokaż: {page}",
+    "unfinishedPublish": "Odwiedzający nie zobaczą zdań z miejscami do uzupełnienia ani przycisków z telefonem i e-mailem z szablonu — znikną ze strony. Uzupełnij je, zanim opublikujesz."
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

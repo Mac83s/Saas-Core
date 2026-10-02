@@ -895,10 +895,14 @@ def test_page_template_approved_media_rejects_escape_and_checksum_drift(
     page_template_catalog.cache_clear()
     try:
         with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH=contracts):
-            medium = page_template_catalog().get(
-                template_id="core.profile",
-                version=1,
-            ).media[0]
+            medium = (
+                page_template_catalog()
+                .get(
+                    template_id="core.profile",
+                    version=1,
+                )
+                .media[0]
+            )
             with pytest.raises(ImproperlyConfigured, match="nieprawidłową sumę"):
                 medium.read()
     finally:
@@ -1931,9 +1935,7 @@ def test_navigation_item_cannot_point_outside_its_site() -> None:
     client, organization, _ = sites_client(slug="nav-guard", role_key="owner")
     first = create_site(client)
     second = create_site(client, slug="second-site", idempotency_key="nav-second")
-    stranger = create_page(
-        client, second.data["id"], key="obca", idempotency_key="nav-stranger"
-    )
+    stranger = create_page(client, second.data["id"], key="obca", idempotency_key="nav-stranger")
 
     # The database enforces this too, so a bug in a service cannot quietly link
     # a menu to another site's page.
@@ -2344,3 +2346,82 @@ def test_all_section_seeds_validate_in_backend() -> None:
         "accordion",
         None,
     ]
+
+
+def test_readiness_names_the_templates_slots_and_sample_contact() -> None:
+    client, _, _ = sites_client(slug="sites-placeholders")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    saved = client.put(
+        f"/api/v1/sites/pages/{page.data['id']}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {
+                    "block_type": "core.hero",
+                    "schema_version": 6,
+                    "data": {
+                        "title": "Korekcja racic w Twojej oborze",
+                        "text": "Dojeżdżamy: [Uzupełnij: powiaty]. Od [Uzupełnij: rok].",
+                        "action": {"label": "Zadzwoń", "href": "tel:+48000000000"},
+                        "layout": "split",
+                    },
+                },
+            ],
+            "media_asset_ids": [],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="placeholders-draft",
+    )
+    assert saved.status_code in {200, 201}, saved.content
+
+    report = client.get(f"/api/v1/sites/{site.data['id']}/localization/").data["pages"][0]
+    # Both slots and the sample phone, before a visitor sees them (UX-038).
+    assert (report["placeholders"], report["template_contact"]) == (2, True)
+
+
+def test_template_contact_is_a_sample_number_or_an_example_address() -> None:
+    from saas_core.modules.shared.sites.content_checks import (  # noqa: PLC0415
+        is_template_contact,
+    )
+
+    assert is_template_contact("tel:+48000000000")
+    assert is_template_contact("tel:+48 000 000 000")
+    assert is_template_contact("mailto:kontakt@example.com")
+    assert not is_template_contact("tel:+48600100200")
+    assert not is_template_contact("mailto:kontakt@salon.pl")
+    assert not is_template_contact("#kontakt")
+
+
+def test_a_template_takes_the_business_cards_phone_and_keeps_a_missing_one_named() -> None:
+    from saas_core.modules.shared.profiles.models import (  # noqa: PLC0415
+        ProfileSubjectKind,
+        PublicProfile,
+    )
+    from saas_core.modules.shared.sites.content_checks import (  # noqa: PLC0415
+        company_contact,
+        with_company_contact,
+    )
+    from saas_core.modules.shared.sites.page_templates import (  # noqa: PLC0415
+        page_template_catalog,
+    )
+
+    _, organization, _ = sites_client(slug="sites-template-contact")
+    # Only what the business card shows: no card, nothing (never billing).
+    assert company_contact(organization.id) == ("", "")
+    PublicProfile.all_objects.create(
+        organization=organization,
+        subject_kind=ProfileSubjectKind.ORGANIZATION,
+        display_name="Korekcja Racic Test",
+        contact_phone="+48 600 100 200",
+    )
+    assert company_contact(organization.id) == ("+48 600 100 200", "")
+
+    blocks = page_template_catalog().get(template_id="core.service_focused", version=2)
+    filled = str(with_company_contact(blocks.draft_blocks(), "+48 600 100 200", ""))
+    # The card's own number instead of +48 000 000 000 (UX-038).
+    assert "tel:+48600100200" in filled
+    assert "tel:+48000000000" not in filled
+    # Without a phone on the card the sample stays, and readiness names it.
+    assert "tel:+48000000000" in str(with_company_contact(blocks.draft_blocks(), "", ""))

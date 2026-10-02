@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from .models import Page, PageTranslation, Site
+
+if TYPE_CHECKING:
+    from .content_checks import PageContent
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,13 +43,21 @@ class SiteLocalizationReport:
     supported_locales: tuple[str, ...]
     pages: tuple[PageLocalization, ...]
     ready_to_publish: bool
+    #: What each page's draft still says only to its owner (UX-038); filled
+    #: for the readiness card, not for the publication itself.
+    content: Mapping[UUID, PageContent] = field(default_factory=dict)
 
 
 #: First segments an unprefixed address never takes (ADR-071): every two-letter
 #: one, because it is or may become a language prefix — a page "de" would
 #: shadow /de/ — and the paths the platform answers before any page.
 RESERVED_FIRST_SEGMENTS = frozenset({
-    "media", "api", "internal", "static", "healthz", "site-renderer",
+    "media",
+    "api",
+    "internal",
+    "static",
+    "healthz",
+    "site-renderer",
 })
 
 
@@ -86,8 +99,7 @@ def build_localization_report(
     supported_locales: tuple[str, ...],
 ) -> SiteLocalizationReport:
     by_page_locale = {
-        (translation.page_id, translation.locale): translation
-        for translation in translations
+        (translation.page_id, translation.locale): translation for translation in translations
     }
     page_reports: list[PageLocalization] = []
     for page in pages:
@@ -115,10 +127,7 @@ def build_localization_report(
             )
         )
     ready_to_publish = bool(page_reports) and all(
-        any(
-            locale.locale == site.default_locale and locale.complete
-            for locale in page.locales
-        )
+        any(locale.locale == site.default_locale and locale.complete for locale in page.locales)
         for page in page_reports
     )
     return SiteLocalizationReport(

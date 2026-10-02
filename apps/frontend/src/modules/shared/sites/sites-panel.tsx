@@ -956,6 +956,9 @@ function ReadinessCard({
   report?: SiteLocalizationReport;
 }) {
   const t = useTranslations("Sites");
+  const unfinished = report?.pages.some(
+    (page) => page.placeholders > 0 || page.template_contact,
+  );
   return (
     <Card>
       <CardHeader>
@@ -970,10 +973,23 @@ function ReadinessCard({
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
+              {/* Slots and the template's contact are not „ready” (UX-038):
+                  they may go out, but the card says what a visitor misses. */}
               <Badge
+                className={
+                  report.ready_to_publish && unfinished
+                    ? "bg-warning text-warning-foreground"
+                    : undefined
+                }
                 variant={report.ready_to_publish ? "default" : "destructive"}
               >
-                {t(report.ready_to_publish ? "ready" : "notReady")}
+                {t(
+                  !report.ready_to_publish
+                    ? "notReady"
+                    : unfinished
+                      ? "readyUnfinished"
+                      : "ready",
+                )}
               </Badge>
               <span className="text-sm text-muted-foreground">
                 {t("pageCount", { count: report.pages.length })}
@@ -986,6 +1002,24 @@ function ReadinessCard({
                   key={page.page_id}
                 >
                   <span className="font-medium">{page.page_name}</span>
+                  {page.placeholders || page.template_contact ? (
+                    <span className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1 text-sm text-warning-foreground">
+                      {[
+                        page.placeholders
+                          ? t("unfinishedSlots", { count: page.placeholders })
+                          : "",
+                        page.template_contact ? t("unfinishedContact") : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      <Link
+                        className="text-primary underline"
+                        href={`/panel/sites/pages/${page.page_id}`}
+                      >
+                        {t("unfinishedShow", { page: page.page_name })}
+                      </Link>
+                    </span>
+                  ) : null}
                   <div className="flex flex-wrap gap-1">
                     {page.locales.map((locale) => (
                       <Badge
@@ -1000,6 +1034,9 @@ function ReadinessCard({
                 </div>
               ))}
             </div>
+            {report.ready_to_publish && unfinished ? (
+              <p className="text-sm">{t("unfinishedPublish")}</p>
+            ) : null}
             <Button
               disabled={loading || !report.ready_to_publish}
               onClick={onPublish}

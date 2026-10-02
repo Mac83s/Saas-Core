@@ -19,6 +19,14 @@ class ProfilesConfig(AppConfig):
 
         register(check_catalog_contract, "profiles")
 
+        # A page built from a template calls the business card's own phone and
+        # writes to its own e-mail, not the template's samples (UX-038).
+        from saas_core.modules.shared.sites.api import register_company_contact
+
+        from .api import business_card_contact
+
+        register_company_contact(business_card_contact)
+
         # Every write of a catalogue row — publication, refresh, withdrawal and
         # the cascade when a company is erased — moves its search document too.
         post_save.connect(

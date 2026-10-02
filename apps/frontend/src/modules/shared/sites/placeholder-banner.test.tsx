@@ -350,11 +350,17 @@ test.each([
     expect(within(dead).getByRole("button")).toHaveAccessibleName(
       "1. Zakresy #kontakt",
     );
-    fireEvent.click(
-      within(
-        screen.getByRole("list", { name: leftovers.samplesSections }),
-      ).getByRole("button", { name: "2. Kontakt" }),
+    // The chip says what is in its section (UX-038).
+    const sampleChip = within(
+      screen.getByRole("list", { name: leftovers.samplesSections }),
+    ).getByRole("button", { name: /^2\. Kontakt/ });
+    expect(sampleChip).toHaveAccessibleName(
+      `2. Kontakt ${leftovers.sampleChip.replace(
+        "{values}",
+        "kontakt@example.com, +48 000 000 000",
+      )}`,
     );
+    fireEvent.click(sampleChip);
     const inspector = screen.getByRole("complementary", {
       name: messages.Sites.studio.inspector,
     });

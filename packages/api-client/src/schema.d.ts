@@ -8398,6 +8398,10 @@ export interface components {
                 [key: string]: string;
             };
             x_default: string | null;
+            /** @description `[Uzupełnij: …]` slots left in the page's draft (UX-038). */
+            placeholders: number;
+            /** @description The template's sample phone or e-mail is still in a link of the draft. */
+            template_contact: boolean;
         };
         PageRedirectSummary: {
             from_path: string;

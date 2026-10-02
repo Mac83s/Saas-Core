@@ -6,7 +6,7 @@ import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any, cast
 from uuid import UUID, uuid7
@@ -67,6 +67,7 @@ from .block_decoration import (
     validate_page_presentation,
     validate_presentation,
 )
+from .content_checks import company_contact, page_content, with_company_contact
 from .domains import InvalidHostname, link_host, normalize_hostname
 from .localization import (
     SiteLocalizationReport,
@@ -299,9 +300,7 @@ class AutomationApprovalRequired(APIException):
 
 class AutomationAutonomyNotPiloted(APIException):
     status_code = 403
-    default_detail = (
-        "Tryb autonomiczny działa na razie tylko w workspace platformowym."
-    )
+    default_detail = "Tryb autonomiczny działa na razie tylko w workspace platformowym."
     default_code = "automation_autonomy_not_piloted"
 
 
@@ -683,8 +682,10 @@ def read_site_audit_target(*, site_id: UUID) -> dict[str, str]:
     from .models import Domain, DomainStatus
 
     domain = Domain.all_objects.filter(
-        site_id=site.id, organization_id=context.organization_id,
-        status=DomainStatus.VERIFIED, is_canonical=True,
+        site_id=site.id,
+        organization_id=context.organization_id,
+        status=DomainStatus.VERIFIED,
+        is_canonical=True,
     ).first()
     if domain is None:
         raise SitePublicationNotReady(detail="Strona nie ma zweryfikowanej domeny kanonicznej.")
@@ -921,9 +922,12 @@ def _assert_grant_permits(
         # costs us rather than a customer who never asked for the experiment.
         # A setting rather than a hard rule, because lifting the pilot is a
         # decision somebody makes and records once it has been earned.
-        if settings.SITES_AUTONOMOUS_PILOT_ONLY and not Organization.objects.filter(
-            pk=context.organization_id, workspace_kind=WorkspaceKind.PLATFORM
-        ).exists():
+        if (
+            settings.SITES_AUTONOMOUS_PILOT_ONLY
+            and not Organization.objects.filter(
+                pk=context.organization_id, workspace_kind=WorkspaceKind.PLATFORM
+            ).exists()
+        ):
             raise AutomationAutonomyNotPiloted
     elif writing and grant.mode not in WRITING_MODES:
         raise AutomationSuggestOnly
@@ -934,14 +938,11 @@ def _assert_grant_permits(
         return
 
     organization = Organization.objects.get(pk=context.organization_id)
-    local_now = timezone.localtime(
-        timezone.now(), ZoneInfo(organization.timezone or "UTC")
-    )
+    local_now = timezone.localtime(timezone.now(), ZoneInfo(organization.timezone or "UTC"))
     if not grant.within_window(local_now.time()):
         raise AutomationOutsideWindow(
             detail=(
-                "Ten klucz działa między "
-                f"{grant.window_start} a {grant.window_end} czasu klienta."
+                f"Ten klucz działa między {grant.window_start} a {grant.window_end} czasu klienta."
             )
         )
     if (
@@ -952,15 +953,18 @@ def _assert_grant_permits(
         raise AutomationPayloadTooLarge
     if grant.max_changes_per_day is not None and writing and not publishing:
         since = timezone.now() - timedelta(days=1)
-        written = PageVersion.all_objects.filter(
-            organization_id=context.organization_id,
-            created_by_credential=context.credential_id,
-            created_at__gte=since,
-        ).count() + ContentEntryVersion.all_objects.filter(
-            organization_id=context.organization_id,
-            created_by_credential=context.credential_id,
-            created_at__gte=since,
-        ).count()
+        written = (
+            PageVersion.all_objects.filter(
+                organization_id=context.organization_id,
+                created_by_credential=context.credential_id,
+                created_at__gte=since,
+            ).count()
+            + ContentEntryVersion.all_objects.filter(
+                organization_id=context.organization_id,
+                created_by_credential=context.credential_id,
+                created_at__gte=since,
+            ).count()
+        )
         if written >= grant.max_changes_per_day:
             raise AutomationChangeLimitReached
 
@@ -1058,8 +1062,7 @@ def default_automation_rel(
     if not _is_automation(context):
         return blocks
     base = [
-        item["data"] if isinstance(item, dict) and "data" in item else item
-        for item in base_blocks
+        item["data"] if isinstance(item, dict) and "data" in item else item for item in base_blocks
     ]
     kept: dict[str, str | None] = {}
     for link in _link_objects(base):
@@ -1228,17 +1231,12 @@ def assert_page_writable(
     )
     if page.page_type in PERSON_ONLY_PAGE_TYPES:
         assert_person_required(context, "Strona prawna")
-    allowed = (
-        {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
-    )
+    allowed = {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
     if page.automation_policy not in allowed:
         raise PageAutomationForbidden
     if page.editing_locked_until is not None and page.editing_locked_until > timezone.now():
         raise PageEditingLocked(
-            detail=(
-                "Podstrona jest edytowana ręcznie do "
-                f"{page.editing_locked_until.isoformat()}."
-            )
+            detail=(f"Podstrona jest edytowana ręcznie do {page.editing_locked_until.isoformat()}.")
         )
 
 
@@ -1255,9 +1253,7 @@ def hold_page_editing_lock(*, page_id: UUID) -> Page:
     )
     if page is None:
         raise PageNotFound
-    page.editing_locked_until = timezone.now() + timedelta(
-        seconds=PAGE_EDITING_LOCK_TTL_SECONDS
-    )
+    page.editing_locked_until = timezone.now() + timedelta(seconds=PAGE_EDITING_LOCK_TTL_SECONDS)
     page.editing_locked_by_id = context.actor_id
     page.save(update_fields=["editing_locked_until", "editing_locked_by", "updated_at"])
     return page
@@ -1323,8 +1319,10 @@ def save_draft(
     # client that already lists them all keeps the same hash.
     normalized_media_asset_ids = tuple(
         sorted(
-            {*(UUID(str(asset_id)) for asset_id in media_asset_ids),
-             *block_asset_ids(normalized_blocks)},
+            {
+                *(UUID(str(asset_id)) for asset_id in media_asset_ids),
+                *block_asset_ids(normalized_blocks),
+            },
             key=str,
         )
     )
@@ -1574,6 +1572,8 @@ def import_page_template(
 
         blocks = render_slots(template, text_values)
         request_context["text_values"] = text_values
+    # The company's own phone and e-mail instead of the template's samples.
+    blocks = with_company_contact(blocks, *company_contact(context.organization_id))
     taken = swap_into_template(blocks, kept)
     if kept:
         request_context["kept"] = sorted(taken)
@@ -1595,8 +1595,7 @@ def import_page_template(
                         "template:"
                         + hashlib.sha256(
                             (
-                                f"{template.id}:{template.version}:"
-                                f"{medium.id}:{medium.sha256}"
+                                f"{template.id}:{template.version}:{medium.id}:{medium.sha256}"
                             ).encode()
                         ).hexdigest()
                     ),
@@ -1866,12 +1865,14 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
             locale__in=supported_locales,
         ).select_related("site")
     )
-    return build_localization_report(
+    report = build_localization_report(
         site=site,
         pages=pages,
         translations=translations,
         supported_locales=supported_locales,
     )
+    # The template's slots and sample contact, named before a visitor sees them.
+    return replace(report, content=page_content(context.organization_id, pages))
 
 
 def list_site_publications(
@@ -1969,9 +1970,7 @@ def save_site_navigation(
 
     parents = {
         UUID(str(item["page_id"])): (
-            UUID(str(item["parent_page_id"]))
-            if item.get("parent_page_id") is not None
-            else None
+            UUID(str(item["parent_page_id"])) if item.get("parent_page_id") is not None else None
         )
         for item in items
     }
@@ -2076,19 +2075,21 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         page.automation_policy == PageAutomationPolicy.PROPOSED for page in pages
     ):
         raise PageAutomationForbidden(
-            detail=(
-                "Witryna zawiera propozycje czekające na akceptację; "
-                "publikuje je człowiek."
-            )
+            detail=("Witryna zawiera propozycje czekające na akceptację; publikuje je człowiek.")
         )
     from .models import ContentProposal
 
     current_versions = {page.id: page.version for page in pages}
-    if any(current_versions.get(proposal.resource_id) == proposal.version
-           for proposal in ContentProposal.all_objects.filter(
-               organization_id=context.organization_id, resource_type="site_page",
-               resource_id__in=current_versions, review_state="pending", metadata_pending=True,
-           )):
+    if any(
+        current_versions.get(proposal.resource_id) == proposal.version
+        for proposal in ContentProposal.all_objects.filter(
+            organization_id=context.organization_id,
+            resource_type="site_page",
+            resource_id__in=current_versions,
+            review_state="pending",
+            metadata_pending=True,
+        )
+    ):
         raise AutomationApprovalRequired(
             detail="Najpierw zaakceptuj lub odrzuć propozycję metadanych."
         )
@@ -2194,9 +2195,7 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
             | _language_entry_media(
                 context=context,
                 languages=languages,
-                known={
-                    str(_current_version_id(page)): page_media_ids[page.id] for page in pages
-                },
+                known={str(_current_version_id(page)): page_media_ids[page.id] for page in pages},
             ),
             key=str,
         )
@@ -2488,9 +2487,7 @@ def emit_draft_saved_event(
         event_type=event_type,
         version=1,
         actor_id=context.actor_id,
-        correlation_id=(
-            UUID(active_correlation_id) if active_correlation_id else uuid7()
-        ),
+        correlation_id=(UUID(active_correlation_id) if active_correlation_id else uuid7()),
         causation_id=f"sites-draft:{resource_id}:{version}",
         payload={
             "resource_type": resource_type,
@@ -2529,9 +2526,7 @@ def revoke_automation_grant(*, grant_id: UUID, reason: str) -> ContentAutomation
         event_type=GRANT_REVOKED_EVENT,
         version=1,
         actor_id=context.actor_id,
-        correlation_id=(
-            UUID(active_correlation_id) if active_correlation_id else uuid7()
-        ),
+        correlation_id=(UUID(active_correlation_id) if active_correlation_id else uuid7()),
         causation_id=f"sites-grant-revoked:{grant.id}",
         payload={
             "grant_id": str(grant.id),
@@ -2735,9 +2730,11 @@ def _language_entry_media(
         media = by_version[str(entry["source_version_id"])]
         if unavailable.intersection(media):
             entry["withheld"] = True
-            languages.skipped.append(
-                {"page_id": page_id, "locale": locale, "reason": MEDIA_UNAVAILABLE}
-            )
+            languages.skipped.append({
+                "page_id": page_id,
+                "locale": locale,
+                "reason": MEDIA_UNAVAILABLE,
+            })
             media = tuple(asset_id for asset_id in media if asset_id not in unavailable)
         entry["media_asset_ids"] = [str(asset_id) for asset_id in media]
         used.update(media)
@@ -2761,11 +2758,7 @@ def _navigation_snapshot(
             visible=True,
         ).order_by("position", "id")
     )
-    kept = {
-        item.id: item
-        for item in items
-        if item.page_id in published_page_ids
-    }
+    kept = {item.id: item for item in items if item.page_id in published_page_ids}
 
     def reachable(item: NavigationItem) -> bool:
         seen: set[UUID] = set()
@@ -2783,9 +2776,7 @@ def _navigation_snapshot(
     entries: list[dict[str, Any]] = [
         {
             "page_id": str(item.page_id),
-            "parent_page_id": (
-                str(kept[item.parent_id].page_id) if item.parent_id else None
-            ),
+            "parent_page_id": (str(kept[item.parent_id].page_id) if item.parent_id else None),
             "position": item.position,
         }
         for item in items
@@ -3080,12 +3071,16 @@ def change_page_url(
         raise RedirectTargetUnchanged
     if normalized_locale == site.default_locale and first_segment_reserved(normalized_slug):
         raise SlugReserved
-    if PageTranslation.all_objects.filter(
-        organization_id=context.organization_id,
-        site_id=site.id,
-        locale=normalized_locale,
-        slug=normalized_slug,
-    ).exclude(pk=translation.id).exists():
+    if (
+        PageTranslation.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+            locale=normalized_locale,
+            slug=normalized_slug,
+        )
+        .exclude(pk=translation.id)
+        .exists()
+    ):
         raise TranslationSlugConflict
 
     old_path = localized_path(
@@ -3105,9 +3100,7 @@ def change_page_url(
     # and that refusal is what stops a published address moving by accident.
     locked_at = translation.slug_locked_at
     if locked_at is not None:
-        PageTranslation.all_objects.filter(pk=translation.id).update(
-            slug_locked_at=None
-        )
+        PageTranslation.all_objects.filter(pk=translation.id).update(slug_locked_at=None)
     PageTranslation.all_objects.filter(pk=translation.id).update(
         slug=normalized_slug,
         version=translation.version + 1,
@@ -3197,9 +3190,7 @@ def list_site_redirects(*, site_id: UUID) -> list[SiteRedirect]:
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    if not Site.all_objects.filter(
-        pk=site_id, organization_id=context.organization_id
-    ).exists():
+    if not Site.all_objects.filter(pk=site_id, organization_id=context.organization_id).exists():
         raise SiteNotFound
     assert_within_grant(context, site_id=site_id)
     return list(

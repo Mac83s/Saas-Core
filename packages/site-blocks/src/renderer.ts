@@ -30,6 +30,7 @@ import type {
   PublishedPageDocument,
   SiteBlock,
 } from "./types";
+import { withoutTemplateLeftovers } from "./public-leftovers";
 
 const validateTokens = new Ajv2020({ allErrors: true, strict: true }).compile(
   designTokensSchema,
@@ -278,7 +279,8 @@ export function renderPublishedPage(
     throw new TypeError("Renderer publiczny wymaga zweryfikowanej publikacji.");
   }
   return renderDocument(
-    document.blocks,
+    // A visitor never reads a template's slot or its sample contact (UX-038).
+    withoutTemplateLeftovers(document.blocks),
     document.designTokens,
     registry,
     document.navigation ?? [],

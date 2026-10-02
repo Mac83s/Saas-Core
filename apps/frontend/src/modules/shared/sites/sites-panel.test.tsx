@@ -188,6 +188,8 @@ beforeEach(() => {
         ],
         hreflang: { pl: "/start/" },
         x_default: "/start/",
+        placeholders: 0,
+        template_contact: false,
       },
     ],
   });
@@ -242,6 +244,33 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
   renderPanel({ section: "publication" });
   expect(await screen.findByText("PL: kompletne")).not.toBeNull();
   expect(screen.getByText("EN: niekompletne")).not.toBeNull();
+});
+
+test("slots and the template's contact are named, not called ready", async () => {
+  const report = await getSiteLocalizationReport();
+  getSiteLocalizationReport.mockResolvedValue({
+    ...report,
+    pages: [{ ...report.pages[0]!, placeholders: 15, template_contact: true }],
+  });
+  renderPanel({ section: "publication" });
+  // UX-038: not the green „Gotowy do publikacji” over 15 slots.
+  expect(
+    await screen.findByText("Do uzupełnienia przed publikacją"),
+  ).not.toBeNull();
+  expect(screen.queryByText("Gotowy do publikacji")).toBeNull();
+  expect(
+    screen.getByText(
+      "15 miejsc do uzupełnienia · telefon albo e-mail z szablonu",
+      { exact: false },
+    ),
+  ).not.toBeNull();
+  expect(
+    screen.getByRole("link", { name: "Pokaż: Start" }).getAttribute("href"),
+  ).toBe(`/panel/sites/pages/${page.id}`);
+  // Publishing stays open; the card says what a visitor will not see.
+  expect(
+    screen.getByRole("button", { name: "Opublikuj snapshot" }),
+  ).not.toBeDisabled();
 });
 
 test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {

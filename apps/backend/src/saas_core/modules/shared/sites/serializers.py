@@ -764,6 +764,12 @@ class PageLocalizationSerializer(serializers.Serializer[dict[str, Any]]):
     locales = LocaleLocalizationSerializer(many=True)
     hreflang = serializers.DictField(child=serializers.CharField())
     x_default = serializers.CharField(allow_null=True)
+    placeholders = serializers.IntegerField(
+        help_text="`[Uzupełnij: …]` slots left in the page's draft (UX-038)."
+    )
+    template_contact = serializers.BooleanField(
+        help_text="The template's sample phone or e-mail is still in a link of the draft."
+    )
 
 
 class SiteLocalizationReportSerializer(serializers.Serializer[dict[str, Any]]):

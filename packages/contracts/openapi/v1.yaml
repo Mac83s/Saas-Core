@@ -24044,12 +24044,21 @@ components:
           type:
           - string
           - 'null'
+        placeholders:
+          type: integer
+          description: '`[Uzupełnij: …]` slots left in the page''s draft (UX-038).'
+        template_contact:
+          type: boolean
+          description: The template's sample phone or e-mail is still in a link of
+            the draft.
       required:
       - hreflang
       - locales
       - page_id
       - page_key
       - page_name
+      - placeholders
+      - template_contact
       - x_default
     PageRedirectSummary:
       type: object
