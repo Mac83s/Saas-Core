@@ -65,10 +65,11 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
    `provenance.py` i `facts.py` są w `main` od TL8a; `registry.py` dopisuje TL5:
    `register_translation_source(source)` (moduły w `AppConfig.ready`, produkty nowymi
    plikami — ADR-049), `register_translation_policy(policy)` (jeden obiekt silnika:
-   tryb skuteczny, granice z pkt 16 przy zapisie wyniku i odbiór zgłoszeń) i
-   `notify_source_changed(source_key, object_ids, kind)` z `kind` `changed`,
-   `withdrawn` albo `deleted`. Bez silnika polityka mówi „wyłączone”, zgłoszenie nic
-   nie robi, a ręczne tłumaczenie działa. Pakiet nie importuje `saas_core.modules`
+   tryb skuteczny i limit publikacji masowej, czytane przez moduł przy zapisie wyniku),
+   `register_source_change_listener(listener)` (odbiorca zgłoszeń silnika) i
+   `notify_source_changed(context=…, source_key=…, object_ids=…, change=…, cause=…)` z
+   `change` `changed`, `withdrawn` albo `deleted`. Bez silnika polityka mówi
+   „wyłączone”, zgłoszenie nic nie robi, a ręczne tłumaczenie działa. Pakiet nie importuje `saas_core.modules`
    (kontrakt `.importlinter`), więc importują go `core`, `shared` i `vertical`;
    tokeny i fakty to pojęcia treści, nie organizacji, a edycja ręczna (TL8) i
    wstrzymanie po zmianie faktów (TL9) potrzebują ich bez silnika (decyzja memex
@@ -86,12 +87,16 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
    publikacja i odświeżenie katalogu zostają jedyną ścieżką.
 
 4. **Wyzwalacze tylko zgłaszają popyt i nigdy nie rzucają.** Serwis źródła woła
-   `notify_source_changed` w swojej transakcji, w punkcie zapisu: wycofana zmiana nie
-   zostawia popytu, a błąd zapisu jest logowany i połykany. Obsługa zdarzeń domenowych
-   zapisuje popyt po commicie i nie przepuszcza wyjątku, więc outbox stron i webhooki
-   SCR idą dalej. `changed` tworzy `TranslationDemand` tylko przy włączonym automacie
-   (pkt 14); `withdrawn` i `deleted` zawsze, bez kredytów, tworzą pozycję przeglądu
-   „wycofaj tłumaczenia”, gdy tłumaczenie jest publiczne osobno (rodzeństwo wpisu).
+   `notify_source_changed` w transakcji zmiany publicznego tekstu (nigdy przy zapisie
+   szkicu); funkcja nie wykonuje zapytań, a odbiorca silnika zapisuje popyt dopiero po
+   commicie (`on_commit`, `robust=True`): wycofana zmiana nie zostawia popytu, a błąd
+   odbiorcy nie zatrzyma zapisu firmy ani outboxu stron i webhooków SCR. Zgłoszenie
+   zgubione między commitem a callbackiem naprawia dobowy przegląd
+   `reconcile_translation_demand`. `changed` tworzy `TranslationDemand` tylko przy
+   włączonym automacie (pkt 14); `withdrawn` i `deleted` zawsze, bez kredytów, tworzą
+   pozycję przeglądu „wycofaj tłumaczenia”, gdy tłumaczenie jest publiczne osobno
+   (rodzeństwo wpisu). Zapis tłumaczenia, publikacje pochodne i rollback nie zgłaszają
+   zmian, więc automat nie zapętla się.
 
 ### Fragmenty, dane i jakość
 
@@ -136,7 +141,8 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
    - **Bramka modułu przy zapisie**, ostatnia przed publikacją bez kliknięcia: fakty z
      `content_protocol.facts` jako wartości („1 200 zł” = „1.200 zł”, ale „120 PLN” ≠
      „120 zł”), tokeny, limity pól i terminy chronione (forma docelowa z dopuszczeniem
-     odmiany). Niezgodność to przegląd z kodem pola, bez publikacji.
+     odmiany). Niezgodność to wynik `pending` z powodem `gate_failed` i błędami pól,
+     bez publikacji i bez opłaty.
 
 9. **Wywołanie modelu i prompt injection.** Jedno wywołanie to jedna firma, jedno
    zlecenie i jeden język: pozycja albo paczka do 20 małych pozycji, razem najwyżej
@@ -184,7 +190,7 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
     pozycji sprawdza aktywne członkostwo, uprawnienie, prawo zapisu i entitlement
     źródła, jak przy obrazach AI; utrata praw kończy pozycje kodem
     `authorization_revoked`. Wynik osoby bez prawa publikacji (menedżer nie ma
-    `site.publish`) czeka na akceptację także w automacie (`no_publish_permission`).
+    `site.publish`) czeka na akceptację także w automacie (`publisher_required`).
 
 14. **Automat zmian: jedna zgoda i miesięczny limit (odpowiedź 3).** Włącza go jednym
     aktem osoba z `translation.manage`, z ceną i limitem na ekranie. Wyzwalacze bez
@@ -294,14 +300,17 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
     zatrzymuje wysyłkę i rozlicza dostarczone.
 
 21. **Kiedy zlecenie publikuje (ADR-070 pkt 11).** Pochodną publikacją
-    `translation_job` raz na część zlecenia i witrynę, po zapisaniu jej pozycji, a
-    wcześniej z tym, co gotowe, gdy część czeka na pulę portu dłużej niż godzinę.
-    Strona główna języka jest pierwszą pozycją, a język wchodzi na witrynę dopiero z
-    nią (ADR-070 pkt 7). Do publikacji trafiają tylko wersje publikowalne według
-    ADR-070 pkt 6, w trybie skutecznym `automatic` i w granicach pkt 16; pozostałe
-    czekają w `body_pending` z powodem (`legal`, `qa_flagged`, `overwrites_human`,
-    `no_publish_permission`, `mass_publication`, `mode_review`). `publish_site` zlecenie
-    nie woła nigdy.
+    `translation_job` raz na partię i witrynę: partia zamyka się na końcu części
+    zlecenia albo wtedy, gdy część czeka na pulę portu dłużej niż 30 minut — gotowe
+    pozycje wychodzą wtedy od razu, bo wersja wstrzymana po zmianie ceny nie powinna
+    czekać godzinami. Strona główna języka jest pierwszą pozycją, a język wchodzi na
+    witrynę dopiero z nią (ADR-070 pkt 7). Do publikacji trafiają tylko wersje
+    publikowalne według ADR-070 pkt 6, z decyzją `live` według reguł
+    `content_protocol.policy.decide_publication`; pozostałe czekają w `body_pending` z
+    powodem (`legal_document`, `review_mode`, `operator_forced_review`,
+    `publisher_required`, `locale_first_appearance`, `mass_publication`,
+    `overwrites_human`, `qa_flagged`, `gate_failed`). `publish_site` zlecenie nie woła
+    nigdy.
 
 22. **Cofnięcie zlecenia.** „Cofnij ostatnie zadanie” (osoba z prawem publikacji) i
     `translation_revert_job --job <id> --operator --reason` wołają `revert` adaptera:

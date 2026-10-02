@@ -23,6 +23,12 @@ repozytorium wyprowadzone z Saas-Core (ADR-049, §6). Komunikacja w górę
 odbywa się przez publiczne interfejsy, zdarzenia domenowe albo rejestry
 rozszerzeń należące do niższej warstwy.
 
+Poza modułami leżą neutralne pakiety najwyższego poziomu — `saas_core/http` i
+`saas_core/content_protocol` (protokół źródeł tłumaczeń, ADR-069). Importuje je
+każda warstwa, a same nie importują `saas_core.modules` ani `saas_core.config`
+(kontrakt `forbidden` w `apps/backend/.importlinter`); nie mają modeli ani
+deskryptora.
+
 ## 2. Identyfikatory i lokalizacja
 
 Identyfikator ma format `<layer>.<name>`, używa małych liter i nie zmienia się
@@ -113,6 +119,8 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | typ wizyty w booking | `backend.appointmentKinds` |
 | middleware | `backend.middleware` (po middleware tenanta; tylko własny kod) |
 | zadania cykliczne | `backend.beatSchedule` (`{nazwa: {task, schedule}}`; tylko własne taski) |
+| źródło tłumaczeń AI | `register_translation_source` w `AppConfig.ready`, `notify_source_changed` w serwisach i test kontraktu (`translation-sources.md`) |
+| zadanie modelu AI | `register_task` z `model_port/api.py` w `AppConfig.ready` (`model-port.md`) |
 | menu, zakładki „Ustawień” (`settingsSections`), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
