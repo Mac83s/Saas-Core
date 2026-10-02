@@ -33,6 +33,7 @@ const visit = (
   staff_id: "alex",
   staff_name: "Alex",
   staff_membership_id: null,
+  time_model: "slot",
   location_name: "Centrum",
   place: null,
   place_town: "",
