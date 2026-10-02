@@ -4,6 +4,7 @@ from typing import Any
 
 from rest_framework import serializers
 
+from saas_core.modules.core.organizations.options import SETTING_TYPES, SETTING_UNITS
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
 from .models import StaffChoice, TimeOffSource
@@ -482,9 +483,6 @@ class SetupOptionValueSerializer(serializers.Serializer[dict[str, Any]]):
     label = LocalizedTextSerializer()  # type: ignore[assignment]
 
 
-#: The registry's types and units (ADR-078); one enum name each in the contract.
-SETTING_TYPES = ("int", "decimal", "bool", "enum", "text")
-SETTING_UNITS = ("minute", "hour", "day", "percent")
 
 
 class SetupOptionSerializer(serializers.Serializer[dict[str, Any]]):

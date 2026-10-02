@@ -6,6 +6,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
   ApiProblemError,
   type OrganizationSummary,
+  type SettingOptions,
 } from "@saas-core/api-client";
 import englishMessages from "../../../../messages/en.json";
 import messages from "../../../../messages/pl.json";
@@ -40,13 +41,39 @@ const COMPANY: OrganizationSummary = {
   active: true,
 };
 
-function renderSettings(locale: "pl" | "en" = "pl") {
+const OPTIONS: SettingOptions = {
+  keys: [
+    {
+      key: "organization.currency",
+      type: "enum",
+      minimum: null,
+      maximum: null,
+      unit: null,
+      values: [
+        { value: "PLN", label: { pl: "Złoty polski", en: "Polish złoty" } },
+        { value: "EUR", label: { pl: "Euro", en: "Euro" } },
+        { value: "USD", label: { pl: "Dolar amerykański", en: "US dollar" } },
+      ],
+      default: "PLN",
+      label: { pl: "Waluta", en: "Currency" },
+      help: null,
+      description: "The company's currency.",
+      scopes: ["organization"],
+      depends_on: null,
+    },
+  ],
+};
+
+function renderSettings(
+  locale: "pl" | "en" = "pl",
+  organization: OrganizationSummary = COMPANY,
+) {
   return render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? messages : englishMessages}
     >
-      <OrganizationSettings organization={COMPANY} />
+      <OrganizationSettings options={OPTIONS} organization={organization} />
     </NextIntlClientProvider>,
   );
 }
@@ -137,4 +164,14 @@ test("za krótka nazwa nie trafia do API", async () => {
     await screen.findByText("Enter the company name (at least 2 characters)."),
   ).toBeInTheDocument();
   expect(updateCurrentOrganization).not.toHaveBeenCalled();
+});
+
+test("waluty pochodzą z API; firma z walutą spoza listy dalej ją widzi", () => {
+  renderSettings("pl", { ...COMPANY, currency: "GBP" });
+
+  const choices = Array.from(
+    (screen.getByLabelText("Waluta") as HTMLSelectElement).options,
+  ).map((option) => [option.value, option.text]);
+  expect(choices.map(([code]) => code)).toEqual(["PLN", "EUR", "USD", "GBP"]);
+  expect(choices[0][1]).toBe("Złoty polski (PLN)");
 });

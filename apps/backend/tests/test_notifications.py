@@ -25,6 +25,7 @@ from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISS
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
+    Feature,
     SubscriptionState,
 )
 from saas_core.modules.shared.notifications.delivery import (
@@ -391,6 +392,11 @@ def test_a_problem_carries_the_code_the_module_raised() -> None:
 
 
 def test_reading_preferences_saves_nothing_and_follows_the_account_language() -> None:
+    # Transactional tests flush the catalog the migrations seeded.
+    Feature.objects.get_or_create(
+        key="notifications.enabled",
+        defaults={"name": "Powiadomienia", "module": "shared.notifications"},
+    )
     member = membership(slug="preferences-read")
     member.user.locale = "en"
     member.user.save(update_fields=["locale"])

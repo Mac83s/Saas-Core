@@ -4,13 +4,17 @@ import { getTranslations } from "next-intl/server";
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
 import { allows, panelAccess } from "#lib/panel-navigation";
-import { getServerCurrentOrganization } from "#lib/server-auth";
+import {
+  getServerCurrentOrganization,
+  getServerOrganizationOptions,
+} from "#lib/server-auth";
 import { OrganizationSettings } from "../../../../../modules/core/organizations";
 
 export default async function CompanySettingsPage() {
-  const [t, organization] = await Promise.all([
+  const [t, organization, options] = await Promise.all([
     getTranslations("Settings"),
     getServerCurrentOrganization(),
+    getServerOrganizationOptions(),
   ]);
   return (
     <PanelPage
@@ -26,7 +30,7 @@ export default async function CompanySettingsPage() {
           permission: "organization.settings.manage",
         }) ? (
         <div className="max-w-3xl">
-          <OrganizationSettings organization={organization} />
+          <OrganizationSettings options={options} organization={organization} />
         </div>
       ) : (
         <SettingsNotice icon={LockIcon} title={t("noAccessTitle")}>

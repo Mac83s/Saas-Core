@@ -10,6 +10,7 @@ import {
   ApiProblemError,
   updateCurrentOrganization,
   type OrganizationSummary,
+  type SettingOptions,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import { Card, CardContent } from "@saas-core/ui/components/card";
@@ -32,12 +33,12 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { useRouter } from "#i18n/navigation";
+import { currencyChoices } from "./setting-options";
 
 const TIMEZONES =
   typeof Intl.supportedValuesOf === "function"
     ? Intl.supportedValuesOf("timeZone")
     : ["Europe/Warsaw", "Europe/London", "America/New_York", "Asia/Tokyo"];
-const CURRENCIES = ["PLN", "EUR", "USD", "GBP"];
 
 type Values = {
   name: string;
@@ -62,8 +63,11 @@ function formValues(organization: OrganizationSummary): Values {
  */
 export function OrganizationSettings({
   organization,
+  options,
 }: {
   organization: OrganizationSummary;
+  /** What the company may choose (`GET /organizations/options/`). */
+  options: SettingOptions | null;
 }) {
   const t = useTranslations("Settings");
   const common = useTranslations("Common");
@@ -87,10 +91,7 @@ export function OrganizationSettings({
     defaultValues: formValues(organization),
   });
   const { errors, dirtyFields, isSubmitting } = form.formState;
-  // A company may already use a currency outside the usual four.
-  const currencies = CURRENCIES.includes(organization.currency)
-    ? CURRENCIES
-    : [...CURRENCIES, organization.currency];
+  const currencies = currencyChoices(options, locale, organization.currency);
 
   async function submit(values: Values) {
     setSaved(false);
@@ -165,9 +166,9 @@ export function OrganizationSettings({
                   id="organization-currency"
                   {...form.register("currency")}
                 >
-                  {currencies.map((code) => (
+                  {currencies.map(([code, label]) => (
                     <option key={code} value={code}>
-                      {currencyLabel(code, locale)}
+                      {label}
                     </option>
                   ))}
                 </NativeSelect>
@@ -228,11 +229,6 @@ export function OrganizationSettings({
       </CardContent>
     </Card>
   );
-}
-
-function currencyLabel(currency: string, locale: string): string {
-  const name = new Intl.DisplayNames(locale, { type: "currency" }).of(currency);
-  return name ? `${name} (${currency})` : currency;
 }
 
 function timeZoneLabel(timeZone: string, locale: string): string {

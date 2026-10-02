@@ -783,7 +783,7 @@ export function DocumentsTab({
                       {amount(line.quantity)}
                       {line.unit_price_minor !== null &&
                       line.unit_price_minor !== undefined
-                        ? ` × ${money(line.unit_price_minor)}`
+                        ? ` × ${money(line.unit_price_minor, line.currency)}`
                         : ""}
                     </span>
                   </li>

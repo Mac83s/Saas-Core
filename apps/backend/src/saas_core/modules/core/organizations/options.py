@@ -13,6 +13,11 @@ from typing import Any
 
 from django.conf import settings
 
+#: The registry's types and units (ADR-078 pkt 2) as an option entry names
+#: them — one enum name each in the contract, for every module's options.
+SETTING_TYPES = ("int", "decimal", "bool", "enum", "text")
+SETTING_UNITS = ("minute", "hour", "day", "percent")
+
 #: The currencies a company keeps its prices and stock values in (owner
 #: decision 16, ADR-073 §8). A platform value once the platform settings exist.
 CURRENCIES: tuple[tuple[str, dict[str, str]], ...] = (
@@ -22,7 +27,10 @@ CURRENCIES: tuple[tuple[str, dict[str, str]], ...] = (
 )
 DEFAULT_CURRENCY = "PLN"
 
-_PANEL_LOCALES = {"pl": {"pl": "Polski", "en": "Polish"}, "en": {"pl": "Angielski", "en": "English"}}
+_PANEL_LOCALES = {
+    "pl": {"pl": "Polski", "en": "Polish"},
+    "en": {"pl": "Angielski", "en": "English"},
+}
 
 
 def currency_codes() -> tuple[str, ...]:

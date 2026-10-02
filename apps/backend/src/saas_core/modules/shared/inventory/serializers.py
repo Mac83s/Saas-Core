@@ -181,6 +181,8 @@ class StockDocumentLineSerializer(serializers.Serializer[Any]):
     item_name = serializers.CharField(source="item.name")
     quantity = _quantity()
     unit_price_minor = serializers.IntegerField(allow_null=True)
+    #: Waluta ceny: ta, w której założono pozycję.
+    currency = serializers.CharField(source="item.currency", read_only=True)
     #: Partia wiersza: przyjęta albo wskazana do rozchodu.
     lot_id = serializers.UUIDField(allow_null=True)
     lot_number = serializers.CharField(source="lot.number", allow_null=True, default=None)

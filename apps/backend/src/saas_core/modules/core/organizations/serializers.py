@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from .command_registry import RISKS
 from .context import ACTING_VIA
-from .options import DEFAULT_CURRENCY, currency_codes
+from .options import DEFAULT_CURRENCY, SETTING_TYPES, SETTING_UNITS, currency_codes
 
 
 def _offered_currency(value: str) -> str:
@@ -83,38 +83,6 @@ class OrganizationUpdateSerializer(serializers.Serializer[dict[str, Any]]):
         if set(attrs) == {"version"}:
             raise serializers.ValidationError("Podaj co najmniej jedno pole do zmiany.")
         return attrs
-
-
-class LocalizedTextSerializer(serializers.Serializer[dict[str, Any]]):
-    pl = serializers.CharField()
-    en = serializers.CharField()
-
-
-class SettingValueOptionSerializer(serializers.Serializer[dict[str, Any]]):
-    value = serializers.CharField()
-    label = LocalizedTextSerializer()
-
-
-class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
-    """One setting a company may choose, with what it may choose; the shape of
-    an entry of the settings registry's schema (ADR-078 pkt 11)."""
-
-    key = serializers.CharField(help_text="Stable key, e.g. organization.currency.")
-    type = serializers.ChoiceField(choices=["bool", "int", "decimal", "enum", "text"])
-    minimum = serializers.IntegerField(allow_null=True)
-    maximum = serializers.IntegerField(allow_null=True)
-    unit = serializers.CharField(allow_null=True)
-    values = SettingValueOptionSerializer(many=True, allow_null=True)
-    default = serializers.JSONField(help_text="The value a new company starts with.")
-    label = LocalizedTextSerializer()
-    help = LocalizedTextSerializer(allow_null=True)
-    description = serializers.CharField(help_text="What the setting does, in English.")
-    scopes = serializers.ListField(child=serializers.CharField())
-    depends_on = serializers.CharField(allow_null=True)
-
-
-class SettingOptionsSerializer(serializers.Serializer[dict[str, Any]]):
-    keys = SettingOptionSerializer(many=True)
 
 
 class ActiveOrganizationSerializer(serializers.Serializer[dict[str, Any]]):
@@ -283,6 +251,33 @@ class HistoryPageSerializer(serializers.Serializer[dict[str, Any]]):
 class LocalizedTextSerializer(serializers.Serializer[dict[str, Any]]):
     pl = serializers.CharField()
     en = serializers.CharField()
+
+
+class SettingValueOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    value = serializers.CharField()
+    label = LocalizedTextSerializer()  # type: ignore[assignment]
+
+
+class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    """One setting a company may choose, with what it may choose; the shape of
+    an entry of the settings registry's schema (ADR-078 pkt 11)."""
+
+    key = serializers.CharField(help_text="Stable key, e.g. organization.currency.")
+    type = serializers.ChoiceField(choices=SETTING_TYPES)
+    minimum = serializers.IntegerField(allow_null=True)
+    maximum = serializers.IntegerField(allow_null=True)
+    unit = serializers.ChoiceField(choices=SETTING_UNITS, allow_null=True)
+    values = SettingValueOptionSerializer(many=True, allow_null=True)
+    default = serializers.JSONField(help_text="The value a new company starts with.")
+    label = LocalizedTextSerializer()  # type: ignore[assignment]
+    help = LocalizedTextSerializer(allow_null=True)
+    description = serializers.CharField(help_text="What the setting does, in English.")
+    scopes = serializers.ListField(child=serializers.CharField())
+    depends_on = serializers.CharField(allow_null=True)
+
+
+class SettingOptionsSerializer(serializers.Serializer[dict[str, Any]]):
+    keys = SettingOptionSerializer(many=True)
 
 
 class CommandEffectSerializer(serializers.Serializer[dict[str, Any]]):

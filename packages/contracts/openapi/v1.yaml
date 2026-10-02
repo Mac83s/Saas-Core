@@ -8108,6 +8108,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/options/:
+    get:
+      operationId: organization_options_retrieve
+      description: 'The allowed values, defaults and labels (pl, en) of the company''s
+        basic settings — currency and panel language — for the form that creates a
+        company and for Settings › Company. Read it instead of hard-coding the lists:
+        the currencies are the platform''s (ADR-078). Each entry has the shape of
+        an entry of the settings registry''s schema.'
+      summary: What a company may choose for its basic settings
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingOptions'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/profiles/:
     get:
       operationId: api_v1_profiles_list
@@ -22952,6 +22978,76 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SettingOption:
+      type: object
+      description: |-
+        One setting a company may choose, with what it may choose; the shape of
+        an entry of the settings registry's schema (ADR-078 pkt 11).
+      properties:
+        key:
+          type: string
+          description: Stable key, e.g. organization.currency.
+        type:
+          $ref: '#/components/schemas/SettingTypeEnum'
+        minimum:
+          type:
+          - integer
+          - 'null'
+        maximum:
+          type:
+          - integer
+          - 'null'
+        unit:
+          oneOf:
+          - $ref: '#/components/schemas/SettingUnitEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        values:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/SettingValueOption'
+        default:
+          description: The value a new company starts with.
+        label:
+          $ref: '#/components/schemas/LocalizedText'
+        help:
+          oneOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          - type: 'null'
+        description:
+          type: string
+          description: What the setting does, in English.
+        scopes:
+          type: array
+          items:
+            type: string
+        depends_on:
+          type:
+          - string
+          - 'null'
+      required:
+      - default
+      - depends_on
+      - description
+      - help
+      - key
+      - label
+      - maximum
+      - minimum
+      - scopes
+      - type
+      - unit
+      - values
+    SettingOptions:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingOption'
+      required:
+      - keys
     SettingTypeEnum:
       enum:
       - int
@@ -22978,6 +23074,16 @@ components:
         * `hour` - hour
         * `day` - day
         * `percent` - percent
+    SettingValueOption:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          $ref: '#/components/schemas/LocalizedText'
+      required:
+      - label
+      - value
     Setup:
       type: object
       properties:
@@ -24425,6 +24531,9 @@ components:
           type:
           - integer
           - 'null'
+        currency:
+          type: string
+          readOnly: true
         lot_id:
           type:
           - string
@@ -24447,6 +24556,7 @@ components:
         note:
           type: string
       required:
+      - currency
       - item_id
       - item_name
       - lot_id

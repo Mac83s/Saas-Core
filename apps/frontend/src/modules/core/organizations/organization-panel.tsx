@@ -19,9 +19,11 @@ import { z } from "zod";
 import {
   ApiProblemError,
   createOrganization,
+  getOrganizationOptions,
   listOrganizations,
   selectActiveOrganization,
   type OrganizationSummary,
+  type SettingOptions,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -62,12 +64,12 @@ import {
 import { useRouter } from "#i18n/navigation";
 import { selfSignupTypes, typeText } from "#lib/organization-types";
 import { organizationErrorMessage } from "./problem";
+import { currencyChoices, defaultCurrency } from "./setting-options";
 
 const TIMEZONES =
   typeof Intl.supportedValuesOf === "function"
     ? Intl.supportedValuesOf("timeZone")
     : ["Europe/Warsaw", "Europe/London", "America/New_York", "Asia/Tokyo"];
-const CURRENCIES = ["PLN", "EUR", "USD", "GBP"] as const;
 
 type CreateValues = {
   name: string;
@@ -86,6 +88,7 @@ export function OrganizationPanel() {
   const locale = useLocale();
   const router = useRouter();
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
+  const [options, setOptions] = useState<SettingOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<string>();
   const [createOpen, setCreateOpen] = useState(false);
@@ -151,10 +154,23 @@ export function OrganizationPanel() {
       .finally(() => {
         if (mounted) setLoading(false);
       });
+    // The currencies come from the platform, never from a list in the form.
+    void getOrganizationOptions()
+      .then((data) => {
+        if (!mounted) return;
+        setOptions(data);
+        const currency = defaultCurrency(data);
+        if (currency && !createForm.getFieldState("currency").isDirty) {
+          createForm.setValue("currency", currency);
+        }
+      })
+      .catch((error: unknown) => {
+        if (mounted) setProblem(organizationErrorMessage(error, t("problem")));
+      });
     return () => {
       mounted = false;
     };
-  }, [router, t]);
+  }, [createForm, router, t]);
 
   async function switchOrganization(organization: OrganizationSummary | null) {
     if (!organization || organization.active) return;
@@ -212,6 +228,7 @@ export function OrganizationPanel() {
             onOpenChange={setCreateOpen}
             onSubmit={submitCreate}
             open={createOpen}
+            options={options}
             t={t}
           />
         </div>
@@ -277,6 +294,7 @@ function CreateOrganizationDialog({
   form,
   onSubmit,
   locale,
+  options,
   t,
   common,
 }: {
@@ -285,6 +303,7 @@ function CreateOrganizationDialog({
   form: UseFormReturn<CreateValues>;
   onSubmit: SubmitHandler<CreateValues>;
   locale: string;
+  options: SettingOptions | null;
   t: Translator;
   common: CommonTranslator;
 }) {
@@ -336,10 +355,7 @@ function CreateOrganizationDialog({
               control={form.control}
               label={t("currency")}
               name="currency"
-              options={CURRENCIES.map((currency) => [
-                currency,
-                currencyLabel(currency, locale),
-              ])}
+              options={currencyChoices(options, locale)}
             />
           </FieldGroup>
           <DialogFooter>
@@ -491,11 +507,6 @@ function roleLabel(t: Translator, role: string): string {
     viewer: "viewer",
   } as const;
   return role in keys ? t(keys[role as keyof typeof keys]) : role;
-}
-
-function currencyLabel(currency: string, locale: string): string {
-  const name = new Intl.DisplayNames(locale, { type: "currency" }).of(currency);
-  return name ? `${name} (${currency})` : currency;
 }
 
 function timeZoneLabel(timeZone: string, locale: string): string {

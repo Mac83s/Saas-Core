@@ -5,11 +5,13 @@ import { beforeEach, expect, test, vi } from "vitest";
 import messages from "../../../../messages/pl.json";
 import { OrganizationPanel } from "./organization-panel";
 
-const { listOrganizations, listMemberships, router } = vi.hoisted(() => ({
-  listOrganizations: vi.fn(),
-  listMemberships: vi.fn(),
-  router: { replace: vi.fn(), refresh: vi.fn() },
-}));
+const { getOrganizationOptions, listOrganizations, listMemberships, router } =
+  vi.hoisted(() => ({
+    getOrganizationOptions: vi.fn(),
+    listOrganizations: vi.fn(),
+    listMemberships: vi.fn(),
+    router: { replace: vi.fn(), refresh: vi.fn() },
+  }));
 
 vi.mock("#i18n/navigation", () => ({
   useRouter: () => router,
@@ -17,11 +19,15 @@ vi.mock("#i18n/navigation", () => ({
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
+  getOrganizationOptions,
   listOrganizations,
   listMemberships,
 }));
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  getOrganizationOptions.mockResolvedValue({ keys: [] });
+});
 
 test("ładuje organizacje; zespołem zajmuje się TeamPanel", async () => {
   listOrganizations.mockResolvedValue([

@@ -865,8 +865,8 @@ SPECTACULAR_SETTINGS = {
         # callback's type.
         "UnitEnum": "saas_core.modules.shared.inventory.models.ItemUnit",
         "TypeEnum": ["module_run.finished"],
-        "SettingTypeEnum": "saas_core.modules.shared.booking.serializers.SETTING_TYPES",
-        "SettingUnitEnum": "saas_core.modules.shared.booking.serializers.SETTING_UNITS",
+        "SettingTypeEnum": "saas_core.modules.core.organizations.options.SETTING_TYPES",
+        "SettingUnitEnum": "saas_core.modules.core.organizations.options.SETTING_UNITS",
     },
 }
 

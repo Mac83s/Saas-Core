@@ -371,3 +371,10 @@ dostawy przez `register_customer_anonymizer` (ADR-073 §2).
   cztery możliwe konflikty ze starszymi stronami zamiast jednego.
 - **Rejestr publicznych źródeł w `shared.sites`** — `shared.media` nie mógłby
   go czytać przy sprzątaniu, a booking musiałby zależeć od stron.
+
+## Uzupełnienie 2026-10-02: dzień firmy w magazynie przed fazą 9
+
+Punkt z „Konsekwencji” o dniu firmy zrobiła wcześniej faza R2a planu memex
+`saas-core-ustawienia-firmy` (ADR-078): `consume`, korekta i domyślna data nowego
+dokumentu biorą `organization_today` (`Organization.local_today()`), więc numer
+dokumentu liczy rok firmy. Faza 9 nie musi już tego zmieniać.

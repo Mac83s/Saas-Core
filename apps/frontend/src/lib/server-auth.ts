@@ -6,6 +6,7 @@ import type {
   BookingOverview,
   CustomerBillingOverview,
   OrganizationSummary,
+  SettingOptions,
   UserSummary,
 } from "@saas-core/api-client";
 
@@ -17,6 +18,11 @@ export async function getServerUser(): Promise<UserSummary | null> {
 
 export async function getServerCurrentOrganization(): Promise<OrganizationSummary | null> {
   return serverGet<OrganizationSummary>("/api/v1/organizations/current/");
+}
+
+/** What a company may choose for its basic settings (ADR-078). */
+export async function getServerOrganizationOptions(): Promise<SettingOptions | null> {
+  return serverGet<SettingOptions>("/api/v1/organizations/options/");
 }
 
 export async function getServerOrganizations(): Promise<OrganizationSummary[]> {

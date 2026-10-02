@@ -2862,6 +2862,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/options/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a company may choose for its basic settings
+         * @description The allowed values, defaults and labels (pl, en) of the company's basic settings — currency and panel language — for the form that creates a company and for Settings › Company. Read it instead of hard-coding the lists: the currencies are the platform's (ADR-078). Each entry has the shape of an entry of the settings registry's schema.
+         */
+        get: operations["organization_options_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/": {
         parameters: {
             query?: never;
@@ -8181,6 +8201,30 @@ export interface components {
             current: boolean;
         };
         /**
+         * @description One setting a company may choose, with what it may choose; the shape of
+         *     an entry of the settings registry's schema (ADR-078 pkt 11).
+         */
+        SettingOption: {
+            /** @description Stable key, e.g. organization.currency. */
+            key: string;
+            type: components["schemas"]["SettingTypeEnum"];
+            minimum: number | null;
+            maximum: number | null;
+            unit: components["schemas"]["SettingUnitEnum"] | components["schemas"]["NullEnum"];
+            values: components["schemas"]["SettingValueOption"][] | null;
+            /** @description The value a new company starts with. */
+            default: unknown;
+            label: components["schemas"]["LocalizedText"];
+            help: components["schemas"]["LocalizedText"] | null;
+            /** @description What the setting does, in English. */
+            description: string;
+            scopes: string[];
+            depends_on: string | null;
+        };
+        SettingOptions: {
+            keys: components["schemas"]["SettingOption"][];
+        };
+        /**
          * @description * `int` - int
          *     * `decimal` - decimal
          *     * `bool` - bool
@@ -8197,6 +8241,10 @@ export interface components {
          * @enum {string}
          */
         SettingUnitEnum: "minute" | "hour" | "day" | "percent";
+        SettingValueOption: {
+            value: string;
+            label: components["schemas"]["LocalizedText"];
+        };
         Setup: {
             services: components["schemas"]["ServiceSetup"][];
             locations: components["schemas"]["PlaceSetup"][];
@@ -8783,6 +8831,7 @@ export interface components {
             /** Format: decimal */
             quantity: string;
             unit_price_minor: number | null;
+            readonly currency: string;
             /** Format: uuid */
             lot_id: string | null;
             lot_number?: string | null;
@@ -17601,6 +17650,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeatUsage"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_options_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingOptions"];
                 };
             };
             403: {

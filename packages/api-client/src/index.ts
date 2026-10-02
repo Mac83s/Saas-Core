@@ -127,6 +127,9 @@ export type OrganizationCreateInput =
   components["schemas"]["OrganizationCreate"];
 export type OrganizationUpdateInput =
   components["schemas"]["PatchedOrganizationUpdate"];
+/** A setting a company may choose and what it may choose (ADR-078). */
+export type SettingOption = components["schemas"]["SettingOption"];
+export type SettingOptions = components["schemas"]["SettingOptions"];
 export type InvitationSummary = components["schemas"]["InvitationSummary"];
 export type InvitationCreateInput = components["schemas"]["InvitationCreate"];
 export type MembershipSummary = components["schemas"]["MembershipSummary"];
@@ -655,6 +658,16 @@ export async function activateBillingTrial(
 export async function getCurrentOrganization(): Promise<OrganizationSummary> {
   const { data, error, response } = await client.GET(
     "/api/v1/organizations/current/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The currencies and panel languages a company may choose, with defaults. */
+export async function getOrganizationOptions(): Promise<SettingOptions> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/options/",
     { credentials: "same-origin", cache: "no-store" },
   );
   if (error || !data) throwProblem(error, response);
