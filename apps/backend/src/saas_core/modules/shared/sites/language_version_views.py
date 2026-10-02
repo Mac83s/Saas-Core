@@ -107,18 +107,14 @@ class PageLocaleBodyView(APIView):
         operation_id="sites_page_locale_body_save",
         summary="Save text units of a page body in another language",
         description="Writes the named units as a person's text; structure comes from the "
-        "source version. 422 `locale_unit_invalid` names every unit that does not fit "
-        "(`errors[].field` = `units.<key>`, `errors[].code`). The page's own version does not "
-        "move.",
+        "source version. 400 `locale_unit_invalid` names every unit that does not fit as a "
+        "field error `units.<key>` with its code (unknown_unit, required, too_long, "
+        "token_missing, token_unexpected, token_malformed, token_nesting, token_empty, "
+        "block_invalid). The page's own version does not move.",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=LocaleBodySaveSerializer,
-        responses={
-            200: LocaleBodySerializer,
-            201: LocaleBodySerializer,
-            422: ProblemDetailsSerializer,
-            **PROBLEMS,
-        },
+        responses={200: LocaleBodySerializer, 201: LocaleBodySerializer, **PROBLEMS},
     )
     def put(self, request: Request, page_id: UUID, locale: str) -> Response:
         serializer = LocaleBodySaveSerializer(data=request.data)
@@ -142,11 +138,12 @@ class PageLocaleBodyPreviewView(APIView):
     @extend_schema(
         operation_id="sites_page_locale_body_preview",
         summary="Check a save of text units without saving",
-        description="The body as the save would leave it, or the same 409 and 422 the save "
+        description="The body as the save would leave it, or the same 400 and 409 the save "
         "would answer. Nothing is written.",
         tags=["sites"],
         request=LocaleBodySaveSerializer,
-        responses={200: LocaleBodySerializer, 422: ProblemDetailsSerializer, **PROBLEMS},
+        responses={200: LocaleBodySerializer, **PROBLEMS},
+        extensions={"x-dry-run": True},
     )
     def post(self, request: Request, page_id: UUID, locale: str) -> Response:
         serializer = LocaleBodySaveSerializer(data=request.data)
@@ -196,6 +193,8 @@ class PageLocaleBodyVersionListView(APIView):
     @extend_schema(
         operation_id="sites_page_locale_body_versions_list",
         summary="History of a page body in another language",
+        description="Every version of this language's body, newest first, with the source "
+        "version it follows and how it came to be (save, copy, restore, rebase, a job).",
         tags=["sites"],
         responses={200: LocaleBodyVersionListSerializer, **PROBLEMS},
     )
@@ -210,6 +209,8 @@ class PageLocaleBodyVersionView(APIView):
     @extend_schema(
         operation_id="sites_page_locale_body_version_retrieve",
         summary="A past version of a page body in another language, as blocks",
+        description="The blocks a visitor would have got from that version, assembled from "
+        "the source version it is bound to; for a read-only preview.",
         tags=["sites"],
         responses={200: LocaleBodyVersionPreviewSerializer, **PROBLEMS},
     )
@@ -227,6 +228,8 @@ class PageLocaleBodyRestoreView(APIView):
     @extend_schema(
         operation_id="sites_page_locale_body_version_restore",
         summary="Make a past version of a page body in another language current again",
+        description="A new version with the old text and the old binding; a version bound to "
+        "an older source must be moved onto the current one before it can be published.",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=LocaleBodyRestoreSerializer,
@@ -286,7 +289,10 @@ class PageLocaleBodyRebasePreviewView(APIView):
     @extend_schema(
         operation_id="sites_page_locale_body_rebase_preview",
         summary="See what moving onto the current source version would keep",
+        description="The body as the move would leave it: carried, reused, untranslated and "
+        "suggested units. Nothing is written.",
         tags=["sites"],
+        extensions={"x-dry-run": True},
         request=LocaleBodyRebaseSerializer,
         responses={200: LocaleBodySerializer, **PROBLEMS},
     )

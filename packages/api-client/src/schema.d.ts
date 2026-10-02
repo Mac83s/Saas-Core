@@ -3709,7 +3709,7 @@ export interface paths {
         get: operations["sites_page_locale_body_retrieve"];
         /**
          * Save text units of a page body in another language
-         * @description Writes the named units as a person's text; structure comes from the source version. 422 `locale_unit_invalid` names every unit that does not fit (`errors[].field` = `units.<key>`, `errors[].code`). The page's own version does not move.
+         * @description Writes the named units as a person's text; structure comes from the source version. 400 `locale_unit_invalid` names every unit that does not fit as a field error `units.<key>` with its code (unknown_unit, required, too_long, token_missing, token_unexpected, token_malformed, token_nesting, token_empty, block_invalid). The page's own version does not move.
          */
         put: operations["sites_page_locale_body_save"];
         post?: never;
@@ -3750,7 +3750,7 @@ export interface paths {
         put?: never;
         /**
          * Check a save of text units without saving
-         * @description The body as the save would leave it, or the same 409 and 422 the save would answer. Nothing is written.
+         * @description The body as the save would leave it, or the same 400 and 409 the save would answer. Nothing is written.
          */
         post: operations["sites_page_locale_body_preview"];
         delete?: never;
@@ -3788,7 +3788,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** See what moving onto the current source version would keep */
+        /**
+         * See what moving onto the current source version would keep
+         * @description The body as the move would leave it: carried, reused, untranslated and suggested units. Nothing is written.
+         */
         post: operations["sites_page_locale_body_rebase_preview"];
         delete?: never;
         options?: never;
@@ -3803,7 +3806,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** History of a page body in another language */
+        /**
+         * History of a page body in another language
+         * @description Every version of this language's body, newest first, with the source version it follows and how it came to be (save, copy, restore, rebase, a job).
+         */
         get: operations["sites_page_locale_body_versions_list"];
         put?: never;
         post?: never;
@@ -3820,7 +3826,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A past version of a page body in another language, as blocks */
+        /**
+         * A past version of a page body in another language, as blocks
+         * @description The blocks a visitor would have got from that version, assembled from the source version it is bound to; for a read-only preview.
+         */
         get: operations["sites_page_locale_body_version_retrieve"];
         put?: never;
         post?: never;
@@ -3839,7 +3848,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Make a past version of a page body in another language current again */
+        /**
+         * Make a past version of a page body in another language current again
+         * @description A new version with the old text and the old binding; a version bound to an older source must be moved onto the current one before it can be published.
+         */
         post: operations["sites_page_locale_body_version_restore"];
         delete?: never;
         options?: never;
@@ -19629,14 +19641,6 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
-                };
-            };
         };
     };
     sites_page_locale_body_copy: {
@@ -19761,14 +19765,6 @@ export interface operations {
                 };
             };
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

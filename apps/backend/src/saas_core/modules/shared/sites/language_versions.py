@@ -23,7 +23,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
-from rest_framework.exceptions import APIException, NotFound
+from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.content_protocol.provenance import (
     ORIGIN_COPY,
@@ -103,19 +103,31 @@ class SourceVersionMismatch(APIException):
     default_code = "source_version_mismatch"
 
 
-class LocaleUnitInvalid(APIException):
-    status_code = 422
-    default_detail = "Część fragmentów nie pasuje do układu wersji źródłowej."
-    default_code = "locale_unit_invalid"
+UNIT_MESSAGES = {
+    "unknown_unit": "Wersja źródłowa nie ma takiego fragmentu.",
+    "required": "Ten fragment nie może być pusty.",
+    "too_long": "Tekst jest dłuższy, niż pozwala to miejsce w bloku.",
+    "token_missing": "Brakuje znacznika ⟦n⟧…⟦/n⟧ z tekstu źródłowego.",
+    "token_unexpected": "Tekst ma znacznik, którego nie ma w tekście źródłowym.",
+    "token_malformed": "Znaczniki ⟦n⟧ i ⟦/n⟧ są źle sparowane.",
+    "token_nesting": "Znaczniki nie mogą być w sobie zagnieżdżone.",
+    "token_empty": "Znacznik nie może obejmować pustego tekstu.",
+    "block_invalid": "Złożony blok nie spełnia kontraktu bloku.",
+}
+
+
+class LocaleUnitInvalid(ValidationError):
+    """Every unit that does not fit, as field errors `units.<key>` with a code
+    each (ADR-076: input the caller can fix is a 400)."""
+
+    problem_code = "locale_unit_invalid"
 
     def __init__(self, error: LocaleUnitsInvalid) -> None:
-        super().__init__({
-            "message": self.default_detail,
-            "errors": [
-                {"field": f"units.{problem.key}", "code": problem.code}
-                for problem in error.problems
-            ],
-        })
+        units: dict[str, list[ErrorDetail]] = {}
+        for problem in error.problems:
+            message = UNIT_MESSAGES.get(problem.code, "Fragment nie pasuje do wersji źródłowej.")
+            units.setdefault(problem.key, []).append(ErrorDetail(message, code=problem.code))
+        super().__init__({"units": units})
 
 
 class LocaleBodyVersionNotFound(NotFound):

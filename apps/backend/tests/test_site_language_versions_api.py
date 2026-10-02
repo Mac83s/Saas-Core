@@ -10,6 +10,8 @@ import pytest
 from django.core.cache import cache
 
 from saas_core.modules.core.organizations.models import OrganizationAuditEntry
+from saas_core.modules.shared.sites.language_versions import LocaleUnitInvalid
+from saas_core.modules.shared.sites.localized_bodies import LocaleUnitsInvalid, UnitProblem
 from saas_core.modules.shared.sites.models import Page, PageLocaleVersion
 from test_sites_api import (
     create_page,
@@ -122,11 +124,18 @@ def test_every_unit_that_does_not_fit_is_named_and_a_preview_writes_nothing(engl
     }
     for method, tail, key in (("put", "", "bad"), ("post", "preview/", "")):
         refused = _send(client, method, _url(page_id, tail=tail), payload, key=key)
-        assert refused.status_code == 422, refused.data
+        # Input the caller can fix: a 400 with a field error per unit (ADR-076).
+        assert refused.status_code == 400, refused.data
         assert refused.data["code"] == "locale_unit_invalid"
-        assert sorted(
-            (error["field"], error["code"]) for error in refused.data["detail"]["errors"]
-        ) == [("units.1/text", "too_long"), ("units.7/title", "unknown_unit")]
+        assert sorted(refused.data["detail"]["units"]) == ["1/text", "7/title"]
+
+    codes = LocaleUnitInvalid(
+        LocaleUnitsInvalid([
+            UnitProblem("1/text", "too_long"),
+            UnitProblem("7/title", "unknown_unit"),
+        ])
+    ).get_codes()
+    assert codes == {"units": {"1/text": ["too_long"], "7/title": ["unknown_unit"]}}
 
     payload["units"] = {"0/heading": "Welcome"}
     preview = _send(client, "post", _url(page_id, tail="preview/"), payload)
