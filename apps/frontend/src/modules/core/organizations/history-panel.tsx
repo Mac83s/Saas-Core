@@ -78,6 +78,8 @@ export function HistoryPanel() {
     t.has(`actions.${messageKey(key)}`)
       ? t(`actions.${messageKey(key)}`)
       : humanize(key);
+  const actingLabel = (via: string) =>
+    t.has(`acting_${via}`) ? t(`acting_${via}`) : humanize(via);
   const fieldLabel = (key: string) =>
     t.has(`fields.${key}`) ? t(`fields.${key}`) : humanize(key);
   const value = (raw: unknown): string => {
@@ -112,7 +114,11 @@ export function HistoryPanel() {
             {entry.actor?.name ??
               (entry.channel === "api_key" ? t("apiKey") : t("system"))}
           </p>
-          {entry.channel ? (
+          {entry.acting ? (
+            // The person's membership acted through the assistant or a
+            // translation job — not the person by hand (ADR-076 §6).
+            <Badge variant="outline">{actingLabel(entry.acting.via)}</Badge>
+          ) : entry.channel ? (
             <Badge variant="outline">{t(`channel_${entry.channel}`)}</Badge>
           ) : null}
         </div>

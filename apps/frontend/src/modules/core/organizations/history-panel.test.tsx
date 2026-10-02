@@ -29,6 +29,7 @@ function entry(overrides: Partial<HistoryEntry>): HistoryEntry {
     action: "organization.updated",
     actor: { name: "Ola Nowak", email: "ola@example.test" },
     channel: "panel",
+    acting: null,
     target_type: "organization",
     target_id: null,
     changes: {},
@@ -121,6 +122,28 @@ test("shows who changed what, through which channel, before and after", async ()
 
   const results = await axe.run(container);
   expect(results.violations).toEqual([]);
+});
+
+test("a change the assistant made for a person says so, in both languages", async () => {
+  const assistant = entry({
+    acting: {
+      via: "assistant",
+      ref: "conversation:0199a3f0-0000-7000-8000-000000000001",
+      trigger: null,
+    },
+  });
+  api.readOrganizationHistory.mockResolvedValue(page([assistant]));
+  const { unmount } = view();
+  const row = within(await screen.findByRole("table")).getAllByRole("row")[1];
+
+  expect(within(row).getByText("Ola Nowak")).toBeTruthy();
+  expect(within(row).getByText("Asystent AI w imieniu osoby")).toBeTruthy();
+  // The badge says how the change came, not the principal underneath.
+  expect(within(row).queryByText("Panel")).toBeNull();
+  unmount();
+
+  view("en");
+  expect(await screen.findByText("AI assistant on their behalf")).toBeTruthy();
 });
 
 test("the filter lists the organization's actions and asks the API again", async () => {

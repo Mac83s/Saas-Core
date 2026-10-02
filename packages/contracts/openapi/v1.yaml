@@ -16809,6 +16809,22 @@ components:
       description: |-
         * `ok` - ok
         * `degraded` - degraded
+    HistoryActing:
+      type: object
+      properties:
+        via:
+          $ref: '#/components/schemas/ViaEnum'
+        ref:
+          type: string
+          description: conversation:<uuid> or translation_job:<uuid>
+        trigger:
+          type:
+          - string
+          - 'null'
+      required:
+      - ref
+      - trigger
+      - via
     HistoryActor:
       type: object
       properties:
@@ -16839,6 +16855,10 @@ components:
           oneOf:
           - $ref: '#/components/schemas/ChannelEnum'
           - $ref: '#/components/schemas/NullEnum'
+        acting:
+          oneOf:
+          - $ref: '#/components/schemas/HistoryActing'
+          - type: 'null'
         target_type:
           type: string
         target_id:
@@ -16857,6 +16877,7 @@ components:
           type: object
           additionalProperties: {}
       required:
+      - acting
       - action
       - actor
       - changed_fields
@@ -23135,6 +23156,14 @@ components:
       - verified
       type: string
       description: '* `verified` - verified'
+    ViaEnum:
+      enum:
+      - ai_translation
+      - assistant
+      type: string
+      description: |-
+        * `ai_translation` - ai_translation
+        * `assistant` - assistant
     VisitPlaceInput:
       type: object
       description: „Miejsce wizyty” of a booked visit; both empty clear it (ADR-066).

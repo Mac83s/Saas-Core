@@ -4,12 +4,19 @@ through which channel — readable by the owner and the admin only."""
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid7
 
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.audit import field_changes
+from saas_core.modules.core.organizations.context import (
+    acting_context,
+    activate_tenant_context,
+    context_from_membership,
+)
 from saas_core.modules.core.organizations.models import (
     Membership,
     Organization,
@@ -18,6 +25,7 @@ from saas_core.modules.core.organizations.models import (
     OrganizationStatus,
     Role,
 )
+from saas_core.modules.core.organizations.services import update_current_organization
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
@@ -27,6 +35,14 @@ from saas_core.modules.shared.billing.models import (
 pytestmark = pytest.mark.django_db
 
 PASSWORD = "Bezpieczne-Haslo-2026!"
+
+
+@pytest.fixture(autouse=True)
+def clear_login_throttle() -> None:
+    # Every test signs someone in; five sign-ins a minute is the login limit.
+    cache.clear()
+
+
 HISTORY_URL = "/api/v1/organizations/current/history/"
 CURRENT_URL = "/api/v1/organizations/current/"
 
@@ -96,6 +112,7 @@ def test_a_change_says_who_what_before_and_after_and_through_which_channel() -> 
     assert latest["action"] == OrganizationAuditAction.ORGANIZATION_UPDATED
     assert latest["actor"] == {"name": "Ola Nowak", "email": "historia-zmian@example.test"}
     assert latest["channel"] == "panel"
+    assert latest["acting"] is None
     assert latest["changes"] == {"name": {"from": "Historia Zmian", "to": "Salon Uroda"}}
     # Another company's history never leaks in, rename included.
     renamed_to = [item["changes"].get("name", {}).get("to") for item in history["items"]]
@@ -104,6 +121,25 @@ def test_a_change_says_who_what_before_and_after_and_through_which_channel() -> 
     assert history["total"] == OrganizationAuditEntry.objects.filter(
         organization=organization
     ).count()
+
+
+def test_a_change_by_the_assistant_names_the_person_and_the_conversation() -> None:
+    """ADR-076 §6: `channel` stays the principal (the membership, shown as the
+    panel); `acting` says it was the assistant, for which conversation."""
+    client, organization = member_client(slug="historia-asystent")
+    membership = Membership.objects.select_related("role").get(organization=organization)
+    conversation = f"conversation:{uuid7()}"
+    assistant = acting_context(
+        context_from_membership(membership), via="assistant", ref=conversation
+    )
+    with activate_tenant_context(assistant):
+        update_current_organization(changes={"version": 1, "name": "Domki nad jeziorem"})
+
+    latest = client.get(HISTORY_URL).data["items"][0]
+
+    assert latest["actor"]["name"] == "Ola Nowak"
+    assert latest["channel"] == "panel"
+    assert latest["acting"] == {"via": "assistant", "ref": conversation, "trigger": None}
 
 
 def test_history_pages_newest_first_and_filters_by_action() -> None:

@@ -97,6 +97,8 @@
     "channel_panel": "Panel",
     "channel_api_key": "Klucz API",
     "channel_system": "System",
+    "acting_assistant": "Asystent AI w imieniu osoby",
+    "acting_ai_translation": "Tłumaczenie AI w imieniu osoby",
     "changedPrivate": "zmieniono (dane osobowe — bez wartości)",
     "changedFields": "Zmienione pola: {fields}",
     "empty": "puste",
@@ -107,6 +109,7 @@
     "actions": {
       "organization_created": "Utworzono organizację",
       "organization_updated": "Zmieniono dane firmy",
+      "commands_consent_granted": "Zgoda na działanie asystenta",
       "organization_archived": "Zarchiwizowano organizację",
       "invitation_created": "Wysłano zaproszenie",
       "invitation_revoked": "Wycofano zaproszenie",

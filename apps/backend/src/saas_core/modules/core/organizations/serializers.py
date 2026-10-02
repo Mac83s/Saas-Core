@@ -6,6 +6,7 @@ from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from .command_registry import RISKS
+from .context import ACTING_VIA
 
 
 class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -201,12 +202,21 @@ class HistoryActorSerializer(serializers.Serializer[dict[str, Any]]):
     email = serializers.EmailField()
 
 
+class HistoryActingSerializer(serializers.Serializer[dict[str, Any]]):
+    via = serializers.ChoiceField(choices=sorted(ACTING_VIA))
+    ref = serializers.CharField(help_text="conversation:<uuid> or translation_job:<uuid>")
+    trigger = serializers.CharField(allow_null=True)
+
+
 class HistoryEntrySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     occurred_at = serializers.DateTimeField()
     action = serializers.CharField()
     actor = HistoryActorSerializer(allow_null=True)
     channel = serializers.ChoiceField(choices=["panel", "api_key", "system"], allow_null=True)
+    #: The membership acted for `actor` through the assistant or a translation
+    #: job (ADR-076 §6); null when the person acted directly.
+    acting = HistoryActingSerializer(allow_null=True)
     target_type = serializers.CharField(allow_blank=True)
     target_id = serializers.UUIDField(allow_null=True)
     changes = serializers.DictField(child=serializers.JSONField())

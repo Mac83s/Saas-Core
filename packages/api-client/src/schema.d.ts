@@ -5815,6 +5815,12 @@ export interface components {
          * @enum {string}
          */
         HealthStatusEnum: "ok" | "degraded";
+        HistoryActing: {
+            via: components["schemas"]["ViaEnum"];
+            /** @description conversation:<uuid> or translation_job:<uuid> */
+            ref: string;
+            trigger: string | null;
+        };
         HistoryActor: {
             name: string;
             /** Format: email */
@@ -5828,6 +5834,7 @@ export interface components {
             action: string;
             actor: components["schemas"]["HistoryActor"] | null;
             channel: components["schemas"]["ChannelEnum"] | components["schemas"]["NullEnum"];
+            acting: components["schemas"]["HistoryActing"] | null;
             target_type: string;
             /** Format: uuid */
             target_id: string | null;
@@ -8371,6 +8378,12 @@ export interface components {
          * @enum {string}
          */
         VerificationResultStatusEnum: "verified";
+        /**
+         * @description * `ai_translation` - ai_translation
+         *     * `assistant` - assistant
+         * @enum {string}
+         */
+        ViaEnum: "ai_translation" | "assistant";
         /** @description „Miejsce wizyty” of a booked visit; both empty clear it (ADR-066). */
         VisitPlaceInput: {
             /** @description The town. */

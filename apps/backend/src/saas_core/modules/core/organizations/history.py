@@ -62,6 +62,18 @@ def channel(entry: OrganizationAuditEntry) -> str | None:
     return "system"
 
 
+def acting(entry: OrganizationAuditEntry) -> dict[str, Any] | None:
+    """Through what the person's membership acted, when not by the person's own
+    hand (ADR-076 §6); `channel` stays the principal."""
+    if not entry.acting_via:
+        return None
+    return {
+        "via": entry.acting_via,
+        "ref": entry.acting_ref,
+        "trigger": entry.acting_trigger or None,
+    }
+
+
 def history_item(entry: OrganizationAuditEntry) -> dict[str, Any]:
     actor = entry.actor_user
     metadata = entry.metadata or {}
@@ -76,6 +88,7 @@ def history_item(entry: OrganizationAuditEntry) -> dict[str, Any]:
             "email": actor.email,
         },
         "channel": channel(entry),
+        "acting": acting(entry),
         "target_type": entry.target_type,
         "target_id": entry.target_id,
         "changes": metadata.get("changes") or {},
