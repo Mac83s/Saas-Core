@@ -4,21 +4,22 @@ import { LocaleSwitcher } from "#components/locale-switcher";
 import { Link } from "#i18n/navigation";
 import { Button } from "@saas-core/ui/components/button";
 
-import { productCopy, productName } from "../content";
+import { productCopy, productHasCatalog, productName } from "../content";
+import { marketingLinks } from "../navigation";
 
 export async function SiteHeader() {
   const t = await getTranslations("Marketing");
   const copy = productCopy(await getLocale());
-  const links = [
-    ...(copy.pages?.length
-      ? copy.pages.map((page) => ({
-          href: `/${page.slug}`,
-          label: page.navLabel,
-        }))
-      : [{ href: "/#features", label: t("nav.features") }]),
-    { href: "/pricing", label: t("nav.pricing") },
-    { href: "/contact", label: t("nav.contact") },
-  ];
+  const links = marketingLinks(
+    copy,
+    {
+      features: t("nav.features"),
+      catalog: t("nav.catalog"),
+      pricing: t("nav.pricing"),
+      contact: t("nav.contact"),
+    },
+    { catalog: productHasCatalog },
+  );
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">

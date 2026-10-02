@@ -1,8 +1,8 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { CatalogProfilePage } from "../../../../../modules/shared/profiles";
-import { readCatalogProfileOnServer } from "../../../../../modules/shared/profiles/catalog-server";
+import { CatalogProfilePage } from "../../../../../../modules/shared/profiles";
+import { readCatalogProfileOnServer } from "../../../../../../modules/shared/profiles/catalog-server";
 
 // `generateMetadata` and the page both need the record, and the read is
 // `no-store`, so without this every crawler hit would fetch it twice.
@@ -34,8 +34,8 @@ export default async function CatalogEntryPage({
   const { city, slug } = await params;
   const profile = await load(city, slug);
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl px-4 py-10 sm:px-6">
+    <section className="mx-auto w-full max-w-3xl px-5 py-12 sm:py-16">
       <CatalogProfilePage profile={profile} />
-    </main>
+    </section>
   );
 }

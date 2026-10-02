@@ -2,11 +2,22 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
 
-import { productCopy, productName } from "../content";
+import { productCopy, productHasCatalog, productName } from "../content";
+import { marketingLinks } from "../navigation";
 
 export async function SiteFooter() {
   const t = await getTranslations("Marketing");
   const copy = productCopy(await getLocale());
+  const links = marketingLinks(
+    copy,
+    {
+      features: t("nav.features"),
+      catalog: t("nav.catalog"),
+      pricing: t("nav.pricing"),
+      contact: t("nav.contact"),
+    },
+    { catalog: productHasCatalog },
+  );
 
   return (
     <footer className="border-t">
@@ -20,36 +31,15 @@ export async function SiteFooter() {
           className="flex flex-col gap-2 text-sm"
         >
           <p className="font-medium">{t("footer.product")}</p>
-          {copy.pages?.length ? (
-            copy.pages.map((page) => (
-              <Link
-                key={page.slug}
-                href={`/${page.slug}`}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {page.navLabel}
-              </Link>
-            ))
-          ) : (
+          {links.map((link) => (
             <Link
-              href="/#features"
+              key={link.href}
+              href={link.href}
               className="text-muted-foreground hover:text-foreground"
             >
-              {t("nav.features")}
+              {link.label}
             </Link>
-          )}
-          <Link
-            href="/pricing"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {t("nav.pricing")}
-          </Link>
-          <Link
-            href="/contact"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {t("nav.contact")}
-          </Link>
+          ))}
         </nav>
         <nav
           aria-label={t("footer.account")}

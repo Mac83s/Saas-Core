@@ -12,3 +12,8 @@ export function productCopy(locale: string): ProductCopy {
 }
 
 export const productName = deployment.product.name;
+
+/** The company catalogue (ADR-053) is part of every product that composes profiles. */
+export const productHasCatalog = (
+  deployment.modules as readonly string[]
+).includes("shared.profiles");
