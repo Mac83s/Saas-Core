@@ -306,6 +306,388 @@
       "version_field": "expected_version"
     },
     {
+      "command": "booking.settings_online.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Online booking' (paused, resume_on): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "paused": {
+                "type": "string"
+              },
+              "resume_on": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "paused": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "resume_on": {
+                "format": "date",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
+        "pl": "Czy klienci rezerwują przez formularz na stronie firmy. Wstrzymanie nie dotyczy wizyt dodawanych w panelu ani zmian istniejących rezerwacji."
+      },
+      "title": {
+        "en": "Read settings: Online booking",
+        "pl": "Odczytaj ustawienia: Rezerwacja online"
+      },
+      "tool_name": "booking_settings_online_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.settings_online.update@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "paused": {
+            "description": "Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. Null keeps it as it is.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "paused",
+                "resume_on"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "resume_on": {
+            "description": "The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off. Null keeps it as it is.",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "paused",
+          "resume_on",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Online booking'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "paused": {
+                "type": "string"
+              },
+              "resume_on": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "paused": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "resume_on": {
+                "format": "date",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
+        "pl": "Czy klienci rezerwują przez formularz na stronie firmy. Wstrzymanie nie dotyczy wizyt dodawanych w panelu ani zmian istniejących rezerwacji."
+      },
+      "title": {
+        "en": "Change settings: Online booking",
+        "pl": "Zmień ustawienia: Rezerwacja online"
+      },
+      "tool_name": "booking_settings_online_update_v1",
+      "undo": "command:booking.settings_online.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "booking.settings_reminders.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Visit reminders' (enabled, lead_hours, min_notice_hours): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether and when the customer gets a reminder e-mail before a confirmed visit.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "enabled": {
+                "type": "string"
+              },
+              "lead_hours": {
+                "type": "string"
+              },
+              "min_notice_hours": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "lead_hours": {
+                "maximum": 168,
+                "minimum": 1,
+                "type": "integer",
+                "x-data-class": "public"
+              },
+              "min_notice_hours": {
+                "maximum": 168,
+                "minimum": 0,
+                "type": "integer",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Whether and when the customer gets a reminder e-mail before a confirmed visit.",
+        "pl": "Czy i kiedy klient dostaje e-mail z przypomnieniem przed potwierdzoną wizytą."
+      },
+      "title": {
+        "en": "Read settings: Visit reminders",
+        "pl": "Odczytaj ustawienia: Przypomnienia o wizycie"
+      },
+      "tool_name": "booking_settings_reminders_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.settings_reminders.update@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "Whether customers get a reminder e-mail before a confirmed visit. Off: no reminder is sent and the planned ones are dropped. Null keeps it as it is.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "lead_hours": {
+            "description": "How many hours before the visit the reminder goes out, 1 to 168. A change re-plans the reminders not sent yet; a visit closer than that gets its reminder at once. Null keeps it as it is.",
+            "maximum": 168,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "min_notice_hours": {
+            "description": "A visit less than this many hours away when its reminder is planned gets none (a booking for this afternoon needs no reminder). 0 keeps today's behaviour: the reminder goes out at once. Null keeps it as it is.",
+            "maximum": 168,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "enabled",
+                "lead_hours",
+                "min_notice_hours"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "lead_hours",
+          "min_notice_hours",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Visit reminders'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). Whether and when the customer gets a reminder e-mail before a confirmed visit.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "enabled": {
+                "type": "string"
+              },
+              "lead_hours": {
+                "type": "string"
+              },
+              "min_notice_hours": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "lead_hours": {
+                "maximum": 168,
+                "minimum": 1,
+                "type": "integer",
+                "x-data-class": "public"
+              },
+              "min_notice_hours": {
+                "maximum": 168,
+                "minimum": 0,
+                "type": "integer",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Whether and when the customer gets a reminder e-mail before a confirmed visit.",
+        "pl": "Czy i kiedy klient dostaje e-mail z przypomnieniem przed potwierdzoną wizytą."
+      },
+      "title": {
+        "en": "Change settings: Visit reminders",
+        "pl": "Zmień ustawienia: Przypomnienia o wizycie"
+      },
+      "tool_name": "booking_settings_reminders_update_v1",
+      "undo": "command:booking.settings_reminders.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "booking.setup.read@1",
       "entitlement": "booking.enabled",
       "exposure": [

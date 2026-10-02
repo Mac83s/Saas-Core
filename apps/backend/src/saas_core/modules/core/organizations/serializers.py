@@ -211,6 +211,20 @@ class HistoryQuerySerializer(serializers.Serializer[dict[str, Any]]):
     page = serializers.IntegerField(min_value=1, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=100, default=25)
     action = serializers.CharField(max_length=64, required=False, default="")
+    #: A settings group (ADR-078 pkt 7): its changes, whichever field.
+    group = serializers.CharField(
+        max_length=120,
+        required=False,
+        default="",
+        help_text="A settings group, e.g. booking.reminders.",
+    )
+    #: One setting: the changes of its group that touched it.
+    key = serializers.CharField(
+        max_length=120,
+        required=False,
+        default="",
+        help_text="One setting, e.g. booking.reminders.lead_hours.",
+    )
 
 
 class HistoryActorSerializer(serializers.Serializer[dict[str, Any]]):

@@ -130,6 +130,42 @@ export type OrganizationUpdateInput =
 /** A setting a company may choose and what it may choose (ADR-078). */
 export type SettingOption = components["schemas"]["SettingOption"];
 export type SettingOptions = components["schemas"]["SettingOptions"];
+export type SettingsSchema = components["schemas"]["SettingsSchema"];
+export type SettingsGroupSchema = components["schemas"]["SettingsGroupSchema"];
+export type SettingEffect = components["schemas"]["SettingEffect"];
+
+type SettingsGroupPath = {
+  [
+    P in keyof paths
+  ]: P extends `/api/v1/organizations/current/settings/${infer G}/`
+    ? G extends "schema" | `${string}/preview`
+      ? never
+      : P
+    : never;
+}[keyof paths];
+type SettingsPreviewPath = {
+  [
+    P in keyof paths
+  ]: P extends `/api/v1/organizations/current/settings/${string}/preview/`
+    ? P
+    : never;
+}[keyof paths];
+/** A settings group, e.g. "booking.reminders" — one per declared group. */
+export type SettingsGroupKey =
+  SettingsGroupPath extends `/api/v1/organizations/current/settings/${infer G}/`
+    ? G
+    : never;
+/** Any group's values, sources and version token, as its own operation types it. */
+export type SettingsGroupState =
+  paths[SettingsGroupPath]["get"]["responses"][200]["content"]["application/json"];
+export type SettingsGroupPreview =
+  paths[SettingsPreviewPath]["post"]["responses"][200]["content"]["application/json"];
+/** A change of any group: its fields by name, `null` keeps one, `reset` gives back. */
+export type SettingsGroupChange = {
+  expected_version: string;
+  reset?: string[];
+  [field: string]: unknown;
+};
 export type InvitationSummary = components["schemas"]["InvitationSummary"];
 export type InvitationCreateInput = components["schemas"]["InvitationCreate"];
 export type MembershipSummary = components["schemas"]["MembershipSummary"];
@@ -677,6 +713,72 @@ export async function getOrganizationOptions(): Promise<SettingOptions> {
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** Every settings group of the company, its keys, variants and labels. */
+export async function getSettingsSchema(): Promise<SettingsSchema> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/settings/schema/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export function getSettingsGroup(
+  group: SettingsGroupKey,
+): Promise<SettingsGroupState> {
+  return settingsRequest(group, "", { method: "GET" });
+}
+
+/** What a change would do, saving nothing (`x-dry-run`). */
+export async function previewSettingsGroup(
+  group: SettingsGroupKey,
+  change: SettingsGroupChange,
+): Promise<SettingsGroupPreview> {
+  return settingsRequest(group, "preview/", {
+    method: "POST",
+    body: JSON.stringify(change),
+    headers: { "X-CSRFToken": await getCsrfToken() },
+  });
+}
+
+export async function updateSettingsGroup(
+  group: SettingsGroupKey,
+  change: SettingsGroupChange,
+  idempotencyKey: string,
+): Promise<SettingsGroupState> {
+  return settingsRequest(group, "", {
+    method: "PATCH",
+    body: JSON.stringify(change),
+    headers: {
+      "X-CSRFToken": await getCsrfToken(),
+      "Idempotency-Key": idempotencyKey,
+    },
+  });
+}
+
+/**
+ * A settings group's operations differ only in their path, which the group
+ * names; their types come from the contract above (`SettingsGroupState`).
+ */
+async function settingsRequest<T>(
+  group: SettingsGroupKey,
+  suffix: string,
+  init: RequestInit,
+): Promise<T> {
+  const response = await fetch(
+    `/api/v1/organizations/current/settings/${group}/${suffix}`,
+    {
+      ...init,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", ...init.headers },
+    },
+  );
+  const body: unknown = await response.json().catch(() => undefined);
+  if (!response.ok) throwProblem(body, response);
+  return body as T;
 }
 
 export async function createOrganization(

@@ -37,6 +37,6 @@ class CommandEval:
 
 
 def all_evals() -> dict[str, CommandEval]:
-    from . import booking, organization  # noqa: PLC0415
+    from . import booking, company_settings, organization  # noqa: PLC0415
 
-    return {**organization.EVALS, **booking.EVALS}
+    return {**organization.EVALS, **booking.EVALS, **company_settings.EVALS}

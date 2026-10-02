@@ -77,7 +77,6 @@
     "GET /api/v1/notifications/support/health/": {"fingerprint": "9c6d9f7a6f07181c", "violations": ["summary", "description"]},
     "GET /api/v1/notifications/templates/": {"fingerprint": "814a9602b5ced53b", "violations": ["summary", "description"]},
     "GET /api/v1/organizations/": {"fingerprint": "4d0f14d9ba9ead87", "violations": ["operation-id", "summary", "description"]},
-    "GET /api/v1/organizations/current/history/": {"fingerprint": "97075e482de7ff35", "violations": ["operation-id", "summary", "error-400"]},
     "GET /api/v1/organizations/current/invitations/": {"fingerprint": "5d2ff3579fb7bc70", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/organizations/current/members/": {"fingerprint": "9fb5502c56af513a", "violations": ["operation-id", "summary", "description", "error-400"]},
     "GET /api/v1/organizations/current/roles/": {"fingerprint": "21ba0a7e71352065", "violations": ["operation-id", "summary"]},

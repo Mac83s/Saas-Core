@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .public_locales_views import PublicLocalesPreviewView, PublicLocalesView
+from .settings_views import settings_urlpatterns
 from .views import (
     CommandConsentView,
     CurrentOrganizationView,
@@ -19,6 +20,8 @@ from .views import (
 )
 
 urlpatterns = [
+    # Each settings group's read, preview and change (ADR-078 pkt 11).
+    *settings_urlpatterns(),
     path("", OrganizationListCreateView.as_view(), name="organization-list-create"),
     path("options/", OrganizationOptionsView.as_view(), name="organization-options"),
     path("current/", CurrentOrganizationView.as_view(), name="organization-current"),

@@ -39,7 +39,8 @@ from saas_core.modules.shared.notifications.services import queue_email
 
 from . import materials as stock
 from . import notify
-from .availability import free_at, validate_start
+from .availability import _zone, free_at, validate_start
+from .company_settings import refuse_when_paused, reminder_due
 from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
 from .models import (
     Appointment,
@@ -463,6 +464,9 @@ def create_appointment(
             decrypt_secret(existing.appointment.self_service_token_ciphertext),
             False,
         )
+    if context.role_key == PUBLIC_BOOKING_ROLE:
+        # Online booking paused (ADR-078, B1): the form refuses, the team books on.
+        refuse_when_paused(_zone().key)
     service = Service.all_objects.filter(pk=service_id, active=True).first()
     people = {
         person.id: person for person in StaffMember.all_objects.filter(pk__in=named, active=True)
@@ -694,7 +698,7 @@ def create_appointment(
     )
     if walk_in_minutes is None:
         # Nothing to remind anybody about when the visit is already happening.
-        _arm_reminder(appointment)
+        arm_reminder(appointment)
     if email and walk_in_minutes is None:
         queue_email(
             recipient_email=email,
@@ -877,7 +881,7 @@ def reschedule_appointment(
         )
         if dropped:
             notify.staff_unassigned(appointment, dropped)
-    _arm_reminder(appointment)
+    arm_reminder(appointment)
     AppointmentStatusHistory.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -1041,20 +1045,22 @@ def _refuse_customer_after_start(role_key: str, appointment: Appointment) -> Non
         raise AppointmentNotChangeable
 
 
-def _arm_reminder(appointment: Appointment) -> None:
+def arm_reminder(appointment: Appointment) -> None:
     """Schedules the customer's reminder for the appointment's current time.
 
     A move re-arms it: the reminder follows the new time, even when the old
-    one was already sent. The route is signed as the organization's own
-    service, not as whoever booked, so it outlives that person's membership
-    (ADR-058 §7).
+    one was already sent. When and whether is the company's setting
+    (`booking.reminders`, ADR-078): switched off, or a visit closer than its
+    threshold, gets no reminder and loses a planned one. The route is signed as
+    the organization's own service, not as whoever booked, so it outlives that
+    person's membership (ADR-058 §7).
     """
-    due_at = max(
-        timezone.now(),
-        appointment.starts_at - timedelta(hours=settings.BOOKING_REMINDER_LEAD_HOURS),
-    )
+    due_at = reminder_due(appointment.starts_at)
     appointment.reminder_due_at, appointment.reminder_sent_at = due_at, None
     appointment.save(update_fields=["reminder_due_at", "reminder_sent_at", "updated_at"])
+    if due_at is None:
+        ReminderRoute.objects.filter(appointment_id=appointment.id).delete()
+        return
     signed = issue_service_task_contract(
         organization_id=appointment.organization_id,
         role_key=REMINDER_ROLE,

@@ -732,3 +732,57 @@ class PublicLocalesChange(models.Model):
 
     def __str__(self) -> str:
         return f"{self.organization_id}:{self.version}"
+
+
+class OrganizationSetting(models.Model):
+    """A company's own value of one setting (ADR-078 pkt 7) — only the company
+    scope; narrower scopes live in their module's tables. A row with no value
+    is a value given back to the default: it keeps its version, so a form read
+    before the change can never match again."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="+")
+    key = models.CharField(max_length=120)
+    #: Checked against the declaration on write; null: none, the default applies.
+    value = models.JSONField(null=True)
+    version = models.PositiveBigIntegerField(default=0)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "key"], name="organizations_setting_key_uq"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization_id}:{self.key}"
+
+
+class OrganizationSettingsReceipt(models.Model):
+    """The answer to one change of a settings group (ADR-046:31-36): a repeat
+    with the same key and request gets it again, another request with the same
+    key a conflict."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="+")
+    group = models.CharField(max_length=120)
+    principal_ref = models.CharField(max_length=64)
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "group", "principal_ref", "idempotency_key"],
+                name="organizations_settings_receipt_uq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization_id}:{self.group}:{self.idempotency_key}"

@@ -504,8 +504,17 @@ class HistoryView(ProtectedOrganizationView):
     """The organization's history of changes, newest first (owner, admin)."""
 
     @extend_schema(
+        operation_id="organizations_history_list",
+        summary="Read the company's history of changes",
+        description="Who changed what and when, newest first, with before and after where "
+        "the change recorded them and through which channel (panel, API key, assistant). "
+        "Filter by `action`, by a settings `group` or by one setting's `key` (ADR-078).",
         parameters=[HistoryQuerySerializer],
-        responses={200: HistoryPageSerializer, 403: ProblemDetailsSerializer},
+        responses={
+            200: HistoryPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
     )
     def get(self, request: Request) -> Response:
         query = HistoryQuerySerializer(data=request.query_params)
@@ -514,6 +523,8 @@ class HistoryView(ProtectedOrganizationView):
             page=query.validated_data["page"],
             page_size=query.validated_data["page_size"],
             action=query.validated_data["action"],
+            group=query.validated_data["group"],
+            key=query.validated_data["key"],
         )
         return Response({
             "total": page.total,

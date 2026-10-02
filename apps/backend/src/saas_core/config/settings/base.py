@@ -870,6 +870,7 @@ SPECTACULAR_SETTINGS = {
         # The translation mode must not rename the warehouse document's mode.
         "ModeEnum": ["consume", "sale"],
         "TranslationModeEnum": ["automatic", "review"],
+        "SettingSourceEnum": "saas_core.modules.core.organizations.settings_registry.SOURCES",
     },
 }
 

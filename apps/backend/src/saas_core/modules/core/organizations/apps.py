@@ -18,3 +18,8 @@ class OrganizationsConfig(AppConfig):
         from .command_declarations import register_organization_commands  # noqa: PLC0415
 
         register_organization_commands()
+        # The plan's word on a settings group, before its commands run (ADR-078 pkt 1).
+        from .command_executor import register_command_gate  # noqa: PLC0415
+        from .settings_commands import settings_gate  # noqa: PLC0415
+
+        register_command_gate("settings", settings_gate)

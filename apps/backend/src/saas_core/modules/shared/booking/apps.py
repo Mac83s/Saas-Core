@@ -36,6 +36,10 @@ class BookingConfig(AppConfig):
         from .command_declarations import register_booking_commands
 
         register_booking_commands()
+        # Reminders and the online-booking pause, on core's settings registry (ADR-078).
+        from .company_settings import register_company_settings
+
+        register_company_settings()
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")

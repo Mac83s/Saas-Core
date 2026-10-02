@@ -913,6 +913,11 @@ class CatalogSerializer(serializers.Serializer[dict[str, Any]]):
     place_search = serializers.BooleanField(required=False)
 
 
+class PublicOnlineSerializer(serializers.Serializer[dict[str, Any]]):
+    paused = serializers.BooleanField()
+    resume_on = serializers.DateField(allow_null=True, help_text="The day booking resumes.")
+
+
 class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     """The catalogue without the staff list: only teams by name and people the
     company shows its customers (ADR-058 §8)."""
@@ -924,6 +929,9 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     people = PublicNameSerializer(many=True)
     #: The organization's zone: the days and times offered are its wall clock.
     timezone = serializers.CharField()
+    online = PublicOnlineSerializer(
+        help_text="Whether the company takes online bookings now (ADR-078, booking.online)."
+    )
 
 
 class PersonSerializer(serializers.Serializer[dict[str, Any]]):

@@ -25,6 +25,7 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
+from .company_settings import online_paused
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
@@ -953,6 +954,7 @@ class PublicBookingCatalogView(APIView):
             }
             payload = _catalog_payload(value, public=True)
             choices = public_choices(org, [x for x in value["services"] if x.active])
+            paused, resume_on = online_paused(_zone().key)
             kinds = {x.id: x.public_staff_choice for x in value["services"]}
             for item in payload["services"]:
                 teams, people = choices.services.get(item["id"], ([], []))
@@ -962,6 +964,7 @@ class PublicBookingCatalogView(APIView):
                 "teams": [{"id": key, "name": name} for key, name in choices.teams],
                 "people": [{"id": key, "name": name} for key, name in choices.people],
                 "timezone": _zone().key,
+                "online": {"paused": paused, "resume_on": resume_on},
             })
 
 

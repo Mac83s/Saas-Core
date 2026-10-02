@@ -21,6 +21,7 @@ class BillingConfig(AppConfig):
             register_command_gate,
             register_public_locales_limit,
             register_seat_limit,
+            register_settings_feature_check,
         )
         from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
             Organization,
@@ -29,6 +30,7 @@ class BillingConfig(AppConfig):
         from .command_gate import plan_features  # noqa: PLC0415
         from .public_locales import public_locales_limit  # noqa: PLC0415
         from .seats import team_members_limit  # noqa: PLC0415
+        from .settings_features import settings_feature  # noqa: PLC0415
         from .signals import grant_free_plan_on_create  # noqa: PLC0415
 
         post_save.connect(
@@ -42,6 +44,8 @@ class BillingConfig(AppConfig):
         register_public_locales_limit(public_locales_limit)
         # Whether the plan lets a channel act at all, asked on every command.
         register_command_gate("features", plan_features)
+        # Whether the plan covers a settings group (ADR-078 pkt 5).
+        register_settings_feature_check(settings_feature)
         # A demo organization's plan, before any module needs it (seed_demo).
         from saas_core.modules.core.organizations.demo import (  # noqa: PLC0415
             register_demo_part,

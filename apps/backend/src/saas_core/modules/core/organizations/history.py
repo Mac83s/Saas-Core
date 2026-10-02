@@ -12,7 +12,7 @@ from typing import Any
 
 from .audit import PANEL_PRINCIPAL
 from .authorization import authorize
-from .models import OrganizationAuditEntry
+from .models import OrganizationAuditAction, OrganizationAuditEntry
 from .permissions import SETTINGS_MANAGE
 
 PAGE_SIZE_MAX = 100
@@ -29,12 +29,21 @@ class HistoryPage:
     actions: list[str]
 
 
-def list_history(*, page: int, page_size: int, action: str = "") -> HistoryPage:
+def list_history(
+    *, page: int, page_size: int, action: str = "", group: str = "", key: str = ""
+) -> HistoryPage:
     context = authorize(SETTINGS_MANAGE)
     rows = OrganizationAuditEntry.objects.filter(organization_id=context.organization_id)
     actions = sorted(set(rows.values_list("action", flat=True)))
     if action:
         rows = rows.filter(action=action)
+    # A settings change names its group in the target and its fields in the
+    # metadata (ADR-078 pkt 9); a key is its group and its last segment.
+    if key:
+        group, _, field = key.rpartition(".")
+        rows = rows.filter(metadata__fields__contains=[field])
+    if group:
+        rows = rows.filter(action=OrganizationAuditAction.SETTINGS_CHANGED, target_type=group)
     start = (page - 1) * page_size
     return HistoryPage(
         total=rows.count(),

@@ -509,6 +509,7 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "teams",
         "people",
         "timezone",
+        "online",
     }
     # Nobody is shown to customers here, so no team and no person is listed.
     assert (listing.json()["teams"], listing.json()["people"]) == ([], [])
