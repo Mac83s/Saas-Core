@@ -1,8 +1,8 @@
 # ADR-078 — Ustawienia platformy i firmy: jeden rejestr
 
-**Status:** Proposed — faza R0 planu memex `saas-core-ustawienia-firmy` (decyzje
-techniczne agenta UF-T1…UF-T16 i UF-D1…UF-D4 z 2026-10-02), w przeglądzie sesji
-rezerwacji (ADR-072 §11), asystenta (A1b), tłumaczeń (K1) i stron firm (K2).
+**Status:** Accepted — faza R0 planu memex `saas-core-ustawienia-firmy` (decyzje
+techniczne agenta UF-T1…UF-T16 i UF-D1…UF-D4 z 2026-10-02), po przeglądzie sesji
+rezerwacji (ADR-072 §11, faza 2), asystenta (A1b), tłumaczeń (K1) i stron firm (K2).
 **Data:** 2026-10-02
 
 **Rozszerza:** ADR-076 pkt 1 i 4 (rejestr ustawień obok rejestru poleceń; polecenia
