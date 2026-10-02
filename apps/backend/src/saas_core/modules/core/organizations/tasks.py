@@ -19,6 +19,7 @@ from saas_core.observability import correlation_id
 
 from .context import (
     TenantContext,
+    acting_context,
     activate_tenant_context,
     context_from_membership,
     require_tenant_context,
@@ -58,6 +59,11 @@ def issue_tenant_task_contract(*, causation_id: str) -> str:
     context = require_tenant_context()
     if not causation_id or len(causation_id) > 160:
         raise ValueError("causation_id musi mieć od 1 do 160 znaków.")
+    if context.acting_via:
+        # This contract cannot carry acting (ADR-076 §6), and a task opened
+        # without it would act as the person deciding directly, past the
+        # person-only gates. The first producer of such work adds it here.
+        raise ValueError("Kontrakt zadania nie przenosi działania w imieniu osoby.")
     contract = TenantTaskContract(
         version=2,
         organization_id=str(context.organization_id),
@@ -186,6 +192,9 @@ def deferred_tenant_context(
     membership_id: Any,
     actor_id: Any,
     causation_id: str,
+    acting_via: str = "",
+    acting_ref: str = "",
+    acting_trigger: str = "",
 ) -> Iterator[TenantContext]:
     """Acts as a person who authorised something that runs much later.
 
@@ -193,6 +202,11 @@ def deferred_tenant_context(
     publication scheduled for next week fires. The stored membership is asked
     again at the moment of running instead, so somebody who has since lost
     access does not get one more publication out of the queue.
+
+    A record that stores the right to act later also stores how: `acting_*`
+    is re-applied to the rebuilt membership (ADR-076 §6), or the work would
+    run as the person deciding directly. Values that do not hold are refused
+    like a membership that is gone.
     """
     correlation_token = correlation_id.set(str(uuid7()))
     try:
@@ -205,6 +219,15 @@ def deferred_tenant_context(
             if membership is None:
                 raise InvalidTenantTaskContext(f"{causation_id}: membership nie jest już aktywny.")
             context = context_from_membership(membership)
+            if acting_via or acting_ref or acting_trigger:
+                try:
+                    context = acting_context(
+                        context, via=acting_via, ref=acting_ref, trigger=acting_trigger
+                    )
+                except ValueError as error:
+                    raise InvalidTenantTaskContext(
+                        f"{causation_id}: nieprawidłowe działanie w imieniu osoby."
+                    ) from error
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)
                 yield context

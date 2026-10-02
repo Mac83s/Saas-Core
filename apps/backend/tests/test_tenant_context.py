@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
+from typing import Any
 from uuid import UUID, uuid7
 
 import pytest
@@ -17,10 +19,14 @@ from saas_core.modules.core.identity.middleware import MANAGED_SESSION_KEY
 from saas_core.modules.core.identity.models import User, UserSession, UserStatus
 from saas_core.modules.core.identity.tokens import digest_secret
 from saas_core.modules.core.organizations.context import (
+    ACTING_TRIGGER_KINDS,
+    ACTING_VIA,
     MissingTenantContext,
     TenantContext,
     TenantContextTransactionRequired,
+    acting_context,
     activate_tenant_context,
+    context_from_membership,
     current_tenant_context,
     require_tenant_context,
     set_local_organization_id,
@@ -39,6 +45,7 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
 from saas_core.modules.core.organizations.tasks import (
     InvalidTenantTaskContext,
+    deferred_tenant_context,
     issue_service_task_contract,
     issue_tenant_task_contract,
     tenant_task_context,
@@ -360,6 +367,175 @@ def test_reminder_service_contract_refuses_any_other_scope(permissions: set[str]
 
     with pytest.raises(InvalidTenantTaskContext, match="zakres"), tenant_task_context(contract):
         pass
+
+
+CONVERSATION = f"conversation:{uuid7()}"
+JOB = f"translation_job:{uuid7()}"
+
+
+def a_person() -> TenantContext:
+    """A signed-in person's context, without a database row."""
+    return TenantContext(
+        organization_id=uuid7(),
+        membership_id=uuid7(),
+        actor_id=uuid7(),
+        role_key="owner",
+        permissions=frozenset({"organization.read"}),
+    )
+
+
+def test_acting_keeps_every_right_of_the_membership_it_wraps() -> None:
+    """ADR-076 §6: acting says through what a person's membership acts. It
+    changes neither who acts nor what they may do."""
+    person = context_from_membership(create_membership())
+
+    acting = acting_context(person, via="assistant", ref=CONVERSATION)
+
+    assert (acting.acting_via, acting.acting_ref, acting.acting_trigger) == (
+        "assistant",
+        CONVERSATION,
+        "",
+    )
+    assert replace(acting, acting_via="", acting_ref="") == person
+    assert person.acting_via == ""
+    for via, ref_kind in ACTING_VIA.items():
+        for trigger_kind in ACTING_TRIGGER_KINDS:
+            trigger = f"{trigger_kind}:{uuid7()}"
+            ref = f"{ref_kind}:{uuid7()}"
+            assert acting_context(person, via=via, ref=ref, trigger=trigger).acting_trigger == (
+                trigger
+            )
+
+
+@pytest.mark.parametrize(
+    "acting",
+    [
+        pytest.param({"acting_via": "mcp", "acting_ref": CONVERSATION}, id="unknown-via"),
+        pytest.param({"acting_via": "assistant", "acting_ref": JOB}, id="ref-of-another-kind"),
+        pytest.param(
+            {"acting_via": "assistant", "acting_ref": "conversation:42"}, id="ref-not-a-uuid"
+        ),
+        pytest.param(
+            {"acting_via": "assistant", "acting_ref": f"conversation:{str(uuid7()).upper()}"},
+            id="ref-not-canonical",
+        ),
+        pytest.param({"acting_via": "assistant"}, id="via-without-ref"),
+        pytest.param(
+            {
+                "acting_via": "assistant",
+                "acting_ref": CONVERSATION,
+                "acting_trigger": f"webhook:{uuid7()}",
+            },
+            id="unknown-trigger-kind",
+        ),
+        pytest.param(
+            {"acting_via": "assistant", "acting_ref": CONVERSATION, "acting_trigger": "schedule"},
+            id="trigger-without-id",
+        ),
+        pytest.param({"acting_ref": CONVERSATION}, id="ref-without-via"),
+        pytest.param({"acting_trigger": f"user:{uuid7()}"}, id="trigger-without-via"),
+    ],
+)
+def test_acting_refuses_an_unknown_vocabulary(acting: dict[str, str]) -> None:
+    with pytest.raises(ValueError):
+        replace(a_person(), **acting)
+
+
+def test_acting_refuses_a_non_membership_principal_and_nesting() -> None:
+    """Only a person's own membership acts for that person: a key or a service
+    acting "for" somebody would borrow a standing it never had. Acting does
+    not stack, and asking for it names a known channel."""
+    person = a_person()
+    for principal_kind in ("api_key", "service", "image_generation_job"):
+        with pytest.raises(ValueError, match="membership"):
+            acting_context(
+                replace(person, principal_kind=principal_kind),
+                via="assistant",
+                ref=CONVERSATION,
+            )
+    acting = acting_context(person, via="assistant", ref=CONVERSATION)
+    with pytest.raises(ValueError, match="zagnieżdżania"):
+        acting_context(acting, via="ai_translation", ref=JOB)
+    with pytest.raises(ValueError, match="kanał"):
+        acting_context(person, via="", ref="")
+
+
+def test_a_task_contract_never_drops_acting() -> None:
+    """The signed contract cannot carry acting yet, and a task opened from one
+    would act as the person deciding directly, past every person-only gate.
+    So it is refused until the first producer of acting work adds it."""
+    person = a_person()
+
+    with (
+        activate_tenant_context(acting_context(person, via="assistant", ref=CONVERSATION)),
+        pytest.raises(ValueError, match="w imieniu osoby"),
+    ):
+        issue_tenant_task_contract(causation_id="acting:task")
+    with activate_tenant_context(person):
+        assert issue_tenant_task_contract(causation_id="person:task")
+
+
+def test_deferred_context_reapplies_acting_and_refuses_an_inactive_membership() -> None:
+    """Work a translation job does later runs as the membership of the person
+    who enabled it, asked again at that moment, and still marked as acting."""
+    membership = create_membership()
+    stored: dict[str, Any] = {
+        "organization_id": membership.organization_id,
+        "membership_id": membership.id,
+        "actor_id": membership.user_id,
+        "causation_id": "translation-job:test",
+    }
+    trigger = f"api_key:{uuid7()}"
+
+    with deferred_tenant_context(
+        **stored, acting_via="ai_translation", acting_ref=JOB, acting_trigger=trigger
+    ) as context:
+        assert current_tenant_context() is context
+        assert (context.acting_via, context.acting_ref, context.acting_trigger) == (
+            "ai_translation",
+            JOB,
+            trigger,
+        )
+        assert replace(
+            context, acting_via="", acting_ref="", acting_trigger=""
+        ) == context_from_membership(membership)
+    with deferred_tenant_context(**stored) as context:
+        assert context.acting_via == ""
+    assert current_tenant_context() is None
+
+    Membership.objects.filter(pk=membership.pk).update(
+        status=MembershipStatus.REVOKED,
+        revoked_at=timezone.now(),
+    )
+    with (
+        pytest.raises(InvalidTenantTaskContext, match="aktywny"),
+        deferred_tenant_context(**stored, acting_via="ai_translation", acting_ref=JOB),
+    ):
+        pass
+
+
+def test_deferred_context_refuses_acting_that_does_not_hold() -> None:
+    """A stored right to act whose acting does not hold is refused like a
+    membership that is gone, never quietly run as the person directly."""
+    membership = create_membership()
+    stored: dict[str, Any] = {
+        "organization_id": membership.organization_id,
+        "membership_id": membership.id,
+        "actor_id": membership.user_id,
+        "causation_id": "translation-job:broken",
+    }
+
+    for acting in (
+        {"acting_ref": JOB},
+        {"acting_via": "ai_translation", "acting_ref": CONVERSATION},
+        {"acting_via": "ai_translation", "acting_ref": JOB, "acting_trigger": "schedule:jutro"},
+    ):
+        with (
+            pytest.raises(InvalidTenantTaskContext, match="w imieniu osoby"),
+            deferred_tenant_context(**stored, **acting),
+        ):
+            pass
+    assert current_tenant_context() is None
 
 
 def test_first_sensitive_tenant_model_has_forced_rls() -> None:

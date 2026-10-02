@@ -29,6 +29,7 @@ from saas_core.modules.core.organizations.api import (
 )
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import (
+    ACTING_PERSON_GATE_ALLOWED,
     TenantContext,
     require_tenant_context,
 )
@@ -1166,7 +1167,7 @@ def assert_person_blocks(
 ) -> None:
     """One check for every way blocks are written — page and entry drafts, and
     the change sets routed through them. `previous` is read only for an
-    automation: the blocks of the draft being replaced.
+    automation or an acting context: the blocks of the draft being replaced.
 
     Pricing blocks an automation outright. Attributed statements and gallery
     captions only when their words are new: an automation may carry them
@@ -1174,7 +1175,8 @@ def assert_person_blocks(
     words into anyone's mouth nor describe work it has not seen (catalogue
     rule 4, docs/architecture/site-section-catalog.md), so a page with a
     quote or a gallery stays open to it."""
-    if not _is_automation(context):
+    # Acting for a person is not the person deciding (ADR-076 §6).
+    if not _is_automation(context) and not context.acting_via:
         return
     if any(
         isinstance(block, dict) and block.get("block_type") in PERSON_ONLY_BLOCK_TYPES
@@ -1197,7 +1199,10 @@ def assert_person_required(context: TenantContext, what: str) -> None:
     may do routinely, not a way of buying past the short list of things nobody
     wants a machine deciding alone.
     """
-    if not _is_automation(context):
+    # A membership acting through the assistant or a translation job is
+    # refused too, unless its channel was opened for this label (ADR-076 §6).
+    opened = ACTING_PERSON_GATE_ALLOWED.get(context.acting_via, frozenset())
+    if not _is_automation(context) and (not context.acting_via or what in opened):
         return
     raise PersonRequired(detail=f"{what} wymaga decyzji człowieka.")
 
@@ -1212,6 +1217,9 @@ def assert_page_writable(
     """Refuses an automated write the operator has not allowed, or that would
     land on a page a person currently has open."""
     if not _is_automation(context):
+        # Only the person-only part binds a membership acting for its person.
+        if page.page_type in PERSON_ONLY_PAGE_TYPES:
+            assert_person_required(context, "Strona prawna")
         return
     assert_within_grant(
         context,

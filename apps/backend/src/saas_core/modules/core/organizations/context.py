@@ -3,12 +3,29 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import UUID
 
 from django.db import connection
 
 from .models import Membership
+
+#: What a person's membership may act through, each with the one kind of
+#: reference it names: `conversation:<uuid>`, `translation_job:<uuid>`
+#: (ADR-076 §6). A new channel — `mcp`, say — is one entry here.
+ACTING_VIA: dict[str, str] = {
+    "assistant": "conversation",
+    "ai_translation": "translation_job",
+}
+
+#: What set acting work going when the person did not click: `<kind>:<uuid>`.
+ACTING_TRIGGER_KINDS = frozenset({"user", "api_key", "schedule", "conversation"})
+
+#: The person-only operations (`assert_person_required` labels, ADR-035 §4)
+#: an acting context may still reach, per `acting_via`. Acting for a person
+#: is not the person deciding, so it stays empty until a click-made consent
+#: (assistant, A1b) or ADR-069 (automatic translation) opens a label.
+ACTING_PERSON_GATE_ALLOWED: dict[str, frozenset[str]] = {}
 
 
 class MissingTenantContext(RuntimeError):
@@ -31,9 +48,67 @@ class TenantContext:
     # what kind of credential that is — it only carries the id so a module that
     # does can narrow what this request may touch.
     credential_id: UUID | None = None
+    # The membership acting for its person through something else (ADR-076
+    # §6): through what, for which conversation or job, and what set it going.
+    # Only server code sets them, from server rows; they never widen the
+    # role, the permissions or the principal. See `acting_context`.
+    acting_via: str = ""
+    acting_ref: str = ""
+    acting_trigger: str = ""
+
+    def __post_init__(self) -> None:
+        if self.acting_via or self.acting_ref or self.acting_trigger:
+            _check_acting(self)
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions
+
+
+def acting_context(
+    context: TenantContext,
+    *,
+    via: str,
+    ref: str,
+    trigger: str = "",
+) -> TenantContext:
+    """The same membership, acting for its person through `via` (ADR-076 §6).
+
+    Rights stay exactly the membership's; the person-only gates refuse it
+    unless `ACTING_PERSON_GATE_ALLOWED` opens the label for `via`.
+    """
+    if context.acting_via:
+        raise ValueError("Kontekst już działa w imieniu osoby; bez zagnieżdżania.")
+    if via not in ACTING_VIA:
+        raise ValueError(f"Nieznany kanał działania w imieniu osoby: {via!r}.")
+    return replace(context, acting_via=via, acting_ref=ref, acting_trigger=trigger)
+
+
+def _check_acting(context: TenantContext) -> None:
+    ref_kind = ACTING_VIA.get(context.acting_via)
+    if ref_kind is None:
+        raise ValueError(f"Nieznany kanał działania w imieniu osoby: {context.acting_via!r}.")
+    if context.principal_kind != "membership":
+        raise ValueError("W imieniu osoby działa tylko jej membership.")
+    if not _is_reference(context.acting_ref, frozenset({ref_kind})):
+        raise ValueError(f"acting_ref musi mieć postać {ref_kind}:<uuid>.")
+    if context.acting_trigger and not _is_reference(
+        context.acting_trigger, ACTING_TRIGGER_KINDS
+    ):
+        raise ValueError("acting_trigger musi być pusty albo mieć postać <rodzaj>:<uuid>.")
+
+
+def _is_reference(value: object, kinds: frozenset[str]) -> bool:
+    """`<kind>:<uuid>` with a known kind and the uuid in canonical form, so
+    one conversation or job is always the same string in the history."""
+    if not isinstance(value, str):
+        return False
+    kind, separator, identifier = value.partition(":")
+    if not separator or kind not in kinds:
+        return False
+    try:
+        return str(UUID(identifier)) == identifier
+    except ValueError:
+        return False
 
 
 _active_tenant: ContextVar[TenantContext | None] = ContextVar(

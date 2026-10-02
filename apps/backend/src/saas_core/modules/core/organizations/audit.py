@@ -27,8 +27,10 @@ def record_audit(
     target_id: UUID | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> OrganizationAuditEntry:
-    """One history row. The channel comes from the tenant context of the
-    request, so none of the callers has to pass it and none can forget it."""
+    """One history row. The channel, and whether the membership acted for its
+    person through the assistant or a translation job (ADR-076 §6), come from
+    the tenant context of the request, so none of the callers has to pass
+    them and none can forget them."""
     context = current_tenant_context()
     return OrganizationAuditEntry.objects.create(
         organization=organization,
@@ -40,6 +42,9 @@ def record_audit(
         correlation_id=correlation_id.get(),
         channel=context.principal_kind if context is not None else "",
         credential_id=context.credential_id if context is not None else None,
+        acting_via=context.acting_via if context is not None else "",
+        acting_ref=context.acting_ref if context is not None else "",
+        acting_trigger=context.acting_trigger if context is not None else "",
     )
 
 

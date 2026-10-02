@@ -571,6 +571,13 @@ class OrganizationAuditEntry(models.Model):
     channel = models.CharField(max_length=32, blank=True, default="")
     #: Which credential acted, when one did (an API key).
     credential_id = models.UUIDField(null=True, blank=True)
+    #: The membership acted for `actor_user` through something else (ADR-076
+    #: §6): `assistant` or `ai_translation`, the conversation or job, and what
+    #: set it going. `channel` stays the principal. Empty when the person
+    #: acted directly and on rows written before ADR-076.
+    acting_via = models.CharField(max_length=32, blank=True, default="")
+    acting_ref = models.CharField(max_length=64, blank=True, default="")
+    acting_trigger = models.CharField(max_length=64, blank=True, default="")
     occurred_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
