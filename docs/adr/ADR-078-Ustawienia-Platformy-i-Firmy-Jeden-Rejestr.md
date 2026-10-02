@@ -457,3 +457,22 @@ wejścia API i poleceń.
   dostałaby przypomnienie, które wyłączyła, i nikt by tego nie zauważył.
 - **Reguły biznesowe w `.env`** — zmiana wymaga odtworzenia kontenera, nie zostawia
   historii i nie da się jej ustawić per firma.
+
+## Uzupełnienie 2026-10-03: jak zbudowało to R1
+
+- **Odczyt bez pamięci na żądanie (zmienia pkt 3).** `resolve()` pyta bazę przy
+  każdym wywołaniu (jedno zapytanie o wiersze firmy), a kod czytający w pętli
+  owija ją w `settings_snapshot()`. Pamięć związana z kontekstem żądania przeżyłaby
+  podgląd polecenia aż do jego wykonania i ukryła zmianę, która powinna unieważnić
+  zgodę — wykazał to eval „zgoda nieaktualna, gdy to, co widziała, się zmieniło”.
+- **Pole grupy to ostatni segment klucza** (`booking.reminders.lead_hours` →
+  `lead_hours`): tak nazywa się w API grupy, w poleceniu i w `errors`; klucz grupy
+  firmy ma więc postać `<grupa>.<pole>`.
+- **Wartość platformy do czasu jej tabeli** to ustawienie Django o nazwie z
+  `platform_env` (czytane z `.env` przy starcie i sprawdzane deklaracją); źródło
+  `platform`.
+- **Usunięta wartość zostaje wierszem bez wartości** z podbitą wersją, żeby token
+  grupy sprzed zmiany nigdy nie pasował ponownie.
+- Typ `date` dołączył do typów ustawień (`SETTING_TYPES`); typ zasięgu `operator`,
+  strategie `restrict`/`lockable`, `copy_at_creation` i `settingsDefaults` wejdą z
+  pierwszym kluczem, który ich potrzebuje.
