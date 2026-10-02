@@ -152,7 +152,10 @@ każdą publikację tłumaczeń. Zestawy zmian SCR adresują bloki pozycją wobe
     digest) oraz „Zdejmij tę wersję językową” (wpis znika, adres odpowiada 308 do
     strony źródłowej, wraca ponowną publikacją) idą przez `assert_person_required`
     i są publikacjami pochodnymi. Akceptacja przenosi `body_pending` do
-    `body_current` w tej samej transakcji.
+    `body_current` w tej samej transakcji. Wynik zadania w trybie automatycznym
+    nie jest decyzją osoby: publikuje go pochodna publikacja `translation_job`
+    według ADR-069, z zadaniem działającym jako członkostwo osoby, która raz
+    wyraziła zgodę.
 13. **Rollback przywraca migawkę razem z wersjami językowymi**; wskaźniki, pamięć i
     oczekujące zostają nietknięte, a uzgadnianie po rollbacku nie publikuje
     nowszych tłumaczeń bez kliknięcia. Cofnięcie zadania — ADR-069.
