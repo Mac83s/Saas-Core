@@ -88,4 +88,46 @@ def test_an_order_binds_the_quote_it_showed() -> None:
     assert group.risk == "irreversible"
     quote = call.preview.quote
     assert quote is not None and quote["credits"] == quote["units"] >= 1
-    assert call.preview.observed_versions == {"translation.quote": quote["digest"]}
+    assert call.preview.observed_versions == {f"translation.quote:{quote['digest']}": 1}
+
+
+def test_the_automation_runs_only_with_the_step_up_its_click_carried() -> None:
+    """Escalated to irreversible: the consent needs a second factor, and an
+    account without one is told to turn it on (owner answer 31b)."""
+    from saas_core.modules.core.organizations.command_executor import execute_plan, offer_plan
+    from saas_core.modules.shared.translation.models import TranslationSettings
+    from test_command_consent_api import URL, signed_in
+    from test_identity_step_up import next_code, step_up
+    from test_mfa import current_totp_code
+    from test_sites_api import csrf_value
+
+    client, person = signed_in("tl6c-cmd-stepup")
+    _company(person)
+    assistant = acting_context(person, via="assistant", ref=f"conversation:{uuid7()}")
+    invocation = Invocation(
+        command="translation.settings.update@1",
+        arguments={**SETTINGS, "auto_changes": True},
+        step_id=str(uuid7()),
+    )
+    with activate_tenant_context(assistant):
+        (group,) = offer_plan([invocation]).groups
+    assert group.step_up_required
+    refused = client.post(URL.format(group.digest), HTTP_X_CSRFTOKEN=csrf_value(client))
+    assert refused.data["code"] == "step_up_mfa_setup_required"
+
+    setup = client.post("/api/v1/auth/mfa/totp/setup/", HTTP_X_CSRFTOKEN=csrf_value(client))
+    secret = setup.data["secret"]
+    client.post(
+        "/api/v1/auth/mfa/totp/confirm/",
+        {"code": current_totp_code(secret)},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert step_up(client, next_code(secret)).status_code == 200
+    granted = client.post(URL.format(group.digest), HTTP_X_CSRFTOKEN=csrf_value(client))
+    assert granted.status_code == 201, granted.data
+    with activate_tenant_context(assistant):
+        (result,) = execute_plan([invocation], {invocation.step_id: granted.data["consent_token"]})
+    assert (result.status, result.code) == ("done", None), result
+    row = TranslationSettings.all_objects.get(organization_id=person.organization_id)
+    assert row.auto_changes is True and row.auto_consent_membership_id == person.membership_id

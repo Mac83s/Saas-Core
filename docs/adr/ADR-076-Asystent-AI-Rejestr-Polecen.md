@@ -405,6 +405,13 @@ etykiety otwarte na jedno wykonanie, zawsze podzbiór sufitu kanału
 - `ai_translation` — worker tłumaczeń ze zgody zapisanej w wierszu zlecenia
   (ADR-069), kiedy ADR-069 nazwie takie wyjątki.
 
+Sufit `assistant` ma dziś trzy etykiety: „Usunięcie języka firmy” (TL10a,
+`organization.public_locales.update@1`), „Decyzja o tłumaczeniu AI”
+(`translation.review.accept@1` i `.reject@1`) i „Zgoda na automat tłumaczeń”
+(`translation.settings.update@1`, gdy włącza automat — wtedy także
+`irreversible` ze step-upem), obie od TL6c. Sufit `ai_translation` zostaje
+pusty (ADR-069 pkt 15): zlecenie nie decyduje za osobę.
+
 `acting_context`, `deferred_tenant_context` i kontrakt zadania nigdy nie
 przenoszą `acting_opened`, więc praca odroczona zaczyna z zamkniętymi
 bramkami. Miejsca, które wybijają zgodę (`mint_consent`), ustawiają

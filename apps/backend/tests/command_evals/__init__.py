@@ -35,8 +35,10 @@ class CommandEval:
     #: (ADR-072 §11); the battery then checks that nothing stayed, not that
     #: nothing ran.
     preview_rolls_back: str = ""
-    #: What the process needs around the whole test — a source in a registry,
-    #: a model the port may call — restored afterwards.
+    #: Process-wide setup `prepare` cannot express — a source in a registry, a
+    #: model the port may call — entered around the whole test. It must put
+    #: back everything it changed: the next command's evals run in the same
+    #: process.
     around: Callable[[], AbstractContextManager[None]] | None = None
 
 

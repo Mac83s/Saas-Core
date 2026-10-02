@@ -140,14 +140,15 @@ def _company(context: TenantContext) -> None:
     organization = Organization.objects.get(pk=context.organization_id)
     organization.public_locales = ["pl", "de"]
     organization.save(update_fields=["public_locales"])
-    EntitlementSnapshot.all_objects.create(
+    EntitlementSnapshot.all_objects.update_or_create(
         organization=organization,
-        plan_version=Plan.objects.get(key="starter").current_version,
-        subscription_state=SubscriptionState.ACTIVE,
-        access_mode=AccessMode.FULL,
-        features={},
-        quotas={"credits.monthly": 100},
-        sources={"credits.monthly": {"kind": "plan"}},
+        defaults={
+            "plan_version": Plan.objects.get(key="starter").current_version,
+            "subscription_state": SubscriptionState.ACTIVE,
+            "access_mode": AccessMode.FULL,
+            "quotas": {"credits.monthly": 100},
+            "sources": {"credits.monthly": {"kind": "plan"}},
+        },
     )
     TranslationSettings.all_objects.create(
         organization=organization,

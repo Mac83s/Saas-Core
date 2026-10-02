@@ -395,7 +395,9 @@ def _preview_order(arguments: Mapping[str, Any], call: Any) -> Preview:
                 f"{quote.credits} credits" + (f"; waiting: {waiting}" if waiting else ""),
             ),
         ),
-        observed_versions={"translation.quote": quote.digest},
+        # Keyed by the digest: two orders in one plan conflict only when they
+        # are the same quote (`command_plan_conflict`).
+        observed_versions={f"translation.quote:{quote.digest}": 1},
         quote=_jsonable(quote_payload(result)),
     )
 
@@ -404,7 +406,7 @@ def _order(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
     quote = call.preview.quote or {}
     saved = order_translation(
         targets=_targets(arguments),
-        digest=str(call.preview.observed_versions["translation.quote"]),
+        digest=str(quote.get("digest", "")),
         expected_credits=int(quote.get("credits", 0)),
         idempotency_key=call.idempotency_key,
         **_options(arguments),
