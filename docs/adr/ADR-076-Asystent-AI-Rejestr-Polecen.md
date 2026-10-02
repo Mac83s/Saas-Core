@@ -366,3 +366,27 @@ oba ADR-y powstają równolegle w sesji tłumaczeń).
 - **Zasianie `assistant.actions.monthly` i `assistant.voice_minutes.monthly`** —
   licznikiem są kredyty; nieużywany klucz limitu byłby martwy albo pułapką, gdyby
   A3 rezerwował na nim bez wartości w planie.
+
+## Uzupełnienie 2026-10-02: zakres step-upu, tylko 2FA i kolejność poleceń rezerwacji
+
+Odpowiedzi właściciela 30–32 (plan asystenta, faza A1b):
+
+- **30 a — zakres step-upu bez zmian.** Step-up obowiązuje wyłącznie przy
+  modyfikatorach `legal_document` i `changes_billing` (pkt 2), w panelu i u
+  asystenta jednakowo. Publikacja strony i zmiana domeny nie wymagają step-upu;
+  u asystenta wymagają osobnego kliknięcia zgody (klasa `publish`). Dawna
+  decyzja A2 planu („publikacja i domena ze step-upem”) przestaje obowiązywać.
+- **31 b — step-up to wyłącznie kod drugiego składnika.** Samo hasło nie
+  wystarcza, a kody zapasowe nie są przyjmowane. Konto bez 2FA nie zaakceptuje
+  dokumentu prawnego i nie zmieni rozliczeń, dopóki nie włączy 2FA: serwis
+  odmawia kodem 403 `step_up_mfa_setup_required` (różnym od
+  `mfa_setup_required` logowania operatora), z komunikatem „Włącz weryfikację
+  dwuetapową, aby…” i bezpośrednią drogą do włączenia 2FA w panelu. Asystent
+  dostaje ten sam kod i podaje osobie tę drogę; sam 2FA nie włącza. Prymityw
+  (`core/identity/step_up.py`, `require_step_up`) jest jeden dla asystenta i
+  dla poziomu 2 operatora z planu ustawień platformy.
+- **32 a — polecenia usług i grafiku po ADR-072 §11.** Sesja rezerwacji buduje
+  najpierw pokwitowanie zapisów konfiguracji, kontrolę wersji i podgląd z
+  ADR-072 §11, a polecenia `booking.*` z pkt 9 (A1b) powstają na nim — bez
+  tymczasowych wersji `@1` z drugim mechanizmem idempotencji. Szkic strony z
+  szablonu zostaje w A1b (pkt 9), nie w A4.
