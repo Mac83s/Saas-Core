@@ -1,6 +1,5 @@
-import type { BookingAppointment } from "@saas-core/api-client";
-
-type Named = Pick<BookingAppointment, "title" | "customer_name">;
+/** A visit as far as its name goes; a just-booked one may not have a title yet. */
+type Named = { customer_name: string; title?: string };
 
 /**
  * What the calendar calls a visit: the name the module that owns it gives it —

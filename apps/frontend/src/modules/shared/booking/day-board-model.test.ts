@@ -29,6 +29,7 @@ const visit = (
   service_name: "Consultation",
   status: "confirmed",
   customer_name: "Jan",
+  title: "",
   staff_id: "alex",
   staff_name: "Alex",
   staff_membership_id: null,
