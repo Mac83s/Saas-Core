@@ -32,6 +32,10 @@ class BookingConfig(AppConfig):
         register_templates()
         # A person's results and history: the calendar's and the account's (phase 5).
         register_core_facts()
+        # Services and working hours for the assistant (ADR-076, A1b-12).
+        from .command_declarations import register_booking_commands
+
+        register_booking_commands()
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")

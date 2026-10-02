@@ -1,6 +1,452 @@
 {
   "commands": [
     {
+      "command": "booking.offer.create@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "buffer_after_minutes": {
+            "description": "Free time kept after a visit, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "buffer_before_minutes": {
+            "description": "Free time kept before a visit, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_minutes": {
+            "description": "How long one visit takes, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "location_ids": {
+            "description": "Where it is offered (place ids); replaces the list.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "minimum_notice_minutes": {
+            "description": "How long before its start a visit can still be booked, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The service's name as customers see it, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "public_staff_choice": {
+            "description": "Whether a customer picks the person; picking a person fits a one-person service.",
+            "enum": [
+              "none",
+              "team",
+              "person",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resource_ids": {
+            "description": "Resources a visit takes one of; replaces the list.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "staff_count": {
+            "description": "How many people one visit needs.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "staff_ids": {
+            "description": "Who does it (ids from booking.setup.read); replaces the list.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "duration_minutes",
+          "buffer_before_minutes",
+          "buffer_after_minutes",
+          "minimum_notice_minutes",
+          "staff_count",
+          "public_staff_choice",
+          "staff_ids",
+          "location_ids",
+          "resource_ids"
+        ],
+        "type": "object"
+      },
+      "model_description": "Creates a service the company offers: name, duration, buffers, notice, how many people it needs, who does it and where. The service is always created switched off, so customers cannot book it yet; tell the person to switch it on in the panel. Pass null for anything left at its default; name and duration are required. Use booking.setup.read first for the ids of people, places and resources.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": "A new service has no version yet.",
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A new service, switched off until you switch it on.",
+        "pl": "Nowa usługa, wyłączona do czasu, aż ją włączysz."
+      },
+      "title": {
+        "en": "Add a service",
+        "pl": "Dodaj usługę"
+      },
+      "tool_name": "booking_offer_create_v1",
+      "undo": "none:a service is never deleted; it stays switched off",
+      "version_field": null
+    },
+    {
+      "command": "booking.offer.update@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "buffer_after_minutes": {
+            "description": "Free time kept after a visit, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "buffer_before_minutes": {
+            "description": "Free time kept before a visit, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_minutes": {
+            "description": "How long one visit takes, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "location_ids": {
+            "description": "Where it is offered (place ids); replaces the list.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "minimum_notice_minutes": {
+            "description": "How long before its start a visit can still be booked, in minutes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The service's name as customers see it, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "public_staff_choice": {
+            "description": "Whether a customer picks the person; picking a person fits a one-person service.",
+            "enum": [
+              "none",
+              "team",
+              "person",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resource_ids": {
+            "description": "Resources a visit takes one of; replaces the list.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The service to change.",
+            "type": "string"
+          },
+          "staff_count": {
+            "description": "How many people one visit needs.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "staff_ids": {
+            "description": "Who does it (ids from booking.setup.read); replaces the list.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "service_id",
+          "name",
+          "duration_minutes",
+          "buffer_before_minutes",
+          "buffer_after_minutes",
+          "minimum_notice_minutes",
+          "staff_count",
+          "public_staff_choice",
+          "staff_ids",
+          "location_ids",
+          "resource_ids"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes a service by its service_id: name, duration, buffers, notice, how many people it needs, who does it and where. Pass null for every field that stays as it is; a list given replaces the list. It cannot switch a service on or off. Use booking.setup.read first for the ids.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A service's name, duration, buffers, people and places.",
+        "pl": "Nazwa, czas, przerwy, osoby i miejsca usługi."
+      },
+      "title": {
+        "en": "Change a service",
+        "pl": "Zmień usługę"
+      },
+      "tool_name": "booking_offer_update_v1",
+      "undo": "command:booking.offer.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "booking.setup.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns every service (with who does it, where and with which resource), place, resource and current person of the company, switched-off ones included, each with its id and version. Use it before creating or changing a service or someone's working hours, to know the ids. It does not return bookings.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "locations": {
+            "type": "array"
+          },
+          "resources": {
+            "type": "array"
+          },
+          "services": {
+            "type": "array"
+          },
+          "staff": {
+            "type": "array",
+            "x-data-class": "public_personal"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Services, places, resources and people, with the versions changes name.",
+        "pl": "Usługi, miejsca, zasoby i osoby, z wersjami do zmian."
+      },
+      "title": {
+        "en": "Read services and hours",
+        "pl": "Odczytaj usługi i grafik"
+      },
+      "tool_name": "booking_setup_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.staff.hours.set@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "description": "The whole week; an empty list clears it.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "local_end": {
+                  "description": "End, HH:MM.",
+                  "type": "string"
+                },
+                "local_start": {
+                  "description": "Start, HH:MM.",
+                  "type": "string"
+                },
+                "location_id": {
+                  "description": "The place.",
+                  "type": "string"
+                },
+                "weekday": {
+                  "description": "0 is Monday, 6 Sunday.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "weekday",
+                "local_start",
+                "local_end",
+                "location_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "staff_id": {
+            "description": "The person whose week this is.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id",
+          "rules"
+        ],
+        "type": "object"
+      },
+      "model_description": "Replaces one person's whole working week: a list of rules, each a weekday (0 is Monday), a start and an end in the company's local time as HH:MM, and the place (location_id) they work at. An empty list clears the week. Use booking.setup.read first for staff and place ids.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "hours_version": {
+            "type": "integer"
+          },
+          "staff_id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "One person's whole working week, rule by rule.",
+        "pl": "Cały tydzień pracy jednej osoby, reguła po regule."
+      },
+      "title": {
+        "en": "Set working hours",
+        "pl": "Ustaw godziny pracy"
+      },
+      "tool_name": "booking_staff_hours_set_v1",
+      "undo": "command:booking.staff.hours.set@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "organization.read@1",
       "entitlement": null,
       "exposure": [
