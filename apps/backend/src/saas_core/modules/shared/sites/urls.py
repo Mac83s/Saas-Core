@@ -23,10 +23,13 @@ from .inquiry_views import SiteInquiryDetailView, SiteInquiryListView, SiteInqui
 from .language_version_views import (
     PageLocaleBodyCopyView,
     PageLocaleBodyPreviewView,
+    PageLocaleBodyRebasePreviewView,
+    PageLocaleBodyRebaseView,
     PageLocaleBodyRestoreView,
     PageLocaleBodyVersionListView,
     PageLocaleBodyVersionView,
     PageLocaleBodyView,
+    SiteTranslationOverviewView,
 )
 from .measurement_views import SiteMetricsView
 from .onboarding_views import (
@@ -324,6 +327,21 @@ urlpatterns = [
         "pages/<uuid:page_id>/translations/<str:locale>/body/copy/",
         PageLocaleBodyCopyView.as_view(),
         name="page-locale-body-copy",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/rebase/",
+        PageLocaleBodyRebaseView.as_view(),
+        name="page-locale-body-rebase",
+    ),
+    path(
+        "pages/<uuid:page_id>/translations/<str:locale>/body/rebase/preview/",
+        PageLocaleBodyRebasePreviewView.as_view(),
+        name="page-locale-body-rebase-preview",
+    ),
+    path(
+        "<uuid:site_id>/translations/",
+        SiteTranslationOverviewView.as_view(),
+        name="site-translation-overview",
     ),
     path(
         "pages/<uuid:page_id>/translations/<str:locale>/body/versions/",

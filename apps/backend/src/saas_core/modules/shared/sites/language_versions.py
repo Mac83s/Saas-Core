@@ -29,17 +29,20 @@ from saas_core.content_protocol.provenance import (
     ORIGIN_COPY,
     ORIGIN_HUMAN,
     ORIGIN_UNTRANSLATED,
+    PROTECTED_ORIGINS,
     Provenance,
     unit_hash,
 )
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
-from saas_core.modules.shared.billing.api import authorize_entitled
+from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_decoration import stored_block_payload
 from .localized_bodies import LocaleUnitsInvalid, TextUnit, assemble, extract_units
 from .localized_bodies import structure_signature as body_structure_signature
 from .models import (
+    ContentEntry,
+    ContentEntryState,
     Page,
     PageBlock,
     PageLocaleVersion,
@@ -53,6 +56,7 @@ from .services import (
     MutationResult,
     PageAutomationForbidden,
     PageNotFound,
+    SiteNotFound,
     SitesIdempotencyConflict,
     TranslationNotFound,
     _idempotency_key,
@@ -61,10 +65,12 @@ from .services import (
 
 LOCALE_BODY_SAVED = "sites.page.locale_body_saved"
 LOCALE_BODY_RESTORED = "sites.page.locale_body_restored"
+LOCALE_BODY_REBASED = "sites.page.locale_body_rebased"
 
 ORIGIN_SAVE = "save"
 ORIGIN_COPY_SOURCE = "copy"
 ORIGIN_RESTORE = "restore"
+ORIGIN_REBASE = "rebase"
 # Not translations, whatever text they hold: the source standing in.
 UNTRANSLATED_ORIGINS = frozenset({ORIGIN_COPY, ORIGIN_UNTRANSLATED})
 
@@ -123,6 +129,9 @@ class UnitState:
     # Stored text for this language; None where nothing was written yet.
     text: str | None
     origin: str | None
+    # A person's text for the unit's earlier source, kept after the source
+    # changed: offered for review, never published as a translation.
+    suggestion: str | None = None
 
     @property
     def translated(self) -> bool:
@@ -161,8 +170,8 @@ def site_locales(site: Site) -> tuple[str, ...]:
 
 
 def get_locale_body(*, page_id: UUID, locale: str) -> LocaleBody:
-    authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    page, translation = _target(page_id=page_id, locale=locale, lock=False)
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
+    page, translation = _target(context, page_id=page_id, locale=locale, lock=False)
     return _body(page, translation)
 
 
@@ -229,8 +238,8 @@ def copy_source_into_locale_body(
 
 
 def list_locale_body_versions(*, page_id: UUID, locale: str) -> list[PageLocaleVersion]:
-    authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    page, translation = _target(page_id=page_id, locale=locale, lock=False)
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
+    page, translation = _target(context, page_id=page_id, locale=locale, lock=False)
     return list(
         PageLocaleVersion.all_objects.select_related("source_version", "created_by")
         .filter(organization_id=page.organization_id, translation_id=translation.id)
@@ -242,8 +251,8 @@ def locale_body_version_blocks(
     *, page_id: UUID, locale: str, version_id: UUID
 ) -> tuple[PageLocaleVersion, list[dict[str, Any]]]:
     """A past version as a visitor would have got it, for a read-only preview."""
-    authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    page, translation = _target(page_id=page_id, locale=locale, lock=False)
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
+    page, translation = _target(context, page_id=page_id, locale=locale, lock=False)
     version = _version(page, translation, version_id)
     return version, assemble(_source_blocks(version.source_version), _texts(version.units)).blocks
 
@@ -260,7 +269,7 @@ def restore_locale_body_version(
     """Makes a past version current again, as a new version with its text and
     its binding; nothing is rewritten."""
     context = _person_context()
-    page, translation = _target(page_id=page_id, locale=locale, lock=True)
+    page, translation = _target(context, page_id=page_id, locale=locale, lock=True)
     old = _version(page, translation, version_id)
     key = _idempotency_key(idempotency_key)
     request_hash = canonical_json_hash({
@@ -304,6 +313,163 @@ def restore_locale_body_version(
     return MutationResult(_body(page, translation), True)
 
 
+@transaction.atomic
+def rebase_locale_body(
+    *,
+    page_id: UUID,
+    locale: str,
+    expected_body_version: int,
+    idempotency_key: str,
+    preview: bool = False,
+) -> MutationResult[LocaleBody]:
+    """Moves a language version onto the page's current source version.
+
+    A unit whose source text did not change keeps its translation wherever it
+    moved, and a source sentence already translated on another page of the
+    site is taken from there: matched by the hash of the source text, never
+    by position. A changed unit starts untranslated, and a person's or an
+    integration's text for its old wording stays beside it as a suggestion —
+    never dropped silently, never shipped as a translation of words it did
+    not translate. Already on the current version: nothing to do.
+    """
+    context = _person_context()
+    page, translation = _target(context, page_id=page_id, locale=locale, lock=not preview)
+    key = _idempotency_key(idempotency_key) if not preview else ""
+    target = page.current_draft
+    request_hash = canonical_json_hash({
+        "page_id": str(page.id),
+        "locale": translation.locale,
+        "rebase_to": str(target.id) if target is not None else "",
+        "expected_body_version": expected_body_version,
+    })
+    if not preview:
+        replay = _replay(translation, context.actor_id, key, request_hash, page)
+        if replay is not None:
+            return replay
+    if translation.body_version != expected_body_version:
+        raise LocaleBodyVersionConflict
+    body = _body(page, translation)
+    if target is None or not body.outdated or body.version is None:
+        return MutationResult(body, False)
+    units = _carried(page, translation, body, target)
+    if preview:
+        return MutationResult(_preview(_on(body, target), units), False)
+    version = _create_version(
+        page=page,
+        translation=translation,
+        source_version=target,
+        units=units,
+        actor_id=context.actor_id,
+        credential_id=None,
+        origin=ORIGIN_REBASE,
+        origin_ref=f"{body.source_version.number}->{target.number}",
+        idempotency_key=key,
+        request_hash=request_hash,
+    )
+    _advance(translation, version, expected_body_version)
+    rebased = _body(page, translation)
+    record_audit(
+        organization=page.site.organization,
+        action=LOCALE_BODY_REBASED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="page_locale_version",
+        target_id=version.id,
+        metadata={
+            "site_id": str(page.site_id),
+            "page_id": str(page.id),
+            "locale": translation.locale,
+            "version": version.number,
+            "from_source_version": body.source_version.number,
+            "to_source_version": target.number,
+            "untranslated_units": rebased.untranslated,
+        },
+    )
+    return MutationResult(rebased, True)
+
+
+def _on(body: LocaleBody, source: PageVersion) -> LocaleBody:
+    """The same language version seen against another source version."""
+    return LocaleBody(
+        page=body.page,
+        translation=body.translation,
+        source_version=source,
+        version=body.version,
+        units=tuple(_state(unit, None) for unit in extract_units(_source_blocks(source))),
+    )
+
+
+def _carried(
+    page: Page, translation: PageTranslation, body: LocaleBody, target: PageVersion
+) -> dict[str, dict[str, Any]]:
+    own = body.version.units if body.version is not None else {}
+    by_source = _translated_by_source(own.values())
+    memory = translation_memory(page=page, locale=translation.locale)
+    previous = {state.unit.key: state.unit for state in body.units}
+    old_types = [block["block_type"] for block in _source_blocks(body.source_version)]
+    new_blocks = _source_blocks(target)
+    units: dict[str, dict[str, Any]] = {}
+    for unit in extract_units(new_blocks):
+        entry = by_source.get(unit.source_hash) or memory.get(unit.source_hash)
+        if entry is not None:
+            units[unit.key] = dict(entry)
+            continue
+        # The same place reworded: same position, same kind of block, same
+        # field. A block that moved or was inserted is not a rewording.
+        position = int(unit.key.split("/", 1)[0])
+        same_block = (
+            position < len(old_types) and old_types[position] == new_blocks[position]["block_type"]
+        )
+        old_unit, old_entry = previous.get(unit.key), own.get(unit.key)
+        if (
+            same_block
+            and old_unit is not None
+            and old_unit.kind == unit.kind
+            and isinstance(old_entry, dict)
+            and "text" in old_entry
+            and old_entry.get("provenance", {}).get("origin") in PROTECTED_ORIGINS
+        ):
+            units[unit.key] = {"suggestion": {k: old_entry[k] for k in ("text", "provenance")}}
+    return units
+
+
+def _translated_by_source(entries: Any) -> dict[str, dict[str, Any]]:
+    """Entries that translate something, by the hash of what they translate;
+    a person's or an integration's text wins over a machine's."""
+    found: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or "text" not in entry:
+            continue
+        provenance = entry.get("provenance", {})
+        origin, source_hash = provenance.get("origin"), provenance.get("source_hash")
+        if not source_hash or origin in UNTRANSLATED_ORIGINS:
+            continue
+        held = found.get(source_hash)
+        if held is None or (
+            origin in PROTECTED_ORIGINS
+            and held.get("provenance", {}).get("origin") not in PROTECTED_ORIGINS
+        ):
+            found[source_hash] = {"text": entry["text"], "provenance": provenance}
+    return found
+
+
+def translation_memory(*, page: Page, locale: str) -> dict[str, dict[str, Any]]:
+    """The site's translations into one language, by the hash of the source
+    text: the units of every page's current and waiting body in that
+    language. No table of its own — the bodies are the memory."""
+    pointers = PageTranslation.all_objects.filter(
+        organization_id=page.organization_id, site_id=page.site_id, locale=locale
+    ).values_list("body_current_id", "body_pending_id")
+    ids = {identifier for pair in pointers for identifier in pair if identifier is not None}
+    entries = (
+        entry
+        for units in PageLocaleVersion.all_objects.filter(
+            organization_id=page.organization_id, id__in=ids
+        ).values_list("units", flat=True)
+        for entry in units.values()
+    )
+    return _translated_by_source(entries)
+
+
 def _person_context() -> Any:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if _is_automation(context):
@@ -313,8 +479,9 @@ def _person_context() -> Any:
     return context
 
 
-def _target(*, page_id: UUID, locale: str, lock: bool) -> tuple[Page, PageTranslation]:
-    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+def _target(
+    context: Any, *, page_id: UUID, locale: str, lock: bool
+) -> tuple[Page, PageTranslation]:
     pages = Page.all_objects.select_related("site__organization", "current_draft")
     if lock:
         pages = pages.select_for_update(of=("self",))
@@ -352,7 +519,12 @@ def _source_blocks(version: PageVersion) -> list[dict[str, Any]]:
 
 
 def _texts(units: Mapping[str, Any]) -> dict[str, str]:
-    return {key: str(entry["text"]) for key, entry in units.items() if isinstance(entry, dict)}
+    # An entry with only a suggestion has no text for this language yet.
+    return {
+        key: str(entry["text"])
+        for key, entry in units.items()
+        if isinstance(entry, dict) and "text" in entry
+    }
 
 
 def _body(page: Page, translation: PageTranslation) -> LocaleBody:
@@ -362,16 +534,7 @@ def _body(page: Page, translation: PageTranslation) -> LocaleBody:
         raise PageNotFound
     stored = version.units if version is not None else {}
     states = tuple(
-        UnitState(
-            unit=unit,
-            text=str(stored[unit.key]["text"]) if unit.key in stored else None,
-            origin=(
-                str(stored[unit.key].get("provenance", {}).get("origin", ""))
-                if unit.key in stored
-                else None
-            ),
-        )
-        for unit in extract_units(_source_blocks(source))
+        _state(unit, stored.get(unit.key)) for unit in extract_units(_source_blocks(source))
     )
     return LocaleBody(
         page=page, translation=translation, source_version=source, version=version, units=states
@@ -414,7 +577,7 @@ def _write(
     request: dict[str, Any],
 ) -> MutationResult[LocaleBody]:
     context = _person_context()
-    page, translation = _target(page_id=page_id, locale=locale, lock=not preview)
+    page, translation = _target(context, page_id=page_id, locale=locale, lock=not preview)
     key = _idempotency_key(idempotency_key) if not preview else ""
     request_hash = canonical_json_hash({
         "page_id": str(page.id),
@@ -475,19 +638,20 @@ def _write(
     return MutationResult(saved, True)
 
 
-def _preview(body: LocaleBody, units: Mapping[str, Any]) -> LocaleBody:
-    states = tuple(
-        UnitState(
-            unit=state.unit,
-            text=str(units[state.unit.key]["text"]) if state.unit.key in units else None,
-            origin=(
-                str(units[state.unit.key]["provenance"]["origin"])
-                if state.unit.key in units
-                else None
-            ),
-        )
-        for state in body.units
+def _state(unit: TextUnit, entry: Any) -> UnitState:
+    if not isinstance(entry, dict):
+        return UnitState(unit=unit, text=None, origin=None)
+    suggestion = entry.get("suggestion")
+    return UnitState(
+        unit=unit,
+        text=str(entry["text"]) if "text" in entry else None,
+        origin=str(entry.get("provenance", {}).get("origin", "")) if "text" in entry else None,
+        suggestion=str(suggestion["text"]) if isinstance(suggestion, dict) else None,
     )
+
+
+def _preview(body: LocaleBody, units: Mapping[str, Any]) -> LocaleBody:
+    states = tuple(_state(state.unit, units.get(state.unit.key)) for state in body.units)
     return LocaleBody(
         page=body.page,
         translation=body.translation,
@@ -586,3 +750,164 @@ def _version(page: Page, translation: PageTranslation, version_id: UUID) -> Page
     if version is None:
         raise LocaleBodyVersionNotFound
     return version
+
+
+OVERVIEW_MISSING = "missing"
+OVERVIEW_PENDING = "pending"
+OVERVIEW_OUTDATED = "outdated"
+OVERVIEW_UNTRANSLATED = "untranslated"
+OVERVIEW_COMPLETE = "complete"
+OVERVIEW_PUBLISHED = "published"
+OVERVIEW_DRAFT = "draft"
+OVERVIEW_STATES = (
+    OVERVIEW_MISSING,
+    OVERVIEW_PENDING,
+    OVERVIEW_OUTDATED,
+    OVERVIEW_UNTRANSLATED,
+    OVERVIEW_COMPLETE,
+    OVERVIEW_PUBLISHED,
+    OVERVIEW_DRAFT,
+)
+OVERVIEW_KINDS = ("page", "entry")
+
+
+@dataclass(frozen=True, slots=True)
+class OverviewCell:
+    locale: str
+    state: str
+    untranslated: int | None = None
+    metadata_complete: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OverviewRow:
+    kind: str
+    id: UUID
+    title: str
+    cells: tuple[OverviewCell, ...]
+
+
+def site_translation_overview(
+    *,
+    site_id: UUID,
+    kind: str = "page",
+    locale: str | None = None,
+    state: str | None = None,
+    cursor: UUID | None = None,
+    limit: int = 50,
+) -> tuple[list[OverviewRow], UUID | None, tuple[str, ...]]:
+    """Every page (or every article) of a site against every other language.
+
+    A page's cell is the first that holds of: no translation yet (`missing`),
+    a translation waiting for review (`pending`), following an older source
+    version (`outdated`), units still untranslated (`untranslated`),
+    `complete`. An article is a group of entries, one per language, each
+    `published`, `draft` or `missing`. `state` keeps the rows with a cell in
+    that state (in `locale`, when given).
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
+    site = Site.all_objects.filter(pk=site_id, organization_id=context.organization_id).first()
+    if site is None:
+        raise SiteNotFound
+    locales = tuple(item for item in site_locales(site) if item != site.default_locale)
+    shown = (locale,) if locale is not None else locales
+    rows = _entry_rows(site, shown) if kind == "entry" else _page_rows(site, shown)
+    if state is not None:
+        rows = [row for row in rows if any(cell.state == state for cell in row.cells)]
+    if cursor is not None:
+        rows = [row for row in rows if row.id > cursor]
+    page = rows[: limit + 1]
+    next_cursor = page[limit - 1].id if len(page) > limit else None
+    return page[:limit], next_cursor, shown
+
+
+def _page_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
+    pages = list(
+        Page.all_objects.filter(
+            organization_id=site.organization_id, site_id=site.id, deleted_at__isnull=True
+        ).order_by("id")
+    )
+    translations = {
+        (translation.page_id, translation.locale): translation
+        for translation in PageTranslation.all_objects.select_related("body_current").filter(
+            organization_id=site.organization_id, site_id=site.id, locale__in=locales
+        )
+    }
+    sources = {page.current_draft_id for page in pages if page.current_draft_id}
+    sources |= {
+        translation.body_current.source_version_id
+        for translation in translations.values()
+        if translation.body_current is not None
+    }
+    blocks: dict[UUID, list[dict[str, Any]]] = {}
+    for block in PageBlock.all_objects.filter(
+        organization_id=site.organization_id, page_version_id__in=sources
+    ).order_by("page_version_id", "position"):
+        blocks.setdefault(block.page_version_id, []).append(stored_block_payload(block))
+    rows: list[OverviewRow] = []
+    for page in pages:
+        cells = []
+        for locale in locales:
+            translation = translations.get((page.id, locale))
+            if translation is None:
+                cells.append(OverviewCell(locale, OVERVIEW_MISSING))
+                continue
+            version = translation.body_current
+            source_id = version.source_version_id if version is not None else page.current_draft_id
+            stored = version.units if version is not None else {}
+            untranslated = sum(
+                1
+                for unit in extract_units(blocks.get(source_id, []) if source_id else [])
+                if not _state(unit, stored.get(unit.key)).translated
+            )
+            if translation.body_pending_id is not None:
+                cell_state = OVERVIEW_PENDING
+            elif version is not None and source_id != page.current_draft_id:
+                cell_state = OVERVIEW_OUTDATED
+            elif untranslated:
+                cell_state = OVERVIEW_UNTRANSLATED
+            else:
+                cell_state = OVERVIEW_COMPLETE
+            cells.append(
+                OverviewCell(
+                    locale,
+                    cell_state,
+                    untranslated=untranslated,
+                    metadata_complete=all((
+                        translation.slug,
+                        translation.title.strip(),
+                        translation.description.strip(),
+                    )),
+                )
+            )
+        rows.append(OverviewRow("page", page.id, page.name, tuple(cells)))
+    return rows
+
+
+def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
+    groups: dict[UUID, list[ContentEntry]] = {}
+    for entry in ContentEntry.all_objects.filter(
+        organization_id=site.organization_id, site_id=site.id
+    ).order_by("id"):
+        groups.setdefault(entry.translation_group, []).append(entry)
+    rows: list[OverviewRow] = []
+    for group, entries in sorted(groups.items()):
+        source = next(
+            (entry for entry in entries if entry.locale == site.default_locale), entries[0]
+        )
+        by_locale = {entry.locale: entry for entry in entries}
+        cells = tuple(
+            OverviewCell(
+                locale,
+                OVERVIEW_MISSING
+                if locale not in by_locale
+                else (
+                    OVERVIEW_PUBLISHED
+                    if by_locale[locale].state == ContentEntryState.PUBLISHED
+                    else OVERVIEW_DRAFT
+                ),
+            )
+            for locale in locales
+        )
+        rows.append(OverviewRow("entry", group, source.title, cells))
+    return rows

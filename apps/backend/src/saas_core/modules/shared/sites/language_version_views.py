@@ -16,11 +16,14 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .language_version_serializers import (
     LocaleBodyCopySerializer,
+    LocaleBodyRebaseSerializer,
     LocaleBodyRestoreSerializer,
     LocaleBodySaveSerializer,
     LocaleBodySerializer,
     LocaleBodyVersionListSerializer,
     LocaleBodyVersionPreviewSerializer,
+    TranslationOverviewQuerySerializer,
+    TranslationOverviewSerializer,
 )
 from .language_versions import (
     LocaleBody,
@@ -28,8 +31,10 @@ from .language_versions import (
     get_locale_body,
     list_locale_body_versions,
     locale_body_version_blocks,
+    rebase_locale_body,
     restore_locale_body_version,
     save_locale_body,
+    site_translation_overview,
 )
 from .models import PageLocaleVersion
 from .views import IDEMPOTENCY_PARAMETER
@@ -60,6 +65,7 @@ def _body(body: LocaleBody) -> dict[str, Any]:
                 "text": state.text,
                 "origin": state.origin,
                 "translated": state.translated,
+                "suggestion": state.suggestion,
                 "data_class": state.unit.data_class,
                 "placeholder": state.unit.placeholder,
                 "max_length": state.unit.max_length,
@@ -240,3 +246,100 @@ class PageLocaleBodyRestoreView(APIView):
             _body(result.value),
             status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
         )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageLocaleBodyRebaseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_locale_body_rebase",
+        summary="Move a page body in another language onto the current source version",
+        description="Unchanged source text keeps its translation wherever it moved, a sentence "
+        "translated on another page of the site is reused, a changed unit starts "
+        "untranslated with a person's old text as a suggestion. Already current: 200 and "
+        "nothing changes.",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=LocaleBodyRebaseSerializer,
+        responses={200: LocaleBodySerializer, 201: LocaleBodySerializer, **PROBLEMS},
+    )
+    def post(self, request: Request, page_id: UUID, locale: str) -> Response:
+        serializer = LocaleBodyRebaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = rebase_locale_body(
+            page_id=page_id,
+            locale=locale,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _body(result.value),
+            status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageLocaleBodyRebasePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_locale_body_rebase_preview",
+        summary="See what moving onto the current source version would keep",
+        tags=["sites"],
+        request=LocaleBodyRebaseSerializer,
+        responses={200: LocaleBodySerializer, **PROBLEMS},
+    )
+    def post(self, request: Request, page_id: UUID, locale: str) -> Response:
+        serializer = LocaleBodyRebaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = rebase_locale_body(
+            page_id=page_id,
+            locale=locale,
+            **serializer.validated_data,
+            idempotency_key="",
+            preview=True,
+        )
+        return Response(_body(result.value))
+
+
+class SiteTranslationOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_translation_overview",
+        summary="Every page or article of a site against every other language",
+        description="Pages: missing, pending, outdated, untranslated or complete per language, "
+        "with the untranslated count. Articles: published, draft or missing per language. "
+        "Filter by language and state; paginated by cursor.",
+        tags=["sites"],
+        parameters=[TranslationOverviewQuerySerializer],
+        responses={200: TranslationOverviewSerializer, **PROBLEMS},
+    )
+    def get(self, request: Request, site_id: UUID) -> Response:
+        query = TranslationOverviewQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        rows, next_cursor, locales = site_translation_overview(
+            site_id=site_id, **query.validated_data
+        )
+        return Response({
+            "locales": list(locales),
+            "items": [
+                {
+                    "kind": row.kind,
+                    "id": row.id,
+                    "title": row.title,
+                    "cells": [
+                        {
+                            "locale": cell.locale,
+                            "state": cell.state,
+                            "untranslated": cell.untranslated,
+                            "metadata_complete": cell.metadata_complete,
+                        }
+                        for cell in row.cells
+                    ],
+                }
+                for row in rows
+            ],
+            "next_cursor": next_cursor,
+        })

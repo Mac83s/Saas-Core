@@ -3095,6 +3095,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/translations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every page or article of a site against every other language
+         * @description Pages: missing, pending, outdated, untranslated or complete per language, with the untranslated count. Articles: published, draft or missing per language. Filter by language and state; paginated by cursor.
+         */
+        get: operations["sites_translation_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/blueprint-catalog/": {
         parameters: {
             query?: never;
@@ -3733,6 +3753,43 @@ export interface paths {
          * @description The body as the save would leave it, or the same 409 and 422 the save would answer. Nothing is written.
          */
         post: operations["sites_page_locale_body_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a page body in another language onto the current source version
+         * @description Unchanged source text keeps its translation wherever it moved, a sentence translated on another page of the site is reused, a changed unit starts untranslated with a person's old text as a suggestion. Already current: 200 and nothing changes.
+         */
+        post: operations["sites_page_locale_body_rebase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** See what moving onto the current source version would keep */
+        post: operations["sites_page_locale_body_rebase_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5737,6 +5794,9 @@ export interface components {
             source_version_id: string;
             expected_body_version: number;
         };
+        LocaleBodyRebase: {
+            expected_body_version: number;
+        };
         LocaleBodyRestore: {
             expected_body_version: number;
         };
@@ -5768,6 +5828,8 @@ export interface components {
             /** @description Who wrote it: human, ai, integration, template, import, or copy (the source text standing in, still untranslated). */
             origin: string | null;
             translated: boolean;
+            /** @description A person's text for this unit's earlier source wording, kept when the source changed; for review, never published as the translation. */
+            suggestion: string | null;
             data_class: components["schemas"]["DataClassEnum"];
             /** @description The source holds an owner's [Uzupełnij: …] slot; the language version waits until the owner fills the source. */
             placeholder: boolean;
@@ -7720,6 +7782,46 @@ export interface components {
             secret: string;
             provisioning_uri: string;
         };
+        TranslationOverview: {
+            locales: string[];
+            items: components["schemas"]["TranslationOverviewRow"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
+        TranslationOverviewCell: {
+            locale: string;
+            state: components["schemas"]["TranslationOverviewCellStateEnum"];
+            untranslated: number | null;
+            /** @description Own address, title and description (pages only). */
+            metadata_complete: boolean | null;
+        };
+        /**
+         * @description * `missing` - missing
+         *     * `pending` - pending
+         *     * `outdated` - outdated
+         *     * `untranslated` - untranslated
+         *     * `complete` - complete
+         *     * `published` - published
+         *     * `draft` - draft
+         * @enum {string}
+         */
+        TranslationOverviewCellStateEnum: "missing" | "pending" | "outdated" | "untranslated" | "complete" | "published" | "draft";
+        TranslationOverviewRow: {
+            kind: components["schemas"]["TranslationOverviewRowKindEnum"];
+            /**
+             * Format: uuid
+             * @description The page, or the article's translation group.
+             */
+            id: string;
+            title: string;
+            cells: components["schemas"]["TranslationOverviewCell"][];
+        };
+        /**
+         * @description * `page` - page
+         *     * `entry` - entry
+         * @enum {string}
+         */
+        TranslationOverviewRowKindEnum: "page" | "entry";
         TrialActivationCreate: {
             checkout_session_id: string;
         };
@@ -17248,6 +17350,78 @@ export interface operations {
             };
         };
     };
+    sites_translation_overview: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                /**
+                 * @description * `page` - page
+                 *     * `entry` - entry
+                 */
+                kind?: "page" | "entry";
+                limit?: number;
+                locale?: string;
+                /**
+                 * @description * `missing` - missing
+                 *     * `pending` - pending
+                 *     * `outdated` - outdated
+                 *     * `untranslated` - untranslated
+                 *     * `complete` - complete
+                 *     * `published` - published
+                 *     * `draft` - draft
+                 */
+                state?: "missing" | "pending" | "outdated" | "untranslated" | "complete" | "published" | "draft";
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationOverview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_blueprint_catalog: {
         parameters: {
             query: {
@@ -19595,6 +19769,137 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_rebase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBodyRebase"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBodyRebase"];
+                "multipart/form-data": components["schemas"]["LocaleBodyRebase"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_locale_body_rebase_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocaleBodyRebase"];
+                "application/x-www-form-urlencoded": components["schemas"]["LocaleBodyRebase"];
+                "multipart/form-data": components["schemas"]["LocaleBodyRebase"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocaleBody"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

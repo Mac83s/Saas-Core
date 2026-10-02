@@ -181,6 +181,7 @@
       "sites_page_translation_saved": "Page translation saved",
       "sites_page_locale_body_saved": "Page body saved in another language",
       "sites_page_locale_body_restored": "Page body restored in another language",
+      "sites_page_locale_body_rebased": "Page body in another language moved onto the new source version",
       "sites_page_type_set": "Page type changed",
       "sites_navigation_saved": "Site menu changed",
       "sites_onboarding_saved": "Website setup step saved",

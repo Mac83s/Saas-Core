@@ -8964,6 +8964,108 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/translations/:
+    get:
+      operationId: sites_translation_overview
+      description: 'Pages: missing, pending, outdated, untranslated or complete per
+        language, with the untranslated count. Articles: published, draft or missing
+        per language. Filter by language and state; paginated by cursor.'
+      summary: Every page or article of a site against every other language
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      - in: query
+        name: kind
+        schema:
+          enum:
+          - page
+          - entry
+          type: string
+          default: page
+          minLength: 1
+        description: |-
+          * `page` - page
+          * `entry` - entry
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+      - in: query
+        name: locale
+        schema:
+          type: string
+          pattern: ^[a-z]{2}$
+          minLength: 1
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: state
+        schema:
+          enum:
+          - missing
+          - pending
+          - outdated
+          - untranslated
+          - complete
+          - published
+          - draft
+          type: string
+          minLength: 1
+        description: |-
+          * `missing` - missing
+          * `pending` - pending
+          * `outdated` - outdated
+          * `untranslated` - untranslated
+          * `complete` - complete
+          * `published` - published
+          * `draft` - draft
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationOverview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/blueprint-catalog/:
     get:
       operationId: sites_blueprint_catalog
@@ -11267,6 +11369,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/:
+    post:
+      operationId: sites_page_locale_body_rebase
+      description: 'Unchanged source text keeps its translation wherever it moved,
+        a sentence translated on another page of the site is reused, a changed unit
+        starts untranslated with a person''s old text as a suggestion. Already current:
+        200 and nothing changes.'
+      summary: Move a page body in another language onto the current source version
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRebase'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRebase'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRebase'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/preview/:
+    post:
+      operationId: sites_page_locale_body_rebase_preview
+      summary: See what moving onto the current source version would keep
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRebase'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRebase'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocaleBodyRebase'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocaleBody'
           description: ''
         '400':
           content:
@@ -16466,6 +16711,14 @@ components:
       required:
       - expected_body_version
       - source_version_id
+    LocaleBodyRebase:
+      type: object
+      properties:
+        expected_body_version:
+          type: integer
+          minimum: 0
+      required:
+      - expected_body_version
     LocaleBodyRestore:
       type: object
       properties:
@@ -16527,6 +16780,12 @@ components:
             copy (the source text standing in, still untranslated).'
         translated:
           type: boolean
+        suggestion:
+          type:
+          - string
+          - 'null'
+          description: A person's text for this unit's earlier source wording, kept
+            when the source changed; for review, never published as the translation.
         data_class:
           $ref: '#/components/schemas/DataClassEnum'
         placeholder:
@@ -16549,6 +16808,7 @@ components:
       - placeholder
       - required_text
       - source_text
+      - suggestion
       - text
       - translated
     LocaleBodyUnitKindEnum:
@@ -21466,6 +21726,93 @@ components:
       required:
       - provisioning_uri
       - secret
+    TranslationOverview:
+      type: object
+      properties:
+        locales:
+          type: array
+          items:
+            type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationOverviewRow'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - locales
+      - next_cursor
+    TranslationOverviewCell:
+      type: object
+      properties:
+        locale:
+          type: string
+        state:
+          $ref: '#/components/schemas/TranslationOverviewCellStateEnum'
+        untranslated:
+          type:
+          - integer
+          - 'null'
+        metadata_complete:
+          type:
+          - boolean
+          - 'null'
+          description: Own address, title and description (pages only).
+      required:
+      - locale
+      - metadata_complete
+      - state
+      - untranslated
+    TranslationOverviewCellStateEnum:
+      enum:
+      - missing
+      - pending
+      - outdated
+      - untranslated
+      - complete
+      - published
+      - draft
+      type: string
+      description: |-
+        * `missing` - missing
+        * `pending` - pending
+        * `outdated` - outdated
+        * `untranslated` - untranslated
+        * `complete` - complete
+        * `published` - published
+        * `draft` - draft
+    TranslationOverviewRow:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/TranslationOverviewRowKindEnum'
+        id:
+          type: string
+          format: uuid
+          description: The page, or the article's translation group.
+        title:
+          type: string
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationOverviewCell'
+      required:
+      - cells
+      - id
+      - kind
+      - title
+    TranslationOverviewRowKindEnum:
+      enum:
+      - page
+      - entry
+      type: string
+      description: |-
+        * `page` - page
+        * `entry` - entry
     TrialActivationCreate:
       type: object
       properties:
