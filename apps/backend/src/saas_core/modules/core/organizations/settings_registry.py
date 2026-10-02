@@ -29,8 +29,9 @@ from django.core.exceptions import ImproperlyConfigured
 from .command_registry import RISKS, Effect, organization_modules
 from .options import SETTING_TYPES, SETTING_UNITS
 
-#: Where a value comes from, most general first (ADR-078 pkt 3).
-SOURCES = ("code", "platform", "organization")
+#: Where a value comes from, most general first (ADR-078 pkt 3): the code, the
+#: platform, the product's starting value (`settingsDefaults`), the company.
+SOURCES = ("code", "platform", "product", "organization")
 SCOPES = ("platform", "organization")
 DATA_CLASSES = frozenset({"public", "public_personal", "personal"})
 
@@ -152,6 +153,11 @@ def organization_groups(organization_id: Any) -> tuple[SettingGroup, ...]:
     """The groups whose module the organization's type composes (ADR-050)."""
     reachable = organization_modules(organization_id)
     return tuple(group for group in registered_groups() if group.module in reachable)
+
+
+def product_value(spec: SettingSpec) -> Any:
+    """The product's starting value (`settingsDefaults` of the profile), or None."""
+    return getattr(settings, "SETTINGS_DEFAULTS", {}).get(spec.key)
 
 
 def platform_value(spec: SettingSpec) -> Any:
@@ -287,6 +293,11 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         spec.depends_on not in group.fields or group.spec(spec.depends_on).type != "bool"
     ):
         problems.append("depends_on wskazuje pole bool tej grupy")
+    product = product_value(spec)
+    if product is not None:
+        checked = check_value(spec, product)
+        if checked is None or checked[1]:
+            problems.append("settingsDefaults profilu poza typem albo granicami")
     if spec.platform_env is not None:
         if not hasattr(settings, spec.platform_env):
             problems.append(f"brak ustawienia {spec.platform_env}")

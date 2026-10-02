@@ -3928,6 +3928,7 @@
     "source": {
       "code": "Default",
       "platform": "Platform default",
+      "product": "Product default",
       "organization": "Set for the company",
       "default": "Back to the default once saved"
     }

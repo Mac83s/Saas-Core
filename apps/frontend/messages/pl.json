@@ -3928,6 +3928,7 @@
     "source": {
       "code": "Domyślne",
       "platform": "Domyślne platformy",
+      "product": "Domyślne produktu",
       "organization": "Ustawione dla firmy",
       "default": "Po zapisaniu wróci do domyślnej"
     }

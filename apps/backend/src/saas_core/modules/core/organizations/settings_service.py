@@ -47,6 +47,7 @@ from .settings_registry import (
     check_value,
     organization_groups,
     platform_value,
+    product_value,
     setting_spec,
 )
 
@@ -82,7 +83,7 @@ class SettingsEntitlementRequired(APIException):
 @dataclass(frozen=True, slots=True)
 class Resolved:
     value: Any
-    #: `code`, `platform` or `organization` (ADR-078 pkt 3).
+    #: `code`, `platform`, `product` or `organization` (ADR-078 pkt 3).
     source: str
 
 
@@ -134,6 +135,9 @@ def resolve(key: str) -> Resolved:
     row = _rows().get(key)
     if row is not None and row.value is not None:
         return Resolved(row.value, "organization")
+    product = product_value(spec)
+    if product is not None:
+        return Resolved(product, "product")
     platform = platform_value(spec)
     if platform is not None:
         return Resolved(platform, "platform")
@@ -353,8 +357,10 @@ def _validated(
 
 
 def _inherited(spec: SettingSpec) -> Any:
-    platform = platform_value(spec)
-    return platform if platform is not None else spec.default
+    for value in (product_value(spec), platform_value(spec)):
+        if value is not None:
+            return value
+    return spec.default
 
 
 def _explicit(spec: SettingSpec) -> Any:
