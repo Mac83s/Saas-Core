@@ -192,4 +192,10 @@ class Migration(migrations.Migration):
                 ("all_objects", django.db.models.manager.Manager()),
             ],
         ),
+        migrations.AlterModelManagers(
+            name="translationglossaryterm",
+            managers=[
+                ("all_objects", django.db.models.manager.Manager()),
+            ],
+        ),
     ]

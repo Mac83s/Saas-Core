@@ -9093,26 +9093,6 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
-        SettingDeclaration: {
-            key: string;
-            /** @description enum, bool or int. */
-            kind: string;
-            /** @description organization or platform. */
-            scope: string;
-            /** @description override, or restrict: the strictest of company, operator and ceiling. */
-            strategy: string;
-            default: unknown;
-            variants: components["schemas"]["SettingVariant"][];
-            minimum: number | null;
-            maximum: number | null;
-            unit: string;
-            labels: {
-                [key: string]: string;
-            };
-            help: {
-                [key: string]: string;
-            };
-        };
         /**
          * @description One setting a company may choose, with what it may choose; the shape of
          *     an entry of the settings registry's schema (ADR-078 pkt 11).
@@ -9170,12 +9150,6 @@ export interface components {
         SettingValueOption: {
             value: string;
             label: components["schemas"]["LocalizedText"];
-        };
-        SettingVariant: {
-            value: string;
-            labels: {
-                [key: string]: string;
-            };
         };
         Setup: {
             services: components["schemas"]["ServiceSetup"][];
@@ -9954,7 +9928,7 @@ export interface components {
             mode: components["schemas"]["SettingValue"];
             automation: components["schemas"]["OfferAutomation"];
             billing: components["schemas"]["OfferBilling"];
-            settings: components["schemas"]["SettingDeclaration"][];
+            settings: components["schemas"]["SettingOption"][];
             glossary_limit: number;
         };
         TranslationOverview: {

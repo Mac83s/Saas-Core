@@ -25642,56 +25642,6 @@ components:
       - expires_at
       - id
       - last_seen_at
-    SettingDeclaration:
-      type: object
-      properties:
-        key:
-          type: string
-        kind:
-          type: string
-          description: enum, bool or int.
-        scope:
-          type: string
-          description: organization or platform.
-        strategy:
-          type: string
-          description: 'override, or restrict: the strictest of company, operator
-            and ceiling.'
-        default: {}
-        variants:
-          type: array
-          items:
-            $ref: '#/components/schemas/SettingVariant'
-        minimum:
-          type:
-          - integer
-          - 'null'
-        maximum:
-          type:
-          - integer
-          - 'null'
-        unit:
-          type: string
-        labels:
-          type: object
-          additionalProperties:
-            type: string
-        help:
-          type: object
-          additionalProperties:
-            type: string
-      required:
-      - default
-      - help
-      - key
-      - kind
-      - labels
-      - maximum
-      - minimum
-      - scope
-      - strategy
-      - unit
-      - variants
     SettingOption:
       type: object
       description: |-
@@ -25829,18 +25779,6 @@ components:
           $ref: '#/components/schemas/LocalizedText'
       required:
       - label
-      - value
-    SettingVariant:
-      type: object
-      properties:
-        value:
-          type: string
-        labels:
-          type: object
-          additionalProperties:
-            type: string
-      required:
-      - labels
       - value
     Setup:
       type: object
@@ -27768,7 +27706,7 @@ components:
         settings:
           type: array
           items:
-            $ref: '#/components/schemas/SettingDeclaration'
+            $ref: '#/components/schemas/SettingOption'
         glossary_limit:
           type: integer
       required:
