@@ -1144,6 +1144,338 @@
       "version_field": "version"
     },
     {
+      "command": "profiles.catalog.publish@1",
+      "entitlement": "profiles.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Puts the company's card in the public company directory, under its town and category; a card already there is refreshed. The card needs a name, a town and a category first.",
+      "modifiers": [],
+      "module": "shared.profiles",
+      "no_preview_reason": null,
+      "no_version_reason": "Publication puts the card as it is; it changes none of its fields.",
+      "output_schema": {
+        "properties": {
+          "city_slug": {
+            "type": "string"
+          },
+          "in_catalog": {
+            "type": "boolean"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "profiles.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "publish",
+      "summary": {
+        "en": "The card becomes visible in the public company directory.",
+        "pl": "Wizytówka staje się widoczna w publicznym katalogu firm."
+      },
+      "title": {
+        "en": "Put the card in the directory",
+        "pl": "Pokaż wizytówkę w katalogu firm"
+      },
+      "tool_name": "profiles_catalog_publish_v1",
+      "undo": "command:profiles.catalog.withdraw@1",
+      "version_field": null
+    },
+    {
+      "command": "profiles.catalog.withdraw@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Takes the company's card out of the public company directory. The card itself stays and can be published again. Does nothing when the card is not listed.",
+      "modifiers": [],
+      "module": "shared.profiles",
+      "no_preview_reason": null,
+      "no_version_reason": "Withdrawal removes the listing; it changes none of the card's fields.",
+      "output_schema": {
+        "properties": {
+          "city_slug": {
+            "type": "string"
+          },
+          "in_catalog": {
+            "type": "boolean"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "profiles.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "publish",
+      "summary": {
+        "en": "The card leaves the public company directory; the card itself stays.",
+        "pl": "Wizytówka znika z publicznego katalogu firm; sama zostaje."
+      },
+      "title": {
+        "en": "Take the card out of the directory",
+        "pl": "Wycofaj wizytówkę z katalogu"
+      },
+      "tool_name": "profiles_catalog_withdraw_v1",
+      "undo": "command:profiles.catalog.publish@1",
+      "version_field": null
+    },
+    {
+      "command": "profiles.organization.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's public business card (name, one-line headline, description, contact details, town, kind of business), whether it exists yet, whether it is in the public company directory, its version, and the towns and categories the directory accepts. Use it before changing or publishing the card.",
+      "modifiers": [],
+      "module": "shared.profiles",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "bio": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array"
+          },
+          "category": {
+            "type": "string"
+          },
+          "cities": {
+            "type": "array"
+          },
+          "city_slug": {
+            "type": "string"
+          },
+          "contact_address": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "contact_email": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "contact_phone": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "in_catalog": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "profiles.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The company card, whether it is in the directory, and allowed towns and kinds.",
+        "pl": "Wizytówka firmy, czy jest w katalogu, oraz dozwolone miasta i kategorie."
+      },
+      "title": {
+        "en": "Read the company card",
+        "pl": "Odczytaj wizytówkę firmy"
+      },
+      "tool_name": "profiles_organization_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "profiles.organization.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "bio": {
+            "description": "A description of the company, up to 4000 characters; empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category": {
+            "description": "The kind of business, as a catalogue category from profiles.organization.read.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "city_slug": {
+            "description": "The town, as a catalogue city slug from profiles.organization.read.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contact_address": {
+            "description": "A public address, up to 240 characters; empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contact_email": {
+            "description": "A public contact e-mail; empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contact_phone": {
+            "description": "A public contact phone number; empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "description": "The company's name on its card, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "headline": {
+            "description": "One sentence about the company, up to 200 characters; empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "display_name",
+          "headline",
+          "bio",
+          "contact_email",
+          "contact_phone",
+          "contact_address",
+          "city_slug",
+          "category"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's business card: name, one-line headline, description, contact e-mail, phone and address, town and category. Pass null for every field that stays as it is and an empty string to clear one; at least one field must change. A company without a card gets one. If the card is in the public directory the change is public at once and needs its own confirmation.",
+      "modifiers": [],
+      "module": "shared.profiles",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "bio": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array"
+          },
+          "category": {
+            "type": "string"
+          },
+          "cities": {
+            "type": "array"
+          },
+          "city_slug": {
+            "type": "string"
+          },
+          "contact_address": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "contact_email": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "contact_phone": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "in_catalog": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "profiles.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "Name, description, contact, town and kind on the card.",
+        "pl": "Nazwa, opis, kontakt, miasto i kategoria na wizytówce."
+      },
+      "title": {
+        "en": "Change the company card",
+        "pl": "Zmień wizytówkę firmy"
+      },
+      "tool_name": "profiles_organization_update_v1",
+      "undo": "command:profiles.organization.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "translation.glossary.update@1",
       "entitlement": null,
       "exposure": [

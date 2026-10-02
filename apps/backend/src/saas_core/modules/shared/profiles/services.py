@@ -36,7 +36,13 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ
 from saas_core.modules.shared.media.models import MediaAsset
 
-from .catalog import refresh_catalog_entry, validate_placement
+from .catalog import (
+    ProfileNotPublishable,
+    catalog_entry_for,
+    publishable,
+    refresh_catalog_entry,
+    validate_placement,
+)
 from .models import ProfileSubjectKind, PublicProfile, PublicProfileTranslation
 from .permissions import PROFILES_MANAGE
 from .search_index import catalog_changed
@@ -117,15 +123,7 @@ def organization_profile() -> PublicProfile:
 
     organization = Organization.objects.get(pk=context.organization_id)
     with transaction.atomic():
-        profile = PublicProfile(
-            organization_id=context.organization_id,
-            subject_kind=ProfileSubjectKind.ORGANIZATION,
-            display_name=organization.name[:160],
-            # The customers' language, not the panel's (ADR-071 pkt 4).
-            locale=(
-                organization_content_locales(organization) or (organization.default_locale,)
-            )[0],
-        )
+        profile = _new_organization_profile(organization)
         try:
             profile.save()
         except IntegrityError:
@@ -143,6 +141,60 @@ def organization_profile() -> PublicProfile:
         metadata={"subject_kind": ProfileSubjectKind.ORGANIZATION.value, "origin": "lazy"},
     )
     return profile
+
+
+def _new_organization_profile(organization: Organization) -> PublicProfile:
+    """The card a company starts with: its name, otherwise empty, unsaved."""
+    return PublicProfile(
+        organization_id=organization.id,
+        subject_kind=ProfileSubjectKind.ORGANIZATION,
+        display_name=organization.name[:160],
+        # The customers' language, not the panel's (ADR-071 pkt 4).
+        locale=(organization_content_locales(organization) or (organization.default_locale,))[0],
+    )
+
+
+def existing_organization_profile() -> tuple[PublicProfile | None, bool]:
+    """The company's card if it exists, and whether it is in the catalogue —
+    read without bringing the card into being, unlike `organization_profile`."""
+    context = authorize(PROFILES_MANAGE)
+    profile = (
+        _for_tenant(context.organization_id)
+        .filter(subject_kind=ProfileSubjectKind.ORGANIZATION)
+        .first()
+    )
+    return profile, catalog_entry_for(context.organization_id) is not None
+
+
+def planned_organization_profile(
+    *, changes: dict[str, Any]
+) -> tuple[PublicProfile, int, dict[str, tuple[Any, Any]], bool]:
+    """The company's card as `changes` would leave it, nothing written — not
+    even the card, when the company has none yet (its version is then 0).
+
+    Checked by the rules of `update_profile`, including the catalogue's: a card
+    in the catalogue cannot lose its name, city or category.
+    """
+    context = authorize(PROFILES_MANAGE)
+    existing, in_catalog = existing_organization_profile()
+    profile = existing or _new_organization_profile(
+        Organization.objects.get(pk=context.organization_id)
+    )
+    before = {field: getattr(profile, field) for field in changes}
+    for field, value in changes.items():
+        setattr(profile, field, value)
+    _validated(profile)
+    _validated_placement(profile, context.organization_id)
+    if in_catalog and not publishable(profile):
+        raise ProfileNotPublishable(
+            "Wizytówka jest w katalogu: nazwa, miasto i kategoria muszą zostać uzupełnione."
+        )
+    diffs = {
+        field: (before[field], getattr(profile, field))
+        for field in sorted(changes)
+        if getattr(profile, field) != before[field]
+    }
+    return profile, existing.version if existing is not None else 0, diffs, in_catalog
 
 
 def _resolve_photo(photo_id: UUID | None) -> MediaAsset | None:

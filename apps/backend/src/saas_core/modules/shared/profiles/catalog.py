@@ -155,7 +155,7 @@ def _place_entry(profile: PublicProfile, organization_id: UUID | Any) -> Catalog
     return entry
 
 
-def _publishable(profile: PublicProfile) -> bool:
+def publishable(profile: PublicProfile) -> bool:
     return bool(profile.display_name.strip() and profile.city_slug and profile.category)
 
 
@@ -165,7 +165,7 @@ def publish_profile() -> CatalogEntry:
     organization = Organization.objects.get(pk=context.organization_id)
     profile = _organization_profile(context.organization_id)
 
-    if not _publishable(profile):
+    if not publishable(profile):
         raise ProfileNotPublishable
     validate_placement(
         city_slug=profile.city_slug,
@@ -214,7 +214,7 @@ def refresh_catalog_entry(profile: PublicProfile) -> None:
         return
     if not _entries().filter(profile=profile).exists():
         return
-    if not _publishable(profile):
+    if not publishable(profile):
         raise ProfileNotPublishable(
             "Wizytówka jest w katalogu: nazwa, miasto i kategoria muszą zostać uzupełnione."
         )

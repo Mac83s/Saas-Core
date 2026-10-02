@@ -45,9 +45,14 @@ class CommandEval:
 def all_evals() -> dict[str, CommandEval]:
     from django.conf import settings  # noqa: PLC0415
 
-    from . import booking, company_settings, organization  # noqa: PLC0415
+    from . import booking, company_settings, organization, profiles  # noqa: PLC0415
 
-    evals = {**organization.EVALS, **booking.EVALS, **company_settings.EVALS}
+    evals = {
+        **organization.EVALS,
+        **booking.EVALS,
+        **company_settings.EVALS,
+        **profiles.EVALS,
+    }
     # A profile without the translation module (HoofCare, MedPlano) registers
     # none of its commands, and its models cannot even be imported there.
     if "shared.translation" in settings.ACTIVE_MODULES:

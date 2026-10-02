@@ -31,6 +31,11 @@ class ProfilesConfig(AppConfig):
 
         register_company_contact(business_card_contact)
 
+        # The business card's commands for the assistant (ADR-076, A1b-10).
+        from .command_declarations import register_profile_commands
+
+        register_profile_commands()
+
         # Every write of a catalogue row — publication, refresh, withdrawal and
         # the cascade when a company is erased — moves its search document too.
         post_save.connect(
