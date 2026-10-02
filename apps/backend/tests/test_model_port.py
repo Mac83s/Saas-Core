@@ -31,6 +31,7 @@ from saas_core.modules.shared.model_port.api import (
     ModelError,
     ModelRequest,
     NamedTool,
+    ToolCall,
     ToolSpec,
     Usage,
     admit,
@@ -93,6 +94,7 @@ def fake_models(settings: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[None
                 context_window=100_000,
                 max_output_tokens=16_000,
                 probed="2026-10-02",
+                dated_variants=frozenset({f"{model}-20261001"}),
             )
         )
     for task, model in (
@@ -599,4 +601,166 @@ def test_the_openrouter_answer_gives_tokens_cost_resolved_model_and_tool_calls()
     assert result.tool_calls[0].arguments_json == "{}"
     assert (
         result.continuation is not None and result.continuation.model == "anthropic/claude-opus-5.5"
+    )
+
+
+def test_a_tool_turn_and_its_reasoning_go_round_to_the_next_call_of_the_same_model() -> None:
+    org = organization()
+    FAKE.script(
+        FakeReply(
+            tool_calls=(
+                RawToolCall(
+                    id="c1", name="sites_page_create_v1", arguments_json='{"title": "O nas"}'
+                ),
+            ),
+            finish_reason="tool_calls",
+            # The provider answers with a dated name of the model.
+            resolved_model="fake/assistant-20261001",
+            continuation_state=[{"type": "reasoning.encrypted", "data": "podpis"}],
+        ),
+        FakeReply(text="Strona założona"),
+    )
+    first_request = conversation(org)
+    first = complete(first_request)
+    assert first.continuation is not None and first.continuation.model == "fake/assistant"
+    assert first.tool_calls[0].arguments == {"title": "O nas"}
+
+    second = complete(
+        replace(
+            first_request,
+            messages=(
+                *first_request.messages,
+                first.as_message(),
+                Message(role="tool", tool_call_id="c1", content='{"ok": true}'),
+            ),
+        )
+    )
+
+    assert second.text == "Strona założona"
+    sent = FAKE.calls[1].request.messages
+    assert sent[1].continuation is not None
+    assert sent[1].continuation.state == [{"type": "reasoning.encrypted", "data": "podpis"}]
+    assert UsageEntry.objects.order_by("created_at").last().continuations_dropped == 0
+
+
+def test_strict_mode_gets_a_copy_without_the_constraints_it_cannot_take() -> None:
+    from saas_core.modules.shared.model_port.adapters.openrouter import strict_schema
+
+    request = conversation(organization(), data_class="public")
+    body = request_body(adapter_call(request, OPUS, structured="none"))
+
+    function = body["tools"][0]["function"]
+    assert function["strict"] is True
+    assert "maxLength" not in json.dumps(function["parameters"])
+    # The caller's schema is untouched; the port still validates the full one.
+    assert TOOL.input_schema["properties"]["title"]["maxLength"] == 20
+    assert strict_schema({"type": "object", "$defs": {}, "properties": {}}) is None
+
+
+def test_empty_or_repeated_tool_call_ids_are_invalid_output() -> None:
+    org = organization()
+    call = RawToolCall(id="same", name="sites_page_create_v1", arguments_json='{"title": "A"}')
+    FAKE.script(FakeReply(tool_calls=(call, call), finish_reason="tool_calls"))
+
+    with pytest.raises(ModelError) as error:
+        complete(conversation(org))
+
+    assert (error.value.kind, error.value.code) == ("invalid_output", "tool_call_id_invalid")
+
+
+def test_health_data_and_an_empty_tool_result_never_leave() -> None:
+    org = organization()
+    with pytest.raises(ModelError) as health:
+        complete(conversation(org, data_class="health"))
+    bad_turn = (
+        Message(role="user", content="Hej"),
+        Message(
+            role="assistant",
+            tool_calls=(ToolCall(id="c1", name="sites_page_create_v1", arguments_json="{}"),),
+        ),
+        Message(role="tool", tool_call_id="c1", content=None),
+    )
+    with pytest.raises(ModelError) as empty:
+        complete(conversation(org, messages=bad_turn))
+
+    assert health.value.code == "data_class_not_sendable"
+    assert empty.value.code == "message_shape_invalid"
+    assert FAKE.calls == []
+
+
+def test_an_adapter_bug_still_closes_its_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    org = organization()
+
+    def broken(call: Any) -> Any:
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(FAKE, "complete", broken)
+    with pytest.raises(RuntimeError):
+        complete(translation(org))
+
+    row = UsageEntry.objects.get()
+    assert (row.state, row.outcome, row.error_code) == (
+        EntryState.DONE,
+        "unknown_outcome",
+        "adapter_exception",
+    )
+
+
+def _serve(handler: Any) -> Any:
+    import threading
+    from http.server import ThreadingHTTPServer
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_the_transport_keeps_its_total_deadline_and_follows_no_redirect() -> None:
+    from http.server import BaseHTTPRequestHandler
+
+    from saas_core.modules.shared.model_port.adapters.openrouter import (
+        HttpClientTransport,
+        http_error,
+    )
+
+    class Trickle(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            self.rfile.read(int(self.headers["Content-Length"]))
+            if self.path.endswith("/redirect"):
+                self.send_response(302)
+                self.send_header("Location", "https://elsewhere.test/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("Content-Length", "1000")
+            self.end_headers()
+            for _ in range(20):
+                self.wfile.write(b"x")
+                self.wfile.flush()
+                time.sleep(0.1)
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    server = _serve(Trickle)
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    transport = HttpClientTransport()
+    try:
+        started = time.monotonic()
+        with pytest.raises(Exception) as lost:
+            transport.post(base + "/slow", headers={}, body=b"{}", deadline=time.monotonic() + 0.5)
+        elapsed = time.monotonic() - started
+        answer = transport.post(
+            base + "/redirect", headers={}, body=b"{}", deadline=time.monotonic() + 5
+        )
+    finally:
+        server.shutdown()
+
+    assert type(lost.value).__name__ == "_Lost"
+    assert elapsed < 1.5
+    assert answer.status == 302
+    assert (http_error(answer).kind, http_error(answer).code) == (
+        "invalid_request",
+        "openrouter_http_302",
     )

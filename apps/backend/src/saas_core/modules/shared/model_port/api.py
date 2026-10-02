@@ -14,7 +14,7 @@ from .budgets import current_budgets, micros
 from .matrix import model_profile
 from .models import EntryKind, EntryState, UsageEntry
 from .registry import register_task, task_spec
-from .service import complete, estimate
+from .service import complete, estimate, highest_data_class
 from .state import active_block
 from .types import (
     Admission,
@@ -209,6 +209,7 @@ __all__ = [
     "budget_state",
     "complete",
     "estimate",
+    "highest_data_class",
     "record_settlement",
     "register_task",
     "release",

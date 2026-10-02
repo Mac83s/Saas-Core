@@ -120,6 +120,12 @@ Naruszenie to `ModelError(kind="invalid_request")` bez wywołania:
 - `input_schema` i schemat `response_format` to poprawne JSON Schema obiektu;
   `max_tokens` nie przekracza reguły zadania ani wyjścia modelu, `timeout_seconds` —
   limitu zadania; żądanie po serializacji ma do 2 MiB i mieści się w oknie modelu;
+- wiadomość `tool` ma `content` będący napisem; wynik narzędzia z błędem to obiekt JSON
+  w `content` (np. `{"error": {"code": …, "message": …}}`), bo `Message` nie ma flagi
+  błędu;
+- przy aktywnym kontekście „w imieniu” asystenta (`acting_via="assistant"`,
+  `acting_ref="conversation:<id>"`) `conversation_id` musi być tą rozmową
+  (`context_mismatch`) — jedna rozmowa nie wydaje budżetu innej;
 - `prompt_id` (`^[a-z][a-z0-9_.-]{0,79}$`), `prompt_version` (`^[a-z0-9_.-]{1,40}$`)
   i `reference` (`<rodzaj>:<uuid>`, np. `translation_item:<uuid>`,
   `conversation:<uuid>`) mają wzorce, bo trafiają do telemetrii i nie mogą nieść treści;
@@ -131,17 +137,20 @@ Naruszenie to `ModelError(kind="invalid_request")` bez wywołania:
   `organization_id=None` tylko z `purpose` eval albo probe;
 - `model` tylko z `purpose` eval albo probe (`model_override_not_allowed`), i tylko
   model z macierzy;
-- `data_class` to najwyższa klasa w całym żądaniu, także w wynikach narzędzi; nie
-  przekracza klasy zadania ani listy profilu (`data_class_not_sendable`);
+- `data_class` to najwyższa klasa w całym żądaniu, także w wynikach narzędzi
+  (`highest_data_class(...)` z `api.py`); `health` nigdy, a reszta nie przekracza klasy
+  zadania ani listy profilu (`data_class_not_sendable`);
 - `admission_id` wskazuje rezerwację tego samego zadania, firmy, osoby i rozmowy
   (`admission_mismatch`); `resend_of` — wiersz `unknown_outcome` tego samego zadania i
   modelu, jeszcze nie ponowiony, w zadaniu z `resend_unknown` (`resend_not_allowed`).
 
 Wskazówki cache (`Message.cache`, `cache_tools`) adapter mapuje na znaczniki dostawcy,
 gdy macierz modelu ma cache promptu, inaczej je pomija; nigdy nie są błędem.
-`continuation` z innego modelu niż model tego wywołania port pomija i liczy w
-telemetrii (`continuations_dropped`) — zmiana modelu w ustawieniach w trakcie rozmowy
-jej nie zabija. Rozmowa z `continuation` jest tylko dopisywana: odrzucenie przez
+`continuation` z innego modelu niż model tego wywołania (porównanie z modelem zadania i
+jego datowanymi wariantami z macierzy) port pomija i liczy w telemetrii
+(`continuations_dropped`) — zmiana modelu w ustawieniach w trakcie rozmowy jej nie zabija.
+Zwracaną `continuation` port oznacza modelem zadania, nie datowaną nazwą z odpowiedzi
+dostawcy, więc następna tura tego samego modelu zawsze ją dostaje. Rozmowa z `continuation` jest tylko dopisywana: odrzucenie przez
 dostawcę zmienionej historii to `invalid_request`.
 
 ## Odpowiedź
@@ -154,6 +163,12 @@ dostawcę zmienionej historii to `invalid_request`.
   A1a z `field = tool_calls.<tool_call_id>.arguments.<ścieżka>` (kropki, indeksy
   liczbowe) i komunikatem ogólnym dla kodu, bez wartości argumentów. Wołający odsyła
   tę turę i odpowiada wiadomością `tool` na każde wywołanie.
+- Puste albo powtórzone `id` wywołań narzędzi to `invalid_output` /
+  `tool_call_id_invalid`.
+- Tryb ścisły (`strict` narzędzi i `json_schema`) dostaje kopię schematu bez ograniczeń,
+  których nie przyjmuje (`minLength`, `maxLength`, `pattern`, `format`, granice liczb,
+  `multipleOf`, ograniczenia tablic i obiektów); schemat z referencjami idzie bez trybu
+  ścisłego. Pełny schemat i tak sprawdza walidacja portu.
 - Z `response_format`: `output` to sparsowany i sprawdzony obiekt. Ucięcie (`length`)
   bez schematu zwraca tekst z `finish_reason: "length"`; ze schematem albo w
   argumentach narzędzia to `invalid_output` / `output_truncated`.
@@ -174,7 +189,9 @@ dostawcę zmienionej historii to `invalid_request`.
 | `tool_args_invalid` | argumenty nie są obiektem JSON albo nie spełniają `input_schema`; narzędzie spoza listy | zapisuje koszt; `response` i `errors` jak wyżej | odsyła turę i wiadomości `tool` z błędem |
 | `budget` | dopuszczenie odroczone albo odmówione | bez wywołania | czeka do `until` albo kończy |
 
-`length` rozstrzyga przed pustą odpowiedzią (pusta z `length` to ucięcie). Blokady
+Wyjątek adaptera spoza `ModelError` zamyka wiersz jako `unknown_outcome` /
+`adapter_exception` i idzie dalej do wołającego. `length` rozstrzyga przed pustą
+odpowiedzią (pusta z `length` to ucięcie). Blokady
 działają jak bramka: kolejne wywołania kończą się od razu tym samym rodzajem z
 `until`, bez sieci; zdejmuje je `model_port_status --unblock <zadanie> --operator
 <e-mail> --reason "…"`. Odpowiedź 200 z obiektem `error` mapujemy według jego kodu jak

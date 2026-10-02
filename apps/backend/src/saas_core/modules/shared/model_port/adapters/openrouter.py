@@ -86,6 +86,11 @@ class HttpClientTransport:
             except OSError as error:
                 raise _Unsent("connect") from error
             try:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise _Unsent("deadline")
+                if connection.sock is not None:
+                    connection.sock.settimeout(left)
                 connection.request("POST", path, body=body, headers=dict(headers))
                 response = connection.getresponse()
                 chunks: list[bytes] = []
@@ -97,7 +102,9 @@ class HttpClientTransport:
                         raise _Lost("deadline")
                     if connection.sock is not None:
                         connection.sock.settimeout(left)
-                    chunk = response.read(CHUNK_BYTES)
+                    # One receive at most per round, so a trickling answer meets
+                    # the deadline instead of filling a whole chunk first.
+                    chunk = response.read1(CHUNK_BYTES)
                     if not chunk:
                         break
                     size += len(chunk)
@@ -203,18 +210,7 @@ def request_body(call: AdapterCall) -> dict[str, Any]:
     }
     if request.tools:
         strict = "strict_tools" in capabilities
-        body["tools"] = [
-            {
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": dict(tool.input_schema),
-                    **({"strict": True} if strict and strict_compatible(tool.input_schema) else {}),
-                },
-            }
-            for tool in request.tools
-        ]
+        body["tools"] = [_tool(tool, strict=strict) for tool in request.tools]
         if request.tool_choice is not None:
             body["tool_choice"] = (
                 {"type": "function", "function": {"name": request.tool_choice.name}}
@@ -231,7 +227,7 @@ def request_body(call: AdapterCall) -> dict[str, Any]:
             "json_schema": {
                 "name": request.response_format.name,
                 "strict": True,
-                "schema": dict(request.response_format.schema),
+                "schema": strict_schema(request.response_format.schema),
             },
         }
     elif call.structured == "json_mode":
@@ -246,6 +242,21 @@ def request_body(call: AdapterCall) -> dict[str, Any]:
     for name in forbidden:
         body.pop(name, None)
     return body
+
+
+def _tool(tool: Any, *, strict: bool) -> dict[str, Any]:
+    stripped = strict_schema(tool.input_schema) if strict else None
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": stripped
+            if stripped is not None
+            else json.loads(json.dumps(dict(tool.input_schema))),
+            **({"strict": True} if stripped is not None else {}),
+        },
+    }
 
 
 def _message(message: Any, capabilities: frozenset[str]) -> dict[str, Any]:
@@ -275,18 +286,71 @@ def _message(message: Any, capabilities: frozenset[str]) -> dict[str, Any]:
     return out
 
 
+#: Constraints strict mode does not take (Anthropic's strict tool use and
+#: structured outputs). They are left out of what the provider sees and still
+#: checked by our own validation of the full schema, as the SDKs do.
+STRICT_UNSUPPORTED = frozenset({
+    "minLength",
+    "maxLength",
+    "pattern",
+    "format",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "minProperties",
+    "maxProperties",
+})
+
+
+def strict_schema(schema: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The schema as strict mode may see it, or None when it cannot fit at all.
+
+    Fits: every object closed and fully required, no references (recursion is
+    not supported). Constraints strict mode does not take are dropped from a
+    deep copy; the caller's schema is never changed.
+    """
+    if "$ref" in schema or "$defs" in schema or "definitions" in schema:
+        return None
+    out: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key in STRICT_UNSUPPORTED:
+            continue
+        if key == "properties" and isinstance(value, Mapping):
+            children = {}
+            for name, child in value.items():
+                stripped = strict_schema(child) if isinstance(child, Mapping) else None
+                if stripped is None:
+                    return None
+                children[name] = stripped
+            out[key] = children
+        elif key == "items" and isinstance(value, Mapping):
+            stripped = strict_schema(value)
+            if stripped is None:
+                return None
+            out[key] = stripped
+        elif key in {"anyOf", "oneOf", "allOf"} and isinstance(value, list):
+            parts = [strict_schema(part) if isinstance(part, Mapping) else None for part in value]
+            if any(part is None for part in parts):
+                return None
+            out[key] = parts
+        else:
+            out[key] = value
+    if out.get("type") == "object":
+        properties = out.get("properties") or {}
+        if out.get("additionalProperties") is not False:
+            return None
+        if set(out.get("required") or ()) != set(properties):
+            return None
+    return out
+
+
 def strict_compatible(schema: Mapping[str, Any]) -> bool:
-    """Whether a schema fits the strict subset: every object closed and fully required."""
-    if schema.get("type") == "object":
-        properties = schema.get("properties") or {}
-        if schema.get("additionalProperties") is not False:
-            return False
-        if set(schema.get("required") or ()) != set(properties):
-            return False
-        return all(strict_compatible(child) for child in properties.values())
-    if schema.get("type") == "array" and isinstance(schema.get("items"), Mapping):
-        return strict_compatible(schema["items"])
-    return True
+    return strict_schema(schema) is not None
 
 
 def parse_response(

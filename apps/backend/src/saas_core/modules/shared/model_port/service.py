@@ -129,7 +129,9 @@ def complete(request: ModelRequest) -> ModelResponse:
         _refuse(spec, "retryable", "web_capacity", retry_after=2)
     try:
         entry = _admitted(request, ask)
-        messages, dropped = _without_foreign_continuations(request.messages, profile.model)
+        messages, dropped = _without_foreign_continuations(
+            request.messages, {profile.model, *profile.dated_variants}
+        )
         call = AdapterCall(
             spec=spec,
             request=replace(request, messages=messages),
@@ -152,7 +154,19 @@ def complete(request: ModelRequest) -> ModelResponse:
         started = time.monotonic()
         try:
             result = adapter.complete(call)  # type: ignore[union-attr]
-        except ModelError as error:
+        except Exception as error:
+            if not isinstance(error, ModelError):
+                # A bug in an adapter still closes its row instead of leaving it
+                # `calling` until the sweep.
+                _finish(
+                    entry.id,
+                    spec,
+                    outcome="unknown_outcome",
+                    code="adapter_exception",
+                    started=started,
+                )
+                metrics.ESTIMATED.labels(spec.key, profile.adapter).inc(estimate)
+                raise
             _apply_block(error, spec, profile)
             _finish(entry.id, spec, outcome=error.kind, code=error.code, started=started)
             if error.kind == "unknown_outcome":
@@ -240,6 +254,8 @@ def _validate(request: ModelRequest, spec: TaskSpec, profile: ModelProfile, purp
             _refuse(spec, "invalid_request", "capability_not_supported")
         if not {"json_schema", "json_mode"} & profile.capabilities:
             _refuse(spec, "invalid_request", "capability_not_supported")
+    if request.data_class == "health":
+        refuse("data_class_not_sendable")
     if DATA_CLASS_RANK[request.data_class] > DATA_CLASS_RANK[spec.max_data_class]:
         refuse("data_class_not_sendable")
     if request.data_class not in settings.MODEL_PORT_SENDABLE_DATA_CLASSES:
@@ -291,6 +307,14 @@ def _validate_context(request: ModelRequest, spec: TaskSpec, purpose: str, refus
             refuse("context_mismatch")
         if context.actor_id is not None and context.actor_id != tenant.actor_id:
             refuse("context_mismatch")
+        # An assistant's call spends its own conversation's budget, never another's.
+        acting_ref = str(getattr(tenant, "acting_ref", "") or "")
+        if (
+            getattr(tenant, "acting_via", "") == "assistant"
+            and acting_ref.startswith("conversation:")
+            and str(context.conversation_id) != acting_ref.removeprefix("conversation:")
+        ):
+            refuse("context_mismatch")
 
 
 def _validate_messages(messages: tuple[Message, ...], refuse: Any) -> None:
@@ -307,6 +331,8 @@ def _validate_messages(messages: tuple[Message, ...], refuse: Any) -> None:
         if (message.tool_calls or message.continuation is not None) and message.role != "assistant":
             refuse("message_shape_invalid")
         if message.role == "tool":
+            if message.content is None:
+                refuse("message_shape_invalid")
             if message.tool_call_id not in open_calls:
                 refuse("tool_result_unexpected")
             open_calls.discard(str(message.tool_call_id))
@@ -434,15 +460,20 @@ def _strict_subset(schema: Mapping[str, Any]) -> bool:
     return strict_compatible(schema)
 
 
+def highest_data_class(*classes: str) -> str:
+    """The class a request carries: the most sensitive of its parts."""
+    return max(classes, key=lambda name: DATA_CLASS_RANK[name])
+
+
 def _without_foreign_continuations(
-    messages: tuple[Message, ...], model: str
+    messages: tuple[Message, ...], models: set[str]
 ) -> tuple[tuple[Message, ...], int]:
     """A continuation from another model is dropped and counted — a model change
     in the settings mid-conversation must not end the conversation."""
     dropped = 0
     kept: list[Message] = []
     for message in messages:
-        if message.continuation is not None and message.continuation.model != model:
+        if message.continuation is not None and message.continuation.model not in models:
             kept.append(replace(message, continuation=None))
             dropped += 1
         else:
@@ -506,7 +537,13 @@ def _interpret(
         provider_request_id=result.provider_request_id,
         latency_ms=latency_ms,
         usage_entry_id=entry_id,
-        continuation=result.continuation,
+        # Stamped with the task's model, not the dated name the provider
+        # answered with, so the next turn of the same model gets it back.
+        continuation=(
+            replace(result.continuation, model=profile.model)
+            if result.continuation is not None
+            else None
+        ),
     )
     if not resolved_ok:
         finish("configuration", "resolved_model_mismatch")
@@ -527,6 +564,10 @@ def _interpret(
     if not truncated and not tool_calls and not (result.text or "").strip():
         finish("refused", "empty_output")
         raise ModelError("refused", "empty_output", usage_entry_id=entry_id)
+    ids = [call.id for call in tool_calls]
+    if any(not call_id for call_id in ids) or len(set(ids)) != len(ids):
+        finish("invalid_output", "tool_call_id_invalid")
+        raise ModelError("invalid_output", "tool_call_id_invalid", usage_entry_id=entry_id)
     if tool_calls:
         checked, errors = _checked_tool_calls(tool_calls, request)
         response = replace(response, tool_calls=checked)
