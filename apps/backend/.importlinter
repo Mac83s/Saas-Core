@@ -9,3 +9,12 @@ layers =
     saas_core.modules.vertical
     saas_core.modules.shared
     saas_core.modules.core
+
+[importlinter:contract:content-protocol-pure]
+name = Protokół treści nie zna modułów ani konfiguracji
+type = forbidden
+source_modules =
+    saas_core.content_protocol
+forbidden_modules =
+    saas_core.modules
+    saas_core.config
