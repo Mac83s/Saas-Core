@@ -36,6 +36,10 @@ if [ ! -f "${DEPLOY_PATH}/secrets/image_generation_openai_api_key" ]; then
   echo "Brak pliku sekretu image_generation_openai_api_key (może być pusty) na hoście staging" >&2
   exit 1
 fi
+if [ ! -f "${DEPLOY_PATH}/secrets/model_port_openrouter_api_key" ]; then
+  echo "Brak pliku sekretu model_port_openrouter_api_key (może być pusty) na hoście staging" >&2
+  exit 1
+fi
 
 set -a
 . "${DEPLOY_PATH}/staging.env"

@@ -363,6 +363,8 @@ services:
       # so a missing or unreadable file cannot take migrate, worker or the
       # scheduler down with it.
       IMAGE_GENERATION_OPENAI_API_KEY_FILE: /run/secrets/image_generation_openai_api_key
+      # ADR-068: the model port's one OpenRouter key, read where calls happen.
+      MODEL_PORT_OPENROUTER_API_KEY_FILE: /run/secrets/model_port_openrouter_api_key
     secrets:
       - django_secret_key
       - postgres_app_password
@@ -376,6 +378,7 @@ services:
       - search_api_key
       - catalog_embedding_api_key
       - image_generation_openai_api_key
+      - model_port_openrouter_api_key
     networks:
       - app
       - data
@@ -462,11 +465,13 @@ services:
   # comes with more than one worker-ai or one OpenAI organization shared by products.
   worker-ai:
     <<: *backend-service
-    profiles: [image-generation]
+    # `ai` (ADR-068): the model port's background consumers use the same queue.
+    profiles: [image-generation, ai]
     environment:
       <<: *backend-environment
       LOG_SERVICE: worker-ai
       IMAGE_GENERATION_OPENAI_API_KEY_FILE: /run/secrets/image_generation_openai_api_key
+      MODEL_PORT_OPENROUTER_API_KEY_FILE: /run/secrets/model_port_openrouter_api_key
     secrets:
       - django_secret_key
       - postgres_app_password
@@ -480,6 +485,7 @@ services:
       - search_api_key
       - catalog_embedding_api_key
       - image_generation_openai_api_key
+      - model_port_openrouter_api_key
     command:
       - sh
       - -c
@@ -849,6 +855,8 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/seo_ssa_callback_secret
   image_generation_openai_api_key:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/image_generation_openai_api_key
+  model_port_openrouter_api_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/model_port_openrouter_api_key
   # ADR-064: the engine's own key. On a stack with its own engine the backend
   # uses that same key; an overlay that points the stack at a shared engine
   # maps `search_api_key` to a key scoped to this deployment's index instead.

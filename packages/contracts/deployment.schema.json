@@ -80,6 +80,20 @@
         }
       }
     },
+    "ai": {
+      "description": "What may reach an AI model in this deployment (ADR-068 pkt 9). Changing it needs an image rebuild.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sendableDataClasses": {
+          "description": "Content classes a model may receive. health never; personal only to endpoints with zero retention. Absent: public and public_personal.",
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": { "enum": ["public", "public_personal", "personal"] }
+        }
+      }
+    },
     "features": {
       "type": "object",
       "additionalProperties": {

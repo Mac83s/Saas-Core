@@ -21,6 +21,7 @@ from django.conf import settings
 from django.db import connection
 from django.db.models import ForeignKey
 
+from saas_core.modules.core.organizations.erasure_checks import registered_erasure_rows
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 
@@ -93,6 +94,18 @@ def _tenant_tables_by_app() -> dict[str, set[str]]:
         if not _carries_a_tenant(model):
             continue
         tables.setdefault(model._meta.app_config.name, set()).add(model._meta.db_table)
+    return tables
+
+
+def _erasure_row_tables_by_app() -> dict[str, set[str]]:
+    """Tables naming their organization in a bare `organization_id` column and
+    erased with it through `register_erasure_rows` (ADR-068 extends ADR-041:55-58):
+    the model port's telemetry is written on its own connection, where a foreign
+    key would wait on the organization row a request holds."""
+    tables: dict[str, set[str]] = {}
+    for model, column in registered_erasure_rows():
+        if column == "organization_id":
+            tables.setdefault(model._meta.app_config.name, set()).add(model._meta.db_table)
     return tables
 
 
@@ -174,8 +187,13 @@ def test_platform_tables_are_declared_tenant_tables_without_policies() -> None:
     whole contract exists to avoid.
     """
     tenant_tables = _tenant_tables_by_app()
+    erased_with_organization = _erasure_row_tables_by_app()
     for django_app, platform in _platform_tables_by_app().items():
-        unknown = platform - tenant_tables.get(django_app, set())
+        unknown = (
+            platform
+            - tenant_tables.get(django_app, set())
+            - erased_with_organization.get(django_app, set())
+        )
         assert sorted(unknown) == [], (
             f"{django_app}: platformTables wymienia tabele, które nie należą do "
             f"tego modułu: {sorted(unknown)}"

@@ -53,6 +53,8 @@ await ensureSecret(
 await ensureSecret("seo_ssa_service_key", "");
 await ensureSecret("seo_ssa_callback_secret", "");
 await ensureSecret("image_generation_openai_api_key", "");
+// ADR-068: empty means the model port tasks are unavailable, not broken.
+await ensureSecret("model_port_openrouter_api_key", "");
 // ADR-064: the catalogue search engine's master key (at least 16 bytes in
 // production mode); the backend uses the same file unless an overlay points it
 // at a shared engine with a key of its own.

@@ -26,16 +26,25 @@ LOGIN_REFUSED = (
 )
 
 
+def is_mfa_operator(request: HttpRequest) -> bool:
+    """A staff account on a managed panel session whose second factor was checked.
+
+    The admin's gate, and until the operator gate of the settings plan the
+    gate of operator endpoints elsewhere (model port, ADR-068).
+    """
+    user = request.user
+    return bool(
+        user.is_active
+        and user.is_staff
+        and request.session.get(MANAGED_SESSION_KEY)
+        and request.session.get(MFA_VERIFIED_SESSION_KEY)
+        and has_confirmed_mfa(user)
+    )
+
+
 class MfaAdminSite(admin.AdminSite):
     def has_permission(self, request: HttpRequest) -> bool:
-        user = request.user
-        return bool(
-            user.is_active
-            and user.is_staff
-            and request.session.get(MANAGED_SESSION_KEY)
-            and request.session.get(MFA_VERIFIED_SESSION_KEY)
-            and has_confirmed_mfa(user)
-        )
+        return is_mfa_operator(request)
 
     def login(self, request: HttpRequest, extra_context: Any = None) -> HttpResponse:
         if self.has_permission(request):

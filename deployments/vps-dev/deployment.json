@@ -12,6 +12,7 @@
     "core.health",
     "core.identity",
     "core.organizations",
+    "shared.model-port",
     "shared.billing",
     "shared.sites",
     "shared.media",

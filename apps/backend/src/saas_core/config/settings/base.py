@@ -414,7 +414,10 @@ DATABASES[PRE_TENANT_DATABASE_ALIAS] = {
     # unless the second is declared a mirror of the first.
     "TEST": {"MIRROR": "default"},
 }
-DATABASE_ROUTERS = ["saas_core.config.db_router.PreTenantRouter"]
+DATABASE_ROUTERS = [
+    "saas_core.config.db_router.ModelPortRouter",
+    "saas_core.config.db_router.PreTenantRouter",
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -893,6 +896,41 @@ CATALOG_EMBEDDING_DIMENSIONS = int(os.environ.get("CATALOG_EMBEDDING_DIMENSIONS"
 #: engine scores (1 + cosine) / 2, so unrelated vectors sit near 0.5 and a
 #: document without a vector at 0; provisional until tuned on real vectors.
 CATALOG_SIMILAR_MIN_SCORE = float(os.environ.get("CATALOG_SIMILAR_MIN_SCORE", "0.75"))
+
+# ADR-068: the model port. One OpenRouter key per deployment, mounted only in
+# backend and worker-ai; an empty key means the tasks are unavailable. Reading
+# it where it is not mounted is a program error, told apart from "not set".
+MODEL_PORT_OPENROUTER_API_KEY = secret_setting("MODEL_PORT_OPENROUTER_API_KEY")
+MODEL_PORT_OPENROUTER_API_KEY_MOUNTED = (
+    "MODEL_PORT_OPENROUTER_API_KEY" in os.environ
+    or "MODEL_PORT_OPENROUTER_API_KEY_FILE" in os.environ
+)
+MODEL_PORT_OPENROUTER_BASE_URL = os.environ.get(
+    "MODEL_PORT_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+)
+#: OpenRouter is listed as a processor in the privacy policy and the data
+#: processing agreement. Off until the operator says so through `memex ops`;
+#: the platform workspace and evals do not need it (ADR-068 pkt 9).
+MODEL_PORT_PROCESSOR_LISTED = os.environ.get(
+    "MODEL_PORT_PROCESSOR_LISTED", "false"
+).strip().lower() in {"1", "true", "yes"}
+MODEL_PORT_WEB_CALLS_PER_PROCESS = int(os.environ.get("MODEL_PORT_WEB_CALLS_PER_PROCESS", "1"))
+#: The CMD of the backend image reads the same variable, so a call made from a
+#: request is cut to what a graceful restart waits for.
+GUNICORN_GRACEFUL_TIMEOUT = float(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", "20"))
+#: The profile's `ai.sendableDataClasses`: what may reach a model at all.
+MODEL_PORT_SENDABLE_DATA_CLASSES = tuple(
+    (_deployment_profile.get("ai") or {}).get("sendableDataClasses")
+    or ("public", "public_personal")
+)
+#: The port's own connection: the same database and role, so a reservation is
+#: visible to other processes at once and a telemetry row survives the rollback
+#: of the request that paid for the call.
+MODEL_PORT_DATABASE_ALIAS = "model_port"
+DATABASES[MODEL_PORT_DATABASE_ALIAS] = {
+    **DATABASES["default"],
+    "TEST": {"MIRROR": "default"},
+}
 
 # ADR-059: the direct OpenAI Image API. An empty key means the feature is
 # unavailable, not misconfigured, so there is no system check for it.

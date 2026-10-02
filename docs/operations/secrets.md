@@ -24,6 +24,7 @@ Pusty plik oznacza, że integracja jest wyłączona, a nie źle skonfigurowana.
 | `seo_ssa_service_key`             | `SEO_SSA_SERVICE_KEY_FILE`             | audyty SEO (SSA)                                                                           |
 | `seo_ssa_callback_secret`         | `SEO_SSA_CALLBACK_SECRET_FILE`         | callbacki SSA                                                                              |
 | `image_generation_openai_api_key` | `IMAGE_GENERATION_OPENAI_API_KEY_FILE` | generowanie obrazów (ADR-059); osobny projekt OpenAI na produkt z twardym limitem wydatków |
+| `model_port_openrouter_api_key`   | `MODEL_PORT_OPENROUTER_API_KEY_FILE`   | port modeli AI (ADR-068): tłumaczenia i asystent; jeden klucz OpenRouter na wdrożenie z limitem USD 100 miesięcznie |
 
 ## Utworzenie
 

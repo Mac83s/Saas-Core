@@ -18,3 +18,20 @@ source_modules =
 forbidden_modules =
     saas_core.modules
     saas_core.config
+
+[importlinter:contract:model-port-alone]
+name = Port modeli nie zależy od innych modułów shared (ADR-068 pkt 1)
+type = forbidden
+source_modules =
+    saas_core.modules.shared.model_port
+forbidden_modules =
+    saas_core.modules.shared.billing
+    saas_core.modules.shared.booking
+    saas_core.modules.shared.farms
+    saas_core.modules.shared.image_generation
+    saas_core.modules.shared.inventory
+    saas_core.modules.shared.media
+    saas_core.modules.shared.notifications
+    saas_core.modules.shared.profiles
+    saas_core.modules.shared.seo
+    saas_core.modules.shared.sites

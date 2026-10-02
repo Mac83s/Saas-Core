@@ -55,6 +55,9 @@ CLAMAV_HOST = "clamav.test"
 # tests/test_pre_tenant_door.py against the source, and its behaviour is checked
 # where it exists: on a running deployment, under the unprivileged app role.
 PRE_TENANT_DATABASE_ALIAS = "default"
+# The model port's connection is the test connection too: what it is for — a
+# row that outlives the request's rollback — is proven on a running stack.
+MODEL_PORT_DATABASE_ALIAS = "default"
 # A new mapping rather than a mutation: `from .base import *` shares the object,
 # and popping from it would rewrite the deployment's own configuration.
 DATABASES = {"default": DATABASES["default"]}  # noqa: F405

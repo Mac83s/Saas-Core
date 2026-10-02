@@ -43,6 +43,7 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "core.health",
     "core.identity",
     "core.organizations",
+    "shared.model-port",
     "shared.billing",
     "shared.media",
     "shared.notifications",

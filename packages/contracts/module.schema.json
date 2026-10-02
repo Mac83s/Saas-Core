@@ -75,7 +75,7 @@
           "uniqueItems": true
         },
         "platformTables": {
-          "description": "Tables whose rows name an organization but belong to the platform, not to that tenant, and are written before a tenant is known (ADR-041).",
+          "description": "Tables whose rows name an organization but belong to the platform, not to that tenant: written before a tenant is known (ADR-041), or written on the module's own connection with a bare organization_id erased through register_erasure_rows (ADR-068).",
           "type": "array",
           "items": {
             "type": "string",

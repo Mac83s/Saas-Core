@@ -1,0 +1,33 @@
+{
+  "id": "shared.model-port",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.identity", "core.organizations"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.model_port",
+    "urlPrefix": "/api/v1/model-port",
+    "permissions": [],
+    "entitlements": [],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": ["model_port_usageentry"],
+    "middleware": [
+      "saas_core.modules.shared.model_port.middleware.ModelPortWebCallMiddleware"
+    ],
+    "beatSchedule": {
+      "model-port-sweep": {
+        "task": "saas_core.modules.shared.model_port.tasks.sweep_model_port_admissions",
+        "schedule": 60
+      },
+      "model-port-purge": {
+        "task": "saas_core.modules.shared.model_port.tasks.purge_model_port_usage",
+        "schedule": 86400
+      }
+    }
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}

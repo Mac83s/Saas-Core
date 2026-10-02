@@ -1987,6 +1987,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/model-port/platform/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Model port status
+         * @description Every task with its availability and the reason, its model's capabilities, and the spend against each ceiling (ADR-068). Operator only.
+         */
+        get: operations["model_port_platform_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/model-port/platform/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Model port usage
+         * @description Calls, tokens, known and estimated cost, and the credits consumers settled, grouped by task, model, organization or day. Operator only.
+         */
+        get: operations["model_port_platform_usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/exports/": {
         parameters: {
             query?: never;
@@ -6080,6 +6120,11 @@ export interface components {
          * @enum {string}
          */
         LayoutEnum: "card" | "cover" | "compact";
+        Level: {
+            level: string;
+            spent_usd_micros: number;
+            cap_usd_micros: number | null;
+        };
         LifecycleResult: {
             status: string;
         };
@@ -7946,6 +7991,13 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "queued" | "submitting" | "running" | "reconciling" | "completed" | "partial" | "failed" | "cancelled";
+        Status: {
+            tasks: components["schemas"]["TaskStatus"][];
+            budgets: {
+                [key: string]: components["schemas"]["Level"][];
+            };
+            key_month_limit_usd_micros: number;
+        };
         /**
          * @description * `active` - W stadzie
          *     * `sold` - Sprzedane
@@ -8122,6 +8174,15 @@ export interface components {
         SupportRetry: {
             reason: string;
         };
+        TaskStatus: {
+            task: string;
+            available: boolean;
+            reason: string | null;
+            /** Format: date-time */
+            until: string | null;
+            model: string;
+            capabilities: string[];
+        };
         Team: {
             /** Format: uuid */
             id: string;
@@ -8266,6 +8327,15 @@ export interface components {
          * @enum {string}
          */
         UnitEnum: "piece" | "pack" | "ml" | "l" | "g" | "kg" | "m" | "hour";
+        UsageRow: {
+            key: string | null;
+            calls: number;
+            known_cost_usd_micros: number;
+            estimated_usd_micros: number;
+            input_tokens: number;
+            output_tokens: number;
+            credits: number;
+        };
         UserSummary: {
             /** Format: uuid */
             id: string;
@@ -14201,6 +14271,72 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    model_port_platform_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Status"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    model_port_platform_usage: {
+        parameters: {
+            query?: {
+                date_from?: string;
+                date_to?: string;
+                group_by?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageRow"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

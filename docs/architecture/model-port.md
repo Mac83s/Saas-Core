@@ -56,7 +56,8 @@ Admission(decision: "granted" | "deferred" | "denied", reason=None, until=None,
           id=None, expires_at=None)
 TaskSpec(key, pool, adapter, model, timeout_seconds, max_tokens_rule, defaults,
          capabilities, max_data_class, required_context, resend_unknown, enabled,
-         admission_ttl=timedelta(minutes=10), daily_cap_usd=None)
+         admission_ttl=timedelta(minutes=10), daily_cap_usd=None,
+         purposes=None)                             # None: customer and platform
 ```
 
 `Continuation` to nieprzezroczysty stan dostawcy (np. podpisane bloki rozumowania,
@@ -92,7 +93,7 @@ Silnik tłumaczeń rejestruje dodatkowo `translation.judge` (pula `translation`,
 poza `system`; wołający może zażądać mniej, nigdy więcej. 1 024 w regule to rezerwa na
 rozumowanie, które kandydaci prowadzą zawsze; `translation.text` ma domyślny wysiłek
 `low`, a TL7 mierzy odsetek ucięć każdego modelu. Wartości asystenta stroi tor
-asystenta w A1b.
+asystenta w A3 — dopiero tam powstaje pętla rozmowy do zmierzenia.
 
 Konfiguracja zadania: domyślne w kodzie, nadpisanie zmienną
 `MODEL_PORT_TASK_<ZADANIE>_<POLE>` (np. `MODEL_PORT_TASK_TRANSLATION_TEXT_MODEL`), a od

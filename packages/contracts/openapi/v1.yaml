@@ -5603,6 +5603,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/model-port/platform/status/:
+    get:
+      operationId: model_port_platform_status
+      description: Every task with its availability and the reason, its model's capabilities,
+        and the spend against each ceiling (ADR-068). Operator only.
+      summary: Model port status
+      tags:
+      - model-port
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/model-port/platform/usage/:
+    get:
+      operationId: model_port_platform_usage
+      description: Calls, tokens, known and estimated cost, and the credits consumers
+        settled, grouped by task, model, organization or day. Operator only.
+      summary: Model port usage
+      parameters:
+      - in: query
+        name: date_from
+        schema:
+          type: string
+      - in: query
+        name: date_to
+        schema:
+          type: string
+      - in: query
+        name: group_by
+        schema:
+          type: string
+      tags:
+      - model-port
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsageRow'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/notifications/exports/:
     post:
       operationId: integration_exports_create
@@ -17479,6 +17546,21 @@ components:
         * `card` - Wizytówka
         * `cover` - Ze zdjęciem na całą szerokość
         * `compact` - Zwięzła
+    Level:
+      type: object
+      properties:
+        level:
+          type: string
+        spent_usd_micros:
+          type: integer
+        cap_usd_micros:
+          type:
+          - integer
+          - 'null'
+      required:
+      - cap_usd_micros
+      - level
+      - spent_usd_micros
     LifecycleResult:
       type: object
       properties:
@@ -22161,6 +22243,25 @@ components:
         * `partial` - Partial without charge
         * `failed` - Failed
         * `cancelled` - Cancelled
+    Status:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskStatus'
+        budgets:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Level'
+        key_month_limit_usd_micros:
+          type: integer
+      required:
+      - budgets
+      - key_month_limit_usd_micros
+      - tasks
     Status891Enum:
       enum:
       - active
@@ -22576,6 +22677,35 @@ components:
           maxLength: 500
       required:
       - reason
+    TaskStatus:
+      type: object
+      properties:
+        task:
+          type: string
+        available:
+          type: boolean
+        reason:
+          type:
+          - string
+          - 'null'
+        until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        model:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+      required:
+      - available
+      - capabilities
+      - model
+      - reason
+      - task
+      - until
     Team:
       type: object
       properties:
@@ -22906,6 +23036,33 @@ components:
         * `kg` - Kilogram
         * `m` - Metr
         * `hour` - Godzina
+    UsageRow:
+      type: object
+      properties:
+        key:
+          type:
+          - string
+          - 'null'
+        calls:
+          type: integer
+        known_cost_usd_micros:
+          type: integer
+        estimated_usd_micros:
+          type: integer
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        credits:
+          type: integer
+      required:
+      - calls
+      - credits
+      - estimated_usd_micros
+      - input_tokens
+      - key
+      - known_cost_usd_micros
+      - output_tokens
     UserSummary:
       type: object
       properties:

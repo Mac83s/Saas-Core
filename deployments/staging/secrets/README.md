@@ -19,6 +19,10 @@ checkoutem i z prawami `0600`:
   (ADR-059), udostępniany wyłącznie `backend` i `worker-ai`. Plik musi
   istnieć, także pusty (pusty = funkcja wyłączona); brak pliku zatrzymuje
   deploy, bo Compose odmawia montażu nieistniejącego źródła;
+- `model_port_openrouter_api_key` — jeden klucz OpenRouter wdrożenia dla portu
+  modeli (ADR-068), z limitem miesięcznym ustawionym w OpenRouter (USD 100);
+  udostępniany wyłącznie `backend` i `worker-ai`. Plik musi istnieć, także
+  pusty (pusty = zadania portu niedostępne);
 - `search_master_key` — klucz główny silnika wyszukiwarki katalogu (ADR-064),
   co najmniej 16 bajtów; montowany w `search` jako klucz silnika i w procesach
   backendu jako `search_api_key`. Stos wskazany na wspólny silnik mapuje

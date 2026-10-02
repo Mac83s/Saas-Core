@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:dc09bb017477503266cc17cb9a6eca7f6ee683a16a4a5ee46c8810c39cce0d11",
+  "profileHash": "sha256:c7edcdc075af527e9bc0e41aab5ba35cd3195d374b93546b25b329adf00028ff",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -24,6 +24,7 @@
       },
       "description": null,
       "modules": [
+        "shared.model-port",
         "shared.billing",
         "shared.media",
         "shared.notifications",
@@ -127,6 +128,44 @@
         "translationNamespaces": [
           "organizations"
         ]
+      }
+    },
+    {
+      "id": "shared.model-port",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.identity",
+        "core.organizations"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.model_port",
+        "urlPrefix": "/api/v1/model-port",
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": [
+          "model_port_usageentry"
+        ],
+        "middleware": [
+          "saas_core.modules.shared.model_port.middleware.ModelPortWebCallMiddleware"
+        ],
+        "beatSchedule": {
+          "model-port-sweep": {
+            "task": "saas_core.modules.shared.model_port.tasks.sweep_model_port_admissions",
+            "schedule": 60
+          },
+          "model-port-purge": {
+            "task": "saas_core.modules.shared.model_port.tasks.purge_model_port_usage",
+            "schedule": 86400
+          }
+        }
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
       }
     },
     {

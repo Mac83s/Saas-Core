@@ -74,7 +74,7 @@ o nieznanym wyniku, a tłumaczenia obciążają klienta tylko za dostarczone jed
    `translation`, 150 s, `max_tokens` 2,5 × tokeny treści + 1 024, najwyżej 16 384),
    `assistant.conversation` (pula `assistant`, 18 s, 1 536, narzędzia i ZDR) i
    `assistant.extract_profile` (pula `assistant`, 15 s, 1 024, schemat i ZDR); wartości
-   asystenta to punkt startowy, który tor asystenta stroi w A1b. Modelu domyślnego nie
+   asystenta to punkt startowy, który tor asystenta stroi w A3. Modelu domyślnego nie
    ma: dla tłumaczeń wybiera go właściciel po evalach (TL7), dla asystenta — tor
    asystenta; bez modelu zadanie zwraca `model_not_selected`. Wartości: domyślne w
    kodzie, nadpisywane zmienną `MODEL_PORT_TASK_<ZADANIE>_<POLE>`, a od fazy 1 planu
