@@ -18891,17 +18891,34 @@ components:
       properties:
         type:
           type: string
+          description: Always `about:blank`; `code` names the problem.
         title:
           type: string
+          description: A fixed, generic title in the server's language.
         status:
           type: integer
+          description: The HTTP status of the response.
         code:
           type: string
-        detail: {}
+          description: Stable machine-readable code of the problem; clients branch
+            on it. Input validation answers `invalid` unless the operation names a
+            domain code.
+        detail:
+          description: 'For display only: a sentence, or for input validation a map
+            of field to messages. A program reads `code` and `errors` instead.'
         correlation_id:
           type:
           - string
           - 'null'
+          description: The request's `X-Correlation-ID`, to quote when reporting the
+            problem.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemFieldError'
+          description: 'On 400 and 422 only, never empty: each problem the caller
+            can act on, with the failing field (or null for the whole request), its
+            code and a message.'
       required:
       - code
       - correlation_id
@@ -18909,6 +18926,28 @@ components:
       - status
       - title
       - type
+    ProblemFieldError:
+      type: object
+      properties:
+        field:
+          type:
+          - string
+          - 'null'
+          description: 'Path of the failing value in the request data (body or query):
+            segments joined with dots, list positions as numbers (`address.city`,
+            `items.1.name`). Null when the error concerns the request as a whole.'
+        code:
+          type: string
+          description: 'Machine-readable reason: a validation code (`required`, `max_length`,
+            `invalid_choice`), a Django validator''s code or a domain code.'
+        message:
+          type: string
+          description: A sentence for a person, in the server's language; for display
+            only.
+      required:
+      - code
+      - field
+      - message
     ProfileCreate:
       type: object
       properties:

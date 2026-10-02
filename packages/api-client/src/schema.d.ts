@@ -6666,12 +6666,28 @@ export interface components {
             marketing_enabled: boolean;
         };
         ProblemDetails: {
+            /** @description Always `about:blank`; `code` names the problem. */
             type: string;
+            /** @description A fixed, generic title in the server's language. */
             title: string;
+            /** @description The HTTP status of the response. */
             status: number;
+            /** @description Stable machine-readable code of the problem; clients branch on it. Input validation answers `invalid` unless the operation names a domain code. */
             code: string;
+            /** @description For display only: a sentence, or for input validation a map of field to messages. A program reads `code` and `errors` instead. */
             detail: unknown;
+            /** @description The request's `X-Correlation-ID`, to quote when reporting the problem. */
             correlation_id: string | null;
+            /** @description On 400 and 422 only, never empty: each problem the caller can act on, with the failing field (or null for the whole request), its code and a message. */
+            errors?: components["schemas"]["ProblemFieldError"][];
+        };
+        ProblemFieldError: {
+            /** @description Path of the failing value in the request data (body or query): segments joined with dots, list positions as numbers (`address.city`, `items.1.name`). Null when the error concerns the request as a whole. */
+            field: string | null;
+            /** @description Machine-readable reason: a validation code (`required`, `max_length`, `invalid_choice`), a Django validator's code or a domain code. */
+            code: string;
+            /** @description A sentence for a person, in the server's language; for display only. */
+            message: string;
         };
         ProfileCreate: {
             display_name: string;
