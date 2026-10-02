@@ -58,6 +58,7 @@ from .domains import InvalidHostname, link_host, normalize_hostname
 from .localization import (
     SiteLocalizationReport,
     build_localization_report,
+    first_segment_reserved,
     localized_path,
 )
 from .metrics import OUTBOX_EVENTS
@@ -226,6 +227,16 @@ class TranslationSlugInvalid(APIException):
     status_code = 400
     default_detail = "Slug może zawierać małe litery, cyfry i łączniki."
     default_code = "translation_slug_invalid"
+
+
+class SlugReserved(APIException):
+    status_code = 400
+    default_detail = (
+        "Ten adres jest zarezerwowany: dwuliterowe początki adresów należą do "
+        "wersji językowych, a media, api, internal, static, healthz i "
+        "site-renderer obsługuje platforma."
+    )
+    default_code = "slug_reserved"
 
 
 class TranslationNotFound(NotFound):
@@ -1726,6 +1737,14 @@ def save_page_translation(
         )
         .first()
     )
+    # Only a new or changed address: a page that already had one before the
+    # rule keeps it until somebody moves it (`sites_reserved_slugs` lists them).
+    if (
+        normalized_locale == site.default_locale
+        and (translation is None or translation.slug != values["slug"])
+        and first_segment_reserved(str(values["slug"]))
+    ):
+        raise SlugReserved
     if translation is not None:
         receipt = PageTranslationMutation.all_objects.filter(
             organization_id=context.organization_id,
@@ -2915,6 +2934,8 @@ def change_page_url(
     )
     if translation.slug == normalized_slug:
         raise RedirectTargetUnchanged
+    if normalized_locale == site.default_locale and first_segment_reserved(normalized_slug):
+        raise SlugReserved
     if PageTranslation.all_objects.filter(
         organization_id=context.organization_id,
         site_id=site.id,

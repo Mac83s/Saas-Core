@@ -40,6 +40,19 @@ class SiteLocalizationReport:
     ready_to_publish: bool
 
 
+#: First segments an unprefixed address never takes (ADR-071): every two-letter
+#: one, because it is or may become a language prefix — a page "de" would
+#: shadow /de/ — and the paths the platform answers before any page.
+RESERVED_FIRST_SEGMENTS = frozenset({
+    "media", "api", "internal", "static", "healthz", "site-renderer",
+})
+
+
+def first_segment_reserved(segment: str) -> bool:
+    two_letters = len(segment) == 2 and segment.isascii() and segment.isalpha()
+    return two_letters or segment in RESERVED_FIRST_SEGMENTS
+
+
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:
     if locale == default_locale:
         return f"/{slug}/"

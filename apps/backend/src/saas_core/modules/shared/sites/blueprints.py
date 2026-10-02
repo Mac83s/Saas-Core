@@ -15,6 +15,7 @@ from saas_core.modules.core.identity.models import User
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_contracts import site_block_contracts
+from .localization import first_segment_reserved
 from .models import (
     BlueprintImportReceipt,
     ContentProposal,
@@ -26,6 +27,7 @@ from .page_templates import PageTemplate, page_template_catalog
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
 from .services import (
     SiteNotFound,
+    SlugReserved,
     _idempotency_key,
     assert_within_grant,
     create_page,
@@ -233,6 +235,8 @@ def import_blueprint(*, site_id: UUID, document: dict[str, Any]) -> tuple[dict[s
         template_id=document["template_id"], version=document["template_version"]
     )
     render_slots(template, document["slots"])
+    if document["locale"] == site.default_locale and first_segment_reserved(document["key"]):
+        raise SlugReserved
     if PageTranslation.all_objects.filter(
         organization_id=context.organization_id,
         site=site,

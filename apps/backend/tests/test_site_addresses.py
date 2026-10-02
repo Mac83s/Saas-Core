@@ -174,3 +174,53 @@ def test_an_address_answers_in_one_spelling():
     assert other.status_code == 308
     assert other["Location"] == f"https://{host}/oferta/"
     assert _get(host, "/nie-ma/").status_code == 404
+
+
+def test_an_unprefixed_address_never_takes_a_language_prefix_or_a_platform_path():
+    from io import StringIO
+
+    from django.core.cache import cache
+    from django.core.management import call_command
+
+    from saas_core.modules.shared.sites.models import PageTranslation
+    from test_sites_api import create_page, csrf_value, save_translation, sites_client
+    from test_sites_api import create_site as create_sites_site
+    from test_sites_collections import create_collection
+
+    cache.clear()
+    client, organization, _ = sites_client(slug="addr-reserved", role_key="owner")
+    site_id = create_sites_site(client).data["id"]
+    page_id = create_page(client, site_id).data["id"]
+
+    def polish(slug: str, key: str) -> Any:
+        return save_translation(
+            client, page_id, "pl", expected_version=0, slug=slug, title="T", idempotency_key=key
+        )
+
+    for index, slug in enumerate(("de", "it", "api", "media", "site-renderer")):
+        refused = polish(slug, f"reserved-{index}")
+        assert refused.status_code == 400, slug
+        assert refused.data["code"] == "slug_reserved"
+    assert polish("apiary", "allowed").status_code in (200, 201)
+    # Under its own prefix an English address may be two letters.
+    english = save_translation(
+        client, page_id, "en", expected_version=0, slug="de", title="T", idempotency_key="en"
+    )
+    assert english.status_code in (200, 201)
+    blog = create_collection(client, site_id, base_path="en")
+    assert blog.status_code == 400
+    assert blog.data["code"] == "slug_reserved"
+    moved = client.put(
+        f"/api/v1/sites/pages/{page_id}/url/",
+        {"locale": "pl", "slug": "fr", "reason": "Test."},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert moved.status_code == 400
+    assert moved.data["code"] == "slug_reserved"
+
+    # One saved before the rule keeps working and is listed for a decision.
+    PageTranslation.all_objects.filter(page_id=page_id, locale="pl").update(slug="pl")
+    out = StringIO()
+    call_command("sites_reserved_slugs", stdout=out)
+    assert f"{organization.id}\tmain-site\tpage\t/pl/\thome" in out.getvalue()

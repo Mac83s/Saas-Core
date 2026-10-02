@@ -36,7 +36,7 @@ from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, validate_decoration, validate_presentation
-from .localization import entry_path
+from .localization import entry_path, first_segment_reserved
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -63,6 +63,7 @@ from .services import (
     SiteMediaReferenceUnavailable,
     SiteNotFound,
     SitesIdempotencyConflict,
+    SlugReserved,
     _idempotency_key,
     _is_automation,
     _schedule_site_outbox_delivery,
@@ -241,6 +242,9 @@ def create_collection(
         pk=site_id, organization_id=context.organization_id
     ).exists():
         raise SiteNotFound
+    # The blog's address is unprefixed in the site's language, like a page's.
+    if first_segment_reserved(base_path):
+        raise SlugReserved
     collection = ContentCollection.all_objects.create(
         organization_id=context.organization_id,
         site_id=site_id,
