@@ -139,8 +139,11 @@ def installed_source(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
     monkeypatch.setattr(FAKE, "complete", translator())
     cache.set(WORKER_SEEN, 1, 300)
     CreditOperation.objects.filter(key="translation.characters").update(is_active=True, cost=2)
-    with registered_translation_source(pages):
-        yield pages
+    try:
+        with registered_translation_source(pages):
+            yield pages
+    finally:
+        cache.delete(WORKER_SEEN)
 
 
 @pytest.fixture

@@ -306,6 +306,11 @@ def test_a_company_has_at_most_500_terms() -> None:
 
 @override_settings(MODEL_PORT_PROCESSOR_LISTED=True, SETTINGS_DEFAULTS={})
 def test_the_offer_says_why_translation_is_not_available_yet() -> None:
+    from django.core.cache import cache
+
+    from saas_core.modules.shared.translation.tasks import WORKER_SEEN
+
+    cache.delete(WORKER_SEEN)
     owner = membership("tl6a-offer")
     with tenant(owner):
         offer = translation_offer()

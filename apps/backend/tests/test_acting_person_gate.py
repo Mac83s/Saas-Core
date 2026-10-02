@@ -219,8 +219,16 @@ def test_a_label_opens_for_one_consented_run_within_its_channels_ceiling(
     )
     assistant = acting_context(person, via="assistant", ref=f"conversation:{uuid7()}")
     translation = acting_context(person, via="ai_translation", ref=f"translation_job:{uuid7()}")
-    # The one label open today: removing a company language, after a click.
-    assert {"assistant": frozenset({"Usunięcie języka firmy"})} == ACTING_PERSON_GATE_ALLOWED
+    # The labels open today, each after a click: removing a company language
+    # (TL10a), deciding on an AI translation and consenting to its automation
+    # (TL6c). The translation channel reaches none (ADR-069 pkt 15).
+    assert {
+        "assistant": frozenset({
+            "Usunięcie języka firmy",
+            "Decyzja o tłumaczeniu AI",
+            "Zgoda na automat tłumaczeń",
+        })
+    } == ACTING_PERSON_GATE_ALLOWED
     assert "Cennik" not in ACTING_PERSON_GATE_ALLOWED["assistant"]
     with pytest.raises(ValueError, match="acting_opened"):
         replace(translation, acting_opened=frozenset({"Cennik"}))
