@@ -19,7 +19,7 @@ class TranslationConfig(AppConfig):
 
         from .demand import on_source_change
         from .engine_policy import ENGINE_POLICY
-        from .settings_spec import LANGUAGES_AREA, PRICING, SETTINGS
+        from .settings_spec import ENGINE, LANGUAGES_AREA, PRICING, SETTINGS
 
         register_translation_policy(ENGINE_POLICY)
         register_source_change_listener(on_source_change)
@@ -29,6 +29,8 @@ class TranslationConfig(AppConfig):
         register_setting_group(SETTINGS)
         # The price as a platform setting (TL22), in model_port's "ai" area.
         register_setting_group(PRICING)
+        # The engine's waits, quality thresholds and confirmation amount (TL22).
+        register_setting_group(ENGINE)
 
         from saas_core.modules.core.organizations.api import platform_setting
         from saas_core.modules.shared.billing.api import register_credit_cost

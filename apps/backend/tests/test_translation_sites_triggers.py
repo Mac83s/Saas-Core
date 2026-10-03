@@ -117,7 +117,7 @@ def test_one_automatic_job_publishes_at_most_the_cap_and_the_rest_wait_together(
         page_tests._job(contract, driver, page)
     _automated(driver)
     organization_id = driver.publisher.organization_id
-    monkeypatch.setattr(engine_policy, "MASS_PUBLICATION_CAP", 2)
+    monkeypatch.setattr(engine_policy, "mass_publication_cap", lambda: 2)
 
     with installed_source(monkeypatch):
         for name, page in zip(names, pages, strict=True):

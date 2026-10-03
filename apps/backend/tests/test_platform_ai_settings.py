@@ -81,3 +81,99 @@ def test_the_price_is_the_platform_setting(chosen: dict[str, Any]) -> None:
     chosen[PRICE.key] = 2
 
     assert operation_cost("translation.characters", 3) == 6
+
+
+# --- The engine's keys (TL22) --------------------------------------------------------
+
+
+def test_the_engines_keys_are_the_platforms_and_tuning_needs_no_step_up() -> None:
+    from saas_core.modules.shared.translation import settings_spec as engine
+
+    group = setting_group("translation.engine")
+    assert group.area == "ai"
+    levels = {spec.field: spec.operator_level for spec in group.settings}
+    assert levels == {
+        "demand_wait_minutes": 1,
+        "demand_max_wait_minutes": 1,
+        "mass_publication_cap": 1,
+        "leftover_threshold_percent": 1,
+        "length_ratio_max_percent": 1,
+        # Money of the deployment: level 2.
+        "platform_confirm_usd": 2,
+    }
+    assert all(spec.scopes == ("platform",) for spec in group.settings)
+    assert engine.ENGINE is group
+
+
+def test_without_an_operator_the_engine_runs_on_the_values_it_always_had(
+    chosen: dict[str, Any],
+) -> None:
+    from datetime import timedelta
+
+    from saas_core.modules.shared.translation import settings_spec as engine
+    from saas_core.modules.shared.translation.quality import DEFAULT_THRESHOLDS
+
+    assert engine.demand_wait() == timedelta(minutes=5)
+    assert engine.demand_max_wait() == timedelta(minutes=30)
+    assert engine.mass_publication_cap() == 20
+    assert engine.platform_confirm_usd_micros() == 5_000_000
+    # The code's thresholds and the keys' defaults are one pair of numbers.
+    assert engine.quality_thresholds() == DEFAULT_THRESHOLDS
+
+
+def test_an_operators_value_is_read_at_use_time(chosen: dict[str, Any]) -> None:
+    from datetime import timedelta
+
+    from saas_core.modules.shared.translation import settings_spec as engine
+    from saas_core.modules.shared.translation.engine_policy import ENGINE_POLICY
+    from test_booking import membership
+
+    owner = membership("tl22-engine")
+    chosen.update({
+        "translation.engine.demand_wait_minutes": 2,
+        "translation.engine.mass_publication_cap": 3,
+        "translation.engine.leftover_threshold_percent": 50,
+        "translation.engine.length_ratio_max_percent": 400,
+        "translation.engine.platform_confirm_usd": 0,
+    })
+
+    assert engine.demand_wait() == timedelta(minutes=2)
+    assert ENGINE_POLICY.policy(organization_id=owner.organization_id).mass_publication_cap == 3
+    thresholds = engine.quality_thresholds()
+    assert (thresholds.leftover_share, thresholds.length_ratio) == (0.5, 4.0)
+    assert engine.platform_confirm_usd_micros() == 0
+
+
+def test_the_deployments_value_sits_between_the_operator_and_the_code(
+    chosen: dict[str, Any], settings: Any
+) -> None:
+    from saas_core.modules.shared.translation import settings_spec as engine
+
+    settings.TRANSLATION_MASS_PUBLICATION_CAP = 7
+    current = platform_settings.read_platform_setting(engine.MASS_PUBLICATION_CAP.key)
+    assert (current.value, current.source) == (7, "deployment")
+
+    chosen[engine.MASS_PUBLICATION_CAP.key] = 4
+    current = platform_settings.read_platform_setting(engine.MASS_PUBLICATION_CAP.key)
+    assert (current.value, current.source) == (4, "platform")
+
+
+def test_the_quality_thresholds_decide_what_is_flagged() -> None:
+    from saas_core.content_protocol.units import Unit
+    from saas_core.modules.shared.translation.quality import (
+        QA_SOURCE_LEFTOVERS,
+        QualityThresholds,
+        check_soft,
+    )
+    from saas_core.modules.shared.translation.segments import plan_calls
+
+    source = "zapraszamy serdecznie wszystkich klientów naszego studia projektowego codziennie rano"
+    half = "wir laden herzlich alle klientów naszego studia projektowego codziennie rano"
+    unit = Unit(key="0/text", kind="text", text=source, data_class="public", max_length=None)
+    segment = plan_calls([[unit]])[0].segments[0]
+
+    assert QA_SOURCE_LEFTOVERS in check_soft(segment, half, glossary=(), target_script="Latn")
+    lenient = QualityThresholds(leftover_share=0.95)
+    assert QA_SOURCE_LEFTOVERS not in check_soft(
+        segment, half, glossary=(), target_script="Latn", thresholds=lenient
+    )

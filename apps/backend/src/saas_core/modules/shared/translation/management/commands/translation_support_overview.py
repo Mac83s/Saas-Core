@@ -38,7 +38,7 @@ from ...models import (
     TranslationReviewItem,
     TranslationSettings,
 )
-from ...settings_spec import MASS_PUBLICATION_CAP
+from ...settings_spec import mass_publication_cap
 from ..operator import operator_user, reason_of
 
 logger = logging.getLogger("saas_core.security")
@@ -119,7 +119,7 @@ def overview(organization: Organization, now: Any) -> list[str]:
         f"Automat: {'włączony' if auto else 'wyłączony'}, {consent}; "
         f"limit miesiąca {settings_row.auto_monthly_limit if settings_row else None}, "
         f"zużyte w tym miesiącu {automatic_credits_this_month(organization.id, now)} kredytów; "
-        f"publikacja masowa od {MASS_PUBLICATION_CAP} obiektów"
+        f"publikacja masowa od {mass_publication_cap()} obiektów"
     )
     since = now - timedelta(days=RECENT_DAYS)
     jobs = TranslationJob.all_objects.filter(organization=organization, created_at__gte=since)

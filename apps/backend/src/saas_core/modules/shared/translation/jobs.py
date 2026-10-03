@@ -50,7 +50,7 @@ from .prompts import TASK
 from .quotes import Quote, QuoteLine, billed_units, build_quote, quote_line
 from .segments import MAX_CALL_CHARACTERS
 from .services import Saved, field_errors, translation_offer, translation_write
-from .settings_spec import PLATFORM_CONFIRM_USD_MICROS
+from .settings_spec import platform_confirm_usd_micros
 
 #: Pairs one quote may name.
 MAX_TARGETS = 1_000
@@ -369,7 +369,7 @@ def _create_job(
             position += 1
     if platform:
         job.estimated_usd_micros = _usd_estimate(quote.characters)
-        job.confirmation_required = job.estimated_usd_micros > PLATFORM_CONFIRM_USD_MICROS
+        job.confirmation_required = job.estimated_usd_micros > platform_confirm_usd_micros()
         job.save(update_fields=["estimated_usd_micros", "confirmation_required", "updated_at"])
     first = job.parts.order_by("index").first()
     if first is not None:

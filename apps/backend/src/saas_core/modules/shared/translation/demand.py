@@ -37,17 +37,17 @@ from saas_core.modules.core.organizations.models import Organization
 
 from .models import ReviewState, TranslationDemand, TranslationReviewItem, TranslationSettings
 from .services import settings_state
-from .settings_spec import AUTO_CHANGES
+from .settings_spec import AUTO_CHANGES, demand_max_wait, demand_wait
 
 logger = logging.getLogger(__name__)
 
 MODULE_ID = "shared.translation"
 #: A review item: the original was withdrawn, its translation is still public.
 SOURCE_WITHDRAWN = "source_withdrawn"
-#: How long a change waits for the next one before its job starts.
-DEMAND_WAIT = timedelta(minutes=5)
-#: However often the object changes, its job starts this long after the first.
-DEMAND_MAX_WAIT = timedelta(minutes=30)
+# How long a change waits for the next one before its job starts, and the
+# longest an object that keeps changing waits from its first change, are the
+# platform's settings (`translation.engine.*`, TL22): `demand_wait()` and
+# `demand_max_wait()`, asked at use time.
 
 
 def on_source_change(notice: SourceChangeNotice) -> None:
@@ -113,13 +113,13 @@ def _touch(notice: SourceChangeNotice, object_id: UUID, now: datetime) -> None:
                     **lookup,
                     cause=_cause(notice)[:80],
                     first_at=now,
-                    due_at=now + DEMAND_WAIT,
+                    due_at=now + demand_wait(),
                 )
             return
         except IntegrityError:
             # Another change of the same object got there first.
             row = TranslationDemand.all_objects.select_for_update().get(**lookup)
-    row.due_at = min(now + DEMAND_WAIT, row.first_at + DEMAND_MAX_WAIT)
+    row.due_at = min(now + demand_wait(), row.first_at + demand_max_wait())
     row.save(update_fields=["due_at", "updated_at"])
 
 

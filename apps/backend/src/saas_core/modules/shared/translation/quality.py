@@ -41,13 +41,25 @@ QA_LENGTH_RATIO = "length_ratio"
 #: Segments shorter than this, in words, are not checked for leftovers: a
 #: heading or a label may well read the same in both languages.
 LEFTOVER_MIN_WORDS = 8
-#: Share of the result's words copied from the source's lowercase words.
-LEFTOVER_THRESHOLD = 0.3
 #: Words shorter than this are not counted either way.
 LEFTOVER_MIN_LETTERS = 4
-LENGTH_RATIO_MAX = 2.5
 #: Below this many source characters a long translation is no warning sign.
 LENGTH_RATIO_MIN_SOURCE = 20
+
+
+@dataclass(frozen=True, slots=True)
+class QualityThresholds:
+    """What the soft checks flag at. The defaults are the code's; the platform
+    sets its own (`translation.engine.*`, TL22), which the worker reads once
+    per run (`settings_spec.quality_thresholds`) and passes in."""
+
+    #: Share of the result's words copied from the source's lowercase words.
+    leftover_share: float = 0.3
+    #: A translation longer than this many times its source.
+    length_ratio: float = 2.5
+
+
+DEFAULT_THRESHOLDS = QualityThresholds()
 
 _WORD = re.compile(r"[^\W\d_]+")
 
@@ -142,10 +154,11 @@ def check_soft(
     *,
     glossary: Sequence[GlossaryEntry],
     target_script: str,
+    thresholds: QualityThresholds = DEFAULT_THRESHOLDS,
 ) -> tuple[str, ...]:
     flags: list[str] = []
     source = segment.unit.text
-    if leftover_share(source, translation, glossary=glossary) >= LEFTOVER_THRESHOLD:
+    if leftover_share(source, translation, glossary=glossary) >= thresholds.leftover_share:
         flags.append(QA_SOURCE_LEFTOVERS)
     for entry in glossary:
         if occurs(entry, source) and not _has_form(
@@ -156,7 +169,7 @@ def check_soft(
     source_length = visible_characters(source)
     if (
         source_length >= LENGTH_RATIO_MIN_SOURCE
-        and visible_characters(translation) > LENGTH_RATIO_MAX * source_length
+        and visible_characters(translation) > thresholds.length_ratio * source_length
     ):
         flags.append(QA_LENGTH_RATIO)
     return tuple(flags)

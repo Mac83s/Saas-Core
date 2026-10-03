@@ -477,3 +477,30 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
   publikowalność, pochodna publikacja, 307 po zmianie faktu, rollback; **ADR-071** —
   języki firmy, brak cechy planu, SEO/GEO i znacznik tekstu AI; **ADR-076** — rejestr
   poleceń i „w imieniu”; **ADR-077** — Puppily jako źródło tłumaczeń.
+
+## Uzupełnienie 2026-10-03: wartości silnika jako ustawienia platformy (TL22b, pkt 30)
+
+Pkt 30 zostawił wartości klasy A w środowisku „do czasu tabeli ustawień platformy”.
+Tabela i panel „Platforma” są, więc sześć wartości silnika ma klucze w rejestrze
+(grupa `translation.engine`, obszar „ai”), a kod czyta je przy użyciu — zmiana działa
+bez restartu:
+
+| Klucz | Domyślnie | Poziom operatora |
+| --- | --- | --- |
+| `demand_wait_minutes` — odczekanie po zmianie | 5 | 1 |
+| `demand_max_wait_minutes` — najdłuższe odczekanie | 30 | 1 |
+| `mass_publication_cap` — próg publikacji masowej | 20 | 1 |
+| `leftover_threshold_percent` — kontrola jakości: słowa źródła | 30 | 1 |
+| `length_ratio_max_percent` — kontrola jakości: długość | 250 | 1 |
+| `platform_confirm_usd` — treści platformy czekają na potwierdzenie | 5 | 2 |
+
+- Poziom 1 to strojenie pracy silnika; poziom 2 (ze step-upem) to pieniądze wdrożenia.
+- `mass_publication_cap` i `platform_confirm_usd` mają wartość wdrożenia
+  (`TRANSLATION_MASS_PUBLICATION_CAP`, `TRANSLATION_PLATFORM_CONFIRM_USD`, parsowane
+  i sprawdzane w `settings/base.py`) pod wartością operatora — `platform_env`.
+  Kwota potwierdzenia jest w całych dolarach.
+- Progi kontroli jakości worker czyta raz na przebieg (`quality_thresholds()`) i
+  podaje do `check_soft`; funkcja zostaje czysta, a evale liczą na wartościach z kodu.
+- Zostają poza rejestrem: wyłącznik `translation.ceiling` (własna tabela i komenda z
+  powodem) i sufity USD portu modeli (limity ochronne w `.env`, ADR-078).
+

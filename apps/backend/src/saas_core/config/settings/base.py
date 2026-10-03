@@ -970,6 +970,17 @@ MODEL_PORT_PROCESSOR_LISTED = os.environ.get(
     "MODEL_PORT_PROCESSOR_LISTED", "false"
 ).strip().lower() in {"1", "true", "yes"}
 MODEL_PORT_WEB_CALLS_PER_PROCESS = int(os.environ.get("MODEL_PORT_WEB_CALLS_PER_PROCESS", "1"))
+#: The deployment's values of two translation engine keys (TL22): below an
+#: operator's value in the „Platforma” panel, above the code's default
+#: (`platform_env` of `translation.engine.*`).
+TRANSLATION_MASS_PUBLICATION_CAP = int(os.environ.get("TRANSLATION_MASS_PUBLICATION_CAP", "20"))
+TRANSLATION_PLATFORM_CONFIRM_USD = int(
+    float(os.environ.get("TRANSLATION_PLATFORM_CONFIRM_USD", "5"))
+)
+if not 1 <= TRANSLATION_MASS_PUBLICATION_CAP <= 1000:
+    raise ImproperlyConfigured("TRANSLATION_MASS_PUBLICATION_CAP musi być z zakresu 1–1000.")
+if not 0 <= TRANSLATION_PLATFORM_CONFIRM_USD <= 1000:
+    raise ImproperlyConfigured("TRANSLATION_PLATFORM_CONFIRM_USD musi być z zakresu 0–1000.")
 #: The CMD of the backend image reads the same variable, so a call made from a
 #: request is cut to what a graceful restart waits for.
 GUNICORN_GRACEFUL_TIMEOUT = float(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", "20"))

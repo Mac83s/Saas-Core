@@ -37,7 +37,6 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 from saas_core.modules.shared.billing.api import CreditsExhausted
 
-from .demand import DEMAND_WAIT
 from .jobs import (
     EXCLUDED_IN_PROGRESS,
     TargetRequest,
@@ -49,7 +48,7 @@ from .models import DemandState, TranslationDemand, TranslationJobPart, Translat
 from .notify import notify_automation_paused
 from .permissions import TRANSLATION_MANAGE, TRANSLATION_REQUEST
 from .services import settings_state, translation_offer
-from .settings_spec import AUTO_CHANGES, AUTO_MONTHLY_LIMIT
+from .settings_spec import AUTO_CHANGES, AUTO_MONTHLY_LIMIT, demand_wait
 from .worker import person_context
 
 logger = logging.getLogger(__name__)
@@ -208,7 +207,7 @@ def _start(organization_id: UUID, rows: list[TranslationDemand], now: datetime) 
             # A pair already in a job: its object waits for that job, alone.
             waiting = [row for row in rows if (row.source_key, row.object_id) in busy]
             TranslationDemand.all_objects.filter(pk__in=[row.pk for row in waiting]).update(
-                due_at=now + DEMAND_WAIT
+                due_at=now + demand_wait()
             )
             rows = [row for row in rows if row not in waiting and row not in idle]
             targets = [t for t in targets if (t.source_key, t.object_id) not in busy]

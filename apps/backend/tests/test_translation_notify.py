@@ -134,7 +134,7 @@ def test_the_platforms_content_above_the_threshold_waits_for_the_operator(
     organization = owner.organization
     organization.workspace_kind = WorkspaceKind.PLATFORM
     organization.save(update_fields=["workspace_kind"])
-    monkeypatch.setattr(jobs, "PLATFORM_CONFIRM_USD_MICROS", 0)
+    monkeypatch.setattr(jobs, "platform_confirm_usd_micros", lambda: 0)
     job = order(owner, [page(pages, "Alfa")])
     assert (job.billing, job.confirmation_required) == ("platform_budget", True)
     assert job.estimated_usd_micros and job.estimated_usd_micros > 0

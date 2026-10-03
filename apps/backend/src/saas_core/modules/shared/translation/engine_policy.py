@@ -22,7 +22,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 
 from .models import TranslationCeiling, TranslationOverride, TranslationSettings
-from .settings_spec import MASS_PUBLICATION_CAP, MODE, profile_default, strictest
+from .settings_spec import MODE, mass_publication_cap, profile_default, strictest
 
 REASON_KILL_SWITCH = "kill_switch"
 REASON_ORGANIZATION_PAUSED = "organization_paused"
@@ -92,7 +92,7 @@ class EnginePolicy:
         return TranslationPolicy(
             mode=effective.mode,
             reason=effective.reason,
-            mass_publication_cap=MASS_PUBLICATION_CAP,
+            mass_publication_cap=mass_publication_cap(),
         )
 
 

@@ -13,14 +13,17 @@ profile gives only the starting value, never a ceiling (ADR-069 pkt 12).
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
-from typing import Any
+from datetime import timedelta
+from typing import TYPE_CHECKING, Any
 
 from saas_core.modules.core.organizations.api import SettingArea, SettingGroup, SettingSpec
 from saas_core.modules.core.organizations.context import require_tenant_context
 
 from .permissions import TRANSLATION_MANAGE
+
+if TYPE_CHECKING:
+    from .quality import QualityThresholds
 
 MODE = SettingSpec(
     key="translation.settings.mode",
@@ -197,19 +200,6 @@ PRICING = SettingGroup(
 MODE_ORDER = ("automatic", "review", "off")
 
 
-def _env_int(name: str, default: int) -> int:
-    try:
-        return int(os.environ.get(name, default))
-    except ValueError:
-        return default
-
-
-#: Objects one job without a click may publish before the rest waits as one
-#: `mass_publication` review item (ADR-069 pkt 16.7). Class A: the operator's
-#: value from the environment until the platform settings table (pkt 30).
-MASS_PUBLICATION_CAP = _env_int("TRANSLATION_MASS_PUBLICATION_CAP", 20)
-
-
 def strictest(*modes: str) -> str:
     return max(modes, key=MODE_ORDER.index)
 
@@ -219,15 +209,206 @@ def profile_default(defaults: Mapping[str, Any], spec: SettingSpec) -> Any:
     return defaults.get(spec.key, spec.default)
 
 
-def _env_float(name: str, default: float) -> float:
-    try:
-        return float(os.environ.get(name, default))
-    except ValueError:
-        return default
+# --- The engine's own values (TL22) ------------------------------------------------
+#
+# Class A: only the platform sets them, in the „Platforma” panel or with
+# `platform_setting`. The waits and the quality thresholds are operational
+# tuning (operator level 1); what changes money or what goes out stays at 2.
+# Readers below ask at use time, so a change needs no restart.
 
+DEMAND_WAIT_MINUTES = SettingSpec(
+    key="translation.engine.demand_wait_minutes",
+    type="int",
+    default=5,
+    minimum=1,
+    maximum=60,
+    unit="minute",
+    scopes=("platform",),
+    operator_level=1,
+    label={
+        "pl": "Odczekanie po zmianie (minuty)",
+        "en": "Wait after a change (minutes)",
+    },
+    model_description="Minutes a published change waits for the next one before the "
+    "automation starts its translation job; each further change restarts the wait.",
+    help={
+        "pl": "Ile minut automat czeka po zmianie treści, zanim zleci tłumaczenie. Każda "
+        "kolejna zmiana tego samego obiektu liczy czas od nowa.",
+        "en": "How many minutes the automation waits after a content change before it "
+        "orders the translation. Each further change of the same object restarts the wait.",
+    },
+)
+
+DEMAND_MAX_WAIT_MINUTES = SettingSpec(
+    key="translation.engine.demand_max_wait_minutes",
+    type="int",
+    default=30,
+    minimum=5,
+    maximum=240,
+    unit="minute",
+    scopes=("platform",),
+    operator_level=1,
+    label={
+        "pl": "Najdłuższe odczekanie (minuty)",
+        "en": "Longest wait (minutes)",
+    },
+    model_description="However often an object changes, its automatic translation job "
+    "starts at most this many minutes after the first change.",
+    help={
+        "pl": "Choćby obiekt zmieniał się co chwilę, tłumaczenie ruszy najpóźniej po tylu "
+        "minutach od pierwszej zmiany.",
+        "en": "However often an object changes, its translation starts at most this many "
+        "minutes after the first change.",
+    },
+)
+
+MASS_PUBLICATION_CAP = SettingSpec(
+    key="translation.engine.mass_publication_cap",
+    type="int",
+    default=20,
+    minimum=1,
+    maximum=1000,
+    scopes=("platform",),
+    operator_level=1,
+    platform_env="TRANSLATION_MASS_PUBLICATION_CAP",
+    label={
+        "pl": "Próg publikacji masowej (obiekty)",
+        "en": "Mass publication threshold (objects)",
+    },
+    model_description="Objects one job without a click may publish; from this many on, "
+    "the rest waits as one review item for a person (ADR-069 pkt 16.7).",
+    help={
+        "pl": "Ile obiektów jedno zlecenie bez kliknięcia może opublikować samo. Powyżej "
+        "progu reszta czeka na decyzję osoby jako jedna pozycja przeglądu.",
+        "en": "How many objects one job without a click may publish by itself. Above the "
+        "threshold the rest waits for a person as one review item.",
+    },
+)
+
+LEFTOVER_THRESHOLD_PERCENT = SettingSpec(
+    key="translation.engine.leftover_threshold_percent",
+    type="int",
+    default=30,
+    minimum=5,
+    maximum=100,
+    unit="percent",
+    scopes=("platform",),
+    operator_level=1,
+    label={
+        "pl": "Kontrola jakości: słowa źródła w tłumaczeniu (%)",
+        "en": "Quality check: source words left in a translation (%)",
+    },
+    model_description="A translated fragment is flagged for a person when at least this "
+    "share of its words are common words copied from the source.",
+    help={
+        "pl": "Fragment trafia do przeglądu, gdy co najmniej taki odsetek jego słów to "
+        "nieprzetłumaczone słowa źródła.",
+        "en": "A fragment goes to review when at least this share of its words are "
+        "untranslated words of the source.",
+    },
+)
+
+LENGTH_RATIO_MAX_PERCENT = SettingSpec(
+    key="translation.engine.length_ratio_max_percent",
+    type="int",
+    default=250,
+    minimum=110,
+    maximum=1000,
+    unit="percent",
+    scopes=("platform",),
+    operator_level=1,
+    label={
+        "pl": "Kontrola jakości: długość tłumaczenia wobec źródła (%)",
+        "en": "Quality check: a translation's length against its source (%)",
+    },
+    model_description="A translated fragment is flagged for a person when it is longer "
+    "than this percentage of its source.",
+    help={
+        "pl": "Fragment trafia do przeglądu, gdy jest dłuższy niż taki procent długości "
+        "źródła (250 = dwa i pół raza).",
+        "en": "A fragment goes to review when it is longer than this percentage of its "
+        "source (250 = two and a half times).",
+    },
+)
 
 #: The platform's own content (e.g. Puppily) is paid from the deployment's USD
 #: budget, not credits; a job estimated above this waits for the operator's
-#: `translation_confirm_job` (ADR-069 pkt 26). Class A: the environment until
-#: the platform settings table.
-PLATFORM_CONFIRM_USD_MICROS = int(_env_float("TRANSLATION_PLATFORM_CONFIRM_USD", 5.0) * 1_000_000)
+#: `translation_confirm_job` (ADR-069 pkt 26).
+PLATFORM_CONFIRM_USD = SettingSpec(
+    key="translation.engine.platform_confirm_usd",
+    type="int",
+    default=5,
+    minimum=0,
+    maximum=1000,
+    scopes=("platform",),
+    platform_env="TRANSLATION_PLATFORM_CONFIRM_USD",
+    label={
+        "pl": "Treści platformy: zlecenie czeka na potwierdzenie powyżej (USD)",
+        "en": "Platform content: a job waits for confirmation above (USD)",
+    },
+    model_description="A translation job of the platform's own content whose estimated "
+    "cost is above this many US dollars waits for an operator's confirmation.",
+    help={
+        "pl": "Zlecenie tłumaczenia treści samej platformy, którego szacowany koszt "
+        "przekracza tę kwotę, czeka na potwierdzenie operatora.",
+        "en": "A translation job of the platform's own content whose estimated cost is "
+        "above this amount waits for an operator's confirmation.",
+    },
+)
+
+ENGINE = SettingGroup(
+    key="translation.engine",
+    module="shared.translation",
+    title={"pl": "Silnik tłumaczeń", "en": "Translation engine"},
+    description={
+        "pl": "Kiedy automat rusza, co zatrzymuje kontrola jakości i od jakiej kwoty "
+        "zlecenie treści platformy czeka na potwierdzenie.",
+        "en": "When the automation starts, what the quality check holds back, and above "
+        "what amount a job of the platform's content waits for confirmation.",
+    },
+    permission=TRANSLATION_MANAGE,
+    area="ai",
+    settings=(
+        DEMAND_WAIT_MINUTES,
+        DEMAND_MAX_WAIT_MINUTES,
+        MASS_PUBLICATION_CAP,
+        LEFTOVER_THRESHOLD_PERCENT,
+        LENGTH_RATIO_MAX_PERCENT,
+        PLATFORM_CONFIRM_USD,
+    ),
+)
+
+
+def _platform(spec: SettingSpec) -> int:
+    from saas_core.modules.core.organizations.api import platform_setting  # noqa: PLC0415
+
+    return int(platform_setting(spec.key))
+
+
+def demand_wait() -> timedelta:
+    return timedelta(minutes=_platform(DEMAND_WAIT_MINUTES))
+
+
+def demand_max_wait() -> timedelta:
+    # Never shorter than the wait itself, whatever order the two were changed in.
+    return timedelta(
+        minutes=max(_platform(DEMAND_MAX_WAIT_MINUTES), _platform(DEMAND_WAIT_MINUTES))
+    )
+
+
+def mass_publication_cap() -> int:
+    return _platform(MASS_PUBLICATION_CAP)
+
+
+def quality_thresholds() -> QualityThresholds:
+    """What the soft checks flag at, as the platform has it now."""
+    from .quality import QualityThresholds  # noqa: PLC0415 — quality imports the glossary's models
+
+    return QualityThresholds(
+        leftover_share=_platform(LEFTOVER_THRESHOLD_PERCENT) / 100,
+        length_ratio=_platform(LENGTH_RATIO_MAX_PERCENT) / 100,
+    )
+
+
+def platform_confirm_usd_micros() -> int:
+    return _platform(PLATFORM_CONFIRM_USD) * 1_000_000

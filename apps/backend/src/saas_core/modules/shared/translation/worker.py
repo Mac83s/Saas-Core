@@ -72,6 +72,7 @@ from .prompts import PROMPT_VERSION, answered, build_request
 from .quality import check_hard, check_soft
 from .quotes import UNIT_CHARACTERS, billed_units
 from .segments import MAX_CALL_ITEMS, Call, plan_calls
+from .settings_spec import quality_thresholds
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +350,7 @@ def _call_model(job: TranslationJob, call: Call, work: list[_Work]) -> tuple[Any
 def _translate(job: TranslationJob, work: list[_Work]) -> None:
     """Calls the model, checks the answers, retries hard failures once."""
     _, target_script = _locale(work[0].read.locale)
+    thresholds = quality_thresholds()
     pending: list[tuple[int, Unit]] = []
     for index, one in enumerate(work):
         for unit in one.units:
@@ -358,7 +360,13 @@ def _translate(job: TranslationJob, work: list[_Work]) -> None:
                 continue
             one.texts[unit.key] = reused
             segment = plan_calls([[unit]])[0].segments[0]
-            if check_soft(segment, reused, glossary=one.glossary, target_script=target_script):
+            if check_soft(
+                segment,
+                reused,
+                glossary=one.glossary,
+                target_script=target_script,
+                thresholds=thresholds,
+            ):
                 one.flagged.add(unit.key)
     for attempt in range(2):
         if not pending:
@@ -379,7 +387,11 @@ def _translate(job: TranslationJob, work: list[_Work]) -> None:
                     text = checked.passed[segment.id]
                     one.texts[segment.key] = text
                     if check_soft(
-                        segment, text, glossary=one.glossary, target_script=target_script
+                        segment,
+                        text,
+                        glossary=one.glossary,
+                        target_script=target_script,
+                        thresholds=thresholds,
                     ):
                         one.flagged.add(segment.key)
                 elif attempt == 0:

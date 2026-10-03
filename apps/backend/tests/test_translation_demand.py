@@ -19,9 +19,9 @@ from django.utils import timezone
 
 from saas_core.content_protocol.registry import notify_source_changed
 from saas_core.modules.core.organizations.models import Membership
-from saas_core.modules.shared.translation.demand import DEMAND_MAX_WAIT, DEMAND_WAIT
 from saas_core.modules.shared.translation.models import TranslationDemand
 from saas_core.modules.shared.translation.services import change_settings
+from saas_core.modules.shared.translation.settings_spec import demand_max_wait, demand_wait
 from saas_core.testing.translation_sources import FakeDraftSource, registered_translation_source
 from test_booking import membership, tenant
 
@@ -96,7 +96,7 @@ def test_a_change_waits_five_minutes_and_repeats_join_one_row(
     assert row.source_key == SOURCE and row.object_id == first
     assert row.state == "waiting"
     assert row.cause == f"user:{owner.user_id}"
-    assert row.due_at - row.first_at == DEMAND_WAIT
+    assert row.due_at - row.first_at == demand_wait()
     # Another publication of the same page moves the start, never past 30 minutes.
     TranslationDemand.all_objects.filter(pk=row.pk).update(
         first_at=timezone.now() - timedelta(minutes=28)
@@ -104,7 +104,7 @@ def test_a_change_waits_five_minutes_and_repeats_join_one_row(
     with django_capture_on_commit_callbacks(execute=True):  # type: ignore[operator]
         changed(owner, first)
     (row,) = demand(owner)
-    assert row.due_at == row.first_at + DEMAND_MAX_WAIT
+    assert row.due_at == row.first_at + demand_max_wait()
 
 
 def test_a_rolled_back_save_leaves_no_demand(django_capture_on_commit_callbacks: object) -> None:

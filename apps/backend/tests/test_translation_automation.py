@@ -32,7 +32,7 @@ from saas_core.modules.shared.translation.automation import (
     _next_month,
     start_due_demand,
 )
-from saas_core.modules.shared.translation.demand import DEMAND_WAIT, reconcile_demand
+from saas_core.modules.shared.translation.demand import reconcile_demand
 from saas_core.modules.shared.translation.models import (
     JobState,
     TranslationDemand,
@@ -41,6 +41,7 @@ from saas_core.modules.shared.translation.models import (
 )
 from saas_core.modules.shared.translation.notify import AUTOMATION_PAUSED
 from saas_core.modules.shared.translation.services import change_settings
+from saas_core.modules.shared.translation.settings_spec import demand_wait
 from saas_core.testing.translation_sources import FakeSourceDriver
 from test_booking import tenant
 from test_model_port import fake_models  # noqa: F401 — the port's fake models
@@ -208,7 +209,7 @@ def test_a_pair_already_in_a_job_waits_for_it(source: JobSource) -> None:
     before = timezone.now()
     assert start_due_demand(owner.organization_id) is None
     row.refresh_from_db()
-    assert row.state == "waiting" and row.due_at >= before + DEMAND_WAIT
+    assert row.state == "waiting" and row.due_at >= before + demand_wait()
     assert TranslationJob.all_objects.filter(trigger="automatic").count() == 0
 
 
