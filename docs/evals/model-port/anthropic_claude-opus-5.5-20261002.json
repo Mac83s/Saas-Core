@@ -1,0 +1,53 @@
+{
+  "adapter": "openrouter",
+  "model": "anthropic/claude-opus-5.5",
+  "at": "2026-10-02T23:38:09.657316+00:00",
+  "claimed_capabilities": [
+    "continuation",
+    "json_schema",
+    "json_schema_with_tools",
+    "prompt_cache",
+    "reasoning_effort",
+    "strict_tools",
+    "tools",
+    "zdr"
+  ],
+  "checks": {
+    "plain": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "anthropic/claude-opus-5.5",
+      "resolved_provider": "Amazon Bedrock",
+      "cost_usd_micros": 196,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1273
+    },
+    "json_schema": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "anthropic/claude-opus-5.5",
+      "resolved_provider": "Google",
+      "cost_usd_micros": 1064,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2027
+    },
+    "tools_auto": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "anthropic/claude-opus-5.5",
+      "resolved_provider": "Amazon Bedrock",
+      "cost_usd_micros": 1628,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2178
+    },
+    "tool_choice_required": {
+      "ok": false,
+      "kind": "invalid_request",
+      "code": "capability_not_supported"
+    }
+  },
+  "spent_usd_micros": 2888
+}

@@ -54,9 +54,11 @@ class ModelProfile:
 
 
 #: The plan's candidates (TL7). Capabilities and prices follow the claude-api
-#: skill as of 2026-09-25 and still need the live probe through OpenRouter, so
-#: none is selectable yet: Opus 5.5 and Sonnet 5.5 take neither temperature nor
-#: top_p and refuse a forced tool_choice; Haiku 4.5 has no effort parameter.
+#: skill as of 2026-09-25 and OpenRouter's model list; each row is confirmed by
+#: its live probe of 2026-10-02 (`docs/evals/model-port/`). Opus 5.5 and Sonnet
+#: 5.5 take neither temperature nor top_p and refuse a forced tool_choice;
+#: Haiku 4.5 has no effort parameter. A task still has no model until a person
+#: picks its default on the evals (`docs/evals/translation/`).
 MODELS: dict[tuple[str, str], ModelProfile] = {
     ("openrouter", "anthropic/claude-opus-5.5"): ModelProfile(
         adapter="openrouter",
@@ -76,6 +78,7 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         output_usd_per_mtok=20.0,
         context_window=200_000,
         max_output_tokens=32_000,
+        probed="2026-10-02",
     ),
     ("openrouter", "anthropic/claude-sonnet-5.5"): ModelProfile(
         adapter="openrouter",
@@ -95,6 +98,7 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         output_usd_per_mtok=10.0,
         context_window=200_000,
         max_output_tokens=32_000,
+        probed="2026-10-02",
     ),
     ("openrouter", "anthropic/claude-haiku-4.5"): ModelProfile(
         adapter="openrouter",
@@ -115,6 +119,27 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         output_usd_per_mtok=5.0,
         context_window=200_000,
         max_output_tokens=16_000,
+        probed="2026-10-02",
+    ),
+    # The plan's Gemini Flash class candidate: the newest Flash on OpenRouter's
+    # list of 2026-10-03, price from that list. No zdr or prompt_cache claimed.
+    ("openrouter", "google/gemini-3.8-flash"): ModelProfile(
+        adapter="openrouter",
+        model="google/gemini-3.8-flash",
+        capabilities=frozenset({
+            "tools",
+            "tool_choice_required",
+            "json_schema",
+            "json_schema_with_tools",
+            "reasoning_effort",
+            "temperature",
+        }),
+        forbidden_parameters=frozenset(),
+        input_usd_per_mtok=0.75,
+        output_usd_per_mtok=3.75,
+        context_window=1_048_576,
+        max_output_tokens=65_536,
+        probed="2026-10-02",
     ),
 }
 

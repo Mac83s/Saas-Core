@@ -1,0 +1,56 @@
+{
+  "adapter": "openrouter",
+  "model": "google/gemini-3.8-flash",
+  "at": "2026-10-02T23:38:18.769339+00:00",
+  "claimed_capabilities": [
+    "json_schema",
+    "json_schema_with_tools",
+    "reasoning_effort",
+    "temperature",
+    "tool_choice_required",
+    "tools"
+  ],
+  "checks": {
+    "plain": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "google/gemini-3.8-flash",
+      "resolved_provider": "Google",
+      "cost_usd_micros": 10,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1456
+    },
+    "json_schema": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "google/gemini-3.8-flash",
+      "resolved_provider": "Google",
+      "cost_usd_micros": 62,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1532
+    },
+    "tools_auto": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "google/gemini-3.8-flash",
+      "resolved_provider": "Google",
+      "cost_usd_micros": 27,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2360
+    },
+    "tool_choice_required": {
+      "ok": true,
+      "finish_reason": "tool_calls",
+      "resolved_model": "google/gemini-3.8-flash",
+      "resolved_provider": "Google",
+      "cost_usd_micros": 361,
+      "cost_source": "provider",
+      "tool_calls": 1,
+      "latency_ms": 2032
+    }
+  },
+  "spent_usd_micros": 460
+}

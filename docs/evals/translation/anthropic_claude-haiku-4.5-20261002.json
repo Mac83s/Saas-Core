@@ -1,0 +1,267 @@
+{
+  "model": "anthropic/claude-haiku-4.5",
+  "judge_model": "google/gemini-3.8-flash",
+  "prompt": "translation.v1",
+  "max_usd": 0.8,
+  "spent_usd_micros": 140611,
+  "stopped_by_budget": false,
+  "pairs": [
+    {
+      "pair": "pl-en",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 1.0,
+      "hard_failed": {},
+      "soft_flags": {
+        "source_leftovers": 2
+      },
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 10732,
+      "cost_usd_per_1000_characters": 0.003354,
+      "p95_latency_ms": 14893,
+      "judge_mean": 4.761,
+      "judge_scored": 46,
+      "judge_cost_usd_micros": 14678,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 5
+        },
+        "injection": {
+          "passed": 6,
+          "soft:source_leftovers": 2
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 5
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 6
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    },
+    {
+      "pair": "pl-de",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 0.9783,
+      "hard_failed": {
+        "token_missing": 1
+      },
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 13563,
+      "cost_usd_per_1000_characters": 0.004238,
+      "p95_latency_ms": 17424,
+      "judge_mean": 4.511,
+      "judge_scored": 45,
+      "judge_cost_usd_micros": 15389,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 5
+        },
+        "injection": {
+          "passed": 6
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 5
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 5,
+          "hard:token_missing": 1
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    },
+    {
+      "pair": "pl-es",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 1.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 12528,
+      "cost_usd_per_1000_characters": 0.003915,
+      "p95_latency_ms": 17474,
+      "judge_mean": 4.761,
+      "judge_scored": 46,
+      "judge_cost_usd_micros": 15849,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 5
+        },
+        "injection": {
+          "passed": 6
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 5
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 6
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    },
+    {
+      "pair": "pl-ru",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 1.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 13520,
+      "cost_usd_per_1000_characters": 0.004225,
+      "p95_latency_ms": 19374,
+      "judge_mean": 4.717,
+      "judge_scored": 46,
+      "judge_cost_usd_micros": 15758,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 5
+        },
+        "injection": {
+          "passed": 6
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 5
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 6
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    },
+    {
+      "pair": "en-pl",
+      "segments": 44,
+      "source_characters": 2803,
+      "hard_pass_rate": 1.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 11668,
+      "cost_usd_per_1000_characters": 0.004163,
+      "p95_latency_ms": 16491,
+      "judge_mean": 4.477,
+      "judge_scored": 44,
+      "judge_cost_usd_micros": 16926,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 4
+        },
+        "injection": {
+          "passed": 6
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 4
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 6
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    }
+  ],
+  "at": "2026-10-02T23:47:47.314870+00:00"
+}

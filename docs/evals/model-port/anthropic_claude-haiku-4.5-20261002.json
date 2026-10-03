@@ -1,0 +1,59 @@
+{
+  "adapter": "openrouter",
+  "model": "anthropic/claude-haiku-4.5",
+  "at": "2026-10-02T23:37:30.964230+00:00",
+  "claimed_capabilities": [
+    "json_schema",
+    "json_schema_with_tools",
+    "prompt_cache",
+    "strict_tools",
+    "temperature",
+    "tool_choice_named",
+    "tool_choice_required",
+    "tools",
+    "zdr"
+  ],
+  "checks": {
+    "plain": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "anthropic/claude-haiku-4.5",
+      "resolved_provider": "Amazon Bedrock",
+      "cost_usd_micros": 35,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1072
+    },
+    "json_schema": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "anthropic/claude-haiku-4.5",
+      "resolved_provider": "Amazon Bedrock",
+      "cost_usd_micros": 201,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2118
+    },
+    "tools_auto": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "anthropic/claude-haiku-4.5",
+      "resolved_provider": "Amazon Bedrock",
+      "cost_usd_micros": 591,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1010
+    },
+    "tool_choice_required": {
+      "ok": true,
+      "finish_reason": "tool_calls",
+      "resolved_model": "anthropic/claude-haiku-4.5",
+      "resolved_provider": "Amazon Bedrock",
+      "cost_usd_micros": 853,
+      "cost_source": "provider",
+      "tool_calls": 1,
+      "latency_ms": 934
+    }
+  },
+  "spent_usd_micros": 1680
+}

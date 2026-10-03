@@ -53,7 +53,10 @@ JUDGE_SPEC = TaskSpec(
     adapter="openrouter",
     model="",
     timeout_seconds=60,
-    max_tokens_rule=(0.0, 512, 512),
+    # Room for a little thinking before the short verdict; billed as used.
+    max_tokens_rule=(0.0, 2048, 2048),
+    # As translation.text: a model that thinks by default thinks briefly.
+    defaults={"reasoning_effort": "low"},
     capabilities=frozenset({"json_schema"}),
     max_data_class="public",
     required_context=frozenset(),
