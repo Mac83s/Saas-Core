@@ -422,10 +422,9 @@ test("plan nadany bez płatności jest planem firmy: bez „wybieram” na nim i
     ...subscribed({ plan_key: "pro", current_period_end: null }),
     payment_mode: "stripe",
     has_active_subscription: false,
-    plans: overview.plans.map((plan) => ({
-      ...plan,
-      is_current: plan.key === "pro",
-    })),
+    // Given before the plan's price changed: an older version of Pro, so no
+    // version on offer is „current” — the plan is the company's by its key.
+    plans: overview.plans.map((plan) => ({ ...plan, is_current: false })),
   });
 
   renderPanel();

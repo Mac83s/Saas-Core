@@ -230,10 +230,13 @@ export function CustomerBillingPanel({
     : undefined;
   // A plan given by hand: access is on, no subscription pays for it. It is
   // the company's plan all the same — one source for the header and the
-  // cards (UX-057).
+  // cards (UX-057). By its key: `is_current` compares versions, and a plan
+  // given before its price changed is an older version of the same plan.
   const grantedPlan =
     overview && granted(overview)
-      ? overview.plans.find((plan) => plan.is_current)
+      ? overview.plans.find(
+          (plan) => plan.key === overview.subscription?.plan_key,
+        )
       : undefined;
   // Only a feature the pricing page names: the message has to say which.
   const featureLabel = requestedFeature
@@ -441,8 +444,8 @@ export function CustomerBillingPanel({
                 <li className="flex" key={`${plan.key}:${plan.version}`}>
                   <PlanCard
                     badge={
-                      plan.is_current &&
-                      (overview.has_active_subscription || grantedPlan)
+                      (plan.is_current && overview.has_active_subscription) ||
+                      grantedPlan?.key === plan.key
                         ? t("currentPlan")
                         : plan.key !== highlighted
                           ? undefined
