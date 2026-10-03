@@ -630,7 +630,16 @@ def create_appointment(
     occupied_until = ends_at + timedelta(minutes=after)
     token, digest = issue_self_service_token()
     expires = _self_service_expiry(ends_at)
-    quote = _visit_quote(service, starts_at, participants, extras, customer.locale, quote_digest)
+    quote = _visit_quote(
+        service,
+        starts_at,
+        participants,
+        extras,
+        customer.locale,
+        quote_digest,
+        # A customer never books at a price they were not shown (ADR-072 §7).
+        seen=None if context.role_key == PUBLIC_BOOKING_ROLE else "",
+    )
     lookup = {
         person.id: person
         for person in StaffMember.all_objects.filter(pk__in=candidates, active=True)
@@ -835,6 +844,9 @@ def reschedule_appointment(
             appointment.customer.locale,
             quote_digest,
             kept=True,
+            # A customer moving their own visit keeps its price, or is shown
+            # the new one first; the office may move it without asking.
+            seen=appointment.quote_digest if customer_move else "",
         )
         appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest
         fields += ["quote", "quote_digest"]
@@ -1492,12 +1504,20 @@ def _visit_quote(
     shown: str,
     *,
     kept: bool = False,
+    seen: str | None = "",
 ) -> Quote:
     """The visit's price, worked out inside the booking's transaction; another
-    one than the caller showed is 409 `quote_changed` (ADR-072 §7)."""
+    one than the caller showed is 409 `quote_changed` (ADR-072 §7).
+
+    `seen` — for whom the price must have been shown: empty, nobody has to
+    (the office books and moves as it sees fit); a digest, the price the
+    booking already has, which needs no showing again; None, a customer's new
+    booking. A price they have neither seen nor already have is refused with
+    the quote, so the form shows it and asks again.
+    """
     # Imported late: the quote reads translations, whose setup writes import
     # this module.
-    from .quote import assert_shown, quote_visit
+    from .quote import QuoteChanged, assert_shown, quote_visit
 
     quote = quote_visit(
         service=service,
@@ -1507,6 +1527,8 @@ def _visit_quote(
         locale=locale,
         kept=kept,
     )
+    if seen != "" and quote.priced and quote.digest not in (shown, seen):
+        raise QuoteChanged(quote)
     assert_shown(quote, shown)
     return quote
 

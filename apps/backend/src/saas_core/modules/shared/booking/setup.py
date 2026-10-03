@@ -89,6 +89,7 @@ _SERVICE_FIELDS = (
     "public_staff_choice",
     "slot_step_minutes",
     "online",
+    "payment_policy",
     "active",
 )
 _PLACE_FIELDS = ("name", "address", "active", "online")

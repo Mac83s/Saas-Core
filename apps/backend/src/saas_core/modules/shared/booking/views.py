@@ -59,7 +59,7 @@ from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
 from .presets import Preset, list_presets
 from .public import public_choices, public_people, shown_to_customer
-from .quote import quote_offer
+from .quote import QuoteChanged, customer_quote, offered_extras, quote_offer, quote_visit
 from .rules import (
     copy_closures_to_next_year,
     copy_rules_to_next_year,
@@ -124,6 +124,8 @@ from .serializers import (
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
+    PublicQuoteAnswerSerializer,
+    PublicQuoteInputSerializer,
     QueueSerializer,
     RescheduleSerializer,
     ResourceInputSerializer,
@@ -415,6 +417,7 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "person_name": person,
         **({"self_service_token": token} if token else {}),
         "self_service": _self_service(value),
+        "quote": customer_quote(value.quote),
     }
 
 
@@ -1131,7 +1134,11 @@ class PublicBookingCatalogView(APIView):
                 "locale": locale or source_locale(organization),
                 "teams": [{"id": key, "name": name} for key, name in team_names.items()],
                 "people": [{"id": key, "name": name} for key, name in choices.people],
+                "extras": offered_extras(
+                    organization, [x for x in value["services"] if x.active], locale
+                ),
                 "timezone": _zone().key,
+                "currency": organization.currency,
                 "online": {
                     "paused": paused,
                     "resume_on": resume_on,
@@ -1267,10 +1274,24 @@ class PublicBookingCreateView(APIView):
     throttle_classes = [BookingThrottle]
 
     @extend_schema(
+        operation_id="public_booking_appointment_create",
+        summary="Book a visit from a company's booking form",
+        description="Books a free start of a service the company offers online; the server "
+        "picks the people, within the team or the person the customer chose. The price is "
+        "worked out and frozen in the booking (`quote`); with `quote_digest` a price other "
+        "than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A "
+        "taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The same "
+        "Idempotency-Key answers the first booking again (200).",
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=PublicAppointmentCreateSerializer,
-        responses={201: PublicAppointmentSerializer},
+        responses={
+            201: PublicAppointmentSerializer,
+            200: PublicAppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
     )
     def post(self, request: Request, public_slug: str) -> Response:
         route = _route(public_slug)
@@ -1286,17 +1307,69 @@ class PublicBookingCreateView(APIView):
             authorize_entitled("booking.public.manage", BOOKING_ENABLED)
             # A choice the service does not offer is refused, not dropped.
             public_people(route.organization_id, data["service_id"], team_id=team, person_id=person)
-            result = create_appointment(
-                **data,
-                team_id=team,
-                requested_staff_id=person,
-                customer_notes=notes,
-                customer_data=customer,
-                idempotency_key=_idem(request),
-                principal_ref="public",
-            )
+            try:
+                result = create_appointment(
+                    **data,
+                    team_id=team,
+                    requested_staff_id=person,
+                    customer_notes=notes,
+                    customer_data=customer,
+                    idempotency_key=_idem(request),
+                    principal_ref="public",
+                )
+            except QuoteChanged as changed:
+                raise QuoteChanged(changed.quote, customer=True) from None
             payload = _public_appointment_payload(result.appointment, result.token)
         return Response(payload, status=201 if result.created else 200)
+
+
+class PublicBookingQuoteView(APIView):
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+    throttle_classes = [BookingThrottle]
+
+    @extend_schema(
+        operation_id="public_booking_quote",
+        summary="Work out what a visit from the booking form would cost",
+        description="The price of a service the company offers online at `starts_at`, with "
+        "the extras picked, as the customer reads it: gross, the lines in their language, "
+        "the deposit and how they pay. Nothing is saved or held. Send `digest` back as "
+        "`quote_digest` when booking. `quote` is null when the service has no price. A "
+        "time the price list has no price for is 400 `price_missing`.",
+        tags=["public-booking"],
+        request=PublicQuoteInputSerializer,
+        responses={
+            200: PublicQuoteAnswerSerializer,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, public_slug: str) -> Response:
+        route = _route(public_slug)
+        s = PublicQuoteInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = s.validated_data
+        with public_booking_context(route.organization_id):
+            authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            service = Service.all_objects.filter(
+                organization_id=route.organization_id,
+                pk=data["service_id"],
+                active=True,
+                online=True,
+                time_model=TimeModel.SLOT,
+            ).first()
+            if service is None:
+                raise NotFound("Nie ma takiej usługi.")
+            organization = Organization.objects.get(pk=route.organization_id)
+            asked = data.get("locale") or None
+            quote = quote_visit(
+                service=service,
+                starts_at=data["starts_at"],
+                extras=data.get("extras"),
+                locale=asked if asked in organization_content_locales(organization) else None,
+            )
+            return Response({"quote": customer_quote(quote.snapshot())})
 
 
 def _self(token: str) -> SelfServiceRoute:
@@ -1308,12 +1381,24 @@ def _self(token: str) -> SelfServiceRoute:
     return route
 
 
-class SelfServiceAppointmentView(APIView):
+class _SelfServiceView(APIView):
+    """A customer's own link: no account, the token is all."""
+
     authentication_classes: list[type] = []
     permission_classes = [AllowAny]
     throttle_classes = [BookingThrottle]
 
-    @extend_schema(tags=["public-booking"], responses={200: PublicAppointmentSerializer})
+
+class SelfServiceAppointmentView(_SelfServiceView):
+    @extend_schema(
+        operation_id="booking_self_service_retrieve",
+        summary="Read one's own visit",
+        description="The visit the customer's link names: its time, service and place, what "
+        "the link may still do, and the price it was booked at. An unknown, expired or "
+        "revoked link is 404.",
+        tags=["public-booking"],
+        responses={200: PublicAppointmentSerializer, 404: ProblemDetailsSerializer},
+    )
     def get(self, request: Request, token: str) -> Response:
         del request
         route = _self(token)
@@ -1331,7 +1416,7 @@ class SelfServiceAppointmentView(APIView):
             return Response(_public_appointment_payload(value))
 
 
-class SelfServiceRescheduleView(SelfServiceAppointmentView):
+class SelfServiceRescheduleView(_SelfServiceView):
     @extend_schema(
         operation_id="booking_self_service_reschedule",
         summary="Move one's own visit to another time",
@@ -1355,22 +1440,35 @@ class SelfServiceRescheduleView(SelfServiceAppointmentView):
         s.is_valid(raise_exception=True)
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.manage", BOOKING_ENABLED)
-            value = reschedule_appointment(
-                appointment_id=route.appointment_id,
-                idempotency_key=_idem(request),
-                principal_ref=route.token_digest,
-                **s.validated_data,
-            )
+            try:
+                value = reschedule_appointment(
+                    appointment_id=route.appointment_id,
+                    idempotency_key=_idem(request),
+                    principal_ref=route.token_digest,
+                    **s.validated_data,
+                )
+            except QuoteChanged as changed:
+                raise QuoteChanged(changed.quote, customer=True) from None
             payload = _public_appointment_payload(value)
         return Response(payload)
 
 
-class SelfServiceCancelView(SelfServiceAppointmentView):
+class SelfServiceCancelView(_SelfServiceView):
     @extend_schema(
+        operation_id="booking_self_service_cancel",
+        summary="Cancel one's own visit",
+        description="The customer cancels the visit their link names, within what the "
+        "booking allows (409 `appointment_not_changeable` otherwise); the link stops "
+        "working. The same Idempotency-Key answers the first result again.",
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=None,
-        responses={200: PublicAppointmentSerializer},
+        responses={
+            200: PublicAppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
     )
     def post(self, request: Request, token: str) -> Response:
         route = _self(token)
@@ -1951,6 +2049,7 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "public_staff_choice": service.public_staff_choice,
         "slot_step_minutes": service.slot_step_minutes,
         "online": service.online,
+        "payment_policy": service.payment_policy,
         "active": service.active,
         "draft": service.draft,
         "preset_id": service.preset_id or None,

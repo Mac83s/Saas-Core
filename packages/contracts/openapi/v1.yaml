@@ -2522,7 +2522,15 @@ paths:
         error-400: An unknown language is answered in the company's own.
   /api/v1/booking/public/{public_slug}/appointments/:
     post:
-      operationId: api_v1_booking_public_appointments_create
+      operationId: public_booking_appointment_create
+      description: Books a free start of a service the company offers online; the
+        server picks the people, within the team or the person the customer chose.
+        The price is worked out and frozen in the booking (`quote`); with `quote_digest`
+        a price other than the one shown is 409 `quote_changed`, with the new one
+        in `detail.quote`. A taken time is 409 `slot_unavailable`, a paused form 409
+        `booking_paused`. The same Idempotency-Key answers the first booking again
+        (200).
+      summary: Book a visit from a company's booking form
       parameters:
       - in: header
         name: Idempotency-Key
@@ -2556,6 +2564,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/public/{public_slug}/days/:
     get:
@@ -2613,6 +2645,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/SlotDayList'
           description: ''
+  /api/v1/booking/public/{public_slug}/quote/:
+    post:
+      operationId: public_booking_quote
+      description: 'The price of a service the company offers online at `starts_at`,
+        with the extras picked, as the customer reads it: gross, the lines in their
+        language, the deposit and how they pay. Nothing is saved or held. Send `digest`
+        back as `quote_digest` when booking. `quote` is null when the service has
+        no price. A time the price list has no price for is 400 `price_missing`.'
+      summary: Work out what a visit from the booking form would cost
+      parameters:
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicQuoteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicQuoteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicQuoteInput'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicQuoteAnswer'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/public/{public_slug}/slots/:
     get:
       operationId: api_v1_booking_public_slots_retrieve
@@ -2814,7 +2897,11 @@ paths:
           description: ''
   /api/v1/booking/self-service/{token}/:
     get:
-      operationId: api_v1_booking_self_service_retrieve
+      operationId: booking_self_service_retrieve
+      description: 'The visit the customer''s link names: its time, service and place,
+        what the link may still do, and the price it was booked at. An unknown, expired
+        or revoked link is 404.'
+      summary: Read one's own visit
       parameters:
       - in: path
         name: token
@@ -2831,29 +2918,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/self-service/{token}/cancel/:
-    get:
-      operationId: api_v1_booking_self_service_cancel_retrieve
-      parameters:
-      - in: path
-        name: token
-        schema:
-          type: string
-        required: true
-      tags:
-      - public-booking
-      security:
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicAppointment'
-          description: ''
     post:
-      operationId: api_v1_booking_self_service_cancel_create
+      operationId: booking_self_service_cancel
+      description: The customer cancels the visit their link names, within what the
+        booking allows (409 `appointment_not_changeable` otherwise); the link stops
+        working. The same Idempotency-Key answers the first result again.
+      summary: Cancel one's own visit
       parameters:
       - in: header
         name: Idempotency-Key
@@ -2876,26 +2954,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicAppointment'
           description: ''
-  /api/v1/booking/self-service/{token}/reschedule/:
-    get:
-      operationId: api_v1_booking_self_service_reschedule_retrieve
-      parameters:
-      - in: path
-        name: token
-        schema:
-          type: string
-        required: true
-      tags:
-      - public-booking
-      security:
-      - {}
-      responses:
-        '200':
+        '400':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PublicAppointment'
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/self-service/{token}/reschedule/:
     post:
       operationId: booking_self_service_reschedule
       description: The customer moves the visit their link names, within what the
@@ -24560,6 +24637,14 @@ components:
         security_deposit_minor:
           type: integer
           description: 'Held and given back: beside the totals, never in them.'
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            What the customer is told about paying.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
         net_minor:
           type: integer
         vat_minor:
@@ -24579,6 +24664,7 @@ components:
       - lines
       - net_minor
       - participants
+      - payment_policy
       - security_deposit_minor
       - vat_minor
     BookingQuoteInput:
@@ -33863,6 +33949,14 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
         active:
           type: boolean
         staff_ids:
@@ -34117,6 +34211,14 @@ components:
       description: |-
         * `stripe` - stripe
         * `simulated` - simulated
+    PaymentPolicyEnum:
+      enum:
+      - none
+      - on_site
+      type: string
+      description: |-
+        * `none` - Nie określono
+        * `on_site` - Płatność na miejscu
     PeopleDay:
       type: object
       properties:
@@ -36202,6 +36304,12 @@ components:
           type: string
         self_service:
           $ref: '#/components/schemas/PublicSelfService'
+        quote:
+          oneOf:
+          - $ref: '#/components/schemas/PublicQuote'
+          - type: 'null'
+          description: The price frozen when the visit was booked or last moved; null
+            when the service had none.
       required:
       - ends_at
       - id
@@ -36244,6 +36352,20 @@ components:
         customer_notes:
           type: string
           maxLength: 500
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
+          maxItems: 20
+        quote_digest:
+          type: string
+          description: The `digest` of the quote shown to whoever books. When the
+            price is another one by now, the answer is 409 `quote_changed` with the
+            new quote in `detail.quote`. Omitted — the booking takes the price as
+            it is.
+          maxLength: 64
       required:
       - customer
       - location_id
@@ -36275,6 +36397,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicName'
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicExtra'
+          description: What the services add to their price.
+        currency:
+          type: string
+          description: The currency of the company's prices, ISO 4217.
         timezone:
           type: string
         online:
@@ -36336,6 +36466,37 @@ components:
       - public_slug
       - staff_choice
       - team_ids
+    PublicExtra:
+      type: object
+      description: An extra of a service on the booking form.
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: In the language asked for, where translated.
+        basis:
+          $ref: '#/components/schemas/ExtraBasisEnum'
+        mandatory:
+          type: boolean
+          description: On every booking of the service; the others the customer picks.
+        max_quantity:
+          type: integer
+        unit_gross_minor:
+          type: integer
+          description: What one of it comes to, tax included. The quote is what counts.
+      required:
+      - basis
+      - id
+      - mandatory
+      - max_quantity
+      - name
+      - service_id
+      - unit_gross_minor
     PublicFeedLinks:
       type: object
       properties:
@@ -36623,6 +36784,93 @@ components:
       - quotas
       - trial_days
       - unit_amount_minor
+    PublicQuote:
+      type: object
+      description: 'A price as the customer reads it: gross, in whole minor units.'
+      properties:
+        currency:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicQuoteLine'
+        gross_minor:
+          type: integer
+          description: What the customer pays.
+        security_deposit_minor:
+          type: integer
+          description: Held and given back; not part of `gross_minor`.
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            `on_site` — the customer pays at the visit; `none` — nothing is said.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
+        digest:
+          type: string
+          description: Send it back as `quote_digest` when booking.
+      required:
+      - currency
+      - digest
+      - gross_minor
+      - lines
+      - payment_policy
+      - security_deposit_minor
+    PublicQuoteAnswer:
+      type: object
+      properties:
+        quote:
+          oneOf:
+          - $ref: '#/components/schemas/PublicQuote'
+          - type: 'null'
+          description: Null — the service has no price to show.
+      required:
+      - quote
+    PublicQuoteInput:
+      type: object
+      description: The visit a customer is about to book, to be priced.
+      properties:
+        service_id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
+          maxItems: 20
+        locale:
+          type: string
+          description: The customer's language, for the lines' names; one the company
+            does not have is answered in its own.
+          maxLength: 10
+      required:
+      - service_id
+      - starts_at
+    PublicQuoteLine:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/QuoteLineKindEnum'
+        name:
+          type: string
+          description: In the customer's language.
+        quantity:
+          type: integer
+        gross_minor:
+          type: integer
+          description: What the line comes to, tax included.
+      required:
+      - gross_minor
+      - kind
+      - name
+      - quantity
     PublicSelfService:
       type: object
       description: What the customer's link may still do, by the booking's own terms
@@ -38109,6 +38357,14 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
         active:
           type: boolean
         appointment_kind:
@@ -38193,6 +38449,14 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
         active:
           type: boolean
         draft:
@@ -38251,6 +38515,7 @@ components:
       - minimum_notice_minutes
       - name
       - online
+      - payment_policy
       - preset_id
       - preset_version
       - public_staff_choice
@@ -38318,6 +38583,14 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
         active:
           type: boolean
         draft:
@@ -38383,6 +38656,7 @@ components:
       - minimum_notice_minutes
       - name
       - online
+      - payment_policy
       - preset_id
       - preset_version
       - public_staff_choice
@@ -38488,6 +38762,14 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        payment_policy:
+          allOf:
+          - $ref: '#/components/schemas/PaymentPolicyEnum'
+          description: |-
+            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+
+            * `none` - Nie określono
+            * `on_site` - Płatność na miejscu
         active:
           type: boolean
         staff_ids:

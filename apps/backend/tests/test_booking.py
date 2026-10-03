@@ -500,6 +500,8 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "person_name",
         # What the customer's link may still do (B4): about the booking, not people.
         "self_service",
+        # The price as the customer reads it: gross, no company ids (ADR-072 §7).
+        "quote",
     }
 
     listing = client.get(f"{url}/")
@@ -514,6 +516,9 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "online",
         "locales",
         "locale",
+        # What the services add to their price, by name and gross amount.
+        "extras",
+        "currency",
     }
     # Nobody is shown to customers here, so no team and no person is listed.
     assert (listing.json()["teams"], listing.json()["people"]) == ([], [])

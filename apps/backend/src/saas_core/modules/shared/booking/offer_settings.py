@@ -12,7 +12,7 @@ from typing import Any
 
 from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec, schema_entry
 
-from .models import RangeUnit, StaffChoice, TimeModel
+from .models import PaymentPolicy, RangeUnit, StaffChoice, TimeModel
 
 #: The starts a service may be offered at, in minutes (B6, ADR-058 §5): every
 #: one divides an hour, so a grid never drifts across a person's day.
@@ -220,6 +220,27 @@ OFFER_SETTINGS: tuple[SettingSpec, ...] = (
         model_description=(
             "Whether the service is on the booking form on the company's site. Off: only "
             "the team books it, in the panel; its booked visits stay."
+        ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.payment_policy",
+        type="enum",
+        default=PaymentPolicy.NONE.value,
+        values=(
+            (PaymentPolicy.NONE.value, {"pl": "Nie mówimy o płatności", "en": "Nothing said"}),
+            (PaymentPolicy.ON_SITE.value, {"pl": "Płatność na miejscu", "en": "Pay on site"}),
+        ),
+        label={"pl": "Płatność", "en": "Payment"},
+        help={
+            "pl": "Klient widzi to przy cenie. Płatność przed wizytą dojdzie z zamówieniami.",
+            "en": "The customer sees it next to the price. Paying before the visit comes "
+            "with orders.",
+        },
+        model_description=(
+            "What the customer is told about paying for the service, shown next to its "
+            "price and frozen in each booking: `none` says nothing, `on_site` says the "
+            "customer pays at the visit. Paying in advance is not available yet."
         ),
     ),
     SettingSpec(

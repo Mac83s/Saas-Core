@@ -1001,7 +1001,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["api_v1_booking_public_appointments_create"];
+        /**
+         * Book a visit from a company's booking form
+         * @description Books a free start of a service the company offers online; the server picks the people, within the team or the person the customer chose. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The same Idempotency-Key answers the first booking again (200).
+         */
+        post: operations["public_booking_appointment_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1018,6 +1022,26 @@ export interface paths {
         get: operations["api_v1_booking_public_days_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/quote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Work out what a visit from the booking form would cost
+         * @description The price of a service the company offers online at `starts_at`, with the extras picked, as the customer reads it: gross, the lines in their language, the deposit and how they pay. Nothing is saved or held. Send `digest` back as `quote_digest` when booking. `quote` is null when the service has no price. A time the price list has no price for is 400 `price_missing`.
+         */
+        post: operations["public_booking_quote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1122,7 +1146,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["api_v1_booking_self_service_retrieve"];
+        /**
+         * Read one's own visit
+         * @description The visit the customer's link names: its time, service and place, what the link may still do, and the price it was booked at. An unknown, expired or revoked link is 404.
+         */
+        get: operations["booking_self_service_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1138,9 +1166,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["api_v1_booking_self_service_cancel_retrieve"];
+        get?: never;
         put?: never;
-        post: operations["api_v1_booking_self_service_cancel_create"];
+        /**
+         * Cancel one's own visit
+         * @description The customer cancels the visit their link names, within what the booking allows (409 `appointment_not_changeable` otherwise); the link stops working. The same Idempotency-Key answers the first result again.
+         */
+        post: operations["booking_self_service_cancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1154,7 +1186,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["api_v1_booking_self_service_reschedule_retrieve"];
+        get?: never;
         put?: never;
         /**
          * Move one's own visit to another time
@@ -8308,6 +8340,13 @@ export interface components {
             extras: components["schemas"]["ExtraPick"][];
             /** @description Held and given back: beside the totals, never in them. */
             security_deposit_minor: number;
+            /**
+             * @description What the customer is told about paying.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy: components["schemas"]["PaymentPolicyEnum"];
             net_minor: number;
             vat_minor: number;
             /** @description What the customer pays. */
@@ -12374,6 +12413,13 @@ export interface components {
             slot_step_minutes?: components["schemas"]["SlotStepMinutesEnum"];
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online?: boolean;
+            /**
+             * @description What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy?: components["schemas"]["PaymentPolicyEnum"];
             active?: boolean;
             staff_ids?: string[];
             location_ids?: string[];
@@ -12486,6 +12532,12 @@ export interface components {
          * @enum {string}
          */
         PaymentModeEnum: "stripe" | "simulated";
+        /**
+         * @description * `none` - Nie określono
+         *     * `on_site` - Płatność na miejscu
+         * @enum {string}
+         */
+        PaymentPolicyEnum: "none" | "on_site";
         PeopleDay: {
             /** Format: date */
             date: string;
@@ -13383,6 +13435,8 @@ export interface components {
             person_name: string | null;
             self_service_token?: string;
             self_service: components["schemas"]["PublicSelfService"];
+            /** @description The price frozen when the visit was booked or last moved; null when the service had none. */
+            quote?: components["schemas"]["PublicQuote"] | null;
         };
         /**
          * @description The customer names the service, place and time, and — where the service
@@ -13402,6 +13456,10 @@ export interface components {
             /** Format: uuid */
             person_id?: string | null;
             customer_notes?: string;
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
+            /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
+            quote_digest?: string;
         };
         /**
          * @description The catalogue without the staff list: only teams by name and people the
@@ -13413,6 +13471,10 @@ export interface components {
             resources: components["schemas"]["Resource"][];
             teams: components["schemas"]["PublicName"][];
             people: components["schemas"]["PublicName"][];
+            /** @description What the services add to their price. */
+            extras?: components["schemas"]["PublicExtra"][];
+            /** @description The currency of the company's prices, ISO 4217. */
+            currency?: string;
             timezone: string;
             /** @description Whether the company takes online bookings now (ADR-078, booking.online). */
             online: components["schemas"]["PublicOnline"];
@@ -13431,6 +13493,21 @@ export interface components {
             staff_choice: string;
             team_ids: string[];
             person_ids: string[];
+        };
+        /** @description An extra of a service on the booking form. */
+        PublicExtra: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            service_id: string;
+            /** @description In the language asked for, where translated. */
+            name: string;
+            basis: components["schemas"]["ExtraBasisEnum"];
+            /** @description On every booking of the service; the others the customer picks. */
+            mandatory: boolean;
+            max_quantity: number;
+            /** @description What one of it comes to, tax included. The quote is what counts. */
+            unit_gross_minor: number;
         };
         PublicFeedLinks: {
             /**
@@ -13560,6 +13637,47 @@ export interface components {
             quotas: {
                 [key: string]: number;
             };
+        };
+        /** @description A price as the customer reads it: gross, in whole minor units. */
+        PublicQuote: {
+            currency: string;
+            lines: components["schemas"]["PublicQuoteLine"][];
+            /** @description What the customer pays. */
+            gross_minor: number;
+            /** @description Held and given back; not part of `gross_minor`. */
+            security_deposit_minor: number;
+            /**
+             * @description `on_site` — the customer pays at the visit; `none` — nothing is said.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy: components["schemas"]["PaymentPolicyEnum"];
+            /** @description Send it back as `quote_digest` when booking. */
+            digest: string;
+        };
+        PublicQuoteAnswer: {
+            /** @description Null — the service has no price to show. */
+            quote: components["schemas"]["PublicQuote"] | null;
+        };
+        /** @description The visit a customer is about to book, to be priced. */
+        PublicQuoteInput: {
+            /** Format: uuid */
+            service_id: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
+            /** @description The customer's language, for the lines' names; one the company does not have is answered in its own. */
+            locale?: string;
+        };
+        PublicQuoteLine: {
+            kind: components["schemas"]["QuoteLineKindEnum"];
+            /** @description In the customer's language. */
+            name: string;
+            quantity: number;
+            /** @description What the line comes to, tax included. */
+            gross_minor: number;
         };
         /** @description What the customer's link may still do, by the booking's own terms (B4). */
         PublicSelfService: {
@@ -14261,6 +14379,13 @@ export interface components {
             slot_step_minutes?: components["schemas"]["SlotStepMinutesEnum"];
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online?: boolean;
+            /**
+             * @description What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy?: components["schemas"]["PaymentPolicyEnum"];
             active?: boolean;
             appointment_kind?: string;
             staff_ids?: string[];
@@ -14292,6 +14417,13 @@ export interface components {
             slot_step_minutes: number;
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online: boolean;
+            /**
+             * @description What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy: components["schemas"]["PaymentPolicyEnum"];
             active: boolean;
             /** @description Never switched on since it was made; only a draft can be discarded. */
             draft: boolean;
@@ -14332,6 +14464,13 @@ export interface components {
             slot_step_minutes: number;
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online: boolean;
+            /**
+             * @description What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy: components["schemas"]["PaymentPolicyEnum"];
             active: boolean;
             /** @description Never switched on since it was made; only a draft can be discarded. */
             draft: boolean;
@@ -14405,6 +14544,13 @@ export interface components {
             slot_step_minutes?: components["schemas"]["SlotStepMinutesEnum"];
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online?: boolean;
+            /**
+             * @description What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+             *
+             *     * `none` - Nie określono
+             *     * `on_site` - Płatność na miejscu
+             */
+            payment_policy?: components["schemas"]["PaymentPolicyEnum"];
             active?: boolean;
             staff_ids?: string[];
             location_ids?: string[];
@@ -18621,7 +18767,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_public_appointments_create: {
+    public_booking_appointment_create: {
         parameters: {
             query?: never;
             header: {
@@ -18640,12 +18786,44 @@ export interface operations {
             };
         };
         responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -18676,6 +18854,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlotDayList"];
+                };
+            };
+        };
+    };
+    public_booking_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicQuoteInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicQuoteInput"];
+                "multipart/form-data": components["schemas"]["PublicQuoteInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicQuoteAnswer"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -18838,7 +19059,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_self_service_retrieve: {
+    booking_self_service_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -18857,30 +19078,17 @@ export interface operations {
                     "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
-        };
-    };
-    api_v1_booking_self_service_cancel_retrieve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicAppointment"];
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
     };
-    api_v1_booking_self_service_cancel_create: {
+    booking_self_service_cancel: {
         parameters: {
             query?: never;
             header: {
@@ -18901,25 +19109,28 @@ export interface operations {
                     "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
-        };
-    };
-    api_v1_booking_self_service_reschedule_retrieve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicAppointment"];
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

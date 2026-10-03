@@ -61,6 +61,7 @@ from .views import (
     PublicBookingCatalogView,
     PublicBookingCreateView,
     PublicBookingDaysView,
+    PublicBookingQuoteView,
     PublicBookingSlotsView,
     PublicBookingTimesView,
     SelfServiceAppointmentView,
@@ -380,6 +381,7 @@ urlpatterns = [
     path("public/<slug:public_slug>/slots/", PublicBookingSlotsView.as_view(), name="public-slots"),
     path("public/<slug:public_slug>/days/", PublicBookingDaysView.as_view(), name="public-days"),
     path("public/<slug:public_slug>/times/", PublicBookingTimesView.as_view(), name="public-times"),
+    path("public/<slug:public_slug>/quote/", PublicBookingQuoteView.as_view(), name="public-quote"),
     path(
         "public/<slug:public_slug>/appointments/",
         PublicBookingCreateView.as_view(),

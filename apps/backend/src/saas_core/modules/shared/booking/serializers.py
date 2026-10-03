@@ -11,7 +11,15 @@ from saas_core.modules.core.organizations.options import (
 )
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
-from .models import RangeUnit, StaffChoice, TimeModel, TimeOffSource, VatCode
+from .models import (
+    ExtraBasis,
+    PaymentPolicy,
+    RangeUnit,
+    StaffChoice,
+    TimeModel,
+    TimeOffSource,
+    VatCode,
+)
 from .offer_settings import SLOT_STEPS, offer_setting
 
 
@@ -188,6 +196,9 @@ class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
     security_deposit_minor = serializers.IntegerField(
         help_text="Held and given back: beside the totals, never in them."
     )
+    payment_policy = serializers.ChoiceField(
+        choices=PaymentPolicy.choices, help_text="What the customer is told about paying."
+    )
     net_minor = serializers.IntegerField()
     vat_minor = serializers.IntegerField()
     gross_minor = serializers.IntegerField(help_text="What the customer pays.")
@@ -301,6 +312,54 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     person_id = serializers.UUIDField(required=False, allow_null=True)
     #: „Uwagi”: for the company's eyes only, never in an e-mail (answer 1A).
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    extras = _extras()
+    quote_digest = _quote_digest()
+
+
+class PublicQuoteInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """The visit a customer is about to book, to be priced."""
+
+    service_id = serializers.UUIDField()
+    starts_at = serializers.DateTimeField()
+    extras = _extras()
+    locale = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=10,
+        help_text="The customer's language, for the lines' names; one the company does not "
+        "have is answered in its own.",
+    )
+
+
+class PublicQuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.ChoiceField(
+        choices=["price", "extra_person", "category", "discount", "extra"]
+    )
+    name = serializers.CharField(help_text="In the customer's language.")
+    quantity = serializers.IntegerField()
+    gross_minor = serializers.IntegerField(help_text="What the line comes to, tax included.")
+
+
+class PublicQuoteSerializer(serializers.Serializer[dict[str, Any]]):
+    """A price as the customer reads it: gross, in whole minor units."""
+
+    currency = serializers.CharField()
+    lines = PublicQuoteLineSerializer(many=True)
+    gross_minor = serializers.IntegerField(help_text="What the customer pays.")
+    security_deposit_minor = serializers.IntegerField(
+        help_text="Held and given back; not part of `gross_minor`."
+    )
+    payment_policy = serializers.ChoiceField(
+        choices=PaymentPolicy.choices,
+        help_text="`on_site` — the customer pays at the visit; `none` — nothing is said.",
+    )
+    digest = serializers.CharField(help_text="Send it back as `quote_digest` when booking.")
+
+
+class PublicQuoteAnswerSerializer(serializers.Serializer[dict[str, Any]]):
+    quote = PublicQuoteSerializer(
+        allow_null=True, help_text="Null — the service has no price to show."
+    )
 
 
 class RescheduleSerializer(serializers.Serializer[dict[str, Any]]):
@@ -461,6 +520,12 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     person_name = serializers.CharField(allow_null=True)
     self_service_token = serializers.CharField(required=False)
     self_service = PublicSelfServiceSerializer()
+    quote = PublicQuoteSerializer(
+        required=False,
+        allow_null=True,
+        help_text="The price frozen when the visit was booked or last moved; null when "
+        "the service had none.",
+    )
 
 
 class AppointmentListSerializer(serializers.Serializer[dict[str, Any]]):
@@ -579,6 +644,9 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
         help_text=offer_setting("slot_step_minutes").model_description
     )
     online = serializers.BooleanField(help_text=offer_setting("online").model_description)
+    payment_policy = serializers.ChoiceField(
+        choices=PaymentPolicy.choices, help_text=offer_setting("payment_policy").model_description
+    )
     active = serializers.BooleanField()
     draft = serializers.BooleanField(
         help_text="Never switched on since it was made; only a draft can be discarded."
@@ -838,6 +906,11 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     )
     online = serializers.BooleanField(
         required=False, help_text=offer_setting("online").model_description
+    )
+    payment_policy = serializers.ChoiceField(
+        choices=PaymentPolicy.choices,
+        required=False,
+        help_text=offer_setting("payment_policy").model_description,
     )
     active = serializers.BooleanField(required=False)
     #: A new service only: the kind of visit a module provides (ADR-050).
@@ -1243,6 +1316,22 @@ class PublicOnlineSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class PublicExtraSerializer(serializers.Serializer[dict[str, Any]]):
+    """An extra of a service on the booking form."""
+
+    id = serializers.UUIDField()
+    service_id = serializers.UUIDField()
+    name = serializers.CharField(help_text="In the language asked for, where translated.")
+    basis = serializers.ChoiceField(choices=ExtraBasis.choices)
+    mandatory = serializers.BooleanField(
+        help_text="On every booking of the service; the others the customer picks."
+    )
+    max_quantity = serializers.IntegerField()
+    unit_gross_minor = serializers.IntegerField(
+        help_text="What one of it comes to, tax included. The quote is what counts."
+    )
+
+
 class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     """The catalogue without the staff list: only teams by name and people the
     company shows its customers (ADR-058 §8)."""
@@ -1252,6 +1341,12 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     resources = ResourceSerializer(many=True)
     teams = PublicNameSerializer(many=True)
     people = PublicNameSerializer(many=True)
+    extras = PublicExtraSerializer(
+        many=True, required=False, help_text="What the services add to their price."
+    )
+    currency = serializers.CharField(
+        required=False, help_text="The currency of the company's prices, ISO 4217."
+    )
     #: The organization's zone: the days and times offered are its wall clock.
     timezone = serializers.CharField()
     online = PublicOnlineSerializer(

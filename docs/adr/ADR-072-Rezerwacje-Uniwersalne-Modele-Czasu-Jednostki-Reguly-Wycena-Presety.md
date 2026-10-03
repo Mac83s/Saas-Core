@@ -493,3 +493,22 @@ Ustalenia, których §6–§7 nie rozstrzygały, przyjęte przy budowie cennika
   - Skrót wyceny nie zależy od kolejności pozycji (a więc od nazw), a wycena
     odmawia sumowania kwot w walucie innej niż waluta firmy
     (`currency_mismatch`).
+- **Cena dla klienta i sposób płatności (faza 3d).** Klient zawsze czyta cenę
+  brutto: `POST /booking/public/{slug}/quote/` i rezerwacja w jego linku
+  podają pozycje w jego języku z kwotą brutto, sumę, kaucję i sposób
+  płatności — bez netto, VAT i identyfikatorów firmy. Oferta niesie
+  `payment_policy` (§8) jako ustawienie oferty: dziś `none` albo `on_site`;
+  przelew, przedpłata i całość z góry dojdą z zamówieniami (ADR-073), a do
+  odpowiedzi listy prawnej wpłatę przed pobytem nazywamy „przedpłatą”. Sposób
+  płatności jest częścią pokazanej ceny, więc wchodzi do skrótu i do migawki.
+  Klient nigdy nie dostaje ceny, której nie widział: rezerwacja z formularza
+  i przełożenie własnej wizyty wymagają skrótu pokazanej ceny, gdy oferta ma
+  cenę, a przy przełożeniu — gdy nowa cena jest inna niż dotychczasowa;
+  inaczej odpowiedzią jest 409 `quote_changed` z nową ceną do pokazania.
+  Biuro przekłada i rezerwuje bez tego wymogu.
+  Progi anulowania z §8 przychodzą z zamówieniami w fazie 4: bez wpłat nie ma
+  czego zwracać.
+- **Ceny promocyjne.** Faza 3 nie ogłasza obniżek: rabat za długość to warunek
+  ceny, a sezon to cena. Zanim pojawią się promocje (kody, sklep), cennik musi
+  mieć historię cen — najniższa cena z 30 dni przed obniżką (dyrektywa
+  Omnibus); dziś zmiany `PriceRule` są tylko w audycie.

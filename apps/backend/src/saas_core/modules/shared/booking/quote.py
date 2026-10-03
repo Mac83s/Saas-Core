@@ -51,6 +51,7 @@ from .models import (
     ExtraBasis,
     ExtraKind,
     ParticipantCategory,
+    PaymentPolicy,
     PriceBasis,
     PriceRule,
     Resource,
@@ -99,11 +100,17 @@ class QuoteChanged(APIException):
     #: The detail below is data, not messages: the handler reads the code here.
     problem_code = "quote_changed"
 
-    def __init__(self, quote: Quote) -> None:
+    def __init__(self, quote: Quote, *, customer: bool = False) -> None:
+        """`customer`: the answer goes to the customer, who gets the quote as
+        they read it (`customer_quote`)."""
         super().__init__()
+        snapshot = quote.snapshot()
         # Set after: DRF turns every leaf of a detail into text, and a quote's
         # amounts are numbers.
-        body: Any = {"message": self.default_detail, "quote": quote.snapshot()}
+        body: Any = {
+            "message": self.default_detail,
+            "quote": customer_quote(snapshot) if customer else snapshot,
+        }
         self.detail = body
         self.quote = quote
 
@@ -144,6 +151,8 @@ class Quote:
     extras: tuple[dict[str, Any], ...]
     #: Held and given back, so no part of the totals (ADR-072 §6).
     security_deposit_minor: int
+    #: What the customer is told about paying (ADR-072 §8), as it was then.
+    payment_policy: str
     net_minor: int
     vat_minor: int
     gross_minor: int
@@ -164,6 +173,7 @@ class Quote:
             "participants": list(self.participants),
             "extras": list(self.extras),
             "security_deposit_minor": self.security_deposit_minor,
+            "payment_policy": self.payment_policy,
             "net_minor": self.net_minor,
             "vat_minor": self.vat_minor,
             "gross_minor": self.gross_minor,
@@ -232,7 +242,7 @@ def quote_stay(
     names = _names(organization, service, party, picked, locale)
     lines = _stay_lines(organization, service, unit, days, party, names)
     lines += _extra_lines(picked, people, names, len(days))
-    return _total(organization, party, picked, lines)
+    return _total(organization, service, party, picked, lines)
 
 
 def _stay_lines(
@@ -345,7 +355,7 @@ def quote_visit(
             raise _refused("starts_at", "Cennik nie ma ceny na ten termin.", "price_missing")
         lines = _once(rule, party, names)
     lines += _extra_lines(picked, sum(group.count for group in party if group.counts), names, None)
-    return _total(organization, party, picked, lines)
+    return _total(organization, service, party, picked, lines)
 
 
 def quote_offer(
@@ -427,6 +437,75 @@ def _priced_offer(organization: Organization, service: Service) -> bool:
         Q(service=service) | Q(group_id__in=groups) | Q(resource_id__in=units),
         organization=organization,
     ).exists()
+
+
+def offered_extras(
+    organization: Organization, services: Sequence[Service], locale: str | None
+) -> list[dict[str, Any]]:
+    """The extras a customer sees with the offers, each with what one of it
+    comes to, gross, in the customer's language. A deposit is not one: the
+    quote names it. The quote is what counts — a line rounds once, not per
+    piece."""
+    extras = list(
+        Extra.all_objects.filter(
+            organization=organization,
+            service__in=list(services),
+            active=True,
+            kind=ExtraKind.CHARGE,
+        )
+    )
+    names = localized_texts(translatable("extra"), extras, locale) if locale and extras else {}
+    gross = amounts_are_gross()
+    return [
+        {
+            "id": extra.id,
+            "service_id": extra.service_id,
+            "name": names.get(extra.id, {}).get("name", extra.name),
+            "basis": extra.basis,
+            "mandatory": extra.mandatory,
+            "max_quantity": extra.max_quantity,
+            "unit_gross_minor": _taxed(
+                QuoteLine(
+                    kind=EXTRA,
+                    name=extra.name,
+                    customer_name=extra.name,
+                    quantity=1,
+                    unit_amount_minor=extra.amount_minor,
+                    net_minor=0,
+                    vat_minor=0,
+                    gross_minor=0,
+                    vat_code=extra.vat_code,
+                ),
+                gross,
+            ).gross_minor,
+        }
+        for extra in extras
+    ]
+
+
+def customer_quote(snapshot: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """A frozen quote as the customer reads it: the lines in their language
+    with what each comes to, the total they pay, the deposit and how they pay.
+    The split into net and tax, and the company's own names, stay the
+    company's. Nothing for an offer without a price."""
+    if not snapshot or not (snapshot["lines"] or snapshot.get("security_deposit_minor")):
+        return None
+    return {
+        "currency": snapshot["currency"],
+        "lines": [
+            {
+                "kind": line["kind"],
+                "name": line["customer_name"],
+                "quantity": line["quantity"],
+                "gross_minor": line["gross_minor"],
+            }
+            for line in snapshot["lines"]
+        ],
+        "gross_minor": snapshot["gross_minor"],
+        "security_deposit_minor": snapshot.get("security_deposit_minor", 0),
+        "payment_policy": snapshot.get("payment_policy", PaymentPolicy.NONE.value),
+        "digest": snapshot["digest"],
+    }
 
 
 def assert_shown(quote: Quote, digest: str) -> None:
@@ -624,7 +703,11 @@ def _line(
 
 
 def _total(
-    organization: Organization, party: Sequence[_Party], picked: _Picked, lines: list[QuoteLine]
+    organization: Organization,
+    service: Service,
+    party: Sequence[_Party],
+    picked: _Picked,
+    lines: list[QuoteLine],
 ) -> Quote:
     gross = amounts_are_gross()
     taxed = [_taxed(line, gross) for line in lines]
@@ -657,6 +740,7 @@ def _total(
         ),
         "extras": sorted(picked.chosen, key=lambda pick: pick["extra_id"]),
         "security_deposit_minor": picked.deposit,
+        "payment_policy": service.payment_policy,
         **sums,
     }
     return Quote(
@@ -666,6 +750,7 @@ def _total(
         participants=participants,
         extras=picked.chosen,
         security_deposit_minor=picked.deposit,
+        payment_policy=service.payment_policy,
         digest=canonical_json_hash(essence),
         **sums,
     )

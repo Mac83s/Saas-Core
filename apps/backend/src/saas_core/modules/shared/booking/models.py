@@ -49,6 +49,15 @@ class PriceBasis(models.TextChoices):
     PER_GROUP = "per_group", "Za grupę"
 
 
+class PaymentPolicy(models.TextChoices):
+    """How the customer pays for an offer (ADR-072 §8). Paying before the
+    visit — a transfer, a prepayment, the whole — comes with orders (ADR-073)."""
+
+    #: Nothing is said about paying.
+    NONE = "none", "Nie określono"
+    ON_SITE = "on_site", "Płatność na miejscu"
+
+
 class ExtraBasis(models.TextChoices):
     """What an extra is charged for (ADR-072 §6)."""
 
@@ -324,6 +333,10 @@ class Service(TenantScopedModel):
     #: On the booking form on the company's site (B2); off: the team books it
     #: in the panel only.
     online = models.BooleanField(default=True)
+    #: What the customer is told about paying, frozen in each booking's quote.
+    payment_policy = models.CharField(
+        max_length=16, choices=PaymentPolicy, default=PaymentPolicy.NONE
+    )
     active = models.BooleanField(default=True)
     #: Never switched on since it was made. Only a draft can be discarded
     #: (`setup.discard_draft`); switching the offer on ends it for good.
