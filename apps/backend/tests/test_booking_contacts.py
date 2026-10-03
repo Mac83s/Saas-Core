@@ -26,9 +26,12 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @pytest.fixture(autouse=True)
-def no_product_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A product repository runs this suite with its own module registered."""
+def no_product_flags(monkeypatch: pytest.MonkeyPatch, settings: Any) -> None:
+    """A product repository runs this suite with its own module registered —
+    and MedPlano with its permission for other people's visits (UX-023): the
+    contacts rule is core's, read where everybody sees every visit."""
     monkeypatch.setattr(flags, "_providers", {})
+    settings.BOOKING_OTHERS_PERMISSION = None
 
 
 def worker(member: Membership, email: str, *, role: str = "staff") -> Membership:
