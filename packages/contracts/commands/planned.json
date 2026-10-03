@@ -3,12 +3,6 @@
   "_comment": "Polecenia z ADR-076 §2, które istnieją dopiero jako zapowiedź: nazwa, klasa ryzyka, modyfikatory i właściciel. Schematy wejścia dopisze właściciel przy rejestracji (register_command) i usunie wtedy wpis stąd — nazwa nie może być w obu miejscach.",
   "commands": [
     {
-      "command": "sites.locale_body.save@1",
-      "risk": "draft",
-      "modifiers": [],
-      "owner": "plan asystenta, A1b-11 (pochodzenie z kontekstu od TL9c, b8ae086)"
-    },
-    {
       "command": "sites.locale_body.accept@1",
       "risk": "publish",
       "modifiers": [],

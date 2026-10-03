@@ -45,13 +45,14 @@ class CommandEval:
 def all_evals() -> dict[str, CommandEval]:
     from django.conf import settings  # noqa: PLC0415
 
-    from . import booking, company_settings, organization, profiles  # noqa: PLC0415
+    from . import booking, company_settings, organization, profiles, sites  # noqa: PLC0415
 
     evals = {
         **organization.EVALS,
         **booking.EVALS,
         **company_settings.EVALS,
         **profiles.EVALS,
+        **sites.EVALS,
     }
     # A profile without the translation module (HoofCare, MedPlano) registers
     # none of its commands, and its models cannot even be imported there.

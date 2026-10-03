@@ -28,6 +28,11 @@ class SitesConfig(AppConfig):
         register_page_source()
         register(check_content_contracts, "sites")
 
+        # The site's commands for the assistant (ADR-076, A1b-11).
+        from .command_declarations import register_site_commands
+
+        register_site_commands()
+
 
 def check_content_contracts(**_kwargs: object) -> list[Error]:
     """Fails the deploy when a contract directory did not reach the image.

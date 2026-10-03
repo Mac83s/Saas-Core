@@ -1638,6 +1638,336 @@
       "version_field": "expected_version"
     },
     {
+      "command": "sites.blueprint_catalog.read@1",
+      "entitlement": "sites.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "site_id": {
+            "description": "The site; null for the company's first site.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "site_id"
+        ],
+        "type": "object"
+      },
+      "model_description": "Returns the company's sites and the page templates its plan allows, each with the places for plain text (slot key, maximum length, the template's own text). Use it before drafting a page from a template.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "catalog_hash": {
+            "type": "string"
+          },
+          "default_locale": {
+            "type": "string"
+          },
+          "site_id": {
+            "type": "string"
+          },
+          "sites": {
+            "type": "array"
+          },
+          "templates": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "site.content.edit",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The templates a page can start from, with their places for text.",
+        "pl": "Szablony, z których można założyć podstronę, z miejscami na tekst."
+      },
+      "title": {
+        "en": "Read page templates",
+        "pl": "Odczytaj szablony podstron"
+      },
+      "tool_name": "sites_blueprint_catalog_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "sites.locale_body.read@1",
+      "entitlement": "sites.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "locale": {
+            "description": "The language version, a two-letter code.",
+            "type": "string"
+          },
+          "page_id": {
+            "description": "The page (from the site's pages).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "locale"
+        ],
+        "type": "object"
+      },
+      "model_description": "Returns one language version of a page: every piece of text (unit key, source text, current text in that language, maximum length) and the version. Pieces with a person's details or the owner's own facts are left out and counted. Use it before writing the language version.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "body_version": {
+            "type": "integer"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array"
+          },
+          "withheld_units": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "site.content.edit",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "A page's pieces of text in its source and in one language.",
+        "pl": "Fragmenty tekstu podstrony w źródle i w danym języku."
+      },
+      "title": {
+        "en": "Read a page's language version",
+        "pl": "Odczytaj wersję językową podstrony"
+      },
+      "tool_name": "sites_locale_body_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "sites.locale_body.save@1",
+      "entitlement": "sites.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [
+        "assistant.site_generation.enabled"
+      ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "locale": {
+            "description": "The language version, a two-letter code.",
+            "type": "string"
+          },
+          "page_id": {
+            "description": "The page (from the site's pages).",
+            "type": "string"
+          },
+          "units": {
+            "description": "The pieces to write.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The unit's key.",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "Its text in this language.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "page_id",
+          "locale",
+          "units"
+        ],
+        "type": "object"
+      },
+      "model_description": "Writes text into one language version of a page, piece by piece (unit key and text from sites.locale_body.read); pieces not given keep their text. The text is marked as AI text and stays a draft until the person accepts and publishes it. Legal pages are never written here.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "body_version": {
+            "type": "integer"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "site.content.edit",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "AI text in a page's language version, for a person to accept.",
+        "pl": "Tekst AI w wersji językowej podstrony, do akceptacji przez osobę."
+      },
+      "title": {
+        "en": "Write a language version's text",
+        "pl": "Zapisz tekst wersji językowej"
+      },
+      "tool_name": "sites_locale_body_save_v1",
+      "undo": "restore_version",
+      "version_field": "expected_body_version"
+    },
+    {
+      "command": "sites.page_draft.from_template@1",
+      "entitlement": "sites.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [
+        "assistant.site_generation.enabled"
+      ],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "The page's address after the domain.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The page's name, up to 160 characters.",
+            "type": "string"
+          },
+          "site_id": {
+            "description": "The site; null for the company's first site.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slots": {
+            "description": "Text for the template's slots; others keep the template's.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The slot's key.",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "Plain text for it.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "template_id": {
+            "description": "The template's id.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "template_id",
+          "name",
+          "key",
+          "slots"
+        ],
+        "type": "object"
+      },
+      "model_description": "Creates a new page on the site from a template, as an unpublished draft: its name, its address (key, lower-case letters, digits and hyphens) and plain text for the template's slots. A slot not given keeps the template's own text. Prices, quotes and the owner's own facts are never written. Use sites.blueprint_catalog.read first.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": null,
+      "no_version_reason": "A new page has no version yet.",
+      "output_schema": {
+        "properties": {
+          "draft_version": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "site_id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "site.content.edit",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A new, unpublished page from a template, with text in its places.",
+        "pl": "Nowa, nieopublikowana podstrona z szablonu i tekstem w jego miejscach."
+      },
+      "title": {
+        "en": "Draft a page from a template",
+        "pl": "Szkic podstrony z szablonu"
+      },
+      "tool_name": "sites_page_draft_from_template_v1",
+      "undo": "none:a draft page is deleted by the person in Site Studio",
+      "version_field": null
+    },
+    {
       "command": "translation.glossary.update@1",
       "entitlement": null,
       "exposure": [
