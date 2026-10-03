@@ -9,8 +9,6 @@ Read `docs/adr/ADR-030-Booking-Czas-Blokady-i-Self-Service.md` before changing
 anything here, and
 `docs/adr/ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md`
 before touching time models, units, rules, prices, pending bookings or presets.
-Two thirds of the decisions in this module exist because time and concurrency
-are both harder than they look.
 
 ## Time
 
@@ -31,8 +29,7 @@ are both harder than they look.
   window (ADR-072 §5). Search is days first (one free start per
   day), then the times of one day; a booking checks its one start with
   `validate_start` (ADR-058 §5). Never cap results in the middle of a day, and
-  never validate a start by looking it up in a capped list — that is how a free
-  afternoon of the last-added person became "unavailable".
+  never validate a start by looking it up in a capped list.
 - **The server picks the person** when the caller names nobody: least minutes
   booked that local day, then that week, then id, trying the next one in a
   savepoint when the exclusion constraint takes the first (ADR-058 §4). A
@@ -69,8 +66,8 @@ are both harder than they look.
 - **"The visit has passed" is one rule (UX-031), in `passing.py`**: confirmed
   and `ends_at <= now`, derived, never stored. The payload says it as `passed`;
   the panel uses `hasPassed`/`shownStatus` from `appointment-dialogs.tsx`, and
-  counting uses `took_place_q`. Do not compare `ends_at` with now anywhere else:
-  five rules for one visit is what UX-031 removed. A passed visit is not ahead
+  counting uses `took_place_q`. Do not compare `ends_at` with now anywhere
+  else. A passed visit is not ahead
   („Najbliższe”), and a vacancy on it is nobody's work (no Wakat, no queue). It
   took place by default (3A), unless its kind is in the module's
   `appointmentKindsCompletedExplicitly` (`closes_explicitly`; `""` names the
@@ -126,6 +123,11 @@ not in PostgreSQL.
   explicit `service` tenant context with the minimum scope
   (`booking.public.read`, `booking.public.manage`). It is not a membership and
   not a global fallback — a public request never reaches an arbitrary tenant.
+- **Who books for themselves accepts the company's documents** (ADR-073 §9,
+  `consents.py`): the form reads those in force in the booking's language
+  (`shown`) and sends their `text_id`s; `record_new_booking` checks them and
+  appends the journal lines (`record`) — else 409 `documents_changed`. The
+  team's bookings ask nothing. The statements are `DOCUMENT_STATEMENTS`.
 - Confirmations and reminders go through the durable queue, never sent inline in
   the request. Content stays generic: organization, time, safe link. No medical
   detail, ever, in an email or a log line.
@@ -143,7 +145,7 @@ not in PostgreSQL.
 - **A reminder route is the organization's, not the booker's.** It is signed
   as a `service` contract (`booking_reminder`) and re-armed by `_arm_reminder`
   on every move (ADR-058 §7). Signed with the caller's membership it dies when
-  that person leaves — and an unopenable route used to head the queue forever.
+  that person leaves.
 - **Prices, payment and cancellation policies and pending states follow
   ADR-072 §6–§9; money lives in the order (ADR-073).** Never add an amount to
   `Service` or `Appointment` beyond the frozen quote: a price is a `PriceRule`,
@@ -161,9 +163,8 @@ not in PostgreSQL.
 
 ## Operable by the AI assistant
 
-Setup (services, places, resources, a person's week) is what the in-product
-assistant configures first, through the same functions the panel calls. Every
-setup write goes through `setup.setup_write` (ADR-072 §11):
+Setup is what the assistant configures first, through the panel's functions.
+Every setup write goes through `setup.setup_write` (ADR-072 §11):
 
 - **a key with a receipt** — `BookingSetupMutation` (not `BookingMutation`,
   which points at a visit); the same key answers the first result again, a

@@ -3185,7 +3185,9 @@
     "extrasLegend": "Extras",
     "extraOption": "{name} — {amount}{basis, select, per_person { per person} per_time_unit { per day} per_person_per_time_unit { per person per day} other {}}",
     "extraQuantity": "{name}: how many",
-    "priceChanged": "The price changed before we saved your booking. Check the new price and confirm again."
+    "priceChanged": "The price changed before we saved your booking. Check the new price and confirm again.",
+    "documentRequired": "Tick this box to book.",
+    "documentsChanged": "The company's documents changed before we saved your booking. Read the current ones and tick again."
   },
   "BookingMaterials": {
     "title": "Products from the warehouse",

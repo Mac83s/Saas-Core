@@ -308,6 +308,9 @@ export type BookingAppointment = components["schemas"]["Appointment"];
 export type BookingPublicAppointment =
   components["schemas"]["PublicAppointment"];
 export type BookingPublicQuote = components["schemas"]["PublicQuote"];
+/** What a customer accepts before booking: the company's documents in force
+ *  in the booking's language (ADR-073 §9). */
+export type BookingPublicConsents = components["schemas"]["PublicConsents"];
 export type BookingMaterialInput = components["schemas"]["MaterialInput"];
 export type BookingVisitPlace = components["schemas"]["VisitPlaceInput"];
 export type BookingPlaceSuggestion =
@@ -3906,6 +3909,23 @@ export async function getPublicBookingCatalog(
   const { data, error, response } = await client.GET(
     "/api/v1/booking/public/{public_slug}/",
     { params: { path: { public_slug: publicSlug } }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The documents a customer accepts while booking, in the page's language;
+ *  each `text_id` goes back in `consents.documents` (ADR-073 §9). */
+export async function getPublicBookingConsents(
+  publicSlug: string,
+  locale: string,
+): Promise<BookingPublicConsents> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/public/{public_slug}/consents/",
+    {
+      params: { path: { public_slug: publicSlug }, query: { locale } },
+      cache: "no-store",
+    },
   );
   if (error || !data) throwProblem(error, response);
   return data;

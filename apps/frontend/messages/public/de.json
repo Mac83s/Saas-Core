@@ -94,7 +94,9 @@
     "extrasLegend": "Zusatzleistungen",
     "extraOption": "{name} — {amount}{basis, select, per_person { pro Person} per_time_unit { pro Tag} per_person_per_time_unit { pro Person und Tag} other {}}",
     "extraQuantity": "{name}: Anzahl",
-    "priceChanged": "Der Preis hat sich geändert, bevor wir Ihre Buchung gespeichert haben. Prüfen Sie den neuen Preis und bestätigen Sie erneut."
+    "priceChanged": "Der Preis hat sich geändert, bevor wir Ihre Buchung gespeichert haben. Prüfen Sie den neuen Preis und bestätigen Sie erneut.",
+    "documentRequired": "Bitte kreuzen Sie dieses Feld an, um zu buchen.",
+    "documentsChanged": "Die Dokumente des Unternehmens haben sich geändert, bevor wir Ihre Buchung gespeichert haben. Bitte lesen Sie die aktuellen und kreuzen Sie sie erneut an."
   },
   "BookingSelfService": {
     "changesUntil": "Sie können den Termin bis {when} ändern oder absagen.",

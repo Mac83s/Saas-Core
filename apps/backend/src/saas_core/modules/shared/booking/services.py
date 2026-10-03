@@ -49,6 +49,8 @@ from .company_settings import (
     self_service_allows,
     self_service_terms,
 )
+from .consents import BookingConsents
+from .consents import record as record_consents
 from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
 from .models import (
     Appointment,
@@ -411,6 +413,7 @@ def create_appointment(
     participants: Sequence[Mapping[str, Any]] | None = None,
     extras: Sequence[Mapping[str, Any]] | None = None,
     quote_digest: str = "",
+    consents: BookingConsents | None = None,
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -441,6 +444,10 @@ def create_appointment(
     the booking;
     `quote_digest` is the digest of the quote the caller showed, and another
     price by now is 409 `quote_changed` (ADR-072 §7).
+
+    `consents` — the documents the customer accepted (`consents.record`): a
+    customer booking for themselves must name the ones in force, 409
+    `documents_changed` otherwise.
     """
     place_town, place_address = place_town.strip(), place_address.strip()
     context = require_tenant_context()
@@ -745,6 +752,8 @@ def create_appointment(
         # Nothing to remind anybody about when the visit is already happening.
         walk_in=walk_in_minutes is not None,
         metadata={"starts_at": starts_at.isoformat(), "staff": [str(person) for person in taken]},
+        consents=consents,
+        asked_locale=customer_data.get("locale"),
     )
     notify.staff_assigned(appointment, taken)
     # The office, when the company wants it told (W8): what waits for someone
@@ -1531,11 +1540,18 @@ def record_new_booking(
     request_hash: str,
     walk_in: bool,
     metadata: dict[str, Any],
+    consents: BookingConsents | None = None,
+    asked_locale: str | None = None,
 ) -> None:
-    """What every new booking leaves behind, a visit or a stay: its history,
-    its key's receipt, the self-service route, the reminder, the confirmation,
-    the audit and the observers."""
+    """What every new booking leaves behind, a visit or a stay: what the
+    customer agreed to (ADR-073 §9), its history, its key's receipt, the
+    self-service route, the reminder, the confirmation, the audit and the
+    observers. `asked_locale` is the language the customer booked in, as they
+    sent it."""
     context = require_tenant_context()
+    # First: a customer who has not accepted the documents in force books
+    # nothing, and nothing below is written for them.
+    record_consents(consents, customer=customer, reference=appointment.id, asked=asked_locale)
     AppointmentStatusHistory.all_objects.create(
         organization=organization,
         appointment=appointment,

@@ -3185,7 +3185,9 @@
     "extrasLegend": "Dodatki",
     "extraOption": "{name} — {amount}{basis, select, per_person { za osobę} per_time_unit { za dobę} per_person_per_time_unit { za osobę za dobę} other {}}",
     "extraQuantity": "{name}: ile",
-    "priceChanged": "Cena zmieniła się, zanim zapisaliśmy rezerwację. Sprawdź nową cenę i potwierdź jeszcze raz."
+    "priceChanged": "Cena zmieniła się, zanim zapisaliśmy rezerwację. Sprawdź nową cenę i potwierdź jeszcze raz.",
+    "documentRequired": "Zaznacz to pole, żeby zarezerwować.",
+    "documentsChanged": "Dokumenty firmy zmieniły się, zanim zapisaliśmy rezerwację. Przeczytaj obowiązujące i zaznacz jeszcze raz."
   },
   "BookingMaterials": {
     "title": "Produkty z magazynu",

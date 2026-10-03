@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,12 +11,14 @@ import {
   ApiProblemError,
   createPublicBookingAppointment,
   getPublicBookingCatalog,
+  getPublicBookingConsents,
   getPublicBookingDays,
   getPublicBookingQuote,
   getPublicBookingTimes,
   type BookingPublicAppointment,
   type BookingPublicCatalog,
   type BookingPublicChoice,
+  type BookingPublicConsents,
   type BookingPublicQuote,
   type BookingSlotTimeList,
 } from "@saas-core/api-client";
@@ -85,8 +87,18 @@ function calendarFile(visit: BookingPublicAppointment): string {
 
 export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const t = useTranslations("PublicBooking");
+  const documentNames = useTranslations("CustomerDocument");
   const locale = useLocale();
   const [catalog, setCatalog] = useState<BookingPublicCatalog>();
+  // The company's documents in force in the page's language (ADR-073 §9),
+  // the ones ticked, and whether a booking was tried without them. A list
+  // that did not load is not a way round them: the server answers a booking
+  // without them with the list.
+  const [documents, setDocuments] = useState<
+    BookingPublicConsents["documents"]
+  >([]);
+  const [accepted, setAccepted] = useState<Record<string, boolean>>({});
+  const [unaccepted, setUnaccepted] = useState(false);
   // The search the days belong to, the days it found, the day chosen and its
   // times; an unset list is one still being asked for.
   const [query, setQuery] = useState<
@@ -199,6 +211,11 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       .then(setCatalog)
       .catch(() => setProblem(t("loadError")));
   }, [publicSlug, t]);
+  useEffect(() => {
+    void getPublicBookingConsents(publicSlug, locale)
+      .then((value) => setDocuments(value.documents))
+      .catch(() => undefined);
+  }, [locale, publicSlug]);
 
   // Each answer is dropped once the customer has moved on to another search
   // or day, as in useFreeSlots: a late reply must not fill in the wrong list.
@@ -290,8 +307,9 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       ...choice,
     });
   };
-  const submit = form.handleSubmit(
+  const book = form.handleSubmit(
     async ({ display_name, email, phone, notes, ...booking }) => {
+      if (documents.some((document) => !accepted[document.text_id])) return;
       try {
         // Who takes the visit, and the room it needs, is the server's pick
         // (ADR-058 §4) — within the team or the person the customer chose.
@@ -305,11 +323,21 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             ...(extras.length ? { extras } : {}),
             // The price shown: another one by now is asked about, not charged.
             ...(quote ? { quote_digest: quote.digest } : {}),
+            // The texts ticked: another one in force by now is shown and
+            // asked about, never accepted for the customer.
+            ...(documents.length
+              ? {
+                  consents: {
+                    documents: documents.map((document) => document.text_id),
+                  },
+                }
+              : {}),
             customer: {
               display_name,
               email,
               phone: phone.trim(),
-              locale: locale === "en" ? "en" : "pl",
+              // The page's language: the documents above are in it.
+              locale,
             },
           },
           crypto.randomUUID(),
@@ -328,10 +356,26 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           setProblem(t("priceChanged"));
           return;
         }
+        if (
+          error instanceof ApiProblemError &&
+          error.problem.code === "documents_changed"
+        ) {
+          const detail = error.problem.detail as Partial<BookingPublicConsents>;
+          setDocuments(detail.documents ?? []);
+          setAccepted({});
+          setUnaccepted(false);
+          setProblem(t("documentsChanged"));
+          return;
+        }
         setProblem(t("createError"));
       }
     },
   );
+  // A box left empty is said together with the fields left empty.
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    setUnaccepted(true);
+    return book(event);
+  };
   // The business's wall clock, zone named: the customer may be elsewhere, and
   // the autumn hour that happens twice reads as two different times.
   const clock = zone
@@ -686,6 +730,47 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             <FieldDescription>{t("notesHint")}</FieldDescription>
             <FieldError errors={[errors.notes]} />
           </Field>
+          {documents.map((document) => {
+            const missing = unaccepted && !accepted[document.text_id];
+            const id = `booking-document-${document.kind}`;
+            return (
+              <Field data-invalid={missing} key={document.text_id}>
+                <label
+                  className="flex min-h-11 items-center gap-2 text-sm"
+                  htmlFor={id}
+                >
+                  <input
+                    aria-describedby={`${id}-read`}
+                    aria-invalid={missing}
+                    checked={Boolean(accepted[document.text_id])}
+                    className="size-4 shrink-0"
+                    id={id}
+                    onChange={(event) =>
+                      setAccepted({
+                        ...accepted,
+                        [document.text_id]: event.target.checked,
+                      })
+                    }
+                    type="checkbox"
+                  />
+                  {document.statement}
+                </label>
+                <FieldDescription id={`${id}-read`}>
+                  <a
+                    className="underline underline-offset-4"
+                    href={document.url}
+                    rel="noopener"
+                    target="_blank"
+                  >
+                    {documentNames(`kinds.${document.kind}`)}
+                  </a>
+                </FieldDescription>
+                {missing ? (
+                  <FieldError errors={[{ message: t("documentRequired") }]} />
+                ) : null}
+              </Field>
+            );
+          })}
           {problem ? (
             <p className="text-sm text-destructive" role="alert">
               {problem}

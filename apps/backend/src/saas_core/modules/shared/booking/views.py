@@ -35,6 +35,8 @@ from .company_settings import (
     online_paused,
     self_service_allows,
 )
+from .consents import BookingConsents
+from .consents import shown as consents_shown
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
@@ -124,6 +126,7 @@ from .serializers import (
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
+    PublicConsentsSerializer,
     PublicQuoteAnswerSerializer,
     PublicQuoteInputSerializer,
     QueueSerializer,
@@ -1150,6 +1153,42 @@ class PublicBookingCatalogView(APIView):
             })
 
 
+class PublicBookingConsentsView(APIView):
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+    throttle_classes = [BookingThrottle]
+
+    @extend_schema(
+        operation_id="public_booking_consents",
+        summary="What a customer accepts before booking",
+        description="The company's booking terms and privacy policy in force, each with the "
+        "statement the customer ticks and the address where it is read. Only documents with "
+        "a text in the booking's language are listed — never a text in another language. "
+        "Send each `text_id` back in `consents.documents` when booking.",
+        tags=["public-booking"],
+        parameters=[
+            OpenApiParameter(
+                "locale",
+                str,
+                OpenApiParameter.QUERY,
+                description="The customer's language, e.g. de; one the company does not "
+                "have is answered in its first.",
+            )
+        ],
+        responses={200: PublicConsentsSerializer, 404: ProblemDetailsSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "error-400": "An unknown language is answered in the company's first.",
+            }
+        },
+    )
+    def get(self, request: Request, public_slug: str) -> Response:
+        route = _route(public_slug)
+        with public_booking_context(route.organization_id):
+            authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            return Response(consents_shown(request.query_params.get("locale")))
+
+
 class PublicBookingSlotsView(APIView):
     """Each start once, without who takes it (ADR-058 §8). Kept for API
     consumers, not for the old public form: that one needs a staff_id per slot,
@@ -1280,8 +1319,12 @@ class PublicBookingCreateView(APIView):
         "picks the people, within the team or the person the customer chose. The price is "
         "worked out and frozen in the booking (`quote`); with `quote_digest` a price other "
         "than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A "
-        "taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The same "
-        "Idempotency-Key answers the first booking again (200).",
+        "taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The "
+        "company's documents in force in the booking's language (`GET …/consents/`) must be "
+        "named in `consents.documents`: one missing or replaced is 409 `documents_changed` "
+        "with the ones to show in `detail.documents`; each accepted document becomes a line "
+        "of the consent journal. The same Idempotency-Key answers the first booking again "
+        "(200).",
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=PublicAppointmentCreateSerializer,
@@ -1303,6 +1346,9 @@ class PublicBookingCreateView(APIView):
         team = data.pop("team_id", None)
         person = data.pop("person_id", None)
         notes = data.pop("customer_notes", "").strip()
+        accepted = BookingConsents(
+            documents=tuple((data.pop("consents", None) or {}).get("documents", ()))
+        )
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.manage", BOOKING_ENABLED)
             # A choice the service does not offer is refused, not dropped.
@@ -1310,6 +1356,7 @@ class PublicBookingCreateView(APIView):
             try:
                 result = create_appointment(
                     **data,
+                    consents=accepted,
                     team_id=team,
                     requested_staff_id=person,
                     customer_notes=notes,

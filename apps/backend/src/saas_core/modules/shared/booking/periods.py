@@ -44,6 +44,7 @@ from saas_core.modules.shared.notifications.security import decrypt_secret, encr
 from saas_core.modules.shared.notifications.services import queue_email
 
 from .availability import _valid_instants, _zone, closed_days
+from .consents import BookingConsents
 from .crew import lost_slot_race
 from .models import (
     Appointment,
@@ -300,6 +301,7 @@ def book_stay(
     extras: Sequence[Mapping[str, Any]] | None = None,
     quote_digest: str = "",
     preview: bool = False,
+    consents: BookingConsents | None = None,
 ) -> CreatedAppointment | StayPlan:
     """Books a stay from the panel; with `preview`, says which unit it would
     take and refuses what the booking would, with nothing written.
@@ -309,7 +311,9 @@ def book_stay(
     (`[{"extra_id", "quantity"}]`). The price is worked out here and frozen in
     the booking;
     `quote_digest` is the digest of the quote the caller showed, and another
-    price by now is 409 `quote_changed` (ADR-072 §7)."""
+    price by now is 409 `quote_changed` (ADR-072 §7). `consents` — the
+    documents the customer accepted, when the caller showed them
+    (`consents.record`)."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
     people = _people(context.organization_id, participants)
     if preview:
@@ -431,6 +435,8 @@ def book_stay(
             "ends_at": plan.stay.ends_at.isoformat(),
             "resource": str(unit.id),
         },
+        consents=consents,
+        asked_locale=customer_data.get("locale"),
     )
     return CreatedAppointment(appointment, token, True)
 

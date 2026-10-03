@@ -1003,9 +1003,29 @@ export interface paths {
         put?: never;
         /**
          * Book a visit from a company's booking form
-         * @description Books a free start of a service the company offers online; the server picks the people, within the team or the person the customer chose. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The same Idempotency-Key answers the first booking again (200).
+         * @description Books a free start of a service the company offers online; the server picks the people, within the team or the person the customer chose. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The company's documents in force in the booking's language (`GET …/consents/`) must be named in `consents.documents`: one missing or replaced is 409 `documents_changed` with the ones to show in `detail.documents`; each accepted document becomes a line of the consent journal. The same Idempotency-Key answers the first booking again (200).
          */
         post: operations["public_booking_appointment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/consents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a customer accepts before booking
+         * @description The company's booking terms and privacy policy in force, each with the statement the customer ticks and the address where it is read. Only documents with a text in the booking's language are listed — never a text in another language. Send each `text_id` back in `consents.documents` when booking.
+         */
+        get: operations["public_booking_consents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13784,6 +13804,8 @@ export interface components {
             extras?: components["schemas"]["ExtraPick"][];
             /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
             quote_digest?: string;
+            /** @description The company's documents the customer accepted; required as soon as the company has one in force in the booking's language. */
+            consents?: components["schemas"]["PublicConsentsInput"];
         };
         /**
          * @description The catalogue without the staff list: only teams by name and people the
@@ -13818,6 +13840,18 @@ export interface components {
             team_ids: string[];
             person_ids: string[];
         };
+        /** @description What a booking form shows before the customer books (ADR-073 §9). */
+        PublicConsents: {
+            /** @description The booking's language: the one asked for when the company has it, otherwise the company's first. */
+            locale: string;
+            /** @description The documents in force that have a text in this language, in the order to show them; empty when the company has published none. Never a text in another language. */
+            documents: components["schemas"]["PublicDocument"][];
+        };
+        /** @description What the customer accepted on the booking form (ADR-073 §9). */
+        PublicConsentsInput: {
+            /** @description The `text_id` of every document shown and accepted, as `GET …/consents/` gave them. One in force that is missing here, or another text by now, is 409 `documents_changed` with the documents to show in `detail.documents`. */
+            documents?: string[];
+        };
         PublicCustomerDocument: {
             kind: components["schemas"]["CustomerDocumentKindEnum"];
             /** @description The company whose document it is. */
@@ -13833,6 +13867,29 @@ export interface components {
             /** @description sha256 of `text`. */
             text_hash: string;
         };
+        /** @description A document of the company the customer accepts while booking. */
+        PublicDocument: {
+            kind: components["schemas"]["PublicDocumentKindEnum"];
+            /** @description What the customer states by ticking, in the booking's language. */
+            statement: string;
+            /**
+             * Format: uuid
+             * @description The text in force in this language; send it back in `consents.documents`.
+             */
+            text_id: string;
+            /** @description The number of the version in force. */
+            version: number;
+            /** Format: date */
+            effective_from: string;
+            /** @description Where anybody reads the document. */
+            url: string;
+        };
+        /**
+         * @description * `booking_terms` - booking_terms
+         *     * `privacy_policy` - privacy_policy
+         * @enum {string}
+         */
+        PublicDocumentKindEnum: "booking_terms" | "privacy_policy";
         /** @description An extra of a service on the booking form. */
         PublicExtra: {
             /** Format: uuid */
@@ -19210,6 +19267,38 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    public_booking_consents: {
+        parameters: {
+            query?: {
+                /** @description The customer's language, e.g. de; one the company does not have is answered in its first. */
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicConsents"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

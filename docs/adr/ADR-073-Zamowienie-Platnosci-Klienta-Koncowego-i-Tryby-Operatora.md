@@ -494,3 +494,39 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
 - **Historia cen (4i).** Każda zmiana `PriceRule` dopisuje wiersz historii
   (kto, kiedy, kwota przed i po), bo promocje (faza 10) muszą pokazać najniższą
   cenę z 30 dni przed obniżką, a tej nie da się odtworzyć wstecz.
+
+Rozstrzygnięcia plastra 4c (2026-10-04, decyzje techniczne z powodem):
+
+- **Formularz pyta o dokumenty osobnym odczytem**
+  `GET /booking/public/<slug>/consents/?locale=` (`booking.consents.shown`), nie
+  polem katalogu: katalog pytany z językiem tłumaczy też nazwy ofert, a to inna
+  zmiana niż pokazanie dokumentów. Odpowiedź to język rezerwacji i lista
+  dokumentów, które mają tekst w tym języku: rodzaj, oświadczenie do
+  zaznaczenia, `text_id`, numer wersji i adres strony dokumentu.
+- **Język zgody to język rezerwacji**: ten, który podał klient, gdy firma go
+  ma, inaczej pierwszy język firmy (ADR-071 pkt 21) — ten sam, w którym klient
+  dostaje potwierdzenie. Nieznany język nie jest więc sposobem na pominięcie
+  dokumentów, a powracający klient zgadza się na tekst w języku strony, na
+  której rezerwuje teraz, nie w języku swojej pierwszej rezerwacji.
+- **Zgody wymaga się od tego, kto rezerwuje sam.** W kontekście formularza
+  publicznego rezerwacja musi wymienić `text_id` każdego obowiązującego
+  dokumentu (`consents.documents`); brak albo inny tekst niż obowiązujący to
+  409 `documents_changed` z listą do pokazania i wycofana rezerwacja (wzór
+  `quote_changed`). Biuro rezerwujące w panelu niczego nie zaznacza i niczego
+  nie zapisuje. Wywołujący, który sam pokazał dokumenty (produkt, formularz
+  pobytów w fazie 5), przekazuje `BookingConsents` i podlega tej samej regule.
+  Sprawdzenie i zapis są w jednym miejscu, `consents.record`, wołanym na
+  początku `record_new_booking` — wspólnie dla wizyty i pobytu. Powtórka z tym
+  samym kluczem oddaje pierwszą rezerwację i nie dopisuje drugiego wpisu.
+- **Oświadczenia w jednej stałej.** `booking.consents.DOCUMENT_STATEMENTS`
+  wyznacza, które dokumenty formularz pokazuje (regulamin rezerwacji, polityka
+  prywatności), w jakiej kolejności i jakimi słowami: dwa osobne oświadczenia,
+  „Akceptuję regulamin” i „Zapoznałem się z polityką prywatności” (robocze do
+  odpowiedzi z listy prawnej). Słowa idą do formularza z API, więc zmiana to
+  jedna stała, a nie pliki tłumaczeń frontendu.
+- **Zgoda marketingowa to osobny wpis, którego formularz jeszcze nie zbiera.**
+  `BookingConsents.marketing` (treść zgody) dopisuje wpis `kind="marketing"`
+  ze skrótem treści obok wpisów dokumentów. Pole w formularzu publicznym
+  przyjdzie razem z treścią zgody od prawnika i z miejscem, w którym firma
+  zobaczy, kto się zgodził — zgoda, której firma nie może odczytać, niczemu nie
+  służy, a jej słowa to ryzyko prawne, nie decyzja techniczna.

@@ -305,6 +305,19 @@ class VisitPlaceSuggestionListSerializer(serializers.Serializer[dict[str, Any]])
     items = VisitPlaceSuggestionSerializer(many=True)
 
 
+class PublicConsentsInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """What the customer accepted on the booking form (ADR-073 §9)."""
+
+    documents = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        max_length=10,
+        help_text="The `text_id` of every document shown and accepted, as `GET …/consents/` "
+        "gave them. One in force that is missing here, or another text by now, is 409 "
+        "`documents_changed` with the documents to show in `detail.documents`.",
+    )
+
+
 class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     """The customer names the service, place and time, and — where the service
     lets them — a team or a person shown to customers; everything else is the
@@ -320,6 +333,11 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
     extras = _extras()
     quote_digest = _quote_digest()
+    consents = PublicConsentsInputSerializer(
+        required=False,
+        help_text="The company's documents the customer accepted; required as soon as the "
+        "company has one in force in the booking's language.",
+    )
 
 
 class PublicQuoteInputSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1325,6 +1343,36 @@ class PublicOnlineSerializer(serializers.Serializer[dict[str, Any]]):
     contact = serializers.ChoiceField(
         choices=["email", "phone", "email_or_phone", "email_and_phone"],
         help_text="What the form requires of the customer (booking.online.contact).",
+    )
+
+
+class PublicDocumentSerializer(serializers.Serializer[dict[str, Any]]):
+    """A document of the company the customer accepts while booking."""
+
+    kind = serializers.ChoiceField(choices=["booking_terms", "privacy_policy"])
+    statement = serializers.CharField(
+        help_text="What the customer states by ticking, in the booking's language."
+    )
+    text_id = serializers.UUIDField(
+        help_text="The text in force in this language; send it back in `consents.documents`."
+    )
+    version = serializers.IntegerField(help_text="The number of the version in force.")
+    effective_from = serializers.DateField()
+    url = serializers.CharField(help_text="Where anybody reads the document.")
+
+
+class PublicConsentsSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a booking form shows before the customer books (ADR-073 §9)."""
+
+    locale = serializers.CharField(
+        help_text="The booking's language: the one asked for when the company has it, "
+        "otherwise the company's first."
+    )
+    documents = PublicDocumentSerializer(
+        many=True,
+        help_text="The documents in force that have a text in this language, in the order "
+        "to show them; empty when the company has published none. Never a text in "
+        "another language.",
     )
 
 

@@ -34,6 +34,7 @@ const api = vi.hoisted(() => ({
   getCrewCandidates: vi.fn(),
   getPeopleDay: vi.fn(),
   getPublicBookingCatalog: vi.fn(),
+  getPublicBookingConsents: vi.fn(),
   getPublicBookingDays: vi.fn(),
   getPublicBookingQuote: vi.fn(),
   getPublicBookingTimes: vi.fn(),
@@ -261,6 +262,11 @@ beforeEach(() => {
   api.listBookingExtras.mockResolvedValue([]);
   api.getBookingQuote.mockResolvedValue(visitQuote([], 0, "0".repeat(64)));
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
+  // A company that has published no documents: the form asks for none.
+  api.getPublicBookingConsents.mockResolvedValue({
+    locale: "en",
+    documents: [],
+  });
   // A service without a price: the form shows none.
   api.getPublicBookingQuote.mockResolvedValue(null);
   api.getPublicBookingTimes.mockResolvedValue([
@@ -2254,6 +2260,103 @@ test("the public form shows the price, books at the price shown and asks again w
   });
   // The confirmation carries the price the visit was booked at.
   expect(totalShown()).toBe("TotalPLN 200.00");
+});
+
+test("the public form asks for the documents in force and books with the texts ticked (ADR-073 §9)", async () => {
+  const document = (kind: string, statement: string, text: string) => ({
+    kind,
+    statement,
+    text_id: text,
+    version: 1,
+    effective_from: "2026-08-01",
+    url: `https://app.example.test/en/documents/${kind}`,
+  });
+  const terms = document("booking_terms", "I accept the terms", "terms-1");
+  const privacy = document(
+    "privacy_policy",
+    "I have read the privacy policy",
+    "privacy-1",
+  );
+  api.getPublicBookingConsents.mockResolvedValue({
+    locale: "en",
+    documents: [terms, privacy],
+  });
+  renderPublic();
+  await searchPublic();
+  await waitFor(() =>
+    expect(screen.getByLabelText("Day")).toHaveProperty("disabled", false),
+  );
+  fireEvent.change(screen.getByLabelText("Day"), {
+    target: { value: "2026-08-20" },
+  });
+  const time = screen.getByLabelText("Time");
+  await waitFor(() =>
+    expect(within(time).getAllByRole("option")).toHaveLength(3),
+  );
+  fireEvent.change(time, { target: { value: "2026-08-20T08:30:00Z" } });
+  fireEvent.change(screen.getByLabelText("Full name"), {
+    target: { value: "Anna Nowak" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "anna@example.test" },
+  });
+  expect(api.getPublicBookingConsents).toHaveBeenCalledWith("demo", "en");
+  // Each document is read at its own address, in a new tab.
+  const link = screen.getByRole("link", { name: "Booking terms" });
+  expect(link.getAttribute("href")).toBe(terms.url);
+  expect(link.getAttribute("target")).toBe("_blank");
+  const accept = screen.getByLabelText("I accept the terms");
+  const read = screen.getByLabelText("I have read the privacy policy");
+
+  // One box left empty: nothing is booked, and the box says why.
+  fireEvent.click(accept);
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(await screen.findByText("Tick this box to book.")).not.toBeNull();
+  expect(read.getAttribute("aria-invalid")).toBe("true");
+  expect(accept.getAttribute("aria-invalid")).toBe("false");
+  expect(api.createPublicBookingAppointment).not.toHaveBeenCalled();
+
+  // The company approved new terms in between: the form shows them, unticked.
+  const newer = { ...terms, text_id: "terms-2", version: 2 };
+  api.createPublicBookingAppointment.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "",
+      status: 409,
+      code: "documents_changed",
+      detail: { message: "", locale: "en", documents: [newer, privacy] },
+      correlation_id: null,
+    }),
+  );
+  fireEvent.click(read);
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(
+    await screen.findByText(
+      "The company's documents changed before we saved your booking. Read the current ones and tick again.",
+    ),
+  ).not.toBeNull();
+  expect(api.createPublicBookingAppointment.mock.calls[0][1]).toMatchObject({
+    consents: { documents: ["terms-1", "privacy-1"] },
+  });
+  const boxes = () =>
+    screen
+      .getAllByRole("checkbox")
+      .map((box) => (box as HTMLInputElement).checked);
+  expect(boxes()).toEqual([false, false]);
+  expect(screen.queryByText("Tick this box to book.")).toBeNull();
+
+  api.createPublicBookingAppointment.mockResolvedValue({
+    ...publicAppointment,
+    self_service_token: "bk_new",
+  });
+  fireEvent.click(screen.getByLabelText("I accept the terms"));
+  fireEvent.click(screen.getByLabelText("I have read the privacy policy"));
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(await screen.findByText("Booking confirmed")).not.toBeNull();
+  expect(api.createPublicBookingAppointment.mock.calls[1][1]).toMatchObject({
+    consents: { documents: ["terms-2", "privacy-1"] },
+    customer: { locale: "en" },
+  });
 });
 
 test("a customer moving their visit sees the new price before taking it (ADR-072 §7)", async () => {
