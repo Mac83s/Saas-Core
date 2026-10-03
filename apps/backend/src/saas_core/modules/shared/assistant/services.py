@@ -266,6 +266,23 @@ def _setup_turns_left(context: TenantContext) -> tuple[int, int]:
     )
 
 
+def setup_overview(conversation_id: UUID) -> dict[str, Any]:
+    """Where the company's setup stands, for the panel beside a setup
+    conversation: what is known and from whom, what is still asked, what is
+    ready, what waits and what cannot be done yet.
+
+    The account is read through the registry, and the registry's commands run
+    only for the assistant acting for a person — so the read is this
+    conversation's, as its own `setup_status` is."""
+    context = _person()
+    conversation = _own(context, conversation_id)
+    if conversation.kind != ConversationKind.SETUP:
+        raise ConversationNotFound
+    acting = conversation_context(context, conversation)
+    with activate_tenant_context(acting):
+        return setup.overview(acting)
+
+
 # --- Conversations -----------------------------------------------------------------
 
 

@@ -136,6 +136,9 @@ class AssistantTurnAcceptedSerializer(serializers.Serializer[Any]):
 
 class AssistantConversationSerializer(serializers.Serializer[Any]):
     id = serializers.UUIDField(source="conversation.id")
+    kind = serializers.ChoiceField(
+        choices=ConversationKind.choices, source="conversation.kind", help_text=_KIND_HELP
+    )
     title = serializers.CharField(source="conversation.title", allow_blank=True)
     language = serializers.ChoiceField(choices=("pl", "en"), source="conversation.language")
     created_at = serializers.DateTimeField(source="conversation.created_at")
@@ -163,6 +166,72 @@ class AssistantConsentAnswerSerializer(serializers.Serializer[Any]):
         default=False,
         help_text="True: the person declined the whole plan; nothing runs.",
     )
+
+
+class AssistantSetupOptionSerializer(serializers.Serializer[Any]):
+    value = serializers.CharField(help_text="What the profile stores for this answer.")
+    label = LocalizedTextSerializer(help_text="The answer in words.")
+
+
+class AssistantSetupQuestionSerializer(serializers.Serializer[Any]):
+    field = serializers.CharField(
+        help_text="The profile field asked about; a list's entry by its key "
+        "(`offers.cut.duration_minutes`)."
+    )
+    kind = serializers.ChoiceField(
+        choices=("ask", "confirm"),
+        help_text="`ask`: the value is missing. `confirm`: it is there, not yet confirmed by "
+        "the owner.",
+    )
+    reason = serializers.CharField(
+        help_text="Why it is asked (`card_needs_city`, `preset_requires`, …); for `confirm`, "
+        "the value's origin."
+    )
+    proposal = serializers.JSONField(
+        allow_null=True, help_text="A value to propose, or the value to confirm."
+    )
+    options = AssistantSetupOptionSerializer(
+        many=True, help_text="The allowed answers; empty when any answer is allowed."
+    )
+
+
+class AssistantSetupStepSerializer(serializers.Serializer[Any]):
+    ref = serializers.CharField(help_text="What the step is about: `card`, `place:salon`.")
+    title = LocalizedTextSerializer(help_text="The command's title.")
+    risk = serializers.CharField(help_text="The command's class of risk.")
+
+
+class AssistantSetupWaitingSerializer(serializers.Serializer[Any]):
+    ref = serializers.CharField(help_text="What the step is about.")
+    reason = serializers.ChoiceField(
+        choices=("waits", "command_missing", "person_only"),
+        help_text="`waits`: for the steps in `waits_for`, a round later. `command_missing`: "
+        "the product has no command for it yet. `person_only`: the owner's own step in the "
+        "panel.",
+    )
+    waits_for = serializers.ListField(child=serializers.CharField())
+
+
+class AssistantSetupUnsupportedSerializer(serializers.Serializer[Any]):
+    field = serializers.CharField(help_text="The profile field the product cannot hold yet.")
+    code = serializers.CharField(help_text="Why: `preset_not_ready`, `price_list`, …")
+    detail = serializers.CharField(allow_blank=True)
+
+
+class AssistantSetupSerializer(serializers.Serializer[Any]):
+    version = serializers.IntegerField(
+        min_value=0, help_text="The profile's saved version; a change names it."
+    )
+    document = serializers.DictField(
+        help_text="The profile with what the account already has (places, people) added as "
+        "facts of origin `account`. Those are saved with the next change."
+    )
+    questions = AssistantSetupQuestionSerializer(many=True)
+    ready = AssistantSetupStepSerializer(
+        many=True, help_text="Steps the assistant can offer now, each needing the click."
+    )
+    waiting = AssistantSetupWaitingSerializer(many=True)
+    unsupported = AssistantSetupUnsupportedSerializer(many=True)
 
 
 class AssistantProfileSerializer(serializers.Serializer[Any]):

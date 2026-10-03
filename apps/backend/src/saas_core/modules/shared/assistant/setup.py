@@ -304,6 +304,43 @@ def status(context: TenantContext, *, language: str, keep: bool = True) -> dict[
     }
 
 
+def overview(context: TenantContext) -> dict[str, Any]:
+    """The same for the panel, which shows the profile beside the conversation:
+    every value with its origin, and the four lists in both languages. A read:
+    the profile is left as it is."""
+    profile, answer = _answer(context, keep=False)
+    return {
+        "version": profile.version,
+        "document": profile.document,
+        "questions": [
+            {
+                "field": entry["key"],
+                "kind": entry["kind"],
+                "reason": entry["reason"],
+                "proposal": entry["proposal"],
+                "options": entry["options"],
+            }
+            for entry in answer["missing"]
+        ],
+        "ready": [
+            {
+                "ref": step["ref"],
+                "title": dict(command(step["command"]).title),
+                "risk": command(step["command"]).risk,
+            }
+            for step in answer["plan"]
+        ],
+        "waiting": [
+            {"ref": step["ref"], "reason": step["reason"], "waits_for": step["waits_for"]}
+            for step in answer["blocked"]
+        ],
+        "unsupported": [
+            {"field": entry["key"], "code": entry["code"], "detail": entry["detail"]}
+            for entry in answer["unsupported"]
+        ],
+    }
+
+
 def planned(context: TenantContext) -> list[dict[str, Any]]:
     """The steps ready to run now, each with the step id the server gives it."""
     _profile, answer = _answer(context, keep=True)

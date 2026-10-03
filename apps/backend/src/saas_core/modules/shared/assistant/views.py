@@ -41,6 +41,7 @@ from .serializers import (
     AssistantProfileChangeSerializer,
     AssistantProfileSavedSerializer,
     AssistantProfileSerializer,
+    AssistantSetupSerializer,
     AssistantTurnAcceptedSerializer,
     AssistantTurnInputSerializer,
 )
@@ -50,6 +51,7 @@ from .services import (
     assistant_offer,
     get_conversation,
     list_conversations,
+    setup_overview,
     start_conversation,
 )
 
@@ -220,6 +222,28 @@ class TurnConsentView(APIView):
             declined=serializer.validated_data["declined"],
         )
         return Response(AssistantTurnAcceptedSerializer(turn).data, status=202)
+
+
+class SetupView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="assistant_conversation_setup_retrieve",
+        summary="Where the company's setup stands",
+        description="For a `setup` conversation of the signed-in person: what the assistant "
+        "knows about the company and from whom, and what follows from it now — the "
+        "questions still to ask, the steps ready to run, the steps that wait and what the "
+        "product cannot do yet. The same answer the conversation itself works from. A "
+        "read: nothing is saved and nothing is run. 404 for a conversation of another kind.",
+        tags=["assistant"],
+        responses={
+            200: AssistantSetupSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, conversation_id: UUID) -> Response:
+        return Response(AssistantSetupSerializer(setup_overview(conversation_id)).data)
 
 
 def _profile(state: ProfileState) -> dict[str, object]:

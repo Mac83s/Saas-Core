@@ -6,6 +6,7 @@ from .views import (
     ConversationListView,
     ProfilePreviewView,
     ProfileView,
+    SetupView,
     TurnConsentView,
     TurnCreateView,
 )
@@ -27,6 +28,11 @@ urlpatterns = [
         "conversations/<uuid:conversation_id>/turns/<uuid:turn_id>/consents/",
         TurnConsentView.as_view(),
         name="assistant-turn-consents",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/setup/",
+        SetupView.as_view(),
+        name="assistant-conversation-setup",
     ),
     path("profile/", ProfileView.as_view(), name="assistant-profile"),
     path("profile/preview/", ProfilePreviewView.as_view(), name="assistant-profile-preview"),

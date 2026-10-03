@@ -48,6 +48,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assistant/conversations/{conversation_id}/setup/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where the company's setup stands
+         * @description For a `setup` conversation of the signed-in person: what the assistant knows about the company and from whom, and what follows from it now — the questions still to ask, the steps ready to run, the steps that wait and what the product cannot do yet. The same answer the conversation itself works from. A read: nothing is saved and nothing is run. 404 for a conversation of another kind.
+         */
+        get: operations["assistant_conversation_setup_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assistant/conversations/{conversation_id}/turns/": {
         parameters: {
             query?: never;
@@ -7140,6 +7160,13 @@ export interface components {
         AssistantConversation: {
             /** Format: uuid */
             id: string;
+            /**
+             * @description `operate`: the assistant works with the company's commands, a credit per answered message. `setup`: it sets the company up — notes what the owner says into the company profile and offers the plan worked out from it; free, within the setup budgets.
+             *
+             *     * `operate` - Operate
+             *     * `setup` - Setup
+             */
+            kind: components["schemas"]["AssistantConversationKindEnum"];
             title: string;
             language: components["schemas"]["LocaleEnum"];
             /** Format: date-time */
@@ -7239,6 +7266,19 @@ export interface components {
             /** @description The fields the change touched, e.g. `company.city`; a list counts as one field. Empty when it changed nothing. */
             changed: string[];
         };
+        AssistantSetup: {
+            /** @description The profile's saved version; a change names it. */
+            version: number;
+            /** @description The profile with what the account already has (places, people) added as facts of origin `account`. Those are saved with the next change. */
+            document: {
+                [key: string]: unknown;
+            };
+            questions: components["schemas"]["AssistantSetupQuestion"][];
+            /** @description Steps the assistant can offer now, each needing the click. */
+            ready: components["schemas"]["AssistantSetupStep"][];
+            waiting: components["schemas"]["AssistantSetupWaiting"][];
+            unsupported: components["schemas"]["AssistantSetupUnsupported"][];
+        };
         AssistantSetupOffer: {
             /** @description Whether this person may set the company up: they manage its settings. */
             allowed: boolean;
@@ -7247,6 +7287,70 @@ export interface components {
             /** @description Free setup messages this person has left today (UTC). */
             turns_left_today: number;
         };
+        AssistantSetupOption: {
+            /** @description What the profile stores for this answer. */
+            value: string;
+            /** @description The answer in words. */
+            label: components["schemas"]["LocalizedText"];
+        };
+        AssistantSetupQuestion: {
+            /** @description The profile field asked about; a list's entry by its key (`offers.cut.duration_minutes`). */
+            field: string;
+            /**
+             * @description `ask`: the value is missing. `confirm`: it is there, not yet confirmed by the owner.
+             *
+             *     * `ask` - ask
+             *     * `confirm` - confirm
+             */
+            kind: components["schemas"]["AssistantSetupQuestionKindEnum"];
+            /** @description Why it is asked (`card_needs_city`, `preset_requires`, …); for `confirm`, the value's origin. */
+            reason: string;
+            /** @description A value to propose, or the value to confirm. */
+            proposal: unknown | null;
+            /** @description The allowed answers; empty when any answer is allowed. */
+            options: components["schemas"]["AssistantSetupOption"][];
+        };
+        /**
+         * @description * `ask` - ask
+         *     * `confirm` - confirm
+         * @enum {string}
+         */
+        AssistantSetupQuestionKindEnum: "ask" | "confirm";
+        AssistantSetupStep: {
+            /** @description What the step is about: `card`, `place:salon`. */
+            ref: string;
+            /** @description The command's title. */
+            title: components["schemas"]["LocalizedText"];
+            /** @description The command's class of risk. */
+            risk: string;
+        };
+        AssistantSetupUnsupported: {
+            /** @description The profile field the product cannot hold yet. */
+            field: string;
+            /** @description Why: `preset_not_ready`, `price_list`, … */
+            code: string;
+            detail: string;
+        };
+        AssistantSetupWaiting: {
+            /** @description What the step is about. */
+            ref: string;
+            /**
+             * @description `waits`: for the steps in `waits_for`, a round later. `command_missing`: the product has no command for it yet. `person_only`: the owner's own step in the panel.
+             *
+             *     * `waits` - waits
+             *     * `command_missing` - command_missing
+             *     * `person_only` - person_only
+             */
+            reason: components["schemas"]["AssistantSetupWaitingReasonEnum"];
+            waits_for: string[];
+        };
+        /**
+         * @description * `waits` - waits
+         *     * `command_missing` - command_missing
+         *     * `person_only` - person_only
+         * @enum {string}
+         */
+        AssistantSetupWaitingReasonEnum: "waits" | "command_missing" | "person_only";
         AssistantTurn: {
             /** Format: uuid */
             id: string;
@@ -14839,6 +14943,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssistantConversation"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_conversation_setup_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantSetup"];
                 };
             };
             403: {

@@ -5720,6 +5720,13 @@ export type AssistantTurn = components["schemas"]["AssistantTurn"];
 export type AssistantTurnItem = components["schemas"]["AssistantTurnItem"];
 export type AssistantConsentGroup =
   components["schemas"]["AssistantConsentGroup"];
+export type AssistantConversationKind =
+  components["schemas"]["AssistantConversationKindEnum"];
+export type AssistantSetup = components["schemas"]["AssistantSetup"];
+export type AssistantSetupQuestion =
+  components["schemas"]["AssistantSetupQuestion"];
+export type AssistantProfileSaved =
+  components["schemas"]["AssistantProfileSaved"];
 export type CommandConsent = components["schemas"]["CommandConsent"];
 export type CommandConsentCall = components["schemas"]["CommandConsentCall"];
 
@@ -5752,13 +5759,14 @@ export async function listAssistantConversations(
 export async function startAssistantConversation(
   language: "pl" | "en",
   idempotencyKey: string,
+  kind: AssistantConversationKind = "operate",
 ): Promise<AssistantConversationSummary> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/assistant/conversations/",
     {
       params: { header: { "Idempotency-Key": idempotencyKey } },
-      body: { language },
+      body: { language, kind },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
@@ -5779,6 +5787,51 @@ export async function getAssistantConversation(
       credentials: "same-origin",
       cache: "no-store",
       signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/**
+ * Where the company's setup stands, beside a `setup` conversation: what the
+ * assistant knows and from whom, what it still asks, what is ready, what
+ * waits and what the product cannot do yet.
+ */
+export async function getAssistantSetup(
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<AssistantSetup> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/assistant/conversations/{conversation_id}/setup/",
+    {
+      params: { path: { conversation_id: conversationId } },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/**
+ * Changes the company profile: a JSON merge patch over the document, against
+ * the version the change was made on. A list is replaced whole.
+ */
+export async function changeAssistantProfile(
+  changes: Record<string, unknown>,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<AssistantProfileSaved> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/assistant/profile/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { expected_version: expectedVersion, changes },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);

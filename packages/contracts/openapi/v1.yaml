@@ -154,6 +154,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/assistant/conversations/{conversation_id}/setup/:
+    get:
+      operationId: assistant_conversation_setup_retrieve
+      description: 'For a `setup` conversation of the signed-in person: what the assistant
+        knows about the company and from whom, and what follows from it now — the
+        questions still to ask, the steps ready to run, the steps that wait and what
+        the product cannot do yet. The same answer the conversation itself works from.
+        A read: nothing is saved and nothing is run. 404 for a conversation of another
+        kind.'
+      summary: Where the company's setup stands
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - assistant
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantSetup'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/assistant/conversations/{conversation_id}/turns/:
     post:
       operationId: assistant_turn_create
@@ -21562,6 +21602,14 @@ components:
         id:
           type: string
           format: uuid
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AssistantConversationKindEnum'
+          description: |-
+            `operate`: the assistant works with the company's commands, a credit per answered message. `setup`: it sets the company up — notes what the owner says into the company profile and offers the plan worked out from it; free, within the setup budgets.
+
+            * `operate` - Operate
+            * `setup` - Setup
         title:
           type: string
         language:
@@ -21579,6 +21627,7 @@ components:
       required:
       - created_at
       - id
+      - kind
       - language
       - title
       - turns
@@ -21761,6 +21810,42 @@ components:
       - schema
       - updated_at
       - version
+    AssistantSetup:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+          description: The profile's saved version; a change names it.
+        document:
+          type: object
+          additionalProperties: {}
+          description: The profile with what the account already has (places, people)
+            added as facts of origin `account`. Those are saved with the next change.
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantSetupQuestion'
+        ready:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantSetupStep'
+          description: Steps the assistant can offer now, each needing the click.
+        waiting:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantSetupWaiting'
+        unsupported:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantSetupUnsupported'
+      required:
+      - document
+      - questions
+      - ready
+      - unsupported
+      - version
+      - waiting
     AssistantSetupOffer:
       type: object
       properties:
@@ -21780,6 +21865,126 @@ components:
       - allowed
       - turns_left
       - turns_left_today
+    AssistantSetupOption:
+      type: object
+      properties:
+        value:
+          type: string
+          description: What the profile stores for this answer.
+        label:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          description: The answer in words.
+      required:
+      - label
+      - value
+    AssistantSetupQuestion:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The profile field asked about; a list's entry by its key (`offers.cut.duration_minutes`).
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AssistantSetupQuestionKindEnum'
+          description: |-
+            `ask`: the value is missing. `confirm`: it is there, not yet confirmed by the owner.
+
+            * `ask` - ask
+            * `confirm` - confirm
+        reason:
+          type: string
+          description: Why it is asked (`card_needs_city`, `preset_requires`, …);
+            for `confirm`, the value's origin.
+        proposal:
+          oneOf:
+          - {}
+          - type: 'null'
+          description: A value to propose, or the value to confirm.
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantSetupOption'
+          description: The allowed answers; empty when any answer is allowed.
+      required:
+      - field
+      - kind
+      - options
+      - proposal
+      - reason
+    AssistantSetupQuestionKindEnum:
+      enum:
+      - ask
+      - confirm
+      type: string
+      description: |-
+        * `ask` - ask
+        * `confirm` - confirm
+    AssistantSetupStep:
+      type: object
+      properties:
+        ref:
+          type: string
+          description: 'What the step is about: `card`, `place:salon`.'
+        title:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          description: The command's title.
+        risk:
+          type: string
+          description: The command's class of risk.
+      required:
+      - ref
+      - risk
+      - title
+    AssistantSetupUnsupported:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The profile field the product cannot hold yet.
+        code:
+          type: string
+          description: 'Why: `preset_not_ready`, `price_list`, …'
+        detail:
+          type: string
+      required:
+      - code
+      - detail
+      - field
+    AssistantSetupWaiting:
+      type: object
+      properties:
+        ref:
+          type: string
+          description: What the step is about.
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/AssistantSetupWaitingReasonEnum'
+          description: |-
+            `waits`: for the steps in `waits_for`, a round later. `command_missing`: the product has no command for it yet. `person_only`: the owner's own step in the panel.
+
+            * `waits` - waits
+            * `command_missing` - command_missing
+            * `person_only` - person_only
+        waits_for:
+          type: array
+          items:
+            type: string
+      required:
+      - reason
+      - ref
+      - waits_for
+    AssistantSetupWaitingReasonEnum:
+      enum:
+      - waits
+      - command_missing
+      - person_only
+      type: string
+      description: |-
+        * `waits` - waits
+        * `command_missing` - command_missing
+        * `person_only` - person_only
     AssistantTurn:
       type: object
       properties:

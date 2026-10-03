@@ -334,6 +334,42 @@ def test_only_who_manages_the_company_sets_it_up(talk: Any) -> None:
     assert not AssistantConversation.all_objects.exists()
 
 
+def test_the_panel_reads_where_the_setup_stands_and_saves_nothing(talk: Any) -> None:
+    client = owner("setup-overview")
+    chat = talk(client, "setup")
+    organization = Organization.objects.get(slug="setup-overview")
+    Location.all_objects.create(organization=organization, name="Gabinet", public_slug="gabinet")
+    changed = client.patch(
+        PROFILE,
+        {"expected_version": 0, "changes": {"company": {"name": said("Gabinet Ola")}}},
+        format="json",
+        HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+        HTTP_IDEMPOTENCY_KEY="k1",
+    )
+    assert changed.status_code == 200, changed.data
+
+    overview = client.get(f"{BASE}conversations/{chat.id}/setup/")
+
+    assert overview.status_code == 200, overview.data
+    assert overview.data["version"] == 1
+    # The account's place is shown as a fact, and not saved by a read.
+    assert overview.data["document"]["places"] == [
+        {"key": "place_1", "name": said("Gabinet", "account")}
+    ]
+    assert "places" not in document(client)
+    assert [question["field"] for question in overview.data["questions"]][0] == "company.activity"
+    assert [
+        (step["ref"], step["title"]["pl"], step["risk"]) for step in overview.data["ready"]
+    ] == [
+        ("organization", "Zmień dane firmy", "apply"),
+        ("card", "Zmień wizytówkę firmy", "draft"),
+    ]
+    assert AssistantProfileVersion.all_objects.count() == 1
+    # An ordinary conversation has no setup to show.
+    ordinary = talk(owner("setup-overview-other"))
+    assert ordinary.client.get(f"{BASE}conversations/{ordinary.id}/setup/").status_code == 404
+
+
 def test_what_the_account_has_joins_the_profile_before_anything_is_asked(talk: Any) -> None:
     client = owner("setup-seed")
     organization = Organization.objects.get(slug="setup-seed")
