@@ -19,6 +19,11 @@ const api = vi.hoisted(() => ({
   rebaseLocaleBody: vi.fn(),
   restoreLocaleBodyVersion: vi.fn(),
   savePageTranslation: vi.fn(),
+  acceptLocaleBody: vi.fn(),
+  rejectLocaleBody: vi.fn(),
+  previewPublishLocaleBody: vi.fn(),
+  publishLocaleBody: vi.fn(),
+  withdrawLocaleBody: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -67,6 +72,7 @@ function body(extra: Partial<LocaleBody> = {}): LocaleBody {
     version_id: "019ff20d-a000-7000-8000-0000000000bb",
     pending: null,
     withdrawn: false,
+    live_version_id: null,
     untranslated: 1,
     block_types: ["core.hero", "core.contact_details"],
     units: [
@@ -260,4 +266,113 @@ test("a page with no version yet starts from an empty state", async () => {
   ).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Przetłumacz ręcznie" }));
   expect(await screen.findByLabelText("Treść")).not.toBeNull();
+});
+
+const DECISION = {
+  page_id: PAGE.id,
+  locale: "de",
+  published: true,
+  publication_id: "019ff20d-a000-7000-8000-0000000000cc",
+  skipped: null,
+};
+
+test("a waiting translation is accepted and published from the banner", async () => {
+  api.getLocaleBody.mockResolvedValue(
+    body({
+      untranslated: 0,
+      pending: {
+        version_id: "019ff20d-a000-7000-8000-0000000000dd",
+        number: 2,
+        reason: "review_mode",
+      },
+    }),
+  );
+  api.acceptLocaleBody.mockResolvedValue(DECISION);
+  show();
+
+  expect(
+    await screen.findByText(
+      "Tłumaczenie czeka na Twoją decyzję: tłumaczenia w tej firmie czekają na akceptację.",
+    ),
+  ).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Odrzuć" })).not.toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zaakceptuj i opublikuj" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog.textContent).toContain(
+    "Wersja Deutsch tej strony trafi na stronę",
+  );
+  fireEvent.click(
+    screen.getAllByRole("button", { name: "Zaakceptuj i opublikuj" }).at(-1)!,
+  );
+
+  await waitFor(() =>
+    expect(api.acceptLocaleBody).toHaveBeenCalledWith(
+      PAGE.id,
+      "de",
+      1,
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText("Tłumaczenie zaakceptowane i opublikowane."),
+  ).not.toBeNull();
+});
+
+test("a complete version says it is not on the site and why it cannot go yet", async () => {
+  api.getLocaleBody.mockResolvedValue(body({ untranslated: 0 }));
+  api.previewPublishLocaleBody.mockResolvedValue({
+    ...DECISION,
+    published: false,
+    publication_id: null,
+    skipped: "locale_home_missing",
+  });
+  show();
+
+  expect(
+    await screen.findByText(
+      "Ta wersja jest gotowa, ale nie ma jej jeszcze na stronie.",
+    ),
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Opublikuj tę wersję" }));
+
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog.textContent).toContain(
+    "Tej wersji nie można jeszcze opublikować",
+  );
+  expect(dialog.textContent).toContain(
+    "Najpierw musi wyjść strona główna w tym języku.",
+  );
+  expect(api.publishLocaleBody).not.toHaveBeenCalled();
+});
+
+test("a decision the person may not take says who takes it", async () => {
+  const live = body().version_id;
+  api.getLocaleBody.mockResolvedValue(
+    body({ untranslated: 0, live_version_id: live }),
+  );
+  api.withdrawLocaleBody.mockRejectedValue(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      code: "permission_denied",
+      detail: "",
+      correlation_id: null,
+    }),
+  );
+  show();
+
+  expect(await screen.findByText("Ta wersja jest na stronie.")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Więcej" }));
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Zdejmij ze strony" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Zdejmij ze strony" }),
+  );
+  expect(
+    await screen.findByText("Tę decyzję podejmuje osoba z prawem publikacji."),
+  ).not.toBeNull();
 });

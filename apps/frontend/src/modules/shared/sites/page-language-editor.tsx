@@ -8,16 +8,22 @@
  *  the new version loads and the unsaved words go back on top of it. */
 
 import {
+  acceptLocaleBody,
   ApiProblemError,
   getLocaleBody,
   getLocaleBodyVersion,
   listLocaleBodyVersions,
   listPageTranslations,
+  previewPublishLocaleBody,
   previewRebaseLocaleBody,
+  publishLocaleBody,
   rebaseLocaleBody,
+  rejectLocaleBody,
   restoreLocaleBodyVersion,
   saveLocaleBody,
   savePageTranslation,
+  withdrawLocaleBody,
+  type LanguageDecision,
   type LocaleBody,
   type LocaleBodyUnit,
   type LocaleBodyVersionList,
@@ -226,6 +232,14 @@ export function PageLanguageEditor({
   } | null>(null);
   const [rebase, setRebase] = useState<{ untranslated: number } | null>(null);
   const receipt = useRef<MutationReceipt | undefined>(undefined);
+  // A decision on this language version waiting for its confirmation;
+  // `blocked` is why it cannot be published yet.
+  const [decision, setDecision] = useState<
+    | { kind: "accept" | "reject" | "publish" | "withdraw" }
+    | { kind: "blocked"; reason: string }
+    | null
+  >(null);
+  const [deciding, setDeciding] = useState(false);
 
   const dirtyKeys = useMemo(
     () => Object.keys(values).filter((key) => values[key] !== initial[key]),
@@ -393,6 +407,81 @@ export function PageLanguageEditor({
     onChanged();
   }
 
+  const skippedText = (reason: string | null | undefined) =>
+    reason && t.has(`skipped.${reason}`)
+      ? t(`skipped.${reason}`)
+      : t("skipped.other");
+
+  /** Publishing asks first whether the version would go out at all. */
+  async function askPublish() {
+    try {
+      const planned = await previewPublishLocaleBody(page.id, locale);
+      setDecision(
+        planned.published
+          ? { kind: "publish" }
+          : { kind: "blocked", reason: skippedText(planned.skipped) },
+      );
+    } catch (error) {
+      decisionFailed(error);
+    }
+  }
+
+  function decisionFailed(error: unknown) {
+    const problem = problemOf(error);
+    if (problem?.status === 403) setNotice(t("decision.forbidden"));
+    else if (problem?.code === "site_publication_not_ready") {
+      setDecision({ kind: "blocked", reason: skippedText(problem.code) });
+    } else if (problem?.status === 409) {
+      setNotice(t("decision.changed"));
+      void load();
+    } else setNotice(t("decision.failed"));
+  }
+
+  async function confirmDecision() {
+    if (!body || !decision || decision.kind === "blocked") return;
+    const key = crypto.randomUUID();
+    setDeciding(true);
+    try {
+      let outcome: LanguageDecision;
+      if (decision.kind === "accept") {
+        outcome = await acceptLocaleBody(
+          page.id,
+          locale,
+          body.body_version,
+          key,
+        );
+        setNotice(
+          outcome.published
+            ? t("decision.accepted")
+            : t("decision.acceptedNotPublished", {
+                reason: skippedText(outcome.skipped),
+              }),
+        );
+      } else if (decision.kind === "reject") {
+        await rejectLocaleBody(page.id, locale, body.body_version, key);
+        setNotice(t("decision.rejected"));
+      } else if (decision.kind === "publish") {
+        outcome = await publishLocaleBody(page.id, locale, key);
+        setNotice(
+          outcome.published
+            ? t("decision.published", { language: languageName })
+            : skippedText(outcome.skipped),
+        );
+      } else {
+        await withdrawLocaleBody(page.id, locale, key);
+        setNotice(t("decision.withdrawn", { language: languageName }));
+      }
+      setDecision(null);
+      await load();
+      onChanged();
+    } catch (error) {
+      setDecision(null);
+      decisionFailed(error);
+    } finally {
+      setDeciding(false);
+    }
+  }
+
   const sections = useMemo(() => {
     const groups = new Map<number, LocaleBodyUnit[]>();
     for (const unit of body?.units ?? []) {
@@ -458,6 +547,13 @@ export function PageLanguageEditor({
               <HistoryIcon aria-hidden="true" />
               {t("history")}
             </DropdownMenuItem>
+            {body?.live_version_id && !body.withdrawn && (
+              <DropdownMenuItem
+                onClick={() => setDecision({ kind: "withdraw" })}
+              >
+                {t("actions.withdraw")}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="md:hidden" onClick={onSwitchToSource}>
               {t("toSource", { language: sourceName })}
             </DropdownMenuItem>
@@ -496,6 +592,21 @@ export function PageLanguageEditor({
       text: string;
       action?: ReactNode;
     }[] = [];
+    const act = (kind: "accept" | "reject" | "publish", label: string) => (
+      <Button
+        key={kind}
+        type="button"
+        size="sm"
+        variant={kind === "reject" ? "ghost" : "outline"}
+        disabled={deciding || dirtyKeys.length > 0}
+        title={dirtyKeys.length > 0 ? t("banner.saveFirst") : undefined}
+        onClick={() =>
+          kind === "publish" ? void askPublish() : setDecision({ kind })
+        }
+      >
+        {label}
+      </Button>
+    );
     if (body.pending) {
       const reason = body.pending.reason || "other";
       lines.push({
@@ -505,10 +616,21 @@ export function PageLanguageEditor({
             ? t(`banner.reasons.${reason}`)
             : t("banner.reasons.other"),
         }),
+        action: (
+          <>
+            {act("accept", t("actions.accept"))}
+            {act("reject", t("actions.reject"))}
+          </>
+        ),
       });
     }
-    if (body.withdrawn)
-      lines.push({ tone: "warning", text: t("banner.withdrawn") });
+    if (body.withdrawn) {
+      lines.push({
+        tone: "warning",
+        text: t("banner.withdrawn"),
+        action: act("publish", t("actions.publish")),
+      });
+    }
     if (body.outdated) {
       lines.push({
         tone: "warning",
@@ -526,14 +648,25 @@ export function PageLanguageEditor({
       });
     }
     if (lines.length === 0) {
-      lines.push(
-        body.untranslated > 0
-          ? {
-              tone: "info",
-              text: t("banner.untranslated", { count: body.untranslated }),
-            }
-          : { tone: "success", text: t("banner.complete") },
-      );
+      if (body.untranslated > 0) {
+        lines.push({
+          tone: "info",
+          text: t("banner.untranslated", { count: body.untranslated }),
+        });
+      } else if (body.version_id && body.version_id === body.live_version_id) {
+        lines.push({ tone: "success", text: t("banner.live") });
+      } else if (body.version_id) {
+        // Complete, and what visitors read is an older version or none.
+        lines.push({
+          tone: "info",
+          text: t(
+            body.live_version_id ? "banner.unpublished" : "banner.notOnSite",
+          ),
+          action: act("publish", t("actions.publish")),
+        });
+      } else {
+        lines.push({ tone: "success", text: t("banner.complete") });
+      }
     }
     const first = lines[0]!;
     return (
@@ -933,6 +1066,62 @@ export function PageLanguageEditor({
               {t("restore")}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={decision !== null}
+        onOpenChange={(next) => !next && !deciding && setDecision(null)}
+      >
+        <DialogContent closeLabel={common("close")}>
+          {decision?.kind === "blocked" ? (
+            <>
+              <DialogTitle>{t("decision.publishBlockedTitle")}</DialogTitle>
+              <DialogDescription>
+                {decision.reason.charAt(0).toUpperCase() +
+                  decision.reason.slice(1)}
+                .
+              </DialogDescription>
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => setDecision(null)}>
+                  {t("decision.close")}
+                </Button>
+              </div>
+            </>
+          ) : decision ? (
+            <>
+              <DialogTitle>
+                {t(`decision.${decision.kind}Title`, {
+                  language: languageName,
+                })}
+              </DialogTitle>
+              <DialogDescription>
+                {t(`decision.${decision.kind}Text`, { language: languageName })}
+              </DialogDescription>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={deciding}
+                  onClick={() => setDecision(null)}
+                >
+                  {common("cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={
+                    decision.kind === "reject" || decision.kind === "withdraw"
+                      ? "destructive"
+                      : "default"
+                  }
+                  disabled={deciding}
+                  onClick={() => void confirmDecision()}
+                >
+                  {t(`actions.${decision.kind}`)}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
 

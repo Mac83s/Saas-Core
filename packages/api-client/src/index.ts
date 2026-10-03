@@ -243,6 +243,8 @@ export type LocaleBodyVersionList =
 export type LocaleBodyVersionPreview =
   components["schemas"]["LocaleBodyVersionPreview"];
 export type LanguageDecision = components["schemas"]["LanguageDecision"];
+export type PublicationPlan = components["schemas"]["PublicationPlan"];
+export type PlannedLanguage = components["schemas"]["PlannedLanguage"];
 export type LocaleBatchItem = components["schemas"]["LocaleBatchItem"];
 export type LocaleBatchAcceptInput = components["schemas"]["LocaleBatchAccept"];
 export type LocaleBatchResult = components["schemas"]["LocaleBatchResult"];
@@ -2155,6 +2157,23 @@ export async function previewWithdrawLocaleBody(
       },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What publishing the site would carry in each other language — the
+ *  publication's own verdict, read without saving anything (TL15). */
+export async function previewSitePublication(
+  siteId: string,
+): Promise<PublicationPlan> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/publications/preview/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
     },
   );
   if (error || !data) throwProblem(error, response);

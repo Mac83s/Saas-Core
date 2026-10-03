@@ -83,6 +83,8 @@ import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { PageStudio } from "./page-studio";
+import { PublishDialog } from "./publish-dialog";
+import { useCompanyLocales } from "#lib/company-locales";
 import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
@@ -861,6 +863,7 @@ export function SitesPanel({
             onPublish={() => void publishSelectedSite()}
             publication={publication}
             report={report}
+            siteId={selectedSiteId}
           />
           <PublicationHistory
             currentPublicationId={selectedSite?.current_publication_id}
@@ -1040,13 +1043,20 @@ function ReadinessCard({
   onPublish,
   publication,
   report,
+  siteId,
 }: {
   loading: boolean;
   onPublish: () => void;
   publication?: SitePublication;
   report?: SiteLocalizationReport;
+  siteId?: string;
 }) {
   const t = useTranslations("Sites");
+  const locales = useCompanyLocales(["pl", "en"]);
+  // The other languages are a decision of the publish dialog, which says
+  // what each would carry (TL15); the card answers for the site's own.
+  const [confirming, setConfirming] = useState(false);
+  const otherLanguages = (report?.languages.length ?? 0) > 1;
   const unfinished = report?.pages.some(
     (page) => page.placeholders > 0 || page.template_contact,
   );
@@ -1115,27 +1125,31 @@ function ReadinessCard({
                   <div className="flex flex-wrap gap-1">
                     {/* Only the site's own language holds the publication
                         back; another one says what it is, in amber (W8). */}
-                    {page.locales.map((locale) => (
-                      <Badge
-                        key={locale.locale}
-                        variant={
-                          locale.blocks_publication
-                            ? "destructive"
-                            : locale.state === "published" ||
-                                (locale.locale === report.default_locale &&
-                                  locale.state === "complete")
-                              ? "success"
-                              : "warning"
-                        }
-                      >
-                        {locale.locale.toUpperCase()}:{" "}
-                        {t(
-                          locale.locale === report.default_locale
-                            ? `languageStates.source_${locale.state}`
-                            : `languageStates.${locale.state}`,
-                        )}
-                      </Badge>
-                    ))}
+                    {page.locales
+                      .filter(
+                        (locale) => locale.locale === report.default_locale,
+                      )
+                      .map((locale) => (
+                        <Badge
+                          key={locale.locale}
+                          variant={
+                            locale.blocks_publication
+                              ? "destructive"
+                              : locale.state === "published" ||
+                                  (locale.locale === report.default_locale &&
+                                    locale.state === "complete")
+                                ? "success"
+                                : "warning"
+                          }
+                        >
+                          {locale.locale.toUpperCase()}:{" "}
+                          {t(
+                            locale.locale === report.default_locale
+                              ? `languageStates.source_${locale.state}`
+                              : `languageStates.${locale.state}`,
+                          )}
+                        </Badge>
+                      ))}
                   </div>
                 </div>
               ))}
@@ -1143,14 +1157,35 @@ function ReadinessCard({
             {report.ready_to_publish && unfinished ? (
               <p className="text-sm">{t("unfinishedPublish")}</p>
             ) : null}
+            {otherLanguages && (
+              <p className="text-sm text-muted-foreground">
+                {t("publishDialog.sourceOnly")}
+              </p>
+            )}
             <Button
               disabled={loading || !report.ready_to_publish}
-              onClick={onPublish}
+              onClick={() =>
+                otherLanguages && siteId ? setConfirming(true) : onPublish()
+              }
               type="button"
             >
               <RocketIcon aria-hidden="true" />
               {loading ? t("publishing") : t("publish")}
             </Button>
+            {siteId && (
+              <PublishDialog
+                open={confirming}
+                onOpenChange={setConfirming}
+                siteId={siteId}
+                report={report}
+                locales={locales}
+                publishing={loading}
+                onConfirm={() => {
+                  setConfirming(false);
+                  onPublish();
+                }}
+              />
+            )}
             {publication && (
               <p className="text-sm text-success-foreground" role="status">
                 {t("publishedSequence", { sequence: publication.sequence })}

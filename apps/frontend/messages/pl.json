@@ -2482,7 +2482,11 @@
           "mass_publication": "zmiana obejmuje wiele stron naraz",
           "model_refused": "model odmówił przetłumaczenia",
           "other": "trzeba ją przejrzeć"
-        }
+        },
+        "live": "Ta wersja jest na stronie.",
+        "unpublished": "Ta wersja ma zmiany, których nie ma jeszcze na stronie.",
+        "notOnSite": "Ta wersja jest gotowa, ale nie ma jej jeszcze na stronie.",
+        "saveFirst": "Najpierw zapisz zmiany."
       },
       "rebase": {
         "action": "Przenieś na bieżącą wersję",
@@ -2547,7 +2551,67 @@
         "rebase": "Przeniesienie na nową wersję źródła",
         "job": "Tłumaczenie AI",
         "unknown": "Zapis"
+      },
+      "actions": {
+        "accept": "Zaakceptuj i opublikuj",
+        "reject": "Odrzuć",
+        "publish": "Opublikuj tę wersję",
+        "withdraw": "Zdejmij ze strony"
+      },
+      "decision": {
+        "acceptTitle": "Zaakceptować tłumaczenie i opublikować je?",
+        "acceptText": "Wersja {language} tej strony trafi na stronę. Reszta witryny się nie zmieni.",
+        "rejectTitle": "Odrzucić to tłumaczenie?",
+        "rejectText": "Czekające tłumaczenie zostanie odrzucone. Na stronie nic się nie zmieni.",
+        "publishTitle": "Opublikować wersję {language} tej strony?",
+        "publishText": "Na stronę trafi tylko ta wersja językowa tej strony. Reszta witryny się nie zmieni.",
+        "publishBlockedTitle": "Tej wersji nie można jeszcze opublikować",
+        "withdrawTitle": "Zdjąć wersję {language} ze strony?",
+        "withdrawText": "Adres tej wersji będzie prowadził do strony w języku źródłowym, dopóki nie opublikujesz jej ponownie. Tekst zostaje w edytorze.",
+        "accepted": "Tłumaczenie zaakceptowane i opublikowane.",
+        "acceptedNotPublished": "Tłumaczenie zaakceptowane. Na stronę trafi później: {reason}.",
+        "rejected": "Tłumaczenie odrzucone.",
+        "published": "Wersja {language} jest na stronie.",
+        "withdrawn": "Wersja {language} została zdjęta ze strony.",
+        "forbidden": "Tę decyzję podejmuje osoba z prawem publikacji.",
+        "changed": "Ta wersja zmieniła się w międzyczasie — wczytałem aktualny stan.",
+        "failed": "Nie udało się wykonać tej operacji. Spróbuj ponownie.",
+        "close": "Rozumiem"
+      },
+      "skipped": {
+        "metadata_incomplete": "tej wersji brakuje adresu, tytułu albo opisu",
+        "untranslated_units": "nie wszystkie fragmenty są przetłumaczone",
+        "source_placeholder": "strona źródłowa ma jeszcze miejsca do uzupełnienia",
+        "locale_home_missing": "najpierw musi wyjść strona główna w tym języku",
+        "source_unpublished": "strona źródłowa ma zmiany, których nie ma na stronie — opublikuj najpierw witrynę",
+        "source_outdated": "tłumaczenie dotyczy starszej wersji strony",
+        "media_unavailable": "zdjęcie z tej wersji nie jest już dostępne",
+        "site_publication_not_ready": "witryna nie była jeszcze publikowana",
+        "other": "ta wersja nie jest jeszcze gotowa"
       }
+    },
+    "publishDialog": {
+      "title": "Opublikować zmiany?",
+      "description": "Język strony ({language}) wychodzi w całości. W pozostałych językach wychodzi to, co jest gotowe — reszta nie blokuje publikacji.",
+      "loading": "Sprawdzam, co wyjdzie w każdym języku…",
+      "loadError": "Nie udało się sprawdzić wersji językowych. Możesz opublikować mimo to.",
+      "live": {
+        "stays": "Na stronie",
+        "appears": "Pojawi się na stronie",
+        "notYet": "Jeszcze nie na stronie"
+      },
+      "summary": "{publish, plural, =0 {} one {# strona wychodzi · } few {# strony wychodzą · } many {# stron wychodzi · } other {# strony wychodzi · }}{unchanged, plural, =0 {} other {# bez zmian · }}{attention, plural, =0 {nic do zrobienia} one {# do sprawdzenia} few {# do sprawdzenia} many {# do sprawdzenia} other {# do sprawdzenia}}",
+      "outcomes": {
+        "carried": "zostaje poprzednia wersja",
+        "withheld": "wstrzymana — strona źródłowa zmieniła cenę, datę albo inny fakt",
+        "withdrawn": "zdjęta ze strony",
+        "skipped": "pominięta",
+        "missing": "brak wersji w tym języku"
+      },
+      "open": "Otwórz stronę {page} w języku {language}",
+      "openShort": "Otwórz",
+      "confirm": "Opublikuj zmiany",
+      "sourceOnly": "Wersje w innych językach znajdziesz w oknie publikacji."
     }
   },
   "BillingSupport": {

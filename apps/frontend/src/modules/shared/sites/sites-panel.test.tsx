@@ -60,6 +60,11 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listSites,
   publishSite,
   setPageType,
+  previewSitePublication: vi.fn().mockResolvedValue({
+    ready_to_publish: true,
+    languages: [{ locale: "en", live: false, live_after: false, pages: [] }],
+  }),
+  getPublicLocales: vi.fn().mockRejectedValue(new Error("offline")),
 }));
 
 const site = {
@@ -251,9 +256,11 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
 
   renderPanel({ section: "publication" });
   expect(await screen.findByText("PL: Kompletne")).not.toBeNull();
-  // Another language says what it is and that it does not block (W8).
+  // The card answers for the site's own language; what the others would
+  // carry is the publish dialog's (TL15).
+  expect(screen.queryByText(/^EN: /)).toBeNull();
   expect(
-    screen.getByText("EN: Brak tłumaczenia — nie blokuje publikacji"),
+    screen.getByText("Wersje w innych językach znajdziesz w oknie publikacji."),
   ).not.toBeNull();
   expect(screen.getByText("Gotowy do publikacji")).not.toBeNull();
   expect(screen.getByText("PL · język strony")).not.toBeNull();
@@ -292,6 +299,13 @@ test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
 
   fireEvent.click(
     await screen.findByRole("button", { name: "Opublikuj zmiany" }),
+  );
+  // A site with another language confirms in the dialog that says what each
+  // language would carry.
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog.textContent).toContain("Jeszcze nie na stronie");
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Opublikuj zmiany" }),
   );
 
   await waitFor(() => expect(publishSite).toHaveBeenCalledOnce());

@@ -2482,7 +2482,11 @@
           "mass_publication": "the change covers many pages at once",
           "model_refused": "the model refused to translate",
           "other": "it needs a review"
-        }
+        },
+        "live": "This version is on the site.",
+        "unpublished": "This version has changes that are not on the site yet.",
+        "notOnSite": "This version is ready but not on the site yet.",
+        "saveFirst": "Save your changes first."
       },
       "rebase": {
         "action": "Move to the current version",
@@ -2547,7 +2551,67 @@
         "rebase": "Moved to a new source version",
         "job": "AI translation",
         "unknown": "Saved"
+      },
+      "actions": {
+        "accept": "Accept and publish",
+        "reject": "Reject",
+        "publish": "Publish this version",
+        "withdraw": "Take off the site"
+      },
+      "decision": {
+        "acceptTitle": "Accept the translation and publish it?",
+        "acceptText": "The {language} version of this page goes on the site. The rest of the site does not change.",
+        "rejectTitle": "Reject this translation?",
+        "rejectText": "The waiting translation is discarded. Nothing changes on the site.",
+        "publishTitle": "Publish the {language} version of this page?",
+        "publishText": "Only this language version of this page goes on the site. The rest of the site does not change.",
+        "publishBlockedTitle": "This version cannot be published yet",
+        "withdrawTitle": "Take the {language} version off the site?",
+        "withdrawText": "Its address will lead to the page in the source language until you publish it again. The text stays in the editor.",
+        "accepted": "Translation accepted and published.",
+        "acceptedNotPublished": "Translation accepted. It goes on the site later: {reason}.",
+        "rejected": "Translation rejected.",
+        "published": "The {language} version is on the site.",
+        "withdrawn": "The {language} version has been taken off the site.",
+        "forbidden": "This decision is made by someone allowed to publish.",
+        "changed": "This version changed in the meantime — the current state is loaded.",
+        "failed": "The operation failed. Try again.",
+        "close": "OK"
+      },
+      "skipped": {
+        "metadata_incomplete": "this version has no address, title or description",
+        "untranslated_units": "not every fragment is translated",
+        "source_placeholder": "the source page still has places to fill in",
+        "locale_home_missing": "the home page in this language has to go out first",
+        "source_unpublished": "the source page has changes that are not on the site — publish the site first",
+        "source_outdated": "the translation follows an older version of the page",
+        "media_unavailable": "an image in this version is no longer available",
+        "site_publication_not_ready": "the site has not been published yet",
+        "other": "this version is not ready yet"
       }
+    },
+    "publishDialog": {
+      "title": "Publish the changes?",
+      "description": "The site's own language ({language}) goes out in full. In the other languages, what is ready goes out — the rest does not block the publication.",
+      "loading": "Checking what goes out in each language…",
+      "loadError": "The language versions could not be checked. You can publish anyway.",
+      "live": {
+        "stays": "On the site",
+        "appears": "Will appear on the site",
+        "notYet": "Not on the site yet"
+      },
+      "summary": "{publish, plural, =0 {} one {# page goes out · } other {# pages go out · }}{unchanged, plural, =0 {} other {# unchanged · }}{attention, plural, =0 {nothing to do} other {# to check}}",
+      "outcomes": {
+        "carried": "the previous version stays",
+        "withheld": "withheld — the source page changed a price, a date or another fact",
+        "withdrawn": "taken off the site",
+        "skipped": "skipped",
+        "missing": "no version in this language"
+      },
+      "open": "Open the page {page} in {language}",
+      "openShort": "Open",
+      "confirm": "Publish the changes",
+      "sourceOnly": "Versions in other languages are shown in the publish dialog."
     }
   },
   "BillingSupport": {
