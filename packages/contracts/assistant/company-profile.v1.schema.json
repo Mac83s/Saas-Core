@@ -590,7 +590,7 @@
           },
           "price": {
             "type": "object",
-            "description": "What it costs.",
+            "description": "What it costs: the amount the owner gave, never a guess.",
             "additionalProperties": false,
             "required": ["value", "origin", "confirmed"],
             "properties": {
@@ -601,7 +601,7 @@
                 "properties": {
                   "amount": {
                     "type": "string",
-                    "pattern": "^[0-9]{1,7}(\\.[0-9]{2})?$"
+                    "pattern": "^[0-9]{1,6}(\\.[0-9]{2})?$"
                   },
                   "currency": {
                     "type": "string",
@@ -612,6 +612,31 @@
                     "enum": ["booking", "person", "hour", "day", "night"]
                   }
                 }
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "account",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "vat": {
+            "type": "object",
+            "description": "The tax rate of its price as a code: 23, 8, 5, 0, zw (exempt), np (outside VAT). The owner's answer, never a default.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": ["23", "8", "5", "0", "zw", "np"]
               },
               "origin": {
                 "type": "string",

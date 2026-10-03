@@ -36,12 +36,15 @@ PRESET_UNBLOCKS = {
     "core.pickup_window": "odblokuje: plan rezerwacji, faza 9 (sklep)",
 }
 COMMAND_PHASE = {
+    "booking.offer.units.set@1": "plan asystenta (jednostki pobytów i wynajmu jako polecenie)",
+    "booking.price.save@1": "plan asystenta (polecenie cennika)",
+    "booking.prices.read@1": "plan asystenta (odczyt cennika)",
     "booking.staff.add@1": "plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)",
     "booking.preset.apply@1": "plan rezerwacji, faza 3 (zastosowanie rodzaju rezerwacji)",
     "booking.preset.list@1": "plan rezerwacji, faza 3 (odczyt rodzajów rezerwacji)",
 }
-#: Why a price the owner named is not saved: the price list is in the product
-#: (bookings plan, phase 3), no command of the assistant writes to it yet.
+#: Why a price the owner named is not saved where the registry lacks the price
+#: list's commands (a profile without them, or a product before them).
 _NO_PRICE_COMMAND = (
     "cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — "
     "cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta "
@@ -64,6 +67,7 @@ FIELD_LABELS = {
     "units": "liczba sztuk",
     "capacity": "liczba osób",
     "price": "cena",
+    "vat": "stawka VAT",
     "places": "miejsca",
     "people": "osoby",
     "hours": "godziny pracy",
@@ -86,7 +90,22 @@ ORIGINS = {
     "preset_default": "wartość domyślna rodzaju rezerwacji",
     "owner": "słowa właściciela",
 }
-LISTS = {"place": "places", "person": "people", "offer": "offers", "hours": "people"}
+LISTS = {
+    "place": "places",
+    "person": "people",
+    "offer": "offers",
+    "hours": "people",
+    "units": "offers",
+    "price": "offers",
+}
+PER = {
+    "booking": "za rezerwację",
+    "person": "za osobę",
+    "hour": "za godzinę",
+    "day": "za dzień",
+    "night": "za noc",
+}
+VAT = {"zw": "zwolnione z VAT", "np": "nie podlega VAT"}
 
 
 def render(
@@ -154,9 +173,20 @@ def render(
             "faza 5: formularz publiczny)"
             for preset in sorted(panel_only)
         ),
-        "- jednostki pobytów i wynajmu (domki, kajaki): asystent ich nie zakłada — dodaje je "
-        "właściciel w panelu, w Ustawieniach › Usługi i grafik",
-        f"- ceny usług: {_NO_PRICE_COMMAND}",
+        *(
+            [f"- ceny usług: {_NO_PRICE_COMMAND}"]
+            if any(
+                entry["code"] == "price_list"
+                for _profile, answer in answers.values()
+                for entry in answer["unsupported"]
+            )
+            else []
+        ),
+        "- cennik poza ceną podstawową (sezony, ceny weekendowe, dopłaty, kaucje): rozmowa "
+        "ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo zleca "
+        "asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)",
+        "- zasady sezonów (najkrótszy pobyt, dni przyjazdu): asystent nie ma polecenia — "
+        "ustawia je właściciel w panelu, w Sezonach",
         *(
             f"- miasto „{entry['detail']}” jest poza słownikiem miast katalogu firm"
             for _profile, answer in answers.values()
@@ -188,8 +218,8 @@ def render(
         "",
         "- konto: odczyty przez rejestr poleceń (`organization.read`, "
         "`organization.public_locales.read`, `profiles.organization.read`, "
-        "`profiles.catalog_options.read`, `booking.setup.read`) dla firmy typu `business` "
-        "bez wizytówki, miejsc, osób i usług;",
+        "`profiles.catalog_options.read`, `booking.setup.read`, `booking.prices.read`) dla "
+        "firmy typu `business` bez wizytówki, miejsc, osób, usług i cen;",
         "- rodzaje rezerwacji: polecenie `booking.preset.list@1`, czyli kontrakt "
         "`packages/contracts/booking-presets/` w najnowszych wersjach;",
         "- języki: oferuje je profil wdrożenia (testy liczą na profilu z polskim i "
@@ -229,7 +259,20 @@ def _thing(profile: Mapping[str, Any], ref: str) -> str:
         "person": f"osoba „{name}”",
         "offer": f"usługa „{name}”",
         "hours": f"godziny pracy: {name}",
+        "units": f"jednostki usługi „{name}”",
+        "price": f"cena usługi „{name}”",
     }[kind]
+
+
+def _price_words(profile: Mapping[str, Any], key: str) -> str:
+    """The price as the owner said it, with the rate they named."""
+    offer = _entry(profile, "offers", key)
+    price = offer["price"]["value"]
+    words = f"{price['amount'].replace('.', ',')} {price['currency']} {PER[price['per']]}"
+    if "vat" in offer:
+        code = offer["vat"]["value"]
+        words += f", {VAT.get(code, f'VAT {code}%')}"
+    return words
 
 
 def _step(profile: Mapping[str, Any], entry: Mapping[str, Any]) -> str:
@@ -246,6 +289,15 @@ def _step(profile: Mapping[str, Any], entry: Mapping[str, Any]) -> str:
         return f"{_thing(profile, entry['ref'])} — wyłączona, włącza ją właściciel w panelu"
     if kind == "person":
         return f"{_thing(profile, entry['ref'])} — bez konta w panelu"
+    if kind == "units":
+        people = arguments["capacity"]
+        return (
+            f"{_thing(profile, entry['ref'])}: {arguments['count']} szt."
+            + (f", każda na {people} os." if people else "")
+        )
+    if kind == "price":
+        key = entry["ref"].partition(":")[2]
+        return f"{_thing(profile, entry['ref'])}: {_price_words(profile, key)}"
     return _thing(profile, entry["ref"])
 
 
@@ -282,6 +334,10 @@ def _question(
         "person_needs_name": "jak nazywa się osoba",
         "card_needs_city": "w jakim mieście działa firma",
         "card_needs_category": "kategoria w katalogu firm",
+        "offer_needs_units": f"ile jednostek (domków, pokoi, sztuk sprzętu) ma {name}",
+        "offer_needs_price": f"ile kosztuje {name} i za co jest ta cena",
+        "price_needs_vat": f"jaka stawka VAT obowiązuje dla ceny {name} (wybór z listy)",
+        "price_per_not_offered": f"za co jest cena {name} (wybór z listy)",
     }[entry["reason"]]
     if entry["reason"] == "card_needs_category":
         options = {option["value"]: option["label"]["pl"] for option in entry["options"]}
@@ -331,4 +387,6 @@ def _unsupported(
         "language_limit": f"języki: {detail} — plan firmy nie pozwala dodać kolejnego języka",
         "booking_unavailable": f"{name} — ten produkt nie ma modułu rezerwacji",
         "presets_unavailable": f"{name} — asystent nie ma jeszcze odczytu rodzajów rezerwacji",
+        "price_currency": f"cena {name} — cennik firmy jest w walucie {detail}; cena w innej "
+        "walucie nie jest przeliczana",
     }[code]

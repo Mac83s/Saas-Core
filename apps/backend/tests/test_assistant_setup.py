@@ -24,10 +24,18 @@ from saas_core.modules.shared.assistant.models import (
 )
 from saas_core.modules.shared.assistant.services import WORKER_SEEN
 from saas_core.modules.shared.billing.models import CreditReservation, EntitlementSnapshot
-from saas_core.modules.shared.booking.models import AvailabilityRule, Location, StaffMember
+from saas_core.modules.shared.booking.models import (
+    AvailabilityRule,
+    Location,
+    PriceRule,
+    Resource,
+    ResourceGroup,
+    Service,
+    StaffMember,
+)
 from saas_core.modules.shared.model_port.adapters.fake import FAKE, FakeReply
 from saas_core.modules.shared.model_port.matrix import MODELS, ModelProfile, register_model
-from test_assistant_chat import BASE, MODEL, sent_tool_results, talk, tool
+from test_assistant_chat import BASE, CONSENT, MODEL, sent_tool_results, talk, tool
 from test_sites_api import sites_client
 
 pytestmark = pytest.mark.django_db
@@ -269,6 +277,113 @@ def test_the_plan_is_the_configurators_and_runs_only_after_the_click(talk: Any) 
         "card",
         "place:salon",
     ]
+
+
+NIGHTLY = {"amount": "450.00", "currency": "PLN", "per": "night"}
+
+
+def test_a_price_is_the_owners_only_when_the_owner_typed_its_number(talk: Any) -> None:
+    client = owner("setup-price-typed")
+    chat = talk(client, "setup")
+    FAKE.script(
+        notes(
+            # Fifty off what the owner wrote: a number nobody typed.
+            ("offers.domki.price", {**NIGHTLY, "amount": "400.00"}, "owner"),
+            ("offers.kajak.price", {"amount": "60.00", "currency": "PLN", "per": "day"}, "owner"),
+            ("offers.domki.units", 3, "owner"),
+        ),
+        FakeReply(text="Zanotowano."),
+    )
+
+    chat.say("Mam 3 domki po 450 zł za noc, a kajak kosztuje 60 zł za dzień.")
+
+    domki, kajak = document(client)["offers"]
+    assert domki["price"] == said({**NIGHTLY, "amount": "400.00"}, "assistant", False)
+    assert kajak["price"] == said({"amount": "60.00", "currency": "PLN", "per": "day"})
+    assert domki["units"] == said(3)
+    (result,) = sent_tool_results(1)
+    assert result["output"]["to_confirm"] == ["offers.domki.price"]
+
+
+def test_a_stay_is_finished_in_the_conversation_units_and_a_nightly_price(talk: Any) -> None:
+    """Package L's proof as a test: „Domki” with three units and a price per
+    night, each round the configurator's and each on the owner's click."""
+    client = owner("setup-domki")
+    chat = talk(client, "setup")
+
+    shown: list[str] = []
+
+    def round_of(words: str, *replies: FakeReply) -> Any:
+        # A call's id and a message's key are their own in the whole conversation.
+        at = len(FAKE.calls)
+        FAKE.script(*replies, tool("setup_apply", {}, f"apply-{at}"))
+        chat.say(words, key=f"message-{at}")
+        turn = chat.last()
+        assert turn["state"] == "awaiting_consent", turn
+        # What the owner reads before the click: the server's words, per step.
+        shown.clear()
+        for group in turn["consents"]:
+            plan = client.get(CONSENT.format(group["digest"])).data
+            shown.extend(
+                effect["summary"]["pl"] for call in plan["calls"] for effect in call["effects"]
+            )
+        FAKE.script(FakeReply(text="Gotowe."))
+        answered = chat.consent(
+            consents={group["id"]: chat.click(group["digest"]) for group in turn["consents"]}
+        )
+        assert answered.status_code == 202, answered.data
+        return turn, chat.last()
+
+    # The place first: the stay is offered there.
+    round_of(
+        "Mam 3 domki w miejscu Nad jeziorem. Oferta nazywa się Domki, 450 zł za noc, VAT 8%.",
+        notes(
+            ("places.site.name", "Nad jeziorem", "owner"),
+            ("offers.domki.name", "Domki", "owner"),
+            ("offers.domki.preset", "core.lodging", "owner"),
+            ("offers.domki.units", 3, "owner"),
+            ("offers.domki.price", NIGHTLY, "owner"),
+            ("offers.domki.vat", "8", "owner"),
+        ),
+    )
+    assert Location.all_objects.get().name == "Nad jeziorem"
+    assert not Service.all_objects.exists()
+
+    # Then the offer, switched off.
+    round_of("Dalej.")
+    stay = Service.all_objects.get()
+    assert (stay.name, stay.active, stay.draft, stay.time_model) == ("Domki", False, True, "range")
+    assert not Resource.all_objects.exists()
+
+    # Then what needs the offer's id: its units and its price, on one click.
+    offered, done = round_of("Dalej.")
+    # One click for both, and a draft's: nobody can book the offer yet.
+    assert len(offered["consents"]) == 1
+    assert [(step["title"]["pl"], step["risk"]) for step in offered["items"]] == [
+        ("Ustaw jednostki usługi", "draft"),
+        ("Zapisz cenę", "draft"),
+    ]
+    assert shown == [
+        "Usługa „Domki”: 3 jednostki w grupie „Domki” — nowe: „Domki 1”, „Domki 2”, „Domki 3”",
+        "Nowa cena usługi „Domki”: 450,00 PLN za noc, brutto, VAT 8%, cena podstawowa",
+    ]
+    assert [step["status"] for step in done["items"][:2]] == ["done", "done"]
+    assert sorted(Resource.all_objects.values_list("name", flat=True)) == [
+        "Domki 1",
+        "Domki 2",
+        "Domki 3",
+    ]
+    assert ResourceGroup.all_objects.get().name == "Domki"
+    price = PriceRule.all_objects.get()
+    assert (price.service_id, price.basis, price.amount_minor, price.currency, price.vat_code) == (
+        stay.id,
+        "per_time_unit",
+        45000,
+        "PLN",
+        "8",
+    )
+    # Nobody but the owner makes it bookable.
+    assert Service.all_objects.get().active is False
 
 
 def test_a_declined_plan_changes_nothing(talk: Any) -> None:

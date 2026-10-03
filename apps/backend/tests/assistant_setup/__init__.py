@@ -22,6 +22,7 @@ from saas_core.modules.shared.assistant.configurator import (
     LANGUAGES,
     ORGANIZATION,
     PRESETS,
+    PRICES,
     SETUP,
 )
 
@@ -29,8 +30,8 @@ CONTRACTS = Path(settings.BASE_DIR).parent.parent / "packages" / "contracts"
 EXAMPLES = ("hairdresser", "plumber", "cottages", "kayak-rental")
 
 #: The registry the golden outputs are written against: a place and a person
-#: can be added, an offer starts from its preset. A test of what happens
-#: without a command takes it out.
+#: can be added, an offer starts from its preset, a stay gets its units and an
+#: offer its price. A test of what happens without a command takes it out.
 COMMANDS = frozenset({
     "organization.update@1",
     "organization.public_locales.update@1",
@@ -41,8 +42,39 @@ COMMANDS = frozenset({
     "booking.offer.create@1",
     "booking.offer.update@1",
     "booking.staff.hours.set@1",
+    "booking.offer.units.set@1",
+    "booking.price.save@1",
 })
 PERSON_FIELDS = ("name", "phone", "service_ids", "hours", "invitation")
+PRICE_FIELDS = (
+    "price_id",
+    "service_id",
+    "group_id",
+    "resource_id",
+    "name",
+    "starts_on",
+    "ends_on",
+    "weekdays",
+    "local_from",
+    "local_to",
+    "basis",
+    "amount_minor",
+    "vat_code",
+    "included_people",
+    "extra_person_amount_minor",
+    "extra_person_per_time_unit",
+    "category_prices",
+    "length_discounts",
+    "active",
+)
+VAT_OPTIONS = [
+    {"value": "23", "label": {"pl": "23%", "en": "23%"}},
+    {"value": "8", "label": {"pl": "8%", "en": "8%"}},
+    {"value": "5", "label": {"pl": "5%", "en": "5%"}},
+    {"value": "0", "label": {"pl": "0%", "en": "0%"}},
+    {"value": "zw", "label": {"pl": "zwolnione z VAT", "en": "VAT exempt"}},
+    {"value": "np", "label": {"pl": "nie podlega VAT", "en": "outside VAT"}},
+]
 CARD_FIELDS = (
     "display_name",
     "headline",
@@ -85,6 +117,7 @@ def _preset(
     place: str = "business",
     required_inputs: tuple[str, ...] = (),
     catalog_category: str | None = None,
+    range_unit: str | None = None,
 ) -> dict[str, Any]:
     """An entry of `booking.preset.list@1`, in its shape."""
     return {
@@ -96,6 +129,7 @@ def _preset(
             "en": {"name": name[1], "description": ""},
         },
         "time_model": time_model,
+        "range_unit": range_unit,
         "booked_subject": subject,
         "booked_staff": staff,
         "place": place,
@@ -132,6 +166,7 @@ PRESET_LIST = {
             ("Nocleg", "Stay"),
             required_inputs=("season_dates", "min_length", "photos"),
             catalog_category="turystyka-i-noclegi",
+            range_unit="night",
         ),
         _preset(
             "core.rental",
@@ -141,6 +176,7 @@ PRESET_LIST = {
             staff="optional",
             subject="unit_group",
             place="pickup_return",
+            range_unit="day",
         ),
     ]
 }
@@ -210,8 +246,15 @@ def new_company(name: str) -> dict[str, dict[str, Any]]:
             "categories": [category["key"] for category in CATALOG_OPTIONS["categories"]],
         },
         CARD_OPTIONS: CATALOG_OPTIONS,
-        SETUP: {"services": [], "locations": [], "resources": [], "staff": []},
+        SETUP: {"services": [], "locations": [], "resources": [], "groups": [], "staff": []},
         PRESETS: PRESET_LIST,
+        PRICES: {
+            "currency": "PLN",
+            "amounts": "gross",
+            "prices": [],
+            "extras": [],
+            "categories": [],
+        },
     }
 
 

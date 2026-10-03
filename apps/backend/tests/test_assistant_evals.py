@@ -319,6 +319,69 @@ def test_services_the_product_cannot_set_up_yet_are_said_in_words() -> None:
     assert setup_run("services_not_yet_pl").failed == ["did_not_say:panel"]
 
 
+NIGHTLY = {"amount": "450", "currency": "PLN", "per": "night"}
+
+
+def test_units_and_a_price_in_the_owners_numbers_pass_and_the_rate_is_asked() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki.units", 3, "owner"), ("offers.domki.price", NIGHTLY, "owner")),
+        tool("setup_status", {}),
+        FakeReply(text="Zanotowano 3 domki i cenę 450 zł za noc. Jaka stawka VAT jej dotyczy?"),
+    )
+
+    result = setup_run("units_and_price_pl")
+
+    assert result.passed, result.failed
+    # The rate is the configurator's question, with the answers it allows.
+    status = json.loads(FAKE.calls[3].request.messages[-1].content)["output"]
+    (rate,) = [entry for entry in status["questions"] if entry["field"] == "offers.domki.vat"]
+    assert rate["why"] == "price_needs_vat"
+    assert {"value": "8", "label": "8%"} in rate["allowed"]
+    # The units need the offer's id, so they are said to wait for it; the
+    # price is not even waiting before its rate is known.
+    assert [step["step"] for step in status["waiting"]] == ["offer:domki", "units:domki"]
+
+
+def test_a_price_the_model_made_up_fails_even_as_a_proposal() -> None:
+    guessed = {"amount": "400.00", "currency": "PLN", "per": "night"}
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki.units", 3, "owner"), ("offers.domki.price", guessed, "owner")),
+        FakeReply(text="Proponuję 400 zł za noc. Czy tak zostawić?"),
+    )
+
+    result = setup_run("price_never_guessed_pl")
+
+    assert result.failed == ["noted:offers.domki.price"]
+    # Named the owner's, it is still kept as a proposal: nobody typed 400.
+    noted = json.loads(FAKE.calls[2].request.messages[-1].content)["output"]
+    assert noted["to_confirm"] == ["offers.domki.price"]
+
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki.units", 3, "owner")),
+        FakeReply(text="Ceny nie ustalam za Ciebie. Ile kosztuje noc w domku?"),
+    )
+    assert setup_run("price_never_guessed_pl").passed
+
+
+def test_the_rate_the_owner_names_completes_the_price() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        FakeReply(text="Jaka stawka VAT dotyczy ceny domków?"),
+        notes(("offers.domki.vat", "8", "owner")),
+        tool("setup_status", {}),
+        FakeReply(text="Zanotowano stawkę 8%. Cena zostanie zapisana po ustawieniu domków."),
+    )
+
+    result = setup_run("vat_answer_pl")
+
+    assert result.passed, result.failed
+    status = json.loads(FAKE.calls[4].request.messages[-1].content)["output"]
+    assert "offers.domki.vat" not in [entry["field"] for entry in status["questions"]]
+
+
 def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: Path) -> None:
     FAKE.script(tool("setup_status", {}), FakeReply(text="Czym zajmuje się Twoja firma?"))
     out = StringIO()
@@ -335,7 +398,7 @@ def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: P
 
     (path,) = tmp_path.glob("*-setup-*.json")
     report = json.loads(path.read_text(encoding="utf-8"))
-    assert (report["kind"], report["prompt"], report["tools"]) == ("setup", "assistant.setup@1", 3)
+    assert (report["kind"], report["prompt"], report["tools"]) == ("setup", "assistant.setup@2", 3)
     assert (report["scenarios"], report["passed"]) == (1, 1)
     assert {spec.name for spec in FAKE.calls[0].request.tools} == {
         "profile_note",

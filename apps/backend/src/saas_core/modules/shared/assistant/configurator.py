@@ -19,6 +19,12 @@ earlier step creates: run again after a round, the function answers the next
 one, until nothing is left to plan. It only ever adds to the account — a
 place, a person or a language the profile does not mention stays. A person's
 working week is one value, though: the profile's week replaces the account's.
+
+Money is never guessed. A price is planned only as the owner's own confirmed
+amount, in the company's currency, for what the offer can charge for and with
+the tax rate the owner named; anything of it that is missing is asked. And an
+offer that already has a price keeps it: the price list in the account is the
+owner's, a note about it never writes over it.
 """
 
 from __future__ import annotations
@@ -33,9 +39,10 @@ CARD = "profiles.organization.read@1"
 CARD_OPTIONS = "profiles.catalog_options.read@1"
 SETUP = "booking.setup.read@1"
 PRESETS = "booking.preset.list@1"
+PRICES = "booking.prices.read@1"
 #: The reads `configure` works from, by command; an area whose reads are not
 #: given is left alone.
-READS = (ORGANIZATION, LANGUAGES, CARD, CARD_OPTIONS, SETUP, PRESETS)
+READS = (ORGANIZATION, LANGUAGES, CARD, CARD_OPTIONS, SETUP, PRESETS, PRICES)
 
 _ORGANIZATION_UPDATE = "organization.update@1"
 _LANGUAGES_UPDATE = "organization.public_locales.update@1"
@@ -46,6 +53,8 @@ _PRESET_APPLY = "booking.preset.apply@1"
 _OFFER_CREATE = "booking.offer.create@1"
 _OFFER_UPDATE = "booking.offer.update@1"
 _HOURS_SET = "booking.staff.hours.set@1"
+_UNITS_SET = "booking.offer.units.set@1"
+_PRICE_SAVE = "booking.price.save@1"
 #: Every command a plan may hold; one the registry lacks is reported as
 #: `command_missing`, never planned.
 WRITES = (
@@ -58,6 +67,8 @@ WRITES = (
     _OFFER_CREATE,
     _OFFER_UPDATE,
     _HOURS_SET,
+    _UNITS_SET,
+    _PRICE_SAVE,
 )
 
 #: Every field of a command is sent; null keeps it (the commands' own rule).
@@ -86,6 +97,43 @@ _SERVICE_FIELDS = (
     "resource_ids",
 )
 _PERSON_FIELDS = ("name", "phone", "service_ids", "hours", "invitation")
+_PRICE_FIELDS = (
+    "price_id",
+    "service_id",
+    "group_id",
+    "resource_id",
+    "name",
+    "starts_on",
+    "ends_on",
+    "weekdays",
+    "local_from",
+    "local_to",
+    "basis",
+    "amount_minor",
+    "vat_code",
+    "included_people",
+    "extra_person_amount_minor",
+    "extra_person_per_time_unit",
+    "category_prices",
+    "length_discounts",
+    "active",
+)
+#: What a price may be charged for, as the owner says it, with the basis the
+#: price list keeps; a night or a day only where the offer counts them.
+_PER_LABELS = {
+    "booking": {"pl": "za rezerwację", "en": "per booking"},
+    "person": {"pl": "za osobę", "en": "per person"},
+    "night": {"pl": "za noc", "en": "per night"},
+    "day": {"pl": "za dzień", "en": "per day"},
+}
+_VAT_LABELS = {
+    "23": {"pl": "23%", "en": "23%"},
+    "8": {"pl": "8%", "en": "8%"},
+    "5": {"pl": "5%", "en": "5%"},
+    "0": {"pl": "0%", "en": "0%"},
+    "zw": {"pl": "zwolnione z VAT", "en": "VAT exempt"},
+    "np": {"pl": "nie podlega VAT", "en": "outside VAT"},
+}
 #: The card's fields and where the profile keeps each.
 _CARD_SOURCES = (
     ("display_name", "company", "name"),
@@ -445,9 +493,6 @@ def _offers(
         if preset["readiness"] != "ready":
             run.cannot(path, "preset_not_ready", preset_id)
             continue
-        if "price" in offer:
-            # No command writes a price yet; the offer itself can still be set up.
-            run.cannot(f"{path}.price", "price_list")
         slot = preset["time_model"] == "slot"
         for field in ("name", *(("duration_minutes",) if slot else ())):
             if field not in offer:
@@ -475,10 +520,19 @@ def _offers(
         duration = _confirmed(offer.get("duration_minutes"))
         answered = all(_confirmed(inputs.get(key)) is not None for key in preset["required_inputs"])
         if name is None or (slot and duration is None) or not answered:
+            # Still asked for, so the owner hears all of it at once.
+            _units(run, offer, preset, None, setup)
+            _price(run, offer, preset, None, setup)
             continue
+        service = services.get(fold(name))
+        units = _units(run, offer, preset, service, setup)
+        price = _price(run, offer, preset, service, setup)
         if where is None or who is None:
             continue
-        _offer(run, offer["key"], preset, name, duration, services, where, who, places, people)
+        then = [step for step in (units, price) if step is not None]
+        _offer(
+            run, offer["key"], preset, name, duration, service, (where, who), places, people, then
+        )
     return working
 
 
@@ -520,24 +574,184 @@ def _linked(
     return None
 
 
+def _pool(service: Mapping[str, Any], setup: Mapping[str, Any]) -> tuple[bool, int] | None:
+    """Whether the offer has its pool of units and how many switched-on units
+    that pool has — the one it is linked to, or the company's group under the
+    offer's name, which the units command would take. None where the units
+    are arranged another way in the panel: single units, or several groups."""
+    linked = list(service.get("group_ids", []))
+    if service.get("resource_ids") or len(linked) > 1:
+        return None
+    pool = linked or [
+        group["id"]
+        for group in setup.get("groups", [])
+        if fold(group["name"]) == fold(service["name"])
+    ]
+    count = sum(
+        1 for unit in setup["resources"] if unit.get("group_id") in pool and unit.get("active")
+    )
+    return bool(linked), count
+
+
+def _units(
+    run: _Run,
+    offer: Mapping[str, Any],
+    preset: Mapping[str, Any],
+    service: Mapping[str, Any] | None,
+    setup: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """The step that brings a stay's or a rental's pool up to the count the
+    owner gave; asks for the count where the offer has no unit to book."""
+    if preset["time_model"] != "range" or _UNITS_SET not in run.commands:
+        return None
+    key = offer["key"]
+    pool = _pool(service, setup) if service is not None else (False, 0)
+    if pool is None:
+        return None
+    linked, there = pool
+    if "units" not in offer:
+        if not (linked and there):
+            run.ask(f"offers.{key}.units", "offer_needs_units")
+        return None
+    wanted = _confirmed(offer["units"])
+    if wanted is None or (linked and there >= wanted):
+        return None
+    return {
+        "ref": f"units:{key}",
+        "command": _UNITS_SET,
+        # Units are only ever added: the pool keeps what it has.
+        "count": max(wanted, there),
+        "capacity": _confirmed(offer.get("capacity")),
+    }
+
+
+def _basis(per: str, preset: Mapping[str, Any], service: Mapping[str, Any] | None) -> str | None:
+    """The price list's basis for what the owner said the price is for; None
+    where the offer cannot charge for that."""
+    if per == "booking":
+        return "per_booking"
+    if per == "person":
+        return "per_person"
+    unit = (service or preset).get("range_unit")
+    return "per_time_unit" if per in ("night", "day") and per == unit else None
+
+
+def _price(
+    run: _Run,
+    offer: Mapping[str, Any],
+    preset: Mapping[str, Any],
+    service: Mapping[str, Any] | None,
+    setup: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """The step that saves the offer's base price, once the owner gave every
+    part of it; asks for what is missing. An offer that has a price is left
+    alone."""
+    path = f"offers.{offer['key']}"
+    account, prices = run.reads.get(ORGANIZATION), run.reads.get(PRICES)
+    if _PRICE_SAVE not in run.commands or prices is None:
+        if "price" in offer:
+            # The registry before the price list's commands.
+            run.cannot(f"{path}.price", "price_list")
+        return None
+    if account is None:
+        return None
+    if service is not None:
+        scopes = {service["id"], *service.get("group_ids", [])}
+        if any(
+            rule.get("service_id") in scopes or rule.get("group_id") in scopes
+            for rule in prices["prices"]
+        ):
+            return None
+    if "price" not in offer:
+        if preset["time_model"] == "range":
+            # A stay or a rental is sold by its price; a visit often has none.
+            run.ask(f"{path}.price", "offer_needs_price")
+        return None
+    price = offer["price"]["value"]
+    if price["currency"] != account["currency"]:
+        run.cannot(f"{path}.price", "price_currency", account["currency"])
+        return None
+    known = service is not None or "range_unit" in preset or preset["time_model"] != "range"
+    basis = _basis(price["per"], preset, service)
+    if basis is None and known:
+        unit = (service or preset).get("range_unit")
+        allowed = ["booking", "person", *([unit] if unit in ("night", "day") else [])]
+        run.ask(
+            f"{path}.price",
+            "price_per_not_offered",
+            options=[{"value": per, "label": _PER_LABELS[per]} for per in allowed],
+        )
+        return None
+    if "vat" not in offer:
+        run.ask(
+            f"{path}.vat",
+            "price_needs_vat",
+            options=[{"value": code, "label": label} for code, label in _VAT_LABELS.items()],
+        )
+    vat = _confirmed(offer.get("vat"))
+    if _confirmed(offer["price"]) is None or vat is None or basis is None:
+        return None
+    whole, _, cents = price["amount"].partition(".")
+    return {
+        "ref": f"price:{offer['key']}",
+        "command": _PRICE_SAVE,
+        "basis": basis,
+        "amount_minor": int(whole) * 100 + int(cents or 0),
+        "vat_code": vat,
+    }
+
+
+def _follow(run: _Run, key: str, service_id: str | None, steps: list[dict[str, Any]]) -> None:
+    """The offer's units and price: planned once the offer has its id, waiting
+    for the offer until then."""
+    for step in steps:
+        ref, command = step["ref"], step["command"]
+        if service_id is None:
+            run.wait(ref, command, [f"offer:{key}"])
+        elif command == _UNITS_SET:
+            run.step(
+                ref,
+                command,
+                {
+                    "service_id": service_id,
+                    "count": step["count"],
+                    "capacity": step["capacity"],
+                    "location_id": None,
+                },
+            )
+        else:
+            run.step(
+                ref,
+                command,
+                {
+                    **dict.fromkeys(_PRICE_FIELDS),
+                    "service_id": service_id,
+                    "basis": step["basis"],
+                    "amount_minor": step["amount_minor"],
+                    "vat_code": step["vat_code"],
+                },
+            )
+
+
 def _offer(
     run: _Run,
     key: str,
     preset: Mapping[str, Any],
     name: str,
     duration: int | None,
-    services: Mapping[str, Mapping[str, Any]],
-    where: list[str],
-    who: list[str],
+    service: Mapping[str, Any] | None,
+    linked: tuple[list[str], list[str]],
     places: dict[str, str | None],
     people: dict[str, str | None],
+    then: list[dict[str, Any]],
 ) -> None:
+    """Plans the offer, and after it the steps that need its id (`then`)."""
+    where, who = linked
     ref = f"offer:{key}"
     waits = [
         *(f"place:{place}" for place in where if places[place] is None),
         *(f"person:{person}" for person in who if people[person] is None),
     ]
-    service = services.get(fold(name))
     if service is None:
         # Through the preset once the product has the command; until then a
         # visit by the clock can be created as a plain service.
@@ -545,51 +759,54 @@ def _offer(
         command = _OFFER_CREATE if plain else _PRESET_APPLY
         if waits:
             run.wait(ref, command, waits)
-            return
-        linked = {
-            "staff_ids": [people[person] for person in who] or None,
-            "location_ids": [places[place] for place in where] or None,
-        }
-        arguments: dict[str, Any]
-        if plain:
-            arguments = {
-                **dict.fromkeys(_SERVICE_FIELDS),
-                "name": name,
-                "duration_minutes": duration,
-                **linked,
-            }
         else:
-            arguments = {
-                "preset_id": preset["id"],
-                "version": None,
-                "name": name,
-                "duration_minutes": duration,
-                **linked,
+            links = {
+                "staff_ids": [people[person] for person in who] or None,
+                "location_ids": [places[place] for place in where] or None,
             }
-        run.step(ref, command, arguments)
+            arguments: dict[str, Any]
+            if plain:
+                arguments = {
+                    **dict.fromkeys(_SERVICE_FIELDS),
+                    "name": name,
+                    "duration_minutes": duration,
+                    **links,
+                }
+            else:
+                arguments = {
+                    "preset_id": preset["id"],
+                    "version": None,
+                    "name": name,
+                    "duration_minutes": duration,
+                    **links,
+                }
+            run.step(ref, command, arguments)
+        _follow(run, key, None, then)
         return
     if waits:
         run.wait(ref, _OFFER_UPDATE, waits)
-        return
-    changes: dict[str, Any] = {}
-    if duration is not None and service["duration_minutes"] != duration:
-        changes["duration_minutes"] = duration
-    for field, wanted in (
-        ("staff_ids", [people[person] for person in who]),
-        ("location_ids", [places[place] for place in where]),
-    ):
-        added = [item for item in wanted if item not in service[field]]
-        if added:
-            changes[field] = [*service[field], *added]
-    if changes:
-        run.step(
-            ref,
-            _OFFER_UPDATE,
-            {"service_id": service["id"], **dict.fromkeys(_SERVICE_FIELDS), **changes},
-        )
-    elif not service["active"]:
-        # Making it bookable by the public is the owner's own step.
-        run.wait(f"{ref}:switch_on", None, reason="person_only")
+    else:
+        changes: dict[str, Any] = {}
+        if duration is not None and service["duration_minutes"] != duration:
+            changes["duration_minutes"] = duration
+        for field, wanted in (
+            ("staff_ids", [people[person] for person in who]),
+            ("location_ids", [places[place] for place in where]),
+        ):
+            added = [item for item in wanted if item not in service[field]]
+            if added:
+                changes[field] = [*service[field], *added]
+        if changes:
+            run.step(
+                ref,
+                _OFFER_UPDATE,
+                {"service_id": service["id"], **dict.fromkeys(_SERVICE_FIELDS), **changes},
+            )
+        elif not service["active"] and not then:
+            # Making it bookable by the public is the owner's own step, once
+            # nothing of the offer is left to set up.
+            run.wait(f"{ref}:switch_on", None, reason="person_only")
+    _follow(run, key, service["id"], then)
 
 
 def _hours(

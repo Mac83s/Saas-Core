@@ -26,6 +26,10 @@ SCHEMA_ID = "company-profile.v1"
 ORIGINS = ("owner", "account", "existing_site", "preset_default", "assistant")
 #: A profile is an interview's notes, not an archive.
 MAX_PROFILE_BYTES = 64_000
+#: The tax rates a price may carry, as the price list's commands name them
+#: (`booking.price.save@1`). Kept here as words of the contract: the assistant
+#: reaches other modules only through the registry (ADR-076 pkt 9).
+VAT_CODES = ("23", "8", "5", "0", "zw", "np")
 
 _KEY = {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"}
 _KEYS = {"type": "array", "maxItems": 50, "uniqueItems": True, "items": _KEY}
@@ -83,7 +87,8 @@ _HOURS = {
 }
 _PRICE = _section(
     {
-        "amount": {"type": "string", "pattern": "^[0-9]{1,7}(\\.[0-9]{2})?$"},
+        # Below the price list's own bound of 1 000 000.00 (`booking.price.save@1`).
+        "amount": {"type": "string", "pattern": "^[0-9]{1,6}(\\.[0-9]{2})?$"},
         "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
         "per": {"type": "string", "enum": ["booking", "person", "hour", "day", "night"]},
     },
@@ -168,7 +173,15 @@ PROFILE_SCHEMA: dict[str, Any] = {
                         "duration_minutes": _number(5, 1440, "How long one visit takes."),
                         "units": _number(1, 1000, "How many identical units there are."),
                         "capacity": _number(1, 1000, "How many people one unit takes."),
-                        "price": _said(_PRICE, "What it costs."),
+                        "price": _said(
+                            _PRICE,
+                            "What it costs: the amount the owner gave, never a guess.",
+                        ),
+                        "vat": _said(
+                            {"type": "string", "enum": list(VAT_CODES)},
+                            "The tax rate of its price as a code: 23, 8, 5, 0, zw (exempt), "
+                            "np (outside VAT). The owner's answer, never a default.",
+                        ),
                         "places": _said(_KEYS, "The keys of the places it is offered at."),
                         "people": _said(_KEYS, "The keys of the people who do it."),
                         "inputs": {

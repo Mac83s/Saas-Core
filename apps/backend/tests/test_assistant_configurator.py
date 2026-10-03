@@ -25,7 +25,9 @@ from assistant_setup import (
     PERSON_FIELDS,
     PRESET_LIST,
     PRESET_OPTIONS,
+    PRICE_FIELDS,
     SERVICE_FIELDS,
+    VAT_OPTIONS,
     catalog_from_contract,
     example,
     new_company,
@@ -40,6 +42,7 @@ from saas_core.modules.shared.assistant.configurator import (
     CARD_OPTIONS,
     ORGANIZATION,
     PRESETS,
+    PRICES,
     READS,
     SETUP,
     WRITES,
@@ -126,6 +129,8 @@ def test_the_hairdresser_gets_a_place_now_and_the_rest_in_rounds() -> None:
 
     assert answer == {
         "missing": [
+            # The price is the owner's; its tax rate nobody said, so it is asked.
+            ask("offers.cut.vat", "price_needs_vat", None, VAT_OPTIONS),
             # What the assistant guessed is asked about, never written.
             confirm("offers.colour.preset", "assistant", "core.specialist_visit"),
             ask("people.ola.hours", "person_needs_hours"),
@@ -169,7 +174,7 @@ def test_the_hairdresser_gets_a_place_now_and_the_rest_in_rounds() -> None:
             ),
             waits("hours:ania", "booking.staff.hours.set@1", "person:ania", "place:salon"),
         ],
-        "unsupported": [cannot("offers.cut.price", "price_list")],
+        "unsupported": [],
     }
 
 
@@ -217,6 +222,7 @@ def test_work_at_the_customers_still_needs_a_place_to_set_out_from() -> None:
     answer = configure(example("plumber"), reads, COMMANDS)
 
     assert [entry["key"] for entry in answer["missing"]] == [
+        "offers.repair.vat",
         "offers.install.duration_minutes",
         "places",
         "people.jan.hours",
@@ -226,7 +232,7 @@ def test_work_at_the_customers_still_needs_a_place_to_set_out_from() -> None:
     assert [entry["ref"] for entry in answer["plan"]] == ["card", "person:jan"]
     # Nothing of the offers runs before the base is there.
     assert answer["blocked"] == []
-    assert answer["unsupported"] == [cannot("offers.repair.price", "price_list")]
+    assert answer["unsupported"] == []
 
     # The base named and added, the person added: the offer starts from its preset.
     profile = example("plumber")
@@ -318,9 +324,14 @@ def test_a_stay_or_a_rental_starts_from_its_preset_without_a_duration() -> None:
 
     answer = configure(example("kayak-rental"), reads, COMMANDS)
 
-    # The offer waits for the only place there is, and takes nobody's time.
-    assert answer["blocked"] == [waits("offer:kayak", "booking.preset.apply@1", "place:base")]
-    assert answer["unsupported"] == [cannot("offers.kayak.price", "price_list")]
+    # The offer waits for the only place there is, and takes nobody's time;
+    # its units and its price need its id, so they wait for the offer.
+    assert answer["blocked"] == [
+        waits("offer:kayak", "booking.preset.apply@1", "place:base"),
+        waits("units:kayak", "booking.offer.units.set@1", "offer:kayak"),
+        waits("price:kayak", "booking.price.save@1", "offer:kayak"),
+    ]
+    assert answer["unsupported"] == []
 
     reads[SETUP] = {
         "services": [],
@@ -334,6 +345,7 @@ def test_a_stay_or_a_rental_starts_from_its_preset_without_a_duration() -> None:
             }
         ],
         "resources": [],
+        "groups": [],
         "staff": [],
     }
     answer = configure(example("kayak-rental"), reads, COMMANDS)
@@ -341,6 +353,209 @@ def test_a_stay_or_a_rental_starts_from_its_preset_without_a_duration() -> None:
         from_preset("kayak", "core.rental", "Kajak dwuosobowy", location_ids=["L1"])
         in answer["plan"]
     )
+
+
+# --- Units and prices ---------------------------------------------------------------
+
+
+def units(key: str, service_id: str, count: int, capacity: int | None) -> dict[str, Any]:
+    return step(
+        f"units:{key}",
+        "booking.offer.units.set@1",
+        {"service_id": service_id, "count": count, "capacity": capacity, "location_id": None},
+    )
+
+
+def price(key: str, service_id: str, basis: str, amount_minor: int, vat: str) -> dict[str, Any]:
+    return step(
+        f"price:{key}",
+        "booking.price.save@1",
+        {
+            **dict.fromkeys(PRICE_FIELDS),
+            "service_id": service_id,
+            "basis": basis,
+            "amount_minor": amount_minor,
+            "vat_code": vat,
+        },
+    )
+
+
+SWITCH_ON = {
+    "ref": "offer:cottage:switch_on",
+    "reason": "person_only",
+    "command": None,
+    "waits_for": [],
+}
+
+
+def _cottages(**stay: Any) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """The cottages once their place and their stay are in the account: the
+    stay from its preset, switched off, with nothing to book and no price."""
+    profile = example("cottages")
+    profile["places"] = [
+        {"key": "site", "name": {"value": "Nad jeziorem", "origin": "owner", "confirmed": True}}
+    ]
+    reads = new_company("Domki nad Jeziorem")
+    reads[PRESETS] = with_ready("core.lodging")
+    reads[PRESETS]["presets"][2]["required_inputs"] = []
+    reads[SETUP] = {
+        "services": [
+            {
+                "id": "V1",
+                "name": "Domek 6-osobowy",
+                "time_model": "range",
+                "range_unit": "night",
+                "duration_minutes": None,
+                "staff_ids": [],
+                "location_ids": ["L1"],
+                "resource_ids": [],
+                "group_ids": [],
+                "active": False,
+                **stay,
+            }
+        ],
+        "locations": [
+            {"id": "L1", "name": "Nad jeziorem", "address": "", "active": True, "online": True}
+        ],
+        "resources": [],
+        "groups": [],
+        "staff": [],
+    }
+    return profile, reads
+
+
+def _pool(count: int, group: str = "G1", name: str = "Domek 6-osobowy") -> dict[str, Any]:
+    return {
+        "groups": [{"id": group, "name": name, "active": True}],
+        "resources": [
+            {"id": f"U{number}", "name": f"{name} {number}", "group_id": group, "active": True}
+            for number in range(1, count + 1)
+        ],
+    }
+
+
+def test_a_stay_gets_its_units_and_its_price_once_it_exists() -> None:
+    profile, reads = _cottages()
+
+    answer = configure(profile, reads, COMMANDS)
+
+    assert answer["plan"][-2:] == [
+        units("cottage", "V1", 3, 6),
+        # 450.00 a night as the owner said it, with the rate the owner named.
+        price("cottage", "V1", "per_time_unit", 45000, "8"),
+    ]
+    # Switching it on is offered only once nothing of the offer is left to set up.
+    assert answer["blocked"] == []
+
+    reads[SETUP].update(_pool(3))
+    reads[SETUP]["services"][0]["group_ids"] = ["G1"]
+    reads[PRICES]["prices"] = [{"id": "P1", "service_id": "V1", "group_id": None}]
+    answer = configure(profile, reads, COMMANDS)
+
+    assert [entry["ref"] for entry in answer["plan"] if ":" in entry["ref"]] == []
+    assert answer["blocked"] == [SWITCH_ON]
+
+
+def test_a_stay_without_units_or_a_price_is_asked_for_them() -> None:
+    profile, reads = _cottages()
+    for field in ("units", "capacity", "price", "vat"):
+        del profile["offers"][0][field]
+
+    answer = configure(profile, reads, COMMANDS)
+
+    assert answer["missing"][:2] == [
+        ask("offers.cottage.units", "offer_needs_units"),
+        ask("offers.cottage.price", "offer_needs_price"),
+    ]
+    assert [entry["ref"] for entry in answer["plan"] if entry["ref"].endswith(":cottage")] == []
+
+    # A visit by the clock often has no price: nobody is asked for one.
+    answer = configure(example("hairdresser"), new_company("Salon Ania"), COMMANDS)
+    assert "offers.colour.price" not in [entry["key"] for entry in answer["missing"]]
+
+
+def test_units_are_only_ever_added() -> None:
+    profile, reads = _cottages(group_ids=["G1"])
+    reads[SETUP].update(_pool(5))
+
+    # Five in the pool, three in the notes: the two more stay.
+    answer = configure(profile, reads, COMMANDS)
+    assert "units:cottage" not in [entry["ref"] for entry in answer["plan"]]
+
+    # A pool under the offer's name that the offer is not linked to — as after
+    # a draft removed and made again — is the offer's: linked, never cut.
+    reads[SETUP]["services"][0]["group_ids"] = []
+    answer = configure(profile, reads, COMMANDS)
+    assert units("cottage", "V1", 5, 6) in answer["plan"]
+
+    # Units arranged in the panel one by one are the panel's.
+    reads[SETUP]["services"][0]["resource_ids"] = ["U1"]
+    answer = configure(profile, reads, COMMANDS)
+    assert "units:cottage" not in [entry["ref"] for entry in answer["plan"]]
+
+
+def _priced(profile: dict[str, Any], reads: dict[str, dict[str, Any]]) -> list[str]:
+    return [entry["ref"] for entry in configure(profile, reads, COMMANDS)["plan"]]
+
+
+def test_money_is_never_guessed() -> None:
+    profile, reads = _cottages()
+    offer = profile["offers"][0]
+
+    # The assistant's own number is asked about, never written.
+    offer["price"] = {**offer["price"], "origin": "assistant", "confirmed": False}
+    answer = configure(profile, reads, COMMANDS)
+    assert "price:cottage" not in [entry["ref"] for entry in answer["plan"]]
+    assert confirm("offers.cottage.price", "assistant", offer["price"]["value"]) in (
+        answer["missing"]
+    )
+
+    # Neither is the tax rate: without the owner's answer the price waits.
+    profile, reads = _cottages()
+    del profile["offers"][0]["vat"]
+    answer = configure(profile, reads, COMMANDS)
+    assert "price:cottage" not in [entry["ref"] for entry in answer["plan"]]
+    assert ask("offers.cottage.vat", "price_needs_vat", None, VAT_OPTIONS) in answer["missing"]
+
+    # A night is what this offer counts; a price for a day is asked about
+    # again, never read as one for a night.
+    profile, reads = _cottages()
+    profile["offers"][0]["price"]["value"]["per"] = "day"
+    answer = configure(profile, reads, COMMANDS)
+    assert "price:cottage" not in [entry["ref"] for entry in answer["plan"]]
+    (question,) = [q for q in answer["missing"] if q["key"] == "offers.cottage.price"]
+    assert question["reason"] == "price_per_not_offered"
+    assert [option["value"] for option in question["options"]] == ["booking", "person", "night"]
+
+    # Another currency than the company's is not converted.
+    profile, reads = _cottages()
+    profile["offers"][0]["price"]["value"]["currency"] = "EUR"
+    answer = configure(profile, reads, COMMANDS)
+    assert "price:cottage" not in [entry["ref"] for entry in answer["plan"]]
+    assert answer["unsupported"][-1] == cannot("offers.cottage.price", "price_currency", "PLN")
+
+
+def test_an_offer_that_has_a_price_keeps_it() -> None:
+    """The price list in the account is the owner's: changed in the panel
+    since, it is not planned back to what the notes say."""
+    profile, reads = _cottages(group_ids=["G1"])
+    reads[SETUP].update(_pool(3))
+    reads[PRICES]["prices"] = [
+        {"id": "P1", "service_id": None, "group_id": "G1", "amount_minor": 50000}
+    ]
+
+    assert "price:cottage" not in _priced(profile, reads)
+
+
+def test_before_the_price_commands_a_price_is_said_to_be_the_panels() -> None:
+    commands = COMMANDS - {"booking.price.save@1", "booking.offer.units.set@1"}
+    reads = new_company("Kajaki Krutynia")
+    reads[PRESETS] = with_ready("core.rental")
+
+    answer = configure(example("kayak-rental"), reads, commands)
+
+    assert answer["unsupported"] == [cannot("offers.kayak.price", "price_list")]
+    assert answer["blocked"] == [waits("offer:kayak", "booking.preset.apply@1", "place:base")]
 
 
 # --- Round after round -------------------------------------------------------------
@@ -636,13 +851,9 @@ TODAY: dict[str, list[str]] = {
     # Stays, rentals and the visit at the customer's are ready (owner
     # decisions 67a and 68a); none of the four examples needs an announced kind.
     "presets_not_ready": [],
-    # The price list is in the product; no command of the assistant writes to it.
-    "no_price_list": [
-        "cottages:offers.cottage.price",
-        "hairdresser:offers.cut.price",
-        "kayak-rental:offers.kayak.price",
-        "plumber:offers.repair.price",
-    ],
+    # The price list's commands are registered: a price the owner gave is a
+    # plan step, never a line of what the product cannot do.
+    "no_price_list": [],
     "cities_not_in_catalog": [],
 }
 MOVED = (

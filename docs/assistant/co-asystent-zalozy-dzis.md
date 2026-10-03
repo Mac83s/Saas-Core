@@ -16,18 +16,18 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 
 | Firma | Ustawi od razu | Zapyta | Czeka | Produkt jeszcze nie umie |
 | --- | --- | --- | --- | --- |
-| Fryzjer — Salon Fryzjerski Ania | 4 | 4 | 2 | 1 |
-| Hydraulik — Hydraulik Kowalski | 2 | 4 | 0 | 1 |
-| Domki letniskowe — Domki nad Jeziorem | 2 | 2 | 0 | 1 |
-| Wypożyczalnia kajaków — Kajaki Krutynia | 2 | 2 | 1 | 1 |
+| Fryzjer — Salon Fryzjerski Ania | 4 | 5 | 2 | 0 |
+| Hydraulik — Hydraulik Kowalski | 2 | 5 | 0 | 0 |
+| Domki letniskowe — Domki nad Jeziorem | 2 | 2 | 0 | 0 |
+| Wypożyczalnia kajaków — Kajaki Krutynia | 2 | 2 | 3 | 0 |
 
 ## Czego dziś brakuje w produkcie
 
 - rodzaj rezerwacji „Nocleg”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
 - rodzaj rezerwacji „Wypożyczalnia”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
 - rodzaj rezerwacji „Usługa u klienta”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
-- jednostki pobytów i wynajmu (domki, kajaki): asystent ich nie zakłada — dodaje je właściciel w panelu, w Ustawieniach › Usługi i grafik
-- ceny usług: cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
+- cennik poza ceną podstawową (sezony, ceny weekendowe, dopłaty, kaucje): rozmowa ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo zleca asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)
+- zasady sezonów (najkrótszy pobyt, dni przyjazdu): asystent nie ma polecenia — ustawia je właściciel w panelu, w Sezonach
 
 ## Fryzjer — Salon Fryzjerski Ania, Olsztyn
 
@@ -42,6 +42,7 @@ Właściciel powiedział: „fryzjer damski i męski”.
 
 **Zapyta**
 
+- jaka stawka VAT obowiązuje dla ceny „Strzyżenie damskie” (wybór z listy)
 - potwierdzenie — „Koloryzacja”: rodzaj rezerwacji: „Wizyta u specjalisty” (propozycja asystenta)
 - w jakich godzinach pracuje Ola
 - kategoria w katalogu firm — asystent podpowie „Uroda i zdrowie”
@@ -54,7 +55,7 @@ Właściciel powiedział: „fryzjer damski i męski”.
 
 **Produkt jeszcze nie umie**
 
-- cena „Strzyżenie damskie” (90,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
+- nic
 
 ## Hydraulik — Hydraulik Kowalski, Mrągowo
 
@@ -67,6 +68,7 @@ Właściciel powiedział: „hydraulik: awarie, instalacje wodne i kanalizacyjne
 
 **Zapyta**
 
+- jaka stawka VAT obowiązuje dla ceny „Usuwanie awarii” (wybór z listy)
 - „Montaż instalacji”: czas trwania
 - skąd firma wyjeżdża do klientów (miejsce, w którym zespół ma godziny pracy)
 - w jakich godzinach pracuje Jan Kowalski
@@ -78,7 +80,7 @@ Właściciel powiedział: „hydraulik: awarie, instalacje wodne i kanalizacyjne
 
 **Produkt jeszcze nie umie**
 
-- cena „Usuwanie awarii” (200,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
+- nic
 
 ## Domki letniskowe — Domki nad Jeziorem, Mikołajki
 
@@ -100,7 +102,7 @@ Właściciel powiedział: „domki letniskowe nad jeziorem”.
 
 **Produkt jeszcze nie umie**
 
-- cena „Domek 6-osobowy” (450,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
+- nic
 
 ## Wypożyczalnia kajaków — Kajaki Krutynia, Mrągowo
 
@@ -119,14 +121,16 @@ Właściciel powiedział: „wypożyczalnia kajaków na Krutyni”.
 **Czeka**
 
 - usługa „Kajak dwuosobowy” — w następnej rundzie, gdy będą: miejsce „Przystań”
+- jednostki usługi „Kajak dwuosobowy” — w następnej rundzie, gdy będą: usługa „Kajak dwuosobowy”
+- cena usługi „Kajak dwuosobowy” — w następnej rundzie, gdy będą: usługa „Kajak dwuosobowy”
 
 **Produkt jeszcze nie umie**
 
-- cena „Kajak dwuosobowy” (60,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
+- nic
 
 ## Skąd te dane
 
-- konto: odczyty przez rejestr poleceń (`organization.read`, `organization.public_locales.read`, `profiles.organization.read`, `profiles.catalog_options.read`, `booking.setup.read`) dla firmy typu `business` bez wizytówki, miejsc, osób i usług;
+- konto: odczyty przez rejestr poleceń (`organization.read`, `organization.public_locales.read`, `profiles.organization.read`, `profiles.catalog_options.read`, `booking.setup.read`, `booking.prices.read`) dla firmy typu `business` bez wizytówki, miejsc, osób, usług i cen;
 - rodzaje rezerwacji: polecenie `booking.preset.list@1`, czyli kontrakt `packages/contracts/booking-presets/` w najnowszych wersjach;
 - języki: oferuje je profil wdrożenia (testy liczą na profilu z polskim i angielskim, Business ma też niemiecki), więc przykład używa pary pl + en;
 - reguły konfiguratora mają osobne testy na zamrożonych katalogach — ten plik pokazuje stan produktu, nie reguły.

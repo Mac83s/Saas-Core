@@ -68,6 +68,11 @@
         },
         "origin": "owner",
         "confirmed": true
+      },
+      "vat": {
+        "value": "23",
+        "origin": "owner",
+        "confirmed": true
       }
     },
     {

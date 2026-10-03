@@ -64,9 +64,14 @@ TOOLS: tuple[dict[str, Any], ...] = (
             '"place": "<place key>"};\n'
             "- offers.<key>.name: text; offers.<key>.preset: a kind of booking from the "
             "allowed answers of setup_status; offers.<key>.duration_minutes, "
-            "offers.<key>.units, offers.<key>.capacity: whole numbers; offers.<key>.price: "
+            "offers.<key>.units (how many identical units — cottages, rooms, kayaks — a "
+            "stay or a rental has), offers.<key>.capacity (people one unit takes): whole "
+            "numbers; offers.<key>.price: "
             '{"amount": "90.00", "currency": "PLN", "per": '
-            '"booking" | "person" | "hour" | "day" | "night"}; offers.<key>.places, '
+            '"booking" | "person" | "hour" | "day" | "night"} — the amount exactly as the '
+            "person wrote it, never one you worked out, rounded or assumed; "
+            'offers.<key>.vat: the tax rate of that price, "23" | "8" | "5" | "0" | "zw" '
+            '(exempt) | "np" (outside VAT), only as the person answered; offers.<key>.places, '
             "offers.<key>.people: lists of keys; offers.<key>.inputs.<name>: an answer "
             "setup_status asked for.\n"
             "<key> is a short name you choose for a new place, person or offer (lowercase "
@@ -154,6 +159,8 @@ _WHY_UNSUPPORTED = {
     "price_list": "The assistant cannot save a price yet. The person enters it in the "
     "service's price list (Cennik) in the panel, under Ustawienia › Usługi i grafik; it "
     "stays in the notes about the company.",
+    "price_currency": "The company's price list is in another currency, so this price "
+    "cannot be saved as it was said. Ask for the amount in the company's currency.",
     "city_not_in_catalog": "This town is not on the company directory's list of towns, so "
     "the company's card cannot name it yet.",
     "category_unknown": "The company directory has no such category.",
@@ -169,12 +176,19 @@ _FIELD = re.compile(
     "|languages"
     f"|places\\.{_KEY}(?:\\.(?:name|address))?"
     f"|people\\.{_KEY}(?:\\.(?:name|hours))?"
-    f"|offers\\.{_KEY}(?:\\.(?:name|preset|duration_minutes|units|capacity|price|places|people"
+    f"|offers\\.{_KEY}(?:\\.(?:name|preset|duration_minutes|units|capacity|price|vat|places|people"
     "|inputs\\.[a-z][a-z0-9_]{0,63}))?"
 )
-#: What ends up public or is used to reach people: the owner's word for it
-#: counts only when they typed it themselves (ADR-076, A3-2 pkt 3).
-_TYPED = re.compile(f"company\\.(?:name|address|phone|email)|places\\.{_KEY}\\.address")
+#: What ends up public, is used to reach people or is money: the owner's word
+#: for it counts only when they typed it themselves (ADR-076, A3-2 pkt 3) — a
+#: price is the owner's typed number or it is asked.
+_TYPED = re.compile(
+    f"company\\.(?:name|address|phone|email)|places\\.{_KEY}\\.address|offers\\.{_KEY}\\.price"
+)
+#: A number as people write an amount: „450”, „1 200”, „89,50”, „89.5”.
+_NUMBER = re.compile(
+    "(?<![0-9.,])([0-9]{1,3}(?:[ \\u00a0][0-9]{3})+|[0-9]+)(?:[.,]([0-9]{1,2}))?(?![0-9])"
+)
 #: Sent to the model as known, never as a value: nothing it asks needs them.
 _WITHHELD = re.compile(f"company\\.(?:address|phone|email)|places\\.{_KEY}\\.address")
 _LISTS = ("places", "people", "offers")
@@ -310,6 +324,8 @@ def _tidy(document: dict[str, Any]) -> None:
 def owner_typed(field: str, value: Any, owner_words: str) -> bool:
     """Whether the owner wrote this value themselves, spacing, case and
     punctuation aside — a model that changes one digit does not pass."""
+    if field.endswith(".price"):
+        return isinstance(value, Mapping) and amount_typed(value.get("amount"), owner_words)
     if not isinstance(value, str):
         return False
     if field == "company.phone":
@@ -319,6 +335,24 @@ def owner_typed(field: str, value: Any, owner_words: str) -> bool:
         local = digits[2:] if len(digits) == 11 and digits.startswith("48") else digits
         return len(local) >= 7 and local in written
     return f" {fold(value)} " in f" {fold(owner_words)} "
+
+
+def amount_typed(amount: Any, owner_words: str) -> bool:
+    """Whether the owner wrote this amount as a number: „450 zł” says 450.00,
+    „1 200” says 1200.00 and „89,5” says 89.50. A number the model worked out
+    — a sum, a rounding, a guess — is in nobody's message."""
+    if not isinstance(amount, str) or not re.fullmatch("[0-9]+(?:\\.[0-9]{2})?", amount):
+        return False
+    whole, _, cents = amount.partition(".")
+    wanted = (int(whole), int(cents or 0))
+    written = (
+        (
+            int("".join(char for char in found.group(1) if char.isdigit())),
+            int((found.group(2) or "0").ljust(2, "0")),
+        )
+        for found in _NUMBER.finditer(owner_words)
+    )
+    return wanted in written
 
 
 # --- setup_status and setup_apply --------------------------------------------------

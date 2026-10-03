@@ -30,7 +30,7 @@ from saas_core.modules.shared.model_port.api import (
 )
 
 from .. import setup
-from ..configurator import WRITES, configure, fold, said_values
+from ..configurator import PRESETS, WRITES, configure, fold, said_values
 from ..permissions import TASK
 from ..profile_schema import empty_profile, validate_profile
 from ..prompts import SETUP_PROMPT_ID, SETUP_PROMPT_VERSION, system_prompt
@@ -170,6 +170,15 @@ class _State:
         # the model as waiting, as in a conversation.
         commands = frozenset(WRITES) & {spec.key for spec in registered_commands()}
         account = {key: read for key, read in ACCOUNT.items() if key not in self.scenario.without}
+        if self.scenario.ready and PRESETS in account:
+            account[PRESETS] = {
+                "presets": [
+                    {**preset, "readiness": "ready"}
+                    if preset["id"] in self.scenario.ready
+                    else preset
+                    for preset in account[PRESETS]["presets"]
+                ]
+            }
         answer = configure(self.document, account, commands)
         if name == setup.SETUP_STATUS:
             return {
@@ -229,6 +238,11 @@ def grade_setup(
         for pattern in scenario.not_owner
         if any(fnmatchcase(field, pattern) for field in owned)
     ]
+    failed += [
+        f"noted:{pattern}"
+        for pattern in scenario.absent
+        if any(fnmatchcase(field, pattern) for field in values)
+    ]
     applied = setup.SETUP_APPLY in result.calls
     if scenario.applies is True and not applied:
         failed.append("did_not_apply")
@@ -276,7 +290,16 @@ def _written(field: str, value: Any, owner_words: str) -> bool:
 
 
 def _same(value: Any, expected: Any) -> bool:
-    """A phone number by its digits, a text as people compare it."""
+    """A phone number by its digits, a text as people compare it, a price by
+    its amount however it was written („450” is „450.00”)."""
+    if isinstance(expected, Mapping) and isinstance(value, Mapping) and "amount" in expected:
+        try:
+            amounts = float(value.get("amount", "")), float(expected["amount"])
+        except (TypeError, ValueError):
+            return False
+        return amounts[0] == amounts[1] and all(
+            value.get(key) == expected[key] for key in ("currency", "per")
+        )
     if isinstance(expected, str) and expected.isdigit() and isinstance(value, str):
         return "".join(char for char in value if char.isdigit()).endswith(expected)
     if isinstance(expected, str) and isinstance(value, str):

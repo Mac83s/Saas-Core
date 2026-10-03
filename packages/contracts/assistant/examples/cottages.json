@@ -66,6 +66,11 @@
         "origin": "owner",
         "confirmed": true
       },
+      "vat": {
+        "value": "8",
+        "origin": "owner",
+        "confirmed": true
+      },
       "inputs": {
         "min_length": {
           "value": 2,
