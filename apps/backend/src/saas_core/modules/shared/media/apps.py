@@ -12,9 +12,11 @@ class MediaConfig(AppConfig):
             register_resource_reference_handler,
         )
 
+        from .history_targets import register_history_targets
         from .references import MEDIA_ASSET_RESOURCE_TYPE, media_asset_reference_handler
 
         register_resource_reference_handler(
             MEDIA_ASSET_RESOURCE_TYPE,
             media_asset_reference_handler,
         )
+        register_history_targets()

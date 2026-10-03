@@ -24,7 +24,8 @@ class SitesConfig(AppConfig):
         from .translation_source import register_page_source
 
         register_inquiry_email()
-        # The company's history names a page and an entry (UX-055).
+        # The company's history names a site, a page, its versions and an entry
+        # (UX-055).
         from .history_targets import register_history_targets
 
         register_history_targets()
