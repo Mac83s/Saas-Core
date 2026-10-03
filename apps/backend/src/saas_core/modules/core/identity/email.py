@@ -80,6 +80,27 @@ class DjangoMfaLockedEmailSender:
         _deliver(email=email, subject=subject, message=message)
 
 
+class DjangoOperatorMfaResetEmailSender:
+    def send(self, *, email: str, locale: str) -> None:
+        if locale == "en":
+            subject = "Your two-factor sign-in was reset"
+            message = (
+                "The server administrator reset the two-factor sign-in of your operator "
+                "account. All your sessions were signed out and the old recovery codes no "
+                "longer work; the administrator sets up the new authenticator.\n\n"
+                "If you did not ask for this, contact them at once.\n"
+            )
+        else:
+            subject = "Weryfikacja dwuetapowa konta została zresetowana"
+            message = (
+                "Administrator serwera zresetował weryfikację dwuetapową Twojego konta "
+                "operatora. Wszystkie sesje zostały wylogowane, a dotychczasowe kody "
+                "zapasowe przestały działać; nową aplikację ustawia administrator.\n\n"
+                "Jeśli to nie na Twoją prośbę, skontaktuj się z nim od razu.\n"
+            )
+        _deliver(email=email, subject=subject, message=message)
+
+
 def get_verification_email_sender() -> VerificationEmailSender:
     return DjangoVerificationEmailSender()
 
@@ -90,6 +111,10 @@ def get_password_reset_email_sender() -> PasswordResetEmailSender:
 
 def get_mfa_locked_email_sender() -> MfaLockedEmailSender:
     return DjangoMfaLockedEmailSender()
+
+
+def get_operator_mfa_reset_email_sender() -> MfaLockedEmailSender:
+    return DjangoOperatorMfaResetEmailSender()
 
 
 def _deliver(*, email: str, subject: str, message: str) -> None:

@@ -9,6 +9,7 @@ from saas_core.observability import correlation_id
 from .email import (
     EmailDeliveryError,
     get_mfa_locked_email_sender,
+    get_operator_mfa_reset_email_sender,
     get_password_reset_email_sender,
     get_verification_email_sender,
 )
@@ -120,6 +121,33 @@ def send_mfa_locked_notice(
         logger.info(
             "identity_mfa_locked_email_sent",
             extra={"security_event": "identity.mfa_locked_email_sent", "user_id": user_id},
+        )
+    finally:
+        correlation_id.reset(context_token)
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    autoretry_for=(EmailDeliveryError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 5},
+)
+def send_operator_mfa_reset_notice(
+    user_id: str,
+    request_correlation_id: str | None = None,
+) -> None:
+    context_token = correlation_id.set(request_correlation_id)
+    try:
+        user = User.objects.filter(pk=user_id).first()
+        if user is None:
+            return
+        get_operator_mfa_reset_email_sender().send(email=user.email, locale=user.locale)
+        logger.info(
+            "identity_operator_mfa_reset_email_sent",
+            extra={
+                "security_event": "identity.operator_mfa_reset_email_sent",
+                "user_id": user_id,
+            },
         )
     finally:
         correlation_id.reset(context_token)

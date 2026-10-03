@@ -284,6 +284,65 @@ def test_the_command_takes_only_operator_accounts() -> None:
     assert not UserMfaMethod.objects.exists()
 
 
+def test_a_lost_phone_is_reset_on_the_server_with_a_reason(
+    caplog, django_capture_on_commit_callbacks
+) -> None:
+    """No recovery code left: the server administrator takes the old factor
+    away — sessions end, the old codes die, the operator is told — and the
+    usual two steps set the new one."""
+    user = active_user("operator-reset@example.com", staff=True)
+    old_secret = enroll_on_server(user)
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).status_code == 202
+    signed_in = client.post(
+        MFA_LOGIN_URL,
+        {"code": current_totp_code(old_secret)},
+        format="json",
+        HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+    )
+    assert signed_in.status_code == 200, signed_in.data
+
+    with pytest.raises(CommandError, match="--reason"):
+        call_command("enroll_operator_mfa", user.email, reset=True, stdout=StringIO())
+    assert client.get(ME_URL).status_code == 200
+
+    started = StringIO()
+    with (
+        caplog.at_level("WARNING", logger="saas_core.security"),
+        django_capture_on_commit_callbacks(execute=True),
+    ):
+        call_command(
+            "enroll_operator_mfa",
+            user.email,
+            reset=True,
+            reason="zgubiony telefon",
+            stdout=started,
+        )
+
+    (event,) = [
+        record
+        for record in caplog.records
+        if getattr(record, "security_event", None) == "identity.operator_mfa_reset"
+    ]
+    assert event.reason == "zgubiony telefon"
+    assert not UserSession.objects.filter(user=user, revoked_at__isnull=True).exists()
+    assert client.get(ME_URL).status_code == 403
+    assert not MfaRecoveryCode.objects.exists()
+    (notice,) = mail.outbox
+    assert notice.to == [user.email]
+
+    new_secret = started.getvalue().split("sekret:")[1].split("\n")[0].replace(" ", "")
+    assert new_secret != old_secret
+    assert login(client, user).data["code"] == "mfa_setup_required"
+    call_command(
+        "enroll_operator_mfa",
+        user.email,
+        confirm=current_totp_code(new_secret),
+        stdout=StringIO(),
+    )
+    assert login(client, user).status_code == 202
+
+
 def test_wrong_codes_lock_the_account_wherever_they_are_given(
     caplog, django_capture_on_commit_callbacks
 ) -> None:

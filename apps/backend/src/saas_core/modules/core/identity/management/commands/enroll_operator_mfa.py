@@ -10,6 +10,12 @@ up in a log or a chat:
     manage.py enroll_operator_mfa admin@example.com --confirm 123456
 
 The first step starts over on every run until a code confirms it.
+
+A lost phone with no recovery code left: `--reset --reason "…"` takes the old
+factor and its recovery codes away, ends every session of the account, tells
+the operator by e-mail and starts the first step again.
+
+    manage.py enroll_operator_mfa admin@example.com --reset --reason "zgubiony telefon"
 """
 
 from __future__ import annotations
@@ -19,7 +25,11 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from rest_framework.exceptions import APIException
 
-from saas_core.modules.core.identity.mfa import begin_totp_enrollment, confirm_totp_enrollment
+from saas_core.modules.core.identity.mfa import (
+    begin_totp_enrollment,
+    confirm_totp_enrollment,
+    reset_operator_mfa,
+)
 from saas_core.modules.core.identity.models import User
 
 
@@ -33,12 +43,33 @@ class Command(BaseCommand):
             metavar="KOD",
             help="Kod z aplikacji uwierzytelniającej; kończy włączanie i wypisuje kody zapasowe.",
         )
+        parser.add_argument(
+            "--reset",
+            action="store_true",
+            help="Usuwa dotychczasowe MFA i kody zapasowe, kończy sesje konta i zaczyna od nowa.",
+        )
+        parser.add_argument("--reason", help="Dlaczego reset; trafia do dziennika bezpieczeństwa.")
 
-    def handle(self, *args: Any, email: str, confirm: str | None, **options: Any) -> None:
+    def handle(
+        self,
+        *args: Any,
+        email: str,
+        confirm: str | None,
+        reset: bool,
+        reason: str | None,
+        **options: Any,
+    ) -> None:
         user = User.objects.filter(email=User.objects.normalize_email(email)).first()
         if user is None or not user.is_staff:
             raise CommandError("Nie ma konta operatora (is_staff) o tym adresie.")
+        if reset and confirm is not None:
+            raise CommandError("--reset zaczyna od nowa; --confirm podaj w następnym kroku.")
+        if reset and not (reason or "").strip():
+            raise CommandError("Podaj --reason: dlaczego reset. Trafia do dziennika.")
         try:
+            if reset:
+                reset_operator_mfa(user=user, reason=(reason or "").strip())
+                self.stdout.write("Dotychczasowe MFA usunięte, sesje konta zakończone.")
             if confirm is None:
                 self._begin(user)
             else:

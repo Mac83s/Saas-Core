@@ -22,7 +22,14 @@ from rest_framework.exceptions import APIException
 
 from saas_core.observability import correlation_id
 
-from .models import AccountAuditEvent, AccountAuditEventType, MfaRecoveryCode, User, UserMfaMethod
+from .models import (
+    AccountAuditEvent,
+    AccountAuditEventType,
+    MfaRecoveryCode,
+    User,
+    UserMfaMethod,
+    UserSession,
+)
 from .tokens import digest_secret
 
 TOTP_PERIOD_SECONDS = 30
@@ -151,6 +158,31 @@ def confirm_totp_enrollment(
     return raw_codes
 
 
+def reset_operator_mfa(*, user: User, reason: str) -> None:
+    """Takes an operator's second factor away, so the server administrator can
+    set a new one after a lost phone (`enroll_operator_mfa --reset`, never the
+    web): the method and its recovery codes go, every session of the account
+    ends and the account is told by e-mail. The reason goes to the security
+    log."""
+    with transaction.atomic():
+        deleted, _ = UserMfaMethod.objects.filter(user=user).delete()
+        if not deleted:
+            raise MfaEnrollmentMissing
+        UserSession.objects.filter(user=user, revoked_at__isnull=True).update(
+            revoked_at=timezone.now()
+        )
+        _notify(user, "operator_reset")
+    cache.delete_many([_failures_key(user), _lock_key(user)])
+    logger.warning(
+        "identity_operator_mfa_reset",
+        extra={
+            "security_event": "identity.operator_mfa_reset",
+            "user_id": str(user.pk),
+            "reason": reason,
+        },
+    )
+
+
 def verify_mfa_code(*, user: User, code: str) -> None:
     now = timezone.now()
     with _counted_attempt(user), transaction.atomic():
@@ -193,7 +225,7 @@ def _counted_attempt(user: User) -> Iterator[None]:
     included. A right code clears the count."""
     if mfa_locked(user):
         raise MfaLocked
-    failures_key = f"identity.mfa.failures:{user.pk}"
+    failures_key = _failures_key(user)
     try:
         yield
     except InvalidMfaCode:
@@ -205,21 +237,30 @@ def _counted_attempt(user: User) -> Iterator[None]:
                 "identity_mfa_locked",
                 extra={"security_event": "identity.mfa_locked", "user_id": str(user.pk)},
             )
-            _notify_owner_of_lock(user)
+            _notify(user, "locked")
             raise MfaLocked from None
         raise
     cache.delete(failures_key)
 
 
-def _notify_owner_of_lock(user: User) -> None:
-    from .tasks import send_mfa_locked_notice  # noqa: PLC0415
+def _notify(user: User, notice: str) -> None:
+    """Queues one of the account's security e-mails after commit."""
+    from . import tasks  # noqa: PLC0415
 
+    send = {
+        "locked": tasks.send_mfa_locked_notice,
+        "operator_reset": tasks.send_operator_mfa_reset_notice,
+    }[notice]
     user_id, request_correlation_id = str(user.pk), correlation_id.get()
 
     def enqueue_notice() -> None:
-        send_mfa_locked_notice.delay(user_id, request_correlation_id)
+        send.delay(user_id, request_correlation_id)
 
     transaction.on_commit(enqueue_notice, robust=True)
+
+
+def _failures_key(user: User) -> str:
+    return f"identity.mfa.failures:{user.pk}"
 
 
 def _lock_key(user: User) -> str:
