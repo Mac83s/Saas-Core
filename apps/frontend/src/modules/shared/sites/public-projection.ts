@@ -30,7 +30,7 @@ function requestBackend(
         protocol: url.protocol,
         hostname: url.hostname,
         port: url.port,
-        path: url.pathname,
+        path: `${url.pathname}${url.search}`,
         method: "GET",
         headers: { host, accept: "*/*" },
       },
@@ -56,15 +56,17 @@ function requestBackend(
   });
 }
 
+/** `locale` asks for a feed in a language other than the site's own, as
+ *  `/en/rss.xml` does (TL14). */
 export async function getPublicProjection(
   host: string,
   resource: "feed.xml" | "atom.xml" | "sitemap.xml" | "robots.txt",
+  locale?: string,
 ): Promise<ProjectionResult> {
   const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
-  const response = await requestBackend(
-    new URL(`/api/v1/public/site/${resource}`, backend),
-    host,
-  );
+  const url = new URL(`/api/v1/public/site/${resource}`, backend);
+  if (locale) url.searchParams.set("locale", locale);
+  const response = await requestBackend(url, host);
   if (response.status === 404) return { kind: "not-found" };
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Public Sites API zwróciło status ${response.status}`);

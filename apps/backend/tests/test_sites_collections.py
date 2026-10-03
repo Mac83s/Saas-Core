@@ -2372,7 +2372,7 @@ def test_the_atom_feed_carries_dates_a_reader_cannot_misread() -> None:
     assert feed.status_code == 200
     assert feed["Content-Type"].startswith("application/atom+xml")
     body = feed.content.decode()
-    assert '<feed xmlns="http://www.w3.org/2005/Atom">' in body
+    assert '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">' in body
     assert "<title>Wpis Atom</title>" in body
     # An author is a name here, not the email address RSS 2.0 asks for.
     assert "<author><name>Redakcja</name></author>" in body

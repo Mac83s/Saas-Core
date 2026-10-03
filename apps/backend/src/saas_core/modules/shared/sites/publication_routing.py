@@ -6,6 +6,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
@@ -23,6 +24,7 @@ from .models import (
     ContentCollection,
     ContentEntry,
     ContentEntryState,
+    ContentTag,
     Domain,
     DomainStatus,
     Publication,
@@ -158,7 +160,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
             try:
                 page, locale_document, publication = _find_collection_index(
                     organization_id=domain.organization_id,
-                    site_id=domain.site_id,
+                    site=domain.site,
                     requested_path=normalized_path,
                     available=available,
                 )
@@ -168,7 +170,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                     # index rather than a page anybody edits.
                     page, locale_document, publication = _find_tag_archive(
                         organization_id=domain.organization_id,
-                        site_id=domain.site_id,
+                        site=domain.site,
                         requested_path=normalized_path,
                         available=available,
                     )
@@ -238,29 +240,39 @@ def _resolved(
 
 def public_page_payload(page: PublicPage) -> dict[str, Any]:
     selected_locale = page.page["selected_locale"]
-    publication_snapshot = (
-        visible_snapshot(page.publication, page.available)
-        if isinstance(page.publication, Publication)
-        else page.publication.snapshot
-    )
+    # Entries, indexes and archives have no look, menu or texts of their own:
+    # they wear the site's, from its current publication (TL14).
+    default_locale, site_snapshot = _site_of(page)
     blocks = selected_locale.get("blocks", page.page["blocks"])
-    appearance = publication_snapshot.get("appearance")
+    appearance = site_snapshot.get("appearance")
     appearance_lang: dict[str, str] = {}
-    if (
-        isinstance(page.publication, Publication)
-        and page.locale != publication_snapshot.get("default_locale")
-    ):
+    if site_snapshot and page.locale != default_locale:
         from .site_texts import localize_appearance
 
         # The tagline and footer in the reader's language, or the source text
         # marked as such until it is translated (ADR-070 pkt 15).
         appearance, appearance_lang = localize_appearance(
             appearance,
-            (publication_snapshot.get("site_texts") or {}).get(page.locale) or {},
-            str(publication_snapshot.get("default_locale") or ""),
+            (site_snapshot.get("site_texts") or {}).get(page.locale) or {},
+            default_locale,
         )
-        links = _link_targets(publication_snapshot, page.locale)
+        links = _link_targets(site_snapshot, page.locale)
         blocks, appearance = localized_links(blocks, links), localized_links(appearance, links)
+    navigation = _navigation_links(
+        site_snapshot,
+        page.locale,
+        collections=(
+            collections_with_entries(
+                organization_id=page.organization_id, site_id=page.site_id, locale=page.locale
+            )
+            if page.locale != default_locale
+            and any(
+                isinstance(item, dict) and item.get("collection_id") is not None
+                for item in site_snapshot.get("navigation", [])
+            )
+            else frozenset()
+        ),
+    )
     canonical_origin = f"{settings.PUBLIC_SITE_SCHEME}://{page.canonical_hostname}"
     hreflang = {
         locale: f"{canonical_origin}{path}"
@@ -280,9 +292,7 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # An entry's snapshot carries no theme of its own; it inherits the
         # site's, and falls back to the default when the site has never been
         # published.
-        "design_tokens": publication_snapshot.get(
-            "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
-        ),
+        "design_tokens": site_snapshot.get("design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS),
         "appearance": appearance,
         "appearance_lang": appearance_lang,
         # Only site pages carry one; entries, indexes and archives inherit.
@@ -290,13 +300,12 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # The language's own body (ADR-070); the source language uses the
         # page's blocks.
         "blocks": blocks,
-        "navigation": _navigation_links(publication_snapshot, page.locale),
+        "navigation": navigation,
         # Derived from the menu, never stored: a stored trail is wrong the
         # moment somebody reorders the tree, and the whole point of the
         # hierarchy is that reordering is cheap.
         "breadcrumbs": _breadcrumbs(
-            publication_snapshot,
-            locale=page.locale,
+            navigation,
             page_id=str(page.page.get("page_id", "")),
             title=selected_locale["title"],
             path=page.canonical_path,
@@ -310,29 +319,19 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # by their author) say so in the document itself; a sitemap that
         # leaves them out is not enough for a crawler that arrives by link.
         "noindex": bool(page.page.get("noindex", False)),
-        "language_links": language_links(
-            page,
-            publication_snapshot if isinstance(page.publication, Publication) else None,
-        ),
+        "language_links": language_links(page, site_snapshot),
+        # The feeds of the language being read, and only those (TL14).
+        "feeds": {
+            name: f"{canonical_origin}{feed_path(default_locale, page.locale, file)}"
+            for name, file in (("rss", "rss.xml"), ("atom", "atom.xml"))
+        },
     }
 
 
-def language_links(
-    page: PublicPage, site_snapshot: dict[str, Any] | None = None
-) -> list[dict[str, Any]]:
+def language_links(page: PublicPage, site_snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     """Where a visitor switches language (TL14): each language the site is
     live in, at this page's own version there, else at that language's home —
     never at a version that does not exist. Nothing to switch to, no links."""
-    if site_snapshot is None:
-        site = (
-            Site.all_objects.select_related("current_publication")
-            .filter(pk=page.site_id, organization_id=page.organization_id)
-            .first()
-        )
-        publication = site.current_publication if site is not None else None
-        site_snapshot = (
-            visible_snapshot(publication, page.available) if publication is not None else {}
-        )
     default = str(site_snapshot.get("default_locale") or "")
     live = [
         code
@@ -346,7 +345,7 @@ def language_links(
         {
             "locale": code,
             "name": _native_name(code),
-            "path": str(versions.get(code) or _language_home(default, code)),
+            "path": str(versions.get(code) or language_home(default, code)),
             "current": code == page.locale,
         }
         for code in live
@@ -377,11 +376,34 @@ def not_found_hint(*, host: str, path: str) -> dict[str, str] | None:
     live = set(snapshot.get("live_locales") or []) & available
     first = path.strip("/").split("/", 1)[0]
     locale = first if first in live and first != default else default
-    return {"locale": locale, "home_path": _language_home(default, locale)}
+    return {"locale": locale, "home_path": language_home(default, locale)}
 
 
-def _language_home(default_locale: str, locale: str) -> str:
+def _site_of(page: PublicPage) -> tuple[str, dict[str, Any]]:
+    """The site's language and its current publication as visitors get it."""
+    if isinstance(page.publication, Publication):
+        snapshot = visible_snapshot(page.publication, page.available)
+        return str(snapshot.get("default_locale") or page.locale), snapshot
+    site = (
+        Site.all_objects.select_related("current_publication")
+        .defer("current_publication__snapshot")
+        .filter(pk=page.site_id, organization_id=page.organization_id)
+        .first()
+    )
+    if site is None:
+        return page.locale, {}
+    publication = site.current_publication
+    snapshot = visible_snapshot(publication, page.available) if publication is not None else {}
+    return site.default_locale, snapshot
+
+
+def language_home(default_locale: str, locale: str) -> str:
     return "/" if locale == default_locale else f"/{locale}/"
+
+
+def feed_path(default_locale: str, locale: str, file: str) -> str:
+    """`/rss.xml` in the site's language, `/en/rss.xml` in another (TL14)."""
+    return f"/{file}" if locale == default_locale else f"/{locale}/{file}"
 
 
 def _native_name(code: str) -> str:
@@ -486,13 +508,21 @@ def _absolute_pagination(
     }
 
 
-def _navigation_links(snapshot: dict[str, Any], locale: str) -> list[dict[str, Any]]:
+def _navigation_links(
+    snapshot: dict[str, Any], locale: str, *, collections: frozenset[str] = frozenset()
+) -> list[dict[str, Any]]:
     """Menu entries resolved for one locale, in publication order.
 
     The visible text is the page's own translated title, so it cannot drift
     from the page. An entry whose page has no translation in this locale is skipped:
     linking to it would send the visitor to an address that does not exist in
-    the language they are reading."""
+    the language they are reading. A collection is listed in another language
+    only among `collections` — those with articles in it, whose index answers
+    there — under its name in that language, or its own name marked as such."""
+    default_locale = str(snapshot.get("default_locale") or "")
+    texts: dict[str, str] = (
+        (snapshot.get("site_texts") or {}).get(locale) or {} if locale != default_locale else {}
+    )
     pages_by_id = {
         str(raw_page.get("page_id")): raw_page
         for raw_page in snapshot.get("pages", [])
@@ -503,14 +533,23 @@ def _navigation_links(snapshot: dict[str, Any], locale: str) -> list[dict[str, A
         if not isinstance(entry, dict):
             continue
         if entry.get("collection_id") is not None:
-            # A collection has one name in one language, so there is nothing to
-            # resolve per locale and nothing that can be missing.
-            links.append({
-                "page_id": str(entry["collection_id"]),
+            collection_id = str(entry["collection_id"])
+            link = {
+                "page_id": collection_id,
                 "parent_page_id": None,
                 "title": str(entry.get("title", "")),
                 "path": str(entry.get("path", "")),
-            })
+            }
+            if locale != default_locale:
+                if collection_id not in collections:
+                    continue
+                link["path"] = f"/{locale}{link['path']}"
+                translated = texts.get(f"collection/{collection_id}")
+                if translated:
+                    link["title"] = translated
+                else:
+                    link["lang"] = default_locale
+            links.append(link)
             continue
         raw_page = pages_by_id.get(str(entry.get("page_id")))
         if raw_page is None:
@@ -681,31 +720,70 @@ def published_entries(
     return items
 
 
-def one_per_article(
-    entries: list[dict[str, Any]], preferred_locale: str
-) -> list[dict[str, Any]]:
-    """Collapses an article's language versions to the one worth listing.
+def collections_with_entries(*, organization_id: Any, site_id: Any, locale: str) -> frozenset[str]:
+    """Collections with an article listed in `locale`: the ones whose index
+    answers in that language, and so the ones its menu may name (TL14). The
+    same articles `published_entries` lists, counted without reading them."""
+    return frozenset(
+        str(collection_id)
+        for collection_id in ContentEntry.all_objects.filter(
+            Q(current_publication__snapshot__noindex=False)
+            | Q(current_publication__snapshot__noindex__isnull=True),
+            organization_id=organization_id,
+            site_id=site_id,
+            locale=locale,
+            state=ContentEntryState.PUBLISHED,
+            current_publication__isnull=False,
+        )
+        .values_list("collection_id", flat=True)
+        .distinct()
+    )
 
-    Listing both would show the reader the same article twice under two
-    titles. The site's own language wins; a translation-only article still
-    appears, because something published should never be invisible.
-    """
-    chosen: dict[str, dict[str, Any]] = {}
+
+def entries_by_locale(
+    entries: list[dict[str, Any]], collection_id: str
+) -> dict[str, list[dict[str, Any]]]:
+    """A collection's articles per language, newest first in each.
+
+    Each language lists its own articles (TL14): a reader of the Polish blog
+    gets the Polish texts, and an article written only in English is on the
+    English blog, not on the Polish one under an English title."""
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for item in entries:
-        group = item["translation_group"]
-        current = chosen.get(group)
-        if current is None or (
-            current["locale"] != preferred_locale
-            and item["locale"] == preferred_locale
-        ):
-            chosen[group] = item
-    return [item for item in entries if chosen.get(item["translation_group"]) is item]
+        if item["collection_id"] == collection_id:
+            grouped.setdefault(item["locale"], []).append(item)
+    return grouped
 
 
+def index_languages(default_locale: str, grouped: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Where a collection's index answers: always in the site's language — an
+    empty blog is still the address the menu links to — and in another only
+    once it has an article there."""
+    return [default_locale, *sorted(code for code in grouped if code != default_locale)]
+
+
+#: What an index with nothing on it says, and the title of a subject's
+#: archive, in the reader's language; English for one not listed here, like
+#: the rest of the site's own texts (`siteUiTexts` in packages/site-blocks).
 INDEX_EMPTY_TEXT = {
-    "pl": "Nie ma jeszcze zadnego wpisu.",
+    "pl": "Nie ma jeszcze żadnego wpisu.",
     "en": "No entries yet.",
+    "de": "Noch keine Beiträge.",
+    "es": "Todavía no hay entradas.",
+    "ru": "Пока нет записей.",
 }
+
+TAG_INDEX_TITLE = {
+    "pl": "Wpisy oznaczone: {name}",
+    "en": "Entries tagged: {name}",
+    "de": "Beiträge zum Thema: {name}",
+    "es": "Entradas etiquetadas: {name}",
+    "ru": "Записи с меткой: {name}",
+}
+
+
+def _ui_text(table: dict[str, str], locale: str) -> str:
+    return table.get(locale) or table["en"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -743,10 +821,65 @@ class _IndexPublication:
         return digest.hexdigest()
 
 
+def _find_index(
+    *, organization_id: Any, site: Any, wanted: str, available: frozenset[str] | None
+) -> tuple[ContentCollection, str]:
+    """The collection whose index is at `wanted`, and the language it is read
+    in: `/blog/` in the site's language, `/en/blog/` in English."""
+    default_locale = str(site.default_locale)
+    first = wanted.strip("/").split("/", 1)[0]
+    locales = [default_locale]
+    if first != default_locale and (available is None or first in available):
+        locales.append(first)
+    for candidate in ContentCollection.all_objects.filter(
+        organization_id=organization_id, site_id=site.id
+    ):
+        for locale in locales:
+            if (
+                _comparable_path(
+                    collection_index_path(
+                        default_locale=default_locale,
+                        locale=locale,
+                        base_path=candidate.base_path,
+                    )
+                )
+                == wanted
+            ):
+                return candidate, locale
+    raise PublicSiteNotFound
+
+
+def _site_texts(site: Any, locale: str, available: frozenset[str] | None) -> dict[str, str]:
+    """The site's own texts in `locale` as last published (TL11c)."""
+    publication = site.current_publication
+    if publication is None or locale == site.default_locale:
+        return {}
+    texts = visible_snapshot(publication, available).get("site_texts") or {}
+    return texts.get(locale) or {}
+
+
+def _pagination(first_path: str, locale: str, page: int, pages: int) -> dict[str, Any]:
+    # Each page is canonical to itself. Pointing every page at the first would
+    # tell a search engine that page four does not exist, and the articles
+    # reachable only from it would go with it.
+    return {
+        "page": page,
+        "pages": pages,
+        "previous_path": (
+            None
+            if page == 1
+            else first_path
+            if page == 2
+            else index_page_path(first_path, locale, page - 1)
+        ),
+        "next_path": None if page >= pages else index_page_path(first_path, locale, page + 1),
+    }
+
+
 def _find_collection_index(
     *,
     organization_id: Any,
-    site_id: Any,
+    site: Any,
     requested_path: str,
     available: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
@@ -754,49 +887,27 @@ def _find_collection_index(
 
     ADR-035 section 7 calls the index a reproducible projection: nobody
     maintains a page listing the articles, because such a page is wrong the
-    moment an article is published and nobody remembers to update it.
+    moment an article is published and nobody remembers to update it. Each
+    language has its own, listing its own articles (TL14).
     """
     wanted, requested_page = _split_index_page(requested_path)
-    site_locale = (
-        Site.all_objects.filter(pk=site_id, organization_id=organization_id)
-        .values_list("default_locale", flat=True)
-        .first()
-        or settings.LANGUAGE_CODE.split("-")[0]
+    collection, locale = _find_index(
+        organization_id=organization_id, site=site, wanted=wanted, available=available
     )
-    collection = next(
-        (
-            candidate
-            for candidate in ContentCollection.all_objects.filter(
-                organization_id=organization_id, site_id=site_id
-            )
-            if _comparable_path(
-                collection_index_path(
-                    default_locale=site_locale,
-                    locale=site_locale,
-                    base_path=candidate.base_path,
-                )
-            )
-            == wanted
-        ),
-        None,
+    default_locale = str(site.default_locale)
+    grouped = entries_by_locale(
+        published_entries(organization_id=organization_id, site_id=site.id, available=available),
+        str(collection.id),
     )
-    if collection is None:
+    languages = index_languages(default_locale, grouped)
+    # An index with nothing on it is still the blog's address in the site's
+    # language: answering 404 would break the link in the menu until the first
+    # article lands. Another language's menu names it only once it has one.
+    if locale not in languages:
         raise PublicSiteNotFound
-    entries = one_per_article(
-        [
-            item
-            for item in published_entries(
-                organization_id=organization_id, site_id=site_id, available=available
-            )
-            if item["collection_id"] == str(collection.id)
-        ],
-        site_locale,
-    )
-    # An index with nothing on it is still the blog's address. Answering 404
-    # would break the link in the menu until the first article lands.
-    locale = site_locale
+    entries = grouped.get(locale, [])
     first_path = collection_index_path(
-        default_locale=site_locale, locale=locale, base_path=collection.base_path
+        default_locale=default_locale, locale=locale, base_path=collection.base_path
     )
     page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
     total_pages = max(1, -(-len(entries) // page_size))
@@ -808,6 +919,21 @@ def _find_collection_index(
     path = first_path if requested_page == 1 else index_page_path(
         first_path, locale, requested_page
     )
+    name = _site_texts(site, locale, available).get(f"collection/{collection.id}") or (
+        collection.name
+    )
+    # The first pages are one page in several languages; page three in Polish
+    # and in English list different articles, so each later page is its own.
+    hreflang = (
+        {
+            code: collection_index_path(
+                default_locale=default_locale, locale=code, base_path=collection.base_path
+            )
+            for code in languages
+        }
+        if requested_page == 1
+        else {locale: path}
+    )
     locale_document: dict[str, Any] = {
         "locale": locale,
         "translation_id": None,
@@ -815,9 +941,9 @@ def _find_collection_index(
         "slug": collection.base_path,
         "path": path,
         "canonical_path": path,
-        "title": collection.name,
+        "title": name,
         "description": "",
-        "social_title": collection.name,
+        "social_title": name,
         "social_description": "",
         "fallback_fields": [],
     }
@@ -825,8 +951,8 @@ def _find_collection_index(
         "block_type": "core.entry_list",
         "schema_version": 1,
         "data": {
-            "title": collection.name,
-            "empty_text": INDEX_EMPTY_TEXT.get(locale, INDEX_EMPTY_TEXT["pl"]),
+            "title": name,
+            "empty_text": _ui_text(INDEX_EMPTY_TEXT, locale),
             "items": [_index_item(item) for item in window],
         },
     }
@@ -837,30 +963,10 @@ def _find_collection_index(
             "blocks": [block],
             "media_asset_ids": [],
             "locales": [locale_document],
-            "hreflang": {locale: path},
-            "x_default": path,
+            "hreflang": hreflang,
+            "x_default": hreflang.get(default_locale, path),
             "noindex": False,
-            # Each page is canonical to itself. Pointing every page at the
-            # first would tell a search engine that page four does not exist,
-            # and the articles reachable only from it would go with it.
-            "pagination": {
-                "page": requested_page,
-                "pages": total_pages,
-                "previous_path": (
-                    None
-                    if requested_page == 1
-                    else (
-                        first_path
-                        if requested_page == 2
-                        else index_page_path(first_path, locale, requested_page - 1)
-                    )
-                ),
-                "next_path": (
-                    None
-                    if requested_page >= total_pages
-                    else index_page_path(first_path, locale, requested_page + 1)
-                ),
-            },
+            "pagination": _pagination(first_path, locale, requested_page, total_pages),
         },
         locale_document,
         _IndexPublication(collection=collection, entries=window),
@@ -870,8 +976,6 @@ def _find_collection_index(
 #: One segment for every site, in both languages, because a tag address has to
 #: survive being read aloud and retyped.
 TAG_SEGMENT = "tag"
-
-TAG_INDEX_TITLE = {"pl": "Wpisy oznaczone: {name}", "en": "Entries tagged: {name}"}
 
 #: Below this many articles a subject archive is a thin duplicate of the
 #: index rather than a topic page worth indexing on its own.
@@ -891,25 +995,29 @@ def _split_tag_archive(requested_path: str) -> tuple[str, str] | None:
     return None
 
 
-#: The segment that carries the page number, in the reader's language. A Polish
-#: blog emitting `/blog/page/2/` reads as a leak of the machinery.
-INDEX_PAGE_SEGMENT = {"pl": "strona", "en": "page"}
+def _pagination_segment(locale: str) -> str:
+    """The segment that carries the page number, in the reader's language
+    (`paginationSegment` in the locale registry). A Polish blog emitting
+    `/blog/page/2/` reads as a leak of the machinery."""
+    entry = settings.LOCALE_REGISTRY.get(locale)
+    return entry.pagination_segment if entry is not None else "page"
 
 
 def index_page_path(first_path: str, locale: str, page: int) -> str:
-    segment = INDEX_PAGE_SEGMENT.get(locale, INDEX_PAGE_SEGMENT["pl"])
-    return f"{first_path}{segment}/{page}/"
+    return f"{first_path}{_pagination_segment(locale)}/{page}/"
 
 
 def _split_index_page(requested_path: str) -> tuple[str, int]:
     """Separates `/blog/strona/3/` into the index address and the page number.
 
-    Both spellings are accepted whatever the site's language: a link written by
-    hand in the other one should still land somewhere sensible.
+    Every language's spelling is accepted whatever the page's language: a link
+    written by hand in another one should still land somewhere sensible, and
+    the page answers with its own spelling as the canonical address.
     """
     normalized = _comparable_path(requested_path)
     parts = [part for part in normalized.split("/") if part]
-    if len(parts) >= 3 and parts[-2] in set(INDEX_PAGE_SEGMENT.values()):
+    segments = {entry.pagination_segment for entry in settings.LOCALE_REGISTRY.values()}
+    if len(parts) >= 3 and parts[-2] in segments:
         try:
             page = int(parts[-1])
         except ValueError:
@@ -926,11 +1034,11 @@ def _split_index_page(requested_path: str) -> tuple[str, int]:
 def _find_tag_archive(
     *,
     organization_id: Any,
-    site_id: Any,
+    site: Any,
     requested_path: str,
     available: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
-    """Every published article on one subject, at one address.
+    """Every published article on one subject, at one address per language.
 
     A projection like the collection index, and for the same reason: a page
     somebody maintains by hand is wrong from the first article they forget to
@@ -944,43 +1052,21 @@ def _find_tag_archive(
     if split is None:
         raise PublicSiteNotFound
     index_path, slug = split
-    site_locale = (
-        Site.all_objects.filter(pk=site_id, organization_id=organization_id)
-        .values_list("default_locale", flat=True)
-        .first()
-        or settings.LANGUAGE_CODE.split("-")[0]
+    collection, locale = _find_index(
+        organization_id=organization_id, site=site, wanted=index_path, available=available
     )
-    collection = next(
-        (
-            candidate
-            for candidate in ContentCollection.all_objects.filter(
-                organization_id=organization_id, site_id=site_id
-            )
-            if _comparable_path(
-                collection_index_path(
-                    default_locale=site_locale,
-                    locale=site_locale,
-                    base_path=candidate.base_path,
-                )
-            )
-            == index_path
-        ),
-        None,
-    )
-    if collection is None:
-        raise PublicSiteNotFound
-
-    entries = one_per_article(
-        [
-            item
-            for item in published_entries(
-                organization_id=organization_id, site_id=site_id, available=available
-            )
-            if item["collection_id"] == str(collection.id)
-            and any(tag.get("slug") == slug for tag in item["tags"])
-        ],
-        site_locale,
-    )
+    default_locale = str(site.default_locale)
+    grouped = {
+        code: tagged
+        for code, items in entries_by_locale(
+            published_entries(
+                organization_id=organization_id, site_id=site.id, available=available
+            ),
+            str(collection.id),
+        ).items()
+        if (tagged := [item for item in items if any(t.get("slug") == slug for t in item["tags"])])
+    }
+    entries = grouped.get(locale, [])
     if not entries:
         raise PublicSiteNotFound
     page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
@@ -989,7 +1075,12 @@ def _find_tag_archive(
         raise PublicSiteNotFound
     window = entries[(requested_page - 1) * page_size : requested_page * page_size]
 
-    name = next(
+    tag_id = (
+        ContentTag.all_objects.filter(organization_id=organization_id, site_id=site.id, slug=slug)
+        .values_list("id", flat=True)
+        .first()
+    )
+    name = _site_texts(site, locale, available).get(f"tag/{tag_id}") or next(
         (
             str(tag.get("name") or slug)
             for item in entries
@@ -998,18 +1089,29 @@ def _find_tag_archive(
         ),
         slug,
     )
-    first_path = collection_index_path(
-        default_locale=site_locale, locale=site_locale, base_path=collection.base_path
-    )
-    archive_path = tag_archive_path(index_path=first_path, slug=slug)
+
+    def archive_of(code: str) -> str:
+        return tag_archive_path(
+            index_path=collection_index_path(
+                default_locale=default_locale, locale=code, base_path=collection.base_path
+            ),
+            slug=slug,
+        )
+
+    archive_path = archive_of(locale)
     path = (
         archive_path
         if requested_page == 1
-        else index_page_path(archive_path, site_locale, requested_page)
+        else index_page_path(archive_path, locale, requested_page)
     )
-    title = TAG_INDEX_TITLE.get(site_locale, TAG_INDEX_TITLE["pl"]).format(name=name)
+    hreflang = (
+        {code: archive_of(code) for code in sorted(grouped)}
+        if requested_page == 1
+        else {locale: path}
+    )
+    title = _ui_text(TAG_INDEX_TITLE, locale).format(name=name)
     locale_document: dict[str, Any] = {
-        "locale": site_locale,
+        "locale": locale,
         "translation_id": None,
         "version": 1,
         "slug": slug,
@@ -1026,7 +1128,7 @@ def _find_tag_archive(
         "schema_version": 1,
         "data": {
             "title": title,
-            "empty_text": INDEX_EMPTY_TEXT.get(site_locale, INDEX_EMPTY_TEXT["pl"]),
+            "empty_text": _ui_text(INDEX_EMPTY_TEXT, locale),
             "items": [_index_item(item) for item in window],
         },
     }
@@ -1037,32 +1139,15 @@ def _find_tag_archive(
             "blocks": [block],
             "media_asset_ids": [],
             "locales": [locale_document],
-            "hreflang": {site_locale: path},
-            "x_default": path,
+            "hreflang": hreflang,
+            # One x-default for the cluster, as for an article: the site's
+            # language where the subject has articles, else the same first one.
+            "x_default": hreflang.get(default_locale) or hreflang[min(hreflang)],
             # A subject with one or two articles is a thin duplicate of the
             # index, not a topic page; below the threshold the archive still
             # serves readers but asks not to be indexed.
             "noindex": len(entries) < TAG_INDEX_THRESHOLD,
-            "pagination": {
-                "page": requested_page,
-                "pages": total_pages,
-                "previous_path": (
-                    None
-                    if requested_page == 1
-                    else (
-                        archive_path
-                        if requested_page == 2
-                        else index_page_path(
-                            archive_path, site_locale, requested_page - 1
-                        )
-                    )
-                ),
-                "next_path": (
-                    None
-                    if requested_page >= total_pages
-                    else index_page_path(archive_path, site_locale, requested_page + 1)
-                ),
-            },
+            "pagination": _pagination(archive_path, locale, requested_page, total_pages),
         },
         locale_document,
         _IndexPublication(collection=collection, entries=window),
@@ -1079,9 +1164,8 @@ def _index_item(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _breadcrumbs(
-    snapshot: dict[str, Any],
+    navigation: list[dict[str, Any]],
     *,
-    locale: str,
     page_id: str,
     title: str,
     path: str,
@@ -1091,7 +1175,7 @@ def _breadcrumbs(
     An article is not in the menu at all, and a page nobody put there is not
     either; both get a trail of just themselves rather than a broken one.
     """
-    links = {link["page_id"]: link for link in _navigation_links(snapshot, locale)}
+    links = {link["page_id"]: link for link in navigation}
     here = links.get(page_id)
     if here is None:
         return [{"title": title, "path": path}]

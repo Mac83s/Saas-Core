@@ -109,7 +109,7 @@ export function renderNavigation(
           createElement(
             "li",
             { key: link.page_id },
-            createElement("a", { href: link.path }, link.title),
+            createElement("a", { href: link.path, lang: link.lang }, link.title),
             children.has(link.page_id)
               ? createElement(
                   "ul",
@@ -118,7 +118,11 @@ export function renderNavigation(
                     createElement(
                       "li",
                       { key: child.page_id },
-                      createElement("a", { href: child.path }, child.title),
+                      createElement(
+                        "a",
+                        { href: child.path, lang: child.lang },
+                        child.title,
+                      ),
                     ),
                   ),
                 )

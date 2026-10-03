@@ -116,7 +116,11 @@ class PublicSiteFeedView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         try:
-            return render_site_feed(host=str(request.META.get("HTTP_HOST", "")))
+            # `?locale=en` is `/en/rss.xml` (TL14); without it, the site's language.
+            return render_site_feed(
+                host=str(request.META.get("HTTP_HOST", "")),
+                locale=request.GET.get("locale"),
+            )
         except PublicSiteNotFound:
             return HttpResponseNotFound()
 
@@ -126,7 +130,10 @@ class PublicSiteAtomView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         try:
-            return render_site_atom(host=str(request.META.get("HTTP_HOST", "")))
+            return render_site_atom(
+                host=str(request.META.get("HTTP_HOST", "")),
+                locale=request.GET.get("locale"),
+            )
         except PublicSiteNotFound:
             return HttpResponseNotFound()
 

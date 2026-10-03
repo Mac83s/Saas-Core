@@ -112,7 +112,11 @@ export function renderResponsiveNavigation(
       "div",
       { className: "site-bottom-links" },
       ...primary.map((link) =>
-        h("a", { key: link.page_id, href: link.path }, link.title),
+        h(
+          "a",
+          { key: link.page_id, href: link.path, lang: link.lang },
+          link.title,
+        ),
       ),
     ),
     h(

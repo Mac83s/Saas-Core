@@ -570,6 +570,9 @@ export interface NavigationLink {
   readonly parent_page_id: string | null;
   readonly title: string;
   readonly path: string;
+  /** The language of `title` when it is not the page's: a collection name
+   *  not yet translated (TL14). */
+  readonly lang?: string;
 }
 
 export interface IndexPagination {

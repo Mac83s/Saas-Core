@@ -14,8 +14,11 @@ from .models import ContentCollection, Domain, DomainStatus
 from .publication_routing import (
     TAG_INDEX_THRESHOLD,
     PublicSiteNotFound,
+    entries_by_locale,
+    feed_path,
+    index_languages,
     index_page_path,
-    one_per_article,
+    language_home,
     published_entries,
     serving_locales,
     tag_archive_path,
@@ -58,12 +61,35 @@ def _resolve_site(host: str) -> tuple[Any, str, frozenset[str]]:
     return domain, origin, locales | {domain.site.default_locale}
 
 
-def render_site_feed(*, host: str) -> HttpResponse:
-    """RSS 2.0 over every published entry, newest first."""
+def _feed_language(domain: Any, locale: str | None, available: frozenset[str]) -> str:
+    """The language a feed is in: the site's at `/rss.xml`, another at
+    `/en/rss.xml` (TL14). The site's own language has one address only, and a
+    language visitors may not read has none."""
+    if not locale:
+        return str(domain.site.default_locale)
+    if locale == domain.site.default_locale or locale not in available:
+        raise PublicSiteNotFound
+    return locale
+
+
+def _feed_entries(domain: Any, language: str, available: frozenset[str]) -> list[dict[str, Any]]:
+    """The articles in one language: a reader subscribed to the Polish blog
+    gets the Polish texts, not the same article twice under two titles."""
+    return [
+        entry
+        for entry in published_entries(
+            organization_id=domain.organization_id, site_id=domain.site_id, available=available
+        )
+        if entry["locale"] == language
+    ][:FEED_LIMIT]
+
+
+def render_site_feed(*, host: str, locale: str | None = None) -> HttpResponse:
+    """RSS 2.0 over every published entry in one language, newest first."""
     domain, origin, available = _resolve_site(host)
-    entries = published_entries(
-        organization_id=domain.organization_id, site_id=domain.site_id, available=available
-    )[:FEED_LIMIT]
+    language = _feed_language(domain, locale, available)
+    entries = _feed_entries(domain, language, available)
+    default_locale = str(domain.site.default_locale)
     items = []
     for entry in entries:
         parts = [
@@ -96,15 +122,15 @@ def render_site_feed(*, host: str) -> HttpResponse:
         '<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">'
         "<channel>"
         "<title>" + escape(domain.site.name) + "</title>"
-        "<link>" + escape(origin + "/") + "</link>"
+        "<link>" + escape(origin + language_home(default_locale, language)) + "</link>"
         "<description>" + escape(domain.site.name) + "</description>"
-        + "".join(items)
+        "<language>" + escape(language) + "</language>" + "".join(items)
         + "</channel></rss>"
     )
     return HttpResponse(document, content_type="application/rss+xml; charset=utf-8")
 
 
-def render_site_atom(*, host: str) -> HttpResponse:
+def render_site_atom(*, host: str, locale: str | None = None) -> HttpResponse:
     """The same articles as the RSS feed, in the format some readers insist on.
 
     Atom is not a nicer RSS: it fixes two things this content actually needs.
@@ -113,9 +139,10 @@ def render_site_atom(*, host: str) -> HttpResponse:
     than an email address.
     """
     domain, origin, available = _resolve_site(host)
-    entries = published_entries(
-        organization_id=domain.organization_id, site_id=domain.site_id, available=available
-    )[:FEED_LIMIT]
+    language = _feed_language(domain, locale, available)
+    entries = _feed_entries(domain, language, available)
+    default_locale = str(domain.site.default_locale)
+    own = origin + feed_path(default_locale, language, "atom.xml")
     # The feed's own `updated` is the newest article's, and "now" when there is
     # none: a feed that claims to change every time it is fetched teaches a
     # reader to stop trusting the field.
@@ -149,12 +176,14 @@ def render_site_atom(*, host: str) -> HttpResponse:
 
     document = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<feed xmlns="http://www.w3.org/2005/Atom">'
-        "<id>" + escape(origin + "/atom.xml") + "</id>"
+        '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="' + escape(language) + '">'
+        "<id>" + escape(own) + "</id>"
         "<title>" + escape(domain.site.name) + "</title>"
         "<updated>" + escape(_rfc3339(updated)) + "</updated>"
-        '<link rel="self" href="' + escape(origin + "/atom.xml") + '"/>'
-        '<link rel="alternate" href="' + escape(origin + "/") + '"/>'
+        '<link rel="self" href="' + escape(own) + '"/>'
+        '<link rel="alternate" href="'
+        + escape(origin + language_home(default_locale, language))
+        + '"/>'
         + "".join(items)
         + "</feed>"
     )
@@ -184,36 +213,32 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
     for collection in ContentCollection.all_objects.filter(
         organization_id=domain.organization_id, site_id=domain.site_id
     ):
-        first = collection_index_path(
-            default_locale=site_locale,
-            locale=site_locale,
-            base_path=collection.base_path,
-        )
-        locations.append(origin + first)
-        # Every page of the index, not just the first. An article that has
-        # scrolled off page one is otherwise reachable by no link a crawler
-        # follows, which on a blog is most of the archive.
-        listed = one_per_article(
-            [item for item in entries if item["collection_id"] == str(collection.id)],
-            site_locale,
-        )
-        pages = max(1, -(-len(listed) // settings.SITES_ENTRY_INDEX_PAGE_SIZE))
-        for number in range(2, pages + 1):
-            locations.append(origin + index_page_path(first, site_locale, number))
-        # One address per subject that has enough articles to be worth
-        # indexing. Below that the archive exists for readers but asks not to
-        # be indexed, so listing it would contradict the page itself.
-        counts: dict[str, int] = {}
-        for item in listed:
-            for tag in item["tags"]:
-                slug = str(tag.get("slug", ""))
-                if slug:
-                    counts[slug] = counts.get(slug, 0) + 1
-        for slug, count in sorted(counts.items()):
-            if count >= TAG_INDEX_THRESHOLD:
-                locations.append(
-                    origin + tag_archive_path(index_path=first, slug=slug)
-                )
+        grouped = entries_by_locale(entries, str(collection.id))
+        # Each language's index where it answers (TL14), with every page of
+        # it, not just the first. An article that has scrolled off page one is
+        # otherwise reachable by no link a crawler follows, which on a blog is
+        # most of the archive.
+        for locale in index_languages(site_locale, grouped):
+            listed = grouped.get(locale, [])
+            first = collection_index_path(
+                default_locale=site_locale, locale=locale, base_path=collection.base_path
+            )
+            locations.append(origin + first)
+            pages = max(1, -(-len(listed) // settings.SITES_ENTRY_INDEX_PAGE_SIZE))
+            for number in range(2, pages + 1):
+                locations.append(origin + index_page_path(first, locale, number))
+            # One address per subject that has enough articles to be worth
+            # indexing. Below that the archive exists for readers but asks not
+            # to be indexed, so listing it would contradict the page itself.
+            counts: dict[str, int] = {}
+            for item in listed:
+                for tag in item["tags"]:
+                    slug = str(tag.get("slug", ""))
+                    if slug:
+                        counts[slug] = counts.get(slug, 0) + 1
+            for slug, count in sorted(counts.items()):
+                if count >= TAG_INDEX_THRESHOLD:
+                    locations.append(origin + tag_archive_path(index_path=first, slug=slug))
     for entry in entries:
         locations.append(origin + entry["path"])
     last_changed = {

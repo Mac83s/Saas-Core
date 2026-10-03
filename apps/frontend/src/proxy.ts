@@ -103,6 +103,9 @@ export const config = {
     // same rewrite as any other page on that host.
     "/rss.xml",
     "/atom.xml",
+    // A language's own feeds (TL14).
+    "/:locale/rss.xml",
+    "/:locale/atom.xml",
     "/sitemap.xml",
     "/robots.txt",
   ],

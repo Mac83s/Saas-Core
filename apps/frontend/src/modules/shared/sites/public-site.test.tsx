@@ -64,6 +64,10 @@ const page: PublicSitePage = {
   ai_media_ids: [],
   noindex: false,
   language_links: [],
+  feeds: {
+    rss: "https://clinic.example.test/rss.xml",
+    atom: "https://clinic.example.test/atom.xml",
+  },
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -267,4 +271,38 @@ test("switches language with plain links and names the menu in the page's langua
     "Deutsch",
   );
   expect(screen.getByRole("navigation", { name: "Menü" })).not.toBeNull();
+});
+
+test("links its own language's feeds and marks a menu name still in the site's language", () => {
+  const english: PublicSitePage = {
+    ...page,
+    locale: "en",
+    feeds: {
+      rss: "https://clinic.example.test/en/rss.xml",
+      atom: "https://clinic.example.test/en/atom.xml",
+    },
+    navigation: [
+      {
+        page_id: "019ff20d-a000-7000-8000-000000000040",
+        parent_page_id: null,
+        title: "Blog",
+        path: "/en/blog/",
+        lang: "pl",
+      },
+    ],
+  };
+
+  expect(publicSiteMetadata(english).alternates?.types).toEqual({
+    "application/rss+xml": [
+      { url: "https://clinic.example.test/en/rss.xml", title: page.title },
+    ],
+    "application/atom+xml": [
+      { url: "https://clinic.example.test/en/atom.xml", title: page.title },
+    ],
+  });
+  render(<PublicSiteRenderer page={english} />);
+  const menu = screen.getByRole("navigation", { name: "Menu" });
+  expect(menu.querySelector('a[href="/en/blog/"]')?.getAttribute("lang")).toBe(
+    "pl",
+  );
 });

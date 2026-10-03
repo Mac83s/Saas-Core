@@ -134,6 +134,16 @@ class PublicNavigationLinkSerializer(serializers.Serializer[dict[str, Any]]):
     parent_page_id = serializers.UUIDField(allow_null=True)
     title = serializers.CharField()
     path = serializers.CharField()
+    lang = serializers.CharField(
+        required=False,
+        help_text="The language of `title` when it is not the page's: a collection "
+        "name not yet translated (TL14).",
+    )
+
+
+class PublicFeedLinksSerializer(serializers.Serializer[dict[str, Any]]):
+    rss = serializers.URLField(help_text="RSS 2.0 of the articles in the page's language.")
+    atom = serializers.URLField(help_text="Atom of the articles in the page's language.")
 
 
 class PublicLanguageLinkSerializer(serializers.Serializer[dict[str, Any]]):
@@ -177,6 +187,7 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     page_presentation = serializers.DictField(allow_null=True, required=False)
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
+    feeds = PublicFeedLinksSerializer()
     breadcrumbs = serializers.ListField(child=serializers.DictField())
     pagination = serializers.DictField(allow_null=True)
     article = serializers.DictField(allow_null=True)
