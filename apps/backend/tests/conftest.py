@@ -26,6 +26,8 @@ collect_ignore_glob = [
     # HoofCare and MedPlano compose neither the model port nor translation; a new
     # test file importing either module at the top belongs on these lists.
     *([] if "shared.model-port" in settings.ACTIVE_MODULES else ["test_model_port.py"]),
+    # MedPlano does not compose the farm register.
+    *([] if "shared.farms" in settings.ACTIVE_MODULES else ["test_farms_today.py"]),
     *(
         []
         if "shared.translation" in settings.ACTIVE_MODULES

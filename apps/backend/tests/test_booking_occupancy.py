@@ -123,6 +123,9 @@ def test_the_window_is_bounded() -> None:
 def test_somebody_elses_stay_takes_its_unit_but_keeps_its_guest_to_itself(settings: Any) -> None:
     """UX-023: where a product narrows whose visits a person sees, the grid
     still shows the unit taken — never who took it."""
+    # Core's own rule first: a product's declaration (MedPlano) is not where
+    # this test starts.
+    settings.BOOKING_OTHERS_PERMISSION = None
     owner, setup = company("oblozenie-prywatnie")
     worker = member_of(owner, "oblozenie-prywatnie.pracownik@example.test", "staff")
     first = saturday_after(7)
