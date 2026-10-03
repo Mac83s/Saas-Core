@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -60,4 +60,25 @@ test("ładuje organizacje; zespołem zajmuje się TeamPanel", async () => {
     (screen.getByLabelText("Wybierz organizację") as HTMLInputElement).value,
   ).toBe("Acme");
   expect(listMemberships).not.toHaveBeenCalled();
+});
+
+test("nowa organizacja: pola wyboru pokazują etykiety, nie surowe wartości", async () => {
+  listOrganizations.mockResolvedValue([]);
+  render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      <OrganizationPanel />
+    </NextIntlClientProvider>,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Nowa organizacja/ }),
+  );
+
+  // Read before any list has been opened: „Firmowa”, never „business”.
+  expect(
+    await screen.findByRole("combobox", { name: "Typ przestrzeni" }),
+  ).toHaveTextContent("Firmowa");
+  expect(
+    screen.getByRole("combobox", { name: "Język panelu i e-maili do zespołu" }),
+  ).toHaveTextContent("Polski");
 });
