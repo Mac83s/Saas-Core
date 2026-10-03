@@ -2572,6 +2572,8 @@
     "teamsGroup": "Teams",
     "staffGroup": "People",
     "onlyScheduled": "Only people working that day",
+    "legendVacancy": "Vacancy — someone is missing",
+    "showCanceled": "Show cancelled ({count})",
     "assigned": "Crew saved: {customer}.",
     "navigate": "Navigate",
     "opensNewTab": " (opens in a new tab)",
@@ -2600,10 +2602,13 @@
     "leads": "leads",
     "leadShort": "Lead",
     "nothing": "Nothing planned and no hours.",
+    "nothingWorks": "No visits · works {hours}",
+    "nothingAway": "No visits · away",
+    "nothingOff": "No visits · no schedule",
     "legend": "Board legend",
-    "legendVacancy": "Vacancy",
+    "legendVacancy": "Vacancy — someone is missing",
     "legendOff": "Outside hours",
-    "legendLead": "Lead — leads the visit"
+    "legendLead": "“leads” — the person leading a visit several people go to"
   },
   "StaffFacts": {
     "title": "Results",

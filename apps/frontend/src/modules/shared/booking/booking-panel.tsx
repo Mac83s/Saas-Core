@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTimeZone, useTranslations } from "next-intl";
 import {
   CalendarPlusIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   EyeIcon,
   PlusIcon,
   SettingsIcon,
@@ -25,10 +30,12 @@ import {
   type Person,
   type StaffTeam,
 } from "@saas-core/api-client";
+import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   DataTable,
   DataTableFilter,
+  FilterSheet,
   RowActions,
   type ColumnDef,
 } from "@saas-core/ui/components/data-table";
@@ -37,7 +44,13 @@ import { cn } from "@saas-core/ui/lib/utils";
 import { PanelPage, PanelToolbar } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
-import { formatHours, formatVisit, formatZone, useOtherZone } from "#lib/dates";
+import {
+  formatDateRange,
+  formatHours,
+  formatVisit,
+  formatZone,
+  useOtherZone,
+} from "#lib/dates";
 import type { PanelAccess } from "#lib/panel-navigation";
 import {
   AppointmentDialog,
@@ -58,11 +71,11 @@ import {
   addMonths,
   dateFormat,
   formatDay,
-  formatDayRange,
   formatWhen,
   wallClock,
   weekStart,
 } from "./calendar-time";
+import { CalendarNav } from "./calendar-nav";
 import { DayBoard } from "./day-board";
 import { boardRows } from "./day-board-model";
 import { CrewDialog } from "./dispatch/crew-dialog";
@@ -74,6 +87,8 @@ const VIEWS: View[] = ["day", "week", "month", "list"];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 /** The view a person last chose on this device (answer 1C, 29.09). */
 const VIEW_KEY = "saas-core.calendar.view";
+/** What the device prefers is read once; the switch decides after that. */
+const noSubscription = () => () => undefined;
 
 function storedView(key?: string): View | undefined {
   if (!key) return undefined;
@@ -156,11 +171,26 @@ export function BookingPanel({
   const [hasAny, setHasAny] = useState(false);
   const [problem, setProblem] = useState<"load" | "plan" | "access">();
   const [reloads, setReloads] = useState(0);
-  const [view, setView] = useState<View>(() =>
-    VIEWS.includes(asked("view") as View)
-      ? (asked("view") as View)
-      : (storedView(viewKey) ?? "week"),
+  // The first render is the server's: the address or the week. What this
+  // device remembers — or a phone's day (answer 48a) — is read once the
+  // browser has the page, or the server's week and the browser's day differ
+  // (React #418, UX-032).
+  const linkedView = VIEWS.includes(asked("view") as View)
+    ? (asked("view") as View)
+    : undefined;
+  const devicePreference = useSyncExternalStore(
+    noSubscription,
+    () =>
+      storedView(viewKey) ??
+      (typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 639px)").matches
+        ? "day"
+        : undefined),
+    () => undefined,
   );
+  const [chosenView, setChosenView] = useState<View | undefined>(linkedView);
+  const view: View = chosenView ?? devicePreference ?? "week";
+  const setView = setChosenView;
   // A link or a day's heading moves the view; only the switch is a choice.
   const chooseView = (next: View) => {
     setView(next);
@@ -173,6 +203,9 @@ export function BookingPanel({
   };
   const [board, setBoard] = useState<{ people: Person[]; day: PeopleDay }>();
   const [onlyScheduled, setOnlyScheduled] = useState(false);
+  // Called-off visits leave the grids and the counts unless asked for: in a
+  // busy week they outnumber the real ones (UX-025).
+  const [showCanceled, setShowCanceled] = useState(false);
   const [plan, setPlan] = useState<{ staffId: string; time: string }>();
   // A vacancy on the board and the block that opened it, for focus to return.
   const [assigning, setAssigning] = useState<{
@@ -253,6 +286,7 @@ export function BookingPanel({
   const byDay = useMemo(() => {
     const days = new Map<string, BookingAppointment[]>();
     for (const item of appointments ?? []) {
+      if (!showCanceled && item.status === "canceled") continue;
       if (chosenStaff && !onVisit(item, chosenStaff)) continue;
       if (
         chosenTeam &&
@@ -266,7 +300,17 @@ export function BookingPanel({
       else days.set(day, [item]);
     }
     return days;
-  }, [appointments, chosenStaff, chosenTeam, serviceFilter, zone]);
+  }, [
+    appointments,
+    chosenStaff,
+    chosenTeam,
+    serviceFilter,
+    showCanceled,
+    zone,
+  ]);
+  const canceledCount = (appointments ?? []).filter(
+    (item) => item.status === "canceled",
+  ).length;
 
   // An appointment keeps the service name it was booked under, so the filter
   // offers those names too, not only today's catalogue.
@@ -363,16 +407,20 @@ export function BookingPanel({
     };
   }, [cursor, mine, reloads, view]);
 
+  // One way to write a date (UX-011). The week's range comes from
+  // `formatDateRange`, which writes the dash the same in Node and in the
+  // browser: their ICU spaced it differently and React re-rendered the
+  // page (#418, UX-032).
   const title =
     view === "day"
       ? formatDay(cursor, locale, {
           weekday: "long",
           day: "numeric",
-          month: "long",
+          month: "short",
           year: "numeric",
         })
       : view === "week"
-        ? formatDayRange(days[0], days[6], locale)
+        ? formatDateRange(days[0], days[6], locale)
         : // The month and the list show the same month.
           formatDay(cursor, locale, { month: "long", year: "numeric" });
 
@@ -594,7 +642,8 @@ export function BookingPanel({
             ...item.crew.map((person) => person.name),
           ].join(" ")
         }
-        toolbar={filters}
+        activeFilters={activeFilters}
+        filters={filters}
       />
     ),
     day: () => {
@@ -661,8 +710,10 @@ export function BookingPanel({
         {days.map((day) => {
           const items = byDay.get(day) ?? [];
           return (
+            // A light ground, no frame: a card in a box in a box read as
+            // clutter (UX-027, ADR-057 pkt 8).
             <li
-              className="min-w-0 space-y-2 rounded-xl border bg-card/50 p-2"
+              className="min-w-0 space-y-2 rounded-xl bg-muted/40 p-2"
               key={day}
             >
               <h3>
@@ -824,8 +875,25 @@ export function BookingPanel({
           {t("onlyScheduled")}
         </label>
       ) : null}
+      {canceledCount ? (
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            checked={showCanceled}
+            className="size-4 accent-primary"
+            onChange={(event) => setShowCanceled(event.target.checked)}
+            type="checkbox"
+          />
+          {t("showCanceled", { count: canceledCount })}
+        </label>
+      ) : null}
     </>
   );
+  const activeFilters = [
+    staffFilter,
+    serviceFilter,
+    showBoard && onlyScheduled,
+    showCanceled,
+  ].filter(Boolean).length;
 
   return (
     <PanelPage
@@ -866,49 +934,27 @@ export function BookingPanel({
     >
       <section aria-labelledby="calendar-range" className="space-y-3">
         <PanelToolbar>
-          <Button onClick={() => setCursor(today)} variant="outline">
-            {t("today")}
-          </Button>
-          <Button
-            aria-label={t(`previous_${view}`)}
-            onClick={() => move(-1)}
-            size="icon"
-            variant="outline"
-          >
-            <ChevronLeftIcon aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label={t(`next_${view}`)}
-            onClick={() => move(1)}
-            size="icon"
-            variant="outline"
-          >
-            <ChevronRightIcon aria-hidden="true" />
-          </Button>
-          {/* The zone only when the browser is in another one (UX-019). */}
-          {otherZone ? (
-            <p className="w-full text-xs text-muted-foreground sm:order-last">
-              {t("zoneNote", { zone: formatZone(zone, locale) })}
-            </p>
-          ) : null}
-          <h2
-            aria-live="polite"
-            className="ml-1 text-lg font-semibold outline-none first-letter:uppercase sm:text-xl"
-            id="calendar-range"
-            ref={heading}
-            tabIndex={-1}
-          >
-            {title}
-          </h2>
+          <CalendarNav
+            heading={title}
+            headingId="calendar-range"
+            headingRef={heading}
+            nextLabel={t(`next_${view}`)}
+            onNext={() => move(1)}
+            onPrevious={() => move(-1)}
+            onToday={() => setCursor(today)}
+            previousLabel={t(`previous_${view}`)}
+          />
+          {/* A compact switch: on a phone it shares the row with the
+              filters' button instead of taking one of its own (UX-026). */}
           <div
             aria-label={t("view")}
-            className="flex rounded-lg border p-0.5 max-sm:w-full sm:ml-auto"
+            className="flex rounded-lg border p-0.5 sm:ml-auto"
             role="group"
           >
             {VIEWS.map((item) => (
               <Button
                 aria-pressed={view === item}
-                className="max-sm:flex-1"
+                className="max-sm:h-9 max-sm:px-2.5"
                 key={item}
                 onClick={() => chooseView(item)}
                 variant={view === item ? "secondary" : "ghost"}
@@ -917,12 +963,20 @@ export function BookingPanel({
               </Button>
             ))}
           </div>
+          {/* The zone only when the browser is in another one (UX-019). */}
+          {otherZone ? (
+            <p className="w-full text-xs text-muted-foreground">
+              {t("zoneNote", { zone: formatZone(zone, locale) })}
+            </p>
+          ) : null}
         </PanelToolbar>
 
         {/* The list has its own row with search; the grids have these. */}
         {view === "list" ? null : (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            {filters}
+            <FilterSheet active={activeFilters} labels={labels}>
+              {filters}
+            </FilterSheet>
             {/* The board has a legend of its own under the rows. */}
             <ul
               aria-label={t("legend")}
@@ -943,6 +997,10 @@ export function BookingPanel({
                   <StatusBadge status={status} />
                 </li>
               ))}
+              {/* „Wakat” is on the cards too: the legend names it (UX-027). */}
+              <li>
+                <Badge variant="destructive">{t("legendVacancy")}</Badge>
+              </li>
             </ul>
           </div>
         )}
@@ -1172,7 +1230,12 @@ function AppointmentCard({
       </span>{" "}
       {/* Spaces between the parts keep the spoken name from running together. */}
       <span className={cn("w-full min-w-0", wide && "sm:flex-1")}>
-        <span className="block truncate font-medium">
+        {/* Two lines: the part that tells „Gospodarstwo Mazur” from
+            „Gospodarstwo Nowak” is the end, which one line cut (UX-027). */}
+        <span
+          className="line-clamp-2 font-medium wrap-anywhere"
+          title={visitName(appointment)}
+        >
           {visitName(appointment)}
         </span>{" "}
         {visitPerson(appointment) ? (
@@ -1181,7 +1244,7 @@ function AppointmentCard({
           </span>
         ) : null}{" "}
         <VisitPlace className="text-xs font-medium" place={appointment.place} />{" "}
-        <span className="block truncate text-xs text-muted-foreground">
+        <span className="line-clamp-2 text-xs text-muted-foreground">
           <span aria-hidden="true">{details.filter(Boolean).join(" · ")}</span>
           <span className="sr-only">{spoken.filter(Boolean).join(", ")}</span>
         </span>
@@ -1194,7 +1257,8 @@ function AppointmentCard({
           </span>
         ) : null}
       </span>{" "}
-      <span className="flex flex-wrap gap-1">
+      {/* A badge stays inside its card: a long one wraps (UX-027). */}
+      <span className="flex max-w-full flex-wrap gap-1 *:h-auto *:max-w-full *:whitespace-normal *:text-left">
         <StatusBadge status={shownStatus(appointment)} />{" "}
         <CrewBadges appointment={appointment} short={!wide} />{" "}
         <FlagBadges flags={appointment.flags} />

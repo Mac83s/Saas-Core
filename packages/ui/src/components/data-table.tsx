@@ -312,9 +312,9 @@ export function DataTable<TData, TValue>({
           ) : null}
           {toolbar}
           {filters && !bare ? (
-            <ListFilters active={activeFilters} labels={labels}>
+            <FilterSheet active={activeFilters} labels={labels}>
               {filters}
-            </ListFilters>
+            </FilterSheet>
           ) : null}
         </div>
       ) : null}
@@ -520,17 +520,19 @@ export function DataTable<TData, TValue>({
 
 /**
  * The filters in the toolbar's row on a wide screen; on a phone one button
- * opens them in a sheet. Only one copy is mounted at a time: the row's copy is
- * hidden on a phone and leaves while the sheet is open, so a filter's id and
- * label stay unique.
+ * opens them in a sheet (UX-008). Only one copy is mounted at a time: the
+ * row's copy is hidden on a phone and leaves while the sheet is open, so a
+ * filter's id and label stay unique. `DataTable` uses it for `filters`; a
+ * page with filters above something that is not a table (the calendar's
+ * grids) uses it directly.
  */
-function ListFilters({
+export function FilterSheet({
   active,
   labels,
   children,
 }: {
   active: number;
-  labels: DataTableLabels;
+  labels: Pick<DataTableLabels, "filters" | "showResults" | "close">;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);

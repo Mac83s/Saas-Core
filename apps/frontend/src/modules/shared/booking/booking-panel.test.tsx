@@ -319,7 +319,7 @@ test("views, navigation and filters show the right appointments", async () => {
   renderCalendar();
   await screen.findByText("Jan Kowalski");
   expect(
-    screen.getByRole("heading", { level: 2, name: /^August 17\W+23, 2026$/ }),
+    screen.getByRole("heading", { level: 2, name: /^Aug 17\W+23, 2026$/ }),
   ).not.toBeNull();
   expect(screen.getByText("Anna Nowak")).not.toBeNull();
   // Only the week on screen; whether there is any visit at all is asked apart.
@@ -354,7 +354,7 @@ test("views, navigation and filters show the right appointments", async () => {
   expect(
     screen.getByRole("heading", {
       level: 2,
-      name: "Thursday, August 20, 2026",
+      name: "Thursday, Aug 20, 2026",
     }),
   ).not.toBeNull();
   expect(screen.getByText("Jan Kowalski")).not.toBeNull();
@@ -480,6 +480,47 @@ test("when every visit is at the one location the list has no column for it", as
   expect(
     within(table).queryByRole("columnheader", { name: "Location" }),
   ).toBeNull();
+});
+
+test("called-off visits wait behind „Show cancelled (n)” and leave the counts (UX-025)", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    appointment,
+    {
+      ...appointment,
+      id: "a-canceled",
+      customer_name: "Ola Odwołana",
+      status: "canceled",
+    },
+  ]);
+  renderCalendar();
+  await screen.findByText("Jan Kowalski");
+  expect(screen.queryByText("Ola Odwołana")).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show cancelled (1)" }));
+  expect(await screen.findByText("Ola Odwołana")).not.toBeNull();
+});
+
+test("a phone opens on the day, after the page has come from the server (48a, UX-032)", async () => {
+  const original = window.matchMedia;
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      matches: query === "(max-width: 639px)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }),
+  });
+  try {
+    renderCalendar({ viewKey: "phone-test" });
+    expect(
+      await screen.findByRole("button", { name: "Day", pressed: true }),
+    ).not.toBeNull();
+  } finally {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: original,
+    });
+  }
 });
 
 test("an appointment opens its details and is canceled only after confirmation", async () => {

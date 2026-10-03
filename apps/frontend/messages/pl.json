@@ -2572,6 +2572,8 @@
     "teamsGroup": "Zespoły",
     "staffGroup": "Pracownicy",
     "onlyScheduled": "Tylko pracujący tego dnia",
+    "legendVacancy": "Wakat — brakuje osoby",
+    "showCanceled": "{count, plural, one {Pokaż odwołaną (#)} other {Pokaż odwołane (#)}}",
     "assigned": "Zapisano skład: {customer}.",
     "navigate": "Nawiguj",
     "opensNewTab": " (otwiera się w nowej karcie)",
@@ -2600,10 +2602,13 @@
     "leads": "prowadzi",
     "leadShort": "Prow.",
     "nothing": "Nic zaplanowanego i bez grafiku.",
+    "nothingWorks": "Brak wizyt · pracuje {hours}",
+    "nothingAway": "Brak wizyt · nieobecność",
+    "nothingOff": "Brak wizyt · bez grafiku",
     "legend": "Legenda tablicy",
-    "legendVacancy": "Wakat",
+    "legendVacancy": "Wakat — brakuje osoby",
     "legendOff": "Poza grafikiem",
-    "legendLead": "Prow. — prowadzi wizytę"
+    "legendLead": "„prowadzi” — osoba prowadząca wizytę, gdy jedzie kilka osób"
   },
   "StaffFacts": {
     "title": "Wyniki",

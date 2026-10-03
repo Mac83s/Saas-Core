@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  LockIcon,
-  PlusIcon,
-} from "lucide-react";
+import { LockIcon, PlusIcon } from "lucide-react";
 
 import {
   getBookingOccupancy,
@@ -26,6 +21,7 @@ import { Link } from "#i18n/navigation";
 import { formatDateRange, formatVisit } from "#lib/dates";
 import { shownStatus, StatusBadge, statusStyle } from "../appointment-dialogs";
 import { ConfirmDialog, problemText } from "../people/person-dialogs";
+import { CalendarNav } from "../calendar-nav";
 import { BlockUnitDialog, NewStayDialog } from "./stay-dialogs";
 import { addDays, formatDay, wallClock, zonedInstant } from "../calendar-time";
 
@@ -152,36 +148,16 @@ export function OccupancyPanel({
       ) : (
         <section aria-labelledby="occupancy-range" className="space-y-3">
           <PanelToolbar>
-            <Button
-              disabled={first === today}
-              onClick={() => setFirst(today)}
-              variant="outline"
-            >
-              {calendar("today")}
-            </Button>
-            <Button
-              aria-label={calendar("previous_week")}
-              onClick={() => setFirst(addDays(first, -7))}
-              size="icon"
-              variant="outline"
-            >
-              <ChevronLeftIcon aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label={calendar("next_week")}
-              onClick={() => setFirst(addDays(first, 7))}
-              size="icon"
-              variant="outline"
-            >
-              <ChevronRightIcon aria-hidden="true" />
-            </Button>
-            <h2
-              aria-live="polite"
-              className="ml-1 text-lg font-semibold sm:text-xl"
-              id="occupancy-range"
-            >
-              {range}
-            </h2>
+            <CalendarNav
+              heading={range}
+              headingId="occupancy-range"
+              nextLabel={calendar("next_week")}
+              onNext={() => setFirst(addDays(first, 7))}
+              onPrevious={() => setFirst(addDays(first, -7))}
+              onToday={() => setFirst(today)}
+              previousLabel={calendar("previous_week")}
+              todayDisabled={first === today}
+            />
             {groups.length > 1 ? (
               <div className="sm:ml-auto">
                 <DataTableFilter

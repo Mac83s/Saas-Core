@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { PlusIcon, UserPlusIcon } from "lucide-react";
+import { InfoIcon, PlusIcon, UserPlusIcon } from "lucide-react";
 
 import type {
   BookingAppointment,
@@ -18,6 +18,7 @@ import {
   FlagBadges,
   hasPassed,
   shownStatus,
+  StatusBadge,
   statusLabel,
   statusStyle,
   VisitPlace,
@@ -37,7 +38,7 @@ import {
 import { todayState } from "./people/people";
 import { useTodayText } from "./people/people-panel";
 import { TeamNames } from "./teams/team-names";
-import { visitName } from "./visit-name";
+import { visitName, visitShortName } from "./visit-name";
 
 const focusRing =
   "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -145,7 +146,8 @@ export function DayBoard({
         lines={lines}
         teams={teams}
         time={time}
-        vacancies={vacancies}
+        // Whoever cannot assign has no use for the row (UX-030).
+        vacancies={canManage ? vacancies : []}
       />
     );
 
@@ -158,6 +160,9 @@ export function DayBoard({
     ...vacancies.map(span),
   ]);
   const ticks = hourTicks(range, zone);
+  // About 4.5 rem an hour beside the names' 13: an hour's visit keeps a name
+  // and its time readable; a long day scrolls instead of squeezing (UX-028).
+  const minWidth = `max(48rem, ${(ticks.length - 1) * 4.5 + 13}rem)`;
   const nowAt = now.getTime();
   const showNow = today && nowAt > range.from && nowAt < range.to;
   const at = (item: Span) => ({
@@ -196,7 +201,21 @@ export function DayBoard({
       className="space-y-2 overflow-x-auto"
       role="region"
     >
-      <div className="min-w-[48rem] space-y-2">
+      <div className="space-y-2" style={{ minWidth }}>
+        {/* „Teraz” over the hours, never on top of one (UX-028). */}
+        {showNow ? (
+          <div aria-hidden="true" className="flex gap-3">
+            <span className="w-52 shrink-0" />
+            <div className="relative h-5 flex-1 text-xs tabular-nums">
+              <span
+                className="absolute -translate-x-1/2 rounded bg-destructive px-1 font-medium text-white"
+                style={{ left: `${place(nowAt, range)}%` }}
+              >
+                {time(nowAt)}
+              </span>
+            </div>
+          </div>
+        ) : null}
         <div aria-hidden="true" className="flex items-end gap-3">
           <span className="w-52 shrink-0 text-xs font-medium text-muted-foreground">
             {t("person")}
@@ -213,18 +232,10 @@ export function DayBoard({
                 </span>
               ),
             )}
-            {showNow ? (
-              <span
-                className="absolute -translate-x-1/2 rounded bg-destructive px-1 font-medium text-white"
-                style={{ left: `${place(nowAt, range)}%` }}
-              >
-                {time(nowAt)}
-              </span>
-            ) : null}
           </div>
         </div>
 
-        {vacancies.length ? (
+        {canManage && vacancies.length ? (
           <div className="flex items-stretch gap-3">
             <div className="w-52 shrink-0 space-y-0.5 py-1">
               <p className="text-sm font-semibold">
@@ -431,21 +442,20 @@ function VisitBlock({
         .join(" · ")}
       type="button"
     >
+      {/* A name that fits a block („Barbara W.”) and the hours; the rest is
+          in the title, the label and one click away (UX-028). */}
       <span className="flex min-w-0 items-center gap-1 font-semibold">
-        {lead ? (
-          <span className="shrink-0 rounded-sm bg-background/60 px-1">
-            {t("leadShort")}
-          </span>
-        ) : null}
-        <span className="truncate">{visitName(item)}</span>
+        <span className="truncate">{visitShortName(item)}</span>
         {auto && !item.needs_assignment ? (
           <span className="shrink-0 rounded-sm bg-background/60 px-1">
             {calendar("autoShort")}
           </span>
         ) : null}
       </span>
-      <span className="truncate">
-        {[item.place, item.service_name, when].filter(Boolean).join(" · ")}
+      {/* The town stays: it is where the trimmer drives (UX plan W5). */}
+      <span className="truncate tabular-nums">
+        {lead ? `${t("leads")} · ` : ""}
+        {[item.place, when].filter(Boolean).join(" · ")}
       </span>
     </button>
   );
@@ -454,7 +464,7 @@ function VisitBlock({
 function Legend() {
   const t = useTranslations("DayBoard");
   const calendar = useTranslations("Calendar");
-  const swatch = "inline-block h-3 w-5 rounded-sm border";
+  const swatch = "inline-block h-3 w-5 rounded-sm border border-foreground/30";
   return (
     <ul
       aria-label={t("legend")}
@@ -525,6 +535,18 @@ function Agenda({
 }) {
   const t = useTranslations("DayBoard");
   const inTeam = namedTeams(teams);
+  // An empty day says why: hours without visits are not „bez grafiku”
+  // (UX-030).
+  const nothing = (row: BoardRow) => {
+    const state = dayState(row.day);
+    return state.kind === "works"
+      ? t("nothingWorks", {
+          hours: state.hours
+            .map((work) => `${time(work.from)}–${time(work.to)}`)
+            .join(", "),
+        })
+      : t(state.kind === "away" ? "nothingAway" : "nothingOff");
+  };
   const card =
     "flex min-h-11 w-full flex-col items-start gap-0.5 rounded-lg border p-2.5 text-left text-sm";
   return (
@@ -564,7 +586,11 @@ function Agenda({
                   size="sm"
                   variant="outline"
                 >
-                  <UserPlusIcon aria-hidden="true" />
+                  {canManage ? (
+                    <UserPlusIcon aria-hidden="true" />
+                  ) : (
+                    <InfoIcon aria-hidden="true" />
+                  )}
                   {canManage ? t("assign") : t("details")}
                   <span className="sr-only">: {visitName(item)}</span>
                 </Button>
@@ -601,6 +627,11 @@ function Agenda({
                   {item.service_name}
                 </span>
                 <span className="flex flex-wrap gap-1">
+                  {/* The bar's colour is not the only sign (WCAG 1.4.1,
+                      UX-029): any state but the plain one is a word too. */}
+                  {shownStatus(item) !== "confirmed" ? (
+                    <StatusBadge status={shownStatus(item)} />
+                  ) : null}
                   {item.staff_id === row.staffId && item.crew.length > 1 ? (
                     <span className="rounded-sm bg-muted px-1 text-xs">
                       {t("leads")}
@@ -698,7 +729,7 @@ function Agenda({
                 ))}
               </ol>
             ) : (
-              <p className="text-sm text-muted-foreground">{t("nothing")}</p>
+              <p className="text-sm text-muted-foreground">{nothing(row)}</p>
             )}
           </section>
         );

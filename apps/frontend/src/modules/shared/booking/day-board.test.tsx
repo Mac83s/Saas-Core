@@ -319,7 +319,7 @@ test("the board and the agenda say in which town each visit is", async () => {
     within(board).getByRole("button", {
       name: /13:00–13:30, Jan Kowalski, Wólka, Consultation/,
     }),
-  ).toHaveTextContent("Wólka · Consultation");
+  ).toHaveTextContent("Wólka · 13:00–13:30");
   expect(
     within(board).getByRole("button", {
       name: "Assign people: Anna Nowak, Zalesie, Consultation, 15:00–15:30",
@@ -371,4 +371,29 @@ test("the calendar opens on the view the person last chose here; a link still wi
   expect(
     await screen.findByRole("heading", { level: 2, name: "August 2026" }),
   ).not.toBeNull();
+});
+
+test("whoever cannot assign gets no row to assign, and an empty day says why (UX-030)", async () => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      matches: query === "(max-width: 767px)",
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }),
+  });
+  address.params = new URLSearchParams("view=day&staff=");
+  renderCalendar({ canManage: false });
+  // The calendar opens on one's own visits; the board is the team's.
+  fireEvent.change(await screen.findByLabelText("Staff member"), {
+    target: { value: "" },
+  });
+  const agenda = await screen.findByRole("region", { name: "Day board" });
+  expect(
+    within(agenda)
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent),
+  ).toEqual(["Alex", "Bea"]);
+  const bea = within(agenda).getByRole("region", { name: "Bea" });
+  expect(within(bea).getByText(/^No visits · works /)).not.toBeNull();
 });

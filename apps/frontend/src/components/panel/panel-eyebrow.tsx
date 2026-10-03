@@ -2,9 +2,10 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { cn } from "@saas-core/ui/lib/utils";
 
 import { routing } from "#i18n/routing";
-import { menuEntryFor } from "#lib/panel-navigation";
+import { menuEntryFor, PANEL_SECTIONS } from "#lib/panel-navigation";
 
 // The address as the browser has it: a page's eyebrow is mounted with the
 // page, so a navigation brings a new one. On the server there is none yet,
@@ -50,7 +51,19 @@ export function PanelEyebrow({
       ? t(entry.group)
       : t(entry.labelKey)
     : fallback;
+  // Below lg a section's tabs stand over the page and name it already: the
+  // eyebrow would be a third name above the first visit (UX-026).
+  const tabbed = Boolean(
+    entry?.section && PANEL_SECTIONS[entry.section].length > 1,
+  );
   return text ? (
-    <p className="text-sm font-medium text-primary">{text}</p>
+    <p
+      className={cn(
+        "text-sm font-medium text-primary",
+        tabbed && "max-lg:hidden",
+      )}
+    >
+      {text}
+    </p>
   ) : null;
 }
