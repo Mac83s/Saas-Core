@@ -20,6 +20,7 @@ from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
 from saas_core.content_protocol.sources import ContentContext, WriteBatch, WriteOutcome
+from saas_core.modules.core.organizations import platform_settings
 from saas_core.modules.core.organizations.models import Membership, OrganizationAuditEntry
 from saas_core.modules.shared.billing.models import (
     CreditLedgerEntry,
@@ -138,7 +139,13 @@ def installed_source(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
     pages = JobSource()
     monkeypatch.setattr(FAKE, "complete", translator())
     cache.set(WORKER_SEEN, 1, 300)
-    CreditOperation.objects.filter(key="translation.characters").update(is_active=True, cost=2)
+    CreditOperation.objects.filter(key="translation.characters").update(is_active=True)
+    # The price is the platform's setting (TL22): 2 credits per unit here.
+    monkeypatch.setattr(
+        platform_settings,
+        "platform_overrides",
+        lambda: {"translation.pricing.characters": 2},
+    )
     try:
         with registered_translation_source(pages):
             yield pages

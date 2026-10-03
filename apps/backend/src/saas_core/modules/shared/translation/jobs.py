@@ -33,7 +33,7 @@ from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
-from saas_core.modules.shared.billing.api import CreditPriceChanged, reserve_credits
+from saas_core.modules.shared.billing.api import CreditPriceChanged, reserve_credits, unit_cost
 from saas_core.modules.shared.billing.models import CreditOperation
 from saas_core.modules.shared.model_port.api import ModelError, estimate
 
@@ -149,8 +149,9 @@ def _read(context: ContentContext, target: TargetRequest) -> SourceRead:
 
 
 def _price() -> int | None:
+    """Credits per unit now (the platform setting, TL22); None while unpriced."""
     operation = CreditOperation.objects.filter(key=CREDIT_OPERATION).first()
-    return operation.cost if operation is not None and operation.is_active else None
+    return unit_cost(operation) if operation is not None and operation.is_active else None
 
 
 def _cause(context: TenantContext) -> str:

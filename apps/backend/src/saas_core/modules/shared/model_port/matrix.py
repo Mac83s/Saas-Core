@@ -46,6 +46,9 @@ class ModelProfile:
     probed: str | None = None
     #: Dated snapshots the provider may answer with for this model.
     dated_variants: frozenset[str] = frozenset()
+    #: Probed for evals only: not offered as a task's model in the platform
+    #: settings — customer content to it is the owner's decision (TL22).
+    evaluation_only: bool = False
 
     def estimate_usd_micros(self, *, input_tokens: int, output_tokens: int) -> int:
         return int(
@@ -165,6 +168,7 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         context_window=1_024_000,
         max_output_tokens=384_000,
         probed="2026-10-03",
+        evaluation_only=True,
     ),
     ("openrouter", "deepseek/deepseek-v4-pro-0813"): ModelProfile(
         adapter="openrouter",
@@ -183,6 +187,7 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         context_window=1_048_576,
         max_output_tokens=393_216,
         probed="2026-10-03",
+        evaluation_only=True,
     ),
 }
 

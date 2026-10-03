@@ -9,12 +9,15 @@ phase 1) takes over. Core modules and products add their own tasks with
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import replace
 from datetime import timedelta
 
 from .types import TaskSpec
+
+logger = logging.getLogger(__name__)
 
 POOLS = frozenset({"translation", "assistant"})
 
@@ -81,12 +84,39 @@ def registered_tasks() -> tuple[str, ...]:
     return tuple(sorted(_TASKS))
 
 
-def task_spec(key: str) -> TaskSpec | None:
-    """The task with its overrides applied, or None for an unknown key."""
+def task_spec(key: str, *, platform: bool = True) -> TaskSpec | None:
+    """The task with its overrides applied, or None for an unknown key.
+
+    `platform`: the operator's model from the platform settings comes first
+    (TL22), then the environment, then the code; False skips the settings —
+    the startup checks run before the database is there."""
     spec = _TASKS.get(key)
     if spec is None:
         return None
-    return _overridden(spec)
+    spec = _overridden(spec)
+    return _platform_model(spec) if platform else spec
+
+
+def _platform_model(spec: TaskSpec) -> TaskSpec:
+    from saas_core.modules.core.organizations.platform_settings import read_platform_setting
+
+    from .settings_spec import TASK_MODEL_SETTINGS, selectable_models
+
+    setting_key = TASK_MODEL_SETTINGS.get(spec.key)
+    if setting_key is None:
+        return spec
+    chosen = read_platform_setting(setting_key)
+    # Only an operator's choice overrides: the code default is the spec's own,
+    # and the environment's override has already been applied.
+    if chosen.source != "platform":
+        return spec
+    if chosen.value not in selectable_models(spec.key):
+        logger.warning(
+            "model_port_platform_model_ignored",
+            extra={"task": spec.key, "model": str(chosen.value)},
+        )
+        return spec
+    return replace(spec, model=str(chosen.value))
 
 
 def _overridden(spec: TaskSpec) -> TaskSpec:

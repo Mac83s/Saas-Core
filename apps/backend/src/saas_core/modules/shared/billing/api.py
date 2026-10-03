@@ -6,9 +6,11 @@ from .credits import (
     CreditsExhausted,
     commit_credits,
     operation_cost,
+    register_credit_cost,
     release_credits,
     reserve_credits,
     settle_credits,
+    unit_cost,
 )
 from .decisions import FeatureOperation, decide_feature, decide_quota
 from .quotas import (
@@ -49,6 +51,8 @@ __all__ = [
     "commit_credits",
     "release_credits",
     "operation_cost",
+    "register_credit_cost",
+    "unit_cost",
     "settle_credits",
     "billing_organization_ids",
 ]

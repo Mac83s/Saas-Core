@@ -17,6 +17,7 @@ that times out must not bill anybody.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
@@ -110,6 +111,27 @@ class CreditSummary:
 # ------------------------------------------------------------------ catalog --
 
 
+#: Operations whose price a module keeps as a platform setting (TL22): the
+#: operation's key → what one unit costs now.
+_cost_providers: dict[str, Callable[[], int]] = {}
+
+
+def register_credit_cost(operation_key: str, provider: Callable[[], int]) -> None:
+    """A module that owns an operation's price as a platform setting, from its
+    `AppConfig.ready`; billing stays generic and the catalogue row keeps only
+    whether the operation is metered at all."""
+    _cost_providers[operation_key] = provider
+
+
+def unit_cost(operation: CreditOperation) -> int:
+    """Credits one unit of the operation costs now: its owner's setting, else
+    the catalogue's; nothing while it is not metered yet."""
+    if not operation.is_active:
+        return 0
+    provider = _cost_providers.get(operation.key)
+    return provider() if provider is not None else operation.cost
+
+
 def operation_cost(operation_key: str, quantity: int = 1) -> int:
     """What `quantity` units of an operation cost now, or zero when it is not metered yet.
 
@@ -122,7 +144,7 @@ def operation_cost(operation_key: str, quantity: int = 1) -> int:
         raise UnknownCreditOperation(f"Operacja {operation_key!r} nie jest w katalogu.")
     if quantity < 1:
         raise ValueError("Ilość jednostek musi być dodatnia.")
-    return operation.cost * quantity if operation.is_active else 0
+    return unit_cost(operation) * quantity
 
 
 # ------------------------------------------------------------------ balance --
@@ -320,7 +342,7 @@ def reserve_credits(
         operation = CreditOperation.objects.select_for_update().filter(key=operation_key).first()
         if operation is None:
             raise UnknownCreditOperation
-        cost = operation.cost * quantity if operation.is_active else 0
+        cost = unit_cost(operation) * quantity
         if cost != expected_cost:
             raise CreditPriceChanged
     else:

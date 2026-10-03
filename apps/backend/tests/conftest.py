@@ -32,6 +32,7 @@ collect_ignore_glob = [
         []
         if "shared.translation" in settings.ACTIVE_MODULES
         else [
+            "test_platform_ai_settings.py",
             "test_profiles_translation_engine.py",
             "test_translation_automation.py",
             "test_translation_commands.py",

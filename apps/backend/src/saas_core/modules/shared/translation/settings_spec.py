@@ -153,6 +153,46 @@ SETTINGS = SettingGroup(
     settings=COMPANY_SETTINGS,
 )
 
+#: The price of `translation.characters` (TL22; answer 54a of 03.10): credits
+#: for 1,000 visible source characters in one target language. Class A — only
+#: the platform sets it (`platform_setting`, later the „Platforma” panel);
+#: billing reads it through `register_credit_cost`, and a reservation keeps
+#: the price it was made at, so a change never rewrites a charge.
+PRICE = SettingSpec(
+    key="translation.pricing.characters",
+    type="int",
+    default=1,
+    minimum=0,
+    maximum=100,
+    scopes=("platform",),
+    label={
+        "pl": "Cena tłumaczenia (kredyty za 1000 znaków)",
+        "en": "Translation price (credits per 1,000 characters)",
+    },
+    model_description="Credits a company pays for 1,000 visible source characters "
+    "translated into one target language. Applies to new quotes; reservations keep "
+    "their price.",
+    help={
+        "pl": "Ile kredytów kosztuje 1000 znaków tekstu źródłowego w jednym języku. Dotyczy "
+        "nowych wycen; złożone zlecenia zachowują swoją cenę.",
+        "en": "Credits for 1,000 characters of source text in one language. Applies to new "
+        "quotes; orders already placed keep their price.",
+    },
+)
+
+PRICING = SettingGroup(
+    key="translation.pricing",
+    module="shared.translation",
+    title={"pl": "Cena tłumaczeń AI", "en": "AI translation price"},
+    description={
+        "pl": "Ile kredytów płacą firmy za tłumaczenie AI.",
+        "en": "How many credits companies pay for AI translation.",
+    },
+    permission=TRANSLATION_MANAGE,
+    area="ai",
+    settings=(PRICE,),
+)
+
 #: Strictness of a publication mode, for `restrict`.
 MODE_ORDER = ("automatic", "review", "off")
 

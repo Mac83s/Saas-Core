@@ -27,7 +27,7 @@ def model_port_configuration(app_configs: Any, **kwargs: Any) -> list[Any]:
             )
         )
     for key in registered_tasks():
-        spec = task_spec(key)
+        spec = task_spec(key, platform=False)
         if (
             spec is not None
             and spec.model

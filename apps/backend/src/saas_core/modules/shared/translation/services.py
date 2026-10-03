@@ -40,6 +40,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 from saas_core.modules.core.organizations.settings_registry import check_value
+from saas_core.modules.shared.billing.api import unit_cost as credit_unit_cost
 from saas_core.modules.shared.billing.models import CreditOperation
 from saas_core.modules.shared.model_port.api import task_status
 
@@ -639,7 +640,9 @@ def translation_offer() -> dict[str, Any]:
     if port.reason is not None:
         reasons.append(port.reason)
     operation = CreditOperation.objects.filter(key=CREDIT_OPERATION).first()
-    unit_cost = operation.cost if operation is not None and operation.is_active else None
+    unit_cost = (
+        credit_unit_cost(operation) if operation is not None and operation.is_active else None
+    )
     if unit_cost is None and not platform:
         reasons.append(UNAVAILABLE_OPERATION_UNPRICED)
     if ceiling_state() == "off":

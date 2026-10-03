@@ -23,3 +23,14 @@ class ModelPortConfig(AppConfig):
 
             register_adapter(FAKE)
         register_erasure_rows("shared.model-port.usage", UsageEntry, "organization_id")
+
+        # The tasks' models as platform settings (TL22).
+        from saas_core.modules.core.organizations.api import (
+            register_setting_area,
+            register_setting_group,
+        )
+
+        from .settings_spec import AI_AREA, TASKS
+
+        register_setting_area(AI_AREA)
+        register_setting_group(TASKS)
