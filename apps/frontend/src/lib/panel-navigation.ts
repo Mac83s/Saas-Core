@@ -199,6 +199,12 @@ export const PANEL_SECTIONS = {
     { href: "/panel/sites", labelKey: "sitePages", module: "shared.sites" },
     { href: "/panel/sites/menu", labelKey: "siteMenu", module: "shared.sites" },
     { href: "/panel/sites/blog", labelKey: "siteBlog", module: "shared.sites" },
+    // Every page and article against the site's other languages (TL16).
+    {
+      href: "/panel/sites/translations",
+      labelKey: "siteTranslations",
+      module: "shared.sites",
+    },
     {
       href: "/panel/sites/publication",
       labelKey: "sitePublication",

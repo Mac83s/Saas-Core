@@ -485,6 +485,7 @@
     "sitePages": "Pages",
     "siteMenu": "Menu",
     "siteBlog": "Blog",
+    "siteTranslations": "Translations",
     "sitePublication": "Publishing",
     "siteAddress": "Address and domains",
     "siteIntegrations": "Integrations",
@@ -2482,6 +2483,10 @@
         "title": "Blog",
         "description": "The site's blog posts: drafts, scheduled and published."
       },
+      "translations": {
+        "title": "Translations",
+        "description": "Every page and every article in the site's other languages: what is translated, what waits for a decision and what is missing."
+      },
       "publication": {
         "title": "Publishing",
         "description": "Check the site is ready, publish it, or go back to an earlier publication."
@@ -2496,6 +2501,43 @@
       }
     },
     "pageNotFound": "This page is not here — it may have been deleted.",
+    "translationsCentre": {
+      "caption": "Pages and articles in the site's other languages",
+      "colPage": "Page",
+      "colEntry": "Article",
+      "colActions": "Actions",
+      "actionsFor": "Actions for: {name}",
+      "editIn": "Edit: {language}",
+      "openBlog": "Open the blog",
+      "filterKind": "Kind",
+      "kindPage": "Pages",
+      "kindEntry": "Blog articles",
+      "filterLanguage": "Language",
+      "allLanguages": "All languages",
+      "filterState": "State",
+      "allStates": "All states",
+      "states": {
+        "missing": "Missing",
+        "pending": "Waiting for approval",
+        "outdated": "Out of date",
+        "untranslated": "Incomplete",
+        "complete": "Translated",
+        "published": "On the site",
+        "draft": "Draft"
+      },
+      "untranslatedCount": "{count, plural, one {# fragment missing} other {# fragments missing}}",
+      "noMetadata": "no address, title or description of its own",
+      "translateAll": "Translate missing and outdated (AI)",
+      "nothingToTranslate": "Every page is translated.",
+      "entryHint": "An article is translated from its “Language versions” card in the blog.",
+      "oneLanguage": "This site has one language for now.",
+      "addLanguage": "Add a language in Settings › Languages and translations",
+      "emptyPages": "This site has no pages yet.",
+      "emptyEntries": "The blog has no articles yet.",
+      "loadMore": "Load more",
+      "clearFilters": "Clear filters",
+      "retry": "Try again"
+    },
     "pageKindTitle": "Page type and automation",
     "readyUnfinished": "To complete before publishing",
     "unfinishedSlots": "{count, plural, one {# place to fill in} other {# places to fill in}}",

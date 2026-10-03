@@ -90,6 +90,10 @@ import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
 import { SiteOnboardingWizard } from "./site-onboarding";
 import { SitePagesTable } from "./site-pages-table";
+import {
+  TranslateSiteAction,
+  TranslationsOverview,
+} from "./translations-overview";
 
 type PageValues = { name: string; key: string };
 
@@ -100,6 +104,7 @@ export type SitesSection =
   | "page"
   | "menu"
   | "blog"
+  | "translations"
   | "publication"
   | "address"
   | "integrations";
@@ -198,6 +203,9 @@ export function SitesPanel({
   );
   const [publication, setPublication] = useState<SitePublication>();
   const [loading, setLoading] = useState(true);
+  // The translations list is asked for again: the page's refresh, or an
+  // order from its header that ended.
+  const [translationsReload, setTranslationsReload] = useState(0);
   // Which site the pages, report and domains on screen belong to: until they
   // arrive the list is loading, not empty, and a page is not yet "gone".
   const [detailsFor, setDetailsFor] = useState<string>();
@@ -482,6 +490,7 @@ export function SitesPanel({
   }
 
   async function refresh() {
+    setTranslationsReload((value) => value + 1);
     await loadSites(selectedSiteId);
     if (selectedSiteId) await loadSiteDetails(selectedSiteId, selectedPageId);
   }
@@ -497,6 +506,13 @@ export function SitesPanel({
             <CreatePageDialog
               onCreate={createPage}
               onPlanRequired={() => setPlanAttention(true)}
+            />
+          ) : null}
+          {section === "translations" && selectedSiteId ? (
+            <TranslateSiteAction
+              key={selectedSiteId}
+              onDone={() => setTranslationsReload((value) => value + 1)}
+              siteId={selectedSiteId}
             />
           ) : null}
           <Button
@@ -852,6 +868,14 @@ export function SitesPanel({
         <BlogPanel
           address={domains.length ? publicSiteUrl(domains) : null}
           key={selectedSiteId}
+          siteId={selectedSiteId}
+        />
+      ) : null}
+
+      {section === "translations" && selectedSiteId ? (
+        <TranslationsOverview
+          key={selectedSiteId}
+          reloadKey={translationsReload}
           siteId={selectedSiteId}
         />
       ) : null}

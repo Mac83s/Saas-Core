@@ -485,6 +485,7 @@
     "sitePages": "Podstrony",
     "siteMenu": "Menu",
     "siteBlog": "Blog",
+    "siteTranslations": "Tłumaczenia",
     "sitePublication": "Publikacja",
     "siteAddress": "Adres i domeny",
     "siteIntegrations": "Integracje",
@@ -2482,6 +2483,10 @@
         "title": "Blog",
         "description": "Wpisy bloga witryny: szkice, zaplanowane i opublikowane."
       },
+      "translations": {
+        "title": "Tłumaczenia",
+        "description": "Każda podstrona i każdy wpis w pozostałych językach strony: co jest przetłumaczone, co czeka na decyzję, a czego brakuje."
+      },
       "publication": {
         "title": "Publikacja",
         "description": "Sprawdź, czy witryna jest gotowa, opublikuj ją albo wróć do wcześniejszej publikacji."
@@ -2496,6 +2501,43 @@
       }
     },
     "pageNotFound": "Tej podstrony nie ma — mogła zostać usunięta.",
+    "translationsCentre": {
+      "caption": "Podstrony i wpisy w pozostałych językach strony",
+      "colPage": "Podstrona",
+      "colEntry": "Wpis",
+      "colActions": "Działania",
+      "actionsFor": "Działania dla: {name}",
+      "editIn": "Edytuj: {language}",
+      "openBlog": "Otwórz blog",
+      "filterKind": "Rodzaj",
+      "kindPage": "Podstrony",
+      "kindEntry": "Wpisy bloga",
+      "filterLanguage": "Język",
+      "allLanguages": "Wszystkie języki",
+      "filterState": "Stan",
+      "allStates": "Wszystkie stany",
+      "states": {
+        "missing": "Brak",
+        "pending": "Czeka na akceptację",
+        "outdated": "Nieaktualna",
+        "untranslated": "Niepełna",
+        "complete": "Przetłumaczona",
+        "published": "Na stronie",
+        "draft": "Szkic"
+      },
+      "untranslatedCount": "{count, plural, one {brakuje # fragmentu} few {brakuje # fragmentów} many {brakuje # fragmentów} other {brakuje # fragmentu}}",
+      "noMetadata": "bez własnego adresu, tytułu lub opisu",
+      "translateAll": "Przetłumacz brakujące i nieaktualne (AI)",
+      "nothingToTranslate": "Wszystkie podstrony są przetłumaczone.",
+      "entryHint": "Wpis tłumaczysz w jego karcie „Wersje językowe” w blogu.",
+      "oneLanguage": "Ta strona ma na razie jeden język.",
+      "addLanguage": "Dodaj język w Ustawienia › Języki i tłumaczenia",
+      "emptyPages": "Ta strona nie ma jeszcze podstron.",
+      "emptyEntries": "Blog nie ma jeszcze wpisów.",
+      "loadMore": "Wczytaj więcej",
+      "clearFilters": "Wyczyść filtry",
+      "retry": "Spróbuj ponownie"
+    },
     "pageKindTitle": "Rodzaj podstrony i automatyzacja",
     "readyUnfinished": "Do uzupełnienia przed publikacją",
     "unfinishedSlots": "{count, plural, one {# miejsce do uzupełnienia} few {# miejsca do uzupełnienia} many {# miejsc do uzupełnienia} other {# miejsca do uzupełnienia}}",

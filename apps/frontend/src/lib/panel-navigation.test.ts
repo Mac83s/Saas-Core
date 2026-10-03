@@ -68,6 +68,7 @@ describe("sekcje menu", () => {
       "/panel/sites",
       "/panel/sites/menu",
       "/panel/sites/blog",
+      "/panel/sites/translations",
       "/panel/sites/publication",
       "/panel/sites/address",
       "/panel/sites/integrations",
