@@ -165,6 +165,13 @@ export const PANEL_SECTIONS = {
       permission: "inventory.manage",
     },
     {
+      // What the stock is worth and what went out: the warehouse keeper's (43a).
+      href: "/panel/inventory/reports",
+      labelKey: "inventoryReports",
+      module: "shared.inventory",
+      permission: "inventory.manage",
+    },
+    {
       href: "/panel/inventory/settings",
       labelKey: "inventorySettings",
       module: "shared.inventory",

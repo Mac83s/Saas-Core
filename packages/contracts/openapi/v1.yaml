@@ -8146,6 +8146,166 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/inventory/reports/stock-value/:
+    get:
+      operationId: inventory_report_stock_value
+      description: 'What lies in the company''s places now, valued at each item''s
+        average purchase cost: by item (with quantity), by category or by place, the
+        most valuable first, with a total per currency. Needs inventory.manage — it
+        shows what the company paid.'
+      summary: Stock value now
+      parameters:
+      - in: query
+        name: group
+        schema:
+          enum:
+          - item
+          - category
+          - location
+          type: string
+          default: item
+          minLength: 1
+        description: |-
+          What a row is.
+
+          * `item` - By item
+          * `category` - By category
+          * `location` - By place
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this place; without it, the whole company.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockValueReport'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/reports/usage/:
+    get:
+      operationId: inventory_report_usage
+      description: Consumption (RW) and sales to customers (WZ) between two days of
+        the company, each movement at the cost it carried when posted; a correction
+        nets out in the period it was made in. Grouped by item, by person (the visit's
+        lead, else whose stock it left, else who posted it), by service, by customer,
+        or visit by visit — the cost of a visit, the latest first. An empty `key`
+        is usage outside any visit. Customer names only for a reader who may see everybody's
+        visits. Needs inventory.manage; a period is at most 366 days.
+      summary: Usage in a period
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: The first day of the period, the company's day.
+        required: true
+      - in: query
+        name: group
+        schema:
+          enum:
+          - item
+          - person
+          - service
+          - customer
+          - visit
+          type: string
+          default: item
+          minLength: 1
+        description: |-
+          What a row is.
+
+          * `item` - By item
+          * `person` - By person
+          * `service` - By service
+          * `customer` - By customer
+          * `visit` - Visit by visit
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: The last day of the period, the company's day.
+        required: true
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageReport'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/returns/:
     post:
       operationId: inventory_return_create
@@ -35161,6 +35321,84 @@ components:
       description: |-
         * `warehouse` - Magazyn
         * `person` - Zapas osoby
+    StockValueReport:
+      type: object
+      properties:
+        group:
+          $ref: '#/components/schemas/StockValueReportGroupEnum'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockValueRow'
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockValueTotal'
+      required:
+      - group
+      - rows
+      - totals
+    StockValueReportGroupEnum:
+      enum:
+      - item
+      - category
+      - location
+      type: string
+      description: |-
+        * `item` - By item
+        * `category` - By category
+        * `location` - By place
+    StockValueRow:
+      type: object
+      properties:
+        key:
+          type: string
+          description: 'The item''s, category''s or place''s id; empty: items without
+            a category.'
+        name:
+          type: string
+          description: The row's name; empty with an empty key.
+        kind:
+          type: string
+          description: 'For a place: warehouse or person; else empty.'
+        quantity:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: Only when grouped by item.
+        unit:
+          type: string
+        average_cost_minor:
+          type:
+          - integer
+          - 'null'
+          description: The item's average purchase cost; only by item.
+        value_minor:
+          type: integer
+          description: Quantity × average cost, minor units.
+        currency:
+          type: string
+      required:
+      - average_cost_minor
+      - currency
+      - key
+      - kind
+      - name
+      - quantity
+      - unit
+      - value_minor
+    StockValueTotal:
+      type: object
+      properties:
+        currency:
+          type: string
+        value_minor:
+          type: integer
+      required:
+      - currency
+      - value_minor
     StripeWebhookReceipt:
       type: object
       properties:
@@ -35886,33 +36124,128 @@ components:
         * `kg` - Kilogram
         * `m` - Metr
         * `hour` - Godzina
+    UsageReport:
+      type: object
+      properties:
+        group:
+          $ref: '#/components/schemas/UsageReportGroupEnum'
+        total:
+          type: integer
+          description: How many rows the report has in all.
+        page:
+          type: integer
+        page_size:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageRow'
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageTotal'
+          description: The whole period, every row, per currency.
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+      required:
+      - from
+      - group
+      - page
+      - page_size
+      - rows
+      - to
+      - total
+      - totals
+    UsageReportGroupEnum:
+      enum:
+      - item
+      - person
+      - service
+      - customer
+      - visit
+      type: string
+      description: |-
+        * `item` - By item
+        * `person` - By person
+        * `service` - By service
+        * `customer` - By customer
+        * `visit` - Visit by visit
     UsageRow:
       type: object
       properties:
         key:
+          type: string
+          description: 'The id of the item, person, service, customer or visit. Empty:
+            usage outside any visit (adjustments, losses); `hidden` for a customer
+            this reader may not see.'
+        name:
+          type: string
+          description: The row's name; empty with an empty key.
+        quantity:
           type:
           - string
           - 'null'
-        calls:
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: Only when grouped by item.
+        unit:
+          type: string
+        cost_minor:
           type: integer
-        known_cost_usd_micros:
+          description: 'What it cost the company: each movement at the cost it carried.'
+        sold_minor:
           type: integer
-        estimated_usd_micros:
+          description: What sales to customers (WZ) were priced at, net.
+        currency:
+          type: string
+        documents:
           type: integer
-        input_tokens:
+          description: How many stock documents make the row.
+        at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: A visit's start; else null.
+        service_name:
+          type: string
+          description: A visit's service.
+        customer_name:
+          type: string
+          description: A visit's customer, for a reader who may see it.
+        person_name:
+          type: string
+          description: Who led the visit.
+      required:
+      - at
+      - cost_minor
+      - currency
+      - customer_name
+      - documents
+      - key
+      - name
+      - person_name
+      - quantity
+      - service_name
+      - sold_minor
+      - unit
+    UsageTotal:
+      type: object
+      properties:
+        currency:
+          type: string
+        cost_minor:
           type: integer
-        output_tokens:
-          type: integer
-        credits:
+        sold_minor:
           type: integer
       required:
-      - calls
-      - credits
-      - estimated_usd_micros
-      - input_tokens
-      - key
-      - known_cost_usd_micros
-      - output_tokens
+      - cost_minor
+      - currency
+      - sold_minor
     UserSummary:
       type: object
       properties:

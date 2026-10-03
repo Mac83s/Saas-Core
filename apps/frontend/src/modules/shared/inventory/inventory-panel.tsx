@@ -22,16 +22,17 @@ import { PanelPage } from "#components/panel/panel-page";
 import { DocumentsTab } from "./documents-tab";
 import { ItemsTab } from "./items-tab";
 import { LotsTab } from "./lots-tab";
+import { ReportsTab } from "./reports-tab";
 import { SetupTab } from "./setup-tab";
 import type { InventoryData } from "./shared";
 import { StockTab } from "./stock-tab";
 
 /** The warehouse's pages, each at its own address under Magazyn (ADR-057). */
 export type InventorySection =
-  "stock" | "items" | "lots" | "documents" | "setup";
+  "stock" | "items" | "lots" | "documents" | "reports" | "setup";
 
 /** What only the one who runs the warehouse sees. */
-const MANAGED: InventorySection[] = ["lots", "documents", "setup"];
+const MANAGED: InventorySection[] = ["lots", "documents", "reports", "setup"];
 
 /**
  * Magazyn firmy (ADR-055). Właściciel pyta „co mam, czego brakuje, co przyszło
@@ -41,10 +42,13 @@ export function InventoryPanel({
   canManage = false,
   canRead = false,
   section = "stock",
+  zone = "UTC",
 }: {
   canManage?: boolean;
   canRead?: boolean;
   section?: InventorySection;
+  /** The company's time zone: a report's period is the company's days. */
+  zone?: string;
 } = {}) {
   const t = useTranslations("Inventory");
   const [data, setData] = useState<InventoryData | undefined>();
@@ -91,6 +95,7 @@ export function InventoryPanel({
     items: t("tabItems"),
     lots: t("lotsTitle"),
     documents: t("tabDocuments"),
+    reports: t("reportsTitle"),
     setup: t("setupTitle"),
   }[section];
 
@@ -137,6 +142,8 @@ export function InventoryPanel({
     );
   if (section === "setup")
     return <SetupTab data={data} onChanged={changed} page={page} />;
+  if (section === "reports")
+    return <ReportsTab data={data} page={page} zone={zone} />;
   if (section === "lots")
     return <LotsTab data={data} page={page} reloads={reloads} />;
   return (

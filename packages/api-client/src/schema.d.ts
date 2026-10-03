@@ -2771,6 +2771,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/reports/stock-value/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stock value now
+         * @description What lies in the company's places now, valued at each item's average purchase cost: by item (with quantity), by category or by place, the most valuable first, with a total per currency. Needs inventory.manage — it shows what the company paid.
+         */
+        get: operations["inventory_report_stock_value"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/reports/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage in a period
+         * @description Consumption (RW) and sales to customers (WZ) between two days of the company, each movement at the cost it carried when posted; a correction nets out in the period it was made in. Grouped by item, by person (the visit's lead, else whose stock it left, else who posted it), by service, by customer, or visit by visit — the cost of a visit, the latest first. An empty `key` is usage outside any visit. Customer names only for a reader who may see everybody's visits. Needs inventory.manage; a period is at most 366 days.
+         */
+        get: operations["inventory_report_usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/returns/": {
         parameters: {
             query?: never;
@@ -13080,6 +13120,41 @@ export interface components {
          * @enum {string}
          */
         StockLocationKindEnum: "warehouse" | "person";
+        StockValueReport: {
+            group: components["schemas"]["StockValueReportGroupEnum"];
+            rows: components["schemas"]["StockValueRow"][];
+            totals: components["schemas"]["StockValueTotal"][];
+        };
+        /**
+         * @description * `item` - By item
+         *     * `category` - By category
+         *     * `location` - By place
+         * @enum {string}
+         */
+        StockValueReportGroupEnum: "item" | "category" | "location";
+        StockValueRow: {
+            /** @description The item's, category's or place's id; empty: items without a category. */
+            key: string;
+            /** @description The row's name; empty with an empty key. */
+            name: string;
+            /** @description For a place: warehouse or person; else empty. */
+            kind: string;
+            /**
+             * Format: decimal
+             * @description Only when grouped by item.
+             */
+            quantity: string | null;
+            unit: string;
+            /** @description The item's average purchase cost; only by item. */
+            average_cost_minor: number | null;
+            /** @description Quantity × average cost, minor units. */
+            value_minor: number;
+            currency: string;
+        };
+        StockValueTotal: {
+            currency: string;
+            value_minor: number;
+        };
         StripeWebhookReceipt: {
             received: boolean;
         };
@@ -13403,14 +13478,63 @@ export interface components {
          * @enum {string}
          */
         UnitEnum: "piece" | "pack" | "ml" | "l" | "g" | "kg" | "m" | "hour";
+        UsageReport: {
+            group: components["schemas"]["UsageReportGroupEnum"];
+            /** @description How many rows the report has in all. */
+            total: number;
+            page: number;
+            page_size: number;
+            rows: components["schemas"]["UsageRow"][];
+            /** @description The whole period, every row, per currency. */
+            totals: components["schemas"]["UsageTotal"][];
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+        };
+        /**
+         * @description * `item` - By item
+         *     * `person` - By person
+         *     * `service` - By service
+         *     * `customer` - By customer
+         *     * `visit` - Visit by visit
+         * @enum {string}
+         */
+        UsageReportGroupEnum: "item" | "person" | "service" | "customer" | "visit";
         UsageRow: {
-            key: string | null;
-            calls: number;
-            known_cost_usd_micros: number;
-            estimated_usd_micros: number;
-            input_tokens: number;
-            output_tokens: number;
-            credits: number;
+            /** @description The id of the item, person, service, customer or visit. Empty: usage outside any visit (adjustments, losses); `hidden` for a customer this reader may not see. */
+            key: string;
+            /** @description The row's name; empty with an empty key. */
+            name: string;
+            /**
+             * Format: decimal
+             * @description Only when grouped by item.
+             */
+            quantity: string | null;
+            unit: string;
+            /** @description What it cost the company: each movement at the cost it carried. */
+            cost_minor: number;
+            /** @description What sales to customers (WZ) were priced at, net. */
+            sold_minor: number;
+            currency: string;
+            /** @description How many stock documents make the row. */
+            documents: number;
+            /**
+             * Format: date-time
+             * @description A visit's start; else null.
+             */
+            at: string | null;
+            /** @description A visit's service. */
+            service_name: string;
+            /** @description A visit's customer, for a reader who may see it. */
+            customer_name: string;
+            /** @description Who led the visit. */
+            person_name: string;
+        };
+        UsageTotal: {
+            currency: string;
+            cost_minor: number;
+            sold_minor: number;
         };
         UserSummary: {
             /** Format: uuid */
@@ -21631,6 +21755,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_report_stock_value: {
+        parameters: {
+            query?: {
+                /**
+                 * @description What a row is.
+                 *
+                 *     * `item` - By item
+                 *     * `category` - By category
+                 *     * `location` - By place
+                 */
+                group?: "item" | "category" | "location";
+                /** @description Only this place; without it, the whole company. */
+                location_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockValueReport"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_report_usage: {
+        parameters: {
+            query: {
+                /** @description The first day of the period, the company's day. */
+                from: string;
+                /**
+                 * @description What a row is.
+                 *
+                 *     * `item` - By item
+                 *     * `person` - By person
+                 *     * `service` - By service
+                 *     * `customer` - By customer
+                 *     * `visit` - Visit by visit
+                 */
+                group?: "item" | "person" | "service" | "customer" | "visit";
+                page?: number;
+                page_size?: number;
+                /** @description The last day of the period, the company's day. */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
                 };
             };
             400: {

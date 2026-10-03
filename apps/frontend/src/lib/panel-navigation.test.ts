@@ -276,6 +276,7 @@ describe("podstrony w menu (ADR-057)", () => {
       "/panel/inventory/items",
       "/panel/inventory/lots",
       "/panel/inventory/documents",
+      "/panel/inventory/reports",
       "/panel/inventory/settings",
     ]);
     // A worker without inventory.manage sees their stock and the catalogue.

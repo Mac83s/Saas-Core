@@ -182,6 +182,33 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
 - `shared.inventory` zależy od `shared.notifications` (powiadomienie); każdy profil z
   magazynem już je składał.
 
+## Uzupełnienie 2026-10-03: raporty (faza 10b)
+
+- **Dwa raporty, tylko dla prowadzących magazyn** (`inventory.manage`; pokazują, ile
+  firma zapłaciła — odpowiedź 43a): `GET /inventory/reports/stock-value/` (ilość ×
+  średnia cena pozycji; według pozycji, kategorii albo miejsca, sumy per waluta) i
+  `GET /inventory/reports/usage/` (zużycie RW i sprzedaż WZ w okresie dni firmy, do
+  366 dni, stronicowane).
+- **Zużycie liczy ruchy po cenie z dnia ruchu** (`unit_cost_minor`), więc późniejsza
+  dostawa nie zmienia przeszłości. Korekta to ruch w drugą stronę: odejmuje się w
+  okresie, w którym ją wystawiono. Przesunięcia (MM), przyjęcia i inwentaryzacja nie
+  są zużyciem. Wartość sprzedaży to cena z wiersza WZ.
+- **Magazyn nie zna wizyt.** Moduł, który zdejmuje towar (`consume` ze `source`),
+  mówi raportom, czym była jego referencja: `inventory.api.register_usage_source(
+  source, describe)` zwraca dla referencji `UsageContext` — wizytę, usługę, klienta,
+  osobę. Rezerwacje rejestrują `booking.appointment`; produkt rejestruje swoje źródła
+  w swoim repozytorium (HoofCare: `hoofcare.entry`). Dokument bez źródła to korekta
+  albo strata firmy — wiersz „poza wizytami”.
+- **Grupowania:** pozycja; osoba (prowadzący wizytę, gdy źródło go zna, inaczej osoba,
+  z której zapasu zeszło, inaczej wystawiający dokument); usługa; klient; wizyta po
+  wizycie — „koszt wizyty” (koszt materiałów i wartość sprzedaży).
+- **Nazwisko klienta** podaje źródło tylko czytającemu, który widzi wizyty wszystkich
+  (`booking/visibility.sees_others`, UX-023); inaczej wizyta jest w raporcie bez tego,
+  czyja była (`hidden`). Nazwiska są wyłącznie w grupowaniach „klient” i „wizyta”.
+- **Cena sprzedaży na WZ wizyty:** `consume(unit_prices=…)` zapisuje na wierszach WZ
+  cenę uzgodnioną przy rezerwacji; wcześniej WZ z wizyty nie niosło ceny, więc dla
+  starych wizyt raport pokaże koszt bez wartości sprzedaży.
+
 ## Konsekwencje
 
 - Dziesięć tabel tenantowych z wymuszonym RLS (ADR-039): pozycja, kategoria,
@@ -192,8 +219,8 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
 - Stare endpointy v1 (przyjęcie, wydanie, zwrot, korekta) działają dalej jako
   skróty tworzące zatwierdzone dokumenty PZ, MM oraz PW/RW (korekta stanu), dopóki panel nie
   przejdzie na dokumenty.
-- Raporty, import CSV i PDF dokumentów to kolejne fazy planu (partie i ważność —
-  uzupełnienie 25.09, stan minimalny i powiadomienie — uzupełnienie 03.10 wyżej).
+- Import CSV i PDF dokumentów to kolejne fazy planu (partie i ważność —
+  uzupełnienie 25.09; stan minimalny, powiadomienie i raporty — uzupełnienia 03.10).
 
 ## Odrzucone
 

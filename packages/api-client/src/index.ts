@@ -4906,6 +4906,41 @@ export function setInventoryPlaceMinimum(
   return inventoryWrite("PUT", "/api/v1/inventory/minimums/", {}, input);
 }
 
+export type InventoryStockValueReport =
+  components["schemas"]["StockValueReport"];
+export type InventoryUsageReport = components["schemas"]["UsageReport"];
+export type InventoryStockValueGroup =
+  components["schemas"]["StockValueReportGroupEnum"];
+export type InventoryUsageGroup = components["schemas"]["UsageReportGroupEnum"];
+
+/** What the stock is worth now: quantity × average cost (inventory.manage). */
+export function getInventoryStockValue(query: {
+  group: InventoryStockValueGroup;
+  locationId?: string;
+}): Promise<InventoryStockValueReport> {
+  return inventoryRead("/api/v1/inventory/reports/stock-value/", {
+    group: query.group,
+    location_id: query.locationId,
+  });
+}
+
+/** What went out in a period, and what a visit cost (inventory.manage). */
+export function getInventoryUsage(query: {
+  group: InventoryUsageGroup;
+  from: string;
+  to: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<InventoryUsageReport> {
+  return inventoryRead("/api/v1/inventory/reports/usage/", {
+    group: query.group,
+    from: query.from,
+    to: query.to,
+    page: query.page ? String(query.page) : undefined,
+    page_size: query.pageSize ? String(query.pageSize) : undefined,
+  });
+}
+
 export function listInventoryLots(
   filters: { itemId?: string; locationId?: string } = {},
 ): Promise<InventoryLotStock[]> {
