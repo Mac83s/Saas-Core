@@ -14,8 +14,12 @@ from django.test import Client
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from saas_core.modules.core.identity.mfa import current_totp_code
-from saas_core.modules.core.identity.models import User, UserStatus
+from saas_core.modules.core.identity.mfa import (
+    begin_totp_enrollment,
+    confirm_totp_enrollment,
+    current_totp_code,
+)
+from saas_core.modules.core.identity.models import User, UserSession, UserStatus
 
 pytestmark = pytest.mark.django_db
 
@@ -82,11 +86,23 @@ def enroll_totp(client: APIClient) -> str:
 
 
 def operator_after_enrolment(email: str = "operator@example.test") -> tuple[APIClient, str]:
-    """A staff account's first sign-in: no session until the TOTP is confirmed."""
+    """A staff account's first factor is set on the server (platform settings
+    0c); the operator then signs in with it."""
     user = active_user(email, staff=True)
     client = APIClient(enforce_csrf_checks=True)
     assert login(client, user).data["code"] == "mfa_setup_required"
-    return client, enroll_totp(client)
+    enrollment = begin_totp_enrollment(user=user, on_server=True)
+    earlier = current_totp_code(enrollment.secret, at=timezone.now().timestamp() - 30)
+    confirm_totp_enrollment(user=user, code=earlier, on_server=True)
+    assert login(client, user).status_code == 202
+    second_factor = client.post(
+        MFA_LOGIN_URL,
+        {"code": current_totp_code(enrollment.secret)},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf(client),
+    )
+    assert second_factor.status_code == 200, second_factor.data
+    return client, enrollment.secret
 
 
 def test_the_admin_has_no_password_login_of_its_own() -> None:
@@ -166,3 +182,16 @@ def test_a_member_with_mfa_is_not_an_operator() -> None:
     )
 
     assert client.get(ADMIN_URL).status_code == 302
+
+
+def test_logging_out_of_the_admin_ends_the_tracked_session() -> None:
+    """Platform settings 0c: the admin's own logout left the session listed
+    as active in the person's sessions."""
+    client, _ = operator_after_enrolment()
+    assert client.get(ADMIN_URL).status_code == 200
+    assert UserSession.objects.filter(revoked_at__isnull=True).count() == 1
+
+    client.post(f"{ADMIN_URL}logout/", HTTP_X_CSRFTOKEN=csrf(client))
+
+    assert not UserSession.objects.filter(revoked_at__isnull=True).exists()
+    assert "_auth_user_id" not in client.session

@@ -63,8 +63,10 @@ def confirm_mfa(user: User) -> str:
         current_totp_code,
     )
 
-    enrollment = begin_totp_enrollment(user=user)
-    confirm_totp_enrollment(user=user, code=current_totp_code(enrollment.secret))
+    # As the server administrator does it: an operator's first factor is
+    # never set from a session (platform settings 0c).
+    enrollment = begin_totp_enrollment(user=user, on_server=True)
+    confirm_totp_enrollment(user=user, code=current_totp_code(enrollment.secret), on_server=True)
     return enrollment.secret
 
 

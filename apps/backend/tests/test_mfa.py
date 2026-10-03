@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from io import StringIO
 
 import pytest
 from django.conf import settings
 from django.core.cache import cache
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -30,6 +33,7 @@ MFA_LOGIN_URL = "/api/v1/auth/login/mfa/"
 MFA_SETUP_URL = "/api/v1/auth/mfa/totp/setup/"
 MFA_CONFIRM_URL = "/api/v1/auth/mfa/totp/confirm/"
 LOGOUT_URL = "/api/v1/auth/logout/"
+STEP_UP_URL = "/api/v1/auth/step-up/"
 ME_URL = "/api/v1/auth/me/"
 PASSWORD = "Bezpieczne-Haslo-MFA-2026!"
 
@@ -204,31 +208,152 @@ def test_recovery_code_is_consumed_once() -> None:
     assert reused.data["code"] == "invalid_mfa_code"
 
 
-def test_staff_bootstrap_only_creates_session_after_totp_confirmation() -> None:
+def enroll_on_server(user: User) -> str:
+    """The server administrator's two steps; hands back the secret."""
+    started = StringIO()
+    call_command("enroll_operator_mfa", user.email, stdout=started)
+    secret = started.getvalue().split("sekret:")[1].split("\n")[0].replace(" ", "")
+    confirmed = StringIO()
+    code = current_totp_code(secret, at=timezone.now().timestamp() - 30)
+    call_command("enroll_operator_mfa", user.email, confirm=code, stdout=confirmed)
+    assert confirmed.getvalue().count("\n  ") == 8  # the recovery codes
+    return secret
+
+
+def test_an_operator_without_mfa_gets_it_on_the_server_not_with_the_password() -> None:
+    """Platform settings 0c: before, the password alone opened a challenge in
+    which anyone holding it set their own TOTP on a staff account."""
     user = active_user("operator@example.com", staff=True)
     client = APIClient(enforce_csrf_checks=True)
 
     first_factor = login(client, user)
+    setup = client.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value)
 
     assert first_factor.status_code == 403
     assert first_factor.data["code"] == "mfa_setup_required"
+    assert LoginAttempt.objects.latest("created_at").outcome == LoginOutcome.MFA_SETUP_REQUIRED
+    assert setup.status_code == 403
     assert client.get(ME_URL).status_code == 403
     assert not UserSession.objects.exists()
-    setup = client.post(
-        MFA_SETUP_URL,
+    assert not UserMfaMethod.objects.exists()
+
+    secret = enroll_on_server(user)
+    assert login(client, user).status_code == 202
+    second_factor = client.post(
+        MFA_LOGIN_URL,
+        {"code": current_totp_code(secret)},
+        format="json",
         HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
     )
-    confirmed = client.post(
+    assert second_factor.status_code == 200, second_factor.data
+    assert UserSession.objects.filter(user=user, revoked_at__isnull=True).count() == 1
+
+
+def test_a_session_never_sets_an_operators_first_factor() -> None:
+    """A member promoted mid-session still cannot bind an app to the staff
+    account, nor replace the one the server administrator started."""
+    user = active_user("promoted@example.com")
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).status_code == 200
+    User.objects.filter(pk=user.pk).update(is_staff=True)
+    call_command("enroll_operator_mfa", user.email, stdout=StringIO())
+    started = UserMfaMethod.objects.get(user=user).secret_ciphertext
+
+    setup = client.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value)
+    confirm = client.post(
         MFA_CONFIRM_URL,
-        {"code": current_totp_code(setup.data["secret"])},
+        {"code": "123456"},
         format="json",
         HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
     )
 
-    assert setup.status_code == 200
-    assert confirmed.status_code == 200
-    assert client.get(ME_URL).status_code == 200
-    assert UserSession.objects.filter(user=user, revoked_at__isnull=True).count() == 1
+    assert setup.status_code == confirm.status_code == 403
+    assert setup.data["code"] == confirm.data["code"] == "operator_mfa_by_command"
+    method = UserMfaMethod.objects.get(user=user)
+    assert (method.secret_ciphertext, method.confirmed_at) == (started, None)
+
+
+def test_the_command_takes_only_operator_accounts() -> None:
+    member = active_user("member@example.com")
+
+    with pytest.raises(CommandError):
+        call_command("enroll_operator_mfa", member.email, stdout=StringIO())
+    with pytest.raises(CommandError):
+        call_command("enroll_operator_mfa", "nobody@example.com", stdout=StringIO())
+    assert not UserMfaMethod.objects.exists()
+
+
+def test_wrong_codes_lock_the_account_wherever_they_are_given(caplog) -> None:
+    """Per account, not per address (ADR-023): sign-in and step-up share one
+    count, and while locked even the right code is refused."""
+    user = active_user("locked@example.com")
+    signed_in = APIClient(enforce_csrf_checks=True)
+    secret, _ = enable_mfa(signed_in, user)
+    challenged = APIClient(enforce_csrf_checks=True)
+    assert login(challenged, user).status_code == 202
+
+    def mfa_login(code: str):
+        return challenged.post(
+            MFA_LOGIN_URL,
+            {"code": code},
+            format="json",
+            HTTP_X_CSRFTOKEN=challenged.cookies["csrftoken"].value,
+        )
+
+    def step_up(code: str):
+        return signed_in.post(
+            STEP_UP_URL,
+            {"code": code},
+            format="json",
+            HTTP_X_CSRFTOKEN=signed_in.cookies["csrftoken"].value,
+        )
+
+    assert [mfa_login("000000").status_code for _ in range(4)] == [400] * 4
+    with caplog.at_level("WARNING", logger="saas_core.security"):
+        locked = mfa_login("000000")
+    assert locked.status_code == 429
+    assert locked.data["code"] == "mfa_locked"
+    assert "identity.mfa_locked" in [getattr(r, "security_event", None) for r in caplog.records]
+
+    right = current_totp_code(secret, at=timezone.now().timestamp() + 30)
+    assert mfa_login(right).data["code"] == "mfa_locked"
+    # Locked by someone else's guesses: refused, but this session goes on —
+    # the password alone must not be a way to sign the owner out.
+    refused = step_up(right)
+    assert (refused.status_code, refused.data["code"]) == (429, "mfa_locked")
+    assert signed_in.get(ME_URL).status_code == 200
+
+    cache.delete(f"identity.mfa.lock:{user.pk}")
+    assert mfa_login(right).status_code == 200
+
+
+def test_the_wrong_code_that_reaches_the_limit_on_a_step_up_ends_that_session() -> None:
+    user = active_user("step-up-shared@example.com")
+    signed_in = APIClient(enforce_csrf_checks=True)
+    enable_mfa(signed_in, user)
+    challenged = APIClient(enforce_csrf_checks=True)
+    assert login(challenged, user).status_code == 202
+    for _ in range(3):
+        challenged.post(
+            MFA_LOGIN_URL,
+            {"code": "000000"},
+            format="json",
+            HTTP_X_CSRFTOKEN=challenged.cookies["csrftoken"].value,
+        )
+
+    answers = [
+        signed_in.post(
+            STEP_UP_URL,
+            {"code": "000000"},
+            format="json",
+            HTTP_X_CSRFTOKEN=signed_in.cookies["csrftoken"].value,
+        )
+        for _ in range(2)
+    ]
+
+    assert [answer.status_code for answer in answers] == [400, 403]
+    assert answers[-1].data["code"] == "step_up_locked"
+    assert signed_in.get(ME_URL).status_code == 403
 
 
 def test_expired_or_missing_mfa_challenge_is_rejected() -> None:
@@ -250,7 +375,9 @@ def test_expired_or_missing_mfa_challenge_is_rejected() -> None:
     missing = APIClient(enforce_csrf_checks=True)
     missing_csrf = csrf_token(missing)
     missing_response = missing.post(
-        MFA_SETUP_URL,
+        MFA_LOGIN_URL,
+        {"code": current_totp_code(secret)},
+        format="json",
         HTTP_X_CSRFTOKEN=missing_csrf,
     )
 

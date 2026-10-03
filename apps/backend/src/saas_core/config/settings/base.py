@@ -292,6 +292,12 @@ COMMAND_PENDING_TTL = 1800
 #: How long a confirmed second factor stands for legal documents and billing,
 #: in seconds (owner answer 31b). A security time, not a platform setting.
 STEP_UP_MAX_AGE = 300
+#: Wrong second-factor codes an account may give — at sign-in, when turning
+#: MFA on and on a step-up together — before no code is taken for
+#: `MFA_LOCK_SECONDS` (ADR-023; platform settings plan 0c). The per-address
+#: throttle alone let guesses be spread over addresses. A protective limit.
+MFA_FAILURE_LIMIT = 5
+MFA_LOCK_SECONDS = 15 * 60
 
 
 def secret_setting(name: str, default: str = "") -> str:

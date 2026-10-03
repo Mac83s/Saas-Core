@@ -3139,9 +3139,7 @@
     "confirmAndSignIn": "Potwierdź i zaloguj",
     "manualSecret": "Sekret ręczny",
     "qrAlt": "Kod QR do zeskanowania w aplikacji uwierzytelniającej",
-    "setupMfa": "Zeskanuj kod aplikacją uwierzytelniającą albo wpisz sekret ręcznie, a potem podaj kod z aplikacji.",
     "copyRecoveryCodes": "Skopiuj kody odzyskiwania. Nie pokażemy ich ponownie.",
-    "codesSaved": "Kody zapisane — przejdź do panelu",
     "verificationToken": "Token weryfikacyjny",
     "confirmAddress": "Potwierdź adres",
     "resendToEmail": "Wyślij ponownie na e-mail",
@@ -3161,7 +3159,8 @@
     "missingResetToken": "Brakuje tokenu resetu w adresie strony.",
     "invalidCredentials": "Nieprawidłowy e-mail lub hasło.",
     "invalidMfaCode": "Kod uwierzytelniający jest nieprawidłowy.",
-    "mfaSetupRequired": "Przed zalogowaniem skonfiguruj uwierzytelnianie dwuskładnikowe.",
+    "mfaLocked": "Zbyt wiele błędnych kodów. Spróbuj ponownie za kwadrans.",
+    "mfaSetupRequired": "To konto operatora nie ma jeszcze uwierzytelniania dwuskładnikowego. Pierwsze ustawia administrator serwera — poproś go o to.",
     "apiUnavailable": "Nie udało się połączyć z API."
   },
   "Settings": {
@@ -4420,6 +4419,7 @@
     "stepUpConfirm": "Potwierdź i zapisz",
     "stepUpInvalid": "Kod się nie zgadza. Wpisz aktualny kod z aplikacji.",
     "stepUpLocked": "Zbyt wiele błędnych kodów — zaloguj się ponownie.",
+    "stepUpMfaLocked": "Zbyt wiele błędnych kodów na tym koncie — spróbuj ponownie za kwadrans.",
     "stepUpSetup": "Tę zmianę potwierdza się kodem z aplikacji uwierzytelniającej. Najpierw włącz weryfikację dwuetapową:",
     "stepUpSetupLink": "Twoje konto › Weryfikacja dwuetapowa",
     "loadError": "Nie udało się wczytać ustawień. Odśwież stronę.",

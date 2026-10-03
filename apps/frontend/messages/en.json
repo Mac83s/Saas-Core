@@ -3139,9 +3139,7 @@
     "confirmAndSignIn": "Confirm and sign in",
     "manualSecret": "Manual secret",
     "qrAlt": "QR code to scan with your authenticator app",
-    "setupMfa": "Scan the code with your authenticator app or type the secret in by hand, then enter the code it shows.",
     "copyRecoveryCodes": "Copy the recovery codes. They will not be shown again.",
-    "codesSaved": "Codes saved—go to dashboard",
     "verificationToken": "Verification token",
     "confirmAddress": "Confirm address",
     "resendToEmail": "Resend to email",
@@ -3161,7 +3159,8 @@
     "missingResetToken": "The reset token is missing from the page address.",
     "invalidCredentials": "Incorrect email or password.",
     "invalidMfaCode": "The authentication code is invalid.",
-    "mfaSetupRequired": "Set up two-factor authentication before signing in.",
+    "mfaLocked": "Too many wrong codes. Try again in fifteen minutes.",
+    "mfaSetupRequired": "This operator account has no two-factor authentication yet. The first one is set up by the server administrator — ask them for it.",
     "apiUnavailable": "Could not connect to the API."
   },
   "Settings": {
@@ -4420,6 +4419,7 @@
     "stepUpConfirm": "Confirm and save",
     "stepUpInvalid": "The code does not match. Enter the current code from the app.",
     "stepUpLocked": "Too many wrong codes — sign in again.",
+    "stepUpMfaLocked": "Too many wrong codes on this account — try again in fifteen minutes.",
     "stepUpSetup": "This change is confirmed with a code from the authenticator app. Turn on two-factor sign-in first:",
     "stepUpSetupLink": "Your account › Two-factor sign-in",
     "loadError": "The settings could not be loaded. Refresh the page.",

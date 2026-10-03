@@ -197,11 +197,14 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
     try {
       await confirmStepUp(code);
     } catch (error) {
+      const problem =
+        error instanceof ApiProblemError ? error.problem.code : undefined;
       setStepUpProblem(
-        error instanceof ApiProblemError &&
-          error.problem.code === "step_up_locked"
+        problem === "step_up_locked"
           ? t("stepUpLocked")
-          : t("stepUpInvalid"),
+          : problem === "mfa_locked"
+            ? t("stepUpMfaLocked")
+            : t("stepUpInvalid"),
       );
       return;
     }

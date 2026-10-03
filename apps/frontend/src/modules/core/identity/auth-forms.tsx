@@ -12,17 +12,13 @@ import {
 import { z } from "zod";
 
 import {
-  ApiProblemError,
-  beginTotpSetup,
   completeMfaLogin,
   confirmEmailVerification,
   confirmPasswordReset,
-  confirmTotpSetup,
   loginAccount,
   registerAccount,
   requestEmailVerification,
   requestPasswordReset,
-  type TotpSetup,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -42,7 +38,6 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { Link, useRouter } from "#i18n/navigation";
-import { MfaQrCode } from "./mfa-qr";
 import { identityErrorMessage, identityFieldError } from "./problem";
 
 type LoginValues = { email: string; password: string };
@@ -65,6 +60,7 @@ function problemMessages(t: IdentityTranslator) {
     invalidCredentials: t("invalidCredentials"),
     invalidMfaCode: t("invalidMfaCode"),
     mfaSetupRequired: t("mfaSetupRequired"),
+    mfaLocked: t("mfaLocked"),
     apiUnavailable: t("apiUnavailable"),
   };
 }
@@ -72,9 +68,7 @@ function problemMessages(t: IdentityTranslator) {
 export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
   const t = useTranslations("Identity");
   const router = useRouter();
-  const [stage, setStage] = useState<"password" | "mfa" | "setup">("password");
-  const [setup, setSetup] = useState<TotpSetup | null>(null);
-  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [stage, setStage] = useState<"password" | "mfa">("password");
   const [problem, setProblem] = useState<string>();
   const loginSchema = useMemo(
     () =>
@@ -102,19 +96,9 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
       router.replace(returnTo);
       router.refresh();
     } catch (error) {
-      if (
-        error instanceof ApiProblemError &&
-        error.problem.code === "mfa_setup_required"
-      ) {
-        try {
-          setSetup(await beginTotpSetup());
-          setStage("setup");
-          return;
-        } catch (setupError) {
-          setProblem(identityErrorMessage(setupError, problemMessages(t)));
-          return;
-        }
-      }
+      // An operator's first MFA is set on the server, never here with a
+      // password alone (platform settings 0c): `mfa_setup_required` is shown
+      // as its message.
       const emailError = identityFieldError(error, "email");
       const passwordError = identityFieldError(error, "password");
       if (emailError)
@@ -128,11 +112,6 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
   async function submitCode(values: CodeValues) {
     setProblem(undefined);
     try {
-      if (stage === "setup") {
-        const result = await confirmTotpSetup(values.code);
-        setRecoveryCodes(result.recovery_codes);
-        return;
-      }
       await completeMfaLogin(values.code);
       router.replace(returnTo);
       router.refresh();
@@ -144,44 +123,13 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
     }
   }
 
-  if (recoveryCodes.length > 0) {
-    return (
-      <div className="space-y-4">
-        <Notice>{t("copyRecoveryCodes")}</Notice>
-        <ul className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3 font-mono text-xs">
-          {recoveryCodes.map((code) => (
-            <li key={code}>{code}</li>
-          ))}
-        </ul>
-        <Button className="w-full" onClick={() => router.replace(returnTo)}>
-          {t("codesSaved")}
-        </Button>
-      </div>
-    );
-  }
-
   if (stage !== "password") {
     return (
       <form className="space-y-5" onSubmit={codeForm.handleSubmit(submitCode)}>
-        {stage === "setup" && setup && (
-          <div className="space-y-3">
-            <Notice>{t("setupMfa")}</Notice>
-            <MfaQrCode value={setup.provisioning_uri} />
-            {/* The raw otpauth:// address used to be printed here as well. The
-                QR code carries the same string, so what is left is the one
-                form a person can actually retype. */}
-            <div className="rounded-lg border bg-muted/40 p-3 text-xs break-all">
-              <p className="font-medium">{t("manualSecret")}</p>
-              <code>{setup.secret.match(/.{1,4}/g)?.join(" ")}</code>
-            </div>
-          </div>
-        )}
         <TextField
           autoComplete="one-time-code"
           error={codeForm.formState.errors.code?.message}
-          label={
-            stage === "setup" ? t("confirmationCode") : t("mfaOrRecoveryCode")
-          }
+          label={t("mfaOrRecoveryCode")}
           registration={codeForm.register("code")}
         />
         {problem && <Problem message={problem} />}

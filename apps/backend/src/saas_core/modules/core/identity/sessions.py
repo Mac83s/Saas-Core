@@ -34,9 +34,8 @@ MFA_CHALLENGE_USER_KEY = "identity_mfa_user_id"
 MFA_CHALLENGE_PURPOSE_KEY = "identity_mfa_purpose"
 MFA_CHALLENGE_EXPIRES_KEY = "identity_mfa_expires_at"
 MFA_CHALLENGE_VERIFY = "verify"
-MFA_CHALLENGE_ENROLL = "enroll"
 #: Set only where a session is born from a checked second factor (a login
-#: challenge or a first enrolment). The operator admin requires it: a session
+#: challenge). The operator admin requires it: a session
 #: that started without MFA keeps no such mark even if MFA is enabled later.
 MFA_VERIFIED_SESSION_KEY = "identity_mfa_verified_at"
 
@@ -60,7 +59,7 @@ class InvalidMfaChallenge(APIException):
 
 class MfaSetupRequired(APIException):
     status_code = 403
-    default_detail = "Operator musi skonfigurować MFA przed zalogowaniem."
+    default_detail = "Konto operatora nie ma jeszcze MFA. Pierwsze ustawia administrator serwera."
     default_code = "mfa_setup_required"
 
 
@@ -106,13 +105,15 @@ def login_user(*, request: HttpRequest, email: str, password: str) -> LoginResul
         return LoginResult(user=None, mfa_required=True)
 
     if user.is_staff:
+        # No session and no challenge: an operator's first factor is set on
+        # the server (`enroll_operator_mfa`), never by whoever has the password
+        # (platform settings plan 0c).
         _record_login_attempt(
             request=request,
             user=user,
             email=normalized_email,
             outcome=LoginOutcome.MFA_SETUP_REQUIRED,
         )
-        _start_mfa_challenge(request=request, user=user, purpose=MFA_CHALLENGE_ENROLL)
         logger.info(
             "identity_mfa_setup_required",
             extra={"security_event": "identity.mfa_setup_required", "user_id": str(user.id)},
@@ -140,21 +141,6 @@ def complete_mfa_login(*, request: HttpRequest, code: str) -> User:
         extra={"security_event": "identity.mfa_login_succeeded", "user_id": str(user.id)},
     )
     return user
-
-
-def mfa_enrollment_user(*, request: HttpRequest) -> tuple[User, bool]:
-    if request.user.is_authenticated:
-        return request.user, False
-    return _challenge_user(request=request, purpose=MFA_CHALLENGE_ENROLL), True
-
-
-def complete_mfa_enrollment_login(*, request: HttpRequest, user: User) -> None:
-    challenge_user = _challenge_user(request=request, purpose=MFA_CHALLENGE_ENROLL)
-    if challenge_user.pk != user.pk:
-        raise InvalidMfaChallenge
-    _clear_mfa_challenge(request)
-    _establish_user_session(request=request, user=user)
-    _mark_mfa_verified(request)
 
 
 def _mark_mfa_verified(request: HttpRequest) -> None:
@@ -317,19 +303,29 @@ def _record_login_attempt(
 
 
 def logout_user(*, request: HttpRequest) -> None:
-    tracking_id = request.session.get(MANAGED_SESSION_KEY)
     user = cast(User, request.user)
     assert user.pk is not None
-    if tracking_id:
-        UserSession.objects.filter(pk=tracking_id, user_id=user.pk).update(
-            revoked_at=timezone.now()
-        )
     user_id = str(user.pk)
     django_logout(request)
     logger.info(
         "identity_logout",
         extra={"security_event": "identity.logout", "user_id": user_id},
     )
+
+
+def revoke_logged_out_session(
+    sender: object, *, request: HttpRequest | None, user: User | None, **kwargs: Any
+) -> None:
+    """`user_logged_out`: every logout ends the tracked session row too — the
+    panel's, the admin's and a forced one alike. Before, logging out of the
+    admin left the row listed as active (platform settings plan 0c)."""
+    if request is None or user is None or not hasattr(request, "session"):
+        return
+    tracking_id = request.session.get(MANAGED_SESSION_KEY)
+    if tracking_id:
+        UserSession.objects.filter(pk=tracking_id, user_id=user.pk, revoked_at__isnull=True).update(
+            revoked_at=timezone.now()
+        )
 
 
 def revoke_user_session(

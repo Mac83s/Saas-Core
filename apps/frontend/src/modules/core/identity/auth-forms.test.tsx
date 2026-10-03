@@ -13,14 +13,12 @@ const {
   loginAccount,
   completeMfaLogin,
   registerAccount,
-  beginTotpSetup,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   refresh: vi.fn(),
   loginAccount: vi.fn(),
   completeMfaLogin: vi.fn(),
   registerAccount: vi.fn(),
-  beginTotpSetup: vi.fn(),
 }));
 
 vi.mock("#i18n/navigation", () => ({
@@ -33,7 +31,6 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   loginAccount,
   completeMfaLogin,
   registerAccount,
-  beginTotpSetup,
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -73,10 +70,9 @@ test("nie tworzy sesji w UI przed zakończeniem challenge MFA", async () => {
   expect(replace).toHaveBeenCalledWith("/panel");
 });
 
-test("wymuszone włączenie 2FA przy logowaniu daje kod QR i sekret", async () => {
-  // Staff accounts are pushed into enrolment by the API itself, so this screen
-  // is the first thing an administrator sees — and until it carried a QR code,
-  // the only way through it was retyping 32 characters into a phone.
+test("konto operatora bez MFA dostaje komunikat zamiast ustawiania MFA samym hasłem", async () => {
+  // An operator's first MFA is set on the server (platform settings 0c):
+  // with a password alone nobody may set a second factor of their own.
   loginAccount.mockRejectedValue(
     new ApiProblemError({
       type: "about:blank",
@@ -87,11 +83,6 @@ test("wymuszone włączenie 2FA przy logowaniu daje kod QR i sekret", async () =
       correlation_id: null,
     }),
   );
-  beginTotpSetup.mockResolvedValue({
-    secret: "JBSWY3DPEHPK3PXP",
-    provisioning_uri:
-      "otpauth://totp/SaaS:anna.kowalska%40example.com?secret=JBSWY3DPEHPK3PXP",
-  });
   renderWithMessages(<LoginForm />);
 
   fireEvent.change(screen.getByLabelText("E-mail"), {
@@ -102,11 +93,10 @@ test("wymuszone włączenie 2FA przy logowaniu daje kod QR i sekret", async () =
   });
   fireEvent.click(screen.getByRole("button", { name: "Zaloguj się" }));
 
-  const qr = await screen.findByRole("img", {
-    name: "Kod QR do zeskanowania w aplikacji uwierzytelniającej",
-  });
-  expect(qr.firstElementChild?.tagName).toBe("svg");
-  expect(screen.getByText("JBSW Y3DP EHPK 3PXP")).toBeInTheDocument();
+  expect(
+    await screen.findByText(/Pierwsze ustawia administrator serwera/),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("img")).toBeNull();
   expect(replace).not.toHaveBeenCalled();
 });
 

@@ -236,6 +236,7 @@ function problemMessages(t: IdentityTranslator) {
     invalidCredentials: t("invalidCredentials"),
     invalidMfaCode: t("invalidMfaCode"),
     mfaSetupRequired: t("mfaSetupRequired"),
+    mfaLocked: t("mfaLocked"),
     apiUnavailable: t("apiUnavailable"),
   };
 }

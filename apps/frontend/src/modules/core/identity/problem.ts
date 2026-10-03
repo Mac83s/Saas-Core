@@ -4,6 +4,7 @@ export type IdentityProblemMessages = {
   invalidCredentials: string;
   invalidMfaCode: string;
   mfaSetupRequired: string;
+  mfaLocked: string;
   apiUnavailable: string;
 };
 
@@ -20,6 +21,9 @@ export function identityErrorMessage(
     }
     if (error.problem.code === "mfa_setup_required") {
       return messages.mfaSetupRequired;
+    }
+    if (error.problem.code === "mfa_locked") {
+      return messages.mfaLocked;
     }
     return error.message;
   }

@@ -54,11 +54,9 @@ from .services import (
     update_profile,
 )
 from .sessions import (
-    complete_mfa_enrollment_login,
     complete_mfa_login,
     login_user,
     logout_user,
-    mfa_enrollment_user,
     revoke_user_session,
 )
 from .step_up import confirm_step_up
@@ -66,11 +64,6 @@ from .step_up import confirm_step_up
 
 class PublicIdentityView(APIView):
     authentication_classes = []
-    permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-
-
-class OptionalIdentityView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
 
@@ -165,7 +158,12 @@ class MfaLoginView(PublicIdentityView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class TotpSetupView(OptionalIdentityView):
+class TotpSetupView(ProtectedIdentityView):
+    """Starts TOTP setup for the signed-in person. There is no setup before
+    sign-in: a staff account's first factor is set on the server
+    (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command."""
+
+    throttle_classes = [ScopedRateThrottle]
     throttle_scope = "identity_mfa_enrollment"
 
     @extend_schema(
@@ -179,8 +177,7 @@ class TotpSetupView(OptionalIdentityView):
         },
     )
     def post(self, request: Request) -> Response:
-        user, _ = mfa_enrollment_user(request=cast(HttpRequest, request))
-        enrollment = begin_totp_enrollment(user=user)
+        enrollment = begin_totp_enrollment(user=cast(User, request.user))
         return Response({
             "secret": enrollment.secret,
             "provisioning_uri": enrollment.provisioning_uri,
@@ -188,7 +185,8 @@ class TotpSetupView(OptionalIdentityView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class TotpConfirmView(OptionalIdentityView):
+class TotpConfirmView(ProtectedIdentityView):
+    throttle_classes = [ScopedRateThrottle]
     throttle_scope = "identity_mfa_enrollment"
 
     @extend_schema(
@@ -203,15 +201,11 @@ class TotpConfirmView(OptionalIdentityView):
     def post(self, request: Request) -> Response:
         serializer = MfaCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        http_request = cast(HttpRequest, request)
-        user, preauthenticated = mfa_enrollment_user(request=http_request)
         recovery_codes = confirm_totp_enrollment(
-            user=user,
+            user=cast(User, request.user),
             **serializer.validated_data,
             correlation_id=getattr(request, "correlation_id", None),
         )
-        if preauthenticated:
-            complete_mfa_enrollment_login(request=http_request, user=user)
         return Response({"status": "mfa_enabled", "recovery_codes": recovery_codes})
 
 
@@ -406,8 +400,9 @@ class StepUpView(ProtectedIdentityView):
         "code — marks the session as stepped up for STEP_UP_MAX_AGE seconds. Accepting "
         "legal documents and changing billing ask for it, in the panel and for the "
         "assistant (owner answers 30a, 31b). An account without two-factor sign-in gets "
-        "403 step_up_mfa_setup_required; five wrong codes end the session (403 "
-        "step_up_locked).",
+        "403 step_up_mfa_setup_required. Wrong codes count per account together with "
+        "sign-in: the one that reaches the limit ends the session (403 step_up_locked); "
+        "an account already locked gets 429 mfa_locked.",
         request=StepUpSerializer,
         responses={
             200: StepUpResultSerializer,

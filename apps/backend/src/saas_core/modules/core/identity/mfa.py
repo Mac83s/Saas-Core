@@ -6,6 +6,8 @@ import hmac
 import logging
 import secrets
 import struct
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import quote, urlencode
@@ -13,6 +15,7 @@ from uuid import UUID
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
@@ -44,19 +47,40 @@ class MfaAlreadyEnabled(APIException):
     default_code = "mfa_already_enabled"
 
 
+class MfaLocked(APIException):
+    status_code = 429
+    default_detail = "Zbyt wiele błędnych kodów. Spróbuj ponownie za kwadrans."
+    default_code = "mfa_locked"
+
+
+class OperatorMfaByCommand(APIException):
+    status_code = 403
+    default_detail = "Pierwsze MFA konta operatora ustawia administrator serwera."
+    default_code = "operator_mfa_by_command"
+
+
 @dataclass(frozen=True, slots=True)
 class TotpEnrollment:
     secret: str
     provisioning_uri: str
 
 
-def begin_totp_enrollment(*, user: User) -> TotpEnrollment:
+def begin_totp_enrollment(*, user: User, on_server: bool = False) -> TotpEnrollment:
+    """Starts (or restarts) the person's own TOTP setup.
+
+    An operator's first factor is set only on the server, by
+    `enroll_operator_mfa` (`on_server`): set from a session, whoever had the
+    password could bind their own app to a staff account (platform settings
+    plan 0c).
+    """
     secret = base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
     ciphertext = _fernet().encrypt(secret.encode("ascii")).decode("ascii")
     with transaction.atomic():
         method = UserMfaMethod.objects.select_for_update().filter(user=user).first()
         if method is not None and method.is_confirmed:
             raise MfaAlreadyEnabled
+        if user.is_staff and not on_server:
+            raise OperatorMfaByCommand
         if method is None:
             method = UserMfaMethod.objects.create(
                 user=user,
@@ -87,10 +111,12 @@ def begin_totp_enrollment(*, user: User) -> TotpEnrollment:
 
 
 def confirm_totp_enrollment(
-    *, user: User, code: str, correlation_id: UUID | None = None
+    *, user: User, code: str, correlation_id: UUID | None = None, on_server: bool = False
 ) -> list[str]:
+    if user.is_staff and not on_server:
+        raise OperatorMfaByCommand
     now = timezone.now()
-    with transaction.atomic():
+    with _counted_attempt(user), transaction.atomic():
         try:
             method = UserMfaMethod.objects.select_for_update().get(user=user)
         except UserMfaMethod.DoesNotExist as error:
@@ -125,7 +151,7 @@ def confirm_totp_enrollment(
 
 def verify_mfa_code(*, user: User, code: str) -> None:
     now = timezone.now()
-    with transaction.atomic():
+    with _counted_attempt(user), transaction.atomic():
         method = _locked_method(user)
         if _consume_totp(method, code, now):
             return
@@ -149,9 +175,41 @@ def verify_mfa_code(*, user: User, code: str) -> None:
 def verify_totp_code(*, user: User, code: str) -> None:
     """A code from the authenticator app only. A recovery code gets a person
     back into the account; it is not spent on confirming one operation."""
-    with transaction.atomic():
+    with _counted_attempt(user), transaction.atomic():
         if not _consume_totp(_locked_method(user), code, timezone.now()):
             raise InvalidMfaCode
+
+
+def mfa_locked(user: User) -> bool:
+    return cache.get(_lock_key(user)) is not None
+
+
+@contextmanager
+def _counted_attempt(user: User) -> Iterator[None]:
+    """Wrong codes count per account, wherever they are given (ADR-023): at the
+    limit the account takes no code at all for `MFA_LOCK_SECONDS`, a right one
+    included. A right code clears the count."""
+    if mfa_locked(user):
+        raise MfaLocked
+    failures_key = f"identity.mfa.failures:{user.pk}"
+    try:
+        yield
+    except InvalidMfaCode:
+        cache.add(failures_key, 0, timeout=settings.MFA_LOCK_SECONDS)
+        if cache.incr(failures_key) >= settings.MFA_FAILURE_LIMIT:
+            cache.delete(failures_key)
+            cache.set(_lock_key(user), 1, timeout=settings.MFA_LOCK_SECONDS)
+            logger.warning(
+                "identity_mfa_locked",
+                extra={"security_event": "identity.mfa_locked", "user_id": str(user.pk)},
+            )
+            raise MfaLocked from None
+        raise
+    cache.delete(failures_key)
+
+
+def _lock_key(user: User) -> str:
+    return f"identity.mfa.lock:{user.pk}"
 
 
 def _locked_method(user: User) -> UserMfaMethod:

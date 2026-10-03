@@ -24,20 +24,16 @@ from typing import cast
 from uuid import UUID
 
 from django.conf import settings
-from django.core.cache import cache
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
-from .mfa import InvalidMfaCode, has_confirmed_mfa, verify_totp_code
+from .mfa import MfaLocked, has_confirmed_mfa, mfa_locked, verify_totp_code
 from .models import User, UserMfaMethod
 
 logger = logging.getLogger(__name__)
 
 STEP_UP_SESSION_KEY = "identity_step_up_at"
-#: Wrong codes a person may give before the session ends, per window.
-STEP_UP_FAILURE_LIMIT = 5
-STEP_UP_FAILURE_WINDOW = 15 * 60
 
 _step_up_at: ContextVar[int | None] = ContextVar("identity_step_up_at", default=None)
 
@@ -64,24 +60,24 @@ def confirm_step_up(*, request: HttpRequest, code: str) -> int:
     user = cast(User, request.user)
     if not has_confirmed_mfa(user):
         raise StepUpMfaSetupRequired
-    failures_key = f"identity.step_up.failures:{user.pk}"
+    # Wrong codes count per account, together with sign-in (`mfa.py`). An
+    # account locked elsewhere is refused here without ending this session:
+    # whoever knows only the password must not be able to sign its owner out.
+    if mfa_locked(user):
+        raise MfaLocked
     try:
         verify_totp_code(user=user, code=code)
-    except InvalidMfaCode:
-        cache.add(failures_key, 0, timeout=STEP_UP_FAILURE_WINDOW)
-        if cache.incr(failures_key) >= STEP_UP_FAILURE_LIMIT:
-            cache.delete(failures_key)
-            logger.warning(
-                "identity_step_up_locked",
-                extra={"security_event": "identity.step_up_locked", "user_id": str(user.pk)},
-            )
-            # Imported here: the session middleware imports this module.
-            from .sessions import logout_user  # noqa: PLC0415
+    except MfaLocked:
+        # This session's own wrong code reached the limit.
+        logger.warning(
+            "identity_step_up_locked",
+            extra={"security_event": "identity.step_up_locked", "user_id": str(user.pk)},
+        )
+        # Imported here: the session middleware imports this module.
+        from .sessions import logout_user  # noqa: PLC0415
 
-            logout_user(request=request)
-            raise StepUpLocked from None
-        raise
-    cache.delete(failures_key)
+        logout_user(request=request)
+        raise StepUpLocked from None
     at = int(timezone.now().timestamp())
     request.session[STEP_UP_SESSION_KEY] = at
     logger.info(
