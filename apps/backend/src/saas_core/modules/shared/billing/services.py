@@ -12,6 +12,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.identity.step_up import require_step_up
 from saas_core.modules.core.organizations.audit import (
     audit_snapshot,
     field_changes,
@@ -114,6 +115,19 @@ class PortalResult:
     url: str
 
 
+def _step_up_when_paying(context: Any) -> None:
+    """A company that already pays confirms each change to its billing with a
+    fresh code from the authenticator app (owner answer 52a, 31b) — invoice
+    details, the payment portal, credits. Its first plan, bought before any
+    subscription, needs none: a new company is not stopped at the door."""
+    if (
+        BillingSubscription.all_objects.filter(organization_id=context.organization_id)
+        .exclude(state=SubscriptionState.CANCELED)
+        .exists()
+    ):
+        require_step_up(user_id=context.actor_id, reason="billing")
+
+
 def _refuse_platform_workspace(organization_id: UUID) -> None:
     """The deployment does not sell itself a subscription.
 
@@ -197,6 +211,7 @@ def update_billing_details(*, changes: dict[str, Any]) -> BillingProfile:
     """
     context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
+    _step_up_when_paying(context)
     organization = Organization.objects.get(pk=context.organization_id)
     profile, _created = BillingProfile.objects.select_for_update().get_or_create(
         organization=organization
@@ -309,6 +324,7 @@ def create_credit_checkout(*, pack_key: str, idempotency_key: str) -> CreditPurc
     """
     context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
+    _step_up_when_paying(context)
     from .credits import start_credit_purchase
 
     organization = Organization.objects.get(pk=context.organization_id)
@@ -500,6 +516,7 @@ def create_customer_portal() -> PortalResult:
     _refuse_platform_workspace(context.organization_id)
     if settings.BILLING_PROVIDER == "simulated":
         raise BillingPortalUnavailable
+    _step_up_when_paying(context)
     organization = Organization.objects.get(pk=context.organization_id)
     actor = User.objects.get(pk=context.actor_id)
     profile = BillingProfile.objects.get(organization=organization)
