@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:8367afff265e7919d64fd401b03d5077370ecca1a6ec16fb41879b3abb688f87",
+  "profileHash": "sha256:762d0a7be9a865ae38383304cbf40bdb9ea1fa75e6f46483802d08d4f9699702",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -628,7 +628,8 @@
       "dependsOn": [
         "core.identity",
         "core.organizations",
-        "shared.billing"
+        "shared.billing",
+        "shared.notifications"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.inventory",

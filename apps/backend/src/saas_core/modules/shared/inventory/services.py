@@ -25,6 +25,7 @@ from django.utils.text import slugify
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.api import setting
 from saas_core.modules.core.organizations.audit import (
     audit_snapshot,
     field_changes,
@@ -34,6 +35,12 @@ from saas_core.modules.core.organizations.authorization import OrganizationPermi
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
+from .company_settings import (
+    DEFAULT_EXPIRING_DAYS,
+    EXPIRED_SALE,
+    EXPIRING_DAYS,
+    MATERIALS_SOURCE,
+)
 from .models import (
     DocumentKind,
     DocumentSequence,
@@ -72,8 +79,6 @@ NEEDS_SOURCE = {DocumentKind.WZ, DocumentKind.RW, DocumentKind.MM}
 NEEDS_TARGET = {DocumentKind.PZ, DocumentKind.PW, DocumentKind.MM, DocumentKind.INW}
 #: Przyjęcia z ceną przeliczają średnią ważoną pozycji.
 PRICED_RECEIPTS = {DocumentKind.PZ, DocumentKind.PW}
-#: Partia, której termin mija w tylu dniach, jest „kończy się ważność” (decyzja 25.09).
-EXPIRING_DAYS = 30
 
 
 class StockShortage(APIException):
@@ -260,7 +265,7 @@ def create_category(*, request: HttpRequest, name: str) -> InventoryCategory:
     if InventoryCategory.all_objects.filter(
         organization_id=context.organization_id, name__iexact=name
     ).exists():
-        raise ValidationError({"name": "Taka kategoria już jest."})
+        raise ValidationError({"name": ["Taka kategoria już jest."]}, code="duplicate")
     base = slugify(name)[:56] or "category"
     key, number = base, 1
     while InventoryCategory.all_objects.filter(
@@ -282,20 +287,42 @@ def create_category(*, request: HttpRequest, name: str) -> InventoryCategory:
     return category
 
 
+CATEGORY_FIELDS = ("name", "expiring_days")
+
+
 @transaction.atomic
-def rename_category(*, request: HttpRequest, category_id: UUID, name: str) -> InventoryCategory:
+def update_category(
+    *, request: HttpRequest, category_id: UUID, data: dict[str, Any]
+) -> InventoryCategory:
+    """Nazwa i — dla partii — własna liczba dni „kończy się ważność” (M3);
+    `expiring_days: null` wraca do liczby z ustawień firmy."""
     context = _manage_context()
     category = _get(InventoryCategory, context.organization_id, category_id, lock=True)
-    before = audit_snapshot(category, ["name"])
-    category.name = name.strip()
-    category.save(update_fields=["name"])
+    before = audit_snapshot(category, CATEGORY_FIELDS)
+    if "name" in data:
+        name = data["name"].strip()
+        if (
+            InventoryCategory.all_objects.filter(
+                organization_id=context.organization_id, name__iexact=name
+            )
+            .exclude(pk=category.pk)
+            .exists()
+        ):
+            raise ValidationError({"name": ["Taka kategoria już jest."]}, code="duplicate")
+        category.name = name
+    if "expiring_days" in data:
+        category.expiring_days = data["expiring_days"]
+    changes = field_changes(before, audit_snapshot(category, CATEGORY_FIELDS))
+    if not changes:
+        return category
+    category.save(update_fields=list(CATEGORY_FIELDS))
     _audit(
         request,
         context.organization_id,
         OrganizationAuditAction.INVENTORY_CATEGORY_UPDATED,
         "inventory_category",
         category.id,
-        {"changes": field_changes(before, audit_snapshot(category, ["name"]))},
+        {"changes": changes},
     )
     return category
 
@@ -589,6 +616,138 @@ def nearest_expiry(rows: Sequence[InventoryBalance]) -> dict[tuple[UUID, UUID], 
         if held is None or (lot["expires_on"] or date.max) < (held["expires_on"] or date.max):
             nearest[key] = lot
     return nearest
+
+
+def effective_minimum(balance: InventoryBalance) -> Decimal | None:
+    """Minimum pozycji w tym miejscu (M4): ustawione przy miejscu, a bez niego
+    w magazynie — minimum pozycji; zapas osoby bez własnego nie ma żadnego.
+    Zero przy miejscu znaczy „tu bez minimum”."""
+    if balance.minimum_quantity is not None:
+        return Decimal(balance.minimum_quantity) or None
+    if balance.location.kind == LocationKind.WAREHOUSE and balance.item.minimum_quantity > 0:
+        return Decimal(balance.item.minimum_quantity)
+    return None
+
+
+def below_minimum(balance: InventoryBalance) -> bool:
+    """Dostępne (stan − zarezerwowane) jest na minimum albo niżej — ta sama
+    reguła w Stanach, w liście „Do uzupełnienia” i w powiadomieniu."""
+    minimum = effective_minimum(balance)
+    return minimum is not None and Decimal(balance.quantity) - Decimal(balance.reserved) <= minimum
+
+
+#: Które miejsca sprawdza lista „Do uzupełnienia” (`inventory.alerts.places`).
+LOW_STOCK_PLACES = ("main", "warehouses", "all")
+
+
+def low_stock_rows(organization_id: UUID, places: str) -> list[dict[str, Any]]:
+    """Co jest na minimum albo poniżej, miejsce po miejscu, od największego
+    braku. Pozycja z minimum, której w magazynie głównym nigdy nie było, też
+    tu jest: ma zero. Bramki nie sprawdza — wołający (panel, powiadomienie)."""
+    ensure_catalog(organization_id)
+    if places not in LOW_STOCK_PLACES:
+        raise ValidationError({"places": ["Nieznany zakres miejsc."]}, code="invalid_choice")
+    locations = StockLocation.all_objects.filter(organization_id=organization_id, active=True)
+    if places == "main":
+        locations = locations.filter(is_default=True)
+    elif places == "warehouses":
+        locations = locations.filter(kind=LocationKind.WAREHOUSE)
+    balances_here = list(
+        InventoryBalance.all_objects.filter(
+            organization_id=organization_id, location__in=locations, item__active=True
+        ).select_related("item", "location", "location__holder")
+    )
+    main = default_warehouse(organization_id)
+    stocked = {row.item_id for row in balances_here if row.location_id == main.id}
+    for never in InventoryItem.all_objects.filter(
+        organization_id=organization_id, active=True, minimum_quantity__gt=0
+    ).exclude(pk__in=stocked):
+        balances_here.append(InventoryBalance(item=never, location=main, quantity=0, reserved=0))
+    rows = []
+    for balance in balances_here:
+        if not below_minimum(balance):
+            continue
+        minimum = effective_minimum(balance)
+        assert minimum is not None
+        available = Decimal(balance.quantity) - Decimal(balance.reserved)
+        rows.append({
+            "item_id": balance.item.id,
+            "item_name": balance.item.name,
+            "unit": balance.item.unit,
+            "location_id": balance.location.id,
+            "location_name": balance.location.name,
+            "location_kind": balance.location.kind,
+            "holder_id": balance.location.holder_id,
+            "quantity": Decimal(balance.quantity),
+            "available": available,
+            "minimum": minimum,
+            "missing": minimum - available,
+        })
+    rows.sort(
+        key=lambda row: (-cast(Decimal, row["missing"]), row["item_name"], row["location_name"])
+    )
+    return rows
+
+
+def low_stock(*, places: str = "all") -> list[dict[str, Any]]:
+    """„Do uzupełnienia” dla panelu i asystenta: czyjś zapas tylko dla tego,
+    kto prowadzi magazyn — inni widzą magazyny i własny zapas."""
+    context = _read_context()
+    rows = low_stock_rows(context.organization_id, places)
+    if _others_stock(context):
+        return rows
+    return [
+        row
+        for row in rows
+        if row["location_kind"] != LocationKind.PERSON or row["holder_id"] == context.actor_id
+    ]
+
+
+@transaction.atomic
+def set_place_minimum(
+    *,
+    request: HttpRequest,
+    item_id: UUID,
+    location_id: UUID,
+    minimum_quantity: Decimal | None,
+) -> InventoryBalance:
+    """Minimum pozycji w jednym miejscu (M4) — pakiet osoby, oddział. `None`
+    wraca do minimum pozycji (magazyn) albo do braku minimum (zapas osoby).
+    Ustawia wartość, więc powtórka niczego nie zmienia i nie pisze historii."""
+    context = _manage_context()
+    item = _get(InventoryItem, context.organization_id, item_id)
+    place = _get(StockLocation, context.organization_id, location_id)
+    if minimum_quantity is not None and minimum_quantity < 0:
+        raise ValidationError(
+            {"minimum_quantity": ["Minimum nie może być ujemne."]}, code="min_value"
+        )
+    balance = _balance(context.organization_id, item.id, place.id, lock=True)
+    before = balance.minimum_quantity
+    if before == minimum_quantity or (
+        before is not None and minimum_quantity is not None and Decimal(before) == minimum_quantity
+    ):
+        return balance
+    balance.minimum_quantity = minimum_quantity
+    balance.save(update_fields=["minimum_quantity", "updated_at"])
+    _audit(
+        request,
+        context.organization_id,
+        OrganizationAuditAction.INVENTORY_MINIMUM_CHANGED,
+        "inventory_item",
+        item.id,
+        {
+            "location": place.name,
+            "changes": {
+                "minimum_quantity": {
+                    "from": None if before is None else str(Decimal(before).normalize()),
+                    "to": None if minimum_quantity is None else str(minimum_quantity.normalize()),
+                }
+            },
+        },
+    )
+    return InventoryBalance.all_objects.select_related("item", "item__category", "location").get(
+        pk=balance.pk
+    )
 
 
 def list_lots(
@@ -1064,15 +1223,35 @@ def organization_today(organization_id: UUID) -> date:
     return _organization(organization_id).local_today()
 
 
-def lot_status(expires_on: date | None, today: date) -> str:
-    """`expired`, `expiring` (w ciągu EXPIRING_DAYS), `ok` albo `no_date`."""
+def lot_status(expires_on: date | None, today: date, days: int = DEFAULT_EXPIRING_DAYS) -> str:
+    """`expired`, `expiring` (w ciągu `days` — liczby kategorii albo firmy, M3),
+    `ok` albo `no_date`. „Po terminie” od liczby dni nie zależy."""
     if expires_on is None:
         return "no_date"
     if expires_on < today:
         return "expired"
-    if expires_on <= today + timedelta(days=EXPIRING_DAYS):
+    if expires_on <= today + timedelta(days=days):
         return "expiring"
     return "ok"
+
+
+def expiring_days(organization_id: UUID) -> Any:
+    """Kategoria → ile dni przed terminem partia „kończy się” (M3): własna
+    liczba kategorii albo ta z ustawień firmy. Wołane w tenancie firmy."""
+    company = int(setting(EXPIRING_DAYS, organization_id=organization_id))
+
+    def days(category: InventoryCategory | None) -> int:
+        if category is not None and category.expiring_days:
+            return int(category.expiring_days)
+        return company
+
+    return days
+
+
+def _sale_refuses_expired(organization_id: UUID) -> bool:
+    """Sprzedaż partii po terminie: odmowa (domyślnie) albo samo ostrzeżenie
+    (M6). Praca — zużycie przy wizycie, w terenie — nigdy nie staje."""
+    return bool(setting(EXPIRED_SALE, organization_id=organization_id) == "block")
 
 
 def fefo(lots: Iterable[InventoryLot], today: date) -> list[InventoryLot]:
@@ -1136,10 +1315,14 @@ def _allocate(
     Wskazana partia schodzi w całości. Bez wskazania: partie wg ważności, a
     czego w partiach nie ma, schodzi bez partii (stan poniżej zera, jak dotąd).
     Sprzedaż (WZ) omija partie po terminie; zatwierdzana w panelu (`strict`)
-    odmawia sprzedaży partii po terminie i towaru bez ważnej partii.
+    odmawia sprzedaży partii po terminie i towaru bez ważnej partii — chyba
+    że firma tylko ostrzega (`inventory.lots.expired_sale`, M6).
     """
     if not item.tracks_lots:
         return [(None, quantity)]
+    # A company that only warns about expired lots sells them like any other,
+    # after the valid ones (FEFO puts them last).
+    sale = sale and _sale_refuses_expired(document.organization_id)
     if lot is not None:
         if sale and strict:
             if lot_status(lot.expires_on, today) == "expired":
@@ -1187,8 +1370,9 @@ def lot_rows(
         lot.id: lot
         for lot in InventoryLot.all_objects.filter(
             pk__in={lot_id for (_item, _place, lot_id) in stock}
-        ).select_related("item")
+        ).select_related("item", "item__category")
     }
+    days = expiring_days(organization_id)
     locations = {
         location.id: location
         for location in StockLocation.all_objects.filter(
@@ -1205,7 +1389,7 @@ def lot_rows(
             "unit": lots[lot_id].item.unit,
             "number": lots[lot_id].number,
             "expires_on": lots[lot_id].expires_on,
-            "status": lot_status(lots[lot_id].expires_on, today),
+            "status": lot_status(lots[lot_id].expires_on, today, days(lots[lot_id].item.category)),
             "location_id": place,
             "location_name": locations[place].name,
             "holder_id": locations[place].holder_id,
@@ -1255,6 +1439,17 @@ def holder_stock(organization_id: UUID, holder_id: UUID) -> list[dict[str, Any]]
         }
         for balance in rows
     ]
+
+
+def visit_place(organization_id: UUID, *, lead_user_id: UUID | None) -> StockLocation:
+    """Skąd schodzą produkty wizyty z kalendarza (M5, `inventory.materials.source`):
+    magazyn główny albo zapas osoby prowadzącej — gdy ma konto."""
+    if (
+        lead_user_id is not None
+        and setting(MATERIALS_SOURCE, organization_id=organization_id) == "lead_person"
+    ):
+        return person_location(organization_id, lead_user_id)
+    return default_warehouse(organization_id)
 
 
 def available(organization_id: UUID, item_id: UUID, location_id: UUID) -> Decimal:

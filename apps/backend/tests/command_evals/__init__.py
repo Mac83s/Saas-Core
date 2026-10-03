@@ -54,6 +54,10 @@ def all_evals() -> dict[str, CommandEval]:
         **profiles.EVALS,
         **sites.EVALS,
     }
+    # The warehouse registers its groups only where a profile composes it
+    # (MedPlano's pilot switches it off, 44a).
+    if "shared.inventory" in settings.ACTIVE_MODULES:
+        evals |= company_settings.INVENTORY_EVALS
     # A profile without the translation module (HoofCare, MedPlano) registers
     # none of its commands, and its models cannot even be imported there.
     if "shared.translation" in settings.ACTIVE_MODULES:

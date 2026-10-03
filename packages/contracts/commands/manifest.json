@@ -1271,6 +1271,639 @@
       "version_field": "expected_version"
     },
     {
+      "command": "inventory.settings_alerts.read@1",
+      "entitlement": "inventory.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Low-stock notices' (low_stock, places, recipients, holder, hour): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Once a day, a list of what is at or below its minimum — in the panel and by e-mail. The minimum is set on the item in the Catalogue or on a place in Stock.",
+      "modifiers": [],
+      "module": "shared.inventory",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "holder": {
+                "type": "string"
+              },
+              "hour": {
+                "type": "string"
+              },
+              "low_stock": {
+                "type": "string"
+              },
+              "places": {
+                "type": "string"
+              },
+              "recipients": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "holder": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "hour": {
+                "maximum": 23,
+                "minimum": 0,
+                "type": "integer",
+                "x-data-class": "public"
+              },
+              "low_stock": {
+                "enum": [
+                  "off",
+                  "daily"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "places": {
+                "enum": [
+                  "main",
+                  "warehouses",
+                  "all"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "recipients": {
+                "enum": [
+                  "managers",
+                  "owner"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Once a day, a list of what is at or below its minimum — in the panel and by e-mail. The minimum is set on the item in the Catalogue or on a place in Stock.",
+        "pl": "Raz dziennie lista tego, czego jest tyle co minimum albo mniej — w panelu i e-mailem. Minimum ustawia się przy pozycji w Katalogu albo przy miejscu w Stanach."
+      },
+      "title": {
+        "en": "Read settings: Low-stock notices",
+        "pl": "Odczytaj ustawienia: Powiadomienia o małym stanie"
+      },
+      "tool_name": "inventory_settings_alerts_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "inventory.settings_alerts.update@1",
+      "entitlement": "inventory.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "holder": {
+            "description": "With people's stock watched: the person whose own stock is at or below its minimum also gets a notice about it (only their own rows). Null keeps it as it is.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hour": {
+            "description": "The hour of the company's day (0 to 23, its time zone) from which the daily notice may go out; it goes once a day, the first time something is at or below its minimum at or after this hour. Null keeps it as it is.",
+            "maximum": 23,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "low_stock": {
+            "description": "Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on. Null keeps it as it is.",
+            "enum": [
+              "off",
+              "daily",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "places": {
+            "description": "Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own. Null keeps it as it is.",
+            "enum": [
+              "main",
+              "warehouses",
+              "all",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recipients": {
+            "description": "Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner. Null keeps it as it is.",
+            "enum": [
+              "managers",
+              "owner",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "low_stock",
+                "places",
+                "recipients",
+                "holder",
+                "hour"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "low_stock",
+          "places",
+          "recipients",
+          "holder",
+          "hour",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Low-stock notices'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). Once a day, a list of what is at or below its minimum — in the panel and by e-mail. The minimum is set on the item in the Catalogue or on a place in Stock.",
+      "modifiers": [],
+      "module": "shared.inventory",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "holder": {
+                "type": "string"
+              },
+              "hour": {
+                "type": "string"
+              },
+              "low_stock": {
+                "type": "string"
+              },
+              "places": {
+                "type": "string"
+              },
+              "recipients": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "holder": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "hour": {
+                "maximum": 23,
+                "minimum": 0,
+                "type": "integer",
+                "x-data-class": "public"
+              },
+              "low_stock": {
+                "enum": [
+                  "off",
+                  "daily"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "places": {
+                "enum": [
+                  "main",
+                  "warehouses",
+                  "all"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "recipients": {
+                "enum": [
+                  "managers",
+                  "owner"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "inventory.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Once a day, a list of what is at or below its minimum — in the panel and by e-mail. The minimum is set on the item in the Catalogue or on a place in Stock.",
+        "pl": "Raz dziennie lista tego, czego jest tyle co minimum albo mniej — w panelu i e-mailem. Minimum ustawia się przy pozycji w Katalogu albo przy miejscu w Stanach."
+      },
+      "title": {
+        "en": "Change settings: Low-stock notices",
+        "pl": "Zmień ustawienia: Powiadomienia o małym stanie"
+      },
+      "tool_name": "inventory_settings_alerts_update_v1",
+      "undo": "command:inventory.settings_alerts.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "inventory.settings_lots.read@1",
+      "entitlement": "inventory.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Lot expiry' (expiring_days, expired_sale): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. For items kept by lots and expiry dates. At work an expired lot only warns — it never stops a record.",
+      "modifiers": [],
+      "module": "shared.inventory",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "expired_sale": {
+                "type": "string"
+              },
+              "expiring_days": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "expired_sale": {
+                "enum": [
+                  "block",
+                  "warn"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "expiring_days": {
+                "maximum": 365,
+                "minimum": 1,
+                "type": "integer",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "For items kept by lots and expiry dates. At work an expired lot only warns — it never stops a record.",
+        "pl": "Dotyczy pozycji z partiami i datami ważności. W pracy partia po terminie tylko ostrzega — zapisu nigdy nie blokuje."
+      },
+      "title": {
+        "en": "Read settings: Lot expiry",
+        "pl": "Odczytaj ustawienia: Ważność partii"
+      },
+      "tool_name": "inventory_settings_lots_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "inventory.settings_lots.update@1",
+      "entitlement": "inventory.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expired_sale": {
+            "description": "What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09). Null keeps it as it is.",
+            "enum": [
+              "block",
+              "warn",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiring_days": {
+            "description": "How many days before its expiry date a lot is shown as expiring (1 to 365). A category's own number (`expiring_days` on the category, PATCH /inventory/categories/{id}/) wins over this one. Null keeps it as it is.",
+            "maximum": 365,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "expiring_days",
+                "expired_sale"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "expiring_days",
+          "expired_sale",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Lot expiry'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). For items kept by lots and expiry dates. At work an expired lot only warns — it never stops a record.",
+      "modifiers": [],
+      "module": "shared.inventory",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "expired_sale": {
+                "type": "string"
+              },
+              "expiring_days": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "expired_sale": {
+                "enum": [
+                  "block",
+                  "warn"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "expiring_days": {
+                "maximum": 365,
+                "minimum": 1,
+                "type": "integer",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "inventory.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "For items kept by lots and expiry dates. At work an expired lot only warns — it never stops a record.",
+        "pl": "Dotyczy pozycji z partiami i datami ważności. W pracy partia po terminie tylko ostrzega — zapisu nigdy nie blokuje."
+      },
+      "title": {
+        "en": "Change settings: Lot expiry",
+        "pl": "Zmień ustawienia: Ważność partii"
+      },
+      "tool_name": "inventory_settings_lots_update_v1",
+      "undo": "command:inventory.settings_lots.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "inventory.settings_materials.read@1",
+      "entitlement": "inventory.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Materials at visits' (source): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Where the products on a calendar visit come from: reserved from confirmation, used and sold when it is completed.",
+      "modifiers": [],
+      "module": "shared.inventory",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "source": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "source": {
+                "enum": [
+                  "main",
+                  "lead_person"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Where the products on a calendar visit come from: reserved from confirmation, used and sold when it is completed.",
+        "pl": "Skąd schodzą produkty wpisane do wizyty w kalendarzu: rezerwacja od potwierdzenia, zużycie i sprzedaż przy zakończeniu."
+      },
+      "title": {
+        "en": "Read settings: Materials at visits",
+        "pl": "Odczytaj ustawienia: Materiały przy wizytach"
+      },
+      "tool_name": "inventory_settings_materials_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "inventory.settings_materials.update@1",
+      "entitlement": "inventory.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "source"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "source": {
+            "description": "Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected. Null keeps it as it is.",
+            "enum": [
+              "main",
+              "lead_person",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Materials at visits'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). Where the products on a calendar visit come from: reserved from confirmation, used and sold when it is completed.",
+      "modifiers": [],
+      "module": "shared.inventory",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "source": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "source": {
+                "enum": [
+                  "main",
+                  "lead_person"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "inventory.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Where the products on a calendar visit come from: reserved from confirmation, used and sold when it is completed.",
+        "pl": "Skąd schodzą produkty wpisane do wizyty w kalendarzu: rezerwacja od potwierdzenia, zużycie i sprzedaż przy zakończeniu."
+      },
+      "title": {
+        "en": "Change settings: Materials at visits",
+        "pl": "Zmień ustawienia: Materiały przy wizytach"
+      },
+      "tool_name": "inventory_settings_materials_update_v1",
+      "undo": "command:inventory.settings_materials.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "notifications.settings_customer_mail.read@1",
       "entitlement": null,
       "exposure": [

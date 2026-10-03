@@ -72,6 +72,9 @@ class InventoryCategory(TenantScopedModel):
     name = models.CharField(max_length=120)
     #: Startowa z deklaracji produktu: można zmienić nazwę, nie można usunąć.
     system = models.BooleanField(default=False)
+    #: Ile dni przed terminem partia tej kategorii „kończy się” — leki dłużej
+    #: niż reszta (M3); pusta: liczba z ustawień firmy.
+    expiring_days = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     all_objects = models.Manager()
 
@@ -83,6 +86,10 @@ class InventoryCategory(TenantScopedModel):
             ),
             models.UniqueConstraint(
                 fields=["organization", "name"], name="inventory_category_name_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(expiring_days__gte=1, expiring_days__lte=365),
+                name="inventory_category_expiring_days_ck",
             ),
         ]
 
@@ -366,6 +373,9 @@ class InventoryBalance(TenantScopedModel):
     #: tym, co właściciel ma wyjaśnić (decyzja z 21.09).
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
     reserved = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    #: Minimum tej pozycji w tym miejscu (M4): pakiet osoby albo oddział mają
+    #: swoje. Puste: w magazynie — minimum pozycji, w zapasie osoby — żadne.
+    minimum_quantity = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
 
@@ -377,6 +387,10 @@ class InventoryBalance(TenantScopedModel):
             ),
             models.CheckConstraint(
                 condition=models.Q(reserved__gte=0), name="inventory_balance_reserved_ck"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(minimum_quantity__gte=0),
+                name="inventory_balance_minimum_ck",
             ),
         ]
 

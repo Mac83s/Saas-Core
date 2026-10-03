@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:58886ca279997ccc0f7bbe28218c02b79ef188d6b2f2aa5150f6f7ea18797d2f",
+  "profileHash": "sha256:4e29615b0cc582620c0378c4506fc80bebb6d3a0d0c1708f73ed6bd4935680fc",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -571,7 +571,8 @@
       "dependsOn": [
         "core.identity",
         "core.organizations",
-        "shared.billing"
+        "shared.billing",
+        "shared.notifications"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.inventory",

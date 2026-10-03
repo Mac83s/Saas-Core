@@ -32,6 +32,17 @@ def _booking_plan(context: TenantContext) -> None:
     )
 
 
+def _inventory_plan(context: TenantContext) -> None:
+    EntitlementSnapshot.all_objects.create(
+        organization_id=context.organization_id,
+        subscription_state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+        features={"inventory.enabled": True},
+        quotas={},
+        sources={"inventory.enabled": {"kind": "plan"}},
+    )
+
+
 def _with_2fa(context: TenantContext) -> None:
     """The person acting has 2FA — requiring it of them would otherwise shut
     them out, which the change refuses."""
@@ -206,3 +217,69 @@ EVALS.update({
         prepare=_booking_plan,
     ),
 })
+
+# The warehouse's groups (phase 10; settings plan M3–M6) — only where it is composed.
+INVENTORY_EVALS = {
+    "inventory.settings_alerts.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"low_stock": "daily"},
+        wrong_field="low_stock",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_inventory_plan,
+    ),
+    "inventory.settings_alerts.update@1": CommandEval(
+        arguments=lambda _context: {
+            "low_stock": "daily",
+            "places": None,
+            "recipients": None,
+            "holder": None,
+            "hour": 8,
+            "reset": None,
+        },
+        wrong_arguments={
+            "low_stock": "daily",
+            "places": None,
+            "recipients": None,
+            "holder": None,
+            "hour": 24,
+            "reset": None,
+        },
+        wrong_field="hour",
+        stale=_stale("inventory.alerts.low_stock"),
+        state=_values,
+        prepare=_inventory_plan,
+    ),
+    "inventory.settings_lots.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"expiring_days": 60},
+        wrong_field="expiring_days",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_inventory_plan,
+    ),
+    "inventory.settings_lots.update@1": CommandEval(
+        arguments=lambda _context: {"expiring_days": 60, "expired_sale": None, "reset": None},
+        wrong_arguments={"expiring_days": 0, "expired_sale": None, "reset": None},
+        wrong_field="expiring_days",
+        stale=_stale("inventory.lots.expiring_days"),
+        state=_values,
+        prepare=_inventory_plan,
+    ),
+    "inventory.settings_materials.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"source": "lead_person"},
+        wrong_field="source",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_inventory_plan,
+    ),
+    "inventory.settings_materials.update@1": CommandEval(
+        arguments=lambda _context: {"source": "lead_person", "reset": None},
+        wrong_arguments={"source": "the_van", "reset": None},
+        wrong_field="source",
+        stale=_stale("inventory.materials.source"),
+        state=_values,
+        prepare=_inventory_plan,
+    ),
+}

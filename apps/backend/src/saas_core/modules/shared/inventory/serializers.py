@@ -18,6 +18,30 @@ class InventoryCategorySerializer(serializers.Serializer[Any]):
     name = serializers.CharField(max_length=120)
     #: Startowa kategoria produktu: można zmienić nazwę, nie usunąć.
     system = serializers.BooleanField(read_only=True)
+    expiring_days = serializers.IntegerField(
+        min_value=1,
+        max_value=365,
+        allow_null=True,
+        required=False,
+        help_text="How many days before its expiry date a lot of this category counts as "
+        "expiring (1–365); null: the company's number (setting inventory.lots.expiring_days).",
+    )
+
+
+class InventoryCategoryUpdateSerializer(serializers.Serializer[Any]):
+    """Only the fields sent change."""
+
+    name = serializers.CharField(
+        max_length=120, required=False, help_text="The category's name, unique in the company."
+    )
+    expiring_days = serializers.IntegerField(
+        min_value=1,
+        max_value=365,
+        allow_null=True,
+        required=False,
+        help_text="Days before expiry a lot of this category counts as expiring (1–365); "
+        "null returns to the company's number.",
+    )
 
 
 class StockLocationSerializer(serializers.Serializer[Any]):
@@ -123,7 +147,12 @@ class InventoryBalanceSerializer(serializers.Serializer[Any]):
     quantity = _quantity()
     reserved = _quantity()
     available = serializers.SerializerMethodField()
-    minimum_quantity = _quantity(source="item.minimum_quantity")
+    #: Minimum, które tu obowiązuje: ustawione przy miejscu albo (w magazynie)
+    #: minimum pozycji; `null` — tu bez minimum.
+    minimum_quantity = serializers.SerializerMethodField()
+    #: Minimum ustawione przy tym miejscu; `null` — dziedziczy (M4).
+    place_minimum = _quantity(source="minimum_quantity", allow_null=True)
+    below_minimum = serializers.SerializerMethodField()
     tracks_lots = serializers.BooleanField(source="item.tracks_lots")
     #: Najbliższy termin partii, które tu leżą — i co z niego wynika.
     nearest_expiry = serializers.SerializerMethodField()
@@ -132,6 +161,19 @@ class InventoryBalanceSerializer(serializers.Serializer[Any]):
 
     def get_available(self, balance: Any) -> str:
         return f"{balance.quantity - balance.reserved:.3f}"
+
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=3, allow_null=True))
+    def get_minimum_quantity(self, balance: Any) -> str | None:
+        from .services import effective_minimum  # noqa: PLC0415
+
+        minimum = effective_minimum(balance)
+        return None if minimum is None else f"{minimum:.3f}"
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_below_minimum(self, balance: Any) -> bool:
+        from .services import below_minimum  # noqa: PLC0415
+
+        return below_minimum(balance)
 
     def _nearest(self, balance: Any) -> dict[str, Any] | None:
         nearest: dict[tuple[Any, Any], dict[str, Any]] = self.context.get("nearest", {})
@@ -301,3 +343,32 @@ class InventoryAdjustInputSerializer(serializers.Serializer[Any]):
     holder_id = serializers.UUIDField(required=False, allow_null=True, default=None)
     quantity = _quantity()
     note = serializers.CharField(max_length=240)
+
+
+class LowStockRowSerializer(serializers.Serializer[Any]):
+    """One item at or below its minimum in one place (available ≤ minimum)."""
+
+    item_id = serializers.UUIDField()
+    item_name = serializers.CharField()
+    unit = serializers.ChoiceField(choices=ItemUnit.choices)
+    location_id = serializers.UUIDField()
+    location_name = serializers.CharField()
+    location_kind = serializers.ChoiceField(choices=LocationKind.choices)
+    holder_id = serializers.UUIDField(
+        allow_null=True, help_text="Whose own stock this is; null for a warehouse."
+    )
+    quantity = _quantity(help_text="On hand in the place.")
+    available = _quantity(help_text="On hand minus what is reserved for visits and orders.")
+    minimum = _quantity(help_text="The minimum in force here.")
+    missing = _quantity(help_text="How much is needed to be back at the minimum.")
+
+
+class PlaceMinimumInputSerializer(serializers.Serializer[Any]):
+    item_id = serializers.UUIDField(help_text="The item.")
+    location_id = serializers.UUIDField(help_text="The warehouse or the person's stock.")
+    minimum_quantity = _quantity(
+        min_value=0,
+        allow_null=True,
+        help_text="The minimum in this place; 0: no minimum here; null: back to the item's "
+        "minimum (a warehouse) or none (a person's stock).",
+    )

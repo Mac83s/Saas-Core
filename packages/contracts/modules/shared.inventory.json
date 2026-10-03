@@ -2,7 +2,7 @@
   "id": "shared.inventory",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.identity", "core.organizations", "shared.billing"],
+  "dependsOn": ["core.identity", "core.organizations", "shared.billing", "shared.notifications"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.inventory",
     "urlPrefix": "/api/v1/inventory",

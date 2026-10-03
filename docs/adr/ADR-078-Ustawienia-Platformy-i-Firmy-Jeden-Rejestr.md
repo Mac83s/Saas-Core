@@ -690,3 +690,29 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
 - **Poza tą fazą:** grupy „AI i tłumaczenia” i „Języki” wchodzą z kluczami
   planu wielojęzyczności (TL22) — panel rysuje je bez zmian w kodzie; ścieżka
   operatora w cudzym tenancie czeka na osobny ADR.
+
+## Uzupełnienie 2026-10-03 (7): magazyn — M3–M6 (faza 10 magazynu)
+
+- **Grupy `inventory.alerts`, `inventory.lots`, `inventory.materials`** w obszarze
+  „Magazyn” (kolejność 55, strona ogólna), uprawnienie grupy `inventory.manage`
+  (pkt 4: grupa modułu ma własne), cecha `inventory.enabled`; rejestruje je tylko
+  profil, który składa moduł. Po dwa polecenia na grupę z pełną baterią evali.
+- **M4: powiadomienie domyślnie `off`.** Plan mówił „raz dziennie”, ale to rytm po
+  włączeniu, nie wartość domyślna: dziś nic nie wychodzi, więc `daily` zaczęłoby
+  pisać do każdej firmy po wdrożeniu (pkt 16, „domyślne = dziś”; decyzja koordynatora
+  03.10, zgodnie z „Powiadomieniami zespołu” z W8). Odkrywalność daje panel: przy
+  liście „Do uzupełnienia” link „Włącz codzienne powiadomienie”. Otwarte: czy nowe
+  firmy mają startować z `daily` (`settingsDefaults`/`copy_at_creation`) — pytanie do
+  właściciela, nie zmiana wartości w kodzie.
+- **Zasięg „miejsce” jest kolumną modułu** (pkt 7): minimum pozycji w miejscu to
+  `InventoryBalance.minimum_quantity`, a dni „kończy się ważność” kategorii to
+  `InventoryCategory.expiring_days`. Magazyn rozstrzyga sam (miejsce → pozycja;
+  kategoria → firma) i mówi o tym w `model_description` kluczy, żeby panel i asystent
+  wiedzieli, że węższa wartość wygrywa z kluczem.
+- **Godzina dnia bez jednostki:** `inventory.alerts.hour` to `int` 0–23 w strefie
+  firmy; `SETTING_UNITS` nie dostaje „godziny zegara” dla jednego klucza.
+- **M5 deklaruje ten, kto wykonuje regułę** (UF-D4): miejsce produktów wizyty wybiera
+  magazyn (`visit_place`), więc klucz to `inventory.materials.source`, a rezerwacje
+  niczego nie deklarują i nie uczą się o magazynie.
+- **M6:** `inventory.lots.expired_sale` `block` (jak dotąd) albo `warn`; blokada pracy
+  przy partii po terminie zostaje stałą z powodem (decyzje 21.09 i 25.09).

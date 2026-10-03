@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:75afaeb94f2fc3c7cad6896c972fe0e3d33f79587cf9b44dee53a41e2cd03ec4",
+  "profileHash": "sha256:7844498f55f8cba9ed161e6f3c598921c9633294647364a7ba3973cfc64b2eb4",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -571,7 +571,8 @@
       "dependsOn": [
         "core.identity",
         "core.organizations",
-        "shared.billing"
+        "shared.billing",
+        "shared.notifications"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.inventory",

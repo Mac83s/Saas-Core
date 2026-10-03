@@ -1,7 +1,8 @@
 """Produkty z magazynu przy wizycie (ADR-055, faza 6 planu magazynu).
 
 Usługa niesie listę produktów; wizyta dostaje jej kopię (albo listę wpisaną
-ręcznie) i rezerwuje stan w magazynie głównym od potwierdzenia. Zakończenie
+ręcznie) i rezerwuje stan od potwierdzenia — w magazynie głównym albo w
+zapasie osoby prowadzącej, jak firma ustawi (M5; miejsce wybiera magazyn). Zakończenie
 wizyty zamienia rezerwację w dokumenty: RW dla zużycia na koszt firmy, WZ dla
 towaru sprzedanego klientowi. Odwołanie zwalnia rezerwację.
 
@@ -127,9 +128,22 @@ def _totals(lines: list[dict[str, Any]], mode: str | None = None) -> dict[UUID, 
     return totals
 
 
+def _place(api: Any, organization_id: UUID, appointment_id: UUID) -> Any:
+    """Where the visit's products lie: the warehouse decides (M5) — the main
+    one, or the stock of the person leading the visit, if they have an account."""
+    from .models import Appointment  # noqa: PLC0415
+
+    lead = (
+        Appointment.all_objects.filter(organization_id=organization_id, pk=appointment_id)
+        .values_list("staff__membership__user_id", flat=True)
+        .first()
+    )
+    return api.visit_place(organization_id, lead_user_id=lead)
+
+
 def reserve(organization_id: UUID, appointment_id: UUID, lines: list[dict[str, Any]]) -> None:
-    """Odkłada towar dla wizyty w magazynie głównym; poprzednią rezerwację
-    tej wizyty zastępuje w całości."""
+    """Odkłada towar dla wizyty tam, skąd firma bierze produkty wizyt (M5);
+    poprzednią rezerwację tej wizyty zastępuje w całości."""
     if not enabled():
         return
     from saas_core.modules.shared.inventory import api  # noqa: PLC0415
@@ -140,14 +154,12 @@ def reserve(organization_id: UUID, appointment_id: UUID, lines: list[dict[str, A
     )
     if not lines:
         return
-    # ponytail: the main warehouse holds what visits use; a per-location or
-    # per-person source comes when a business asks for it.
-    warehouse = api.default_warehouse(organization_id)
+    place = _place(api, organization_id, appointment_id)
     for item_id, quantity in _totals(lines).items():
         api.reserve(
             organization_id=organization_id,
             item_id=item_id,
-            location_id=warehouse.id,
+            location_id=place.id,
             quantity=quantity,
             source=SOURCE,
             source_reference=reference,
@@ -176,7 +188,7 @@ def settle(
     api.release_reservations(
         organization_id=organization_id, source=SOURCE, source_reference=reference
     )
-    warehouse = api.default_warehouse(organization_id)
+    place = _place(api, organization_id, appointment_id)
     for mode, kind in ((CONSUME, "RW"), (SALE, "WZ")):
         totals = _totals(lines, mode)
         if totals:
@@ -185,7 +197,7 @@ def settle(
                 source=SOURCE,
                 source_reference=reference,
                 lines=list(totals.items()),
-                location_id=warehouse.id,
+                location_id=place.id,
                 actor_id=actor_id,
                 kind=kind,
             )

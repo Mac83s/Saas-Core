@@ -146,6 +146,42 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
   gospodarstw niesie jej koniec na wpisie kartoteki (ADR-051, uzupełnienie
   25.09).
 
+## Uzupełnienie 2026-10-03: stan minimalny, powiadomienie i ustawienia (faza 10a)
+
+- **Minimum to dane, nie ustawienie.** Pozycja ma swoje minimum (`minimum_quantity`,
+  jak dotąd) i dotyczy ono magazynów. Jedno miejsce może mieć własne:
+  `InventoryBalance.minimum_quantity` (pozycja × miejsce, `PUT /inventory/minimums/`,
+  historia `inventory.minimum.changed`). Kolejność: minimum miejsca → w magazynie
+  minimum pozycji → zapas osoby bez własnego nie ma żadnego; `0` przy miejscu znaczy
+  „tu bez minimum”, `null` — dziedziczy. Osobnej tabeli nie ma: wiersz stanu to już
+  „pozycja w tym miejscu”, a nikt nie odbudowuje stanów z ruchów.
+- **Jedna reguła „do uzupełnienia”:** dostępne (stan − zarezerwowane) ≤ minimum.
+  Liczy ją serwer (`below_minimum` w wierszu stanu, `GET /inventory/low-stock/`),
+  panel jej nie powtarza. Pozycja z minimum, której w magazynie głównym nigdy nie
+  było, jest na liście z zerem; inne miejsca liczą tylko to, co w nich było albo ma
+  tam własne minimum.
+- **Powiadomienie raz dziennie, domyślnie wyłączone** (decyzja koordynatora 03.10:
+  dotąd nic nie wychodziło, więc wdrożenie niczego nie zaczyna wysyłać; ADR-078
+  „domyślne = dziś”). Zadanie co godzinę, firma po firmie w jej tenancie: pierwsza
+  godzina dnia firmy równa albo późniejsza niż `inventory.alerts.hour`, w której coś
+  jest do uzupełnienia, wysyła wiadomość w panelu i e-mail. Kluczem jest lokalna data
+  firmy, więc godzina powtórzona przy zmianie czasu nie wysyła drugi raz, a godzina,
+  której nie było, nie gubi dnia. Odbiorcy: kto prowadzi magazyn albo sam właściciel;
+  przy zapasach osób — także osoba, o swoim. E-mail podaje pozycje i miejsca, nigdy
+  ludzi. Plan bez magazynu zostawia wybór, nie wysyła.
+- **Ustawienia firmy (ADR-078, M3–M6)** w obszarze „Magazyn”: `inventory.alerts`
+  (`low_stock` off/daily, `places`, `recipients`, `holder`, `hour`), `inventory.lots`
+  (`expiring_days` 1–365, domyślnie 30 — kategoria może mieć własne
+  `InventoryCategory.expiring_days`; `expired_sale` block/warn, domyślnie block) i
+  `inventory.materials` (`source` main/lead_person). Praca przy partii po terminie
+  tylko ostrzega i nie jest ustawieniem (decyzje 21.09 i 25.09).
+- **Skąd schodzą produkty wizyty (M5), zmienia uzupełnienie 24.09:** miejsce wybiera
+  magazyn (`inventory.api.visit_place`), kalendarz tylko pyta — magazyn główny albo
+  zapas osoby prowadzącej wizytę (gdy ma konto). Rezerwacja stoi tam, gdzie powstała;
+  zakończenie wizyty zdejmuje z miejsca wskazanego w tej chwili.
+- `shared.inventory` zależy od `shared.notifications` (powiadomienie); każdy profil z
+  magazynem już je składał.
+
 ## Konsekwencje
 
 - Dziesięć tabel tenantowych z wymuszonym RLS (ADR-039): pozycja, kategoria,
@@ -156,8 +192,8 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
 - Stare endpointy v1 (przyjęcie, wydanie, zwrot, korekta) działają dalej jako
   skróty tworzące zatwierdzone dokumenty PZ, MM oraz PW/RW (korekta stanu), dopóki panel nie
   przejdzie na dokumenty.
-- Alerty stanu minimalnego, raporty, import CSV i PDF dokumentów to kolejne
-  fazy planu (partie i ważność — uzupełnienie 25.09 wyżej).
+- Raporty, import CSV i PDF dokumentów to kolejne fazy planu (partie i ważność —
+  uzupełnienie 25.09, stan minimalny i powiadomienie — uzupełnienie 03.10 wyżej).
 
 ## Odrzucone
 

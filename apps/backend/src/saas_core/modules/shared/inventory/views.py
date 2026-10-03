@@ -7,6 +7,7 @@ from django.http import HttpRequest
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -21,18 +22,25 @@ from .serializers import (
     InventoryAdjustInputSerializer,
     InventoryBalanceSerializer,
     InventoryCategorySerializer,
+    InventoryCategoryUpdateSerializer,
     InventoryIssueInputSerializer,
     InventoryItemInputSerializer,
     InventoryItemSerializer,
     InventoryLotStockSerializer,
     InventoryMovementSerializer,
     InventoryReceiptInputSerializer,
+    LowStockRowSerializer,
+    PlaceMinimumInputSerializer,
     StockDocumentCorrectionSerializer,
     StockDocumentInputSerializer,
     StockDocumentSerializer,
     StockLocationSerializer,
     SupplierSerializer,
 )
+
+#: Why an operation setting values needs no Idempotency-Key (the floor's waiver).
+ABSOLUTE = "Sets absolute values: a repeat leaves the same state and writes no second history."
+UNIQUE_NAME = "The name is unique in the company: a repeat is refused (400), never a second one."
 
 ERRORS = {
     400: ProblemDetailsSerializer,
@@ -90,20 +98,36 @@ class InventoryCategoryListView(APIView):
     @extend_schema(
         responses={200: InventoryCategorySerializer(many=True), **ERRORS},
         operation_id="inventory_category_list",
+        summary="Stock categories",
+        description="The company's categories: the product's starting ones (`system`, they "
+        "can be renamed, not deleted) and the company's own, each with its own number of "
+        "days before a lot counts as expiring, if set.",
         tags=TAGS,
     )
     def get(self, request: Request) -> Response:
         return Response(InventoryCategorySerializer(services.list_categories(), many=True).data)
 
     @extend_schema(
-        request=InventoryCategorySerializer,
+        request=InventoryCategoryUpdateSerializer,
         responses={201: InventoryCategorySerializer, **ERRORS},
         operation_id="inventory_category_create",
+        summary="Add a stock category",
+        description="A category of the company's own (`name` required). The name is unique "
+        "in the company: a second one is 400 `duplicate`. Needs inventory.manage.",
+        extensions={"x-quality-exempt": {"idempotency-key": UNIQUE_NAME}},
         tags=TAGS,
     )
     def post(self, request: Request) -> Response:
-        data = _valid(InventoryCategorySerializer, request)
+        data = _valid(InventoryCategoryUpdateSerializer, request)
+        if not data.get("name", "").strip():
+            raise ValidationError({"name": ["Podaj nazwę kategorii."]}, code="required")
         category = services.create_category(request=_http(request), name=data["name"])
+        if "expiring_days" in data:
+            category = services.update_category(
+                request=_http(request),
+                category_id=category.id,
+                data={"expiring_days": data["expiring_days"]},
+            )
         return Response(InventoryCategorySerializer(category).data, status=201)
 
 
@@ -112,15 +136,20 @@ class InventoryCategoryDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        request=InventoryCategorySerializer,
+        request=InventoryCategoryUpdateSerializer,
         responses={200: InventoryCategorySerializer, **ERRORS},
         operation_id="inventory_category_update",
+        summary="Change a stock category",
+        description="Renames a category or sets how many days before expiry its lots count as "
+        "expiring (`expiring_days`; null returns to the company's number). Only the fields "
+        "sent change; the history records what did. Needs inventory.manage.",
+        extensions={"x-quality-exempt": {"idempotency-key": ABSOLUTE}},
         tags=TAGS,
     )
     def patch(self, request: Request, category_id: UUID) -> Response:
-        data = _valid(InventoryCategorySerializer, request)
-        category = services.rename_category(
-            request=_http(request), category_id=category_id, name=data["name"]
+        data = _valid(InventoryCategoryUpdateSerializer, request)
+        category = services.update_category(
+            request=_http(request), category_id=category_id, data=data
         )
         return Response(InventoryCategorySerializer(category).data)
 
@@ -289,6 +318,10 @@ class InventoryBalanceView(APIView):
         ],
         responses={200: InventoryBalanceSerializer(many=True), **ERRORS},
         operation_id="inventory_balance_list",
+        summary="Stock of one place",
+        description="What lies in one place, item by item: on hand, reserved, available, the "
+        "minimum in force there and whether the item is at or below it. Without parameters, "
+        "the main warehouse; somebody else's stock needs inventory.manage.",
         tags=TAGS,
     )
     def get(self, request: Request) -> Response:
@@ -552,3 +585,66 @@ class InventoryAdjustView(APIView):
             note=data["note"],
         )
         return Response(StockDocumentSerializer(services.with_lines(document)).data, status=201)
+
+
+class InventoryLowStockView(APIView):
+    """„Do uzupełnienia”: what is at or below its minimum (M4)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "places",
+                str,
+                enum=list(services.LOW_STOCK_PLACES),
+                description="main — the main warehouse; warehouses — every warehouse; all "
+                "(default) — warehouses and people's stock.",
+            ),
+        ],
+        responses={200: LowStockRowSerializer(many=True), **ERRORS},
+        operation_id="inventory_low_stock_list",
+        summary="Items at or below their minimum",
+        description="Each item whose available stock (on hand minus reserved) is at or below "
+        "the minimum in force in a place, the biggest shortfall first. An item with a minimum "
+        "never received in the main warehouse counts with zero. Other people's stock only for "
+        "inventory.manage; everyone else sees warehouses and their own.",
+        tags=TAGS,
+    )
+    def get(self, request: Request) -> Response:
+        rows = services.low_stock(places=request.query_params.get("places") or "all")
+        return Response(LowStockRowSerializer(rows, many=True).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class InventoryPlaceMinimumView(APIView):
+    """An item's minimum in one place: a person's kit, a branch (M4)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=PlaceMinimumInputSerializer,
+        responses={200: InventoryBalanceSerializer, **ERRORS},
+        operation_id="inventory_place_minimum_set",
+        summary="Set an item's minimum in one place",
+        description="Sets the minimum of one item in one warehouse or person's stock. null "
+        "returns to the item's minimum (a warehouse) or to none (a person's stock); 0 means "
+        "no minimum in this place. The answer is the place's row with the minimum in force "
+        "and whether it is reached. Needs inventory.manage; the history records the change. "
+        "No preview: the answer itself says what the threshold now means.",
+        extensions={"x-quality-exempt": {"idempotency-key": ABSOLUTE}},
+        tags=TAGS,
+    )
+    def put(self, request: Request) -> Response:
+        data = _valid(PlaceMinimumInputSerializer, request)
+        balance = services.set_place_minimum(
+            request=_http(request),
+            item_id=data["item_id"],
+            location_id=data["location_id"],
+            minimum_quantity=data["minimum_quantity"],
+        )
+        return Response(
+            InventoryBalanceSerializer(
+                balance, context={"nearest": services.nearest_expiry([balance])}
+            ).data
+        )

@@ -544,6 +544,11 @@ class OrganizationAuditAction(models.TextChoices):
     INVENTORY_SUPPLIER_UPDATED = "inventory.supplier.updated", "Zmieniono dostawcę"
     INVENTORY_DOCUMENT_POSTED = "inventory.document.posted", "Zatwierdzono dokument magazynowy"
     INVENTORY_DOCUMENT_CORRECTED = "inventory.document.corrected", "Skorygowano dokument magazynowy"
+    INVENTORY_MINIMUM_CHANGED = (
+        "inventory.minimum.changed",
+        "Zmieniono minimum pozycji w miejscu",
+    )
+    INVENTORY_IMPORTED = "inventory.imported", "Zaimportowano pozycje magazynu z pliku"
     BILLING_PROFILE_UPDATED = "billing.profile.updated", "Zmieniono dane do faktury"
     BILLING_CHECKOUT_CREATED = "billing.checkout.created", "Utworzono Checkout"
     BILLING_PORTAL_CREATED = "billing.portal.created", "Utworzono sesję portalu"

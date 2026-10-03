@@ -256,3 +256,43 @@ def test_a_kind_whose_module_takes_its_own_material_stays_out_of_the_warehouse(
         services = _catalog_payload(list_catalog())["services"]
     # The panel hides the products editor for such a service.
     assert [service["takes_materials"] for service in services] == [False]
+
+
+def test_a_company_may_take_a_visits_products_from_the_leading_persons_stock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """M5 (`inventory.materials.source`): a technician with a van. The
+    warehouse picks the place; the calendar only asks."""
+    from saas_core.modules.core.organizations.models import OrganizationSetting  # noqa: PLC0415
+    from saas_core.modules.shared.booking.models import StaffMember  # noqa: PLC0415
+    from saas_core.modules.shared.inventory.api import (  # noqa: PLC0415
+        available,
+        holder_stock,
+        person_location,
+    )
+
+    booking_tests._no_delivery(monkeypatch)
+    member, configured, items = setup("wizyta-zapas-osoby")
+    with booking_tests.tenant(member):
+        OrganizationSetting.objects.create(
+            organization_id=member.organization_id,
+            key="inventory.materials.source",
+            value="lead_person",
+        )
+        StaffMember.all_objects.filter(pk=configured["staff"].pk).update(membership=member)
+        set_service_materials(
+            service_id=configured["service"].id,
+            materials=[{"item_id": str(items["oil"].id), "quantity": "2", "mode": "consume"}],
+        )
+    appointment = booking_tests.create(member, configured).appointment
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(10))
+    with booking_tests.tenant(member):
+        van = person_location(member.organization_id, member.user_id)
+        assert available(member.organization_id, items["oil"].id, van.id) == Decimal(-2)
+        complete_appointment(
+            appointment_id=appointment.id, idempotency_key="done-van", principal_ref="t"
+        )
+        (held,) = holder_stock(member.organization_id, member.user_id)
+        assert (held["item_id"], held["quantity"]) == (items["oil"].id, Decimal(-2))
+        assert available(member.organization_id, items["oil"].id, van.id) == Decimal(-2)
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(10))

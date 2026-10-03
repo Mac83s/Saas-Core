@@ -689,6 +689,14 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 #: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
 #: against tables that are not there, once a minute, forever.
 _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
+    "shared.inventory": {
+        # Hourly: each company hears once a day, from the hour of its own day it
+        # chose (`inventory.alerts.hour`); off unless it switched the notice on.
+        "inventory-notify-low-stock": {
+            "task": "saas_core.modules.shared.inventory.tasks.notify_low_stock",
+            "schedule": 3600.0,
+        }
+    },
     "shared.farms": {
         "farms-notify-pending-reviews": {
             "task": "saas_core.modules.shared.farms.tasks.notify_pending_reviews",
@@ -894,6 +902,10 @@ SPECTACULAR_SETTINGS = {
         "TranslationModeEnum": ["automatic", "review"],
         "SettingSourceEnum": "saas_core.modules.core.organizations.settings_registry.SOURCES",
         "SettingStrategyEnum": "saas_core.modules.core.organizations.options.SETTING_STRATEGIES",
+        # A warehouse setting named `source` and a low-stock row's `location_kind`
+        # must not rename the time-off source and the stock location's kind.
+        "SourceEnum": "saas_core.modules.shared.booking.models.TimeOffSource",
+        "StockLocationKindEnum": "saas_core.modules.shared.inventory.models.LocationKind",
     },
 }
 
