@@ -24,6 +24,10 @@ class SitesConfig(AppConfig):
         from .translation_source import register_page_source
 
         register_inquiry_email()
+        # Who receives the contact form's messages (W2, ADR-078).
+        from .inquiry_settings import register_inquiry_settings
+
+        register_inquiry_settings()
         register_public_locales_guard(site_locale_problems)
         register_public_locales_impact(removed_locale_redirects)
         # Pages, blog articles and site texts are translation sources (ADR-069, TL11).

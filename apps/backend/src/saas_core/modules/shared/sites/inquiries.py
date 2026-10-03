@@ -10,19 +10,20 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 
-from saas_core.modules.core.identity.models import User, UserStatus
+from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import (
     TenantContext,
     activate_tenant_context,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.models import Membership, MembershipStatus, Organization
+from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 from saas_core.modules.shared.billing.decisions import decide_feature
 from saas_core.modules.shared.notifications.api import queue_email, staff_locale
 
 from .inquiry_serializers import SiteInquirySubmitSerializer
+from .inquiry_settings import inquiry_recipients
 from .models import Publication, Site, SiteInquiry, canonical_json_hash
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
 from .publication_routing import (
@@ -167,26 +168,16 @@ def submit_site_inquiry(
         inquiry_id = uuid7()
         notification = None
         if decide_feature("notifications.enabled").allowed:
-            owner = (
-                Membership.objects.select_related("user")
-                .filter(
-                    organization_id=organization_id,
-                    role__key="owner",
-                    status=MembershipStatus.ACTIVE,
-                    user__status=UserStatus.ACTIVE,
-                )
-                .order_by("joined_at", "id")
-                .first()
-            )
-            if owner is not None:
-                notification, _ = queue_email(
-                    recipient_email=owner.user.email,
-                    recipient_user=owner.user,
+            # The owner, or everyone who edits the site (W2): one mail each.
+            for index, user in enumerate(inquiry_recipients(organization_id)):
+                message, _ = queue_email(
+                    recipient_email=user.email,
+                    recipient_user=user,
                     template_key="sites.inquiry_received",
                     template_version=1,
-                    # The owner reads it, in the panel's language — not the
+                    # Each reads it in their panel's language — not the
                     # language of the page the visitor wrote on (ADR-071 pkt 1).
-                    locale=staff_locale(organization_id=organization_id, user=owner.user),
+                    locale=staff_locale(organization_id=organization_id, user=user),
                     template_context={
                         "site_name": site.name,
                         "name": data["name"],
@@ -196,9 +187,14 @@ def submit_site_inquiry(
                         "message": data["message"] or "—",
                         "reference": str(inquiry_id),
                     },
-                    idempotency_key=f"site-inquiry:{inquiry_id}",
+                    idempotency_key=(
+                        f"site-inquiry:{inquiry_id}"
+                        if index == 0
+                        else f"site-inquiry:{inquiry_id}:{user.id}"
+                    ),
                     causation_id=f"site-inquiry:{inquiry_id}",
                 )
+                notification = notification or message
         inquiry = SiteInquiry.all_objects.create(
             id=inquiry_id,
             organization_id=organization_id,

@@ -117,6 +117,58 @@ def submit(site, hostname, *, key="inquiry-one", origin=None, client=None, **ove
     )
 
 
+def test_the_company_may_send_enquiries_to_everyone_who_edits_the_site(published_form):
+    from saas_core.modules.core.identity.models import User, UserStatus
+    from saas_core.modules.core.organizations.context import (
+        context_from_membership,
+        set_local_organization_id,
+    )
+    from saas_core.modules.core.organizations.models import Role, RoleScope
+    from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
+    from saas_core.modules.core.organizations.settings_service import (
+        change_settings,
+        read_group,
+    )
+
+    _, organization, owner, site, host = published_form
+    desk = User.objects.create_user(email="recepcja-strony@example.test")
+    desk.status = UserStatus.ACTIVE
+    desk.save()
+    role, _ = Role.objects.get_or_create(
+        key="manager",
+        organization=None,
+        organization_type="",
+        defaults={
+            "name": "Manager",
+            "scope": RoleScope.SYSTEM,
+            "permissions": list(SYSTEM_ROLE_PERMISSIONS["manager"]),
+            "is_immutable": True,
+        },
+    )
+    Membership.objects.create(organization=organization, user=desk, role=role)
+    membership = Membership.objects.get(organization=organization, user=owner)
+    with transaction.atomic(), activate_tenant_context(context_from_membership(membership)):
+        set_local_organization_id(organization.id)
+        change_settings(
+            "sites.inquiries",
+            changes={"recipients": "editors"},
+            expected_version=read_group("sites.inquiries").version,
+            idempotency_key="recipients-1",
+        )
+
+    sent = submit(site, host, key="inquiry-editors")
+
+    assert sent.status_code == 201, sent.data
+    inquiry = SiteInquiry.all_objects.get(id=sent.data["reference"])
+    # The owner's mail is the inquiry's own; the desk gets one of its own.
+    assert inquiry.notification_message.recipient_email == owner.email
+    assert sorted(
+        NotificationMessage.all_objects.filter(template_key="sites.inquiry_received").values_list(
+            "recipient_email", flat=True
+        )
+    ) == sorted([owner.email, desk.email])
+
+
 def test_public_form_persists_once_and_queues_private_owner_notification(published_form):
     _, organization, owner, site, host = published_form
     with CaptureQueriesContext(connection) as queries:
