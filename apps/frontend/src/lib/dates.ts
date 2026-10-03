@@ -148,6 +148,13 @@ export function useOtherZone(timeZone: string): boolean {
   );
 }
 
+/**
+ * One dash, written the same in Node and in the browser. Between times or
+ * numbers it is tight („08:00–09:00”, „1–2 paź”); between dates with words it
+ * keeps hard spaces („28 wrz – 4 paź 2026”). Neither ever breaks a line.
+ */
 function glue(range: string): string {
-  return range.replace(/\s*[–-]\s*/, `${JOIN}–${JOIN}`);
+  const [left = ""] = range.split(/\s*[–-]\s*/);
+  const dash = /\s/.test(left.trim()) ? "\u00a0–\u00a0" : `${JOIN}–${JOIN}`;
+  return range.replace(/\s*[–-]\s*/, dash);
 }

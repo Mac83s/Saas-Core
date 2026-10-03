@@ -39,3 +39,9 @@ test("a span of days writes the month once", () => {
     `1${JOIN}–${JOIN}2 paź 2026`,
   );
 });
+
+test("a span of dates with words keeps hard spaces around the dash", () => {
+  expect(formatDateRange("2026-09-28", "2026-10-04", "pl")).toBe(
+    "28 wrz\u00a0–\u00a04 paź 2026",
+  );
+});

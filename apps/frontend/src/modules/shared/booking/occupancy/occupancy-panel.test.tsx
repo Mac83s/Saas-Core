@@ -159,9 +159,10 @@ test("obłożenie: jednostki z pobytem, blokadą i dniem zamkniętym, dwa tygodn
   const legend = screen.getByRole("list", { name: "Legenda" });
   for (const label of ["Potwierdzona", "Blokada", "Dzień zamknięty"])
     expect(within(legend).getByText(label)).toBeInTheDocument();
-  // One unbreakable range (UX-011): the dash is glued to its dates.
+  // One unbreakable range (UX-011): between dates with words the dash keeps
+  // hard spaces, which the matcher reads as plain ones.
   expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-    /^24 wrz\S+7 paź 2026$/,
+    /^24 wrz – 7 paź 2026$/,
   );
   expect((await axe.run(container)).violations).toEqual([]);
 });
