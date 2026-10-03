@@ -35,6 +35,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
+import { cn } from "@saas-core/ui/lib/utils";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { nativeName } from "#lib/company-locales";
@@ -339,7 +340,8 @@ export function CustomerDocumentPanel({
       actions={
         document?.public_url ? (
           <a
-            className={buttonVariants({ variant: "outline" })}
+            // Merged, or the base's transparent border hides the outline.
+            className={cn(buttonVariants({ variant: "outline" }))}
             href={document.public_url}
             rel="noreferrer"
             target="_blank"

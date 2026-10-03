@@ -269,4 +269,12 @@ test("who only reads sees the versions and no way to write", async () => {
   expect(screen.queryByRole("region", { name: "Szkic" })).toBeNull();
   expect(screen.queryByRole("button", { name: /Dodaj tekst/ })).toBeNull();
   expect(screen.getByRole("table", { name: "Wersje" })).toBeTruthy();
+  // The way to the public page is drawn as an outlined button: the base's
+  // transparent border must not win over the outline's.
+  const open = screen.getByRole("link", { name: "Otwórz stronę dokumentu" });
+  expect(open.getAttribute("href")).toBe(
+    "http://business.localhost:8080/documents/abc",
+  );
+  expect(open.className).toContain("border-border");
+  expect(open.className).not.toContain("border-transparent");
 });
