@@ -382,6 +382,95 @@ def test_the_rate_the_owner_names_completes_the_price() -> None:
     assert "offers.domki.vat" not in [entry["field"] for entry in status["questions"]]
 
 
+SUMMER = {"starts_on": "2027-07-01", "ends_on": "2027-08-31", "min_stay": 7, "arrival_days": [5]}
+
+
+def test_a_season_in_the_owners_words_passes_whatever_the_model_names_it() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki.seasons", [{**SUMMER, "name": "Wakacje"}], "owner")),
+        tool("setup_status", {}),
+        FakeReply(text="Zanotowano sezon wakacyjny: od 7 nocy, przyjazdy w soboty."),
+    )
+
+    result = setup_run("season_pl")
+
+    assert result.passed, result.failed
+    # The season needs the offer's id, so it is said to wait for the offer.
+    status = json.loads(FAKE.calls[3].request.messages[-1].content)["output"]
+    assert "season:domki:2027-07-01" in [step["step"] for step in status["waiting"]]
+
+    # Another shortest stay than the owner said is not the owner's word.
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki.seasons", [{**SUMMER, "min_stay": 5}], "owner")),
+        FakeReply(text="Zanotowano."),
+    )
+    assert setup_run("season_pl").failed == ["not_noted:offers.domki.seasons"]
+
+
+def test_an_announced_kind_is_named_as_coming_never_offered() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        FakeReply(text="Usługa u klienta będzie dostępna wkrótce. Dziś: wizyta u specjalisty."),
+    )
+
+    result = setup_run("kind_soon_pl")
+
+    assert result.passed, result.failed
+    status = json.loads(FAKE.calls[1].request.messages[-1].content)["output"]
+    (kind,) = [entry for entry in status["questions"] if entry["field"] == "offers.kran.preset"]
+    assert [option["label"] for option in kind["allowed"]] == ["Wizyta u specjalisty"]
+    assert kind["soon"] == ["Usługa u klienta", "Nocleg"]
+
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.kran.preset", "core.specialist_visit", "owner")),
+        FakeReply(text="Ustawiono rodzaj rezerwacji."),
+    )
+    assert setup_run("kind_soon_pl").failed == [
+        "noted_as_owner:offers.kran.preset",
+        "did_not_say:wkrótce",
+    ]
+
+
+def test_a_draft_is_offered_for_removal_as_what_it_is_for_good() -> None:
+    removal = FakeReply(
+        text="Usunięcie wersji roboczej usługi Domki z konta — tego nie da się cofnąć.",
+        tool_calls=tool("setup_apply", {}).tool_calls,
+        finish_reason="tool_calls",
+    )
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki", None, "owner")),
+        tool("setup_status", {}),
+        removal,
+        FakeReply(text="Nie wyrażono zgody, więc wersja robocza usługi Domki zostaje w koncie."),
+    )
+
+    result = setup_run("undo_pl")
+
+    assert result.passed, result.failed
+    # The removal is the configurator's step, named and marked as for good.
+    status = json.loads(FAKE.calls[3].request.messages[-1].content)["output"]
+    assert status["ready"][-1] == {
+        "step": "discard:draft-1",
+        "action": "Usuń wersję roboczą usługi",
+        "name": "Domki",
+        "cannot_be_undone": True,
+    }
+
+    # Offered without a word about it being for good, it fails.
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("offers.domki", None, "owner")),
+        tool("setup_apply", {}),
+        FakeReply(text="Nie wyrażono zgody, nic nie zmieniono."),
+    )
+    (failure,) = setup_run("undo_pl").failed
+    assert failure.startswith("never_said:cofn")
+
+
 def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: Path) -> None:
     FAKE.script(tool("setup_status", {}), FakeReply(text="Czym zajmuje się Twoja firma?"))
     out = StringIO()
@@ -398,7 +487,7 @@ def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: P
 
     (path,) = tmp_path.glob("*-setup-*.json")
     report = json.loads(path.read_text(encoding="utf-8"))
-    assert (report["kind"], report["prompt"], report["tools"]) == ("setup", "assistant.setup@2", 3)
+    assert (report["kind"], report["prompt"], report["tools"]) == ("setup", "assistant.setup@3", 3)
     assert (report["scenarios"], report["passed"]) == (1, 1)
     assert {spec.name for spec in FAKE.calls[0].request.tools} == {
         "profile_note",

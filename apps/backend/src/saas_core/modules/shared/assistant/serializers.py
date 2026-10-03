@@ -198,7 +198,14 @@ class AssistantSetupQuestionSerializer(serializers.Serializer[Any]):
 class AssistantSetupStepSerializer(serializers.Serializer[Any]):
     ref = serializers.CharField(help_text="What the step is about: `card`, `place:salon`.")
     title = LocalizedTextSerializer(help_text="The command's title.")
-    risk = serializers.CharField(help_text="The command's class of risk.")
+    risk = serializers.CharField(
+        help_text="The command's class of risk; `irreversible` removes something for good."
+    )
+    name = serializers.CharField(
+        allow_blank=True,
+        help_text="What the step is about where the notes no longer name it — the draft "
+        "of a service taken out of them, offered for removal; empty otherwise.",
+    )
 
 
 class AssistantSetupWaitingSerializer(serializers.Serializer[Any]):

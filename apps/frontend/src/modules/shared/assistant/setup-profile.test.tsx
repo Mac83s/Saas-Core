@@ -128,11 +128,13 @@ const SETUP: AssistantSetup = {
       ref: "place:salon",
       title: { pl: "Zapisz miejsce", en: "Save a place" },
       risk: "apply",
+      name: "",
     },
     {
       ref: "card",
       title: { pl: "Zmień wizytówkę", en: "Change the business card" },
       risk: "apply",
+      name: "",
     },
   ],
   waiting: [
@@ -969,11 +971,13 @@ const STAY: AssistantSetup = {
       ref: "units:domki",
       title: { pl: "Ustaw jednostki usługi", en: "Set a service's units" },
       risk: "draft",
+      name: "",
     },
     {
       ref: "price:domki",
       title: { pl: "Zapisz cenę", en: "Save a price" },
       risk: "draft",
+      name: "",
     },
   ],
   waiting: [
@@ -1011,4 +1015,101 @@ test("a stay's units, its price and the tax rate are said in words: asked, ready
   expect(document.body.textContent).not.toMatch(
     /units:|price:|offer_needs|domki\b/,
   );
+});
+
+/** A stay with a season the owner named, beside the draft of a service the
+ *  notes no longer hold. */
+const SEASONED: AssistantSetup = {
+  version: 9,
+  document: {
+    schema: "company-profile.v1",
+    offers: [
+      {
+        key: "domki",
+        name: said("Domki"),
+        seasons: said([
+          {
+            name: "Wakacje",
+            starts_on: "2027-07-01",
+            ends_on: "2027-08-31",
+            min_stay: 7,
+            arrival_days: [5],
+          },
+          { starts_on: "2027-05-01", ends_on: "2027-05-03" },
+        ]),
+      },
+      {
+        key: "salon",
+        name: said("Strzyżenie"),
+        seasons: said([{ starts_on: "2027-07-01", ends_on: "2027-08-31" }]),
+      },
+    ],
+  },
+  labels: { categories: {}, presets: {} },
+  questions: [],
+  ready: [
+    {
+      ref: "season:domki:2027-07-01",
+      title: { pl: "Zapisz sezon", en: "Save a season" },
+      risk: "draft",
+      name: "",
+    },
+    {
+      ref: "discard:0199a0c0-0000-7000-8000-00000000000a",
+      title: {
+        pl: "Usuń wersję roboczą usługi",
+        en: "Remove a draft service",
+      },
+      risk: "irreversible",
+      name: "Chata nad stawem",
+    },
+  ],
+  waiting: [
+    {
+      ref: "season:domki:2027-05-01",
+      reason: "waits",
+      waits_for: ["offer:domki"],
+    },
+  ],
+  unsupported: [
+    { field: "offers.salon.seasons", code: "seasons_for_stays", detail: "" },
+  ],
+};
+
+test("a season is said in words, and the removal of a draft is named and said to be for good", async () => {
+  api.getAssistantSetup.mockResolvedValue(SEASONED);
+  view();
+
+  await screen.findByRole("heading", { name: "Domki" });
+  const seasons = row("Sezony", entry("Domki"));
+  expect(
+    seasons.getByText(
+      /Wakacje, 1 lip – 31 sie 2027: najkrótszy pobyt: 7, przyjazd: sob\./,
+    ),
+  ).toBeInTheDocument();
+  // A range within one month is glued at its dash, so it never breaks there.
+  expect(seasons.getByText(/1.?–.?3 maj 2027/)).toBeInTheDocument();
+  for (const line of [
+    "Zapisz sezon: Domki",
+    // The notes no longer name the service: the step does, and says it plainly.
+    "Usuń wersję roboczą usługi: Chata nad stawem — tego nie da się cofnąć",
+    "W kolejnym kroku: sezon usługi „Domki”. Najpierw: usługa „Domki”.",
+    "Usługa „Strzyżenie”: sezony z najkrótszym pobytem i dniami przyjazdu dotyczą pobytów i wynajmu, nie wizyt na godzinę.",
+  ]) {
+    expect(screen.getByText(line)).toBeInTheDocument();
+  }
+  expect(document.body.textContent).not.toMatch(
+    /season:|discard:|0199a0c0|starts_on|seasons_for/,
+  );
+
+  // Taking an offer out of the notes says what follows in the account.
+  fireEvent.click(button("Usuń: usługa „Domki”"));
+  const question = await screen.findByRole("alertdialog", {
+    name: "Usunąć usługę „Domki” z notatek?",
+  });
+  expect(
+    within(question).getByText(
+      "W koncie firmy nic się nie zmieni od razu. Jeśli asystent założył już wersję roboczą tej usługi, zaproponuje jej usunięcie razem z cenami i sezonami — zdecydujesz osobnym kliknięciem.",
+    ),
+  ).toBeInTheDocument();
 });

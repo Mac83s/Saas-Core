@@ -26,6 +26,7 @@ from saas_core.modules.shared.assistant.services import WORKER_SEEN
 from saas_core.modules.shared.billing.models import CreditReservation, EntitlementSnapshot
 from saas_core.modules.shared.booking.models import (
     AvailabilityRule,
+    BookingRule,
     Location,
     PriceRule,
     Resource,
@@ -384,6 +385,160 @@ def test_a_stay_is_finished_in_the_conversation_units_and_a_nightly_price(talk: 
     )
     # Nobody but the owner makes it bookable.
     assert Service.all_objects.get().active is False
+
+
+SUMMER = {"starts_on": "2027-07-01", "ends_on": "2027-08-31", "min_stay": 7, "arrival_days": [5]}
+
+
+def test_a_season_is_set_up_and_a_draft_taken_out_of_the_notes_is_taken_back(talk: Any) -> None:
+    """Package L2's proof as a test: the season the owner named is a step of
+    the plan, and an offer removed from the notes takes its draft with it —
+    on a click of its own, said to be for good."""
+    client = owner("setup-undo")
+    organization = Organization.objects.get(slug="setup-undo")
+    chat = talk(client, "setup")
+    here = AssistantConversation.all_objects.get()
+    # The same person's ordinary conversation.
+    ordinary = AssistantConversation.all_objects.create(
+        organization=organization,
+        membership_id=here.membership_id,
+        created_by=here.created_by,
+        language="pl",
+        idempotency_key="ordinary",
+    )
+
+    def offered(words: str, *replies: FakeReply) -> tuple[Any, list[str]]:
+        """The plan the owner is shown, with the server's words per step."""
+        at = len(FAKE.calls)
+        FAKE.script(*replies, tool("setup_apply", {}, f"apply-{at}"))
+        chat.say(words, key=f"message-{at}")
+        turn = chat.last()
+        assert turn["state"] == "awaiting_consent", turn
+        shown = [
+            effect["summary"]["pl"]
+            for group in turn["consents"]
+            for call in client.get(CONSENT.format(group["digest"])).data["calls"]
+            for effect in call["effects"]
+        ]
+        return turn, shown
+
+    def agreed(turn: Any) -> Any:
+        FAKE.script(FakeReply(text="Gotowe."))
+        answered = chat.consent(
+            consents={group["id"]: chat.click(group["digest"]) for group in turn["consents"]}
+        )
+        assert answered.status_code == 202, answered.data
+        return chat.last()
+
+    turn, _ = offered(
+        "Mam 3 domki w miejscu Nad jeziorem, oferta Domki, 450 zł za noc, VAT 8%. W wakacje, "
+        "od 1 lipca do 31 sierpnia 2027, minimum 7 nocy i przyjazdy tylko w soboty.",
+        notes(
+            ("places.site.name", "Nad jeziorem", "owner"),
+            ("offers.domki.name", "Domki", "owner"),
+            ("offers.domki.preset", "core.lodging", "owner"),
+            ("offers.domki.units", 3, "owner"),
+            ("offers.domki.price", NIGHTLY, "owner"),
+            ("offers.domki.vat", "8", "owner"),
+            ("offers.domki.seasons", [SUMMER], "owner"),
+        ),
+    )
+    agreed(turn)
+    agreed(offered("Dalej.")[0])
+
+    # What needs the offer's id, on one click: nobody can book the offer yet.
+    turn, shown = offered("Dalej.")
+    assert [(step["title"]["pl"], step["risk"]) for step in turn["items"]] == [
+        ("Ustaw jednostki usługi", "draft"),
+        ("Zapisz cenę", "draft"),
+        ("Zapisz sezon", "draft"),
+    ]
+    assert len(turn["consents"]) == 1
+    assert shown[-1] == (
+        "Nowy sezon usługi „Domki” — 2027-07-01 – 2027-08-31: od 7 nocy, przyjazd: sob."
+    )
+    agreed(turn)
+    stay = Service.all_objects.get()
+    season = BookingRule.all_objects.get()
+    assert (season.service_id, season.min_length, season.start_weekdays) == (stay.id, 7, [5])
+    # Nothing nobody said: the offer's own settings stay in force.
+    assert (season.max_length, season.end_weekdays, season.closed) == (None, [], False)
+
+    # Drafts that are not the notes' to take back: one made in the panel and
+    # one the assistant made in an ordinary conversation.
+    for name, origin in (("Sauna", ""), ("Masaż", f"conversation:{ordinary.id}")):
+        Service.all_objects.create(
+            organization=organization,
+            name=name,
+            public_slug=name.lower(),
+            active=False,
+            draft=True,
+            origin_ref=origin,
+        )
+
+    # The owner takes the offer out of the notes: its draft is offered for
+    # removal, named — the notes no longer name it — and said to be for good.
+    at = len(FAKE.calls)
+    turn, shown = offered(
+        "Jednak nie wynajmuję domków, usuń je.",
+        notes(("offers.domki", None, "owner")),
+        tool("setup_status", {}, "status"),
+    )
+    status = sent_tool_results(at + 2)[-1]["output"]
+    assert status["ready"] == [
+        {
+            "step": f"discard:{stay.id}",
+            "action": "Usuń wersję roboczą usługi",
+            "name": "Domki",
+            "cannot_be_undone": True,
+        }
+    ]
+    assert "offers" not in document(client)
+    assert [(step["title"]["pl"], step["risk"]) for step in turn["items"][-1:]] == [
+        ("Usuń wersję roboczą usługi", "irreversible")
+    ]
+    assert shown == [
+        "Usunięcie wersji roboczej usługi „Domki” razem z jej cenami (1), dopłatami i "
+        "kaucjami (0) oraz zasadami sezonów (1). Jednostki i ich grupa zostają."
+    ]
+    # The panel names it too, where the notes cannot.
+    (ready,) = client.get(f"{BASE}conversations/{chat.id}/setup/").data["ready"]
+    assert (ready["title"]["pl"], ready["risk"], ready["name"]) == (
+        "Usuń wersję roboczą usługi",
+        "irreversible",
+        "Domki",
+    )
+    # Until the click the draft is there.
+    assert Service.all_objects.filter(pk=stay.pk).exists()
+
+    done = agreed(turn)
+
+    assert done["items"][-2]["status"] == "done"
+    assert sorted(Service.all_objects.values_list("name", flat=True)) == ["Masaż", "Sauna"]
+    assert not PriceRule.all_objects.exists()
+    assert not BookingRule.all_objects.exists()
+    # The units stay: they may be rented again under another offer.
+    assert Resource.all_objects.count() == 3
+
+
+def test_the_kind_of_booking_is_asked_with_ready_answers_only(talk: Any) -> None:
+    client = owner("setup-kinds")
+    chat = talk(client, "setup")
+    FAKE.script(
+        notes(("offers.joga.name", "Joga w grupie", "owner")),
+        tool("setup_status", {}, "status"),
+        FakeReply(text="Jak klienci rezerwują jogę?"),
+    )
+
+    chat.say("Prowadzę zajęcia: Joga w grupie")
+
+    status = sent_tool_results(2)[-1]["output"]
+    (question,) = [q for q in status["questions"] if q["field"] == "offers.joga.preset"]
+    allowed = [option["label"] for option in question["allowed"]]
+    # What the product runs today is an answer; what is announced is named as coming.
+    assert "Wizyta u specjalisty" in allowed and "Nocleg" in allowed
+    assert "Zajęcia grupowe" in question["soon"]
+    assert not set(allowed) & set(question["soon"])
 
 
 def test_a_declined_plan_changes_nothing(talk: Any) -> None:

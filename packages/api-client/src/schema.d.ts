@@ -7945,8 +7945,10 @@ export interface components {
             ref: string;
             /** @description The command's title. */
             title: components["schemas"]["LocalizedText"];
-            /** @description The command's class of risk. */
+            /** @description The command's class of risk; `irreversible` removes something for good. */
             risk: string;
+            /** @description What the step is about where the notes no longer name it — the draft of a service taken out of them, offered for removal; empty otherwise. */
+            name: string;
         };
         AssistantSetupUnsupported: {
             /** @description The profile field the product cannot hold yet. */

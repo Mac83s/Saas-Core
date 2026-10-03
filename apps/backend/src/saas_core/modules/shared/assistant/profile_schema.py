@@ -13,6 +13,7 @@ time.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import date
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -94,6 +95,36 @@ _PRICE = _section(
     },
     ["amount", "currency", "per"],
 )
+_DAY = {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+#: A stay's seasons as the owner says them; the configurator turns each into
+#: `booking.season.save@1`. Only what the owner named is ever set.
+_SEASONS = {
+    "type": "array",
+    "minItems": 1,
+    "maxItems": 12,
+    "items": _section(
+        {
+            "name": {"type": "string", "minLength": 1, "maxLength": 160},
+            "starts_on": {**_DAY, "description": "First local day of the season."},
+            "ends_on": {**_DAY, "description": "Last local day of the season, included."},
+            "min_stay": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "description": "The shortest stay, in what the offer counts: nights or days.",
+            },
+            "arrival_days": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 7,
+                "uniqueItems": True,
+                "items": {"type": "integer", "minimum": 0, "maximum": 6},
+                "description": "The weekdays a stay may begin on; 0 = Monday.",
+            },
+        },
+        ["starts_on", "ends_on"],
+    ),
+}
 
 PROFILE_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -182,6 +213,11 @@ PROFILE_SCHEMA: dict[str, Any] = {
                             "The tax rate of its price as a code: 23, 8, 5, 0, zw (exempt), "
                             "np (outside VAT). The owner's answer, never a default.",
                         ),
+                        "seasons": _said(
+                            _SEASONS,
+                            "Its seasons as the owner said them: the dates and the rules "
+                            "for stays in them (the shortest stay, the arrival days).",
+                        ),
                         "places": _said(_KEYS, "The keys of the places it is offered at."),
                         "people": _said(_KEYS, "The keys of the people who do it."),
                         "inputs": {
@@ -230,7 +266,7 @@ def validate_profile(document: Any) -> None:
         path = ".".join(str(segment) for segment in violation.absolute_path)
         errors.setdefault(path, []).append(violation.message)
     if not errors:
-        for path, message in _dangling(document):
+        for path, message in (*_dangling(document), *_undated(document)):
             errors.setdefault(path, []).append(message)
     if errors:
         raise ValidationError({"changes": _nested(errors)})
@@ -282,3 +318,18 @@ def _dangling(document: dict[str, Any]) -> Iterator[tuple[str, str]]:
         for key in keys:
             if key not in known[target]:
                 yield path, f"Nie ma wpisu „{key}” na liście {target}."
+
+
+def _undated(document: dict[str, Any]) -> Iterator[tuple[str, str]]:
+    """A season's days are days of the calendar, the last not before the first."""
+    for index, offer in enumerate(document.get("offers", [])):
+        for at, season in enumerate(offer.get("seasons", {}).get("value", [])):
+            path = f"offers.{index}.seasons.value.{at}"
+            days = []
+            for field in ("starts_on", "ends_on"):
+                try:
+                    days.append(date.fromisoformat(season[field]))
+                except ValueError:
+                    yield f"{path}.{field}", "Nie ma takiego dnia w kalendarzu."
+            if len(days) == 2 and days[1] < days[0]:
+                yield f"{path}.ends_on", "Ostatni dzień nie może być przed pierwszym."

@@ -26,8 +26,9 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 - rodzaj rezerwacji „Nocleg”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
 - rodzaj rezerwacji „Wypożyczalnia”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
 - rodzaj rezerwacji „Usługa u klienta”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
-- cennik poza ceną podstawową (sezony, ceny weekendowe, dopłaty, kaucje): rozmowa ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo zleca asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)
-- zasady sezonów (najkrótszy pobyt, dni przyjazdu): asystent nie ma polecenia — ustawia je właściciel w panelu, w Sezonach
+- cennik poza ceną podstawową (ceny sezonów, ceny weekendowe, dopłaty, kaucje): rozmowa ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo zleca asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)
+- sezony pobytów i wynajmu: rozmowa ustawiająca firmę zapisuje daty sezonu, najkrótszy pobyt i dni przyjazdu, gdy właściciel sam o nich powie — nie pyta o nie; pozostałe zasady (najdłuższy pobyt, dni wyjazdu, wyprzedzenie, termin zamknięty) właściciel ustawia w panelu, w Sezonach, albo zleca asystentowi w zwykłej rozmowie (`booking.season.save`)
+- cofnięcie: usługę usuniętą z notatek, której wersję roboczą założyła rozmowa ustawiająca firmę, asystent proponuje usunąć z konta osobnym kliknięciem (`booking.offer.discard`); usługi choć raz włączonej nie usuwa nikt — wyłącza ją właściciel
 
 ## Fryzjer — Salon Fryzjerski Ania, Olsztyn
 
@@ -130,7 +131,7 @@ Właściciel powiedział: „wypożyczalnia kajaków na Krutyni”.
 
 ## Skąd te dane
 
-- konto: odczyty przez rejestr poleceń (`organization.read`, `organization.public_locales.read`, `profiles.organization.read`, `profiles.catalog_options.read`, `booking.setup.read`, `booking.prices.read`) dla firmy typu `business` bez wizytówki, miejsc, osób, usług i cen;
+- konto: odczyty przez rejestr poleceń (`organization.read`, `organization.public_locales.read`, `profiles.organization.read`, `profiles.catalog_options.read`, `booking.setup.read`, `booking.prices.read`, `booking.seasons.read`) dla firmy typu `business` bez wizytówki, miejsc, osób, usług, cen i sezonów;
 - rodzaje rezerwacji: polecenie `booking.preset.list@1`, czyli kontrakt `packages/contracts/booking-presets/` w najnowszych wersjach;
 - języki: oferuje je profil wdrożenia (testy liczą na profilu z polskim i angielskim, Business ma też niemiecki), więc przykład używa pary pl + en;
 - reguły konfiguratora mają osobne testy na zamrożonych katalogach — ten plik pokazuje stan produktu, nie reguły.

@@ -39,7 +39,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
-import { dateFormat, formatHours } from "#lib/dates";
+import { dateFormat, formatDateRange, formatHours } from "#lib/dates";
 
 type Locale = "pl" | "en";
 type Origin =
@@ -49,6 +49,14 @@ type Origin =
 type Said<T = unknown> = { value: T; origin: Origin; confirmed: boolean };
 type Rule = { weekday: number; start: string; end: string; place: string };
 type Price = { amount: string; currency: string; per: string };
+/** A stay's season as the owner said it: its days, and the rules named. */
+type Season = {
+  name?: string;
+  starts_on: string;
+  ends_on: string;
+  min_stay?: number;
+  arrival_days?: number[];
+};
 /** A place, a person or an offer: other entries name it by its key. */
 type Entry = {
   key: string;
@@ -118,6 +126,7 @@ const FIELDS: Record<"company" | "card" | ListName, readonly string[]> = {
     "capacity",
     "price",
     "vat",
+    "seasons",
     "places",
     "people",
   ],
@@ -133,6 +142,7 @@ const REF_LISTS: Partial<Record<string, ListName>> = {
   hours: "people",
   units: "offers",
   price: "offers",
+  season: "offers",
 };
 const CONFLICT = "assistant_profile_version_conflict";
 /** A row's button: 44 px on a phone, the row's height from md — as the
@@ -520,6 +530,37 @@ function Overview({
           per: t(`per_${per}`),
         });
       }
+      if (leaf === "seasons") {
+        // 1 January 2024 was a Monday, the notes' weekday 0.
+        const weekday = (day: number) =>
+          dateFormat(locale, { weekday: "short", timeZone: "UTC" }).format(
+            new Date(`2024-01-0${1 + day}T12:00:00Z`),
+          );
+        const lines = (value as Season[]).map((season) => {
+          const dates = formatDateRange(
+            season.starts_on,
+            season.ends_on,
+            locale,
+          );
+          const rules = [
+            season.min_stay
+              ? t("seasonMinStay", { count: season.min_stay })
+              : "",
+            season.arrival_days?.length
+              ? t("seasonArrival", {
+                  days: season.arrival_days.map(weekday).join(", "),
+                })
+              : "",
+          ].filter(Boolean);
+          const head = season.name
+            ? t("seasonNamed", { name: season.name, dates })
+            : dates;
+          return rules.length
+            ? t("seasonLine", { dates: head, rules: rules.join(", ") })
+            : head;
+        });
+        return lines.join("\n") || t("valueNone");
+      }
       if (leaf === "places" || leaf === "people") {
         const names = (value as string[]).map((key) => entryName(leaf, key));
         return names.join(", ") || t("valueNone");
@@ -728,12 +769,15 @@ function Overview({
         lines={setup.ready.map((step) => {
           const [kind, key] = step.ref.split(":");
           const list = REF_LISTS[kind];
-          return list && key
-            ? t("readyNamed", {
-                title: step.title[locale],
-                name: entryName(list, key),
-              })
+          // The notes name what a step is about; where they no longer do —
+          // the draft of a service taken out of them — the step does.
+          const name = list && key ? entryName(list, key) : step.name;
+          const line = name
+            ? t("readyNamed", { title: step.title[locale], name })
             : step.title[locale];
+          return step.risk === "irreversible"
+            ? t("readyIrreversible", { line })
+            : line;
         })}
         note={t("readyNote")}
         title={t("readyTitle")}

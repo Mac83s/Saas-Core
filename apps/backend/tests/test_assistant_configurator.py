@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator
+from rest_framework.exceptions import ValidationError
 
 from assistant_setup import (
     CARD_FIELDS,
@@ -24,12 +25,13 @@ from assistant_setup import (
     EXAMPLES,
     PERSON_FIELDS,
     PRESET_LIST,
-    PRESET_OPTIONS,
     PRICE_FIELDS,
+    SEASON_FIELDS,
     SERVICE_FIELDS,
     VAT_OPTIONS,
     catalog_from_contract,
     example,
+    kinds,
     new_company,
 )
 from assistant_setup.report import render
@@ -44,6 +46,7 @@ from saas_core.modules.shared.assistant.configurator import (
     PRESETS,
     PRICES,
     READS,
+    SEASONS,
     SETUP,
     WRITES,
     configure,
@@ -57,18 +60,28 @@ from saas_core.modules.shared.billing.models import (
 from test_command_evals import assistant, invocation, owner
 
 
-def ask(key: str, reason: str, proposal: Any = None, options: Any = ()) -> dict[str, Any]:
+def ask(
+    key: str, reason: str, proposal: Any = None, options: Any = (), soon: Any = ()
+) -> dict[str, Any]:
     return {
         "key": key,
         "kind": "ask",
         "reason": reason,
         "proposal": proposal,
         "options": list(options),
+        "soon": list(soon),
     }
 
 
 def confirm(key: str, origin: str, proposal: Any) -> dict[str, Any]:
-    return {"key": key, "kind": "confirm", "reason": origin, "proposal": proposal, "options": []}
+    return {
+        "key": key,
+        "kind": "confirm",
+        "reason": origin,
+        "proposal": proposal,
+        "options": [],
+        "soon": [],
+    }
 
 
 def step(ref: str, command: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -294,7 +307,14 @@ def test_the_kayak_rental_gets_its_base_and_is_asked_what_transport_is() -> None
 
     assert answer == {
         "missing": [
-            ask("offers.transport.preset", "offer_needs_kind", None, PRESET_OPTIONS),
+            # Only the kind that is ready is an answer; the rest are coming.
+            ask(
+                "offers.transport.preset",
+                "offer_needs_kind",
+                None,
+                kinds(PRESET_LIST, ready=True),
+                kinds(PRESET_LIST, ready=False),
+            ),
             ask("company.category", "card_needs_category", "turystyka-i-noclegi", CATEGORY_OPTIONS),
         ],
         "plan": [
@@ -545,6 +565,222 @@ def test_an_offer_that_has_a_price_keeps_it() -> None:
     ]
 
     assert "price:cottage" not in _priced(profile, reads)
+
+
+# --- Seasons ------------------------------------------------------------------------
+
+SUMMER = {"name": "Wakacje", "starts_on": "2027-07-01", "ends_on": "2027-08-31", "min_stay": 7}
+MAY = {"starts_on": "2027-05-01", "ends_on": "2027-05-03", "arrival_days": [4, 5]}
+
+
+def said(value: Any, origin: str = "owner", confirmed: bool = True) -> dict[str, Any]:
+    return {"value": value, "origin": origin, "confirmed": confirmed}
+
+
+def season(key: str, service_id: str | None, **rules: Any) -> dict[str, Any]:
+    return step(
+        f"season:{key}:{rules['starts_on']}",
+        "booking.season.save@1",
+        {**dict.fromkeys(SEASON_FIELDS), "service_id": service_id, **rules},
+    )
+
+
+def test_a_stay_gets_the_seasons_the_owner_named_and_no_rule_nobody_said() -> None:
+    profile, reads = _cottages()
+    profile["offers"][0]["seasons"] = said([SUMMER, MAY])
+
+    answer = configure(profile, reads, COMMANDS)
+
+    # After the units and the price, each season with what was said of it:
+    # the summer has no day of arrival, the long weekend no shortest stay.
+    assert answer["plan"][-2:] == [
+        season(
+            "cottage",
+            "V1",
+            name="Wakacje",
+            starts_on="2027-07-01",
+            ends_on="2027-08-31",
+            min_length=7,
+        ),
+        season(
+            "cottage", "V1", starts_on="2027-05-01", ends_on="2027-05-03", start_weekdays=[4, 5]
+        ),
+    ]
+    assert validate_profile(profile) is None
+    # Nobody is asked for a season: one is planned only once the owner spoke of it.
+    assert [q["key"] for q in answer["missing"] if "season" in q["key"]] == []
+
+
+def test_a_season_waits_for_its_offer_like_the_units_and_the_price() -> None:
+    profile, reads = _cottages()
+    profile["offers"][0]["seasons"] = said([SUMMER])
+    reads[SETUP]["services"] = []
+
+    answer = configure(profile, reads, COMMANDS)
+
+    assert answer["blocked"][-1] == waits(
+        "season:cottage:2027-07-01", "booking.season.save@1", "offer:cottage"
+    )
+
+
+def test_a_season_the_offer_has_for_those_dates_is_left_alone() -> None:
+    """Like a price: changed in the panel since, it is not planned back."""
+    profile, reads = _cottages(group_ids=["G1"])
+    profile["offers"][0]["seasons"] = said([SUMMER, MAY])
+    reads[SEASONS]["seasons"] = [
+        # The offer's own, with another shortest stay than the notes say.
+        {"id": "R1", "service_id": "V1", "group_id": None, "min_length": 5, **_dates(SUMMER)},
+        # Its pool's.
+        {"id": "R2", "service_id": None, "group_id": "G1", **_dates(MAY)},
+        # Another offer's season of the same dates says nothing about this one.
+        {"id": "R3", "service_id": "V9", "group_id": None, **_dates(MAY)},
+    ]
+
+    refs = [entry["ref"] for entry in configure(profile, reads, COMMANDS)["plan"]]
+
+    assert [ref for ref in refs if ref.startswith("season:")] == []
+
+
+def _dates(season: dict[str, Any]) -> dict[str, Any]:
+    return {"starts_on": season["starts_on"], "ends_on": season["ends_on"]}
+
+
+def test_a_season_the_assistant_proposed_is_asked_about_never_written() -> None:
+    profile, reads = _cottages()
+    profile["offers"][0]["seasons"] = said([SUMMER], "assistant", False)
+
+    answer = configure(profile, reads, COMMANDS)
+
+    assert [e["ref"] for e in answer["plan"] if e["ref"].startswith("season:")] == []
+    assert confirm("offers.cottage.seasons", "assistant", [SUMMER]) in answer["missing"]
+
+
+def test_seasons_are_for_stays_and_need_their_commands() -> None:
+    # A visit by the clock has no nights to count.
+    profile = example("hairdresser")
+    profile["offers"][0]["seasons"] = said([SUMMER])
+    answer = configure(profile, _after_the_first_round(), COMMANDS)
+    assert cannot("offers.cut.seasons", "seasons_for_stays") in answer["unsupported"]
+
+    # The registry before the seasons' commands: said to be the panel's.
+    profile, reads = _cottages()
+    profile["offers"][0]["seasons"] = said([SUMMER])
+    answer = configure(profile, reads, COMMANDS - {"booking.season.save@1"})
+    assert answer["unsupported"][-1] == cannot("offers.cottage.seasons", "season_rules")
+    del reads[SEASONS]
+    answer = configure(profile, reads, COMMANDS)
+    assert answer["unsupported"][-1] == cannot("offers.cottage.seasons", "season_rules")
+
+
+def test_a_seasons_days_are_days_of_the_calendar() -> None:
+    profile, _reads = _cottages()
+    for wrong, field in (
+        ({**SUMMER, "starts_on": "2027-02-30"}, "starts_on"),
+        ({**SUMMER, "ends_on": "2027-06-30"}, "ends_on"),
+    ):
+        profile["offers"][0]["seasons"] = said([wrong])
+        with pytest.raises(ValidationError) as refused:
+            validate_profile(profile)
+        detail = refused.value.detail["changes"]["offers"]["0"]["seasons"]["value"]["0"]
+        assert list(detail) == [field]
+
+
+# --- The undo of a draft --------------------------------------------------------------
+
+MADE_HERE = "conversation:0199a0c0-0000-7000-8000-000000000001"
+
+
+def _draft(**given: Any) -> dict[str, Any]:
+    """A stay a setup conversation made and nobody switched on."""
+    return {
+        "id": "V2",
+        "name": "Chata nad stawem",
+        "time_model": "range",
+        "range_unit": "night",
+        "duration_minutes": None,
+        "staff_ids": [],
+        "location_ids": ["L1"],
+        "resource_ids": [],
+        "group_ids": [],
+        "active": False,
+        "draft": True,
+        "origin_ref": MADE_HERE,
+        **given,
+    }
+
+
+def discard(service_id: str, name: str) -> dict[str, Any]:
+    return {
+        **step(f"discard:{service_id}", "booking.offer.discard@1", {"service_id": service_id}),
+        "about": name,
+    }
+
+
+def _discards(profile: dict[str, Any], reads: dict[str, Any], **more: Any) -> list[Any]:
+    answer = configure(profile, reads, more.pop("commands", COMMANDS), **more)
+    return [entry for entry in answer["plan"] if entry["ref"].startswith("discard:")]
+
+
+def test_a_draft_whose_offer_left_the_notes_is_taken_back() -> None:
+    profile, reads = _cottages(draft=True, origin_ref=MADE_HERE)
+    reads[SETUP]["services"].append(_draft())
+
+    # „Domek 6-osobowy” is still in the notes; „Chata nad stawem” no longer is.
+    # The step is the last of the plan and names the draft, which the notes cannot.
+    answer = configure(profile, reads, COMMANDS, setup_refs=[MADE_HERE])
+    assert answer["plan"][-1] == discard("V2", "Chata nad stawem")
+
+    # The same once the owner renamed the offer in the notes: the old draft
+    # goes, and the offer is planned under its new name.
+    profile["offers"][0]["name"]["value"] = "Domek letni"
+    refs = [e["ref"] for e in configure(profile, reads, COMMANDS, setup_refs=[MADE_HERE])["plan"]]
+    assert refs[-3:] == ["offer:cottage", "discard:V1", "discard:V2"]
+
+
+def test_only_a_draft_the_setup_conversation_made_is_the_notes_to_take_back() -> None:
+    profile, reads = _cottages()
+
+    # Made in the panel, or by the assistant in an ordinary conversation.
+    for origin in ("", "conversation:0199a0c0-0000-7000-8000-000000000009"):
+        reads[SETUP]["services"] = [reads[SETUP]["services"][0], _draft(origin_ref=origin)]
+        assert _discards(profile, reads, setup_refs=[MADE_HERE]) == []
+
+    # Ever switched on: customers, the site and the history may name it.
+    reads[SETUP]["services"][1] = _draft(draft=False)
+    assert _discards(profile, reads, setup_refs=[MADE_HERE]) == []
+
+    # A name the notes still hold keeps its draft, confirmed or not, however it is written.
+    reads[SETUP]["services"][1] = _draft()
+    profile["offers"].append({"key": "hut", "name": said("chata nad stawem", "assistant", False)})
+    assert _discards(profile, reads, setup_refs=[MADE_HERE]) == []
+
+    # Without the command nothing is said of it: the account stays as it is.
+    del profile["offers"][1]
+    commands = COMMANDS - {"booking.offer.discard@1"}
+    answer = configure(profile, reads, commands, setup_refs=[MADE_HERE])
+    assert [entry["ref"] for entry in answer["blocked"] if "discard" in entry["ref"]] == []
+    assert _discards(profile, reads, setup_refs=[MADE_HERE]) == [
+        discard("V2", "Chata nad stawem")
+    ]
+
+
+# --- The kinds of booking --------------------------------------------------------------
+
+
+def test_only_a_ready_kind_is_an_answer_and_an_announced_one_is_named_as_coming() -> None:
+    reads = new_company("Kajaki Krutynia")
+    reads[PRESETS] = with_ready("core.rental")
+
+    answer = configure(example("kayak-rental"), reads, COMMANDS)
+
+    (question,) = [q for q in answer["missing"] if q["key"] == "offers.transport.preset"]
+    assert [option["value"] for option in question["options"]] == [
+        "core.specialist_visit",
+        "core.rental",
+    ]
+    assert [option["label"]["pl"] for option in question["soon"]] == ["Usługa u klienta", "Nocleg"]
+    # Every other question has nothing to announce.
+    assert {len(q["soon"]) for q in answer["missing"] if q is not question} == {0}
 
 
 def test_before_the_price_commands_a_price_is_said_to_be_the_panels() -> None:

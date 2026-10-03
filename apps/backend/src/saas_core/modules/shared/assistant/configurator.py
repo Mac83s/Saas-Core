@@ -20,6 +20,13 @@ one, until nothing is left to plan. It only ever adds to the account — a
 place, a person or a language the profile does not mention stays. A person's
 working week is one value, though: the profile's week replaces the account's.
 
+One thing it takes back: a draft a setup conversation made for an offer the
+notes no longer name. Such a draft came from the notes and nobody ever
+switched it on, so the owner taking the offer out of the notes — or renaming
+it there — plans its removal, as a step of its own that cannot be undone.
+What the owner made in the panel, or the assistant in an ordinary
+conversation, is never the notes' to remove.
+
 Money is never guessed. A price is planned only as the owner's own confirmed
 amount, in the company's currency, for what the offer can charge for and with
 the tax rate the owner named; anything of it that is missing is asked. And an
@@ -40,9 +47,10 @@ CARD_OPTIONS = "profiles.catalog_options.read@1"
 SETUP = "booking.setup.read@1"
 PRESETS = "booking.preset.list@1"
 PRICES = "booking.prices.read@1"
+SEASONS = "booking.seasons.read@1"
 #: The reads `configure` works from, by command; an area whose reads are not
 #: given is left alone.
-READS = (ORGANIZATION, LANGUAGES, CARD, CARD_OPTIONS, SETUP, PRESETS, PRICES)
+READS = (ORGANIZATION, LANGUAGES, CARD, CARD_OPTIONS, SETUP, PRESETS, PRICES, SEASONS)
 
 _ORGANIZATION_UPDATE = "organization.update@1"
 _LANGUAGES_UPDATE = "organization.public_locales.update@1"
@@ -55,6 +63,8 @@ _OFFER_UPDATE = "booking.offer.update@1"
 _HOURS_SET = "booking.staff.hours.set@1"
 _UNITS_SET = "booking.offer.units.set@1"
 _PRICE_SAVE = "booking.price.save@1"
+_SEASON_SAVE = "booking.season.save@1"
+_OFFER_DISCARD = "booking.offer.discard@1"
 #: Every command a plan may hold; one the registry lacks is reported as
 #: `command_missing`, never planned.
 WRITES = (
@@ -69,6 +79,8 @@ WRITES = (
     _HOURS_SET,
     _UNITS_SET,
     _PRICE_SAVE,
+    _SEASON_SAVE,
+    _OFFER_DISCARD,
 )
 
 #: Every field of a command is sent; null keeps it (the commands' own rule).
@@ -97,9 +109,10 @@ _SERVICE_FIELDS = (
     "resource_ids",
 )
 _PERSON_FIELDS = ("name", "phone", "service_ids", "hours", "invitation")
+#: A price's and a season's fields beside `service_id`, which the step that
+#: follows an offer is given (`_follow`).
 _PRICE_FIELDS = (
     "price_id",
-    "service_id",
     "group_id",
     "resource_id",
     "name",
@@ -116,6 +129,24 @@ _PRICE_FIELDS = (
     "extra_person_per_time_unit",
     "category_prices",
     "length_discounts",
+    "active",
+)
+_SEASON_FIELDS = (
+    "season_id",
+    "group_id",
+    "resource_id",
+    "name",
+    "starts_on",
+    "ends_on",
+    "min_length",
+    "max_length",
+    "length_multiple",
+    "start_weekdays",
+    "end_weekdays",
+    "notice_hours",
+    "window_days",
+    "closed",
+    "buffer_after_minutes",
     "active",
 )
 #: What a price may be charged for, as the owner says it, with the basis the
@@ -147,9 +178,16 @@ _FOLD = str.maketrans({"ł": "l", "Ł": "L"})
 
 
 def configure(
-    profile: Mapping[str, Any], reads: Mapping[str, Mapping[str, Any]], commands: Collection[str]
+    profile: Mapping[str, Any],
+    reads: Mapping[str, Mapping[str, Any]],
+    commands: Collection[str],
+    *,
+    setup_refs: Collection[str] = (),
 ) -> dict[str, list[dict[str, Any]]]:
-    run = _Run(profile, reads, commands)
+    """`setup_refs` are the company's setup conversations, as a service names
+    the one that made it (`origin_ref`): only their drafts are the notes' to
+    take back."""
+    run = _Run(profile, reads, commands, setup_refs)
     _company(run)
     _languages(run)
     _card(run)
@@ -162,6 +200,7 @@ def configure(
                 "reason": node["origin"],
                 "proposal": node["value"],
                 "options": [],
+                "soon": [],
             })
     return {
         "missing": sorted(run.missing, key=lambda question: _rank(question["key"])),
@@ -177,18 +216,28 @@ class _Run:
         profile: Mapping[str, Any],
         reads: Mapping[str, Mapping[str, Any]],
         commands: Collection[str],
+        setup_refs: Collection[str] = (),
     ) -> None:
         self.profile = profile
         self.reads = reads
         self.commands = frozenset(commands)
+        self.setup_refs = frozenset(setup_refs)
         self.missing: list[dict[str, Any]] = []
         self.plan: list[dict[str, Any]] = []
         self.blocked: list[dict[str, Any]] = []
         self.unsupported: list[dict[str, Any]] = []
 
     def ask(
-        self, key: str, reason: str, *, proposal: Any = None, options: Collection[Any] = ()
+        self,
+        key: str,
+        reason: str,
+        *,
+        proposal: Any = None,
+        options: Collection[Any] = (),
+        soon: Collection[Any] = (),
     ) -> None:
+        """`soon` are answers the product has announced and cannot take yet:
+        named as coming, never offered."""
         if all(question["key"] != key for question in self.missing):
             self.missing.append({
                 "key": key,
@@ -196,11 +245,14 @@ class _Run:
                 "reason": reason,
                 "proposal": proposal,
                 "options": list(options),
+                "soon": list(soon),
             })
 
-    def step(self, ref: str, command: str, arguments: dict[str, Any]) -> None:
+    def step(self, ref: str, command: str, arguments: dict[str, Any], about: str = "") -> None:
+        """`about` names what the step is about where the notes no longer do."""
         if command in self.commands:
-            self.plan.append({"ref": ref, "command": command, "arguments": arguments})
+            named = {"about": about} if about else {}
+            self.plan.append({"ref": ref, "command": command, "arguments": arguments, **named})
         else:
             self.wait(ref, command, reason="command_missing")
 
@@ -408,6 +460,7 @@ def _booking(run: _Run) -> None:
     else:
         working = _offers(run, setup, presets, places, people)
     _hours(run, setup, places, people, working)
+    _withdrawn(run, setup)
 
 
 def _places(run: _Run, setup: Mapping[str, Any]) -> dict[str, str | None]:
@@ -470,18 +523,25 @@ def _offers(
     for offer in run.profile.get("offers", []):
         path = f"offers.{offer['key']}"
         if "preset" not in offer:
-            run.ask(
-                f"{path}.preset",
-                "offer_needs_kind",
-                options=[
+            # Only a kind that is ready is an answer; an announced one is
+            # named as coming, so nobody picks what cannot be set up.
+            kinds = [
+                (
+                    preset["readiness"] == "ready",
                     {
                         "value": preset["id"],
                         "label": {
                             language: words["name"] for language, words in preset["labels"].items()
                         },
-                    }
-                    for preset in presets["presets"]
-                ],
+                    },
+                )
+                for preset in presets["presets"]
+            ]
+            run.ask(
+                f"{path}.preset",
+                "offer_needs_kind",
+                options=[kind for ready, kind in kinds if ready],
+                soon=[kind for ready, kind in kinds if not ready],
             )
         preset_id = _confirmed(offer.get("preset"))
         if preset_id is None:
@@ -523,13 +583,15 @@ def _offers(
             # Still asked for, so the owner hears all of it at once.
             _units(run, offer, preset, None, setup)
             _price(run, offer, preset, None, setup)
+            _seasons(run, offer, preset, None)
             continue
         service = services.get(fold(name))
         units = _units(run, offer, preset, service, setup)
         price = _price(run, offer, preset, service, setup)
+        seasons = _seasons(run, offer, preset, service)
         if where is None or who is None:
             continue
-        then = [step for step in (units, price) if step is not None]
+        then = [*(step for step in (units, price) if step is not None), *seasons]
         _offer(
             run, offer["key"], preset, name, duration, service, (where, who), places, people, then
         )
@@ -619,9 +681,12 @@ def _units(
     return {
         "ref": f"units:{key}",
         "command": _UNITS_SET,
-        # Units are only ever added: the pool keeps what it has.
-        "count": max(wanted, there),
-        "capacity": _confirmed(offer.get("capacity")),
+        "arguments": {
+            # Units are only ever added: the pool keeps what it has.
+            "count": max(wanted, there),
+            "capacity": _confirmed(offer.get("capacity")),
+            "location_id": None,
+        },
     }
 
 
@@ -695,41 +760,97 @@ def _price(
     return {
         "ref": f"price:{offer['key']}",
         "command": _PRICE_SAVE,
-        "basis": basis,
-        "amount_minor": int(whole) * 100 + int(cents or 0),
-        "vat_code": vat,
+        "arguments": {
+            **dict.fromkeys(_PRICE_FIELDS),
+            "basis": basis,
+            "amount_minor": int(whole) * 100 + int(cents or 0),
+            "vat_code": vat,
+        },
     }
 
 
+def _seasons(
+    run: _Run,
+    offer: Mapping[str, Any],
+    preset: Mapping[str, Any],
+    service: Mapping[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """The steps that save a stay's seasons as the owner said them: the dates,
+    the shortest stay, the arrival days — and no rule nobody named. Nothing
+    is asked: a season is planned only once the owner spoke of one. A season
+    the offer already has for the same dates is left alone, like a price:
+    changed in the panel since, it is not planned back to what the notes say."""
+    path = f"offers.{offer['key']}.seasons"
+    if "seasons" not in offer:
+        return []
+    if preset["time_model"] != "range":
+        # A visit by the clock has no nights to count and no day of arrival.
+        run.cannot(path, "seasons_for_stays")
+        return []
+    account = run.reads.get(SEASONS)
+    if _SEASON_SAVE not in run.commands or account is None:
+        # The registry before the seasons' commands.
+        run.cannot(path, "season_rules")
+        return []
+    scopes = {service["id"], *service.get("group_ids", [])} if service is not None else set()
+    there = {
+        (season["starts_on"], season["ends_on"])
+        for season in account["seasons"]
+        if season.get("service_id") in scopes or season.get("group_id") in scopes
+    }
+    steps: list[dict[str, Any]] = []
+    for season in _confirmed(offer["seasons"]) or []:
+        dates = (season["starts_on"], season["ends_on"])
+        if dates in there:
+            continue
+        there.add(dates)
+        steps.append({
+            "ref": f"season:{offer['key']}:{season['starts_on']}",
+            "command": _SEASON_SAVE,
+            "arguments": {
+                **dict.fromkeys(_SEASON_FIELDS),
+                "name": season.get("name"),
+                "starts_on": season["starts_on"],
+                "ends_on": season["ends_on"],
+                "min_length": season.get("min_stay"),
+                "start_weekdays": season.get("arrival_days"),
+            },
+        })
+    return steps
+
+
 def _follow(run: _Run, key: str, service_id: str | None, steps: list[dict[str, Any]]) -> None:
-    """The offer's units and price: planned once the offer has its id, waiting
-    for the offer until then."""
+    """The offer's units, price and seasons: planned once the offer has its
+    id, waiting for the offer until then."""
     for step in steps:
-        ref, command = step["ref"], step["command"]
         if service_id is None:
-            run.wait(ref, command, [f"offer:{key}"])
-        elif command == _UNITS_SET:
-            run.step(
-                ref,
-                command,
-                {
-                    "service_id": service_id,
-                    "count": step["count"],
-                    "capacity": step["capacity"],
-                    "location_id": None,
-                },
-            )
+            run.wait(step["ref"], step["command"], [f"offer:{key}"])
         else:
             run.step(
-                ref,
-                command,
-                {
-                    **dict.fromkeys(_PRICE_FIELDS),
-                    "service_id": service_id,
-                    "basis": step["basis"],
-                    "amount_minor": step["amount_minor"],
-                    "vat_code": step["vat_code"],
-                },
+                step["ref"], step["command"], {"service_id": service_id, **step["arguments"]}
+            )
+
+
+def _withdrawn(run: _Run, setup: Mapping[str, Any]) -> None:
+    """The undo of a draft: an offer a setup conversation made, never switched
+    on, that the notes no longer name. A name the notes still hold — confirmed
+    or not — keeps its draft."""
+    if _OFFER_DISCARD not in run.commands:
+        return
+    named = {
+        fold(offer["name"]["value"]) for offer in run.profile.get("offers", []) if "name" in offer
+    }
+    for service in setup["services"]:
+        if (
+            service.get("draft")
+            and service.get("origin_ref") in run.setup_refs
+            and fold(service["name"]) not in named
+        ):
+            run.step(
+                f"discard:{service['id']}",
+                _OFFER_DISCARD,
+                {"service_id": service["id"]},
+                about=service["name"],
             )
 
 

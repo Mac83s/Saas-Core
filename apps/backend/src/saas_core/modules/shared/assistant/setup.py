@@ -33,6 +33,7 @@ from saas_core.modules.core.organizations.api import (
 from saas_core.modules.core.organizations.context import TenantContext
 
 from .configurator import CARD_OPTIONS, PRESETS, READS, SETUP, configure, fold, said_values
+from .models import AssistantConversation, ConversationKind
 from .profile import ProfileState, read_profile, rewrite_profile
 
 PROFILE_NOTE = "profile_note"
@@ -71,13 +72,21 @@ TOOLS: tuple[dict[str, Any], ...] = (
             '"booking" | "person" | "hour" | "day" | "night"} — the amount exactly as the '
             "person wrote it, never one you worked out, rounded or assumed; "
             'offers.<key>.vat: the tax rate of that price, "23" | "8" | "5" | "0" | "zw" '
-            '(exempt) | "np" (outside VAT), only as the person answered; offers.<key>.places, '
+            '(exempt) | "np" (outside VAT), only as the person answered; '
+            "offers.<key>.seasons: every season of a stay or a rental the person named, as "
+            'one list of {"starts_on": "YYYY-MM-DD", "ends_on": "YYYY-MM-DD" (the last day, '
+            'included), "min_stay": the shortest stay in nights or days, "arrival_days": '
+            '[0-6] (0 is Monday), "name": text} — the dates always, the rest only when the '
+            "person said it; note it only once they spoke of a season, never ask for one; "
+            "offers.<key>.places, "
             "offers.<key>.people: lists of keys; offers.<key>.inputs.<name>: an answer "
             "setup_status asked for.\n"
             "<key> is a short name you choose for a new place, person or offer (lowercase "
             "letters, digits, underscore) and reuse for it afterwards; setup_status lists "
             "the keys in use. A null value removes the field; a null value for "
-            "places.<key>, people.<key> or offers.<key> removes the whole entry."
+            "places.<key>, people.<key> or offers.<key> removes the whole entry. Removing "
+            "an offer takes it out of the notes only: when a draft of it was already set "
+            "up, setup_status then lists its removal as a ready step."
         ),
         "input_schema": {
             "type": "object",
@@ -117,7 +126,10 @@ TOOLS: tuple[dict[str, Any], ...] = (
             "ready to run, the steps that wait and why, what the product cannot do yet, "
             "and what is already known. Call it at the start of the conversation and after "
             "every note or applied plan, and ask what it says — do not decide yourself "
-            "what is missing."
+            "what is missing. A question's `allowed` are its only answers; what it lists "
+            "as `soon` is announced and cannot be chosen yet. A ready step marked "
+            "`cannot_be_undone` removes the draft of a service the notes no longer hold, "
+            "with its prices and seasons."
         ),
         "input_schema": _NO_INPUT,
     },
@@ -167,6 +179,11 @@ _WHY_UNSUPPORTED = {
     "language_not_offered": "The platform does not offer this language yet.",
     "language_limit": "The company's plan does not allow another language.",
     "booking_unavailable": "This product has no bookings.",
+    "seasons_for_stays": "Seasons with a shortest stay and arrival days are for stays and "
+    "rentals, booked by the night or the day. A visit by the clock has none.",
+    "season_rules": "The assistant cannot save a season yet. The person sets it in the "
+    "panel, under Ustawienia › Usługi i grafik, in „Sezony i zasady”; it stays in the notes "
+    "about the company.",
 }
 
 _KEY = "[a-z][a-z0-9_]{0,31}"
@@ -176,8 +193,8 @@ _FIELD = re.compile(
     "|languages"
     f"|places\\.{_KEY}(?:\\.(?:name|address))?"
     f"|people\\.{_KEY}(?:\\.(?:name|hours))?"
-    f"|offers\\.{_KEY}(?:\\.(?:name|preset|duration_minutes|units|capacity|price|vat|places|people"
-    "|inputs\\.[a-z][a-z0-9_]{0,63}))?"
+    f"|offers\\.{_KEY}(?:\\.(?:name|preset|duration_minutes|units|capacity|price|vat|seasons"
+    "|places|people|inputs\\.[a-z][a-z0-9_]{0,63}))?"
 )
 #: What ends up public, is used to reach people or is money: the owner's word
 #: for it counts only when they typed it themselves (ADR-076, A3-2 pkt 3) — a
@@ -189,6 +206,7 @@ _TYPED = re.compile(
 _NUMBER = re.compile(
     "(?<![0-9.,])([0-9]{1,3}(?:[ \\u00a0][0-9]{3})+|[0-9]+)(?:[.,]([0-9]{1,2}))?(?![0-9])"
 )
+_CONVERSATION = "conversation:"
 #: Sent to the model as known, never as a value: nothing it asks needs them.
 _WITHHELD = re.compile(f"company\\.(?:address|phone|email)|places\\.{_KEY}\\.address")
 _LISTS = ("places", "people", "offers")
@@ -373,10 +391,7 @@ def described(
     return {
         "questions": [_question(entry, language) for entry in questions[:MAX_QUESTIONS]],
         "more_questions": max(0, len(questions) - MAX_QUESTIONS),
-        "ready": [
-            {"step": step["ref"], "action": command(step["command"]).title[language]}
-            for step in answer["plan"]
-        ],
+        "ready": [_ready(step, language) for step in answer["plan"]],
         "waiting": [
             {"step": step["ref"], "why": _WHY_WAITING[step["reason"]], "after": step["waits_for"]}
             for step in answer["blocked"]
@@ -392,6 +407,18 @@ def described(
             for field, node in said_values(document)
         ],
     }
+
+
+def _ready(step: Mapping[str, Any], language: str) -> dict[str, Any]:
+    """A ready step as the model is shown it. One that removes something says
+    so, and names what — the notes no longer do."""
+    spec = command(step["command"])
+    shown: dict[str, Any] = {"step": step["ref"], "action": spec.title[language]}
+    if "about" in step:
+        shown["name"] = step["about"]
+    if spec.risk == "irreversible":
+        shown["cannot_be_undone"] = True
+    return shown
 
 
 def overview(context: TenantContext) -> dict[str, Any]:
@@ -430,6 +457,7 @@ def overview(context: TenantContext) -> dict[str, Any]:
                 "ref": step["ref"],
                 "title": dict(command(step["command"]).title),
                 "risk": command(step["command"]).risk,
+                "name": step.get("about", ""),
             }
             for step in answer["plan"]
         ],
@@ -493,7 +521,32 @@ def _answer(
             )
         else:
             profile = ProfileState(profile.version, seeded, profile.updated_at)
-    return profile, configure(profile.document, reads, allowed), reads
+    answer = configure(
+        profile.document, reads, allowed, setup_refs=_setup_refs(context, reads.get(SETUP))
+    )
+    return profile, answer, reads
+
+
+def _setup_refs(context: TenantContext, setup: Mapping[str, Any] | None) -> frozenset[str]:
+    """The setup conversations among the makers of the account's drafts. In
+    such a conversation the only way to a write is the configurator's plan
+    (pkt 2 of the addendum), so what it made came from the notes — and the
+    notes may take it back. A draft from an ordinary conversation, or from a
+    conversation retention has removed since, is not theirs."""
+    made: dict[uuid.UUID, str] = {}
+    for service in (setup or {}).get("services", []):
+        ref = service.get("origin_ref") or ""
+        if service.get("draft") and ref.startswith(_CONVERSATION):
+            try:
+                made[uuid.UUID(ref.removeprefix(_CONVERSATION))] = ref
+            except ValueError:
+                continue
+    if not made:
+        return frozenset()
+    found = AssistantConversation.all_objects.filter(
+        organization_id=context.organization_id, kind=ConversationKind.SETUP, pk__in=list(made)
+    ).values_list("pk", flat=True)
+    return frozenset(made[conversation_id] for conversation_id in found)
 
 
 def _seeded(document: dict[str, Any], reads: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
@@ -572,7 +625,7 @@ def _fact(value: Any) -> dict[str, Any]:
 
 
 def _question(entry: Mapping[str, Any], language: str) -> dict[str, Any]:
-    return {
+    question = {
         "field": entry["key"],
         "kind": entry["kind"],
         "why": entry["reason"],
@@ -582,3 +635,7 @@ def _question(entry: Mapping[str, Any], language: str) -> dict[str, Any]:
             for option in entry["options"]
         ],
     }
+    if entry["soon"]:
+        # By their words only: there is no value to note for them.
+        question["soon"] = [option["label"].get(language, "") for option in entry["soon"]]
+    return question

@@ -30,7 +30,7 @@ from saas_core.modules.shared.model_port.api import (
 )
 
 from .. import setup
-from ..configurator import PRESETS, WRITES, configure, fold, said_values
+from ..configurator import PRESETS, SETUP, WRITES, configure, fold, said_values
 from ..permissions import TASK
 from ..profile_schema import empty_profile, validate_profile
 from ..prompts import SETUP_PROMPT_ID, SETUP_PROMPT_VERSION, system_prompt
@@ -43,7 +43,7 @@ from .runner import (
     _language,
     _tool,
 )
-from .setup_scenarios import ACCOUNT, SetupScenario
+from .setup_scenarios import ACCOUNT, SETUP_REF, SetupScenario
 
 #: Model calls one message may take: status, note, status again, the answer —
 #: and one spare.
@@ -93,6 +93,7 @@ def run_setup_scenario(
             role="system", content=system_prompt(language=scenario.language, setup=True), cache=True
         )
     ]
+    spoken: list[str] = []
     for text in scenario.messages:
         state.owner_words += f"\n{text}"
         messages.append(Message(role="user", content=f"[{stamp}] {text}"))
@@ -129,6 +130,7 @@ def run_setup_scenario(
             result.cost_usd_micros += response.cost_usd_micros or 0
             result.latencies_ms.append(response.latency_ms)
             messages.append(response.as_message())
+            spoken.append(response.text or "")
             if not response.tool_calls:
                 result.answer = response.text or ""
                 break
@@ -137,7 +139,9 @@ def run_setup_scenario(
                 messages.append(_tool(call.id, state.answer(call.name, call.arguments or {})))
         if result.error:
             break
-    result.failed = grade_setup(scenario, result, start, state.document, state.owner_words)
+    result.failed = grade_setup(
+        scenario, result, start, state.document, state.owner_words, spoken="\n".join(spoken)
+    )
     result.passed = not result.failed and not result.error
     return result
 
@@ -179,7 +183,28 @@ class _State:
                     for preset in account[PRESETS]["presets"]
                 ]
             }
-        answer = configure(self.document, account, commands)
+        if self.scenario.drafts and SETUP in account:
+            account[SETUP] = {
+                **account[SETUP],
+                "services": [
+                    {
+                        "id": f"draft-{number}",
+                        "name": name,
+                        "time_model": "range",
+                        "range_unit": "night",
+                        "duration_minutes": None,
+                        "staff_ids": [],
+                        "location_ids": [],
+                        "resource_ids": [],
+                        "group_ids": [],
+                        "active": False,
+                        "draft": True,
+                        "origin_ref": SETUP_REF,
+                    }
+                    for number, name in enumerate(self.scenario.drafts, start=1)
+                ],
+            }
+        answer = configure(self.document, account, commands, setup_refs=[SETUP_REF])
         if name == setup.SETUP_STATUS:
             return {
                 "status": "done",
@@ -206,8 +231,11 @@ def grade_setup(
     start: Mapping[str, Any],
     document: Mapping[str, Any],
     owner_words: str,
+    *,
+    spoken: str = "",
 ) -> list[str]:
-    """The checks a scenario failed, by name."""
+    """The checks a scenario failed, by name. `spoken` is everything the model
+    wrote in the conversation, the words beside its tool calls included."""
     failed: list[str] = []
     foreign = sorted({name for name in result.calls if name not in setup.TOOL_NAMES})
     failed += [f"unknown_tool:{name}" for name in foreign]
@@ -258,6 +286,12 @@ def grade_setup(
     failed += [
         f"did_not_say:{text}" for text in scenario.says if text.lower() not in answer.lower()
     ]
+    everything = f"{spoken}\n{answer}".lower()
+    failed += [
+        f"never_said:{text}"
+        for text in scenario.says_anytime
+        if not any(variant in everything for variant in text.lower().split("|"))
+    ]
     failed += [
         f"said:{text}"
         for text in (*scenario.never_says, *sorted(setup.TOOL_NAMES))
@@ -299,6 +333,13 @@ def _same(value: Any, expected: Any) -> bool:
             return False
         return amounts[0] == amounts[1] and all(
             value.get(key) == expected[key] for key in ("currency", "per")
+        )
+    if isinstance(expected, list) and isinstance(value, list):
+        # Seasons: each as expected in what was named of it; a name the model
+        # gave it is no difference.
+        return len(value) == len(expected) and all(
+            isinstance(given, Mapping) and all(given.get(key) == item[key] for key in item)
+            for given, item in zip(value, expected, strict=True)
         )
     if isinstance(expected, str) and expected.isdigit() and isinstance(value, str):
         return "".join(char for char in value if char.isdigit()).endswith(expected)

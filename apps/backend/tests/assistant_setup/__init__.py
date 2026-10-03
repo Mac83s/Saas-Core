@@ -23,6 +23,7 @@ from saas_core.modules.shared.assistant.configurator import (
     ORGANIZATION,
     PRESETS,
     PRICES,
+    SEASONS,
     SETUP,
 )
 
@@ -30,8 +31,9 @@ CONTRACTS = Path(settings.BASE_DIR).parent.parent / "packages" / "contracts"
 EXAMPLES = ("hairdresser", "plumber", "cottages", "kayak-rental")
 
 #: The registry the golden outputs are written against: a place and a person
-#: can be added, an offer starts from its preset, a stay gets its units and an
-#: offer its price. A test of what happens without a command takes it out.
+#: can be added, an offer starts from its preset, a stay gets its units and its
+#: seasons, an offer its price, and a draft the notes dropped is taken back. A
+#: test of what happens without a command takes it out.
 COMMANDS = frozenset({
     "organization.update@1",
     "organization.public_locales.update@1",
@@ -44,7 +46,28 @@ COMMANDS = frozenset({
     "booking.staff.hours.set@1",
     "booking.offer.units.set@1",
     "booking.price.save@1",
+    "booking.season.save@1",
+    "booking.offer.discard@1",
 })
+SEASON_FIELDS = (
+    "season_id",
+    "service_id",
+    "group_id",
+    "resource_id",
+    "name",
+    "starts_on",
+    "ends_on",
+    "min_length",
+    "max_length",
+    "length_multiple",
+    "start_weekdays",
+    "end_weekdays",
+    "notice_hours",
+    "window_days",
+    "closed",
+    "buffer_after_minutes",
+    "active",
+)
 PERSON_FIELDS = ("name", "phone", "service_ids", "hours", "invitation")
 PRICE_FIELDS = (
     "price_id",
@@ -180,13 +203,20 @@ PRESET_LIST = {
         ),
     ]
 }
-PRESET_OPTIONS = [
-    {
-        "value": preset["id"],
-        "label": {language: words["name"] for language, words in preset["labels"].items()},
-    }
-    for preset in PRESET_LIST["presets"]
-]
+
+
+def kinds(presets: dict[str, Any], *, ready: bool) -> list[dict[str, Any]]:
+    """The kinds of booking a question offers (`ready`), or names as coming."""
+    return [
+        {
+            "value": preset["id"],
+            "label": {language: words["name"] for language, words in preset["labels"].items()},
+        }
+        for preset in presets["presets"]
+        if (preset["readiness"] == "ready") is ready
+    ]
+
+
 CATALOG_OPTIONS = {
     "categories": [
         {
@@ -255,6 +285,7 @@ def new_company(name: str) -> dict[str, dict[str, Any]]:
             "extras": [],
             "categories": [],
         },
+        SEASONS: {"seasons": []},
     }
 
 

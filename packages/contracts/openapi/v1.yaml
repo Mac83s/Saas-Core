@@ -23852,8 +23852,14 @@ components:
           description: The command's title.
         risk:
           type: string
-          description: The command's class of risk.
+          description: The command's class of risk; `irreversible` removes something
+            for good.
+        name:
+          type: string
+          description: What the step is about where the notes no longer name it —
+            the draft of a service taken out of them, offered for removal; empty otherwise.
       required:
+      - name
       - ref
       - risk
       - title

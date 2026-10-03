@@ -79,6 +79,7 @@ FIELD_LABELS = {
     "address": "adres",
     "phone": "telefon",
     "email": "e-mail",
+    "seasons": "sezony",
     "season_dates": "daty sezonów",
     "min_length": "najkrótszy pobyt",
     "photos": "zdjęcia",
@@ -97,6 +98,7 @@ LISTS = {
     "hours": "people",
     "units": "offers",
     "price": "offers",
+    "season": "offers",
 }
 PER = {
     "booking": "za rezerwację",
@@ -106,6 +108,7 @@ PER = {
     "night": "za noc",
 }
 VAT = {"zw": "zwolnione z VAT", "np": "nie podlega VAT"}
+DAYS = ("pon.", "wt.", "śr.", "czw.", "pt.", "sob.", "niedz.")
 
 
 def render(
@@ -182,11 +185,18 @@ def render(
             )
             else []
         ),
-        "- cennik poza ceną podstawową (sezony, ceny weekendowe, dopłaty, kaucje): rozmowa "
-        "ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo zleca "
-        "asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)",
-        "- zasady sezonów (najkrótszy pobyt, dni przyjazdu): asystent nie ma polecenia — "
-        "ustawia je właściciel w panelu, w Sezonach",
+        "- cennik poza ceną podstawową (ceny sezonów, ceny weekendowe, dopłaty, kaucje): "
+        "rozmowa ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo "
+        "zleca asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)",
+        "- sezony pobytów i wynajmu: rozmowa ustawiająca firmę zapisuje daty sezonu, "
+        "najkrótszy pobyt i dni przyjazdu, gdy właściciel sam o nich powie — nie pyta o "
+        "nie; pozostałe zasady (najdłuższy pobyt, dni wyjazdu, wyprzedzenie, termin "
+        "zamknięty) właściciel ustawia w panelu, w Sezonach, albo zleca asystentowi w "
+        "zwykłej rozmowie (`booking.season.save`)",
+        "- cofnięcie: usługę usuniętą z notatek, której wersję roboczą założyła rozmowa "
+        "ustawiająca firmę, asystent proponuje usunąć z konta osobnym kliknięciem "
+        "(`booking.offer.discard`); usługi choć raz włączonej nie usuwa nikt — wyłącza ją "
+        "właściciel",
         *(
             f"- miasto „{entry['detail']}” jest poza słownikiem miast katalogu firm"
             for _profile, answer in answers.values()
@@ -218,8 +228,9 @@ def render(
         "",
         "- konto: odczyty przez rejestr poleceń (`organization.read`, "
         "`organization.public_locales.read`, `profiles.organization.read`, "
-        "`profiles.catalog_options.read`, `booking.setup.read`, `booking.prices.read`) dla "
-        "firmy typu `business` bez wizytówki, miejsc, osób, usług i cen;",
+        "`profiles.catalog_options.read`, `booking.setup.read`, `booking.prices.read`, "
+        "`booking.seasons.read`) dla firmy typu `business` bez wizytówki, miejsc, osób, "
+        "usług, cen i sezonów;",
         "- rodzaje rezerwacji: polecenie `booking.preset.list@1`, czyli kontrakt "
         "`packages/contracts/booking-presets/` w najnowszych wersjach;",
         "- języki: oferuje je profil wdrożenia (testy liczą na profilu z polskim i "
@@ -247,6 +258,8 @@ def _thing(profile: Mapping[str, Any], ref: str) -> str:
     """A step's subject in words: `offer:cut` → usługa „Strzyżenie damskie”."""
     kind, _, key = ref.partition(":")
     key = key.partition(":")[0]
+    if kind == "discard":
+        return "usunięcie wersji roboczej usługi"
     if kind == "organization":
         return "nazwa firmy"
     if kind == "languages":
@@ -261,6 +274,7 @@ def _thing(profile: Mapping[str, Any], ref: str) -> str:
         "hours": f"godziny pracy: {name}",
         "units": f"jednostki usługi „{name}”",
         "price": f"cena usługi „{name}”",
+        "season": f"sezon usługi „{name}”",
     }[kind]
 
 
@@ -298,6 +312,19 @@ def _step(profile: Mapping[str, Any], entry: Mapping[str, Any]) -> str:
     if kind == "price":
         key = entry["ref"].partition(":")[2]
         return f"{_thing(profile, entry['ref'])}: {_price_words(profile, key)}"
+    if kind == "season":
+        rules = [
+            f"{arguments['starts_on']} – {arguments['ends_on']}",
+            *([f"od {arguments['min_length']} nocy lub dni"] if arguments["min_length"] else []),
+            *(
+                [f"przyjazd: {', '.join(DAYS[day] for day in arguments['start_weekdays'])}"]
+                if arguments["start_weekdays"]
+                else []
+            ),
+        ]
+        return f"{_thing(profile, entry['ref'])}: {', '.join(rules)}"
+    if kind == "discard":
+        return f"usunie wersję roboczą usługi „{entry['about']}” — osobnym kliknięciem"
     return _thing(profile, entry["ref"])
 
 
