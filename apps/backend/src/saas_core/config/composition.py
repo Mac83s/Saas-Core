@@ -48,6 +48,9 @@ class ModuleDescriptor:
     #: Of those kinds, the ones that took place only once completed; a visit
     #: whose time passed without it is not counted as done (UX-031).
     completed_explicitly_kinds: tuple[str, ...] = ()
+    #: The permission that opens other people's visits; without it, whoever
+    #: does not plan visits sees only their own (UX-023, MedPlano).
+    others_permission: str | None = None
     #: Middleware and scheduled work of a module core does not name, so a
     #: product's vertical mounts them without editing `base.py` (ADR-049).
     middleware: tuple[str, ...] = ()
@@ -75,6 +78,7 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
             completed_explicitly_kinds=tuple(
                 raw["backend"].get("appointmentKindsCompletedExplicitly") or ()
             ),
+            others_permission=raw["backend"].get("appointmentsOfOthersPermission"),
             middleware=tuple(raw["backend"].get("middleware") or ()),
             beat_schedule={
                 name: dict(entry)
@@ -89,12 +93,21 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
                 f"{', '.join(sorted(stray))}"
             )
         # "" is the plain service, which no module declares.
-        if stray := set(descriptor.completed_explicitly_kinds) - {""} - set(
-            descriptor.appointment_kinds or {}
+        if (
+            stray := set(descriptor.completed_explicitly_kinds)
+            - {""}
+            - set(descriptor.appointment_kinds or {})
         ):
             raise CompositionError(
                 f"{descriptor.id}: jawne zakończenie dla nieznanego typu wizyty "
                 f"{', '.join(sorted(stray))}"
+            )
+        if descriptor.others_permission and (
+            descriptor.others_permission not in descriptor.permissions
+        ):
+            raise CompositionError(
+                f"{descriptor.id}: wizyty innych osób za uprawnieniem, którego moduł "
+                f"nie deklaruje: {descriptor.others_permission}"
             )
         descriptors[descriptor.id] = descriptor
     if not descriptors:
@@ -413,6 +426,22 @@ def completed_explicitly_kinds_for(
     return frozenset(
         kind for module_id in modules for kind in catalog[module_id].completed_explicitly_kinds
     )
+
+
+def others_permission_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> str | None:
+    """The permission that opens other people's visits, if a module of the
+    product declares one (UX-023). Two would make the rule ambiguous."""
+    declared = sorted({
+        permission for module_id in modules if (permission := catalog[module_id].others_permission)
+    })
+    if len(declared) > 1:
+        raise CompositionError(
+            "Dwa moduły deklarują uprawnienie do wizyt innych osób: " + ", ".join(declared)
+        )
+    return declared[0] if declared else None
 
 
 def middleware_for(

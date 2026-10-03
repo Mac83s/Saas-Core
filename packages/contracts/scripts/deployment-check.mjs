@@ -415,6 +415,12 @@ const assertKindListsNameOwnKinds = (descriptor) => {
       );
     }
   }
+  const others = descriptor.backend.appointmentsOfOthersPermission;
+  if (others && !(descriptor.backend.permissions ?? []).includes(others)) {
+    throw new Error(
+      `Moduł ${descriptor.id}: wizyty innych osób za uprawnieniem, którego moduł nie deklaruje: ${others}`,
+    );
+  }
 };
 
 const assertDeclaredCodeIsOwn = (descriptor) => {

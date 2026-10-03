@@ -122,6 +122,11 @@
           },
           "uniqueItems": true
         },
+        "appointmentsOfOthersPermission": {
+          "description": "A permission this module declares that opens other people's visits (UX-023). Without it, whoever does not plan visits (booking.appointment.manage) sees only the visits they are on — e.g. a doctor does not see another doctor's patients. Left out: everyone who reads the calendar sees everyone's visits.",
+          "type": "string",
+          "minLength": 1
+        },
         "middleware": {
           "description": "Middleware classes of this module, mounted after the tenant middleware only where the module is composed (ADR-049). Must live in the module's own app.",
           "type": "array",

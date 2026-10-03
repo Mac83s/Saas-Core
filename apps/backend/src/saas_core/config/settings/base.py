@@ -17,6 +17,7 @@ from saas_core.config.composition import (
     load_catalog,
     middleware_for,
     organization_types_from,
+    others_permission_for,
     own_material_kinds_for,
     role_grants_for,
     select_by_module,
@@ -799,6 +800,10 @@ try:
     APPOINTMENT_KINDS_COMPLETED_EXPLICITLY = completed_explicitly_kinds_for(
         ACTIVE_MODULES, _module_catalog
     )
+    #: Whose visits a person sees (UX-023): None — everyone's, as a small team
+    #: plans together; a product's permission — without it, only one's own
+    #: (MedPlano: a doctor does not see another doctor's patients).
+    BOOKING_OTHERS_PERMISSION = others_permission_for(ACTIVE_MODULES, _module_catalog)
 except CompositionError as error:
     raise ImproperlyConfigured(str(error)) from error
 

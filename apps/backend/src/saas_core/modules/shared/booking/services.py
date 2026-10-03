@@ -82,6 +82,7 @@ from .security import (
     REMINDER_ROLE,
     issue_self_service_token,
 )
+from .visibility import on_visit_q, own_visits_q, sees_others
 
 BOOKING_READ = "booking.appointment.read"
 BOOKING_MANAGE = "booking.appointment.manage"
@@ -326,12 +327,12 @@ def list_appointments(
     if staff_id:
         query = query.filter(_on_visit(Q(staff_allocations__staff_id=staff_id), staff_id=staff_id))
     if mine:
-        query = query.filter(
-            _on_visit(
-                Q(staff_allocations__staff__membership_id=context.membership_id),
-                membership_id=context.membership_id,
-            )
-        )
+        query = query.filter(own_visits_q(context))
+    # Other people's visits only where the product lets this person see them
+    # (UX-023); a person named in `staff_id` then shows only where the caller
+    # is on the visit too.
+    if not sees_others(context):
+        query = query.filter(own_visits_q(context))
     limit = max(1, min(limit, 500))
     return list(with_crew(query.distinct())[:limit])
 
@@ -362,15 +363,8 @@ def visible_contacts(ids: Sequence[UUID]) -> set[UUID]:
 def _on_visit(
     allocated: Q, *, staff_id: UUID | None = None, membership_id: UUID | None = None
 ) -> Q:
-    """On the visit: its lead, somebody with its time blocked, or — once it is
-    called off and nobody's time is — somebody who had it. A lead taken off a
-    visit that now waits for somebody else is not on it: only their name is."""
-    lead = Q(staff_id=staff_id) if staff_id else Q(staff__membership_id=membership_id)
-    return (
-        (lead & Q(needs_assignment=False))
-        | (allocated & Q(staff_allocations__active=True))
-        | (allocated & Q(status=AppointmentStatus.CANCELED))
-    )
+    """On the visit — one rule, in `visibility.on_visit_q` (UX-023)."""
+    return on_visit_q(staff_id=staff_id, membership_id=membership_id)
 
 
 def with_crew(query: QuerySet[Appointment]) -> QuerySet[Appointment]:
