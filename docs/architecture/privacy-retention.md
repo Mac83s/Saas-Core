@@ -56,6 +56,8 @@ usuwa: każda kopia danych osoby, którą system przechowuje, z rozstrzygnięcie
 | `Appointment` (termin, usługa, osoba z firmy, kwoty), `AppointmentStatusHistory`, materiały, dokumenty magazynu z `source_reference` | fakty o wizycie | zostaje | to zapis pracy firmy; klient jest już nienazwany |
 | `Customer.locale`, `created_at` | język, data rekordu | zostaje | nie wskazują osoby |
 
+| Rozmowa z asystentem (`assistant_assistantmessage`: tekst osoby, argumenty i wyniki narzędzi) | cokolwiek pracownik wpisał, także nazwisko klienta | zostaje do wygaśnięcia rozmowy | nie da się jej znaleźć po identyfikatorze klienta; ogranicza ją własna retencja rozmów asystenta (niżej), nie ustawienie firmy |
+
 Poza zasięgiem kroku — do powiedzenia firmie wprost:
 
 - **e-maile już doręczone** klientowi i kopie na skrzynkach firmy;
@@ -100,6 +102,27 @@ jak wyżej.
 Krok usuwający nie może więc zakładać, że kopie w powiadomieniach już nie istnieją:
 sprawdza je i czyści sam, w tenancie firmy. Naprawa samego czyszczenia po 30 dniach
 należy do modułu powiadomień.
+
+## Inne reguły retencji w systemie (nie są ustawieniem firmy)
+
+Dla pełnego obrazu — reguły, które już działają albo są zapowiedziane, każda ze swoim
+właścicielem. Nie przechodzą przez `register_retention_sweep`: tamten kształt opisuje
+wybór firmy („nie usuwaj” albo liczba miesięcy) wobec osób spoza firmy.
+
+| Dane | Czyje | Reguła | Mechanizm | Właściciel |
+|---|---|---|---|---|
+| Rozmowy z asystentem (`assistant_assistantconversation`, `…turn`, `…message`) | osoby z firmy (tylko ona je czyta) | `assistant.retention.conversation_days` po ostatniej wiadomości — ustawienie platformy, robocza wartość 90 (pytanie 58) | zadanie `assistant-purge` (`purge_assistant_conversations`), firma po firmie | `shared.assistant` |
+| Wersje profilu firmy dla asystenta (`assistant_assistantprofileversion`) — **zapowiedziane (A2)** | firmy; wolny tekst i nazwiska | bieżąca wersja zostaje, starsze po tylu dniach co rozmowy | jeszcze brak — ma wejść przez wspólny mechanizm z kroku usuwającego | `shared.assistant` |
+| Wiadomości e-mail (`NotificationMessage.recipient_email`, `context`) | odbiorcy | `NOTIFICATIONS_RETENTION_DAYS` (30) od wysyłki | `scrub_notification_message` przez `notifications-recover-pending` (luki wyżej) | `shared.notifications` |
+| Eksporty danych powiadomień | firmy | do wygaśnięcia eksportu | `expire_data_export` | `shared.notifications` |
+| Zużycie portu modeli | platformy, bez treści | 396 dni | `purge_model_port_usage` | `shared.model_port` |
+
+Krok usuwający uogólni rejestrację (klucz, czyje dane, granica dla firmy, „co po
+terminie”, usunięcie), tak żeby jedna komenda wypisywała wszystkie reguły, a jedno
+zadanie je wykonywało; wtedy zadania modułów przejdą pod nią.
+
+Otwarte dla tego, kto zbuduje usuwanie konta użytkownika: `AssistantConversation.created_by`
+ma `PROTECT` do użytkownika — rozmowy trzeba usunąć wcześniej.
 
 ## Czego jeszcze nie ma (krok usuwający)
 
