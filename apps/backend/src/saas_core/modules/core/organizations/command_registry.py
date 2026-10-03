@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from uuid import UUID
 
@@ -145,6 +145,27 @@ def register_command(spec: CommandSpec) -> None:
         )
     _commands[spec.key] = spec
     _tools[spec.tool_name] = spec.key
+
+
+def retitle_command(
+    key: str,
+    *,
+    title: Mapping[str, str],
+    summary: Mapping[str, str],
+    model_description: str,
+) -> None:
+    """A product's words for a registered command (`relabel_settings`): only
+    its texts change — name, version, schemas, risk, gates and `run` stay the
+    very same — and the whole declaration is checked again. The same texts
+    again change nothing."""
+    existing = command(key)
+    retitled = replace(existing, title=title, summary=summary, model_description=model_description)
+    if retitled == existing:
+        return
+    problems = _declaration_problems(retitled)
+    if problems:
+        raise ImproperlyConfigured(f"Polecenie {key}: " + "; ".join(problems))
+    _commands[key] = retitled
 
 
 def registered_commands() -> tuple[CommandSpec, ...]:

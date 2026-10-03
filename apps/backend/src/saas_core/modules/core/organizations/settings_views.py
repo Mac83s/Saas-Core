@@ -33,6 +33,8 @@ from .settings_registry import (
     registered_areas,
     registered_groups,
     schema_entry,
+    typed_text,
+    words_type,
 )
 from .settings_service import GroupState, SettingsChange, change_settings, read_group, schema
 
@@ -116,12 +118,18 @@ class SettingsSchemaView(APIView):
         context = authorize(ORGANIZATION_READ)
         groups = schema(context)
         held = {group.area for group, _can_change, _locked in groups}
+        # A product's words for this kind of organization (UX-082).
+        kind = words_type(context.organization_id)
+
+        def words(address: str, texts: Any) -> dict[str, str]:
+            return dict(typed_text(address, texts, kind) or texts)
+
         return Response({
             "areas": [
                 {
                     "key": area.key,
-                    "title": dict(area.title),
-                    "description": dict(area.description),
+                    "title": words(f"area:{area.key}.title", area.title),
+                    "description": words(f"area:{area.key}.description", area.description),
                     "page": area.page,
                 }
                 for area in registered_areas()
@@ -132,12 +140,12 @@ class SettingsSchemaView(APIView):
                     "key": group.key,
                     "module": group.module,
                     "area": group.area,
-                    "title": dict(group.title),
-                    "description": dict(group.description),
+                    "title": words(f"group:{group.key}.title", group.title),
+                    "description": words(f"group:{group.key}.description", group.description),
                     "permission": group.permission,
                     "can_change": can_change,
                     "locked": locked,
-                    "keys": [schema_entry(spec) for spec in group.settings],
+                    "keys": [schema_entry(spec, kind) for spec in group.settings],
                     "api": group.api,
                     "step_up": bool(group.step_up_reason),
                 }

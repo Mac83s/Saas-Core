@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from dataclasses import field as dataclass_field
 from datetime import date
 from typing import Any
@@ -32,7 +32,7 @@ from typing import Any
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
-from .command_registry import RISKS, Effect, organization_modules
+from .command_registry import RISKS, Effect, UnknownCommand, organization_modules
 from .options import SETTING_INHERITANCE, SETTING_STRATEGIES, SETTING_TYPES, SETTING_UNITS
 
 #: Where a value comes from, most general first (ADR-078 pkt 3): the code, the
@@ -313,8 +313,14 @@ def check_value(spec: SettingSpec, value: Any) -> tuple[Any, str, str] | None:
     return None, "Nieznany typ ustawienia.", "invalid"
 
 
-def schema_entry(spec: SettingSpec) -> dict[str, Any]:
-    """The setting as `GET …/settings/schema/` and the options endpoints show it."""
+def schema_entry(spec: SettingSpec, organization_type: str = "") -> dict[str, Any]:
+    """The setting as `GET …/settings/schema/` and the options endpoints show it,
+    in the words of the organization's type when its product gave some.
+
+    The registry's own entry, not the caller's: options endpoints pass their
+    module's constants, and a product's words live in the registry."""
+    spec = _keys.get(spec.key, spec)
+    help_text = typed_text(f"setting:{spec.key}.help", spec.help, organization_type)
     return {
         "key": spec.key,
         "type": spec.type,
@@ -322,19 +328,205 @@ def schema_entry(spec: SettingSpec) -> dict[str, Any]:
         "maximum": spec.maximum,
         "unit": spec.unit,
         "values": (
-            [{"value": value, "label": dict(labels)} for value, labels in spec.values]
+            [
+                {
+                    "value": value,
+                    "label": dict(
+                        typed_text(f"setting:{spec.key}.value:{value}", labels, organization_type)
+                        or labels
+                    ),
+                }
+                for value, labels in spec.values
+            ]
             if spec.type == "enum"
             else None
         ),
         "default": spec.default,
-        "label": dict(spec.label),
-        "help": dict(spec.help) if spec.help else None,
+        "label": dict(
+            typed_text(f"setting:{spec.key}.label", spec.label, organization_type) or spec.label
+        ),
+        "help": dict(help_text) if help_text else None,
         "description": spec.model_description,
         "scopes": list(spec.scopes),
         "strategy": spec.strategy,
         "max_length": spec.max_length,
         "depends_on": f"{spec.group}.{spec.depends_on}" if spec.depends_on else None,
     }
+
+
+#: As each module registered them, before a product's words.
+_base_groups: dict[str, SettingGroup] = {}
+_base_areas: dict[str, SettingArea] = {}
+#: Words for one organization type, laid over what its organizations read.
+_type_words: dict[str, dict[str, Mapping[str, str]]] = {}
+_TEXT_FIELDS = {"area": ("title", "description"), "group": ("title", "description")}
+
+
+def relabel_settings(
+    words: Mapping[str, Mapping[str, str]], *, organization_type: str | None = None
+) -> None:
+    """A product's words for registry texts a company reads in its panel and the
+    assistant reads in its commands — a practice's „E-maile do pacjentów” where
+    core says „E-maile do klientów” (UX-082). Called from the product's
+    vertical `AppConfig.ready`, after every module registered its groups.
+
+    Addresses: `area:<key>.title|description`, `group:<key>.title|description`,
+    `setting:<key>.label|help`, `setting:<key>.value:<value>`; each text in pl
+    and en. Only words: keys, types, values and everything else stay. An
+    address nobody registered stops the start, like a broken declaration.
+
+    Without `organization_type` the registry itself takes the words, so the
+    schema, the options, the commands and the deployment's manifest all say
+    them (`unrelabeled_group` keeps core's for the core manifest). With one,
+    only that type's organizations read them, through the schema API.
+    """
+    problems = [
+        f"{address}: {problem}"
+        for address, texts in words.items()
+        for problem in _relabel_problems(address, texts)
+    ]
+    if problems:
+        raise ImproperlyConfigured("Słowa produktu w ustawieniach: " + "; ".join(problems))
+    if organization_type is not None:
+        _type_words.setdefault(organization_type, {}).update({
+            address: dict(texts) for address, texts in words.items()
+        })
+        return
+    changed: set[str] = set()
+    for address, texts in words.items():
+        kind, key, attribute, value = _address(address)
+        text = dict(texts)
+        if kind == "area":
+            area = _areas[key]
+            _base_areas.setdefault(key, area)
+            _areas[key] = (
+                replace(area, title=text)
+                if attribute == "title"
+                else replace(area, description=text)
+            )
+        elif kind == "group":
+            group = _groups[key]
+            _replace_group(
+                replace(group, title=text)
+                if attribute == "title"
+                else replace(group, description=text)
+            )
+            changed.add(key)
+        else:
+            _replace_spec(_keys[key], attribute, value, text)
+            changed.add(_keys[key].group)
+    _retitle_commands(changed)
+
+
+def unrelabeled_group(key: str) -> SettingGroup:
+    """The group as its module registered it: core's words, for core's manifest."""
+    return _base_groups.get(key, _groups[key])
+
+
+def relabeled_group_keys() -> frozenset[str]:
+    """The groups whose words the product changed for every organization."""
+    return frozenset(key for key, base in _base_groups.items() if _groups[key] != base)
+
+
+def words_type(organization_id: Any) -> str:
+    """The organization's type when some type has words of its own; "" — and no
+    query — when none has."""
+    if not _type_words:
+        return ""
+    from .models import Organization  # noqa: PLC0415
+
+    return (
+        Organization.objects.filter(pk=organization_id)
+        .values_list("organization_type", flat=True)
+        .first()
+        or ""
+    )
+
+
+def typed_text(
+    address: str, texts: Mapping[str, str] | None, organization_type: str = ""
+) -> Mapping[str, str] | None:
+    """`texts`, or the organization type's words for that address."""
+    return _type_words.get(organization_type, {}).get(address, texts)
+
+
+def _replace_group(changed: SettingGroup) -> None:
+    _base_groups.setdefault(changed.key, _groups[changed.key])
+    _groups[changed.key] = changed
+    for spec in changed.settings:
+        _keys[spec.key] = spec
+
+
+def _replace_spec(spec: SettingSpec, attribute: str, value: str, text: dict[str, str]) -> None:
+    if attribute == "value":
+        relabelled = replace(
+            spec,
+            values=tuple((one, text if one == value else labels) for one, labels in spec.values),
+        )
+    elif attribute == "label":
+        relabelled = replace(spec, label=text)
+    else:
+        relabelled = replace(spec, help=text)
+    group = _groups[spec.group]
+    _replace_group(
+        replace(
+            group,
+            settings=tuple(
+                relabelled if one.key == relabelled.key else one for one in group.settings
+            ),
+        )
+    )
+
+
+def _retitle_commands(group_keys: set[str]) -> None:
+    """A group's commands quote its title and description: they take the new
+    words too, and only the words (`retitle_command`)."""
+    from .command_registry import command, retitle_command  # noqa: PLC0415
+    from .settings_commands import group_commands  # noqa: PLC0415
+
+    for key in sorted(group_keys):
+        group = _groups[key]
+        if group.commands is None:
+            continue
+        for spec in group_commands(group):
+            try:
+                command(spec.key)
+            except UnknownCommand:
+                continue  # Declared but served by its module's own commands.
+            retitle_command(
+                spec.key,
+                title=spec.title,
+                summary=spec.summary,
+                model_description=spec.model_description,
+            )
+
+
+def _address(address: str) -> tuple[str, str, str, str]:
+    """`kind:key.attribute` → (kind, key, attribute, value)."""
+    kind, _, rest = address.partition(":")
+    if kind == "setting" and ".value:" in rest:
+        key, _, value = rest.rpartition(".value:")
+        return kind, key, "value", value
+    key, _, attribute = rest.rpartition(".")
+    return kind, key, attribute, ""
+
+
+def _relabel_problems(address: str, texts: Mapping[str, str]) -> list[str]:
+    kind, key, attribute, value = _address(address)
+    problems = [] if _localized(texts) else ["tekst wymaga pl i en"]
+    if kind in _TEXT_FIELDS:
+        registry: Mapping[str, Any] = _areas if kind == "area" else _groups
+        if key not in registry or attribute not in _TEXT_FIELDS[kind]:
+            problems.append("nie ma takiego tekstu w rejestrze")
+    elif kind == "setting":
+        spec = _keys.get(key)
+        if spec is None or attribute not in ("label", "help", "value"):
+            problems.append("nie ma takiego tekstu w rejestrze")
+        elif attribute == "value" and value not in {one for one, _ in spec.values}:
+            problems.append("nie ma takiej wartości")
+    else:
+        problems.append("adres to area:, group: albo setting:")
+    return problems
 
 
 def _group_problems(group: SettingGroup) -> list[str]:

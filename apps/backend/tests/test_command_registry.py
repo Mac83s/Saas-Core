@@ -25,6 +25,7 @@ from saas_core.modules.core.organizations.command_registry import (
     command_tools,
     register_command,
     registered_commands,
+    retitle_command,
 )
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
@@ -105,6 +106,36 @@ def test_the_same_declaration_may_register_twice_and_a_different_one_may_not() -
 
     with pytest.raises(ImproperlyConfigured, match="zarejestrowane inaczej"):
         register_command(spec(risk="publish"))
+
+
+def test_a_product_retitles_a_command_and_nothing_else() -> None:
+    """`relabel_settings` (UX-082): a product's words for a command another
+    module registered; its name, schemas, risk and run stay the very same."""
+    register_command(spec())
+    before = command(spec().key)
+    title = {"pl": "Odczytaj ustawienia gabinetu", "en": "Read the practice's settings"}
+    summary = {"pl": "Ustawienia gabinetu.", "en": "The practice's settings."}
+
+    retitle_command(before.key, title=title, summary=summary, model_description="Reads them.")
+    after = command(before.key)
+    assert (after.title, after.summary, after.model_description) == (
+        title,
+        summary,
+        "Reads them.",
+    )
+    assert after.input_schema is before.input_schema
+    assert after.output_schema is before.output_schema
+    assert (after.run, after.risk, after.tool_name) == (before.run, before.risk, before.tool_name)
+    # The same words again are no change, like registering the same declaration.
+    retitle_command(before.key, title=title, summary=summary, model_description="Reads them.")
+    assert command(before.key) == after
+
+    with pytest.raises(ImproperlyConfigured):
+        retitle_command(
+            before.key, title={"pl": "", "en": "Read"}, summary=summary, model_description="x"
+        )
+    with pytest.raises(UnknownCommand):
+        retitle_command("nobody.read@1", title=title, summary=summary, model_description="x")
 
 
 def test_two_names_with_one_tool_name_are_refused() -> None:

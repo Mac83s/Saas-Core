@@ -590,3 +590,36 @@ wejścia API i poleceń.
   kto redaguje stronę; każdy w języku swojego panelu. Wybór konkretnych osób i
   zweryfikowanego e-maila czeka na typ „lista” w rejestrze.
 
+
+## Uzupełnienie 2026-10-03 — słowa produktu w rejestrze (UX-082)
+
+Teksty rejestru (tytuły i opisy obszarów i grup, etykiety, podpowiedzi i etykiety
+wartości ustawień) są w pl/en w deklaracji modułu, więc produkt nie nadpisze ich
+plikiem komunikatów, a gabinet czytał „E-maile do klientów” i „Klient może wybrać”.
+Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest poleceń):
+
+1. **`relabel_settings(words, organization_type=None)`** z `core.organizations.api`
+   woła wertykał produktu w `AppConfig.ready` (wertykały są ostatnie w
+   `INSTALLED_APPS`, więc wszystkie grupy już są). Adresy: `area:<klucz>.title|description`,
+   `group:<klucz>.title|description`, `setting:<klucz>.label|help`,
+   `setting:<klucz>.value:<wartość>`; każdy tekst w pl i en. Zmieniają się wyłącznie
+   słowa — nigdy klucze, typy, wartości, domyślne, uprawnienia ani zasięgi. Adres,
+   którego nikt nie zarejestrował, albo tekst bez pl/en zatrzymuje start, a błędna
+   mapa nie zmienia niczego.
+2. **Poziom produktu** (bez typu) podmienia wpisy rejestru, więc te same słowa widzą
+   schemat, endpointy opcji (`schema_entry` czyta wpis rejestru, nie stałą modułu),
+   historia, wyszukiwarka i polecenia asystenta — `retitle_command` zmienia im tylko
+   teksty (tytuł, opis, opis dla modelu). Słowa rdzenia zostają pod
+   `unrelabeled_group`, a `relabeled_group_keys` mówi, które grupy produkt zmienił:
+   `manifest.json` zostaje w słowach rdzenia, a różnice trafiają do
+   `manifest.product.json` (generator — development-1b). Sformułowania manifestu
+   asystenta są więc per produkt.
+3. **Poziom typu** (`organization_type="farm"`) to nakładka czytana tylko dla
+   organizacji tego typu: schemat ustawień i opis zmian w podglądzie polecenia.
+   Rejestr, polecenia i manifest zostają przy słowach produktu.
+4. **Czego to nie obejmuje:** wolnych tekstów w kodzie — opisów skutków
+   („N osób w firmie straci dostęp”), komunikatów odmowy („Skontaktuj się z firmą”)
+   i szablonów e-maili. Te zostają słowami rdzenia; gdy produkt będzie ich
+   potrzebował, dostaną własny mechanizm. Teksty pomocy w kontrakcie OpenAPI
+   (serializery biorą je ze stałych) zostają słowami rdzenia — to opis API, nie
+   ekranu.

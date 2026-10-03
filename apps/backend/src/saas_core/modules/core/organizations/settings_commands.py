@@ -14,9 +14,16 @@ from collections.abc import Mapping
 from typing import Any
 
 from .command_registry import CommandSpec, Effect, Preview
-from .context import TenantContext
+from .context import TenantContext, require_tenant_context
 from .permissions import ORGANIZATION_READ
-from .settings_registry import SettingGroup, SettingSpec, group_for_command
+from .settings_registry import (
+    SettingGroup,
+    SettingSpec,
+    group_for_command,
+    setting_group,
+    typed_text,
+    words_type,
+)
 from .settings_service import change_settings, group_locked, read_group
 
 
@@ -52,9 +59,20 @@ def group_commands(group: SettingGroup) -> tuple[CommandSpec, CommandSpec]:
             expected_version=current.version,
             preview=True,
         )
+        # The labels as this organization reads them: the registry's now, and
+        # its type's own words when its product gave some (UX-082).
+        current_group = setting_group(group.key)
+        kind = words_type(require_tenant_context().organization_id)
+
+        def label(field: str, language: str) -> str:
+            spec = current_group.spec(field)
+            return (typed_text(f"setting:{spec.key}.label", spec.label, kind) or spec.label)[
+                language
+            ]
+
         summary = {
             language: "; ".join(
-                f"{group.spec(field).label[language]}: {change['from']} → {change['to']}"
+                f"{label(field, language)}: {change['from']} → {change['to']}"
                 for field, change in result.changes.items()
             )
             for language in ("pl", "en")
