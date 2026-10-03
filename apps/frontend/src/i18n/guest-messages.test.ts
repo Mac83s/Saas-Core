@@ -15,6 +15,7 @@ const GUEST_NAMESPACES = [
   "Catalog",
   "PublicBooking",
   "BookingSelfService",
+  "BookingPrice",
   "Marketing",
 ] as const;
 

@@ -90,7 +90,11 @@
     "status": "Status",
     "statusConfirmed": "Bestätigt",
     "addToCalendar": "Zum Kalender hinzufügen",
-    "manageHint": "Den Link zur Verwaltung der Buchung finden Sie auch in der E-Mail."
+    "manageHint": "Den Link zur Verwaltung der Buchung finden Sie auch in der E-Mail.",
+    "extrasLegend": "Zusatzleistungen",
+    "extraOption": "{name} — {amount}{basis, select, per_person { pro Person} per_time_unit { pro Tag} per_person_per_time_unit { pro Person und Tag} other {}}",
+    "extraQuantity": "{name}: Anzahl",
+    "priceChanged": "Der Preis hat sich geändert, bevor wir Ihre Buchung gespeichert haben. Prüfen Sie den neuen Preis und bestätigen Sie erneut."
   },
   "BookingSelfService": {
     "changesUntil": "Sie können den Termin bis {when} ändern oder absagen.",
@@ -108,7 +112,9 @@
     "canceled": "abgesagt",
     "no_show": "nicht erschienen",
     "chosenTeam": "Gewähltes Team: {team}",
-    "seenBy": "Sie werden betreut von: {name}"
+    "seenBy": "Sie werden betreut von: {name}",
+    "newPrice": "Zu dieser Zeit gilt ein anderer Preis. Prüfen Sie ihn, bevor Sie den Termin verschieben.",
+    "rescheduleAtPrice": "Zu diesem Preis verschieben"
   },
   "Marketing": {
     "nav": {
@@ -153,5 +159,12 @@
       "home": "Startseite",
       "catalog": "Firmenverzeichnis"
     }
+  },
+  "BookingPrice": {
+    "title": "Preis",
+    "total": "Gesamt",
+    "times": "{name} × {count}",
+    "deposit": "Rückzahlbare Kaution: {amount}",
+    "payOnSite": "Zahlung vor Ort."
   }
 }
