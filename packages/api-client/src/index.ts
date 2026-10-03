@@ -571,6 +571,20 @@ export async function listSessions(): Promise<SessionSummary[]> {
   return data;
 }
 
+/** Signs out on every other device; this session stays. How many ended. */
+export async function revokeOtherSessions(): Promise<number> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/auth/sessions/others/revoke/",
+    {
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok || !data) throwProblem(error, response);
+  return data.ended;
+}
+
 export async function revokeSession(sessionId: string): Promise<void> {
   const csrfToken = await getCsrfToken();
   const { error, response } = await client.DELETE(

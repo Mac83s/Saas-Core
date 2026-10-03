@@ -36,6 +36,7 @@ from .serializers import (
     PasswordResetResultSerializer,
     ProblemDetailsSerializer,
     RegistrationSerializer,
+    SessionsEndedSerializer,
     SessionSummarySerializer,
     StepUpResultSerializer,
     StepUpSerializer,
@@ -58,6 +59,7 @@ from .sessions import (
     complete_mfa_login,
     login_user,
     logout_user,
+    revoke_other_sessions,
     revoke_user_session,
 )
 from .step_up import confirm_step_up
@@ -376,6 +378,28 @@ class SessionRevokeView(ProtectedIdentityView):
             session_id=session_id,
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SessionRevokeOthersView(ProtectedIdentityView):
+    @extend_schema(
+        operation_id="identity_sessions_revoke_others",
+        summary="Sign out on every other device",
+        description="Ends every live session of the signed-in person except the one "
+        "making the request, at once (UX-054). Returns how many ended; zero when "
+        "there were none. One audit entry records it.",
+        request=None,
+        responses={200: SessionsEndedSerializer, 403: ProblemDetailsSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Repeating it ends nothing more: the other sessions "
+                "are already over.",
+            }
+        },
+    )
+    def post(self, request: Request) -> Response:
+        ended = revoke_other_sessions(request=cast(HttpRequest, request))
+        return Response({"ended": ended})
 
 
 def _user_summary(user: User) -> dict[str, Any]:

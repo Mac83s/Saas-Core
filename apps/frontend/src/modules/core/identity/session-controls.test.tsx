@@ -16,7 +16,11 @@ import type { SessionSummary } from "@saas-core/api-client";
 import { SessionManager } from "./session-controls";
 
 const { api, router } = vi.hoisted(() => ({
-  api: { listSessions: vi.fn(), revokeSession: vi.fn() },
+  api: {
+    listSessions: vi.fn(),
+    revokeSession: vi.fn(),
+    revokeOtherSessions: vi.fn(),
+  },
   router: { replace: vi.fn(), refresh: vi.fn() },
 }));
 
@@ -127,4 +131,38 @@ test("bez sesji mówi, że nie ma aktywnych urządzeń", async () => {
   renderManager();
 
   expect(await screen.findByText("Brak aktywnych sesji.")).toBeInTheDocument();
+});
+
+test("czytelne nazwy, powtórzenia w jednym wierszu i wylogowanie pozostałych (UX-054)", async () => {
+  const chrome =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36";
+  api.listSessions.mockResolvedValue([
+    current,
+    ...[1, 2, 3].map((n) => ({
+      ...phone,
+      id: `019ff20d-a000-7000-8000-00000000006${n}`,
+      device_label: chrome,
+      last_seen_at: `2026-09-2${n}T08:00:00Z`,
+    })),
+    {
+      ...phone,
+      id: "019ff20d-a000-7000-8000-000000000070",
+      device_label: "node",
+    },
+  ]);
+  api.revokeOtherSessions.mockResolvedValue(4);
+  renderManager();
+
+  expect(await screen.findByText("Chrome 154 · Windows")).not.toBeNull();
+  expect(screen.getByText("3 sesje")).not.toBeNull();
+  expect(screen.getByText("Skrypt / API")).not.toBeNull();
+  expect(screen.queryByText(/Mozilla/)).toBeNull();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Wyloguj pozostałe urządzenia" }),
+  );
+  await waitFor(() => expect(api.revokeOtherSessions).toHaveBeenCalledOnce());
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Wylogowano 4 inne sesje.",
+  );
 });

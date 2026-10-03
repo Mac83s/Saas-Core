@@ -10,6 +10,7 @@ from .views import (
     PasswordResetRequestView,
     RegistrationView,
     SessionListView,
+    SessionRevokeOthersView,
     SessionRevokeView,
     StepUpView,
     TotpConfirmView,
@@ -43,6 +44,11 @@ urlpatterns = [
     ),
     path("me/", CurrentUserView.as_view(), name="identity-me"),
     path("sessions/", SessionListView.as_view(), name="identity-session-list"),
+    path(
+        "sessions/others/revoke/",
+        SessionRevokeOthersView.as_view(),
+        name="identity-session-revoke-others",
+    ),
     path(
         "sessions/<uuid:session_id>/",
         SessionRevokeView.as_view(),

@@ -3311,7 +3311,16 @@
     "colActions": "Działania",
     "actionsFor": "Działania: {device}",
     "ending": "Kończenie…",
-    "logout": "Wyloguj"
+    "logout": "Wyloguj",
+    "script": "Skrypt / API",
+    "automated": "{browser} (automatyczny)",
+    "unknownDevice": "Nieznane urządzenie",
+    "sessionCount": "{count, plural, few {# sesje} many {# sesji} other {# sesji}}",
+    "logoutOthers": "Wyloguj pozostałe urządzenia",
+    "endingOthers": "Wylogowywanie…",
+    "othersEnded": "{count, plural, =0 {Nie było innych sesji.} one {Wylogowano # inne urządzenie.} few {Wylogowano # inne sesje.} many {Wylogowano # innych sesji.} other {Wylogowano # innej sesji.}}",
+    "showAll": "Pokaż wszystkie ({count})",
+    "showFewer": "Pokaż mniej"
   },
   "Organizations": {
     "title": "Organizacje",

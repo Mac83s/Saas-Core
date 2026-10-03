@@ -541,6 +541,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/auth/sessions/others/revoke/:
+    post:
+      operationId: identity_sessions_revoke_others
+      description: Ends every live session of the signed-in person except the one
+        making the request, at once (UX-054). Returns how many ended; zero when there
+        were none. One audit entry records it.
+      summary: Sign out on every other device
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsEnded'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Repeating it ends nothing more: the other sessions are already
+          over.'
   /api/v1/auth/step-up/:
     post:
       operationId: identity_step_up_create
@@ -33506,6 +33533,14 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SessionsEnded:
+      type: object
+      properties:
+        ended:
+          type: integer
+          description: How many other sessions ended.
+      required:
+      - ended
     SettingArea:
       type: object
       properties:

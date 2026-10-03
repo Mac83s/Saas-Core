@@ -231,7 +231,8 @@ def _select_only_organization(*, request: HttpRequest, user: User) -> None:
     # one. Selecting the only organization is the same question as the
     # switcher's, asked one step earlier.
     organization_ids = list(
-        Membership.objects.using(PRE_TENANT_DB).filter(
+        Membership.objects.using(PRE_TENANT_DB)
+        .filter(
             user=user,
             status=MembershipStatus.ACTIVE,
             organization__status__in=WORKING_ORGANIZATION_STATUSES,
@@ -356,6 +357,34 @@ def revoke_user_session(
         },
     )
     return is_current
+
+
+def revoke_other_sessions(*, request: HttpRequest) -> int:
+    """Signs the person out everywhere but here (UX-054): every other live
+    session of theirs ends at once; this one stays."""
+    user = cast(User, request.user)
+    assert user.pk is not None
+    current = request.session.get(MANAGED_SESSION_KEY)
+    others = UserSession.objects.filter(user_id=user.pk, revoked_at__isnull=True)
+    if current:
+        others = others.exclude(pk=current)
+    ended = others.update(revoked_at=timezone.now())
+    if ended:
+        AccountAuditEvent.objects.create(
+            event_type=AccountAuditEventType.SESSION_REVOKED,
+            subject_user=user,
+            actor_user=user,
+            correlation_id=getattr(request, "correlation_id", None),
+        )
+        logger.info(
+            "identity_other_sessions_revoked",
+            extra={
+                "security_event": "identity.session_revoked",
+                "user_id": str(user.pk),
+                "sessions": ended,
+            },
+        )
+    return ended
 
 
 def _client_ip(request: HttpRequest) -> str:

@@ -136,6 +136,28 @@ def test_user_can_list_and_revoke_another_device() -> None:
     assert UserSession.objects.get(pk=phone["id"]).revoked_at is not None
 
 
+def test_sign_out_elsewhere_ends_every_other_session_and_keeps_this_one() -> None:
+    user = active_user("elsewhere@example.com")
+    here = APIClient(enforce_csrf_checks=True)
+    phone = APIClient(enforce_csrf_checks=True)
+    tablet = APIClient(enforce_csrf_checks=True)
+    for client, agent in ((here, "Laptop"), (phone, "Telefon"), (tablet, "Tablet")):
+        assert login(client, user.email, user_agent=agent).status_code == 200
+
+    ended = here.post(f"{SESSIONS_URL}others/revoke/", HTTP_X_CSRFTOKEN=csrf_value(here))
+
+    assert ended.status_code == 200
+    assert ended.data == {"ended": 2}
+    assert here.get(ME_URL).status_code == 200
+    assert phone.get(ME_URL).status_code == 403
+    assert tablet.get(ME_URL).status_code == 403
+    # Nothing left to end: a repeat changes nothing.
+    again = here.post(f"{SESSIONS_URL}others/revoke/", HTTP_X_CSRFTOKEN=csrf_value(here))
+    assert again.data == {"ended": 0}
+    # Without CSRF the request is refused like any other change.
+    assert here.post(f"{SESSIONS_URL}others/revoke/").status_code == 403
+
+
 def test_logout_revokes_current_session_and_removes_authentication() -> None:
     user = active_user("logout@example.com")
     client = APIClient(enforce_csrf_checks=True)

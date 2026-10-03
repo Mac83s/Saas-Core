@@ -233,6 +233,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sessions/others/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out on every other device
+         * @description Ends every live session of the signed-in person except the one making the request, at once (UX-054). Returns how many ended; zero when there were none. One audit entry records it.
+         */
+        post: operations["identity_sessions_revoke_others"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/step-up/": {
         parameters: {
             query?: never;
@@ -12335,6 +12355,10 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
+        SessionsEnded: {
+            /** @description How many other sessions ended. */
+            ended: number;
+        };
         SettingArea: {
             /** @description The area, e.g. security; a group's `area` names it. */
             key: string;
@@ -14447,6 +14471,33 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    identity_sessions_revoke_others: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionsEnded"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

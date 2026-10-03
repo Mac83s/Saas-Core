@@ -3311,7 +3311,16 @@
     "colActions": "Actions",
     "actionsFor": "Actions: {device}",
     "ending": "Ending…",
-    "logout": "Log out"
+    "logout": "Log out",
+    "script": "Script / API",
+    "automated": "{browser} (automated)",
+    "unknownDevice": "Unknown device",
+    "sessionCount": "{count, plural, one {# session} other {# sessions}}",
+    "logoutOthers": "Sign out other devices",
+    "endingOthers": "Signing out…",
+    "othersEnded": "{count, plural, =0 {There were no other sessions.} one {Signed out # other session.} other {Signed out # other sessions.}}",
+    "showAll": "Show all ({count})",
+    "showFewer": "Show fewer"
   },
   "Organizations": {
     "title": "Organizations",

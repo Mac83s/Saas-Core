@@ -137,6 +137,10 @@ class UserUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     last_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
 
 
+class SessionsEndedSerializer(serializers.Serializer[dict[str, Any]]):
+    ended = serializers.IntegerField(help_text="How many other sessions ended.")
+
+
 class SessionSummarySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     device_label = serializers.CharField()
