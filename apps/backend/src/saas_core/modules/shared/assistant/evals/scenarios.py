@@ -79,6 +79,8 @@ class Scenario:
     no_done_claim: bool = False
     #: The answer must contain each of these.
     says: tuple[str, ...] = ()
+    #: The answer must contain none of these.
+    never_says: tuple[str, ...] = ()
     #: How a write ends for the model.
     write_result: Mapping[str, Any] = field(default_factory=lambda: DONE)
     #: Read results that replace the defaults (an injected text, for one).
@@ -136,7 +138,9 @@ SCENARIOS: tuple[Scenario, ...] = (
         message="What time zone is my company set to?",
         calls={"organization.read@1": {}},
         no_writes=True,
-        says=("Europe/Warsaw",),
+        # As people say it (UX-019): the place, never the IANA identifier.
+        says=("Warsaw",),
+        never_says=("Europe/Warsaw",),
     ),
     Scenario(
         key="add_service_pl",

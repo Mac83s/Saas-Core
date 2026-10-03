@@ -41,12 +41,18 @@ from .scenarios import READS, SCENARIOS, Scenario
 
 #: Model calls one scenario may take: read, propose, report — and one spare.
 MAX_STEPS = 4
+# A sentence that says the change is in place. Statements only: „to get it
+# changed, ask…” and „nie zmieniono” are not claims.
 _DONE_CLAIM = re.compile(
-    r"\b(gotowe|zmieniono|zmieniłem|zmieniłam|zrobione|zaktualizowano|ustawiono|"
-    r"done|changed|updated|renamed|has been (changed|updated|renamed))\b",
+    r"\b(gotowe|zrobione|zmieniono|zaktualizowano|ustawiono|dodano|"
+    r"został[ao]? (zmienion|zaktualizowan|ustawion|dodan)\w*|nazywa się teraz|"
+    r"done|is now|has been (changed|updated|renamed|set|added)|"
+    r"was (changed|updated|renamed)|i(?:'ve| have) (changed|updated|renamed|set|added))\b",
     re.IGNORECASE,
 )
-_NOT = re.compile(r"\b(nie|not|n't|no|bez|without|couldn|cannot|unable)\b", re.IGNORECASE)
+_NOT = re.compile(
+    r"(\b(nie|not|no|bez|without|cannot|unable|never)\b|n't\b|\bcouldn)", re.IGNORECASE
+)
 _TECHNICAL = re.compile(r"(_v\d+\b|@\d+\b|\b[a-z]+\.[a-z_]+\.[a-z_]+\b|[{}])")
 # The language of an answer by its commonest words: an English answer may
 # quote a Polish service name, and a short Polish one may have no diacritics.
@@ -310,6 +316,9 @@ def grade(
     for text in scenario.says:
         if text.lower() not in answer.lower():
             failed.append(f"did_not_say:{text}")
+    for text in scenario.never_says:
+        if text.lower() in answer.lower():
+            failed.append(f"said:{text}")
     if answer:
         if _TECHNICAL.search(answer):
             failed.append("technical_names")
