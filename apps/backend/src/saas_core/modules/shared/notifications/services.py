@@ -19,7 +19,11 @@ from saas_core.modules.core.identity.mfa import has_confirmed_mfa
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import field_changes, record_audit
 from saas_core.modules.core.organizations.authorization import authorize
-from saas_core.modules.core.organizations.context import TenantContext, require_tenant_context
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    current_tenant_context,
+    require_tenant_context,
+)
 from saas_core.modules.core.organizations.events import DomainEvent
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
@@ -272,9 +276,14 @@ def list_app_notifications(*, limit: int = 20) -> tuple[list[AppNotification], i
     No permission gate: a notification was addressed to a person when it was
     created, so reading one's own inbox needs nothing further. What the tenant
     context decides is which organization's inbox that is — the same account in
-    another company sees another list.
+    another company sees another list. An account outside any company (a
+    platform operator, or one that has not chosen a company yet) has no
+    company's inbox: an empty one, not an error — the panel's bell asks on
+    every page.
     """
-    tenant = require_tenant_context()
+    tenant = current_tenant_context()
+    if tenant is None:
+        return [], 0
     mine = AppNotification.all_objects.filter(
         organization_id=tenant.organization_id, user_id=tenant.actor_id
     )
@@ -283,7 +292,9 @@ def list_app_notifications(*, limit: int = 20) -> tuple[list[AppNotification], i
 
 def mark_app_notifications_read(*, ids: list[UUID] | None = None) -> int:
     """Marks the given messages read, or all of them when none are named."""
-    tenant = require_tenant_context()
+    tenant = current_tenant_context()
+    if tenant is None:
+        return 0
     unread = AppNotification.all_objects.filter(
         organization_id=tenant.organization_id,
         user_id=tenant.actor_id,

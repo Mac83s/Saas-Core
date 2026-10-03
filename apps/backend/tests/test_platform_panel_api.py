@@ -158,3 +158,15 @@ def test_a_preview_counts_the_companies_with_no_value_of_their_own() -> None:
     assert preview.data["companies_following"] == Organization.objects.count() - 1
     assert platform_only.data["companies_following"] is None
     assert (wrong.status_code, unknown.status_code) == (400, 400)
+
+
+def test_an_operator_without_a_company_has_an_empty_inbox_not_an_error() -> None:
+    """The panel's bell asks on every page; an account outside any company
+    has no company's inbox (found by the browser walk-through of „Platforma")."""
+    operator, _secret = operator_after_enrolment()
+
+    inbox = operator.get("/api/v1/notifications/inbox/")
+    read = _post(operator, "/api/v1/notifications/inbox/read/", {})
+
+    assert (inbox.status_code, inbox.data["items"], inbox.data["unread"]) == (200, [], 0)
+    assert read.status_code == 200
