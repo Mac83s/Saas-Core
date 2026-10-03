@@ -1,4 +1,4 @@
-"""Evals of the assistant's service and working-hours commands
+"""Evals of the assistant's service, place and working-hours commands
 (`shared/booking/command_declarations.py`, ADR-072 §11)."""
 
 from __future__ import annotations
@@ -73,6 +73,11 @@ def _state(context: TenantContext) -> dict[str, Any]:
         "services": sorted(
             Service.all_objects.filter(organization_id=organization_id).values_list(
                 "name", "duration_minutes", "active", "version"
+            )
+        ),
+        "places": sorted(
+            Location.all_objects.filter(organization_id=organization_id).values_list(
+                "name", "address", "active", "version"
             )
         ),
         "hours": sorted(
@@ -153,6 +158,25 @@ EVALS = {
         wrong_field="public_staff_choice",
         stale=lambda context: (
             Service.all_objects.filter(organization_id=context.organization_id).update(
+                version=F("version") + 1
+            )
+            and None
+        ),
+        state=_state,
+        prepare=_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.location.save@1": CommandEval(
+        arguments=lambda context: {
+            "location_id": str(_first(Location, context).id),
+            "name": "Centrum, parter",
+            "address": "ul. Długa 1, Olsztyn",
+        },
+        # A new place without a name: refused by the panel's own serializer.
+        wrong_arguments={"location_id": None, "name": None, "address": "ul. Długa 1"},
+        wrong_field="name",
+        stale=lambda context: (
+            Location.all_objects.filter(organization_id=context.organization_id).update(
                 version=F("version") + 1
             )
             and None

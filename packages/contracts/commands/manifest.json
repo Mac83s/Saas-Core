@@ -1,6 +1,91 @@
 {
   "commands": [
     {
+      "command": "booking.location.save@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "Street address, up to 240 characters; an empty text clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location_id": {
+            "description": "The place to change; null adds a new place.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The place's name as customers see it, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "location_id",
+          "name",
+          "address"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds a place where the company works and takes visits, or changes one: its name and street address. Pass location_id null to add a place (name is then required), or an id from booking.setup.read to change that place, with null for a field that stays as it is. A new place is switched on and shown in online booking; this cannot switch a place off or hide it, which the person does in the panel. A place takes visits once a service is offered there (location_ids of booking.offer.create or booking.offer.update) and someone works there (booking.staff.hours.set).",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "address": {
+            "type": "string"
+          },
+          "location_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "The name and address of a place where the company takes visits.",
+        "pl": "Nazwa i adres miejsca, w którym firma przyjmuje."
+      },
+      "title": {
+        "en": "Add or change a place",
+        "pl": "Dodaj albo zmień miejsce"
+      },
+      "tool_name": "booking_location_save_v1",
+      "undo": "command:booking.location.save@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "booking.offer.create@1",
       "entitlement": "booking.enabled",
       "exposure": [

@@ -1,10 +1,13 @@
-"""The assistant's commands for services and working hours (ADR-076 §1, A1b-12).
+"""The assistant's commands for services, places and working hours (ADR-076 §1,
+A1b-12, A2).
 
 Thin adapters over the setup services the panel's Ustawienia › Usługi i grafik
 calls (ADR-072 §11): the same validation, the same preview — the write run in a
 savepoint that is rolled back — the same receipt per key and the same version
 check. A service the assistant creates is always switched off: switching it on
-makes it bookable by the public, which is the person's own step.
+makes it bookable by the public, which is the person's own step. A place is
+added the way the panel adds one — switched on and shown in online booking —
+so adding one takes the click of a change to working configuration.
 """
 
 from __future__ import annotations
@@ -17,15 +20,17 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
 
-from .models import Service, StaffChoice
+from .models import Location, Service, StaffChoice
 from .offer_settings import SLOT_STEPS
 from .serializers import (
     PersonHoursInputSerializer,
+    PlaceInputSerializer,
+    PlaceUpdateSerializer,
     ServiceInputSerializer,
     ServiceUpdateSerializer,
 )
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
-from .setup import list_setup, save_service
+from .setup import list_setup, save_location, save_service
 from .staff import person_detail, set_person_hours
 from .views import _place_payload, _resource_payload, _service_setup_payload
 
@@ -45,6 +50,9 @@ _SERVICE_FIELDS = (
     "location_ids",
     "resource_ids",
 )
+#: What the assistant may set on a place; `active` and `online` stay the
+#: person's (switching a place off, hiding it from the site's form).
+_PLACE_FIELDS = ("name", "address")
 _IDS = {"type": ["array", "null"], "items": {"type": "string"}}
 
 
@@ -249,6 +257,100 @@ def _update(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
     }
 
 
+# booking.location.save@1
+
+
+def _current_place(arguments: Mapping[str, Any], call: Any) -> Location | None:
+    if arguments["location_id"] is None:
+        return None
+    found = Location.all_objects.filter(
+        organization_id=call.context.organization_id, pk=_id(arguments, "location_id")
+    ).first()
+    if found is None:
+        raise NotFound("Nie ma takiego miejsca.")
+    return found
+
+
+def _place_data(arguments: Mapping[str, Any], version: int | None) -> dict[str, Any]:
+    given = _given(arguments, _PLACE_FIELDS)
+    serializer = (
+        PlaceInputSerializer(data=given)
+        if version is None
+        else PlaceUpdateSerializer(data={**given, "expected_version": version})
+    )
+    serializer.is_valid(raise_exception=True)
+    data = dict(serializer.validated_data)
+    data.pop("expected_version", None)
+    return data
+
+
+def _preview_place(arguments: Mapping[str, Any], call: Any) -> Preview:
+    place = _current_place(arguments, call)
+    if place is None:
+        data = _place_data(arguments, None)
+        save_location(location_id=None, data=dict(data), preview=True)
+        name = data["name"]
+        # No id before the save, as with a new service; and no address in the
+        # words of a consent — the audit keeps a place's address out as well.
+        return Preview(
+            effects=(
+                _effect(
+                    "created",
+                    "booking.location",
+                    "",
+                    f"Nowe miejsce „{name}” — włączone i pokazywane w rezerwacji online",
+                    f"New place “{name}” — switched on and shown in online booking",
+                ),
+            ),
+            observed_versions={},
+        )
+    saved = save_location(
+        location_id=place.id,
+        data=_place_data(arguments, place.version),
+        expected_version=place.version,
+        preview=True,
+    )
+    return Preview(
+        effects=(
+            _effect(
+                "updated",
+                "booking.location",
+                str(place.id),
+                f"Miejsce „{place.name}”: {_changed(saved.changes)}",
+                f"Place “{place.name}”: {_changed(saved.changes)}",
+            ),
+        ),
+        observed_versions={f"booking.location:{place.id}": place.version},
+    )
+
+
+def _save_place(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    if arguments["location_id"] is None:
+        saved = save_location(
+            location_id=None,
+            data=_place_data(arguments, None),
+            idempotency_key=call.idempotency_key,
+        )
+    else:
+        location_id = _id(arguments, "location_id")
+        version = call.preview.observed_versions[f"booking.location:{location_id}"]
+        saved = save_location(
+            location_id=location_id,
+            data=_place_data(arguments, version),
+            expected_version=version,
+            idempotency_key=call.idempotency_key,
+        )
+    place = saved.value
+    return {
+        "location_id": str(place.id),
+        "name": place.name,
+        "address": place.address,
+        "active": place.active,
+        "online": place.online,
+        "version": place.version,
+    }
+
+
 # booking.staff.hours.set@1
 
 
@@ -407,6 +509,59 @@ OFFER_UPDATE = CommandSpec(
     version_field="expected_version",
 )
 
+LOCATION_SAVE = CommandSpec(
+    name="booking.location.save",
+    version=1,
+    module="shared.booking",
+    title={"pl": "Dodaj albo zmień miejsce", "en": "Add or change a place"},
+    summary={
+        "pl": "Nazwa i adres miejsca, w którym firma przyjmuje.",
+        "en": "The name and address of a place where the company takes visits.",
+    },
+    model_description=(
+        "Adds a place where the company works and takes visits, or changes one: its name "
+        "and street address. Pass location_id null to add a place (name is then required), "
+        "or an id from booking.setup.read to change that place, with null for a field that "
+        "stays as it is. A new place is switched on and shown in online booking; this "
+        "cannot switch a place off or hide it, which the person does in the panel. A place "
+        "takes visits once a service is offered there (location_ids of booking.offer.create "
+        "or booking.offer.update) and someone works there (booking.staff.hours.set)."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["location_id", *_PLACE_FIELDS],
+        "properties": {
+            "location_id": _nullable("string", "The place to change; null adds a new place."),
+            "name": _nullable(
+                "string", "The place's name as customers see it, up to 160 characters."
+            ),
+            "address": _nullable(
+                "string", "Street address, up to 240 characters; an empty text clears it."
+            ),
+        },
+    },
+    output_schema={
+        "type": "object",
+        "x-data-class": "public",
+        "properties": {
+            "location_id": {"type": "string"},
+            "name": {"type": "string"},
+            "address": {"type": "string"},
+            "active": {"type": "boolean"},
+            "online": {"type": "boolean"},
+            "version": {"type": "integer"},
+        },
+    },
+    permission=BOOKING_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    risk="apply",
+    run=_save_place,
+    undo="command:booking.location.save@1",
+    preview=_preview_place,
+    version_field="expected_version",
+)
+
 STAFF_HOURS_SET = CommandSpec(
     name="booking.staff.hours.set",
     version=1,
@@ -461,5 +616,5 @@ STAFF_HOURS_SET = CommandSpec(
 
 
 def register_booking_commands() -> None:
-    for spec in (SETUP_READ, OFFER_CREATE, OFFER_UPDATE, STAFF_HOURS_SET):
+    for spec in (SETUP_READ, OFFER_CREATE, OFFER_UPDATE, LOCATION_SAVE, STAFF_HOURS_SET):
         register_command(spec)
