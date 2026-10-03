@@ -7,8 +7,12 @@ after of a change apart from the rest of the metadata.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import defaultdict
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from .audit import PANEL_PRINCIPAL
 from .authorization import authorize
@@ -23,10 +27,50 @@ _API_KEY_PRINCIPAL = "api_key"
 
 
 @dataclass(frozen=True, slots=True)
+class HistoryTarget:
+    """What a history row is about, for people (UX-055): „Dodano gospodarstwo:
+    Ferma Pod Lasem”, not four identical rows. `at` is the object's own time
+    (a visit's start); `href` is where the panel shows it, when it does."""
+
+    label: str
+    href: str = ""
+    at: datetime | None = None
+
+
+#: Names the objects of one target type that still exist: (organization, ids)
+#: -> what each is called. A module registers one for its own types; a row
+#: whose object is gone, or whose type nobody names, stays without a name.
+#: Never a customer's name or contact: the history is read by whoever manages
+#: settings, not by whoever may see every visit.
+TargetNamer = Callable[[UUID, Sequence[UUID]], Mapping[UUID, HistoryTarget]]
+
+_target_namers: dict[str, TargetNamer] = {}
+
+
+def register_history_target(target_type: str, namer: TargetNamer) -> None:
+    _target_namers[target_type] = namer
+
+
+def _name_targets(
+    organization_id: UUID, entries: Sequence[OrganizationAuditEntry]
+) -> dict[tuple[str, UUID], HistoryTarget]:
+    wanted: dict[str, set[UUID]] = defaultdict(set)
+    for entry in entries:
+        if entry.target_id is not None and entry.target_type in _target_namers:
+            wanted[entry.target_type].add(entry.target_id)
+    return {
+        (target_type, target_id): target
+        for target_type, ids in wanted.items()
+        for target_id, target in _target_namers[target_type](organization_id, sorted(ids)).items()
+    }
+
+
+@dataclass(frozen=True, slots=True)
 class HistoryPage:
     total: int
     entries: list[OrganizationAuditEntry]
     actions: list[str]
+    targets: dict[tuple[str, UUID], HistoryTarget] = field(default_factory=dict)
 
 
 def list_history(
@@ -45,14 +89,14 @@ def list_history(
     if group:
         rows = rows.filter(action=OrganizationAuditAction.SETTINGS_CHANGED, target_type=group)
     start = (page - 1) * page_size
+    entries = list(
+        rows.select_related("actor_user").order_by("-occurred_at", "-id")[start : start + page_size]
+    )
     return HistoryPage(
         total=rows.count(),
-        entries=list(
-            rows.select_related("actor_user").order_by("-occurred_at", "-id")[
-                start : start + page_size
-            ]
-        ),
+        entries=entries,
         actions=actions,
+        targets=_name_targets(context.organization_id, entries),
     )
 
 
@@ -83,9 +127,17 @@ def acting(entry: OrganizationAuditEntry) -> dict[str, Any] | None:
     }
 
 
-def history_item(entry: OrganizationAuditEntry) -> dict[str, Any]:
+def history_item(
+    entry: OrganizationAuditEntry,
+    targets: Mapping[tuple[str, UUID], HistoryTarget] | None = None,
+) -> dict[str, Any]:
     actor = entry.actor_user
     metadata = entry.metadata or {}
+    target = (
+        (targets or {}).get((entry.target_type, entry.target_id))
+        if entry.target_id is not None
+        else None
+    )
     return {
         "id": entry.id,
         "occurred_at": entry.occurred_at,
@@ -100,6 +152,9 @@ def history_item(entry: OrganizationAuditEntry) -> dict[str, Any]:
         "acting": acting(entry),
         "target_type": entry.target_type,
         "target_id": entry.target_id,
+        "target": None
+        if target is None
+        else {"label": target.label, "href": target.href, "at": target.at},
         "changes": metadata.get("changes") or {},
         "changed_fields": metadata.get("fields") or [],
         "details": {key: value for key, value in metadata.items() if key not in _OWN_COLUMNS},

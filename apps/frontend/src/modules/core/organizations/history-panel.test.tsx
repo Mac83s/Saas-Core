@@ -15,7 +15,7 @@ import polishMessages from "../../../../messages/pl.json";
 import { HistoryPanel } from "./history-panel";
 
 const { api } = vi.hoisted(() => ({
-  api: { readOrganizationHistory: vi.fn() },
+  api: { readOrganizationHistory: vi.fn(), readCatalogDictionary: vi.fn() },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
@@ -32,6 +32,7 @@ function entry(overrides: Partial<HistoryEntry>): HistoryEntry {
     acting: null,
     target_type: "organization",
     target_id: null,
+    target: null,
     changes: {},
     changed_fields: [],
     details: {},
@@ -67,6 +68,7 @@ function view(locale: "pl" | "en" = "pl") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  api.readCatalogDictionary.mockRejectedValue(new Error("no catalogue"));
   api.readOrganizationHistory.mockResolvedValue(
     page([
       entry({
@@ -99,7 +101,8 @@ test("shows who changed what, through which channel, before and after", async ()
 
   expect(within(rename).getByText("Zmieniono dane firmy")).toBeTruthy();
   expect(within(rename).getByText("Ola Nowak")).toBeTruthy();
-  expect(within(rename).getByText("Panel")).toBeTruthy();
+  // The panel is the usual way and gets no badge; another way does.
+  expect(within(rename).queryByText("Panel")).toBeNull();
   expect(
     within(rename).getByText("Nazwa: Stara nazwa → Salon Uroda"),
   ).toBeTruthy();
@@ -228,4 +231,49 @@ test("the booking settings of phase 2 have their own words in the history", () =
     expect(polishMessages.History.actions).toHaveProperty(action);
     expect(englishMessages.History.actions).toHaveProperty(action);
   }
+});
+
+test("a row says which object it is about, and a category by its name (UX-055)", async () => {
+  api.readCatalogDictionary.mockResolvedValue({
+    cities: [{ slug: "olsztyn", name: "Olsztyn", voivodeship: "" }],
+    categories: [
+      {
+        key: "it-i-marketing",
+        labels: { pl: "IT i marketing", en: "IT and marketing" },
+      },
+    ],
+    locales: ["pl"],
+  });
+  api.readOrganizationHistory.mockResolvedValue(
+    page([
+      entry({
+        action: "booking.appointment.created",
+        target_type: "appointment",
+        target_id: "019c5f87-fce8-739b-b960-b7a195bfc298",
+        target: {
+          label: "Konsultacja",
+          href: "/panel/calendar?view=day&date=2026-10-03",
+          at: "2026-10-03T08:00:00Z",
+        },
+      }),
+      entry({
+        action: "profile.updated",
+        changes: {
+          category: { from: "", to: "it-i-marketing" },
+          city_slug: { from: "", to: "olsztyn" },
+        },
+      }),
+    ]),
+  );
+  view();
+  const visit = await screen.findByRole("link", { name: /^Konsultacja · / });
+  expect(visit.getAttribute("href")).toBe(
+    "/panel/calendar?view=day&date=2026-10-03",
+  );
+  expect(visit.closest("p")?.textContent).toMatch(
+    /^Utworzono rezerwację: Konsultacja · /,
+  );
+  expect(await screen.findByText(/→ IT i marketing$/)).toBeTruthy();
+  expect(screen.getByText(/→ Olsztyn$/)).toBeTruthy();
+  expect(screen.queryByText(/it-i-marketing/)).toBeNull();
 });

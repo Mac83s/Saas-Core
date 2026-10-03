@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import {
+  readCatalogDictionary,
   readOrganizationHistory,
+  type CatalogDictionary,
   type HistoryEntry,
   type HistoryPage,
 } from "@saas-core/api-client";
@@ -17,6 +19,7 @@ import {
 } from "@saas-core/ui/components/data-table";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
 
@@ -52,6 +55,22 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
   const [page, setPage] = useState<HistoryPage | null>(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
+  // A category and a town are recorded by their keys; the catalogue's
+  // dictionary gives them their names (UX-055). No catalogue, no names.
+  const [dictionary, setDictionary] = useState<CatalogDictionary>();
+
+  useEffect(() => {
+    let active = true;
+    readCatalogDictionary().then(
+      (next) => {
+        if (active) setDictionary(next);
+      },
+      () => undefined,
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,12 +104,29 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
     t.has(`acting_${via}`) ? t(`acting_${via}`) : humanize(via);
   const fieldLabel = (key: string) =>
     t.has(`fields.${key}`) ? t(`fields.${key}`) : humanize(key);
-  const value = (raw: unknown): string => {
+  const value = (raw: unknown, field?: string): string => {
     if (raw === null || raw === undefined || raw === "") return t("empty");
     if (typeof raw === "boolean") return raw ? t("yes") : t("no");
-    if (Array.isArray(raw)) return raw.map(value).join(", ") || t("empty");
+    if (Array.isArray(raw))
+      return raw.map((item) => value(item, field)).join(", ") || t("empty");
+    if (field === "category")
+      return (
+        dictionary?.categories.find((item) => item.key === raw)?.labels[
+          locale === "en" ? "en" : "pl"
+        ] ?? String(raw)
+      );
+    if (field === "city_slug" || field === "city")
+      return (
+        dictionary?.cities.find((item) => item.slug === raw)?.name ??
+        String(raw)
+      );
     return String(raw);
   };
+
+  const targetText = (target: NonNullable<HistoryEntry["target"]>) =>
+    target.at
+      ? `${target.label} · ${formatDateTime(target.at, locale)}`
+      : target.label;
 
   const columns: ColumnDef<HistoryEntry, unknown>[] = [
     {
@@ -117,7 +153,9 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
             // The person's membership acted through the assistant or a
             // translation job — not the person by hand (ADR-076 §6).
             <Badge variant="outline">{actingLabel(entry.acting.via)}</Badge>
-          ) : entry.channel ? (
+          ) : entry.channel && entry.channel !== "panel" ? (
+            // The panel is the usual way; only another one is worth a word
+            // (UX-055).
             <Badge variant="outline">{t(`channel_${entry.channel}`)}</Badge>
           ) : null}
         </div>
@@ -131,7 +169,25 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
       meta: { primary: true, className: "max-md:order-first" },
       cell: ({ row: { original: entry } }) => (
         <div className="space-y-1">
-          <p className="font-medium">{actionLabel(entry.action)}</p>
+          <p className="font-medium wrap-anywhere">
+            {actionLabel(entry.action)}
+            {/* Which one: „Dodano gospodarstwo: Ferma Pod Lasem” (UX-055). */}
+            {entry.target ? (
+              <>
+                {": "}
+                {entry.target.href ? (
+                  <Link
+                    className="text-primary hover:underline"
+                    href={entry.target.href}
+                  >
+                    {targetText(entry.target)}
+                  </Link>
+                ) : (
+                  targetText(entry.target)
+                )}
+              </>
+            ) : null}
+          </p>
           <Changes entry={entry} fieldLabel={fieldLabel} value={value} />
         </div>
       ),
@@ -195,7 +251,7 @@ function Changes({
 }: {
   entry: HistoryEntry;
   fieldLabel: (key: string) => string;
-  value: (raw: unknown) => string;
+  value: (raw: unknown, field?: string) => string;
 }) {
   const t = useTranslations("History");
   const changes = Object.entries(entry.changes ?? {}) as [
@@ -210,7 +266,7 @@ function Changes({
             {`${fieldLabel(field)}: ${
               change.changed
                 ? t("changedPrivate")
-                : `${value(change.from)} → ${value(change.to)}`
+                : `${value(change.from, field)} → ${value(change.to, field)}`
             }`}
           </li>
         ))}

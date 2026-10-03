@@ -24,6 +24,10 @@ class SitesConfig(AppConfig):
         from .translation_source import register_page_source
 
         register_inquiry_email()
+        # The company's history names a page and an entry (UX-055).
+        from .history_targets import register_history_targets
+
+        register_history_targets()
         # Who receives the contact form's messages (W2, ADR-078).
         from .inquiry_settings import register_inquiry_settings
 

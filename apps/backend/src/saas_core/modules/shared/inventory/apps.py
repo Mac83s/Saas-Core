@@ -21,6 +21,10 @@ class InventoryConfig(AppConfig):
         # Low-stock notices, lot expiry and where a visit's products come from (ADR-078).
         register_company_settings()
         register_templates()
+        # The company's history names a document and an item (UX-055).
+        from .history_targets import register_history_targets
+
+        register_history_targets()
 
         # A person's card shows what they took and used — where there are cards.
         if apps.is_installed("saas_core.modules.shared.booking"):

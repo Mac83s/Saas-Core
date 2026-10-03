@@ -27,6 +27,7 @@ from .events import (
     dispatch_domain_event,
     register_domain_event_handler,
 )
+from .history import HistoryTarget, register_history_target
 from .joining import (
     InvitationAcceptedHandler,
     SeatLimit,
@@ -77,6 +78,8 @@ from .settings_service import (
 )
 
 __all__ = [
+    "HistoryTarget",
+    "register_history_target",
     "Resolved",
     "SettingArea",
     "SettingGroup",

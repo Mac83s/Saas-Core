@@ -293,3 +293,27 @@ def test_the_doors_answer_through_http(monkeypatch: pytest.MonkeyPatch) -> None:
     assert colleague.get(f"/api/v1/booking/staff/{first.id}/facts/").status_code == 200
     assert colleague.get(f"/api/v1/booking/staff/{second.id}/facts/").status_code == 403
     assert colleague.get("/api/v1/booking/performance/").status_code == 403
+
+
+def test_the_history_names_a_visit_by_its_service_and_start_never_by_the_customer() -> None:
+    """UX-055: „Utworzono rezerwację” says which one. The history is read by
+    whoever manages settings, so the row carries no customer."""
+    from saas_core.modules.shared.booking.history_targets import (  # noqa: PLC0415
+        _appointments,
+        _staff,
+    )
+
+    configured = company("historia-wizyta")
+    owner, day = configured["owner"], configured["day"]
+    first = configured["staff"][0]
+    booked = book(owner, configured, at(day, 9), "a", first)
+
+    named = _appointments(owner.organization_id, [booked.id])[booked.id]
+    assert named.label == configured["service"].name
+    assert named.at == booked.starts_at
+    assert named.href == f"/panel/calendar?view=day&date={day.isoformat()}"
+    assert "Klient" not in named.label
+    assert _staff(owner.organization_id, [first.id])[first.id].href == f"/panel/team/{first.id}"
+    # Another company's visit is never named here.
+    other = company("historia-wizyta-obca")
+    assert _appointments(other["owner"].organization_id, [booked.id]) == {}

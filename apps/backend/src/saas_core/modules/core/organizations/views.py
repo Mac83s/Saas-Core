@@ -536,7 +536,7 @@ class HistoryView(ProtectedOrganizationView):
             "page": query.validated_data["page"],
             "page_size": query.validated_data["page_size"],
             "actions": page.actions,
-            "items": [history_item(entry) for entry in page.entries],
+            "items": [history_item(entry, page.targets) for entry in page.entries],
         })
 
 

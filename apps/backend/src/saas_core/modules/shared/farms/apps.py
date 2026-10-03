@@ -14,3 +14,7 @@ class FarmsConfig(AppConfig):
 
         # A company's farm card linked to the farmer's account (seed_demo).
         register_demo_part("farms.link", seed_farm_links, order=20)
+        # The company's history names the farm a row is about (UX-055).
+        from .history_targets import register_history_targets
+
+        register_history_targets()

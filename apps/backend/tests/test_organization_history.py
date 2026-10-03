@@ -118,9 +118,9 @@ def test_a_change_says_who_what_before_and_after_and_through_which_channel() -> 
     renamed_to = [item["changes"].get("name", {}).get("to") for item in history["items"]]
     assert "Cudza nazwa" not in renamed_to
     assert OrganizationAuditAction.ORGANIZATION_UPDATED in history["actions"]
-    assert history["total"] == OrganizationAuditEntry.objects.filter(
-        organization=organization
-    ).count()
+    assert (
+        history["total"] == OrganizationAuditEntry.objects.filter(organization=organization).count()
+    )
 
 
 def test_a_change_by_the_assistant_names_the_person_and_the_conversation() -> None:
@@ -208,3 +208,52 @@ def test_field_changes_keeps_only_real_changes_and_masks_private_fields() -> Non
         "name": {"from": "A", "to": "B"},
         "phone": {"changed": True},
     }
+
+
+def test_a_row_names_what_it_is_about_where_a_module_says_so() -> None:
+    """„Dodano gospodarstwo: Ferma Pod Lasem”, not four identical rows (UX-055).
+    A target nobody names, or one that is gone, stays without a name."""
+    from saas_core.modules.core.organizations import history  # noqa: PLC0415
+    from saas_core.modules.core.organizations.api import (  # noqa: PLC0415
+        HistoryTarget,
+        register_history_target,
+    )
+    from saas_core.modules.core.organizations.audit import record_audit  # noqa: PLC0415
+
+    client, organization = member_client(slug="historia-obiekt")
+    named, gone, unnamed = uuid7(), uuid7(), uuid7()
+    asked: list[tuple[Any, list[Any]]] = []
+
+    def namer(organization_id: Any, ids: Any) -> dict[Any, HistoryTarget]:
+        asked.append((organization_id, list(ids)))
+        return {named: HistoryTarget(label="Ferma Pod Lasem", href="/panel/farms/1")}
+
+    before = dict(history._target_namers)
+    register_history_target("test_farm", namer)
+    try:
+        for target_type, target_id in (
+            ("test_farm", named),
+            ("test_farm", gone),
+            ("nobody_names_this", unnamed),
+        ):
+            record_audit(
+                organization=organization,
+                action="organization.updated",
+                actor=None,
+                target_type=target_type,
+                target_id=target_id,
+            )
+        items = {item["target_id"]: item for item in client.get(HISTORY_URL).data["items"]}
+    finally:
+        history._target_namers.clear()
+        history._target_namers.update(before)
+
+    assert items[named]["target"] == {
+        "label": "Ferma Pod Lasem",
+        "href": "/panel/farms/1",
+        "at": None,
+    }
+    assert items[gone]["target"] is None
+    assert items[unnamed]["target"] is None
+    # One question per type for the whole page, within the company.
+    assert asked == [(organization.id, sorted([named, gone]))]

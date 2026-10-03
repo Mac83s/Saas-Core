@@ -247,6 +247,16 @@ class HistoryActingSerializer(serializers.Serializer[dict[str, Any]]):
     trigger = serializers.CharField(allow_null=True)
 
 
+class HistoryTargetSerializer(serializers.Serializer[dict[str, Any]]):
+    label = serializers.CharField(help_text="What the object is called, e.g. a farm's name.")
+    href = serializers.CharField(
+        allow_blank=True, help_text="The panel address that shows it; empty when none does."
+    )
+    at = serializers.DateTimeField(
+        allow_null=True, help_text="The object's own time, e.g. a visit's start."
+    )
+
+
 class HistoryEntrySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     occurred_at = serializers.DateTimeField()
@@ -258,6 +268,8 @@ class HistoryEntrySerializer(serializers.Serializer[dict[str, Any]]):
     acting = HistoryActingSerializer(allow_null=True)
     target_type = serializers.CharField(allow_blank=True)
     target_id = serializers.UUIDField(allow_null=True)
+    #: The object by name, where its module names it and it still exists.
+    target = HistoryTargetSerializer(allow_null=True)
     changes = serializers.DictField(child=serializers.JSONField())
     changed_fields = serializers.ListField(child=serializers.CharField())
     details = serializers.DictField(child=serializers.JSONField())

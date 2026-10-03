@@ -36,6 +36,10 @@ class BookingConfig(AppConfig):
         from .materials import register_usage
 
         register_usage()
+        # The company's history names a visit, a person and a service (UX-055).
+        from .history_targets import register_history_targets
+
+        register_history_targets()
         # Services and working hours for the assistant (ADR-076, A1b-12).
         from .command_declarations import register_booking_commands
 

@@ -25338,6 +25338,10 @@ components:
           - string
           - 'null'
           format: uuid
+        target:
+          oneOf:
+          - $ref: '#/components/schemas/HistoryTarget'
+          - type: 'null'
         changes:
           type: object
           additionalProperties: {}
@@ -25358,6 +25362,7 @@ components:
       - details
       - id
       - occurred_at
+      - target
       - target_id
       - target_type
     HistoryPage:
@@ -25383,6 +25388,25 @@ components:
       - page
       - page_size
       - total
+    HistoryTarget:
+      type: object
+      properties:
+        label:
+          type: string
+          description: What the object is called, e.g. a farm's name.
+        href:
+          type: string
+          description: The panel address that shows it; empty when none does.
+        at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: The object's own time, e.g. a visit's start.
+      required:
+      - at
+      - href
+      - label
     HoursRuleInput:
       type: object
       properties:

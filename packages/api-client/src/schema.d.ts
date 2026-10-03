@@ -8754,6 +8754,7 @@ export interface components {
             target_type: string;
             /** Format: uuid */
             target_id: string | null;
+            target: components["schemas"]["HistoryTarget"] | null;
             changes: {
                 [key: string]: unknown;
             };
@@ -8768,6 +8769,17 @@ export interface components {
             page_size: number;
             actions: string[];
             items: components["schemas"]["HistoryEntry"][];
+        };
+        HistoryTarget: {
+            /** @description What the object is called, e.g. a farm's name. */
+            label: string;
+            /** @description The panel address that shows it; empty when none does. */
+            href: string;
+            /**
+             * Format: date-time
+             * @description The object's own time, e.g. a visit's start.
+             */
+            at: string | null;
         };
         HoursRuleInput: {
             weekday: number;
