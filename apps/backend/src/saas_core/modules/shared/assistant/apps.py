@@ -15,3 +15,8 @@ class AssistantConfig(AppConfig):
         # Platform keys in model_port's "ai" area (ADR-078).
         register_setting_group(LIMITS)
         register_setting_group(RETENTION)
+        # Conversations and older profile versions leave with the common
+        # privacy run, on the platform's days (ADR-078).
+        from .retention import register_retention
+
+        register_retention()

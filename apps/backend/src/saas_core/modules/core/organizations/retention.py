@@ -221,7 +221,8 @@ def platform_days(setting_key: str) -> Callable[[UUID, datetime], Rule | None]:
 
 def dry_run(now: datetime | None = None) -> list[Due]:
     """What a run would remove now, company by company, and what still waits
-    for its grace period. Changes nothing."""
+    for its grace period. Changes nothing. A company's own rule is listed even
+    with nothing due yet; a rule the platform sets only where something is."""
     moment = now or timezone.now()
     found: list[Due] = []
     for organization_id in _organization_ids():
@@ -232,13 +233,19 @@ def dry_run(now: datetime | None = None) -> list[Due]:
                 if rule is None:
                     continue
                 waits = rule.starts_at is not None and rule.starts_at > moment
+                count = sweep.due(organization_id, rule.cutoff)
+                if not count and rule.starts_at is None:
+                    # A rule the platform sets holds in every company, so it is
+                    # listed only where something is due; a company's own rule
+                    # is listed from the moment the company switched it on.
+                    continue
                 found.append(
                     Due(
                         organization_id=organization_id,
                         sweep=sweep.key,
                         period=rule.period,
                         cutoff=rule.cutoff,
-                        count=sweep.due(organization_id, rule.cutoff),
+                        count=count,
                         waits_until=rule.starts_at if waits else None,
                     )
                 )

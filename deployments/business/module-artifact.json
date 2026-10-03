@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:f737d07fd6f83f320b61b93b89846fd2b6452fb2db7d6aff21a38b113b54ed70",
+  "profileHash": "sha256:2dc6f1423497167879706b16d2535aafd05a9b2b12190a288a484c53ef10b149",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -524,10 +524,6 @@
           "assistant-reconcile": {
             "task": "saas_core.modules.shared.assistant.tasks.reconcile_assistant_turns",
             "schedule": 60
-          },
-          "assistant-purge": {
-            "task": "saas_core.modules.shared.assistant.tasks.purge_assistant_conversations",
-            "schedule": 86400
           }
         }
       },

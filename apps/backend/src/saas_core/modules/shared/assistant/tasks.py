@@ -6,13 +6,11 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
-from saas_core.modules.core.organizations.api import platform_setting
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.shared.billing.api import billing_organization_ids
 
-from .models import AssistantConversation, AssistantTurn, TurnState
+from .models import AssistantTurn, TurnState
 from .services import WORKER_SEEN, WORKER_SEEN_TTL
-from .settings_spec import RETENTION_DAYS
 from .turns import FAILURE_TIMEOUT, fail_without_person
 
 #: A turn nobody moved for this long is given up: its worker died, or there is
@@ -55,19 +53,3 @@ def reconcile_assistant_turns() -> int:
             fail_without_person(organization_id, turn_id, FAILURE_TIMEOUT)
             closed += 1
     return closed
-
-
-@shared_task  # type: ignore[untyped-decorator]
-def purge_assistant_conversations() -> int:
-    """Once a day: conversations past `assistant.retention.conversation_days`
-    since their last message leave with their transcript."""
-    cutoff = timezone.now() - timedelta(days=int(platform_setting(RETENTION_DAYS.key)))
-    removed = 0
-    for organization_id in billing_organization_ids():
-        with transaction.atomic():
-            set_local_organization_id(organization_id)
-            _, by_model = AssistantConversation.all_objects.filter(
-                organization_id=organization_id, updated_at__lt=cutoff
-            ).delete()
-            removed += by_model.get(AssistantConversation._meta.label, 0)
-    return removed

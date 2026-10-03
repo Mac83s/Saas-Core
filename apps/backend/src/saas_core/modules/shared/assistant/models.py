@@ -167,9 +167,8 @@ class AssistantProfileVersion(TenantScopedModel):
     The newest row is the profile; the older ones are its history — who
     changed it, when and from which conversation. Personal data: the owner's
     words and the names of the company's people. Rows leave with the company;
-    versions older than the current one are due after
-    `assistant.retention.conversation_days` (the purge arrives with the
-    platform's retention hook, not here).
+    a version leaves `assistant.retention.conversation_days` after a later one
+    replaced it, with the common privacy run (`retention.py`).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:7290d96ceb4eb208e90bfe23df1f8a3fb0a4f637e0bb2e96a9509d3f8ef69437",
+  "profileHash": "sha256:aeb5ade7414ce0f8e9e2dac4005be523b994fdc27045d96be66125c6b5f09ffe",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -523,10 +523,6 @@
           "assistant-reconcile": {
             "task": "saas_core.modules.shared.assistant.tasks.reconcile_assistant_turns",
             "schedule": 60
-          },
-          "assistant-purge": {
-            "task": "saas_core.modules.shared.assistant.tasks.purge_assistant_conversations",
-            "schedule": 86400
           }
         }
       },

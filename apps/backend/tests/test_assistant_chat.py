@@ -36,9 +36,13 @@ from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
     Organization,
+    OrganizationAuditEntry,
     Role,
 )
 from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ, SETTINGS_MANAGE
+from saas_core.modules.core.organizations.retention import dry_run as retention_dry_run
+from saas_core.modules.core.organizations.retention import registered_sweeps
+from saas_core.modules.core.organizations.retention import run as run_retention
 from saas_core.modules.shared.assistant.models import (
     AssistantConversation,
     AssistantMessage,
@@ -46,10 +50,7 @@ from saas_core.modules.shared.assistant.models import (
     TurnState,
 )
 from saas_core.modules.shared.assistant.services import WORKER_SEEN
-from saas_core.modules.shared.assistant.tasks import (
-    purge_assistant_conversations,
-    reconcile_assistant_turns,
-)
+from saas_core.modules.shared.assistant.tasks import reconcile_assistant_turns
 from saas_core.modules.shared.billing.models import (
     CreditReservation,
     CreditReservationState,
@@ -515,9 +516,15 @@ def test_background_work_sets_the_tenant_before_it_reads(talk: Any) -> None:
     with CaptureQueriesContext(connection) as sweep:
         reconcile_assistant_turns()
     _assert_tenant_set_first(sweep.captured_queries, "assistant_assistantturn")
+    # The purge is the common privacy run's (`assistant/retention.py`): it
+    # sets the tenant before either of the assistant's tables is read.
     with CaptureQueriesContext(connection) as purge:
-        purge_assistant_conversations()
-    _assert_tenant_set_first(purge.captured_queries, "assistant_assistantconversation")
+        run_retention()
+    _assert_tenant_set_first(
+        purge.captured_queries,
+        "assistant_assistantconversation",
+        "assistant_assistantprofileversion",
+    )
 
 
 def test_stale_turns_are_closed_and_old_conversations_leave(talk: Any) -> None:
@@ -541,7 +548,44 @@ def test_stale_turns_are_closed_and_old_conversations_leave(talk: Any) -> None:
     # Its open call is answered, so the transcript can be shown to a model again.
     assert AssistantMessage.all_objects.filter(role="tool").count() == 1
 
-    assert purge_assistant_conversations() == 0
+
+def _removed(organization_id: Any) -> dict[str, tuple[str, int]]:
+    """What the common privacy run removed in the company, by sweep."""
+    return {
+        done.sweep: (done.period, done.count)
+        for done in run_retention().removed
+        if done.organization_id == organization_id
+    }
+
+
+def test_old_conversations_leave_with_the_common_privacy_run(talk: Any) -> None:
+    """The module has no purge task of its own: its retention is registered
+    under the nightly run, on the platform's days."""
+    chat = talk(person("chat-retention"))
+    FAKE.script(FakeReply(text="Dzień dobry."))
+    chat.say("Cześć")
+    conversation = AssistantConversation.all_objects.get()
+    assert {"assistant.conversations", "assistant.profile_versions"} <= {
+        sweep.key for sweep in registered_sweeps()
+    }
+
+    assert _removed(conversation.organization_id) == {}
     AssistantConversation.all_objects.update(updated_at=timezone.now() - timedelta(days=91))
-    assert purge_assistant_conversations() == 1
+    # What a run would take is told first, without a grace period: the days
+    # are the platform's, not a company's click.
+    (due,) = [
+        item
+        for item in retention_dry_run()
+        if item.organization_id == conversation.organization_id
+        and item.sweep == "assistant.conversations"
+    ]
+    assert (due.period, due.count, due.waits_until) == ("90 dni", 1, None)
+
+    assert _removed(conversation.organization_id) == {"assistant.conversations": ("90 dni", 1)}
     assert not AssistantMessage.all_objects.exists()
+    assert not AssistantTurn.all_objects.exists()
+    # The history says a count, never a word of the conversation.
+    entry = OrganizationAuditEntry.objects.filter(
+        organization_id=conversation.organization_id, action="privacy.retention.run"
+    ).get()
+    assert entry.metadata == {"sweep": "assistant.conversations", "period": "90 dni", "removed": 1}

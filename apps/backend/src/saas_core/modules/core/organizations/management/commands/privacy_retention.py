@@ -4,7 +4,8 @@
     manage.py privacy_retention --dry-run     what a run would remove now; changes nothing
     manage.py privacy_retention --run         removes it
 
-A company appears only when it turned a removal on. `--run` takes each
+A company appears when it turned a removal on, or when a rule the platform
+sets for everybody (assistant conversations) has something due there. `--run` takes each
 company in its own transaction: one that fails is reported, the others run,
 and the command exits non-zero. Counts only — never a name or an address.
 """
@@ -42,7 +43,7 @@ class Command(BaseCommand):
                 )
             companies = len({item.organization_id for item in found})
             self.stdout.write(
-                f"Firmy z włączonym usuwaniem: {companies}; rodzaje danych: {sweeps}. "
+                f"Firmy na liście: {companies}; rodzaje danych: {sweeps}. "
                 "Niczego nie usunięto."
             )
             return

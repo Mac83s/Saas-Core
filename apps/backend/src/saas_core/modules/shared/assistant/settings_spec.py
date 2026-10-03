@@ -134,7 +134,8 @@ RETENTION_DAYS = SettingSpec(
         "en": "Keeping assistant conversations (days)",
     },
     model_description="Days a conversation is kept after its last message; then it is "
-    "deleted with its transcript. Conversations also leave with their company.",
+    "deleted with its transcript. An earlier saved state of the notes about the company is "
+    "kept as long after a later one replaced it. Both also leave with their company.",
 )
 
 LIMITS = SettingGroup(

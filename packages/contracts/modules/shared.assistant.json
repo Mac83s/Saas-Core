@@ -34,10 +34,6 @@
       "assistant-reconcile": {
         "task": "saas_core.modules.shared.assistant.tasks.reconcile_assistant_turns",
         "schedule": 60
-      },
-      "assistant-purge": {
-        "task": "saas_core.modules.shared.assistant.tasks.purge_assistant_conversations",
-        "schedule": 86400
       }
     }
   },

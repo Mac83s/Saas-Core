@@ -4,11 +4,13 @@ names the version it saw; and only who manages the company reads it."""
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
 import pytest
 from django.core.cache import cache
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.context import (
@@ -17,6 +19,7 @@ from saas_core.modules.core.organizations.context import (
     activate_tenant_context,
 )
 from saas_core.modules.core.organizations.models import Membership, Organization
+from saas_core.modules.core.organizations.retention import run as run_retention
 from saas_core.modules.shared.assistant.models import AssistantProfileVersion
 from saas_core.modules.shared.assistant.profile import read_profile, save_profile
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
@@ -221,3 +224,43 @@ def test_another_company_has_its_own_profile() -> None:
         AssistantProfileVersion.all_objects.values_list("organization__slug", "version")
     ) == [("profile-a", 1), ("profile-b", 1)]
     assert Organization.objects.count() == 2
+
+
+def test_an_earlier_state_leaves_once_it_was_replaced_long_enough_ago() -> None:
+    """The profile is the newest state and stays however old it is; a state a
+    later one replaced leaves `assistant.retention.conversation_days` after
+    that — with the common privacy run, and in this company only."""
+    client = manager("profile-retention")
+    other = manager("profile-retention-other")
+    for at, name in enumerate(("Pierwsza", "Druga", "Trzecia")):
+        assert change(client, {"company": {"name": said(name)}}, at).status_code == 200
+    assert change(other, {"company": {"name": said("Inna")}}, 0).status_code == 200
+    assert change(other, {"company": {"name": said("Inna firma")}}, 1).status_code == 200
+    organization = Organization.objects.get(slug="profile-retention")
+    versions = AssistantProfileVersion.all_objects.filter(organization=organization)
+    long_ago = timezone.now() - timedelta(days=120)
+
+    def removed() -> int:
+        return sum(
+            done.count
+            for done in run_retention().removed
+            if done.sweep == "assistant.profile_versions"
+        )
+
+    # The first state is old, but what replaced it was saved today.
+    versions.filter(version=1).update(created_at=long_ago)
+    assert removed() == 0
+
+    # The second was saved long ago too: the first was replaced long ago and
+    # leaves; the second still stood until today.
+    versions.filter(version=2).update(created_at=long_ago)
+    assert removed() == 1
+    assert sorted(versions.values_list("version", flat=True)) == [2, 3]
+
+    # The current state never leaves, however old.
+    versions.filter(version=3).update(created_at=long_ago)
+    assert removed() == 1
+    assert list(versions.values_list("version", flat=True)) == [3]
+    assert client.get(URL).data["document"]["company"]["name"] == said("Trzecia")
+    # The other company's states were saved today: untouched.
+    assert AssistantProfileVersion.all_objects.exclude(organization=organization).count() == 2
