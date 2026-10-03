@@ -585,27 +585,31 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
                       className="flex min-h-11 items-center justify-between gap-3 text-sm"
                       key={id}
                     >
-                      {label}
-                      <NativeSelect
-                        aria-label={t("extraQuantity", { name: option.name })}
-                        className="w-20"
-                        onChange={(event) =>
-                          setPicked({
-                            ...picked,
-                            [id]: Number(event.target.value),
-                          })
-                        }
-                        value={picked[id] ?? 0}
-                      >
-                        {Array.from(
-                          { length: option.max_quantity + 1 },
-                          (_, count) => (
-                            <option key={count} value={count}>
-                              {count}
-                            </option>
-                          ),
-                        )}
-                      </NativeSelect>
+                      <span className="min-w-0 wrap-anywhere">{label}</span>
+                      {/* The select's box is this narrow: `NativeSelect`
+                          draws its arrow at the right edge of its own box,
+                          which otherwise is the whole row. */}
+                      <span className="w-20 shrink-0">
+                        <NativeSelect
+                          aria-label={t("extraQuantity", { name: option.name })}
+                          onChange={(event) =>
+                            setPicked({
+                              ...picked,
+                              [id]: Number(event.target.value),
+                            })
+                          }
+                          value={picked[id] ?? 0}
+                        >
+                          {Array.from(
+                            { length: option.max_quantity + 1 },
+                            (_, count) => (
+                              <option key={count} value={count}>
+                                {count}
+                              </option>
+                            ),
+                          )}
+                        </NativeSelect>
+                      </span>
                     </label>
                   ) : (
                     <label
