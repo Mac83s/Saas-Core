@@ -131,9 +131,9 @@ describe("article header", () => {
     expect(header(withHeading("Pielęgnacja"))).toContain(
       "<h1>Jak dbać o włosy zimą</h1>",
     );
-    expect(
-      articleShowsItsTitle(withHeading("Pielęgnacja"), "Dalej"),
-    ).toBe(false);
+    expect(articleShowsItsTitle(withHeading("Pielęgnacja"), "Dalej")).toBe(
+      false,
+    );
     // The section's own title is its first heading, before any in the text.
     const titled = (title: string): SiteBlock[] => [
       {
@@ -198,7 +198,11 @@ describe("article header", () => {
               data: { text: "Body" },
             },
           ],
-          article: { ...article, title: "Winter hair", timeZone: "No/Such_Zone" },
+          article: {
+            ...article,
+            title: "Winter hair",
+            timeZone: "No/Such_Zone",
+          },
         },
         createSiteBlockRegistry([coreSiteBlockManifest]),
       ),

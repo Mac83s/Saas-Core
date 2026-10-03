@@ -181,7 +181,9 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
           publishedTime: article.published_at ?? undefined,
           modifiedTime: article.updated_at,
           authors: article.author_name ? [article.author_name] : undefined,
-          tags: (article.tags ?? []).flatMap((tag) => (tag.name ? [tag.name] : [])),
+          tags: (article.tags ?? []).flatMap((tag) =>
+            tag.name ? [tag.name] : [],
+          ),
         }
       : { ...shared, type: "website" },
     twitter: {

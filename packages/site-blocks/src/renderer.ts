@@ -110,7 +110,11 @@ export function renderNavigation(
           createElement(
             "li",
             { key: link.page_id },
-            createElement("a", { href: link.path, lang: link.lang }, link.title),
+            createElement(
+              "a",
+              { href: link.path, lang: link.lang },
+              link.title,
+            ),
             children.has(link.page_id)
               ? createElement(
                   "ul",
