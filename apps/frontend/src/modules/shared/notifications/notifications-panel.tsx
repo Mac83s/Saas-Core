@@ -26,9 +26,17 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@saas-core/ui/components/sheet";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { PlanGate } from "#components/panel/plan-gate";
+import { useMedia } from "#lib/use-media";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { SiteInquiries } from "../sites/site-inquiries";
 
@@ -166,6 +174,8 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
     language: Language;
   }>();
   const [preview, setPreview] = useState<Preview | "loading" | "error">();
+  const narrow = useMedia("(max-width: 1023px)");
+  const [sheetOpen, setSheetOpen] = useState(false);
   const samples = useTranslations("Notifications.samples");
   // Only the answer to the latest click is shown, whatever order they arrive in.
   const latest = useRef(0);
@@ -238,12 +248,13 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
             <button
               aria-pressed={selected?.template === item}
               className="rounded-sm text-left font-medium wrap-anywhere outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:text-primary"
-              onClick={() =>
+              onClick={() => {
                 void show(
                   item,
                   languageFor(item, selected?.language ?? uiLocale),
-                )
-              }
+                );
+                if (narrow) setSheetOpen(true);
+              }}
               type="button"
             >
               {templateName(item.key, t)}
@@ -344,7 +355,7 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
             getRowId={(item) => `${item.key}:${item.version}`}
             labels={labels}
           />
-          {selected ? (
+          {selected && !narrow ? (
             <TemplateDetail
               language={selected.language}
               onLanguage={(language) => void show(selected.template, language)}
@@ -354,6 +365,34 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
           ) : null}
         </div>
       )}
+      {/* Below two columns the preview opens over the list, not 1700 px
+          under it (UX-049). */}
+      {narrow ? (
+        <Sheet
+          onOpenChange={setSheetOpen}
+          open={sheetOpen && Boolean(selected)}
+        >
+          <SheetContent closeLabel={t("close")}>
+            <SheetHeader className="sr-only">
+              <SheetTitle>
+                {selected ? templateName(selected.template.key, t) : ""}
+              </SheetTitle>
+            </SheetHeader>
+            <SheetBody>
+              {selected ? (
+                <TemplateDetail
+                  language={selected.language}
+                  onLanguage={(language) =>
+                    void show(selected.template, language)
+                  }
+                  preview={preview}
+                  template={selected.template}
+                />
+              ) : null}
+            </SheetBody>
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </section>
   );
 }

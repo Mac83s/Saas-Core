@@ -216,7 +216,9 @@ test("zmiana witryny usuwa poprzednią treść i ignoruje spóźniony odczyt", a
       target: { value: "site-2" },
     },
   );
-  await screen.findByText("Nie ma jeszcze zapytań z tej witryny.");
+  await screen.findByText(
+    "Zapytania pojawią się tu, gdy ktoś wyśle formularz z podstrony Kontakt.",
+  );
   finishRead({ ...first, read_at: "2026-09-21T13:00:00Z" });
   expect(screen.queryByText(first.message)).toBeNull();
   expect(listSiteInquiries).toHaveBeenLastCalledWith("site-2", undefined);
@@ -341,4 +343,43 @@ test("prośba o telefon bez e-maila i wiadomości daje przycisk „Zadzwoń”",
     "href",
     "tel:+48000000000",
   );
+});
+
+test("jedna witryna: bez wyboru witryny, pusta lista mówi, skąd przyjdą zapytania (UX-050)", async () => {
+  listSites.mockResolvedValue({
+    items: [{ id: "site-1", name: "Example Website" }],
+    next_cursor: null,
+  });
+  listSiteInquiries.mockResolvedValue({ items: [], next_cursor: null });
+  renderInbox();
+  expect(
+    await screen.findByText(
+      "Zapytania pojawią się tu, gdy ktoś wyśle formularz z podstrony Kontakt.",
+    ),
+  ).not.toBeNull();
+  expect(
+    screen.queryByRole("combobox", { name: "Strona internetowa" }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("link", { name: "Otwórz podstrony strony" }),
+  ).toHaveAttribute("href", "/panel/sites");
+});
+
+test("na telefonie wiadomość otwiera się w arkuszu, bez zaślepki pod listą (UX-049)", async () => {
+  const original = window.matchMedia;
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query === "(max-width: 1279px)",
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  })) as unknown as typeof window.matchMedia;
+  try {
+    renderInbox();
+    await screen.findByRole("button", { name: /Example Visitor/ });
+    expect(screen.queryByText(/Wybierz wiadomość z listy/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Example Visitor/ }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText(first.message)).not.toBeNull();
+  } finally {
+    window.matchMedia = original;
+  }
 });

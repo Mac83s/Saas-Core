@@ -3127,7 +3127,8 @@
       "count": "3"
     },
     "unnamedTemplate": "Unnamed template",
-    "samplesNote": "Highlighted places are example values — the real ones appear in the message sent."
+    "samplesNote": "Highlighted places are example values — the real ones appear in the message sent.",
+    "close": "Close"
   },
   "Integrations": {
     "navigation": "Integrations",
@@ -4280,7 +4281,7 @@
     "site": "Website",
     "loading": "Loading inquiries…",
     "emptySites": "You do not have a website yet. Inquiries will appear after you publish a page with a contact form.",
-    "empty": "No inquiries from this website yet.",
+    "empty": "Inquiries appear here when someone sends the form on the Contact page.",
     "listLabel": "Inquiry list",
     "choose": "Select a message from the list to read it.",
     "loadError": "Inquiries could not be loaded. Please try again.",
@@ -4316,7 +4317,9 @@
     "emailUnavailable": "Notification unavailable — the message is saved in the panel",
     "from": "From",
     "state": "Status",
-    "opened": "Reading"
+    "opened": "Reading",
+    "emptyAction": "Open the website pages",
+    "close": "Close"
   },
   "ImageGeneration": {
     "open": "Generate AI image",

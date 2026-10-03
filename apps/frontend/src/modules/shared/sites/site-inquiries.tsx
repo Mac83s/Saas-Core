@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { MailIcon, PhoneIcon, RefreshCwIcon } from "lucide-react";
 
@@ -12,11 +19,22 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
-import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
-import { Label } from "@saas-core/ui/components/label";
-import { NativeSelect } from "@saas-core/ui/components/native-select";
+import {
+  DataTable,
+  DataTableFilter,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@saas-core/ui/components/sheet";
 
+import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { useMedia } from "#lib/use-media";
 
 type Site = Awaited<ReturnType<typeof listSites>>["items"][number];
 type Inquiry = Awaited<ReturnType<typeof listSiteInquiries>>["items"][number];
@@ -98,25 +116,30 @@ export function SiteInquiries({ labelledBy }: { labelledBy?: string } = {}) {
           {t("emptySites")}
         </p>
       ) : (
-        <>
-          <div className="max-w-md space-y-2">
-            <Label htmlFor={`${id}-site`}>{t("site")}</Label>
-            <NativeSelect
-              id={`${id}-site`}
-              value={selectedSite}
-              onChange={(event) => setSelectedSite(event.target.value)}
-            >
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          {/* A changed site remounts the inbox, so an older response or selection
-              can never reveal a message from the previous website. */}
-          <SiteInbox key={selectedSite} siteId={selectedSite} />
-        </>
+        // A changed site remounts the inbox, so an older response or
+        // selection can never reveal a message from the previous website.
+        // The site is a filter in the list's bar, and only where there is a
+        // choice (UX-050).
+        <SiteInbox
+          key={selectedSite}
+          siteFilter={
+            sites.length > 1 ? (
+              <DataTableFilter
+                id={`${id}-site`}
+                label={t("site")}
+                onChange={(event) => setSelectedSite(event.target.value)}
+                value={selectedSite}
+              >
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </DataTableFilter>
+            ) : null
+          }
+          siteId={selectedSite}
+        />
       )}
     </section>
   );
@@ -142,7 +165,13 @@ function FailureMessage({
   );
 }
 
-function SiteInbox({ siteId }: { siteId: string }) {
+function SiteInbox({
+  siteId,
+  siteFilter,
+}: {
+  siteId: string;
+  siteFilter?: ReactNode;
+}) {
   const t = useTranslations("SiteInquiries");
   const locale = useLocale();
   const labels = useDataTableLabels();
@@ -160,14 +189,14 @@ function SiteInbox({ siteId }: { siteId: string }) {
   const pendingReads = useRef(new Set<string>());
   const selected = items.find((item) => item.id === selectedId);
   const detailHeading = useRef<HTMLHeadingElement>(null);
+  // Below the two-column width a message opens in a sheet over the list,
+  // not 1700 px under it (UX-049).
+  const narrow = useMedia("(max-width: 1279px)");
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || narrow) return;
     detailHeading.current?.focus({ preventScroll: true });
-    if (window.matchMedia?.("(max-width: 1279px)")?.matches) {
-      detailHeading.current?.scrollIntoView?.({ block: "start" });
-    }
-  }, [selectedId]);
+  }, [narrow, selectedId]);
 
   const load = useCallback(
     async (nextCursor?: string) => {
@@ -317,44 +346,135 @@ function SiteInbox({ siteId }: { siteId: string }) {
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
+  const detailHeader = selected ? (
+    <p className="text-sm text-muted-foreground">
+      {t("received")}:{" "}
+      <time dateTime={selected.created_at}>{date(selected.created_at)}</time>
+    </p>
+  ) : null;
+  const detailBody = selected ? (
+    <>
+      <dl className="grid gap-3 text-sm">
+        {/* A call-back form may arrive without an e-mail or a message; only
+            what the visitor gave is shown. */}
+        {selected.email ? (
+          <div>
+            <dt className="text-muted-foreground">{t("email")}</dt>
+            <dd className="break-all">{selected.email}</dd>
+          </div>
+        ) : null}
+        {selected.phone ? (
+          <div>
+            <dt className="text-muted-foreground">{t("phone")}</dt>
+            <dd className="break-all">{selected.phone}</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="text-muted-foreground">{t("source")}</dt>
+          <dd className="break-all">{selected.page_path}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">{t("emailStatus")}</dt>
+          <dd>{t(emailStatusKey(selected.email_status))}</dd>
+        </div>
+      </dl>
+      {selected.message ? (
+        <div className="space-y-2 border-t pt-4">
+          <h4 className="font-medium">{t("message")}</h4>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+            {selected.message}
+          </p>
+        </div>
+      ) : null}
+      {readFailure === selected.id ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t("readError")}
+        </p>
+      ) : null}
+      {!selected.read_at ? (
         <Button
-          disabled={loading}
-          onClick={() => void load()}
+          disabled={reading === selected.id}
+          onClick={() => void markRead(selected)}
           type="button"
           variant="outline"
         >
-          <RefreshCwIcon aria-hidden="true" />
-          {t("refresh")}
+          {t(reading === selected.id ? "markingRead" : "markRead")}
         </Button>
-      </div>
+      ) : null}
+      {selected.email ? (
+        <div className="space-y-2 border-t pt-4">
+          <a
+            className={buttonVariants()}
+            href={`mailto:${encodeURIComponent(selected.email)}`}
+          >
+            <MailIcon aria-hidden="true" />
+            {t("reply")}
+          </a>
+          <p className="text-xs text-muted-foreground">{t("replyHint")}</p>
+        </div>
+      ) : selected.phone ? (
+        <div className="space-y-2 border-t pt-4">
+          <a
+            className={buttonVariants()}
+            href={`tel:${selected.phone.replace(/[^\d+]/g, "")}`}
+          >
+            <PhoneIcon aria-hidden="true" />
+            {t("call")}
+          </a>
+          <p className="text-xs text-muted-foreground">{t("callHint")}</p>
+        </div>
+      ) : null}
+    </>
+  ) : null;
+
+  return (
+    <div className="space-y-4">
       {failure ? (
         <FailureMessage
           failure={failure}
           onRetry={() => void load(retryCursor.current)}
         />
       ) : null}
-      {loading ? <p role="status">{t("loading")}</p> : null}
-      {!loading && !failure && !items.length ? (
-        <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-          {t("empty")}
-        </p>
-      ) : null}
-      {items.length ? (
+      {/* A refusal leaves nothing to list; a failed page keeps what came. */}
+      {failure && !items.length ? null : (
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-3">
             <DataTable
               caption={t("listLabel")}
               columns={columns}
               data={items}
+              // Nothing yet says where inquiries come from and leads there,
+              // in the list's own empty state (UX-050).
+              emptyAction={
+                <Link
+                  className="font-medium text-primary hover:underline"
+                  href="/panel/sites"
+                >
+                  {t("emptyAction")}
+                </Link>
+              }
               getRowId={(item) => item.id}
-              labels={labels}
+              labels={{ ...labels, empty: t("empty") }}
               loading={loading}
               // The API pages the inbox ("load older" below); the table shows
               // every inquiry loaded so far instead of paging them again.
               pageSize={Number.MAX_SAFE_INTEGER}
+              toolbar={
+                <>
+                  {siteFilter}
+                  <Button
+                    aria-label={t("refresh")}
+                    disabled={loading}
+                    onClick={() => void load()}
+                    title={t("refresh")}
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <RefreshCwIcon aria-hidden="true" />
+                  </Button>
+                </>
+              }
             />
             {cursor ? (
               <Button
@@ -368,7 +488,7 @@ function SiteInbox({ siteId }: { siteId: string }) {
               </Button>
             ) : null}
           </div>
-          {selected ? (
+          {narrow ? null : selected ? (
             <article
               aria-label={selected.name}
               // Stays in view beside a long list on a wide screen.
@@ -382,94 +502,31 @@ function SiteInbox({ siteId }: { siteId: string }) {
                 >
                   {selected.name}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t("received")}:{" "}
-                  <time dateTime={selected.created_at}>
-                    {date(selected.created_at)}
-                  </time>
-                </p>
+                {detailHeader}
               </header>
-              <dl className="grid gap-3 text-sm">
-                {/* A call-back form may arrive without an e-mail or a
-                    message; only what the visitor gave is shown. */}
-                {selected.email ? (
-                  <div>
-                    <dt className="text-muted-foreground">{t("email")}</dt>
-                    <dd className="break-all">{selected.email}</dd>
-                  </div>
-                ) : null}
-                {selected.phone ? (
-                  <div>
-                    <dt className="text-muted-foreground">{t("phone")}</dt>
-                    <dd className="break-all">{selected.phone}</dd>
-                  </div>
-                ) : null}
-                <div>
-                  <dt className="text-muted-foreground">{t("source")}</dt>
-                  <dd className="break-all">{selected.page_path}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">{t("emailStatus")}</dt>
-                  <dd>{t(emailStatusKey(selected.email_status))}</dd>
-                </div>
-              </dl>
-              {selected.message ? (
-                <div className="space-y-2 border-t pt-4">
-                  <h4 className="font-medium">{t("message")}</h4>
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
-                    {selected.message}
-                  </p>
-                </div>
-              ) : null}
-              {readFailure === selected.id ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {t("readError")}
-                </p>
-              ) : null}
-              {!selected.read_at ? (
-                <Button
-                  disabled={reading === selected.id}
-                  onClick={() => void markRead(selected)}
-                  type="button"
-                  variant="outline"
-                >
-                  {t(reading === selected.id ? "markingRead" : "markRead")}
-                </Button>
-              ) : null}
-              {selected.email ? (
-                <div className="space-y-2 border-t pt-4">
-                  <a
-                    className={buttonVariants()}
-                    href={`mailto:${encodeURIComponent(selected.email)}`}
-                  >
-                    <MailIcon aria-hidden="true" />
-                    {t("reply")}
-                  </a>
-                  <p className="text-xs text-muted-foreground">
-                    {t("replyHint")}
-                  </p>
-                </div>
-              ) : selected.phone ? (
-                <div className="space-y-2 border-t pt-4">
-                  <a
-                    className={buttonVariants()}
-                    href={`tel:${selected.phone.replace(/[^\d+]/g, "")}`}
-                  >
-                    <PhoneIcon aria-hidden="true" />
-                    {t("call")}
-                  </a>
-                  <p className="text-xs text-muted-foreground">
-                    {t("callHint")}
-                  </p>
-                </div>
-              ) : null}
+              {detailBody}
             </article>
-          ) : (
+          ) : items.length ? (
+            // The placeholder belongs to the wide layout only (UX-049).
             <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
               {t("choose")}
             </p>
-          )}
+          ) : null}
         </div>
+      )}
+      {narrow ? (
+        <Sheet
+          onOpenChange={(open) => (open ? null : setSelectedId(undefined))}
+          open={Boolean(selected)}
+        >
+          <SheetContent closeLabel={t("close")}>
+            <SheetHeader>
+              <SheetTitle className="break-words">{selected?.name}</SheetTitle>
+              {detailHeader}
+            </SheetHeader>
+            <SheetBody className="space-y-5">{detailBody}</SheetBody>
+          </SheetContent>
+        </Sheet>
       ) : null}
     </div>
   );

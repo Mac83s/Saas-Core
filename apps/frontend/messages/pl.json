@@ -3127,7 +3127,8 @@
       "count": "3"
     },
     "unnamedTemplate": "Szablon bez nazwy",
-    "samplesNote": "Wyróżnione miejsca to przykładowe wartości — w wysłanej wiadomości pojawią się prawdziwe."
+    "samplesNote": "Wyróżnione miejsca to przykładowe wartości — w wysłanej wiadomości pojawią się prawdziwe.",
+    "close": "Zamknij"
   },
   "Integrations": {
     "navigation": "Integracje",
@@ -4280,7 +4281,7 @@
     "site": "Strona internetowa",
     "loading": "Ładowanie zapytań…",
     "emptySites": "Nie masz jeszcze witryny. Zapytania pojawią się po opublikowaniu strony z formularzem kontaktowym.",
-    "empty": "Nie ma jeszcze zapytań z tej witryny.",
+    "empty": "Zapytania pojawią się tu, gdy ktoś wyśle formularz z podstrony Kontakt.",
     "listLabel": "Lista zapytań",
     "choose": "Wybierz wiadomość z listy, aby przeczytać jej treść.",
     "loadError": "Nie udało się pobrać zapytań. Spróbuj ponownie.",
@@ -4316,7 +4317,9 @@
     "emailUnavailable": "Powiadomienie niedostępne — wiadomość jest zapisana w panelu",
     "from": "Nadawca",
     "state": "Stan",
-    "opened": "Czytasz"
+    "opened": "Czytasz",
+    "emptyAction": "Otwórz podstrony strony",
+    "close": "Zamknij"
   },
   "ImageGeneration": {
     "open": "Wygeneruj obraz AI",
