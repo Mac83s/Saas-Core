@@ -1,17 +1,10 @@
-import { getPanelTranslations } from "#lib/panel-messages";
+import { notFound } from "next/navigation";
 
-import { PanelPage } from "#components/panel/panel-page";
-import { EntitlementSupportPanel } from "../../../../../modules/shared/billing";
-
-export default async function BillingSupportPage() {
-  const t = await getPanelTranslations("BillingSupport");
-  return (
-    <PanelPage
-      description={t("description")}
-      eyebrow={t("eyebrow")}
-      title={t("title")}
-    >
-      <EntitlementSupportPanel />
-    </PanelPage>
-  );
+/**
+ * A tool of the platform team, not of a company (answer 42a, UX-056): a
+ * company's panel answers 404. The panel component stays in its module for
+ * the operator's panel (development-15, „Platforma”).
+ */
+export default function SupportToolPage(): never {
+  notFound();
 }

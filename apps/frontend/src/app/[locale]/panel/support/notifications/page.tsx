@@ -1,13 +1,10 @@
-import { getPanelTranslations } from "#lib/panel-messages";
+import { notFound } from "next/navigation";
 
-import { PanelPage } from "#components/panel/panel-page";
-import { NotificationSupportPanel } from "../../../../../modules/shared/notifications";
-
-export default async function NotificationSupportPage() {
-  const t = await getPanelTranslations("NotificationSupport");
-  return (
-    <PanelPage description={t("description")} title={t("title")}>
-      <NotificationSupportPanel />
-    </PanelPage>
-  );
+/**
+ * A tool of the platform team, not of a company (answer 42a, UX-056): a
+ * company's panel answers 404. The panel component stays in its module for
+ * the operator's panel (development-15, „Platforma”).
+ */
+export default function SupportToolPage(): never {
+  notFound();
 }
