@@ -99,6 +99,7 @@ const service = (over: Record<string, unknown>) => ({
   minimum_notice_minutes: 60,
   staff_count: 2,
   public_staff_choice: "team",
+  online: true,
   active: true,
   draft: false,
   preset_id: null,
@@ -122,6 +123,7 @@ const SETUP = {
       duration_minutes: 60,
       staff_count: 1,
       public_staff_choice: "none",
+      online: false,
       active: false,
       staff_ids: [],
     }),
@@ -249,6 +251,10 @@ test("usługi, miejsca i zasoby w listach, z tym, co trzeba poprawić", async ()
   ).toBeNull();
   const old = within(services).getByText("Wizyta interwencyjna").closest("tr")!;
   expect(within(old).getByText("Wyłączona")).toBeInTheDocument();
+  // Hidden from the site's form: the list does not say customers book it.
+  expect(
+    within(old).getByText("Nie — rezerwacje wpisuje zespół"),
+  ).toBeInTheDocument();
   // Nobody does it: said where it is set, not discovered in the calendar.
   expect(within(old).getByText("Nikt")).toBeInTheDocument();
   const places = screen.getByRole("table", { name: "Miejsca firmy" });

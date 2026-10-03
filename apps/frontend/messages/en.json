@@ -4661,6 +4661,7 @@
     "public_none": "Yes, confirmed at once",
     "public_team": "Yes, the customer picks a team",
     "public_person": "Yes, the customer picks a person",
+    "public_off": "No — the team books it",
     "editFor": "Edit: {name}",
     "switchOffService": "Switch the service off",
     "switchOnService": "Switch the service on",

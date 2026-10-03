@@ -4661,6 +4661,7 @@
     "public_none": "Tak, potwierdzana od razu",
     "public_team": "Tak, klient wybiera zespół",
     "public_person": "Tak, klient wybiera osobę",
+    "public_off": "Nie — rezerwacje wpisuje zespół",
     "editFor": "Edytuj: {name}",
     "switchOffService": "Wyłącz usługę",
     "switchOnService": "Włącz usługę",

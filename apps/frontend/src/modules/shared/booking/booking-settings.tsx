@@ -366,7 +366,11 @@ export function BookingSettings({
       enableSorting: false,
       cell: ({ row: { original: service } }) => (
         <span className={dim(service)}>
-          {t(`public_${service.public_staff_choice}` as "public_none")}
+          {/* The site's form takes visits by the clock that are shown online;
+              a stay, a rental or a hidden offer is booked by the team. */}
+          {service.time_model !== "slot" || service.online === false
+            ? t("public_off")
+            : t(`public_${service.public_staff_choice}` as "public_none")}
         </span>
       ),
     },
