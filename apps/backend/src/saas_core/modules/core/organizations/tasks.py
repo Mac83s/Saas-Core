@@ -70,9 +70,7 @@ def issue_tenant_task_contract(*, causation_id: str) -> str:
     if not causation_id or len(causation_id) > 160:
         raise ValueError("causation_id musi mieć od 1 do 160 znaków.")
     acting = (
-        {field: getattr(context, field) for field in _ACTING_FIELDS}
-        if context.acting_via
-        else {}
+        {field: getattr(context, field) for field in _ACTING_FIELDS} if context.acting_via else {}
     )
     contract = TenantTaskContract(
         version=3 if acting else 2,
@@ -339,6 +337,10 @@ def _service_context(contract: TenantTaskContract) -> TenantContext:
         # The warehouse's daily low-stock notice (ADR-055, phase 10): the
         # hourly sweep signs its mails as the organization's own job.
         "inventory_notifications": set(),
+        # Translation's notices to the company's people (ADR-069 pkt 20): a
+        # job that ended with gaps, the daily "results wait" and a paused
+        # automation come from a worker or a sweep, with no person behind them.
+        "translation_notifications": set(),
     }
     allowed = allowed_scopes.get(contract.role_key)
     if (

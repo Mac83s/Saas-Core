@@ -222,9 +222,15 @@ def test_a_paused_automation_tells_the_managers_once_a_period(source: JobSource)
         organization=owner.organization, kind=AUTOMATION_PAUSED
     )
     assert notice.user_id == owner.user_id and notice.payload == {"reason": MONTHLY_LIMIT}
-    assert NotificationMessage.all_objects.filter(
+    # The sweep has no person behind it: the mail goes as the organization's
+    # own job, and delivery opens that contract.
+    from saas_core.modules.shared.notifications.tasks import deliver_email_task  # noqa: PLC0415
+
+    mail = NotificationMessage.all_objects.get(
         organization=owner.organization, template_key=AUTOMATION_PAUSED
-    ).exists()
+    )
+    deliver_email_task.run(str(mail.id), mail.signed_tenant_context)
+    assert NotificationMessage.all_objects.get(pk=mail.id).status == "sent"
     # Tried again within the month: still one notice.
     TranslationDemand.all_objects.filter(organization=owner.organization).update(
         check_at=timezone.now()

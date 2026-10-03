@@ -45,6 +45,16 @@ def pages(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
         yield installed
 
 
+def delivered(mail: NotificationMessage) -> str:
+    """The delivery task opens the contract the mail was signed with and sends
+    it; a contract it refuses leaves the mail queued for ever, with only a line
+    in the security log."""
+    from saas_core.modules.shared.notifications.tasks import deliver_email_task  # noqa: PLC0415
+
+    deliver_email_task.run(str(mail.id), mail.signed_tenant_context)
+    return str(NotificationMessage.all_objects.get(pk=mail.id).status)
+
+
 def test_a_job_with_gaps_tells_the_person_who_ordered_it(
     pages: JobSource, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -61,6 +71,29 @@ def test_a_job_with_gaps_tells_the_person_who_ordered_it(
         organization=owner.organization, template_key=JOB_PROBLEM
     )
     assert mail.recipient_email == owner.user.email
+    assert delivered(mail) == "sent"
+
+
+def test_a_job_that_ends_while_its_holds_are_settled_still_sends_its_mail(
+    pages: JobSource,
+) -> None:
+    """A part that cannot start closes the job inside the settlement's context,
+    which no task contract opens: the notice is the organization's own."""
+    from saas_core.modules.core.organizations.context import (  # noqa: PLC0415
+        activate_tenant_context,
+    )
+    from saas_core.modules.shared.translation.notify import notify_job_problem  # noqa: PLC0415
+    from saas_core.modules.shared.translation.worker import _settlement_context  # noqa: PLC0415
+
+    owner = company("tl6c3-settling")
+    job = run(order(owner, [page(pages, "Alfa")]))
+    job.state = JobState.FAILED
+    with tenant(owner), activate_tenant_context(_settlement_context(job)):
+        notify_job_problem(job, written=0, total=1)
+    mail = NotificationMessage.all_objects.get(
+        organization=owner.organization, template_key=JOB_PROBLEM
+    )
+    assert delivered(mail) == "sent"
 
 
 def test_a_clean_job_says_nothing(pages: JobSource) -> None:
@@ -86,12 +119,12 @@ def test_once_a_day_the_managers_hear_what_waits(pages: JobSource) -> None:
     assert notify_waiting_reviews() == 0
     notice = AppNotification.all_objects.get(organization=owner.organization, kind=REVIEW_WAITING)
     assert notice.payload == {"count": 3, "reasons": {"review_mode": 2, "legal_document": 1}}
-    assert (
-        NotificationMessage.all_objects.filter(
-            organization=owner.organization, template_key=REVIEW_WAITING
-        ).count()
-        == 1
+    # The sweep has no person behind it: the mail goes as the organization's
+    # own job, which delivery has to open.
+    mail = NotificationMessage.all_objects.get(
+        organization=owner.organization, template_key=REVIEW_WAITING
     )
+    assert delivered(mail) == "sent"
 
 
 def test_the_platforms_content_above_the_threshold_waits_for_the_operator(

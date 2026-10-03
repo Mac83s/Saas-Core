@@ -49,7 +49,15 @@ NOTIFY_ROLE = "translation_notifications"
 @contextmanager
 def _as_the_organization(organization_id: UUID) -> Iterator[None]:
     outer = current_tenant_context()
-    if outer is not None and outer.organization_id == organization_id:
+    # A person's context signs the mail as that person. Anything else — no
+    # context in a sweep, the job's settlement context in the worker — is not
+    # one the delivery task opens, so the notice goes as the organization's
+    # own job (`NOTIFY_ROLE` in `core.organizations.tasks._service_context`).
+    if (
+        outer is not None
+        and outer.organization_id == organization_id
+        and outer.principal_kind == "membership"
+    ):
         yield
         return
     context = TenantContext(
