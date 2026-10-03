@@ -235,9 +235,20 @@ def deferred_tenant_context(
     run as the person deciding directly. Values that do not hold are refused
     like a membership that is gone.
     """
+    try:
+        tenant = UUID(str(organization_id))
+    except (TypeError, ValueError) as error:
+        raise InvalidTenantTaskContext(
+            f"{causation_id}: nieprawidłowy identyfikator organizacji."
+        ) from error
     correlation_token = correlation_id.set(str(uuid7()))
     try:
         with transaction.atomic():
+            # ADR-041, like `tenant_task_context`: the stored record names its
+            # organization, so the tenant is set before the membership is read.
+            # Without it the row is invisible under RLS and an active person
+            # looked like one who had left — a scheduled publication never ran.
+            set_local_organization_id(tenant)
             membership = _active_membership(
                 organization_id=organization_id,
                 membership_id=membership_id,

@@ -498,6 +498,41 @@ def test_a_task_contract_carries_acting_and_never_an_opened_gate() -> None:
             pass
 
 
+def test_deferred_context_sets_the_tenant_before_it_reads_the_membership() -> None:
+    """The test database bypasses RLS; under the application role the
+    membership is invisible until the tenant is set, and an active person was
+    refused like one who had left (a scheduled publication never ran, 03.10)."""
+    from django.test.utils import CaptureQueriesContext
+
+    membership = create_membership()
+
+    with (
+        CaptureQueriesContext(connection) as captured,
+        deferred_tenant_context(
+            organization_id=str(membership.organization_id),
+            membership_id=membership.id,
+            actor_id=membership.user_id,
+            causation_id="sites-entry-schedule:test",
+        ),
+    ):
+        pass
+
+    sql = [query["sql"] for query in captured.captured_queries]
+    tenant = next(i for i, statement in enumerate(sql) if "app.organization_id" in statement)
+    read = next(i for i, statement in enumerate(sql) if "organizations_membership" in statement)
+    assert tenant < read
+    with (
+        pytest.raises(InvalidTenantTaskContext),
+        deferred_tenant_context(
+            organization_id="not-a-uuid",
+            membership_id=membership.id,
+            actor_id=membership.user_id,
+            causation_id="sites-entry-schedule:test",
+        ),
+    ):
+        pass
+
+
 def test_deferred_context_reapplies_acting_and_refuses_an_inactive_membership() -> None:
     """Work a translation job does later runs as the membership of the person
     who enabled it, asked again at that moment, and still marked as acting."""
