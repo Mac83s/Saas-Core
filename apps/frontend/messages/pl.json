@@ -2517,7 +2517,7 @@
       "section": "{number}. {name}",
       "item": "{label} {number}",
       "fragment": "Fragment {number}",
-      "conflict": "Ktoś zmienił to tłumaczenie — wczytałem nową wersję, Twoje niezapisane zmiany są nałożone.",
+      "conflict": "Ktoś zmienił to tłumaczenie — poniżej nowa wersja, Twoje niezapisane zmiany są nałożone.",
       "unitErrors": {
         "required": "To pole nie może być puste.",
         "too_long": "Tekst jest za długi.",
@@ -2574,7 +2574,7 @@
         "published": "Wersja {language} jest na stronie.",
         "withdrawn": "Wersja {language} została zdjęta ze strony.",
         "forbidden": "Tę decyzję podejmuje osoba z prawem publikacji.",
-        "changed": "Ta wersja zmieniła się w międzyczasie — wczytałem aktualny stan.",
+        "changed": "Ta wersja zmieniła się w międzyczasie — poniżej aktualny stan.",
         "failed": "Nie udało się wykonać tej operacji. Spróbuj ponownie.",
         "close": "Rozumiem"
       },
