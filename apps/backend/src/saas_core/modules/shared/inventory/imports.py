@@ -385,13 +385,13 @@ def _parse_row(line: int, cells: Mapping[str, str]) -> _Row:
     if cells.get("unit"):
         unit = _UNITS.get(cells["unit"].lower())
         if unit is None:
-            row.error("unit", "invalid_choice", "Nieznana jednostka — np. szt., opak., ml, kg.")
+            row.error("unit", "invalid_unit", "Nieznana jednostka — np. szt., opak., ml, kg.")
         else:
             values["unit"] = unit
     if cells.get("vat_rate"):
         rate = cells["vat_rate"].lower().removesuffix("%").strip().removesuffix(".")
         if rate not in VatRate.values:
-            row.error("vat_rate", "invalid_choice", "VAT to 23, 8, 5, 0 albo zw.")
+            row.error("vat_rate", "invalid_vat", "VAT to 23, 8, 5, 0 albo zw.")
         else:
             values["vat_rate"] = rate
     if "tracks_lots" in cells and cells["tracks_lots"]:
@@ -401,7 +401,7 @@ def _parse_row(line: int, cells: Mapping[str, str]) -> _Row:
         elif answer in _NO:
             values["tracks_lots"] = False
         else:
-            row.error("tracks_lots", "invalid", "Wpisz „tak” albo „nie”.")
+            row.error("tracks_lots", "invalid_yes_no", "Wpisz „tak” albo „nie”.")
     for key, target, places in (
         ("minimum_quantity", "minimum_quantity", 3),
         ("quantity", "quantity", 3),
@@ -414,10 +414,12 @@ def _parse_row(line: int, cells: Mapping[str, str]) -> _Row:
         try:
             number = _decimal(raw)
         except InvalidOperation:
-            row.error(key, "invalid", "To nie jest liczba.")
+            row.error(key, "invalid_number", "To nie jest liczba.")
             continue
         if number < 0 or number != round(number, places) or number > Decimal(10) ** 8:
-            row.error(key, "invalid", f"Liczba od zera, najwyżej {places} miejsca po przecinku.")
+            row.error(
+                key, "invalid_number", f"Liczba od zera, najwyżej {places} miejsca po przecinku."
+            )
         elif target == "quantity":
             row.quantity = number or None
         elif target == "unit_cost_minor":
@@ -433,7 +435,7 @@ def _parse_row(line: int, cells: Mapping[str, str]) -> _Row:
         try:
             row.expires_on = _day(cells["expires_on"])
         except ValueError:
-            row.error("expires_on", "invalid", "Data jako RRRR-MM-DD albo DD.MM.RRRR.")
+            row.error("expires_on", "invalid_date", "Data jako RRRR-MM-DD albo DD.MM.RRRR.")
     return row
 
 

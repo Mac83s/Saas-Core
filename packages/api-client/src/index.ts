@@ -4766,12 +4766,18 @@ async function inventoryWrite<T>(
   path: keyof paths,
   pathParams: Record<string, string>,
   body?: unknown,
+  idempotencyKey?: string,
 ): Promise<T> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await (client[method] as Fetch)(
     path as never,
     {
-      params: { path: pathParams },
+      params: {
+        path: pathParams,
+        ...(idempotencyKey
+          ? { header: { "Idempotency-Key": idempotencyKey } }
+          : {}),
+      },
       ...(body === undefined ? {} : { body }),
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
@@ -4904,6 +4910,41 @@ export function setInventoryPlaceMinimum(
   input: components["schemas"]["PlaceMinimumInput"],
 ): Promise<InventoryBalance> {
   return inventoryWrite("PUT", "/api/v1/inventory/minimums/", {}, input);
+}
+
+export type InventoryImportResult = components["schemas"]["ImportResult"];
+export type InventoryImportTemplate = components["schemas"]["ImportTemplate"];
+export type InventoryImportInput = components["schemas"]["ImportInput"];
+
+/** The CSV import's columns, limits and a file to start from. */
+export function getInventoryImportTemplate(): Promise<InventoryImportTemplate> {
+  return inventoryRead("/api/v1/inventory/imports/template/");
+}
+
+/** What a CSV would do to the catalogue; nothing is saved. */
+export function previewInventoryImport(
+  input: InventoryImportInput,
+): Promise<InventoryImportResult> {
+  return inventoryWrite(
+    "POST",
+    "/api/v1/inventory/imports/preview/",
+    {},
+    input,
+  );
+}
+
+/** Saves the CSV: every row or none. One key per file chosen. */
+export function applyInventoryImport(
+  input: InventoryImportInput,
+  idempotencyKey: string,
+): Promise<InventoryImportResult> {
+  return inventoryWrite(
+    "POST",
+    "/api/v1/inventory/imports/",
+    {},
+    input,
+    idempotencyKey,
+  );
 }
 
 export type InventoryStockValueReport =

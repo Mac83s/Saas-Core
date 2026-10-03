@@ -2596,6 +2596,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/imports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import items from a CSV
+         * @description Saves what the preview showed: new items, changes to existing ones and, for rows with a quantity, one posted PW with the opening stock in the chosen warehouse. A problem in any row saves nothing and answers 400 with `errors[].field` = `rows[<line>].<column>`. The history records the counts and a hash of the text, never the file. A repeated Idempotency-Key answers the first save's summary (`replayed`); the key with another file is 409 `import_idempotency_conflict`. Needs inventory.manage.
+         */
+        post: operations["inventory_import_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/imports/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a CSV import of items
+         * @description Reads the CSV and says, row by row, what a save would do: create an item, change one (matched by SKU, then by name), leave it, or why the row is wrong (`errors` with the column and a code); warnings include cells that start like a spreadsheet formula. Nothing is saved and the file is not kept. Needs inventory.manage.
+         */
+        post: operations["inventory_import_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/imports/template/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The CSV import's columns and a starting file
+         * @description The columns the import knows, with the headers it accepts, what each means and an example; a CSV to start from (a header and one example row, no formulas); the limits on rows and size.
+         */
+        get: operations["inventory_import_template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/issues/": {
         parameters: {
             query?: never;
@@ -8741,6 +8801,114 @@ export interface components {
             prompt: string;
             aspect: components["schemas"]["ImageGenerationAspectEnum"];
             expected_cost: number;
+        };
+        ImportColumn: {
+            key: string;
+            /** @description The header the template uses. */
+            header: string;
+            /** @description Every header the import accepts for it. */
+            headers: string[];
+            /** @description pl and en. */
+            title: {
+                [key: string]: string;
+            };
+            /** @description pl and en. */
+            description: {
+                [key: string]: string;
+            };
+            mandatory: boolean;
+            example: string;
+        };
+        ImportDocument: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+        };
+        ImportInput: {
+            /** @description The CSV as text: a header row, then one item per row. Columns by header (Polish or English, see the template), `;`, `,` or a tab between cells, a decimal comma or point. A cell starting with = + - or @ is kept as plain text. */
+            content: string;
+            /**
+             * Format: uuid
+             * @description The warehouse that receives rows with a quantity; null: the main one.
+             */
+            location_id?: string | null;
+        };
+        ImportProblem: {
+            /** @description The column's key, e.g. unit. */
+            field: string;
+            code: string;
+            message: string;
+        };
+        ImportResult: {
+            /** @description False for a preview: nothing was saved. */
+            applied: boolean;
+            /** @description True when this Idempotency-Key was already saved: the first save's summary, without rows. */
+            replayed: boolean;
+            summary: components["schemas"]["ImportSummary"];
+            /** @description The columns recognised in the header. */
+            columns: string[];
+            /** @description Headers the import does not know; ignored. */
+            unknown_columns: string[];
+            delimiter: string;
+            /** Format: uuid */
+            location_id: string;
+            /** @description The posted PW with the opening stock, once saved. */
+            document: components["schemas"]["ImportDocument"] | null;
+            rows: components["schemas"]["ImportRow"][];
+        };
+        ImportRow: {
+            /** @description The row's line in the file; the header is 1. */
+            line: number;
+            action: components["schemas"]["ImportRowActionEnum"];
+            name: string;
+            sku: string;
+            /**
+             * Format: uuid
+             * @description The catalogue item the row matched or created.
+             */
+            item_id: string | null;
+            /** @description The item's fields the row sets or changes. */
+            changes: string[];
+            /**
+             * Format: decimal
+             * @description Opening stock the row receives; null: none.
+             */
+            quantity: string | null;
+            /** @description Why the row cannot be saved; empty when it can. */
+            problems: components["schemas"]["ImportProblem"][];
+            /** @description What to look at before saving; they do not stop the save. */
+            warnings: components["schemas"]["ImportProblem"][];
+        };
+        /**
+         * @description * `create` - A new item
+         *     * `update` - An existing item changes
+         *     * `unchanged` - An existing item stays as it is
+         *     * `error` - The row has a problem; nothing is saved while any row has one
+         * @enum {string}
+         */
+        ImportRowActionEnum: "create" | "update" | "unchanged" | "error";
+        ImportSummary: {
+            rows: number;
+            /** @description New items. */
+            created: number;
+            /** @description Existing items the file changes. */
+            updated: number;
+            unchanged: number;
+            /** @description Rows with a problem. */
+            invalid: number;
+            /** @description Rows that receive opening stock. */
+            stock_lines: number;
+            /** @description Categories the import creates. */
+            new_categories: string[];
+        };
+        ImportTemplate: {
+            columns: components["schemas"]["ImportColumn"][];
+            filename: string;
+            /** @description A file to start from: the header and one example row. */
+            csv: string;
+            delimiter: string;
+            max_rows: number;
+            max_bytes: number;
         };
         Interval: {
             /** Format: date-time */
@@ -21106,6 +21274,150 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_import_apply: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One key per save; a repeat answers the first result. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ImportInput"];
+                "multipart/form-data": components["schemas"]["ImportInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_import_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ImportInput"];
+                "multipart/form-data": components["schemas"]["ImportInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_import_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTemplate"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

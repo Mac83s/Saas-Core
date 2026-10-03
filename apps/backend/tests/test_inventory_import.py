@@ -185,18 +185,18 @@ def test_a_wrong_row_saves_nothing_and_says_which_cell() -> None:
             for problem in row["problems"]
         }
         assert problems == {
-            (2, "unit", "invalid_choice"),
+            (2, "unit", "invalid_unit"),
             (3, "name", "required"),
-            (4, "quantity", "invalid"),
-            (4, "vat_rate", "invalid_choice"),
-            (4, "tracks_lots", "invalid"),
-            (4, "expires_on", "invalid"),
+            (4, "quantity", "invalid_number"),
+            (4, "vat_rate", "invalid_vat"),
+            (4, "tracks_lots", "invalid_yes_no"),
+            (4, "expires_on", "invalid_date"),
             (5, "name", "duplicate_in_file"),
         }
         assert preview["summary"]["invalid"] == 4
         with pytest.raises(ValidationError) as refused:
             run(request, content, idempotency_key="import-bad")
-        assert refused.value.get_codes()["rows[2].unit"] == ["invalid_choice"]
+        assert refused.value.get_codes()["rows[2].unit"] == ["invalid_unit"]
         assert catalogue(owner) == {}
         # A lot is required where the item keeps lots, and refused where it does not.
         lots = run(

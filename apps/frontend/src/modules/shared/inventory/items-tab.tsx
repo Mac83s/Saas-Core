@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { FileUpIcon, PencilIcon, PlusIcon } from "lucide-react";
 
 import {
   createInventoryItem,
@@ -24,8 +24,10 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Switch } from "@saas-core/ui/components/switch";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { PanelActions } from "#components/panel/panel-actions";
 import { PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { ImportSheet } from "./import-sheet";
 import {
   FormDialog,
   UNITS,
@@ -101,6 +103,7 @@ export function ItemsTab({
   const { amount, money } = useFormat();
   const [category, setCategory] = useState("");
   const [editing, setEditing] = useState<InventoryItem | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
 
   const open = (item: InventoryItem | "new") => {
@@ -257,10 +260,20 @@ export function ItemsTab({
       {...page}
       actions={
         canManage ? (
-          <Button onClick={() => open("new")}>
-            <PlusIcon aria-hidden="true" />
-            {t("addItem")}
-          </Button>
+          <PanelActions
+            more={[
+              {
+                label: t("importOpen"),
+                icon: <FileUpIcon aria-hidden="true" />,
+                onSelect: () => setImporting(true),
+              },
+            ]}
+          >
+            <Button onClick={() => open("new")}>
+              <PlusIcon aria-hidden="true" />
+              {t("addItem")}
+            </Button>
+          </PanelActions>
         ) : null
       }
       description={t("itemsDescription")}
@@ -401,6 +414,14 @@ export function ItemsTab({
           <Textarea {...field("notes")} rows={2} />
         </Field>
       </FormDialog>
+      {canManage ? (
+        <ImportSheet
+          data={data}
+          onClose={() => setImporting(false)}
+          onImported={onChanged}
+          open={importing}
+        />
+      ) : null}
     </PanelPage>
   );
 }

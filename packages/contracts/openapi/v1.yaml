@@ -7519,6 +7519,152 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/inventory/imports/:
+    post:
+      operationId: inventory_import_apply
+      description: 'Saves what the preview showed: new items, changes to existing
+        ones and, for rows with a quantity, one posted PW with the opening stock in
+        the chosen warehouse. A problem in any row saves nothing and answers 400 with
+        `errors[].field` = `rows[<line>].<column>`. The history records the counts
+        and a hash of the text, never the file. A repeated Idempotency-Key answers
+        the first save''s summary (`replayed`); the key with another file is 409 `import_idempotency_conflict`.
+        Needs inventory.manage.'
+      summary: Import items from a CSV
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: One key per save; a repeat answers the first result.
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/imports/preview/:
+    post:
+      operationId: inventory_import_preview
+      description: 'Reads the CSV and says, row by row, what a save would do: create
+        an item, change one (matched by SKU, then by name), leave it, or why the row
+        is wrong (`errors` with the column and a code); warnings include cells that
+        start like a spreadsheet formula. Nothing is saved and the file is not kept.
+        Needs inventory.manage.'
+      summary: Preview a CSV import of items
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/inventory/imports/template/:
+    get:
+      operationId: inventory_import_template
+      description: The columns the import knows, with the headers it accepts, what
+        each means and an example; a CSV to start from (a header and one example row,
+        no formulas); the limits on rows and size.
+      summary: The CSV import's columns and a starting file
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportTemplate'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/issues/:
     post:
       operationId: inventory_issue_create
@@ -25343,6 +25489,249 @@ components:
       - aspect
       - expected_cost
       - prompt
+    ImportColumn:
+      type: object
+      properties:
+        key:
+          type: string
+        header:
+          type: string
+          description: The header the template uses.
+        headers:
+          type: array
+          items:
+            type: string
+          description: Every header the import accepts for it.
+        title:
+          type: object
+          additionalProperties:
+            type: string
+          description: pl and en.
+        description:
+          type: object
+          additionalProperties:
+            type: string
+          description: pl and en.
+        mandatory:
+          type: boolean
+        example:
+          type: string
+      required:
+      - description
+      - example
+      - header
+      - headers
+      - key
+      - mandatory
+      - title
+    ImportDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+      required:
+      - id
+      - number
+    ImportInput:
+      type: object
+      properties:
+        content:
+          type: string
+          description: 'The CSV as text: a header row, then one item per row. Columns
+            by header (Polish or English, see the template), `;`, `,` or a tab between
+            cells, a decimal comma or point. A cell starting with = + - or @ is kept
+            as plain text.'
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'The warehouse that receives rows with a quantity; null: the
+            main one.'
+      required:
+      - content
+    ImportProblem:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The column's key, e.g. unit.
+        code:
+          type: string
+        message:
+          type: string
+      required:
+      - code
+      - field
+      - message
+    ImportResult:
+      type: object
+      properties:
+        applied:
+          type: boolean
+          description: 'False for a preview: nothing was saved.'
+        replayed:
+          type: boolean
+          description: 'True when this Idempotency-Key was already saved: the first
+            save''s summary, without rows.'
+        summary:
+          $ref: '#/components/schemas/ImportSummary'
+        columns:
+          type: array
+          items:
+            type: string
+          description: The columns recognised in the header.
+        unknown_columns:
+          type: array
+          items:
+            type: string
+          description: Headers the import does not know; ignored.
+        delimiter:
+          type: string
+        location_id:
+          type: string
+          format: uuid
+        document:
+          oneOf:
+          - $ref: '#/components/schemas/ImportDocument'
+          - type: 'null'
+          description: The posted PW with the opening stock, once saved.
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRow'
+      required:
+      - applied
+      - columns
+      - delimiter
+      - document
+      - location_id
+      - replayed
+      - rows
+      - summary
+      - unknown_columns
+    ImportRow:
+      type: object
+      properties:
+        line:
+          type: integer
+          description: The row's line in the file; the header is 1.
+        action:
+          $ref: '#/components/schemas/ImportRowActionEnum'
+        name:
+          type: string
+        sku:
+          type: string
+        item_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The catalogue item the row matched or created.
+        changes:
+          type: array
+          items:
+            type: string
+          description: The item's fields the row sets or changes.
+        quantity:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: 'Opening stock the row receives; null: none.'
+        problems:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportProblem'
+          description: Why the row cannot be saved; empty when it can.
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportProblem'
+          description: What to look at before saving; they do not stop the save.
+      required:
+      - action
+      - changes
+      - item_id
+      - line
+      - name
+      - problems
+      - quantity
+      - sku
+      - warnings
+    ImportRowActionEnum:
+      enum:
+      - create
+      - update
+      - unchanged
+      - error
+      type: string
+      description: |-
+        * `create` - A new item
+        * `update` - An existing item changes
+        * `unchanged` - An existing item stays as it is
+        * `error` - The row has a problem; nothing is saved while any row has one
+    ImportSummary:
+      type: object
+      properties:
+        rows:
+          type: integer
+        created:
+          type: integer
+          description: New items.
+        updated:
+          type: integer
+          description: Existing items the file changes.
+        unchanged:
+          type: integer
+        invalid:
+          type: integer
+          description: Rows with a problem.
+        stock_lines:
+          type: integer
+          description: Rows that receive opening stock.
+        new_categories:
+          type: array
+          items:
+            type: string
+          description: Categories the import creates.
+      required:
+      - created
+      - invalid
+      - new_categories
+      - rows
+      - stock_lines
+      - unchanged
+      - updated
+    ImportTemplate:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportColumn'
+        filename:
+          type: string
+        csv:
+          type: string
+          description: 'A file to start from: the header and one example row.'
+        delimiter:
+          type: string
+        max_rows:
+          type: integer
+        max_bytes:
+          type: integer
+      required:
+      - columns
+      - csv
+      - delimiter
+      - filename
+      - max_bytes
+      - max_rows
     Interval:
       type: object
       properties:

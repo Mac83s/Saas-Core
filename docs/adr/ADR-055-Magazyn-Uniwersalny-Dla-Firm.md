@@ -209,6 +209,33 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
   cenę uzgodnioną przy rezerwacji; wcześniej WZ z wizyty nie niosło ceny, więc dla
   starych wizyt raport pokaże koszt bez wartości sprzedaży.
 
+## Uzupełnienie 2026-10-03: import CSV (faza 10c)
+
+- **Podgląd i zapis to ta sama usługa.** `POST /inventory/imports/preview/` (`x-dry-run`)
+  czyta plik i mówi wiersz po wierszu, co zrobi zapis — nowa pozycja, zmiana, bez
+  zmian albo błąd z kolumną i kodem — i niczego nie zapisuje. `POST /inventory/imports/`
+  robi to samo i zapisuje **wszystko albo nic**; błąd w jednym wierszu to 400 z
+  `errors[].field` = `rows[<wiersz>].<kolumna>`. `GET /inventory/imports/template/`
+  podaje kolumny, przyjmowane nagłówki (pl i en), limity i plik startowy.
+- **Dopasowanie:** po SKU, potem po nazwie (bez wielkości liter). Kolumny, których
+  plik nie ma, i puste komórki niczego nie zmieniają. Nieznana kategoria powstaje jako
+  własna kategoria firmy.
+- **Stan początkowy:** wiersz z ilością przyjmuje ją jednym zatwierdzonym PW do
+  wybranego magazynu (nigdy do zapasu osoby), z ceną zakupu jako ceną przyjęcia i z
+  partią przy pozycji z partiami (wymagana).
+- **Plik jest czytany, nie przechowywany.** Panel dekoduje go u siebie (UTF-8 albo
+  Windows-1250) i wysyła tekst; historia („Zaimportowano pozycje magazynu z pliku”)
+  trzyma liczby i skrót SHA-256 treści, nie wiersze.
+- **Komórka zaczynająca się od `=`, `+`, `-`, `@`** jest tekstem jak każda inna —
+  nic jej nie wykonuje — a podgląd ją oznacza (`formula_like`), żeby człowiek zobaczył
+  ją przed zapisem. Szablon nie zawiera formuł.
+- **Idempotencja bez nowej tabeli:** `Idempotency-Key` jest wymagany; dokument PW ma
+  identyfikator wyliczony z klucza, więc powtórka nie przyjmie stanu drugi raz, a
+  wpis historii importu trzyma klucz i skrót treści — ten sam klucz zwraca pierwsze
+  podsumowanie (`replayed`), z innym plikiem to 409 `import_idempotency_conflict`.
+- **Limity** `MAX_IMPORT_ROWS` (2000) i `MAX_IMPORT_BYTES` (1 MB) to nazwane stałe
+  ochronne (ADR-078 pkt 16), nie ustawienia firmy.
+
 ## Konsekwencje
 
 - Dziesięć tabel tenantowych z wymuszonym RLS (ADR-039): pozycja, kategoria,
@@ -219,8 +246,8 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
 - Stare endpointy v1 (przyjęcie, wydanie, zwrot, korekta) działają dalej jako
   skróty tworzące zatwierdzone dokumenty PZ, MM oraz PW/RW (korekta stanu), dopóki panel nie
   przejdzie na dokumenty.
-- Import CSV i PDF dokumentów to kolejne fazy planu (partie i ważność —
-  uzupełnienie 25.09; stan minimalny, powiadomienie i raporty — uzupełnienia 03.10).
+- PDF dokumentów to kolejna faza planu (partie i ważność — uzupełnienie 25.09; stan
+  minimalny, powiadomienie, raporty i import CSV — uzupełnienia 03.10).
 
 ## Odrzucone
 
