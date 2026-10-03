@@ -154,6 +154,17 @@ function labelKeys(blockType: string | undefined, path: readonly string[]) {
   return option ? walk(option.fields, path) : null;
 }
 
+/** Where the unit's field stands in the block's catalog; unknown ones last,
+ *  in their own order (`sort` is stable). */
+function fieldOrder(blockType: string | undefined, key: string): number {
+  const fields = blockOptions.find((item) => item.type === blockType)?.fields;
+  const parts = key.split("/").slice(1);
+  const index = (fields ?? []).findIndex((field) =>
+    field.path.every((part, position) => parts[position] === part),
+  );
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
 function problemOf(error: unknown): ApiProblemError["problem"] | null {
   return error instanceof ApiProblemError ? error.problem : null;
 }
@@ -388,7 +399,19 @@ export function PageLanguageEditor({
       const position = Number(unit.key.split("/", 1)[0]);
       groups.set(position, [...(groups.get(position) ?? []), unit]);
     }
-    return [...groups.entries()];
+    // In the order the section's own form shows its fields (the heading
+    // before the text), not the order the data happens to be stored in.
+    return [...groups.entries()].map(
+      ([position, units]) =>
+        [
+          position,
+          [...units].sort(
+            (left, right) =>
+              fieldOrder(body?.block_types[position], left.key) -
+              fieldOrder(body?.block_types[position], right.key),
+          ),
+        ] as const,
+    );
   }, [body]);
 
   const untouched =
@@ -453,11 +476,14 @@ export function PageLanguageEditor({
         </Button>
         <Button
           type="button"
+          aria-label={t("save")}
           disabled={state !== "ready" || saving || dirtyKeys.length === 0}
           onClick={() => void save()}
         >
           <SaveIcon aria-hidden="true" />
-          {t("save")}
+          {/* A phone's one row has room for the short word. */}
+          <span className="sm:hidden">{common("save")}</span>
+          <span className="max-sm:hidden">{t("save")}</span>
         </Button>
       </div>
     </div>

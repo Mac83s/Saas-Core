@@ -70,12 +70,13 @@ function body(extra: Partial<LocaleBody> = {}): LocaleBody {
     untranslated: 1,
     block_types: ["core.hero", "core.contact_details"],
     units: [
+      // Stored with the text first; the form shows the heading first.
+      unit("0/text", "Projekt od 120 zł"),
       unit("0/title", "Oferta", {
         text: "Angebot",
         origin: "ai",
         translated: true,
       }),
-      unit("0/text", "Projekt od 120 zł"),
       unit("1/name", "Studio Kowalski", { kind: "name", translated: true }),
       unit("1/note", "[Uzupełnij: godziny]", { placeholder: true }),
     ],
@@ -111,6 +112,11 @@ test("only the words change: each fragment beside its source, structure in the s
   const view = show();
 
   expect(await screen.findByText("1. Baner powitalny")).not.toBeNull();
+  // The section's own field order: the heading before the text.
+  const labels = screen
+    .getAllByText(/^(Nagłówek|Treść)$/)
+    .map((item) => item.textContent);
+  expect(labels).toEqual(["Nagłówek", "Treść"]);
   expect(screen.getByText("Projekt od 120 zł")).not.toBeNull();
   expect(screen.getByDisplayValue("Angebot")).not.toBeNull();
   expect(screen.getByText("Przetłumaczone (AI)")).not.toBeNull();
