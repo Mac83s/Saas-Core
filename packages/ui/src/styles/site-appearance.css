@@ -334,6 +334,17 @@
 .site-article-header h1 {
   max-width: 28ch;
 }
+/* The note on an unchecked machine translation: quiet, in line with the
+   text, never a banner. */
+.site-theme .site-block.site-machine-notice {
+  padding-block: 1rem 0;
+}
+.site-theme .site-block.site-machine-notice p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  opacity: 0.85;
+}
 .site-theme .site-block .site-article-byline {
   display: flex;
   flex-wrap: wrap;

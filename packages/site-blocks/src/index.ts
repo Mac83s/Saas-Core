@@ -82,6 +82,7 @@ export {
   articleShowsItsTitle,
   renderArticleHeader,
   renderLanguageSwitcher,
+  renderMachineNotice,
   renderSiteHeader,
   renderSiteFooter,
   renderResponsiveNavigation,

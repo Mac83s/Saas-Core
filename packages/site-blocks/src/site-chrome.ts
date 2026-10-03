@@ -143,6 +143,18 @@ export function renderArticleHeader(
   );
 }
 
+/** One sentence to the reader of a machine translation nobody has checked
+ *  yet, in the page's language. A note, not a landmark; shown only when the
+ *  server says so. */
+export function renderMachineNotice(shown: boolean | undefined, text: string) {
+  if (!shown) return null;
+  return h(
+    "div",
+    { className: "site-block site-machine-notice", role: "note" },
+    h("p", null, text),
+  );
+}
+
 export function renderSiteHeader(
   appearance: SiteAppearance,
   navigation?: ReactNode,

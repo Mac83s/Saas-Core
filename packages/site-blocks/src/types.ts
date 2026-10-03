@@ -617,6 +617,9 @@ export interface PublishedPageDocument {
   readonly locale?: string;
   /** Only an article has one. */
   readonly article?: PublishedArticle | null;
+  /** The text is a machine translation nobody has checked yet: the page
+   *  says so to its reader (ADR-071 pkt 17). The server decides it. */
+  readonly machineNotice?: boolean;
   /** Each live language of the site; nothing to switch to, no switch. */
   readonly languageLinks?: readonly LanguageLink[];
   readonly appearance?: SiteAppearance | null;

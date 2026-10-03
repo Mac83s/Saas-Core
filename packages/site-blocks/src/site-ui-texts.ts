@@ -38,6 +38,8 @@ export interface SiteUiTexts {
   readonly contents: string;
   /** Before the day an article's text last changed. */
   readonly updated: string;
+  /** On a machine translation nobody has checked yet (ADR-071 pkt 17). */
+  readonly machineNotice: string;
   /** Appended to an AI image's `alt`. */
   readonly aiImage: string;
   readonly pauseMotion: string;
@@ -61,6 +63,8 @@ const TEXTS = {
     },
     contents: "Spis treści",
     updated: "Zaktualizowano",
+    machineNotice:
+      "Ten tekst przetłumaczyła maszyna i nikt go jeszcze nie sprawdził.",
     aiImage: " — obraz wygenerowany przez AI",
     pauseMotion: "Wstrzymaj animację dekoracji",
     contactForm: {
@@ -104,6 +108,8 @@ const TEXTS = {
     },
     contents: "Contents",
     updated: "Updated",
+    machineNotice:
+      "This text was translated by a machine and nobody has checked it yet.",
     aiImage: " — AI-generated image",
     pauseMotion: "Pause decorative animation",
     contactForm: {
@@ -147,6 +153,8 @@ const TEXTS = {
     },
     contents: "Inhalt",
     updated: "Aktualisiert",
+    machineNotice:
+      "Dieser Text wurde maschinell übersetzt und noch von niemandem geprüft.",
     aiImage: " — KI-generiertes Bild",
     pauseMotion: "Dekorative Animation anhalten",
     contactForm: {
@@ -191,6 +199,8 @@ const TEXTS = {
     },
     contents: "Índice",
     updated: "Actualizado",
+    machineNotice:
+      "Este texto fue traducido por una máquina y nadie lo ha revisado todavía.",
     aiImage: " — imagen generada por IA",
     pauseMotion: "Pausar la animación decorativa",
     contactForm: {
@@ -234,6 +244,7 @@ const TEXTS = {
     },
     contents: "Содержание",
     updated: "Обновлено",
+    machineNotice: "Этот текст переведён машиной, и его ещё никто не проверил.",
     aiImage: " — изображение создано ИИ",
     pauseMotion: "Остановить декоративную анимацию",
     contactForm: {

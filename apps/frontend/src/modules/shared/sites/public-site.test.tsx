@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import axe from "axe-core";
 import { expect, test } from "vitest";
 
@@ -357,4 +357,32 @@ test("a shared link says the page's language, the site and, for an article, who 
     ],
   });
   expect(article.twitter).toMatchObject({ card: "summary_large_image" });
+});
+
+test("tells the reader about a machine translation nobody has checked, and only then", async () => {
+  const machine = (notice: boolean) =>
+    ({
+      ...page,
+      locale: "en",
+      machine_text: {
+        source_type: "trainedAlgorithmicMedia",
+        reviewed: !notice,
+        notice,
+      },
+    }) as PublicSitePage;
+
+  const marked = render(<PublicSiteRenderer page={machine(true)} />);
+  const note = screen.getByRole("note");
+  expect(note.textContent).toBe(
+    "This text was translated by a machine and nobody has checked it yet.",
+  );
+  expect((await axe.run(marked.container)).violations).toEqual([]);
+  marked.unmount();
+
+  // Accepted by a person, or the operator's switch is off: nothing is said.
+  render(<PublicSiteRenderer page={machine(false)} />);
+  expect(screen.queryByRole("note")).toBeNull();
+  cleanup();
+  render(<PublicSiteRenderer page={page} />);
+  expect(screen.queryByRole("note")).toBeNull();
 });

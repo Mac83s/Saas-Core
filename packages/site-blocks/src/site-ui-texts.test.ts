@@ -8,6 +8,7 @@ import {
   articleShowsItsTitle,
   renderArticleHeader,
   renderLanguageSwitcher,
+  renderMachineNotice,
 } from "./site-chrome";
 import type { SiteBlock } from "./types";
 import { SITE_UI_LOCALES, siteUiTexts } from "./site-ui-texts";
@@ -214,5 +215,68 @@ describe("article header", () => {
         '<p class="site-article-byline"><span>Anna Kowalska</span>' +
         '<time dateTime="2026-09-30T22:30:00.000Z">September 30, 2026</time></p></header><section',
     );
+  });
+});
+
+describe("machine translation notice", () => {
+  const document = (extra: object) => ({
+    kind: "publication" as const,
+    locale: "de",
+    publicationId: "pub-1",
+    snapshotHash: "a".repeat(64),
+    designTokens: {
+      schemaVersion: 1 as const,
+      palette: "blue" as const,
+      typography: "sans" as const,
+      radius: "medium" as const,
+      spacing: "comfortable" as const,
+    },
+    blocks: [
+      {
+        block_type: "core.rich_text" as const,
+        schema_version: 1,
+        data: { text: "Text" },
+      },
+    ],
+    ...extra,
+  });
+  const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+
+  it("is one sentence in the page's language, only when the server says so", () => {
+    expect(
+      renderToStaticMarkup(
+        renderMachineNotice(true, siteUiTexts("pl").machineNotice),
+      ),
+    ).toBe(
+      '<div class="site-block site-machine-notice" role="note"><p>Ten tekst przetłumaczyła maszyna i nikt go jeszcze nie sprawdził.</p></div>',
+    );
+    expect(renderMachineNotice(false, "x")).toBeNull();
+    expect(renderMachineNotice(undefined, "x")).toBeNull();
+  });
+
+  it("opens a page, and follows an article's title and byline", () => {
+    const page = renderToStaticMarkup(
+      renderPublishedPage(document({ machineNotice: true }), registry),
+    );
+    expect(page).toContain(
+      '<main><div class="site-block site-machine-notice" role="note"><p>Dieser Text wurde maschinell übersetzt und noch von niemandem geprüft.</p></div><section',
+    );
+
+    const article = renderToStaticMarkup(
+      renderPublishedPage(
+        document({
+          machineNotice: true,
+          article: { title: "Haarpflege", authorName: "Anna" },
+        }),
+        registry,
+      ),
+    );
+    expect(article).toContain(
+      '</header><div class="site-block site-machine-notice" role="note">',
+    );
+
+    expect(
+      renderToStaticMarkup(renderPublishedPage(document({}), registry)),
+    ).not.toContain("site-machine-notice");
   });
 });

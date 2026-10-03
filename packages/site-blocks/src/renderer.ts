@@ -11,6 +11,7 @@ import {
 import {
   renderArticleHeader,
   renderLanguageSwitcher,
+  renderMachineNotice,
   renderSiteHeader,
   renderSiteFooter,
   renderResponsiveNavigation,
@@ -203,6 +204,7 @@ function renderDocument(
   appearanceLang?: AppearanceLang,
   languageSwitch?: ReactElement | null,
   articleHeader?: ReactElement | null,
+  machineNotice?: ReactElement | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -223,6 +225,8 @@ function renderDocument(
       contentElement,
       null,
       articleHeader ?? null,
+      // Under an article's title and byline; first on any other page.
+      machineNotice ?? null,
       ...blocks.map((block, index) =>
         registry.render(
           block,
@@ -332,6 +336,10 @@ export function renderPublishedPage(
       blocks,
       document.locale ?? "pl",
       siteUiTexts(document.locale).updated,
+    ),
+    renderMachineNotice(
+      document.machineNotice,
+      siteUiTexts(document.locale).machineNotice,
     ),
   );
 }
