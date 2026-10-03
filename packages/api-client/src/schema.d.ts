@@ -10627,6 +10627,7 @@ export interface components {
             }[];
             navigation: components["schemas"]["PublicNavigationLink"][];
             feeds: components["schemas"]["PublicFeedLinks"];
+            social: components["schemas"]["PublicSocial"];
             breadcrumbs: {
                 [key: string]: unknown;
             }[];
@@ -10641,6 +10642,21 @@ export interface components {
             noindex: boolean;
             /** @description Where to read the page in each language the site is live in; empty while there is only one. */
             language_links: components["schemas"]["PublicLanguageLink"][];
+        };
+        PublicSocial: {
+            site_name: string;
+            /** @description `og:locale` of the page's language, e.g. `de_DE`. */
+            locale: string;
+            /** @description `og:locale:alternate`: the page's other public language versions. */
+            alternate_locales: string[];
+            /** @description The page's first published picture, or null. */
+            image: components["schemas"]["PublicSocialImage"] | null;
+        };
+        PublicSocialImage: {
+            /** Format: uri */
+            url: string;
+            /** @description In the page's language. */
+            alt: string;
         };
         /**
          * @description * `none` - Nikogo

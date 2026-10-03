@@ -29589,6 +29589,8 @@ components:
             $ref: '#/components/schemas/PublicNavigationLink'
         feeds:
           $ref: '#/components/schemas/PublicFeedLinks'
+        social:
+          $ref: '#/components/schemas/PublicSocial'
         breadcrumbs:
           type: array
           items:
@@ -29635,10 +29637,46 @@ components:
       - pagination
       - publication_id
       - snapshot_hash
+      - social
       - social_description
       - social_title
       - title
       - x_default
+    PublicSocial:
+      type: object
+      properties:
+        site_name:
+          type: string
+        locale:
+          type: string
+          description: '`og:locale` of the page''s language, e.g. `de_DE`.'
+        alternate_locales:
+          type: array
+          items:
+            type: string
+          description: '`og:locale:alternate`: the page''s other public language versions.'
+        image:
+          oneOf:
+          - $ref: '#/components/schemas/PublicSocialImage'
+          - type: 'null'
+          description: The page's first published picture, or null.
+      required:
+      - alternate_locales
+      - image
+      - locale
+      - site_name
+    PublicSocialImage:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        alt:
+          type: string
+          description: In the page's language.
+      required:
+      - alt
+      - url
     PublicStaffChoiceEnum:
       enum:
       - none
