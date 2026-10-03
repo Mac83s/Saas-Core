@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { BellIcon } from "lucide-react";
 
 import {
@@ -32,6 +32,7 @@ export function NotificationBell() {
   const t = useTranslations("NotificationBell");
   const common = useTranslations("Common");
   const format = useFormatter();
+  const locale = useLocale();
   const [inbox, setInbox] = useState<AppNotificationInbox | undefined>(
     undefined,
   );
@@ -105,16 +106,16 @@ export function NotificationBell() {
                   key={item.id}
                 >
                   <p className="text-sm font-medium">
-                    {calendarDay(item) ? (
+                    {noticeHref(item) ? (
                       <Link
                         className="hover:underline"
-                        href={`/panel/calendar?view=day&date=${calendarDay(item)}`}
+                        href={noticeHref(item) ?? ""}
                         onClick={() => setOpen(false)}
                       >
-                        {headline(item, t, format)}
+                        {headline(item, t, format, locale)}
                       </Link>
                     ) : (
-                      headline(item, t, format)
+                      headline(item, t, format, locale)
                     )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -150,8 +151,14 @@ function headline(
   item: AppNotification,
   t: ReturnType<typeof useTranslations<"NotificationBell">>,
   format: ReturnType<typeof useFormatter>,
+  locale: string,
 ): string {
   const payload = (item.payload ?? {}) as Record<string, unknown>;
+  // A name the backend sends in every language, read in the reader's.
+  const named = (value: unknown) => {
+    const names = (value ?? {}) as Record<string, string>;
+    return names[locale] ?? names.pl ?? "";
+  };
   // A visit's time as the business keeps it, not as the reader's device does.
   const at = (value: unknown) =>
     value
@@ -172,6 +179,7 @@ function headline(
     written: Number(payload.written ?? 0),
     when: at(payload.starts_at),
     before: at(payload.previous_starts_at),
+    category: named(payload.category),
   };
   switch (item.kind) {
     case "billing.trial_ending":
@@ -196,9 +204,18 @@ function headline(
       return t("translationReviewWaiting", values);
     case "translation.automation_paused":
       return t("translationAutomationPaused", values);
+    case "profiles.category_changed":
+      return t("profilesCategoryChanged", values);
     default:
       return t("unknown");
   }
+}
+
+/** Where a notice takes its reader: a visit's day, or the card to check. */
+function noticeHref(item: AppNotification): string | null {
+  const day = calendarDay(item);
+  if (day) return `/panel/calendar?view=day&date=${day}`;
+  return item.kind === "profiles.category_changed" ? "/panel/profile" : null;
 }
 
 /** The calendar day a visit's notice opens, in the business's own zone. */

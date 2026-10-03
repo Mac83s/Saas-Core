@@ -187,9 +187,7 @@ def test_editing_is_version_locked() -> None:
 
     with activate_tenant_context(_context(organization)):
         set_local_organization_id(organization.id)
-        updated = update_profile(
-            profile.id, expected_version=profile.version, headline="Ortodonta"
-        )
+        updated = update_profile(profile.id, expected_version=profile.version, headline="Ortodonta")
         assert updated.version == profile.version + 1
 
         with pytest.raises(ProfileVersionConflict):
@@ -252,3 +250,51 @@ def test_another_tenants_profile_is_not_found() -> None:
         assert list_profiles() == []
         with pytest.raises(NotFound):
             update_profile(theirs.id, expected_version=theirs.version, headline="X")
+
+
+def test_a_product_moves_a_card_to_its_own_category_once_and_says_so() -> None:
+    """MedPlano 55a: cards in a category the product no longer offers move to one
+    it does; the catalogue follows, the history names it, the managers hear."""
+    from saas_core.modules.core.organizations.models import OrganizationAuditEntry  # noqa: PLC0415
+    from saas_core.modules.shared.notifications.models import AppNotification  # noqa: PLC0415
+    from saas_core.modules.shared.profiles.api import (  # noqa: PLC0415
+        CATEGORY_CHANGED_NOTICE,
+        recategorize_organization_card,
+    )
+
+    organization = _organization("przenosiny")
+    manager = _member(organization)
+    profile = _create(
+        organization,
+        subject_kind=ProfileSubjectKind.ORGANIZATION,
+        display_name="Gabinet Przenosiny",
+        category="uroda-i-zdrowie",
+    )
+    label = {"pl": "Usługi dla domu", "en": "Home services"}
+
+    def move() -> bool:
+        with activate_tenant_context(_context(organization)):
+            set_local_organization_id(organization.id)
+            return recategorize_organization_card(
+                organization_id=organization.id,
+                old="uroda-i-zdrowie",
+                new="uslugi-dla-domu",
+                label=label,
+            )
+
+    assert move() is True
+    moved = PublicProfile.all_objects.get(pk=profile.id)
+    assert (moved.category, moved.version) == ("uslugi-dla-domu", profile.version + 1)
+    (notice,) = AppNotification.all_objects.filter(
+        organization_id=organization.id, kind=CATEGORY_CHANGED_NOTICE
+    )
+    assert (notice.user_id, notice.payload) == (manager.user_id, {"category": label})
+    assert OrganizationAuditEntry.objects.filter(
+        organization_id=organization.id,
+        target_id=profile.id,
+        metadata__reason="category_moved_by_product",
+    ).exists()
+
+    # Already moved: nothing more happens and nobody hears twice.
+    assert move() is False
+    assert AppNotification.all_objects.filter(kind=CATEGORY_CHANGED_NOTICE).count() == 1

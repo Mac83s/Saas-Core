@@ -188,3 +188,28 @@ test("tłumaczenia w dzwonku: braki zlecenia i to, co czeka na decyzję", async 
     ),
   ).not.toBeNull();
 });
+
+test("przeniesiona kategoria: nazwa w języku czytelnika i link do wizytówki", async () => {
+  getNotificationInbox.mockResolvedValue({
+    unread: 1,
+    items: [
+      {
+        ...trialEnding,
+        kind: "profiles.category_changed",
+        severity: "info" as const,
+        payload: { category: { pl: "Lekarz rodzinny", en: "Family doctor" } },
+      },
+    ],
+  });
+  renderBell();
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 1",
+    }),
+  );
+  const link = await screen.findByText(
+    "Kategoria Twojej wizytówki w katalogu to teraz „Lekarz rodzinny”. Sprawdź, czy pasuje.",
+  );
+  expect(link.closest("a")?.getAttribute("href")).toBe("/panel/profile");
+});

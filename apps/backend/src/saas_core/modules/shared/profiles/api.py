@@ -16,6 +16,7 @@ from saas_core.modules.core.organizations.models import BillingProfile, Organiza
 
 from .models import ProfileSubjectKind, PublicProfile
 from .search_index import catalog_changed, register_catalog_terms
+from .services import CATEGORY_CHANGED_NOTICE, recategorize_organization_card
 
 
 def organization_contact(organization_id: UUID) -> dict[str, str]:
@@ -113,6 +114,8 @@ def person_names(organization_id: UUID, profile_ids: Iterable[UUID | None]) -> d
 
 
 __all__ = [
+    "CATEGORY_CHANGED_NOTICE",
+    "recategorize_organization_card",
     "catalog_changed",
     "create_person_profile",
     "business_card_contact",

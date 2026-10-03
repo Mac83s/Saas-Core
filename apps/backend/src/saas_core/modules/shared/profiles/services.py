@@ -7,6 +7,7 @@ must be able to reach the rule without going through HTTP.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
 
@@ -37,6 +38,7 @@ from saas_core.modules.core.organizations.models import (
 )
 from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ
 from saas_core.modules.shared.media.models import MediaAsset
+from saas_core.modules.shared.notifications.api import notify_in_app
 
 from .catalog import (
     ProfileNotPublishable,
@@ -436,3 +438,66 @@ def save_translation(
     except DjangoValidationError as error:
         raise ValidationError(error.message_dict) from error
     return translation
+
+
+#: The notice a company gets when its card's category is changed for it.
+CATEGORY_CHANGED_NOTICE = "profiles.category_changed"
+
+
+@transaction.atomic
+def recategorize_organization_card(
+    *, organization_id: UUID, old: str, new: str, label: Mapping[str, str]
+) -> bool:
+    """A product moving its companies' cards to a category of its own (MedPlano
+    55a: „Uroda i zdrowie” → „Lekarz rodzinny”). Runs in the organization's
+    tenant, which the caller has set; idempotent — a card already moved, or
+    never in `old`, is left alone and nobody hears twice.
+
+    The move is checked against the product's dictionary like any edit, the
+    catalogue entry follows it, the history names it, and whoever manages the
+    card is told to check it (`label` is the new category's name, by language).
+    """
+    profile = (
+        PublicProfile.all_objects.select_for_update()
+        .filter(
+            organization_id=organization_id,
+            subject_kind=ProfileSubjectKind.ORGANIZATION,
+            category=old,
+        )
+        .first()
+    )
+    if profile is None:
+        return False
+    before = audit_snapshot(profile, ("category",))
+    profile.category = new
+    profile.version += 1
+    _validated_placement(profile, organization_id)
+    profile.save(update_fields=["category", "version", "updated_at"])
+    refresh_catalog_entry(profile)
+    organization = Organization.objects.get(pk=organization_id)
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.PROFILE_UPDATED,
+        actor=None,
+        target_type="public_profile",
+        target_id=profile.id,
+        metadata={
+            "version": profile.version,
+            "reason": "category_moved_by_product",
+            "changes": field_changes(
+                before, audit_snapshot(profile, ("category",)), private=CONTACT_FIELDS
+            ),
+        },
+    )
+    for membership in Membership.objects.select_related("role").filter(
+        organization_id=organization_id, status=MembershipStatus.ACTIVE
+    ):
+        if PROFILES_MANAGE in (membership.role.permissions or []):
+            notify_in_app(
+                organization_id=organization_id,
+                user_id=membership.user_id,
+                kind=CATEGORY_CHANGED_NOTICE,
+                payload={"category": dict(label)},
+                idempotency_key=f"profiles-category:{profile.id}:{new}",
+            )
+    return True
