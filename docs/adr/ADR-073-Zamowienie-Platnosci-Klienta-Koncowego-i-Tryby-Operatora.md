@@ -410,3 +410,73 @@ czeka na liście prawnej i nie blokuje budowy (decyzja 21).
 - **Tekst dokumentu w nadpisywanym wierszu tłumaczenia** (wzór
   `PublicProfileTranslation`) — poprawka zmieniłaby po cichu tekst, na który
   klienci już się zgodzili, i zepsuła dowód z dziennika zgód.
+
+## Uzupełnienie 2026-10-03: faza 4 w plastrach
+
+Faza 4 planu („Zamówienie bez operatora online”) to §1–§5 i §9 tego ADR-u oraz
+ADR-072 §8–§9. Jest za duża na jedno scalenie, więc idzie plastrami: każdy
+scalany osobno po własnej pełnej bramce i każdy zostawia `main` działający bez
+następnych. Kolejność wynika z zależności: zamówienie zapisuje zgody, a zgody
+wskazują klienta, więc klient i dokumenty są przed zamówieniem.
+
+| Plaster | Zakres | Migracje | Ekran |
+| --- | --- | --- | --- |
+| **4a** | `shared.customers` jako moduł: `Customer` przechodzi stanem modelu (tabela `booking_customer` zostaje), `customers.api` (`Customer`, `CUSTOMER_MODEL`, `match_or_create`, `strip_customer`, `register_customer_anonymizer`), booking rejestruje swoje czyszczenie wizyt; strażnik `deployment-check` (§2); profile `business`, `agro`, `vps-dev`; nota dla produktów | customers 0001, booking 0029 (sam stan) | brak |
+| **4b** | Dokumenty firmy i dziennik zgód (§9): rodzaje, szkic, wersja i wiersze tekstu tylko do dopisywania, zatwierdzenie przez osobę ze step-upem, publiczny adres dokumentu, dwa czytniki dla innych modułów; `customers.read`, `customers.manage`, `/api/v1/customers` | customers 0002 (tabele, RLS, strażnicy), 0003 (uprawnienia ról) | Ustawienia › „Dokumenty dla klientów”; publiczna strona dokumentu |
+| **4c** | Rezerwacja zapisuje zgody: formularz publiczny pokazuje regulamin rezerwacji i politykę prywatności obowiązujące w języku klienta, rezerwacja dopisuje wpisy dziennika (`source` `booking.appointment`), zgoda marketingowa osobno | — | formularz publiczny |
+| **4d** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika | — | Tłumaczenia |
+| **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał i token pochodzenia; `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0002, billing (wersje planów) | Zamówienia (lista, szczegół) |
+| **4f** | Wpłaty ręczne i przelew z terminem (§4–§5): `Payment`, `LedgerEntry`, rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, oznaczenie wpłaty przez firmę, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | wpłata w zamówieniu, oferta |
+| **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
+| **4h** | Progi anulowania (przeniesione z 3d) i zwroty ręczne (§8): progi i `appliesTo` w ofercie i migawce, wyliczenie zwrotu przy rezygnacji gościa i odwołaniu przez firmę, zwrot ręczny w księdze, przypomnienia dopłaty i alert dla firmy (29a) | booking, commerce | oferta, zamówienie, link samoobsługi |
+| **4i** | Wyjątek retencji dla klientów z zapisami sprzedaży w okresie ustawowym i historia cen przed promocjami (niżej) | commerce, booking | Prywatność i dane (podgląd) |
+
+Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
+
+- **4a nie ma adresu ani uprawnień.** Deskryptor `shared.customers` dostaje
+  `urlPrefix` i `customers.*` dopiero w 4b, z pierwszym endpointem — moduł nie
+  deklaruje tego, czego kod jeszcze nie ma. Ręczna anonimizacja (endpoint i
+  audyt `booking.customer.anonymized`) oraz przebieg retencji
+  (`booking.retention.customers`) zostają w booking: „po terminie” liczy się od
+  wizyt, a klucz ustawienia firmy mają już zapisany. `Customer.user` (§2) nie
+  powstaje w fazie 4 — przyjdzie z kontem klienta (ADR-036 §5), razem ze swoim
+  pierwszym czytelnikiem.
+- **Publiczny adres dokumentu** (4b) to strona platformy
+  `/<język>/documents/<identyfikator>`; firmę wyznacza indeks routingu bez
+  danych osobowych (`customers_documentroute`, wzorzec `PublicBookingRoute`),
+  bo dokument musi mieć adres także u firmy bez własnej strony i w e-mailu.
+  Strona prawna witryny firmy (Otwarte technicznie) zostaje na fazę 5.
+- **Czytnik nie zastępuje języka.** `customers.api.current_document(kind,
+  locale)` zwraca dokument tylko wtedy, gdy obowiązująca wersja ma wiersz w tym
+  języku; inaczej nic. Zgoda na tekst w języku, którego klient nie wybrał, nie
+  byłaby zgodą.
+- **Dziennik zgód przyjmuje podmiot bez klienta** (`customer` puste): pytający
+  z formularza kontaktowego nie ma rekordu `Customer`, a wpis wskazuje go tylko
+  przez `source` i `source_reference` (identyfikator zapytania). Jeden dziennik
+  na wszystkie zgody; w dzienniku nie ma danych osoby, więc usunięcie zapytania
+  niczego w nim nie zostawia.
+- **Tekst dokumentu to zwykły tekst** (akapity i puste linie), bez znaczników:
+  skrót liczy się z dokładnie tego, co klient zobaczył, a każdy kanał (strona,
+  e-mail, formularz) pokazuje to samo.
+- **Źródło tłumaczeń osobnym plastrem (4d)** — odstępstwo od słów §9 („w jednym
+  commicie”): ręczna ścieżka (osoba dopisuje wiersz języka tą samą bramką) jest
+  kompletna bez silnika, a adapter z testem kontraktu to osobny przegląd.
+  Rejestr TL5 jest już w `main`, więc 4d zamyka to przed fazą 5.
+- **Słowo „przedpłata”.** Do odpowiedzi z listy prawnej (zadatek czy zaliczka,
+  art. 394 KC) panel, formularz i e-maile nazywają wpłatę z góry „przedpłatą”;
+  wartość `deposit` w danych zostaje.
+- **Co zamówienie trzyma o kliencie i jak długo (4i)** — zmienia ostatnie
+  zdanie §9. Zamówienie z zaksięgowaną wpłatą jest dla firmy zapisem sprzedaży:
+  migawka kupującego (nazwa, e-mail, telefon, dane do faktury) i klient zostają
+  do końca okresu ustawowego, liczonego w pełnych latach kalendarzowych po roku
+  ostatniego wpisu księgi zamówienia. Okres to nazwana stała commerce (robocza
+  wartość 5 lat; pytanie na liście prawnej), nie ustawienie firmy. Commerce
+  rejestruje wykluczenie (`register_retention_exclusion`), a `erase_customers`
+  pyta o nie ponownie pod blokadą klientów
+  (`docs/architecture/privacy-retention.md`). Zamówienie bez wpłaty niczego nie
+  trzyma. Ręczna anonimizacja takiego klienta — do rozstrzygnięcia z listą
+  prawną przed 4i (propozycja: czyści klienta i wizyty, migawka zamówienia
+  zostaje do końca okresu).
+- **Historia cen (4i).** Każda zmiana `PriceRule` dopisuje wiersz historii
+  (kto, kiedy, kwota przed i po), bo promocje (faza 10) muszą pokazać najniższą
+  cenę z 30 dni przed obniżką, a tej nie da się odtworzyć wstecz.
