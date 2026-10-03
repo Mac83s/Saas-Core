@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  LockIcon,
+  PlusIcon,
+} from "lucide-react";
 
 import {
   getBookingOccupancy,
+  removeUnitBlock,
   type BookingOccupancy,
   type OccupancyHeld,
   type OccupancyUnit,
@@ -19,9 +25,12 @@ import { PanelPage, PanelToolbar } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { formatDateRange, formatVisit } from "#lib/dates";
 import { shownStatus, StatusBadge, statusStyle } from "../appointment-dialogs";
+import { ConfirmDialog, problemText } from "../people/person-dialogs";
+import { BlockUnitDialog, NewStayDialog } from "./stay-dialogs";
 import { addDays, formatDay, wallClock, zonedInstant } from "../calendar-time";
 
 const BOOKING_MANAGE = "booking.appointment.manage";
+const BOOKING_READ = "booking.appointment.read";
 /** Two weeks on the screen; the arrows move one week. */
 const DAYS = 14;
 
@@ -51,6 +60,15 @@ export function OccupancyPanel({
   const locale = useLocale();
   const zone = organization?.timezone ?? "UTC";
   const canManage = Boolean(organization?.permissions.includes(BOOKING_MANAGE));
+  // Whoever reads the calendar sees the grid; a product may hide whose stay
+  // it is (UX-023) — the server leaves such a booking without its name.
+  const canRead =
+    canManage || Boolean(organization?.permissions.includes(BOOKING_READ));
+  const [notice, setNotice] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [unblocking, setUnblocking] = useState<OccupancyHeld>();
+  const heldText = useHeldText(zone);
   const [today] = useState(() => wallClock(new Date(), zone).day);
   const [first, setFirst] = useState(today);
   const [groupId, setGroupId] = useState("");
@@ -74,10 +92,10 @@ export function OccupancyPanel({
   }, [first, groupId, last]);
 
   useEffect(() => {
-    if (!canManage) return;
+    if (!canRead) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load on window change
     void load();
-  }, [canManage, load]);
+  }, [canRead, load]);
 
   // The groups come with the units; a choice of one stays in the list.
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
@@ -99,8 +117,26 @@ export function OccupancyPanel({
   const empty = data !== undefined && !data.units.length;
 
   return (
-    <PanelPage description={t("description")} title={t("title")}>
-      {!canManage ? (
+    <PanelPage
+      actions={
+        canManage && data?.units.length ? (
+          <>
+            <Button onClick={() => setCreating(true)}>
+              <PlusIcon aria-hidden="true" />
+              {t("newStay")}
+            </Button>
+            <Button onClick={() => setBlocking(true)} variant="outline">
+              <LockIcon aria-hidden="true" />
+              {t("blockUnit")}
+            </Button>
+          </>
+        ) : null
+      }
+      description={t("description")}
+      notice={notice}
+      title={t("title")}
+    >
+      {!canRead ? (
         <p className="text-muted-foreground">{t("noAccess")}</p>
       ) : empty ? (
         // UX-021: nothing to show yet — one sentence and where to change it.
@@ -178,13 +214,68 @@ export function OccupancyPanel({
             />
           ) : (
             <>
-              <Grid data={data} days={days} today={today} zone={zone} />
-              <Agenda data={data} zone={zone} />
+              <Grid
+                data={data}
+                days={days}
+                onBlock={canManage ? setUnblocking : undefined}
+                today={today}
+                zone={zone}
+              />
+              <Agenda
+                data={data}
+                onBlock={canManage ? setUnblocking : undefined}
+                zone={zone}
+              />
               <Legend />
             </>
           )}
         </section>
       )}
+      {creating ? (
+        <NewStayDialog
+          onBooked={(stay) => {
+            setCreating(false);
+            setNotice(t("stayBooked", { name: stay.customer_name }));
+            void load();
+          }}
+          onOpenChange={setCreating}
+          open
+          zone={zone}
+        />
+      ) : null}
+      {blocking && data ? (
+        <BlockUnitDialog
+          onBlocked={() => {
+            setBlocking(false);
+            setNotice(t("unitBlocked"));
+            void load();
+          }}
+          onOpenChange={setBlocking}
+          open
+          units={data.units}
+          zone={zone}
+        />
+      ) : null}
+      <ConfirmDialog
+        confirm={t("unblockConfirm")}
+        description={unblocking ? heldText(unblocking) : ""}
+        destructive
+        onConfirm={async () => {
+          if (!unblocking?.block_id) return undefined;
+          try {
+            await removeUnitBlock(unblocking.block_id, crypto.randomUUID());
+          } catch (error) {
+            return problemText(error, t("unblockFailed"), t("noAccess"));
+          }
+          setUnblocking(undefined);
+          setNotice(t("unitUnblocked"));
+          void load();
+          return undefined;
+        }}
+        onOpenChange={(next) => (next ? undefined : setUnblocking(undefined))}
+        open={Boolean(unblocking)}
+        title={t("unblockTitle")}
+      />
     </PanelPage>
   );
 }
@@ -202,11 +293,17 @@ function useHeldText(zone: string) {
       ? item.title
         ? t("heldBlock", { title: item.title, when: when(item) })
         : t("heldBlockBare", { when: when(item) })
-      : t(item.kind === "stay" ? "heldStay" : "heldVisit", {
-          title: item.title,
-          when: when(item),
-        });
+      : !item.appointment_id
+        ? t("heldTaken", { when: when(item) })
+        : t(item.kind === "stay" ? "heldStay" : "heldVisit", {
+            title: item.title,
+            when: when(item),
+          });
 }
+
+/** Somebody else's booking has no id of its own here (UX-023). */
+const heldKey = (item: OccupancyHeld) =>
+  `${item.kind}-${item.appointment_id ?? item.block_id ?? `${item.unit_id}-${item.starts_at}`}`;
 
 /** A day's link in the calendar: where a booking is opened and changed. */
 const dayHref = (item: OccupancyHeld, zone: string) =>
@@ -215,11 +312,14 @@ const dayHref = (item: OccupancyHeld, zone: string) =>
 function Grid({
   data,
   days,
+  onBlock,
   today,
   zone,
 }: {
   data: BookingOccupancy;
   days: string[];
+  /** A block chosen to take off; only for whoever manages the calendar. */
+  onBlock?: (item: OccupancyHeld) => void;
   today: string;
   zone: string;
 }) {
@@ -334,9 +434,7 @@ function Grid({
                         heldStyle(item),
                       );
                       return (
-                        <li
-                          key={`${item.kind}-${item.appointment_id ?? item.block_id}`}
-                        >
+                        <li key={heldKey(item)}>
                           {item.appointment_id ? (
                             <Link
                               aria-label={label}
@@ -347,11 +445,25 @@ function Grid({
                             >
                               <span className="truncate">{item.title}</span>
                             </Link>
+                          ) : item.block_id && onBlock ? (
+                            <button
+                              aria-label={t("unblockFor", { held: label })}
+                              className={cn(bar, "hover:opacity-90")}
+                              onClick={() => onBlock(item)}
+                              style={place}
+                              title={label}
+                              type="button"
+                            >
+                              <span className="truncate">
+                                {item.title || t("legendBlock")}
+                              </span>
+                            </button>
                           ) : (
                             <span className={bar} style={place} title={label}>
                               <span className="sr-only">{label}</span>
                               <span aria-hidden="true" className="truncate">
-                                {item.title || t("legendBlock")}
+                                {item.title ||
+                                  t(item.block_id ? "legendBlock" : "taken")}
                               </span>
                             </span>
                           )}
@@ -372,7 +484,15 @@ function Grid({
 }
 
 /** The phone's grid: each unit with what holds it, in order. */
-function Agenda({ data, zone }: { data: BookingOccupancy; zone: string }) {
+function Agenda({
+  data,
+  onBlock,
+  zone,
+}: {
+  data: BookingOccupancy;
+  onBlock?: (item: OccupancyHeld) => void;
+  zone: string;
+}) {
   const t = useTranslations("Occupancy");
   const text = useHeldText(zone);
   return (
@@ -390,7 +510,7 @@ function Agenda({ data, zone }: { data: BookingOccupancy; zone: string }) {
                       "rounded-md px-2 py-1.5 text-sm",
                       heldStyle(item),
                     )}
-                    key={`${item.kind}-${item.appointment_id ?? item.block_id}`}
+                    key={heldKey(item)}
                   >
                     {item.appointment_id ? (
                       <Link
@@ -399,6 +519,14 @@ function Agenda({ data, zone }: { data: BookingOccupancy; zone: string }) {
                       >
                         {text(item)}
                       </Link>
+                    ) : item.block_id && onBlock ? (
+                      <button
+                        className="block min-h-8 w-full text-left"
+                        onClick={() => onBlock(item)}
+                        type="button"
+                      >
+                        {text(item)}
+                      </button>
                     ) : (
                       text(item)
                     )}

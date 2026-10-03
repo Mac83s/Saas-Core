@@ -347,7 +347,7 @@ describe("przydział wizyt w menu (ADR-058)", () => {
     );
   });
 
-  it("firma sprzedająca pobyty ma Obłożenie, pracownik bez zarządzania nie", () => {
+  it("firma sprzedająca pobyty ma Obłożenie, także dla pracownika", () => {
     const stays = {
       ...OFFICE,
       booking: { bookableStaff: 1, teams: 0, waiting: 0, stays: true },
@@ -360,7 +360,10 @@ describe("przydział wizyt w menu (ADR-058)", () => {
       ...stays,
       permissions: ["organization.members.read", "booking.appointment.read"],
     };
-    expect(calendar(worker)?.pages).toBeUndefined();
+    expect(calendar(worker)?.pages?.map((page) => page.href)).toEqual([
+      "/panel/calendar",
+      "/panel/calendar/occupancy",
+    ]);
   });
 
   it("bez zarządzania wizytami nie ma kolejki, bez kalendarza nic z tego", () => {

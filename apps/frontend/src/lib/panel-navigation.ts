@@ -91,11 +91,12 @@ export const PANEL_SECTIONS = {
       dispatch: "queue",
     },
     {
-      // Units against days (ADR-072 phase 2d).
+      // Units against days (ADR-072 phase 2d); whose stay it is, the server
+      // hides from whoever may not see it (UX-023).
       href: "/panel/calendar/occupancy",
       labelKey: "calendarOccupancy",
       module: "shared.booking",
-      permission: "booking.appointment.manage",
+      permission: "booking.appointment.read",
       stays: true,
     },
   ],

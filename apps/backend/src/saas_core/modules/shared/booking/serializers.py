@@ -206,6 +206,7 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     ends_at = serializers.DateTimeField()
     timezone = serializers.CharField()
     service_name = serializers.CharField()
+    service_id = serializers.UUIDField(help_text="The offer it was booked from.")
     status = serializers.CharField(
         help_text=("`confirmed`, `completed`, `canceled` or `no_show` (the customer did not come).")
     )
@@ -276,6 +277,9 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
         ),
     )
     resource_name = serializers.CharField(allow_null=True)
+    resource_id = serializers.UUIDField(
+        allow_null=True, help_text="The unit or room it takes, if any."
+    )
     #: Tylko w panelu firmy; klient w self-service tego nie dostaje.
     materials = MaterialLineSerializer(many=True, required=False)
     #: False, gdy materiał tej wizyty rozlicza jej moduł (ADR-055) albo nie ma magazynu.

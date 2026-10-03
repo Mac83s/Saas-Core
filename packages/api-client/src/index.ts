@@ -347,6 +347,9 @@ export type BookingOverview = components["schemas"]["Overview"];
 export type BookingOccupancy = components["schemas"]["Occupancy"];
 export type OccupancyHeld = components["schemas"]["OccupancyHeld"];
 export type OccupancyUnit = components["schemas"]["OccupancyUnit"];
+export type StayInput = components["schemas"]["StayInput"];
+export type StayPlan = components["schemas"]["StayPlan"];
+export type UnitBlock = components["schemas"]["UnitBlock"];
 /** One person for one visit: free, or why not (ADR-058 §9). */
 export type CrewCandidate = components["schemas"]["Candidate"];
 export type CrewInput = components["schemas"]["CrewInput"];
@@ -2571,6 +2574,123 @@ export async function getBookingOccupancy(query: {
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** What a stay would take — the unit, the hours, its length; nothing saved. */
+export async function previewStay(input: StayInput): Promise<StayPlan> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/stays/preview/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createStay(
+  input: StayInput,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/stays/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** A stay moves by its dates; the unit may change within its group. */
+export async function moveStay(
+  appointmentId: string,
+  input: { start_date: string; end_date: string },
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/stay/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What moving a stay would take; nothing saved. */
+export async function previewStayMove(
+  appointmentId: string,
+  input: { start_date: string; end_date: string },
+): Promise<StayPlan> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/stay/preview/",
+    {
+      params: { path: { appointment_id: appointmentId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The company keeps a unit for itself (a renovation, own use). */
+export async function addUnitBlock(
+  resourceId: string,
+  input: { starts_at: string; ends_at: string; reason?: string },
+  idempotencyKey: string,
+): Promise<UnitBlock> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/resources/{resource_id}/blocks/",
+    {
+      params: {
+        path: { resource_id: resourceId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function removeUnitBlock(
+  blockId: string,
+  idempotencyKey: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/setup/blocks/{block_id}/",
+    {
+      params: {
+        path: { block_id: blockId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
 }
 
 export async function getCrewCandidates(

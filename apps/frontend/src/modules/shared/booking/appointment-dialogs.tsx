@@ -104,6 +104,7 @@ import {
   useWarehouse,
   type MaterialDraft,
 } from "./materials-editor";
+import { MoveStayDialog } from "./occupancy/stay-dialogs";
 import { visitName, visitPerson } from "./visit-name";
 
 type Slot = BookingSlotList["items"][number];
@@ -1662,17 +1663,31 @@ function AppointmentDetails({
               when={when}
             />
           ) : null}
-          <RescheduleDialog
-            appointment={appointment}
-            catalog={catalog}
-            onDone={(updated) => {
-              setNotice(
-                t("rescheduled", { when: formatWhen(updated, locale, zone) }),
-              );
-              onChanged(updated);
-            }}
-            zone={zone}
-          />
+          {/* A stay moves by its dates, not by a slot (ADR-072 phase 2d). */}
+          {appointment.time_model === "range" ? (
+            <MoveStayDialog
+              appointment={appointment}
+              onDone={(updated) => {
+                setNotice(
+                  t("rescheduled", { when: formatWhen(updated, locale, zone) }),
+                );
+                onChanged(updated);
+              }}
+              zone={zone}
+            />
+          ) : (
+            <RescheduleDialog
+              appointment={appointment}
+              catalog={catalog}
+              onDone={(updated) => {
+                setNotice(
+                  t("rescheduled", { when: formatWhen(updated, locale, zone) }),
+                );
+                onChanged(updated);
+              }}
+              zone={zone}
+            />
+          )}
           <CancelDialog
             appointment={appointment}
             onDone={(updated) => {

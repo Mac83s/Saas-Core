@@ -41,6 +41,8 @@ const api = vi.hoisted(() => ({
   listPeople: vi.fn(),
   listTeams: vi.fn(),
   markBookingAppointmentNoShow: vi.fn(),
+  moveStay: vi.fn(),
+  previewStayMove: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
   rescheduleSelfServiceBooking: vi.fn(),
   setBookingAppointmentPlace: vi.fn(),
@@ -586,6 +588,58 @@ test("a visit whose time is over shows apart, with no vacancy, and a no-show is 
     expect.stringMatching(/^[0-9a-f-]{36}$/),
   );
   expect(within(details).getByText("No-show")).not.toBeNull();
+});
+
+test("a stay changes its dates, not its slot: checked first, then moved", async () => {
+  const stay = {
+    ...appointment,
+    time_model: "range",
+    starts_at: "2026-08-20T14:00:00Z",
+    ends_at: "2026-08-22T09:00:00Z",
+    staff_id: null,
+    staff_name: null,
+    crew: [],
+    staff_required: 0,
+  };
+  api.listBookingAppointments.mockResolvedValue([stay]);
+  api.previewStayMove.mockResolvedValue({
+    resource_id: "room",
+    resource_name: "Room",
+    starts_at: "2026-08-24T14:00:00Z",
+    ends_at: "2026-08-26T09:00:00Z",
+    length: 2,
+    range_unit: "night",
+  });
+  api.moveStay.mockResolvedValue({
+    ...stay,
+    starts_at: "2026-08-24T14:00:00Z",
+    ends_at: "2026-08-26T09:00:00Z",
+  });
+  renderCalendar();
+  fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
+  const details = await screen.findByRole("dialog", { name: "Jan Kowalski" });
+  expect(
+    within(details).queryByRole("button", { name: "Reschedule" }),
+  ).toBeNull();
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Change dates" }),
+  );
+  const move = await screen.findByRole("dialog", { name: "Change dates" });
+  fireEvent.change(within(move).getByLabelText(/New start/), {
+    target: { value: "2026-08-24" },
+  });
+  fireEvent.change(within(move).getByLabelText(/New end/), {
+    target: { value: "2026-08-26" },
+  });
+  expect(await within(move).findByText(/Room · 2 nights/)).toBeInTheDocument();
+  fireEvent.click(within(move).getByRole("button", { name: "Move" }));
+  await waitFor(() =>
+    expect(api.moveStay).toHaveBeenCalledWith(
+      stay.id,
+      { start_date: "2026-08-24", end_date: "2026-08-26" },
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
+    ),
+  );
 });
 
 test("a visit's products can change until it is completed, which takes them off the shelf", async () => {

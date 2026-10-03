@@ -15,7 +15,14 @@ import englishMessages from "../../../../../messages/en.json";
 import polishMessages from "../../../../../messages/pl.json";
 import { OccupancyPanel } from "./occupancy-panel";
 
-const api = vi.hoisted(() => ({ getBookingOccupancy: vi.fn() }));
+const api = vi.hoisted(() => ({
+  addUnitBlock: vi.fn(),
+  createStay: vi.fn(),
+  getBookingOccupancy: vi.fn(),
+  getBookingSetup: vi.fn(),
+  previewStay: vi.fn(),
+  removeUnitBlock: vi.fn(),
+}));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
@@ -140,7 +147,10 @@ test("obłożenie: jednostki z pobytem, blokadą i dniem zamkniętym, dwa tygodn
     "/panel/calendar?view=day&date=2026-09-26",
   );
   const second = screen.getByRole("group", { name: "Domek 2" });
-  expect(within(second).getByText(/Blokada: Malowanie/)).toBeInTheDocument();
+  // A manager takes a block off from the grid.
+  expect(
+    within(second).getByRole("button", { name: /Blokada: Malowanie/ }),
+  ).toBeInTheDocument();
   expect(
     within(screen.getByRole("group", { name: "Sala A" })).getByText(
       "Wolna w tym okresie",
@@ -179,7 +189,7 @@ test("strzałki przesuwają o tydzień, a grupa zawęża jednostki", async () =>
   );
 });
 
-test("bez jednostek prowadzi do ustawień, a bez zarządzania nic nie wczytuje (EN)", async () => {
+test("bez jednostek prowadzi do ustawień, a bez kalendarza nic nie wczytuje (EN)", async () => {
   api.getBookingOccupancy.mockResolvedValue({
     ...OCCUPANCY,
     units: [],
@@ -192,9 +202,157 @@ test("bez jednostek prowadzi do ustawień, a bez zarządzania nic nie wczytuje (
     }),
   ).toHaveAttribute("href", "/panel/settings/services");
   unmount();
-  renderPanel(organization(["booking.appointment.read"]));
+  renderPanel(organization([]));
   expect(
     screen.getByText("Obłożenie widzi osoba, która zarządza kalendarzem."),
   ).toBeInTheDocument();
   expect(api.getBookingOccupancy).toHaveBeenCalledTimes(1);
+});
+
+test("pracownik widzi zajęte jednostki, ale nie czyje — i nic nie zmienia (UX-023)", async () => {
+  api.getBookingOccupancy.mockResolvedValue({
+    ...OCCUPANCY,
+    held: [
+      {
+        ...OCCUPANCY.held[0],
+        appointment_id: null,
+        title: "",
+        status: "",
+      },
+      OCCUPANCY.held[1],
+    ],
+  });
+  renderPanel(organization(["booking.appointment.read"]));
+  const grid = await screen.findByRole("group", { name: "Domek 1" });
+  expect(within(grid).queryByRole("link")).toBeNull();
+  expect(within(grid).getByText(/Zajęte, /)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Nowy pobyt" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Zdejmij blokadę/ })).toBeNull();
+});
+
+test("nowy pobyt: termin sprawdzony od razu, potem gość i rezerwacja", async () => {
+  api.getBookingSetup.mockResolvedValue({
+    services: [
+      {
+        id: "stay",
+        name: "Pobyt w domku",
+        time_model: "range",
+        range_unit: "night",
+        active: true,
+        group_ids: [COTTAGES],
+        resource_ids: [],
+      },
+    ],
+    groups: [{ id: COTTAGES, name: "Domki", active: true }],
+    resources: [
+      { id: ONE, name: "Domek 1", group_id: COTTAGES, active: true },
+      { id: TWO, name: "Domek 2", group_id: COTTAGES, active: true },
+    ],
+    locations: [],
+    staff: [],
+    appointment_kinds: [],
+  });
+  api.previewStay.mockResolvedValue({
+    resource_id: TWO,
+    resource_name: "Domek 2",
+    starts_at: "2026-10-02T14:00:00Z",
+    ends_at: "2026-10-04T09:00:00Z",
+    length: 2,
+    range_unit: "night",
+  });
+  api.createStay.mockResolvedValue({ customer_name: "Anna Las" });
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: "Nowy pobyt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowy pobyt" });
+  await waitFor(() =>
+    expect(within(dialog).getByLabelText("Gdzie")).toHaveValue(
+      `group:${COTTAGES}`,
+    ),
+  );
+  fireEvent.change(within(dialog).getByLabelText("Przyjazd"), {
+    target: { value: "2026-10-02" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Wyjazd"), {
+    target: { value: "2026-10-04" },
+  });
+  expect(
+    await within(dialog).findByText(/Domek 2 · 2 noce/),
+  ).toBeInTheDocument();
+  expect(api.previewStay).toHaveBeenCalledWith(
+    expect.objectContaining({
+      service_id: "stay",
+      group_id: COTTAGES,
+      start_date: "2026-10-02",
+      end_date: "2026-10-04",
+    }),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zarezerwuj" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Podaj, kto przyjeżdża.",
+  );
+  fireEvent.change(
+    within(dialog).getByLabelText("Gość (imię i nazwisko albo nazwa)"),
+    { target: { value: "Anna Las" } },
+  );
+  expect((await axe.run(dialog)).violations).toEqual([]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() =>
+    expect(api.createStay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer: { display_name: "Anna Las", phone: "", email: "" },
+      }),
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
+    ),
+  );
+  expect(
+    await screen.findByText("Zarezerwowano pobyt: Anna Las."),
+  ).toBeInTheDocument();
+});
+
+test("blokada: dodanie na całe dni i zdjęcie po potwierdzeniu", async () => {
+  api.addUnitBlock.mockResolvedValue({});
+  api.removeUnitBlock.mockResolvedValue(undefined);
+  renderPanel();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Zablokuj jednostkę" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Zablokuj jednostkę",
+  });
+  fireEvent.change(within(dialog).getByLabelText("Jednostka"), {
+    target: { value: HALL },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Od"), {
+    target: { value: "2026-10-01" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Do (włącznie)"), {
+    target: { value: "2026-10-02" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zablokuj" }));
+  await waitFor(() =>
+    expect(api.addUnitBlock).toHaveBeenCalledWith(
+      HALL,
+      {
+        // Whole local days in Warsaw: midnight to midnight after the last.
+        starts_at: "2026-09-30T22:00:00.000Z",
+        ends_at: "2026-10-02T22:00:00.000Z",
+        reason: "",
+      },
+      expect.any(String),
+    ),
+  );
+
+  const second = screen.getByRole("group", { name: "Domek 2" });
+  fireEvent.click(
+    within(second).getByRole("button", {
+      name: /Zdejmij blokadę: Blokada: Malowanie/,
+    }),
+  );
+  const confirm = await screen.findByRole("dialog", { name: "Zdjąć blokadę?" });
+  fireEvent.click(
+    within(confirm).getByRole("button", { name: "Zdejmij blokadę" }),
+  );
+  await waitFor(() =>
+    expect(api.removeUnitBlock).toHaveBeenCalledWith("b-1", expect.any(String)),
+  );
 });
