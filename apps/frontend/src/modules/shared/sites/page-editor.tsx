@@ -939,7 +939,17 @@ export function PageEditor({
     const [unique] = withUniqueAnchors([block], draftForm.getValues("blocks"));
     blocks.insert(position, unique);
     setSelectedSection(position);
+    setInsertAt(null);
   };
+  // Where the panel's library puts a section: the canvas's "+" chose a gap,
+  // or else under the selected section.
+  const insertPosition =
+    insertAt ?? (blocks.fields.length ? activeSection + 1 : 0);
+  const libraryHint = !blocks.fields.length
+    ? undefined
+    : insertPosition === 0
+      ? t("studio.insertAtStart")
+      : t("studio.insertAfterNumber", { number: insertPosition });
   const refreshAssets = () =>
     void listMediaAssets()
       .then((result) => setAssets(result.items))
@@ -993,11 +1003,12 @@ export function PageEditor({
         onClick={() => {
           if (!selectedBlock) return;
           const position = afterSelected
-            ? activeSection + 1
+            ? insertPosition
             : blocks.fields.length;
           blocks.insert(position, emptyBlock(selectedBlock.type));
           setSelectedSection(position);
           setSelectedBlock(null);
+          setInsertAt(null);
         }}
         type="button"
         variant="outline"
@@ -1349,16 +1360,6 @@ export function PageEditor({
 
                     {visual && draft ? (
                       <>
-                        <SectionLibrary
-                          open={insertAt !== null}
-                          onOpenChange={(open) => {
-                            if (!open) setInsertAt(null);
-                          }}
-                          onBusyChange={setLoading}
-                          onAdd={(block) => {
-                            if (insertAt !== null) addSection(block, insertAt);
-                          }}
-                        />
                         <SectionCanvas
                           ref={canvas}
                           viewport={canvasViewport}
@@ -1467,21 +1468,26 @@ export function PageEditor({
                           }
                           library={
                             <>
-                              <details className="rounded-lg border p-3">
-                                <summary className="cursor-pointer text-sm font-medium">
-                                  {t("studio.emptyBlock")}
-                                </summary>
-                                <div className="pt-3">{blockPicker(true)}</div>
-                              </details>
                               <SectionLibraryContent
                                 onBusyChange={setLoading}
                                 compact
                                 onAdd={(block) =>
-                                  addSection(block, activeSection + 1)
+                                  addSection(block, insertPosition)
                                 }
                               />
+                              {/* A bare block when no layout fits. */}
+                              <details className="studio-library-blank">
+                                <summary>
+                                  <span>{t("studio.blankHint")}</span>
+                                  <span className="studio-library-blank__button">
+                                    {t("studio.emptyBlock")}
+                                  </span>
+                                </summary>
+                                <div className="pt-3">{blockPicker(true)}</div>
+                              </details>
                             </>
                           }
+                          libraryHint={libraryHint}
                           blocks={liveBlocks}
                           onTextChange={(index, path, value) => {
                             if (loading || draftForm.formState.isSubmitting)
@@ -1523,7 +1529,10 @@ export function PageEditor({
                             }));
                           }}
                           selected={activeSection}
-                          onSelect={setSelectedSection}
+                          onSelect={(index) => {
+                            setSelectedSection(index);
+                            setInsertAt(null);
+                          }}
                           inspector={
                             blocks.fields.length > 0 ? (
                               <>

@@ -27,6 +27,18 @@ vi.mock("@saas-core/api-client", async (original) => ({
 }));
 beforeEach(() => vi.clearAllMocks());
 
+/** The library's category is a chip; its short word names it. */
+function chooseCategory(type: string, locale: "pl" | "en" = "en") {
+  const library = (locale === "pl" ? pl : en).Sites.sectionLibrary;
+  const chip = type.replace(/^core\./, "") as keyof typeof library.chip;
+  fireEvent.click(
+    within(screen.getByRole("group", { name: library.category })).getByRole(
+      "button",
+      { name: library.chip[chip] },
+    ),
+  );
+}
+
 test.each(["pl", "en"] as const)(
   "copies a photo before inserting and reuses the retry key (%s)",
   async (locale) => {
@@ -91,6 +103,37 @@ test("a busy photo scanner says so, and the section can be added again", async (
   );
 });
 
+test("the category chips count what the search finds and hide the empty ones", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <SectionLibraryContent compact onAdd={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  const group = screen.getByRole("group", { name: "Category" });
+  const chips = () => within(group).getAllByRole("button");
+  expect(chips()).toHaveLength(12);
+  expect(within(group).getByRole("button", { name: "All" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const search = screen.getByRole("searchbox", { name: "Find a layout" });
+  fireEvent.change(search, { target: { value: "captioned" } });
+  expect(chips().length).toBeLessThan(12);
+  const gallery = within(group).getByRole("button", { name: "Gallery" });
+  expect(gallery).toHaveAttribute("title", "Photo galleries");
+  const count = Number(gallery.textContent?.replace("Gallery", ""));
+  expect(count).toBeGreaterThan(0);
+  fireEvent.click(gallery);
+  expect(gallery).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getAllByRole("article")).toHaveLength(Math.min(count, 12));
+  // The chosen category stays a chip when the search empties it.
+  fireEvent.change(search, { target: { value: "missing layout" } });
+  expect(
+    within(group).getByRole("button", { name: "Gallery" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryAllByRole("article")).toHaveLength(0);
+});
+
 test("limits initial thumbnail rendering and exposes the remaining catalogue", () => {
   render(
     <NextIntlClientProvider locale="en" messages={en}>
@@ -102,9 +145,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
     screen.getByRole("button", { name: "Show more layouts (138 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
-  fireEvent.change(screen.getByLabelText("Category"), {
-    target: { value: "core.faq" },
-  });
+  chooseCategory("core.faq");
   expect(screen.getAllByRole("article")).toHaveLength(12);
   expect(
     screen.getByRole("button", { name: "Show more layouts (8 remaining)" }),
@@ -124,16 +165,9 @@ test.each(["pl", "en"] as const)(
     );
     fireEvent.change(
       screen.getByLabelText(locale === "pl" ? "Branża" : "Industry"),
-      {
-        target: { value: "medicine" },
-      },
+      { target: { value: "medicine" } },
     );
-    fireEvent.change(
-      screen.getByLabelText(locale === "pl" ? "Kategoria" : "Category"),
-      {
-        target: { value: "core.feature_list" },
-      },
-    );
+    chooseCategory("core.feature_list", locale);
     const search = screen.getByRole("searchbox", {
       name: locale === "pl" ? "Szukaj układu" : "Find a layout",
     });
@@ -180,10 +214,7 @@ test.each(["pl", "en"] as const)(
       </NextIntlClientProvider>,
     );
     // Ten families interleave, so the second FAQ layout is past the first page.
-    fireEvent.change(
-      screen.getByLabelText(locale === "pl" ? "Kategoria" : "Category"),
-      { target: { value: "core.faq" } },
-    );
+    chooseCategory("core.faq", locale);
     const trigger = screen.getByRole("button", {
       name:
         locale === "pl" ? "Podgląd: Rozwijane FAQ" : "Preview: Expandable FAQ",
@@ -276,9 +307,7 @@ test.each([
         <SectionLibraryContent onAdd={onAdd} />
       </NextIntlClientProvider>,
     );
-    fireEvent.change(screen.getByLabelText("Category"), {
-      target: { value: type },
-    });
+    chooseCategory(type);
     expect(screen.getAllByRole("article")).toHaveLength(count);
     const first = screen.getAllByRole("article")[0];
     fireEvent.click(within(first).getByRole("button", { name: /^Add: / }));
@@ -302,9 +331,7 @@ test("puts a product's sample photo into its gallery, not into `image`", async (
       <SectionLibraryContent onAdd={onAdd} />
     </NextIntlClientProvider>,
   );
-  fireEvent.change(screen.getByLabelText("Kategoria"), {
-    target: { value: "core.product" },
-  });
+  chooseCategory("core.product", "pl");
   // The showcase and seven product v3 layouts, and two electronics add-ons.
   expect(screen.getAllByRole("article")).toHaveLength(10);
   expect(screen.getAllByText(/Długość:/).length).toBeGreaterThan(0);
@@ -337,9 +364,7 @@ test("copies each sample photo of a gallery once and puts it on its own item", a
       <SectionLibraryContent onAdd={onAdd} />
     </NextIntlClientProvider>,
   );
-  fireEvent.change(screen.getByLabelText("Category"), {
-    target: { value: "core.gallery" },
-  });
+  chooseCategory("core.gallery");
   expect(screen.getAllByRole("article")).toHaveLength(6);
   fireEvent.click(screen.getByRole("button", { name: "Add: Captioned grid" }));
   await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
@@ -367,9 +392,7 @@ test("offers all twenty editorial layouts, the first twelve before 'show more'",
       <SectionLibraryContent onAdd={vi.fn()} />
     </NextIntlClientProvider>,
   );
-  fireEvent.change(screen.getByLabelText("Category"), {
-    target: { value: "core.rich_text" },
-  });
+  chooseCategory("core.rich_text");
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
     screen.getByRole("button", { name: "Show more layouts (8 remaining)" }),

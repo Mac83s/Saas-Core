@@ -1396,11 +1396,31 @@ test("the canvas's + inserts above the first section and at the end, each one un
       name: studio.insertBefore.replace("{number}", "1"),
     }),
   );
+  // The library opens beside the canvas, aimed at that gap, not in a dialog.
+  const rail = screen.getByRole("complementary", {
+    name: studio.pageNavigation,
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(within(rail).getByText(studio.insertAtStart)).toBeDefined();
+  await waitFor(() =>
+    expect(
+      within(rail).getByRole("searchbox", {
+        name: polishMessages.Sites.sectionLibrary.search,
+      }),
+    ).toHaveFocus(),
+  );
   fireEvent.click(
     await screen.findByRole("button", { name: "Dodaj: Klasyczna lista" }),
   );
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // Added, the library goes back to "under the selected section": the new one.
+  expect(
+    within(rail).getByText(studio.insertAfterNumber.replace("{number}", "1")),
+  ).toBeDefined();
   fireEvent.click(screen.getByRole("button", { name: studio.insertAtEnd }));
+  expect(
+    within(rail).getByText(studio.insertAfterNumber.replace("{number}", "2")),
+  ).toBeDefined();
   fireEvent.click(
     await screen.findByRole("button", {
       name: "Dodaj: Klasyczne FAQ",

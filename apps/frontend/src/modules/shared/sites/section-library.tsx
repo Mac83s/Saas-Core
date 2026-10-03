@@ -160,13 +160,15 @@ export function SectionLibraryContent({
   const [selected, setSelected] = useState<SectionTemplate | null>(null);
   const [mobile, setMobile] = useState(false);
   const previewTrigger = useRef<HTMLButtonElement>(null);
-  const templates = useMemo(
+  // Every category's count follows the search and the trade; the chosen
+  // category narrows the list.
+  const matching = useMemo(
     () =>
       availableSectionTemplates(registry, {
         entitlements: ["sites.enabled"],
         modules: ["shared.sites"],
         industry,
-        blockType,
+        blockType: "",
       }).filter((template) => {
         const search = query.trim().toLocaleLowerCase(locale);
         if (!search) return true;
@@ -175,7 +177,39 @@ export function SectionLibraryContent({
           .toLocaleLowerCase(locale)
           .includes(search);
       }),
-    [industry, blockType, query, locale],
+    [industry, query, locale],
+  );
+  const templates = useMemo(
+    () =>
+      blockType
+        ? matching.filter((template) => template.blockType === blockType)
+        : matching,
+    [matching, blockType],
+  );
+  const categories = useMemo(
+    () =>
+      [
+        {
+          value: "",
+          label: t("allShort"),
+          title: t("allCategories"),
+          count: matching.length,
+        },
+        ...BLOCK_TYPES.map((name) => ({
+          value: `core.${name}`,
+          label: t(`chip.${name}`),
+          title: t(name),
+          count: matching.filter((item) => item.blockType === `core.${name}`)
+            .length,
+        })),
+      ].filter(
+        // An empty category is no choice, unless it is the chosen one.
+        (category) =>
+          category.count > 0 ||
+          category.value === "" ||
+          category.value === blockType,
+      ),
+    [matching, blockType, t],
   );
   const ordered = useMemo(() => {
     const groups = BLOCK_TYPES.map((type) =>
@@ -280,22 +314,38 @@ export function SectionLibraryContent({
       )}
     </>
   );
+  const details = (
+    <details className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer font-medium text-foreground">
+        {t("details")}
+      </summary>
+      <div className="space-y-2 pt-2 leading-relaxed">
+        <p>{t("universalIncluded")}</p>
+        <p>{t("samplePhotos")}</p>
+      </div>
+    </details>
+  );
+  const Name = compact ? "h4" : "h3";
+  const preview = (template: SectionTemplate, trigger: HTMLButtonElement) => {
+    previewTrigger.current = trigger;
+    setSelected(template);
+  };
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="space-y-3">
+    <div className={`min-w-0 ${compact ? "space-y-3" : "space-y-4"}`}>
+      <div className="space-y-2.5">
         <Field>
           <FieldLabel htmlFor={`${id}-search`} className="sr-only">
             {t("search")}
           </FieldLabel>
           <div className="relative">
             <SearchIcon
-              className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
               id={`${id}-search`}
               type="search"
-              className="pl-9"
+              className="pl-9 pointer-fine:h-9"
               placeholder={t("searchPlaceholder")}
               value={query}
               onChange={(event) => {
@@ -305,61 +355,56 @@ export function SectionLibraryContent({
             />
           </div>
         </Field>
-        <div className={compact ? "grid gap-3" : "grid gap-3 sm:grid-cols-2"}>
-          <Field>
-            <FieldLabel htmlFor={`${id}-category`}>{t("category")}</FieldLabel>
-            <NativeSelect
-              id={`${id}-category`}
-              value={blockType}
-              onChange={(event) => {
-                setBlockType(event.target.value);
+        {/* One tap per category, its count beside it (Kreator stron). */}
+        <div className="studio-chips" role="group" aria-label={t("category")}>
+          {categories.map((category) => (
+            <button
+              key={category.value || "all"}
+              type="button"
+              aria-pressed={blockType === category.value}
+              title={category.title}
+              onClick={() => {
+                setBlockType(category.value);
                 setLimit(12);
                 setSelected(null);
               }}
             >
-              <option value="">{t("allCategories")}</option>
-              {BLOCK_TYPES.map((name) => (
-                <option key={name} value={`core.${name}`}>
-                  {t(name)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor={`${id}-industry`}>{t("industry")}</FieldLabel>
-            <NativeSelect
-              id={`${id}-industry`}
-              value={industry}
-              onChange={(event) => {
-                setIndustry(event.target.value);
-                setLimit(12);
-                setSelected(null);
-              }}
-            >
-              <option value="">{t("allIndustries")}</option>
-              {sectionIndustries().map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.labels[locale]}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
+              {category.label}
+              <span aria-hidden="true">{category.count}</span>
+            </button>
+          ))}
         </div>
+        {/* The trade stays a choice of its own (owner's answer 1a, 03.10). */}
+        <Field>
+          <FieldLabel htmlFor={`${id}-industry`} className="sr-only">
+            {t("industry")}
+          </FieldLabel>
+          <NativeSelect
+            id={`${id}-industry`}
+            className="pointer-fine:h-9"
+            value={industry}
+            onChange={(event) => {
+              setIndustry(event.target.value);
+              setLimit(12);
+              setSelected(null);
+            }}
+          >
+            <option value="">{t("allIndustries")}</option>
+            {sectionIndustries().map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.labels[locale]}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span aria-live="polite">
-          {t("results", { count: templates.length })}
-        </span>
-        <details className="w-full rounded-lg border px-3 py-2">
-          <summary className="cursor-pointer font-medium text-foreground">
-            {t("details")}
-          </summary>
-          <div className="space-y-2 pt-2 leading-relaxed">
-            <p>{t("universalIncluded")}</p>
-            <p>{t("samplePhotos")}</p>
-          </div>
-        </details>
-      </div>
+      <span
+        aria-live="polite"
+        className={compact ? "sr-only" : "block text-xs text-muted-foreground"}
+      >
+        {t("results", { count: templates.length })}
+      </span>
+      {!compact && details}
       {!selected && feedback}
       <OwnSectionTemplates
         query={query}
@@ -370,96 +415,146 @@ export function SectionLibraryContent({
       />
       <div
         className={
-          compact ? "grid gap-3" : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          compact
+            ? "studio-library-list"
+            : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         }
       >
-        {ordered.slice(0, limit).map((template) => (
-          <article
-            key={template.id}
-            className="group flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-xs transition-colors hover:border-primary/50"
-          >
-            <div className="relative aspect-video overflow-hidden bg-muted">
-              <div
-                className="pointer-events-none absolute inset-0 overflow-hidden"
+        {ordered.slice(0, limit).map((template) =>
+          compact ? (
+            <article key={template.id} className="studio-library-row">
+              {/* The whole row adds for a pointer; the buttons are what a
+                  keyboard and a screen reader use. */}
+              <button
+                type="button"
+                tabIndex={-1}
                 aria-hidden="true"
-                inert
-              >
-                <div className="w-[300%] origin-top-left scale-[0.3333333333]">
+                className="studio-library-row__hit"
+                disabled={busy}
+                onClick={() => void choose(template)}
+              />
+              <div className="studio-library-thumb" aria-hidden="true" inert>
+                <div className="studio-library-thumb__canvas">
                   {renderPreview(template)}
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                className="absolute inset-0 h-full w-full rounded-none border-0 p-0 hover:bg-transparent"
-                aria-label={t("previewNamed", {
-                  name: template.labels[locale].name,
-                })}
-                onClick={(event) => {
-                  previewTrigger.current = event.currentTarget;
-                  setSelected(template);
-                }}
-              >
-                <span className="pointer-events-none absolute right-2 bottom-2 flex items-center gap-1 rounded-md border bg-background/95 px-2 py-1 text-xs font-medium shadow-sm">
-                  <EyeIcon className="size-3.5" aria-hidden="true" />
-                  {t("previewAction")}
-                </span>
-              </Button>
-            </div>
-            <div className="flex flex-1 flex-col gap-2 p-3">
-              <h3 className="text-sm leading-snug font-semibold">
-                {template.labels[locale].name}
-              </h3>
-              <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">
-                {template.labels[locale].description}
-              </p>
-              {template.contentProfiles?.length ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("contentLength", {
-                    range: [
-                      ...new Set([
-                        template.contentProfiles[0],
-                        template.contentProfiles.at(-1),
-                      ]),
-                    ].join("–"),
-                  })}
-                </p>
-              ) : null}
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <span className="min-w-0 text-xs text-muted-foreground">
-                  {template.kind === "default"
-                    ? t("universal")
-                    : template.industries
-                        .map(
-                          (industryId) =>
-                            sectionIndustries().find(
-                              (item) => item.id === industryId,
-                            )?.labels[locale],
-                        )
-                        .join(", ")}
-                </span>
+              <div className="studio-library-row__text">
+                <Name>{template.labels[locale].name}</Name>
+                <p>{template.labels[locale].description}</p>
+              </div>
+              <div className="studio-library-row__actions">
                 <Button
                   type="button"
-                  size="sm"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("previewNamed", {
+                    name: template.labels[locale].name,
+                  })}
+                  title={t("previewAction")}
+                  onClick={(event) => preview(template, event.currentTarget)}
+                >
+                  <EyeIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon-sm"
                   aria-label={t("addNamed", {
                     name: template.labels[locale].name,
                   })}
+                  title={t("add")}
                   disabled={busy}
                   onClick={() => void choose(template)}
                 >
                   <PlusIcon aria-hidden="true" />
-                  {t("add")}
                 </Button>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          ) : (
+            <article
+              key={template.id}
+              className="group flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-xs transition-colors hover:border-primary/50"
+            >
+              <div className="relative aspect-video overflow-hidden bg-muted">
+                <div
+                  className="pointer-events-none absolute inset-0 overflow-hidden"
+                  aria-hidden="true"
+                  inert
+                >
+                  <div className="w-[300%] origin-top-left scale-[0.3333333333]">
+                    {renderPreview(template)}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="absolute inset-0 h-full w-full rounded-none border-0 p-0 hover:bg-transparent"
+                  aria-label={t("previewNamed", {
+                    name: template.labels[locale].name,
+                  })}
+                  onClick={(event) => preview(template, event.currentTarget)}
+                >
+                  <span className="pointer-events-none absolute right-2 bottom-2 flex items-center gap-1 rounded-md border bg-background/95 px-2 py-1 text-xs font-medium shadow-sm">
+                    <EyeIcon className="size-3.5" aria-hidden="true" />
+                    {t("previewAction")}
+                  </span>
+                </Button>
+              </div>
+              <div className="flex flex-1 flex-col gap-2 p-3">
+                <Name className="text-sm leading-snug font-semibold">
+                  {template.labels[locale].name}
+                </Name>
+                <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">
+                  {template.labels[locale].description}
+                </p>
+                {template.contentProfiles?.length ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("contentLength", {
+                      range: [
+                        ...new Set([
+                          template.contentProfiles[0],
+                          template.contentProfiles.at(-1),
+                        ]),
+                      ].join("–"),
+                    })}
+                  </p>
+                ) : null}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="min-w-0 text-xs text-muted-foreground">
+                    {template.kind === "default"
+                      ? t("universal")
+                      : template.industries
+                          .map(
+                            (industryId) =>
+                              sectionIndustries().find(
+                                (item) => item.id === industryId,
+                              )?.labels[locale],
+                          )
+                          .join(", ")}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    aria-label={t("addNamed", {
+                      name: template.labels[locale].name,
+                    })}
+                    disabled={busy}
+                    onClick={() => void choose(template)}
+                  >
+                    <PlusIcon aria-hidden="true" />
+                    {t("add")}
+                  </Button>
+                </div>
+              </div>
+            </article>
+          ),
+        )}
       </div>
       {ordered.length > limit && (
         <Button
           type="button"
           variant="outline"
-          className="h-auto min-h-10 w-full whitespace-normal py-2"
+          className={`h-auto w-full whitespace-normal py-2 ${compact ? "min-h-9 text-xs" : "min-h-10"}`}
           onClick={() => setLimit((value) => value + 12)}
         >
           {t("showMore", { remaining: ordered.length - limit })}
@@ -473,6 +568,7 @@ export function SectionLibraryContent({
           {t("empty")}
         </p>
       )}
+      {compact && details}
       <Dialog
         open={selected !== null}
         onOpenChange={(open) => {

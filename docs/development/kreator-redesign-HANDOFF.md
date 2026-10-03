@@ -39,7 +39,7 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
 | --- | --------------------------------------------------------------------------------------------------------------------- | ----- |
 | 1   | One 52 px top bar: back, page name + "Szkic, wersja N", mode, undo/redo, device switch in the middle, language, „…”, preview, save | done  |
 | 2   | Vertical 72 px icon rail + one 300 px panel; compact outline with header/footer rows and a working drag handle         | done  |
-| 3   | Section library: category chips, compact rows (thumbnail, name, two lines, eye + "+"), insert hint, canvas "+" opens it in the panel | todo  |
+| 3   | Section library: category chips with counts, compact rows (thumbnail, name, two lines, eye + "+"), insert hint, canvas "+" opens it in the panel | done  |
 | 4   | Page templates: two-column grid of thumbnails, in-panel detail (description, goal/style, section list, preview, use)   | todo  |
 | 5   | Inspector: "Sekcja N z M" header with icon actions; tabs Treść / Układ / Styl                                           | todo  |
 | 6   | Tests, axe, PL/EN, 390 px check                                                                                       | todo  |
@@ -49,6 +49,11 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
 - `apps/frontend/src/modules/shared/sites/page-editor.tsx` and its test
 - `apps/frontend/src/modules/shared/sites/page-studio.tsx` and its test
 - `apps/frontend/src/modules/shared/sites/section-canvas.tsx`
+- `apps/frontend/src/modules/shared/sites/section-library.tsx` and its test
+- `apps/frontend/src/modules/shared/sites/own-templates.tsx` (compact rows
+  for company section templates; the page-template part is unchanged)
+- `apps/frontend/src/modules/shared/sites/page-editor-rich-content.test.tsx`
+  (picks the category by its chip)
 - `packages/ui/src/styles/site-studio.css`
 - `apps/frontend/messages/pl.json`, `en.json` (`Sites.studio.*` only)
 
@@ -80,6 +85,23 @@ No backend, API, OpenAPI, `api-client` or migration changes so far.
   footer show as muted rows around the sections when the site has them.
 - Messages: `Sites.studio.siteHeader`, `siteFooter`, `reorderInOutline` added,
   `Sites.studio.outlineHint` removed.
+
+- Section library (`SectionLibraryContent`): the category select became a
+  group of chips (`aria-pressed`, short word visible, full name in `title`);
+  a chip's count follows the search and the trade, an empty category hides
+  unless chosen. The industry select stays (owner's answer 1a). In the panel
+  (`compact`) each layout is one row: a 84×56 render of the recipe at 10 %, its
+  name and two lines, an eye (the existing preview dialog) over a "+"; a click
+  anywhere on the row adds it too (an `aria-hidden` button under the row, the
+  pattern the canvas already uses). The dialog in the forms mode keeps its
+  cards, with the chips.
+- The canvas's "+" no longer opens a library dialog: it opens the library in
+  the left panel, aimed at that gap („na początku strony”, „po sekcji 2” in
+  the panel's header) and focuses its search. Adding, or choosing another
+  section, goes back to "under the selected section". The bare block picker
+  moved under the library („Potrzebujesz czegoś innego?”).
+- Messages: `Sites.sectionLibrary.allShort`, `Sites.sectionLibrary.chip.*`,
+  `Sites.studio.insertAtStart`, `insertAfterNumber`, `blankHint` added.
 
 ## How to verify
 

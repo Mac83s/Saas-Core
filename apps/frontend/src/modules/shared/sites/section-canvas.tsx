@@ -86,6 +86,7 @@ export function SectionCanvas({
   inspector,
   inspectorActions,
   library,
+  libraryHint,
   pagesPanel,
   appearanceControls,
   inspectorRequest = 0,
@@ -132,6 +133,8 @@ export function SectionCanvas({
   /** Up, down and remove for the selected section, beside its name. */
   inspectorActions?: ReactNode;
   library: ReactNode;
+  /** Where the library puts a section: „po sekcji 2”. */
+  libraryHint?: string;
   /** The site's pages, to switch without leaving the studio. */
   pagesPanel?: ReactNode;
   appearanceControls?: ReactNode;
@@ -223,6 +226,19 @@ export function SectionCanvas({
     });
   };
   useImperativeHandle(ref, () => ({ choose: chooseSection }));
+  const libraryRef = useRef<HTMLDivElement>(null);
+  // The canvas's "+" opens the library beside it, aimed at that gap, and
+  // takes the keyboard to its search.
+  const insertAt = (position: number) => {
+    onInsertAt?.(position);
+    setLeftPanel("library");
+    setMobilePanel("left");
+    requestAnimationFrame(() =>
+      libraryRef.current
+        ?.querySelector<HTMLInputElement>('input[type="search"]')
+        ?.focus(),
+    );
+  };
   const mobileNavigation =
     appearance &&
     renderResponsiveNavigation(
@@ -286,8 +302,11 @@ export function SectionCanvas({
             {leftPanel === "outline" && blocks.length > 0 ? (
               <span aria-hidden="true">{blocks.length}</span>
             ) : null}
+            {leftPanel === "library" && libraryHint ? (
+              <span>{libraryHint}</span>
+            ) : null}
           </div>
-          <div className="studio-sidebar-scroll">
+          <div className="studio-sidebar-scroll" ref={libraryRef}>
             {leftPanel === "outline" && (
               <div className="studio-outline">
                 {appearance &&
@@ -500,7 +519,7 @@ export function SectionCanvas({
                       <InsertPoint
                         label={t("studio.insertBefore", { number: index + 1 })}
                         disabled={disabled}
-                        onInsert={() => onInsertAt(index)}
+                        onInsert={() => insertAt(index)}
                       />
                     ) : null}
                     <div className="studio-section-handle">
@@ -544,7 +563,7 @@ export function SectionCanvas({
                 label={t("studio.insertAtEnd")}
                 disabled={disabled}
                 last
-                onInsert={() => onInsertAt(blocks.length)}
+                onInsert={() => insertAt(blocks.length)}
               />
             ) : null}
             {appearance && (
