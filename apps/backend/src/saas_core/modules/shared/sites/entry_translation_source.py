@@ -71,6 +71,11 @@ from saas_core.content_protocol.sources import (
 )
 from saas_core.content_protocol.transliteration import slug_from_title
 from saas_core.content_protocol.units import DATA_PUBLIC, UNIT_TEXT, Unit, unit_state
+from saas_core.content_protocol.writes import GATE_UNKNOWN_UNIT
+from saas_core.content_protocol.writes import item_digest as _item_digest
+from saas_core.content_protocol.writes import outcome_from_dict as _outcome_from
+from saas_core.content_protocol.writes import outcome_to_dict as _outcome_dict
+from saas_core.content_protocol.writes import write_gate as _gate
 from saas_core.modules.core.organizations.api import list_resource_reference_ids
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization
@@ -105,14 +110,9 @@ from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .services import MEDIA_ASSET_RESOURCE_TYPE
 from .source_changes import ENTRY_SOURCE_KEY
 from .translation_source import (
-    GATE_UNKNOWN_UNIT,
     ORIGIN_TRANSLATION_JOB,
     ORIGIN_TRANSLATION_PENDING,
     _actor,
-    _gate,
-    _item_digest,
-    _outcome_dict,
-    _outcome_from,
     _target,
     _tenant,
     _tenant_context,

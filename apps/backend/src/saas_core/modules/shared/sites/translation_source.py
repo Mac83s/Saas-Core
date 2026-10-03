@@ -38,7 +38,6 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from saas_core.content_protocol import registry
-from saas_core.content_protocol.facts import extract_facts
 from saas_core.content_protocol.policy import (
     REASON_OVERWRITES_HUMAN,
     PublicationFacts,
@@ -70,9 +69,15 @@ from saas_core.content_protocol.sources import (
     WriteItem,
     WriteOutcome,
 )
-from saas_core.content_protocol.tokens import validate_tokens
 from saas_core.content_protocol.transliteration import slug_from_title
 from saas_core.content_protocol.units import DATA_PUBLIC, UNIT_TEXT, Target, Unit, unit_state
+from saas_core.content_protocol.writes import (
+    GATE_UNKNOWN_UNIT,
+)
+from saas_core.content_protocol.writes import item_digest as _item_digest
+from saas_core.content_protocol.writes import outcome_from_dict as _outcome_from
+from saas_core.content_protocol.writes import outcome_to_dict as _outcome_dict
+from saas_core.content_protocol.writes import write_gate as _gate
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import (
     TenantContext,
@@ -116,12 +121,6 @@ META_FIELDS = {META_TITLE: "title", META_DESCRIPTION: "description"}
 ORIGIN_TRANSLATION_JOB = "translation_job"
 ORIGIN_TRANSLATION_PENDING = "translation_pending"
 LOCALE_TRANSLATED = "sites.page.locale_translated"
-
-GATE_REQUIRED = "required"
-GATE_TOO_LONG = "too_long"
-GATE_FACTS_CHANGED = "facts_changed"
-GATE_UNKNOWN_UNIT = "unknown_unit"
-GATE_PROTECTED_TERM = "protected_term_changed"
 
 
 class PageTranslationSource:
@@ -896,57 +895,6 @@ def _actor(context: ContentContext) -> UUID:
     if context.actor_id is None:
         raise TypeError("A sites translation write needs the person the job acts for.")
     return context.actor_id
-
-
-def _gate(unit: Unit, text: str, terms: Sequence[ProtectedTerm]) -> FieldError | None:
-    name = f"units.{unit.key}"
-    if not text.strip():
-        return FieldError(name, GATE_REQUIRED, "The translation is empty.")
-    problems = validate_tokens(unit.text, text)
-    if problems:
-        return FieldError(name, problems[0], "The marks differ from the source.")
-    if unit.max_length is not None and len(text) > unit.max_length:
-        return FieldError(name, GATE_TOO_LONG, "The translation is too long.")
-    if extract_facts(unit.text) != extract_facts(text):
-        return FieldError(name, GATE_FACTS_CHANGED, "A price, time or contact differs.")
-    for term in terms:
-        if term.text in unit.text and term.text not in text:
-            return FieldError(name, GATE_PROTECTED_TERM, "A name is translated or missing.")
-    return None
-
-
-def _item_digest(item: WriteItem) -> str:
-    texts = {key: text for key, (text, _provenance) in item.texts.items()}
-    payload = json.dumps(
-        [str(item.object_id), item.locale, item.basis, item.requested, item.reason, texts],
-        sort_keys=True,
-        ensure_ascii=False,
-    )
-    return hashlib.sha256(payload.encode()).hexdigest()
-
-
-def _outcome_dict(outcome: WriteOutcome) -> dict[str, Any]:
-    return {
-        "object_id": str(outcome.object_id),
-        "locale": outcome.locale,
-        "state": outcome.state,
-        "keys": list(outcome.keys),
-        "reason": outcome.reason,
-        "errors": [[e.field, e.code, e.message] for e in outcome.errors],
-        "target_version": outcome.target_version,
-    }
-
-
-def _outcome_from(stored: Mapping[str, Any]) -> WriteOutcome:
-    return WriteOutcome(
-        object_id=UUID(stored["object_id"]),
-        locale=stored["locale"],
-        state=stored["state"],
-        keys=tuple(stored["keys"]),
-        reason=stored["reason"],
-        errors=tuple(FieldError(*error) for error in stored["errors"]),
-        target_version=stored["target_version"],
-    )
 
 
 def _new_translation(page: Page, locale: str) -> PageTranslation:
