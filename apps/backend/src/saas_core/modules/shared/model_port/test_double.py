@@ -8,8 +8,10 @@ markers untouched. A company gets it only when two things hold: the stack says
 ceilings, and a test that dies half-way leaves only its own company behind.
 
 The switch is an explicit setting, default off, and never follows `APP_ENV`:
-the dev VPS runs as `local`. The list is fixture state in its own table — not
-a setting, so no operator can reach it from the panel.
+the dev VPS runs as `local`. On a stack served over https the switch is an
+error at start and the stand-in stays off (`refused`). The list is fixture
+state in its own table — not a setting, so no operator can reach it from the
+panel.
 `manage.py translation_e2e_fixture on|off` writes it; no model, price or key
 is ever written.
 """
@@ -32,8 +34,16 @@ ECHO_MODEL = "fake/echo"
 ECHO_TASK = "translation.text"
 
 
+def refused() -> bool:
+    """Asked for on a stack served over https — one that answers the internet.
+
+    The start check stops such a stack (`model_port.E003`); `enabled` keeps the
+    stand-in off as well, for a process that got past the check."""
+    return bool(settings.MODEL_PORT_TEST_DOUBLE) and settings.PUBLIC_SITE_SCHEME == "https"
+
+
 def enabled() -> bool:
-    return bool(settings.MODEL_PORT_TEST_DOUBLE)
+    return bool(settings.MODEL_PORT_TEST_DOUBLE) and not refused()
 
 
 def echo_profile() -> ModelProfile:

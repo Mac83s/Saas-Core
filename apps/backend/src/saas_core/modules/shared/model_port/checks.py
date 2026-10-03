@@ -5,6 +5,7 @@ from typing import Any
 from django.conf import settings
 from django.core.checks import Error, Warning, register
 
+from . import test_double
 from .budgets import current_budgets, problems
 from .registry import registered_tasks, task_spec
 
@@ -24,6 +25,18 @@ def model_port_configuration(app_configs: Any, **kwargs: Any) -> list[Any]:
             Error(
                 "GUNICORN_GRACEFUL_TIMEOUT nie zostawia czasu na wywołanie modelu z żądania.",
                 id="model_port.E002",
+            )
+        )
+    if test_double.refused():
+        # The dev VPS is named `local`, so the name protects nothing: a wrong
+        # line in a `.env` has to fail the deploy, not translate a customer's
+        # site with the stand-in.
+        found.append(
+            Error(
+                "MODEL_PORT_TEST_DOUBLE jest włączone na stacku serwowanym przez https. "
+                "Atrapa tłumaczeń jest tylko dla testów przeglądarkowych na http — "
+                "usuń tę zmienną.",
+                id="model_port.E003",
             )
         )
     for key in registered_tasks():

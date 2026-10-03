@@ -282,6 +282,13 @@ zostawiłby ją wszystkim):
   nazwa środowiska niczego nie chroni. `MODEL_PORT_TEST_DOUBLE` jest domyślnie
   wyłączone i ustawia się je tylko w środowisku testów przeglądarkowych (lokalna
   nakładka compose, CI); model `fake/echo` jest rejestrowany tylko przy włączonym.
+- **Nie na stacku serwowanym przez https.** Włączone `MODEL_PORT_TEST_DOUBLE` przy
+  `PUBLIC_SITE_SCHEME=https` (wartość domyślna, tak działają VPS i staging) to błąd
+  kontroli startowej `model_port.E003`: każda usługa zaczyna od komendy `manage.py`,
+  która uruchamia kontrole, więc błędna linia w `.env` zatrzymuje wdrożenie, zamiast
+  opublikować tekst atrapy na stronie klienta. Drugi zamek dla procesu, który kontrole
+  pominął: przy https `test_double.enabled()` zwraca fałsz — model `fake/echo` nie jest
+  rejestrowany, firma z wierszem tłumaczy prawdziwym modelem, komenda fixtury odmawia.
 - **Lista firm to stan fixtury, nie ustawienie.** Własna tabela platformowa
   (`platformTables`: czytnik portu nie ustawia tenanta; identyfikator firmy bez klucza
   obcego, jak w `UsageEntry`; wiersz znika z firmą przez `register_erasure_rows`), z

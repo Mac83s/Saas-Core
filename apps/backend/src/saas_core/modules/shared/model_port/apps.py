@@ -22,13 +22,14 @@ class ModelPortConfig(AppConfig):
             from .adapters.fake import FAKE
 
             register_adapter(FAKE)
-        if settings.MODEL_PORT_TEST_DOUBLE:
+        from . import test_double
+
+        if test_double.enabled():
             # The stand-in translator of browser tests: its model exists only
             # where the stack asks for it by name (`test_double`).
             from .matrix import register_model
-            from .test_double import echo_profile
 
-            register_model(echo_profile())
+            register_model(test_double.echo_profile())
         register_erasure_rows("shared.model-port.usage", UsageEntry, "organization_id")
         # A browser test's company leaves the stand-in's list with the company.
         register_erasure_rows("shared.model-port.test-double", TestDoubleCompany, "organization_id")

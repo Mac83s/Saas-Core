@@ -10,11 +10,13 @@ from typing import Any
 
 import pytest
 from django.core.management import CommandError, call_command
+from django.core.management.base import SystemCheckError
 from django.test import override_settings
 
 from saas_core.modules.core.organizations.models import PlatformSettingEntry
 from saas_core.modules.shared.model_port.adapters.fake import FAKE, FakeAdapter
 from saas_core.modules.shared.model_port.api import ModelContext, task_status
+from saas_core.modules.shared.model_port.checks import model_port_configuration
 from saas_core.modules.shared.model_port.matrix import MODELS, register_model
 from saas_core.modules.shared.model_port.models import TestDoubleCompany, UsageEntry
 from saas_core.modules.shared.model_port.registry import task_spec
@@ -40,7 +42,10 @@ TASK = "translation.text"
 @pytest.fixture
 def pages(monkeypatch: pytest.MonkeyPatch) -> Iterator[JobSource]:
     """A stack that asked for the stand-in by name, as the e2e environment does."""
-    with installed_source(monkeypatch) as installed, override_settings(MODEL_PORT_TEST_DOUBLE=True):
+    with (
+        installed_source(monkeypatch) as installed,
+        override_settings(MODEL_PORT_TEST_DOUBLE=True, PUBLIC_SITE_SCHEME="http"),
+    ):
         # The adapter as it runs in a worker: no test answers for it.
         monkeypatch.setattr(FAKE, "complete", FakeAdapter.complete.__get__(FAKE))
         FAKE.reset()
@@ -150,6 +155,48 @@ def test_a_row_alone_changes_nothing_where_the_stack_did_not_ask_for_the_stand_i
                 fixture(action, organization=owner.organization.slug, operator=staff.email)
         with pytest.raises(CommandError, match="MODEL_PORT_TEST_DOUBLE"):
             fixture("show")
+
+
+def _stand_in_errors() -> list[str]:
+    return [found.id for found in model_port_configuration(None) if found.id == "model_port.E003"]
+
+
+def test_a_stack_served_over_https_does_not_start_with_the_stand_in_on() -> None:
+    """The dev VPS is named `local` and answers the internet: there the switch
+    is an error of the start check, whatever `APP_ENV` says."""
+    for name in ("local", "staging"):
+        with override_settings(
+            MODEL_PORT_TEST_DOUBLE=True, PUBLIC_SITE_SCHEME="https", APP_ENV=name
+        ):
+            assert _stand_in_errors() == ["model_port.E003"]
+            # A start command runs the checks first and stops on them.
+            with pytest.raises(SystemCheckError, match="model_port.E003"):
+                call_command("check")
+
+
+def test_a_stack_served_over_http_starts_with_the_stand_in_on() -> None:
+    with override_settings(MODEL_PORT_TEST_DOUBLE=True, PUBLIC_SITE_SCHEME="http"):
+        assert _stand_in_errors() == []
+    # And https alone, without the switch, is every real deployment.
+    with override_settings(MODEL_PORT_TEST_DOUBLE=False, PUBLIC_SITE_SCHEME="https"):
+        assert _stand_in_errors() == []
+
+
+def test_over_https_nobody_is_on_the_stand_in_even_past_the_check(
+    pages: JobSource, fixture: Fixture
+) -> None:
+    """A process that skipped the checks still translates with the real model."""
+    owner, staff = company("e2e-https"), operator()
+    spec = task_spec(TASK)
+    assert spec is not None
+    fixture("on", organization=owner.organization.slug, operator=staff.email)
+    assert uses_stand_in(owner.organization_id) is True
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        assert uses_stand_in(owner.organization_id) is False
+        assert routed(spec, owner.organization_id) is spec
+        with pytest.raises(CommandError, match="MODEL_PORT_TEST_DOUBLE"):
+            fixture("on", organization=owner.organization.slug, operator=staff.email)
 
 
 def test_the_switch_is_off_unless_the_stack_says_so() -> None:
