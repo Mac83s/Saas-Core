@@ -84,6 +84,46 @@
       "file": "playfair-display-latin.woff2",
       "source": "https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgA.woff2",
       "sha256": "e0c764a8e9e1cce92163c55bac4b2ad6cd4cf8c696ce2289ab5c41565e65b7e2"
+    },
+    {
+      "family": "Inter",
+      "subset": "cyrillic",
+      "file": "inter-cyrillic.woff2",
+      "source": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa0ZL7SUc.woff2",
+      "sha256": "71d5ee93cc1e9f1d520a3a8b66456de18c7879d8df09d57fcd2eaff75fef0075",
+      "downloaded": "2026-10-03"
+    },
+    {
+      "family": "Manrope",
+      "subset": "cyrillic",
+      "file": "manrope-cyrillic.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggOxSuXd.woff2",
+      "sha256": "c268b459a9329e59fecf39a17618efd44c71735532048d60b12aab76a8c14914",
+      "downloaded": "2026-10-03"
+    },
+    {
+      "family": "Nunito",
+      "subset": "cyrillic",
+      "file": "nunito-cyrillic.woff2",
+      "source": "https://fonts.gstatic.com/s/nunito/v32/XRXV3I6Li01BKofIMeaBXso.woff2",
+      "sha256": "63b14e3ef0966785438b8947380dfbcad178cbd3c6a5ed2172672ca0d8b839ac",
+      "downloaded": "2026-10-03"
+    },
+    {
+      "family": "Lora",
+      "subset": "cyrillic",
+      "file": "lora-cyrillic.woff2",
+      "source": "https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMw77I-NP.woff2",
+      "sha256": "c57d9ca3bd42e6bc093badc7744dd2059a78f66a3a4dc6ca40574480c870f553",
+      "downloaded": "2026-10-03"
+    },
+    {
+      "family": "Playfair Display",
+      "subset": "cyrillic",
+      "file": "playfair-display-cyrillic.woff2",
+      "source": "https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTjYgFE_.woff2",
+      "sha256": "c108681cba6a9820bff52f4a1a4a1d9edf356b347bd79b7c61e916028e8a8b54",
+      "downloaded": "2026-10-03"
     }
   ]
 }

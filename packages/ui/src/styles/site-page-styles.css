@@ -17,7 +17,7 @@
   --site-style-heading: "Manrope", system-ui, sans-serif;
 }
 .site-theme:is(.site-style--mosaic, .site-style--expert) {
-  --site-style-heading: "DM Sans", system-ui, sans-serif;
+  --site-style-heading: "DM Sans", "Inter", system-ui, sans-serif;
 }
 .site-theme.site-style--expert,
 .site-theme.site-style--premium {

@@ -138,7 +138,7 @@
   font-family: "Manrope", system-ui, sans-serif;
 }
 .site-theme.site-body-font--dm-sans {
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: "DM Sans", "Inter", system-ui, sans-serif;
 }
 .site-theme.site-body-font--nunito {
   font-family: "Nunito", system-ui, sans-serif;
@@ -171,7 +171,7 @@
   font-family: "Manrope", system-ui, sans-serif;
 }
 .site-theme.site-heading-font--dm-sans :is(h1, h2, h3, h4) {
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: "DM Sans", "Inter", system-ui, sans-serif;
 }
 .site-theme.site-heading-font--nunito :is(h1, h2, h3, h4) {
   font-family: "Nunito", system-ui, sans-serif;
