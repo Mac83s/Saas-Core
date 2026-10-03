@@ -3254,7 +3254,12 @@
     "inventory_read": "Podgląd magazynu",
     "inventory_use": "Materiały do wizyt z własnego zapasu",
     "inventory_manage": "Prowadzenie magazynu",
-    "booking_staff_performance_read": "Wyniki i historia pracowników"
+    "booking_staff_performance_read": "Wyniki i historia pracowników",
+    "organization_archive": "Archiwizacja organizacji",
+    "organization_ownership_transfer": "Przekazanie organizacji",
+    "image_generation_run": "Generowanie obrazów AI",
+    "translation_request": "Zlecanie tłumaczeń",
+    "translation_manage": "Ustawienia tłumaczeń"
   },
   "Farms": {
     "eyebrow": "Rejestr gospodarstw",

@@ -83,7 +83,9 @@ export function DayAgenda({
           <span className="sr-only">{t("dayLoading")}</span>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        // grid-cols-1 caps the column at the screen: a long line truncates
+        // instead of widening the page on a phone.
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[today, addDays(today, 1)].map((day, index) => (
             <Day
               day={day}

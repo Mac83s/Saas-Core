@@ -3254,7 +3254,12 @@
     "inventory_read": "View stock",
     "inventory_use": "Materials for visits from own stock",
     "inventory_manage": "Manage stock",
-    "booking_staff_performance_read": "Staff results and history"
+    "booking_staff_performance_read": "Staff results and history",
+    "organization_archive": "Archive the organization",
+    "organization_ownership_transfer": "Hand over the organization",
+    "image_generation_run": "Generate AI images",
+    "translation_request": "Request translations",
+    "translation_manage": "Translation settings"
   },
   "Farms": {
     "eyebrow": "Farm register",
