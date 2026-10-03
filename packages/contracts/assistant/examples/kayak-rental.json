@@ -1,0 +1,82 @@
+{
+  "schema": "company-profile.v1",
+  "company": {
+    "name": {
+      "value": "Kajaki Krutynia",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "activity": {
+      "value": "wypożyczalnia kajaków na Krutyni",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "city": {
+      "value": "Mrągowo",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "phone": {
+      "value": "+48 602 300 400",
+      "origin": "owner",
+      "confirmed": true
+    }
+  },
+  "places": [
+    {
+      "key": "base",
+      "name": {
+        "value": "Przystań",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "address": {
+        "value": "ul. Nadbrzeżna 2, Mrągowo",
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ],
+  "offers": [
+    {
+      "key": "kayak",
+      "name": {
+        "value": "Kajak dwuosobowy",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "preset": {
+        "value": "core.rental",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "units": {
+        "value": 12,
+        "origin": "owner",
+        "confirmed": true
+      },
+      "capacity": {
+        "value": 2,
+        "origin": "owner",
+        "confirmed": true
+      },
+      "price": {
+        "value": {
+          "amount": "60.00",
+          "currency": "PLN",
+          "per": "day"
+        },
+        "origin": "owner",
+        "confirmed": true
+      }
+    },
+    {
+      "key": "transport",
+      "name": {
+        "value": "Transport kajaków",
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ]
+}

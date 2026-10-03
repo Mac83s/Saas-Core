@@ -108,6 +108,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assistant/profile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company's profile, as the assistant keeps it
+         * @description What the owner told the assistant about the company: who it is, what it sells, where and who works, each value with its origin and whether the owner confirmed it. Version 0 and an empty document while nothing was saved. Read by whoever manages the company's settings.
+         */
+        get: operations["assistant_profile_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's profile
+         * @description Applies a JSON merge patch to the profile and saves it as its next version. Nothing in the account changes: the profile is what was said, not what was set up. 409 `assistant_profile_version_conflict` when the profile moved since `expected_version`; 400 names each field that is not a profile's. A repeated Idempotency-Key answers the first result again.
+         */
+        patch: operations["assistant_profile_update"];
+        trace?: never;
+    };
+    "/api/v1/assistant/profile/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to the profile without saving it
+         * @description Validates the change as `assistant_profile_update` would. Nothing is saved: the answer is the profile as the save would leave it, with `changed`, or the same 400 and 409 the save would answer.
+         */
+        post: operations["assistant_profile_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf/": {
         parameters: {
             query?: never;
@@ -7050,6 +7094,40 @@ export interface components {
             credits_per_message: number;
             max_message_characters: number;
         };
+        AssistantProfile: {
+            /** @description The document's contract: `company-profile.v1`. */
+            schema: string;
+            /** @description 0 while nothing was saved; a change names the version it saw. */
+            version: number;
+            /** @description What the owner told the assistant about the company, as `packages/contracts/assistant/company-profile.v1.schema.json`: every value with its origin and whether the owner confirmed it. */
+            document: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        AssistantProfileChange: {
+            /** @description The version the change was made against; 0 for the first. */
+            expected_version: number;
+            /** @description A JSON merge patch (RFC 7396) over the document: a field sent replaces the field, `null` removes it, a list is replaced whole. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        AssistantProfileSaved: {
+            /** @description The document's contract: `company-profile.v1`. */
+            schema: string;
+            /** @description 0 while nothing was saved; a change names the version it saw. */
+            version: number;
+            /** @description What the owner told the assistant about the company, as `packages/contracts/assistant/company-profile.v1.schema.json`: every value with its origin and whether the owner confirmed it. */
+            document: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            updated_at: string | null;
+            /** @description The fields the change touched, e.g. `company.city`; a list counts as one field. Empty when it changed nothing. */
+            changed: string[];
+        };
         AssistantTurn: {
             /** Format: uuid */
             id: string;
@@ -10776,6 +10854,14 @@ export interface components {
             status?: components["schemas"]["Status891Enum"];
             notes?: string;
             reviewed?: boolean;
+        };
+        PatchedAssistantProfileChange: {
+            /** @description The version the change was made against; 0 for the first. */
+            expected_version?: number;
+            /** @description A JSON merge patch (RFC 7396) over the document: a field sent replaces the field, `null` removes it, a list is replaced whole. */
+            changes?: {
+                [key: string]: unknown;
+            };
         };
         PatchedBillingAccessSettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
@@ -14648,6 +14734,181 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_profile_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantProfile"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_profile_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedAssistantProfileChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedAssistantProfileChange"];
+                "multipart/form-data": components["schemas"]["PatchedAssistantProfileChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantProfileSaved"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_profile_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantProfileChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["AssistantProfileChange"];
+                "multipart/form-data": components["schemas"]["AssistantProfileChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantProfileSaved"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

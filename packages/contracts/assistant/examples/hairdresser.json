@@ -1,0 +1,158 @@
+{
+  "schema": "company-profile.v1",
+  "company": {
+    "name": {
+      "value": "Salon Fryzjerski Ania",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "activity": {
+      "value": "fryzjer damski i męski",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "city": {
+      "value": "Olsztyn",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "address": {
+      "value": "ul. Mazurska 4, 10-520 Olsztyn",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "phone": {
+      "value": "+48 600 100 200",
+      "origin": "owner",
+      "confirmed": true
+    }
+  },
+  "card": {
+    "headline": {
+      "value": "Strzyżenie i koloryzacja w centrum Olsztyna",
+      "origin": "assistant",
+      "confirmed": false
+    }
+  },
+  "places": [
+    {
+      "key": "salon",
+      "name": {
+        "value": "Salon na Mazurskiej",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "address": {
+        "value": "ul. Mazurska 4, Olsztyn",
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ],
+  "people": [
+    {
+      "key": "ania",
+      "name": {
+        "value": "Ania",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "hours": {
+        "value": [
+          {
+            "weekday": 1,
+            "start": "09:00",
+            "end": "17:00",
+            "place": "salon"
+          },
+          {
+            "weekday": 2,
+            "start": "09:00",
+            "end": "17:00",
+            "place": "salon"
+          },
+          {
+            "weekday": 3,
+            "start": "09:00",
+            "end": "17:00",
+            "place": "salon"
+          },
+          {
+            "weekday": 4,
+            "start": "09:00",
+            "end": "17:00",
+            "place": "salon"
+          },
+          {
+            "weekday": 5,
+            "start": "09:00",
+            "end": "17:00",
+            "place": "salon"
+          }
+        ],
+        "origin": "owner",
+        "confirmed": true
+      }
+    },
+    {
+      "key": "ola",
+      "name": {
+        "value": "Ola",
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ],
+  "offers": [
+    {
+      "key": "cut",
+      "name": {
+        "value": "Strzyżenie damskie",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "preset": {
+        "value": "core.specialist_visit",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "duration_minutes": {
+        "value": 45,
+        "origin": "owner",
+        "confirmed": true
+      },
+      "price": {
+        "value": {
+          "amount": "90.00",
+          "currency": "PLN",
+          "per": "booking"
+        },
+        "origin": "owner",
+        "confirmed": true
+      },
+      "people": {
+        "value": ["ania", "ola"],
+        "origin": "owner",
+        "confirmed": true
+      }
+    },
+    {
+      "key": "colour",
+      "name": {
+        "value": "Koloryzacja",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "preset": {
+        "value": "core.specialist_visit",
+        "origin": "assistant",
+        "confirmed": false
+      },
+      "people": {
+        "value": ["ania"],
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ]
+}

@@ -5,6 +5,9 @@ per message of the person, with the plan that waits for their click — and the
 transcript the model is shown again on every call. The transcript is content
 a person wrote and personal data: nothing here goes to a log, and the rows
 leave after `assistant.retention.conversation_days` and with the company.
+
+A fourth holds the company's profile (A2): what the owner said about the
+company, one row per saved state.
 """
 
 from __future__ import annotations
@@ -139,5 +142,45 @@ class AssistantMessage(TenantScopedModel):
             models.CheckConstraint(
                 condition=models.Q(role__in=[choice.value for choice in MessageRole]),
                 name="assistant_message_role_ck",
+            ),
+        ]
+
+
+class AssistantProfileVersion(TenantScopedModel):
+    """One saved state of the company's profile (`profile_schema.py`).
+
+    The newest row is the profile; the older ones are its history — who
+    changed it, when and from which conversation. Personal data: the owner's
+    words and the names of the company's people. Rows leave with the company;
+    versions older than the current one are due after
+    `assistant.retention.conversation_days` (the purge arrives with the
+    platform's retention hook, not here).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    version = models.PositiveIntegerField()
+    document = models.JSONField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    membership_id = models.UUIDField()
+    # Empty when the person saved it themselves; "assistant" with the
+    # conversation it came from otherwise (ADR-076 §6). Not a foreign key: the
+    # transcript is purged long before the profile is.
+    acting_via = models.CharField(max_length=20, blank=True)
+    conversation_id = models.UUIDField(null=True, blank=True)
+    idempotency_key = models.CharField(max_length=160)
+    # What was asked under that key, so the key reused for something else is refused.
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "version"], name="assistant_profile_version_unique"
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"], name="assistant_profile_key_unique"
             ),
         ]

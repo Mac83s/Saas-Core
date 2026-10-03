@@ -1,0 +1,77 @@
+{
+  "schema": "company-profile.v1",
+  "company": {
+    "name": {
+      "value": "Hydraulik Kowalski",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "activity": {
+      "value": "hydraulik: awarie, instalacje wodne i kanalizacyjne",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "city": {
+      "value": "Mrągowo",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "phone": {
+      "value": "+48 601 200 300",
+      "origin": "owner",
+      "confirmed": true
+    }
+  },
+  "people": [
+    {
+      "key": "jan",
+      "name": {
+        "value": "Jan Kowalski",
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ],
+  "offers": [
+    {
+      "key": "repair",
+      "name": {
+        "value": "Usuwanie awarii",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "preset": {
+        "value": "core.service_at_customer",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "duration_minutes": {
+        "value": 60,
+        "origin": "owner",
+        "confirmed": true
+      },
+      "price": {
+        "value": {
+          "amount": "200.00",
+          "currency": "PLN",
+          "per": "booking"
+        },
+        "origin": "owner",
+        "confirmed": true
+      }
+    },
+    {
+      "key": "install",
+      "name": {
+        "value": "Montaż instalacji",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "preset": {
+        "value": "core.service_at_customer",
+        "origin": "owner",
+        "confirmed": true
+      }
+    }
+  ]
+}

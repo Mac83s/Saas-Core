@@ -30,7 +30,7 @@ collect_ignore_glob = [
     *(
         []
         if "shared.assistant" in settings.ACTIVE_MODULES
-        else ["test_assistant_chat.py", "test_assistant_evals.py"]
+        else ["test_assistant_*.py"]
     ),
     # MedPlano does not compose the farm register.
     *([] if "shared.farms" in settings.ACTIVE_MODULES else ["test_farms_today.py"]),

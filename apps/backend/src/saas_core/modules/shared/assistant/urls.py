@@ -4,6 +4,8 @@ from .views import (
     AssistantOfferView,
     ConversationDetailView,
     ConversationListView,
+    ProfilePreviewView,
+    ProfileView,
     TurnConsentView,
     TurnCreateView,
 )
@@ -26,4 +28,6 @@ urlpatterns = [
         TurnConsentView.as_view(),
         name="assistant-turn-consents",
     ),
+    path("profile/", ProfileView.as_view(), name="assistant-profile"),
+    path("profile/preview/", ProfilePreviewView.as_view(), name="assistant-profile-preview"),
 ]

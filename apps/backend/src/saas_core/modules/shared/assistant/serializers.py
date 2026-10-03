@@ -137,3 +137,34 @@ class AssistantConsentAnswerSerializer(serializers.Serializer[Any]):
         default=False,
         help_text="True: the person declined the whole plan; nothing runs.",
     )
+
+
+class AssistantProfileSerializer(serializers.Serializer[Any]):
+    schema = serializers.CharField(help_text="The document's contract: `company-profile.v1`.")
+    version = serializers.IntegerField(
+        min_value=0, help_text="0 while nothing was saved; a change names the version it saw."
+    )
+    document = serializers.DictField(
+        help_text="What the owner told the assistant about the company, as "
+        "`packages/contracts/assistant/company-profile.v1.schema.json`: every value with "
+        "its origin and whether the owner confirmed it."
+    )
+    updated_at = serializers.DateTimeField(allow_null=True)
+
+
+class AssistantProfileSavedSerializer(AssistantProfileSerializer):
+    changed = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The fields the change touched, e.g. `company.city`; a list counts as one "
+        "field. Empty when it changed nothing.",
+    )
+
+
+class AssistantProfileChangeSerializer(serializers.Serializer[Any]):
+    expected_version = serializers.IntegerField(
+        min_value=0, help_text="The version the change was made against; 0 for the first."
+    )
+    changes = serializers.DictField(
+        help_text="A JSON merge patch (RFC 7396) over the document: a field sent replaces "
+        "the field, `null` removes it, a list is replaced whole."
+    )

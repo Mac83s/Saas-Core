@@ -1,0 +1,84 @@
+{
+  "schema": "company-profile.v1",
+  "company": {
+    "name": {
+      "value": "Domki nad Jeziorem",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "activity": {
+      "value": "domki letniskowe nad jeziorem",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "city": {
+      "value": "Mikołajki",
+      "origin": "owner",
+      "confirmed": true
+    },
+    "email": {
+      "value": "kontakt@domki-nad-jeziorem.test",
+      "origin": "owner",
+      "confirmed": true
+    }
+  },
+  "card": {
+    "description": {
+      "value": "Trzy całoroczne domki z własnym pomostem, 200 m od plaży.",
+      "origin": "existing_site",
+      "confirmed": true
+    }
+  },
+  "languages": {
+    "value": ["pl", "en"],
+    "origin": "owner",
+    "confirmed": true
+  },
+  "offers": [
+    {
+      "key": "cottage",
+      "name": {
+        "value": "Domek 6-osobowy",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "preset": {
+        "value": "core.lodging",
+        "origin": "owner",
+        "confirmed": true
+      },
+      "units": {
+        "value": 3,
+        "origin": "owner",
+        "confirmed": true
+      },
+      "capacity": {
+        "value": 6,
+        "origin": "owner",
+        "confirmed": true
+      },
+      "price": {
+        "value": {
+          "amount": "450.00",
+          "currency": "PLN",
+          "per": "night"
+        },
+        "origin": "owner",
+        "confirmed": true
+      },
+      "inputs": {
+        "min_length": {
+          "value": 2,
+          "origin": "owner",
+          "confirmed": true
+        }
+      }
+    }
+  ],
+  "sources": [
+    {
+      "kind": "website",
+      "ref": "https://domki-nad-jeziorem.test"
+    }
+  ]
+}

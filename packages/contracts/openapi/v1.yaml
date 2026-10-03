@@ -340,6 +340,170 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/assistant/profile/:
+    get:
+      operationId: assistant_profile_retrieve
+      description: 'What the owner told the assistant about the company: who it is,
+        what it sells, where and who works, each value with its origin and whether
+        the owner confirmed it. Version 0 and an empty document while nothing was
+        saved. Read by whoever manages the company''s settings.'
+      summary: The company's profile, as the assistant keeps it
+      tags:
+      - assistant
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantProfile'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: assistant_profile_update
+      description: 'Applies a JSON merge patch to the profile and saves it as its
+        next version. Nothing in the account changes: the profile is what was said,
+        not what was set up. 409 `assistant_profile_version_conflict` when the profile
+        moved since `expected_version`; 400 names each field that is not a profile''s.
+        A repeated Idempotency-Key answers the first result again.'
+      summary: Change the company's profile
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAssistantProfileChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAssistantProfileChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAssistantProfileChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantProfileSaved'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/assistant/profile/preview/:
+    post:
+      operationId: assistant_profile_update_preview
+      description: 'Validates the change as `assistant_profile_update` would. Nothing
+        is saved: the answer is the profile as the save would leave it, with `changed`,
+        or the same 400 and 409 the save would answer.'
+      summary: Check a change to the profile without saving it
+      tags:
+      - assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantProfileChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssistantProfileChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssistantProfileChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantProfileSaved'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/auth/csrf/:
     get:
       operationId: api_v1_auth_csrf_retrieve
@@ -21198,6 +21362,78 @@ components:
       - in_plan
       - max_message_characters
       - reasons
+    AssistantProfile:
+      type: object
+      properties:
+        schema:
+          type: string
+          description: 'The document''s contract: `company-profile.v1`.'
+        version:
+          type: integer
+          minimum: 0
+          description: 0 while nothing was saved; a change names the version it saw.
+        document:
+          type: object
+          additionalProperties: {}
+          description: 'What the owner told the assistant about the company, as `packages/contracts/assistant/company-profile.v1.schema.json`:
+            every value with its origin and whether the owner confirmed it.'
+        updated_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - document
+      - schema
+      - updated_at
+      - version
+    AssistantProfileChange:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The version the change was made against; 0 for the first.
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'A JSON merge patch (RFC 7396) over the document: a field sent
+            replaces the field, `null` removes it, a list is replaced whole.'
+      required:
+      - changes
+      - expected_version
+    AssistantProfileSaved:
+      type: object
+      properties:
+        schema:
+          type: string
+          description: 'The document''s contract: `company-profile.v1`.'
+        version:
+          type: integer
+          minimum: 0
+          description: 0 while nothing was saved; a change names the version it saw.
+        document:
+          type: object
+          additionalProperties: {}
+          description: 'What the owner told the assistant about the company, as `packages/contracts/assistant/company-profile.v1.schema.json`:
+            every value with its origin and whether the owner confirmed it.'
+        updated_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        changed:
+          type: array
+          items:
+            type: string
+          description: The fields the change touched, e.g. `company.city`; a list
+            counts as one field. Empty when it changed nothing.
+      required:
+      - changed
+      - document
+      - schema
+      - updated_at
+      - version
     AssistantTurn:
       type: object
       properties:
@@ -29949,6 +30185,18 @@ components:
           type: string
         reviewed:
           type: boolean
+    PatchedAssistantProfileChange:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The version the change was made against; 0 for the first.
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'A JSON merge patch (RFC 7396) over the document: a field sent
+            replaces the field, `null` removes it, a list is replaced whole.'
     PatchedBillingAccessSettingsChange:
       type: object
       properties:

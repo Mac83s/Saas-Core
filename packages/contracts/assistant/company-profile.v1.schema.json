@@ -1,0 +1,673 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "company-profile.v1.schema.json",
+  "title": "Company profile",
+  "description": "What the owner told the assistant about the company (assistant plan, A2). Every value carries its origin and whether the owner confirmed it; the configurator writes only confirmed values to the account. Personal data: the owner's words and the names of the company's people.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": {
+      "const": "company-profile.v1"
+    },
+    "company": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "name": {
+          "type": "object",
+          "description": "The company's name.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "activity": {
+          "type": "object",
+          "description": "What the company does, in the owner's words.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "city": {
+          "type": "object",
+          "description": "The town it works in, as the owner names it.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "category": {
+          "type": "object",
+          "description": "Its category in the public directory (a key from profiles.catalog_options.read).",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,63}$"
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "address": {
+          "type": "object",
+          "description": "Its public street address.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "phone": {
+          "type": "object",
+          "description": "Its public phone number.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "email": {
+          "type": "object",
+          "description": "Its public e-mail address.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 254
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "headline": {
+          "type": "object",
+          "description": "One sentence about the company.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "description": {
+          "type": "object",
+          "description": "A longer description of the company.",
+          "additionalProperties": false,
+          "required": ["value", "origin", "confirmed"],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "The languages the company speaks to its customers in.",
+      "additionalProperties": false,
+      "required": ["value", "origin", "confirmed"],
+      "properties": {
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2}$"
+          }
+        },
+        "origin": {
+          "type": "string",
+          "enum": ["owner", "existing_site", "preset_default", "assistant"]
+        },
+        "confirmed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "places": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
+          "name": {
+            "type": "object",
+            "description": "The place's name as customers see it.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "address": {
+            "type": "object",
+            "description": "Its street address.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "people": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
+          "name": {
+            "type": "object",
+            "description": "The person's name as customers see it.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "hours": {
+            "type": "object",
+            "description": "The person's working week.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["weekday", "start", "end", "place"],
+                  "properties": {
+                    "weekday": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6,
+                      "description": "0 = Monday."
+                    },
+                    "start": {
+                      "type": "string",
+                      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                    },
+                    "end": {
+                      "type": "string",
+                      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                    },
+                    "place": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,31}$",
+                      "description": "The key of the place the person works at then."
+                    }
+                  }
+                }
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "offers": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
+          "name": {
+            "type": "object",
+            "description": "What is sold, as customers see it.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "preset": {
+            "type": "object",
+            "description": "The kind of booking: a preset id from booking.preset.list.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "duration_minutes": {
+            "type": "object",
+            "description": "How long one visit takes.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 1440
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "units": {
+            "type": "object",
+            "description": "How many identical units there are.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "capacity": {
+            "type": "object",
+            "description": "How many people one unit takes.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "price": {
+            "type": "object",
+            "description": "What it costs.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["amount", "currency", "per"],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^[0-9]{1,7}(\\.[0-9]{2})?$"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "per": {
+                    "type": "string",
+                    "enum": ["booking", "person", "hour", "day", "night"]
+                  }
+                }
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "places": {
+            "type": "object",
+            "description": "The keys of the places it is offered at.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "array",
+                "maxItems": 50,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                }
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "people": {
+            "type": "object",
+            "description": "The keys of the people who do it.",
+            "additionalProperties": false,
+            "required": ["value", "origin", "confirmed"],
+            "properties": {
+              "value": {
+                "type": "array",
+                "maxItems": 50,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                }
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "existing_site",
+                  "preset_default",
+                  "assistant"
+                ]
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            }
+          },
+          "inputs": {
+            "type": "object",
+            "description": "What the preset requires of the company (its requiredInputs), by key.",
+            "maxProperties": 20,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "description": "The owner's answer.",
+              "additionalProperties": false,
+              "required": ["value", "origin", "confirmed"],
+              "properties": {
+                "value": {},
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "owner",
+                    "existing_site",
+                    "preset_default",
+                    "assistant"
+                  ]
+                },
+                "confirmed": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 20,
+      "description": "Where `existing_site` values were read from.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["website", "document"]
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}

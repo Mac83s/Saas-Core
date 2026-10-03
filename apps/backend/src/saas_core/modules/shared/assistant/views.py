@@ -6,6 +6,10 @@ and the conversation is read again until the turn is `done`, `failed` or
 each is shown and agreed to through
 `/api/v1/organizations/current/command-consents/{digest}/`, and the tokens come
 back here.
+
+`profile/` is the company's profile (A2): what the owner said about the
+company, read and changed here so it is never something only a conversation
+can reach.
 """
 
 from __future__ import annotations
@@ -24,6 +28,8 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .profile import ProfileState, read_profile, save_profile
+from .profile_schema import SCHEMA_ID
 from .serializers import (
     AssistantConsentAnswerSerializer,
     AssistantConversationListQuerySerializer,
@@ -32,6 +38,9 @@ from .serializers import (
     AssistantConversationStartSerializer,
     AssistantConversationSummarySerializer,
     AssistantOfferSerializer,
+    AssistantProfileChangeSerializer,
+    AssistantProfileSavedSerializer,
+    AssistantProfileSerializer,
     AssistantTurnAcceptedSerializer,
     AssistantTurnInputSerializer,
 )
@@ -206,3 +215,71 @@ class TurnConsentView(APIView):
             declined=serializer.validated_data["declined"],
         )
         return Response(AssistantTurnAcceptedSerializer(turn).data, status=202)
+
+
+def _profile(state: ProfileState) -> dict[str, object]:
+    return {
+        "schema": SCHEMA_ID,
+        "version": state.version,
+        "document": state.document,
+        "updated_at": state.updated_at,
+        "changed": list(state.changed),
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="assistant_profile_retrieve",
+        summary="The company's profile, as the assistant keeps it",
+        description="What the owner told the assistant about the company: who it is, what "
+        "it sells, where and who works, each value with its origin and whether the owner "
+        "confirmed it. Version 0 and an empty document while nothing was saved. Read by "
+        "whoever manages the company's settings.",
+        tags=["assistant"],
+        responses={200: AssistantProfileSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(AssistantProfileSerializer(_profile(read_profile())).data)
+
+    @extend_schema(
+        operation_id="assistant_profile_update",
+        summary="Change the company's profile",
+        description="Applies a JSON merge patch to the profile and saves it as its next "
+        "version. Nothing in the account changes: the profile is what was said, not what "
+        "was set up. 409 `assistant_profile_version_conflict` when the profile moved since "
+        "`expected_version`; 400 names each field that is not a profile's." + _REPEAT_NOTE,
+        tags=["assistant"],
+        parameters=[IDEMPOTENCY],
+        request=AssistantProfileChangeSerializer,
+        responses={200: AssistantProfileSavedSerializer, **_PROBLEMS},
+    )
+    def patch(self, request: Request) -> Response:
+        serializer = AssistantProfileChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        state = save_profile(**serializer.validated_data, idempotency_key=_idem(request))
+        return Response(AssistantProfileSavedSerializer(_profile(state)).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ProfilePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="assistant_profile_update_preview",
+        summary="Check a change to the profile without saving it",
+        description="Validates the change as `assistant_profile_update` would. Nothing is "
+        "saved: the answer is the profile as the save would leave it, with `changed`, or "
+        "the same 400 and 409 the save would answer.",
+        tags=["assistant"],
+        request=AssistantProfileChangeSerializer,
+        responses={200: AssistantProfileSavedSerializer, **_PROBLEMS},
+        extensions={"x-dry-run": True},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = AssistantProfileChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        state = save_profile(**serializer.validated_data, preview=True)
+        return Response(AssistantProfileSavedSerializer(_profile(state)).data)
