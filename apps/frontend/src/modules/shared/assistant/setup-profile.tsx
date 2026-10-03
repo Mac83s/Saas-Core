@@ -238,6 +238,33 @@ function seek(root: HTMLElement | null, focus: Focus): HTMLElement | null {
  * Nothing is shown by its key: a category, a kind of booking, an entry and a
  * field are said in words, or by a neutral text where there are none.
  */
+/**
+ * The room the notes have beside the conversation: from where the block sits
+ * now — its place in the page, then under the panel's header once the page
+ * has scrolled — down to the bottom of the window. They are read whole without
+ * scrolling the page, and scroll on their own.
+ */
+function useRoomBelow(active: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || !active) return;
+    const fit = () => {
+      const room = window.innerHeight - node.getBoundingClientRect().top - 16;
+      node.style.maxHeight = `${Math.max(room, 160)}px`;
+    };
+    fit();
+    window.addEventListener("scroll", fit, { passive: true });
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("scroll", fit);
+      window.removeEventListener("resize", fit);
+      node.style.maxHeight = "";
+    };
+  }, [active]);
+  return ref;
+}
+
 export function SetupProfile({
   conversationId,
   revision,
@@ -259,6 +286,7 @@ export function SetupProfile({
   const [problem, setProblem] = useState<string>();
   const [outcome, setOutcome] = useState<Outcome>();
   const [busy, setBusy] = useState(false);
+  const room = useRoomBelow(beside);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -344,10 +372,18 @@ export function SetupProfile({
 
   if (beside) {
     return (
-      // Stays in view beside a long conversation, and scrolls on its own.
-      <div className="space-y-4 rounded-lg border p-4 text-sm xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto">
-        <p className="font-medium">{t("profileTitle")}</p>
-        {body}
+      // Stays in view beside a long conversation, under the panel's header
+      // (68 px). The anchor has no height of its own, so the notes never make
+      // the page longer than the conversation; `useRoomBelow` keeps them
+      // inside the window.
+      <div className="xl:sticky xl:top-21 xl:h-0">
+        <div
+          className="space-y-4 rounded-lg border bg-background p-4 text-sm xl:max-h-[calc(100dvh-6.25rem)] xl:overflow-y-auto"
+          ref={room}
+        >
+          <p className="font-medium">{t("profileTitle")}</p>
+          {body}
+        </div>
       </div>
     );
   }
