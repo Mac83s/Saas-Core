@@ -5025,6 +5025,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/publications/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What publishing the site would carry in each other language
+         * @description Read before publishing: per language whether visitors could read the site in it afterwards, and per page whether its version goes out, stays in its last published form, is withheld, taken off, skipped or missing — with the reason. The same verdict the publication uses; nothing is saved.
+         */
+        get: operations["sites_publication_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/purpose/": {
         parameters: {
             query?: never;
@@ -9789,6 +9809,11 @@ export interface components {
             pending: components["schemas"]["LocaleBodyPending"] | null;
             /** @description A person took this language version off the site; it stays off until somebody publishes it again. */
             withdrawn: boolean;
+            /**
+             * Format: uuid
+             * @description The version visitors read now, or null when this language version is not on the site; differing from `version_id` means unpublished changes.
+             */
+            live_version_id: string | null;
             /** @description Units still without a translation. */
             untranslated: number;
             /** @description The source's sections in order; a unit key starts with the position. */
@@ -10405,6 +10430,17 @@ export interface components {
             permissions: string[];
             active: boolean;
         };
+        /**
+         * @description * `publish` - publish
+         *     * `unchanged` - unchanged
+         *     * `carried` - carried
+         *     * `withheld` - withheld
+         *     * `withdrawn` - withdrawn
+         *     * `skipped` - skipped
+         *     * `missing` - missing
+         * @enum {string}
+         */
+        OutcomeEnum: "publish" | "unchanged" | "carried" | "withheld" | "withdrawn" | "skipped" | "missing";
         Overview: {
             bookable_staff: number;
             teams: number;
@@ -11385,6 +11421,33 @@ export interface components {
          * @enum {string}
          */
         Places1e6Enum: "main" | "warehouses" | "all";
+        PlannedLanguage: {
+            locale: string;
+            /** @description Visitors can read the site in it now. */
+            live: boolean;
+            /** @description Visitors could read it after this publication (its home page goes out). */
+            live_after: boolean;
+            pages: components["schemas"]["PlannedPage"][];
+        };
+        PlannedPage: {
+            /** Format: uuid */
+            page_id: string;
+            page_name: string;
+            /**
+             * @description `publish`: this version goes out; `unchanged`: the published one is current; `carried`: the last published one stays and the current one does not pass (`reason`); `withheld`: the source changed a fact, the address answers 307 until the version is refreshed; `withdrawn`: a person took it off; `skipped`: never public and not passing (`reason`); `missing`: no version in this language.
+             *
+             *     * `publish` - publish
+             *     * `unchanged` - unchanged
+             *     * `carried` - carried
+             *     * `withheld` - withheld
+             *     * `withdrawn` - withdrawn
+             *     * `skipped` - skipped
+             *     * `missing` - missing
+             */
+            outcome: components["schemas"]["OutcomeEnum"];
+            /** @description Why the current version does not go out: `metadata_incomplete`, `untranslated_units`, `source_placeholder`, `locale_home_missing`, `source_unpublished`, `source_outdated`; empty otherwise. */
+            reason: string;
+        };
         PlatformArea: {
             key: string;
             title: components["schemas"]["LocalizedText"];
@@ -11971,6 +12034,11 @@ export interface components {
             /** Format: email */
             email: string;
             name: string;
+        };
+        PublicationPlan: {
+            /** @description The site's own language is complete; the other languages never block. */
+            ready_to_publish: boolean;
+            languages: components["schemas"]["PlannedLanguage"][];
         };
         /**
          * @description * `customer` - customer
@@ -29181,6 +29249,43 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_publication_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationPlan"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -14897,6 +14897,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/publications/preview/:
+    get:
+      operationId: sites_publication_preview
+      description: 'Read before publishing: per language whether visitors could read
+        the site in it afterwards, and per page whether its version goes out, stays
+        in its last published form, is withheld, taken off, skipped or missing — with
+        the reason. The same verdict the publication uses; nothing is saved.'
+      summary: What publishing the site would carry in each other language
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationPlan'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/purpose/:
     put:
       operationId: sites_purpose_set
@@ -27710,6 +27748,13 @@ components:
           type: boolean
           description: A person took this language version off the site; it stays
             off until somebody publishes it again.
+        live_version_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The version visitors read now, or null when this language version
+            is not on the site; differing from `version_id` means unpublished changes.
         untranslated:
           type: integer
           description: Units still without a translation.
@@ -27726,6 +27771,7 @@ components:
       required:
       - block_types
       - body_version
+      - live_version_id
       - locale
       - outdated
       - page_id
@@ -29041,6 +29087,24 @@ components:
       - timezone
       - version
       - workspace_kind
+    OutcomeEnum:
+      enum:
+      - publish
+      - unchanged
+      - carried
+      - withheld
+      - withdrawn
+      - skipped
+      - missing
+      type: string
+      description: |-
+        * `publish` - publish
+        * `unchanged` - unchanged
+        * `carried` - carried
+        * `withheld` - withheld
+        * `withdrawn` - withdrawn
+        * `skipped` - skipped
+        * `missing` - missing
     Overview:
       type: object
       properties:
@@ -31383,6 +31447,58 @@ components:
         * `main` - main
         * `warehouses` - warehouses
         * `all` - all
+    PlannedLanguage:
+      type: object
+      properties:
+        locale:
+          type: string
+        live:
+          type: boolean
+          description: Visitors can read the site in it now.
+        live_after:
+          type: boolean
+          description: Visitors could read it after this publication (its home page
+            goes out).
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlannedPage'
+      required:
+      - live
+      - live_after
+      - locale
+      - pages
+    PlannedPage:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        page_name:
+          type: string
+        outcome:
+          allOf:
+          - $ref: '#/components/schemas/OutcomeEnum'
+          description: |-
+            `publish`: this version goes out; `unchanged`: the published one is current; `carried`: the last published one stays and the current one does not pass (`reason`); `withheld`: the source changed a fact, the address answers 307 until the version is refreshed; `withdrawn`: a person took it off; `skipped`: never public and not passing (`reason`); `missing`: no version in this language.
+
+            * `publish` - publish
+            * `unchanged` - unchanged
+            * `carried` - carried
+            * `withheld` - withheld
+            * `withdrawn` - withdrawn
+            * `skipped` - skipped
+            * `missing` - missing
+        reason:
+          type: string
+          description: 'Why the current version does not go out: `metadata_incomplete`,
+            `untranslated_units`, `source_placeholder`, `locale_home_missing`, `source_unpublished`,
+            `source_outdated`; empty otherwise.'
+      required:
+      - outcome
+      - page_id
+      - page_name
+      - reason
     PlatformArea:
       type: object
       properties:
@@ -32758,6 +32874,20 @@ components:
       - email
       - id
       - name
+    PublicationPlan:
+      type: object
+      properties:
+        ready_to_publish:
+          type: boolean
+          description: The site's own language is complete; the other languages never
+            block.
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlannedLanguage'
+      required:
+      - languages
+      - ready_to_publish
     PurposeEnum:
       enum:
       - customer
