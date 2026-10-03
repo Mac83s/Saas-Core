@@ -6053,6 +6053,12 @@ export interface components {
             /** @description Street and number in that town; optional, and only with a town. */
             place_address?: string;
         };
+        AppointmentKind: {
+            /** @description The `appointment_kind` a service sells. */
+            key: string;
+            /** @description Its name, as the module declares it. */
+            label: string;
+        };
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
         };
@@ -10272,6 +10278,8 @@ export interface components {
             takes_materials: boolean;
             /** @description The service's version; a change names it (`expected_version`). */
             version: number;
+            /** @description Bookings of this service that will still happen (from now, neither canceled, completed nor a no-show). Switching the service off leaves them as they are. */
+            future_bookings: number;
         };
         /** @description The service as the write would leave it; nothing is saved. */
         ServiceSetupPreview: {
@@ -10301,6 +10309,8 @@ export interface components {
             takes_materials: boolean;
             /** @description The service's version; a change names it (`expected_version`). */
             version: number;
+            /** @description Bookings of this service that will still happen (from now, neither canceled, completed nor a no-show). Switching the service off leaves them as they are. */
+            future_bookings: number;
             /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
             changes: {
                 [key: string]: unknown;
@@ -10483,6 +10493,8 @@ export interface components {
             resources: components["schemas"]["ResourceSetup"][];
             groups: components["schemas"]["GroupSetup"][];
             staff: components["schemas"]["SetupPerson"][];
+            /** @description The kinds of visit the company's modules provide (ADR-050); empty when none. A service without one (`""`) is a plain visit. */
+            appointment_kinds: components["schemas"]["AppointmentKind"][];
         };
         /** @description One setting of an offer, in the shape of the settings registry (ADR-078). */
         SetupOption: {

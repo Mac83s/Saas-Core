@@ -18356,6 +18356,18 @@ components:
       - location_id
       - service_id
       - starts_at
+    AppointmentKind:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The `appointment_kind` a service sells.
+        label:
+          type: string
+          description: Its name, as the module declares it.
+      required:
+      - key
+      - label
     AppointmentList:
       type: object
       properties:
@@ -28634,12 +28646,18 @@ components:
         version:
           type: integer
           description: The service's version; a change names it (`expected_version`).
+        future_bookings:
+          type: integer
+          description: Bookings of this service that will still happen (from now,
+            neither canceled, completed nor a no-show). Switching the service off
+            leaves them as they are.
       required:
       - active
       - appointment_kind
       - buffer_after_minutes
       - buffer_before_minutes
       - duration_minutes
+      - future_bookings
       - group_ids
       - id
       - location_ids
@@ -28727,6 +28745,11 @@ components:
         version:
           type: integer
           description: The service's version; a change names it (`expected_version`).
+        future_bookings:
+          type: integer
+          description: Bookings of this service that will still happen (from now,
+            neither canceled, completed nor a no-show). Switching the service off
+            leaves them as they are.
         changes:
           type: object
           additionalProperties: {}
@@ -28740,6 +28763,7 @@ components:
       - buffer_before_minutes
       - changes
       - duration_minutes
+      - future_bookings
       - group_ids
       - id
       - location_ids
@@ -29161,7 +29185,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SetupPerson'
+        appointment_kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppointmentKind'
+          description: The kinds of visit the company's modules provide (ADR-050);
+            empty when none. A service without one (`""`) is a plain visit.
       required:
+      - appointment_kinds
       - groups
       - locations
       - resources
