@@ -186,7 +186,53 @@ test("a reader without purchasing permission can still inspect retained results"
   expect(
     screen.queryByRole("button", { name: /Zamów za/ }),
   ).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/Audyty zamawia właściciel albo administrator/),
+  ).toBeInTheDocument();
   expect(api.requestSeoAudit).not.toHaveBeenCalled();
+});
+
+test("audits outside the plan: one calm card and the way to plans, no table, no refresh", async () => {
+  const unpaid = () =>
+    new ApiProblemError({
+      type: "about:blank",
+      correlation_id: null,
+      title: "Forbidden",
+      status: 403,
+      code: "entitlement_required",
+      detail: "Plan organizacji nie pozwala na tę operację.",
+    });
+  api.listSeoAudits.mockRejectedValue(unpaid());
+  api.getSeoAuditOffer.mockRejectedValue(unpaid());
+  const { container, unmount } = render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <main>
+        <SeoAuditsPanel canManageBilling />
+      </main>
+    </NextIntlClientProvider>,
+  );
+  expect(
+    await screen.findByText("Audyty strony nie są w Twoim planie"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Porównaj plany" }).getAttribute("href"),
+  ).toBe("/panel/settings/billing?feature=seo.audit.enabled");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Odśwież" }),
+  ).not.toBeInTheDocument();
+  expect((await axe.run(container)).violations).toEqual([]);
+  unmount();
+
+  // Somebody else asks the owner: no button they cannot use.
+  view();
+  expect(
+    await screen.findByText(/Poproś właściciela firmy o zmianę planu/),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Porównaj plany" }),
+  ).not.toBeInTheDocument();
 });
 
 test("partial result states that credits were released and pages its issue rows", async () => {

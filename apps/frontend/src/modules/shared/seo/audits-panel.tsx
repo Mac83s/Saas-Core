@@ -34,6 +34,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
+import { PlanGate } from "#components/panel/plan-gate";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   Combobox,
@@ -56,8 +57,23 @@ function record(value: unknown): Issue {
 function text(value: unknown): string {
   return typeof value === "string" ? value : "—";
 }
+/** The plan leaves audits out: a different thing from a failure. */
+function unpaid(reason: unknown): boolean {
+  return (
+    reason instanceof ApiProblemError &&
+    reason.problem.code === "entitlement_required"
+  );
+}
+function refused(reason: unknown): boolean {
+  return reason instanceof ApiProblemError && reason.problem.status === 403;
+}
 
-export function SeoAuditsPanel() {
+export function SeoAuditsPanel({
+  canManageBilling = false,
+}: {
+  /** The owner may change the plan; everybody else asks them. */
+  canManageBilling?: boolean;
+}) {
   const t = useTranslations("SeoAudits");
   const nav = useTranslations("DashboardNav");
   const locale = useLocale();
@@ -65,6 +81,10 @@ export function SeoAuditsPanel() {
   const [orders, setOrders] = useState<SeoAuditSummary[]>([]);
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [offer, setOffer] = useState<SeoAuditOffer>();
+  // Why there is no offer: not in the plan, not for this role, or failed.
+  const [noOffer, setNoOffer] = useState<"plan" | "role" | "failed">();
+  // No history at all in the plan: no table, no refresh, only the way out.
+  const [planless, setPlanless] = useState(false);
   const [selected, setSelected] = useState<SeoAuditOrder>();
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +139,7 @@ export function SeoAuditsPanel() {
       getSeoAuditOffer(),
     ]).then(([history, siteList, quote]) => {
       setProblem(undefined);
+      setPlanless(history.status === "rejected" && unpaid(history.reason));
       if (history.status === "fulfilled") {
         setOrders(history.value.items);
         setNextCursor(history.value.next_cursor);
@@ -126,13 +147,22 @@ export function SeoAuditsPanel() {
         setOrders([]);
         setSelected(undefined);
         setNextCursor(null);
-        setProblem(errorText(history.reason));
+        if (!unpaid(history.reason)) setProblem(errorText(history.reason));
       }
       if (siteList.status === "fulfilled") setSites(siteList.value.items);
       else setSites([]);
       if (!receipt.current) {
         if (quote.status === "fulfilled") setOffer(quote.value);
         else setOffer(undefined);
+        setNoOffer(
+          quote.status === "fulfilled"
+            ? undefined
+            : unpaid(quote.reason)
+              ? "plan"
+              : refused(quote.reason)
+                ? "role"
+                : "failed",
+        );
       }
       setLoading(false);
     });
@@ -324,16 +354,18 @@ export function SeoAuditsPanel() {
   return (
     <PanelPage
       actions={
-        <Button
-          variant="outline"
-          disabled={loading}
-          onClick={() => {
-            setLoading(true);
-            void load();
-          }}
-        >
-          {t("refresh")}
-        </Button>
+        planless ? null : (
+          <Button
+            variant="outline"
+            disabled={loading}
+            onClick={() => {
+              setLoading(true);
+              void load();
+            }}
+          >
+            {t("refresh")}
+          </Button>
+        )
       }
       description={t("description")}
       eyebrow={nav("website")}
@@ -430,26 +462,46 @@ export function SeoAuditsPanel() {
             </form>
           </CardContent>
         </Card>
-      ) : !loading ? (
+      ) : loading ? null : noOffer === "plan" ? (
+        <PlanGate
+          action={
+            canManageBilling
+              ? {
+                  href: "/panel/settings/billing?feature=seo.audit.enabled",
+                  label: t("planGateAction"),
+                }
+              : undefined
+          }
+          title={t("planGateTitle")}
+        >
+          {t(canManageBilling ? "planGateOwner" : "planGateMember")}
+        </PlanGate>
+      ) : (
         <p className="text-sm text-muted-foreground">
-          {sites.length ? t("orderingUnavailable") : t("noSites")}
+          {!sites.length
+            ? t("noSites")
+            : noOffer === "role"
+              ? t("orderingNotForRole")
+              : t("orderingUnavailable")}
         </p>
-      ) : null}
-      <PanelSection title={t("history")}>
-        <DataTable
-          caption={t("history")}
-          columns={orderColumns}
-          data={orders}
-          getRowId={(order) => order.id}
-          labels={{ ...labels, empty: t("empty") }}
-          loading={loading}
-        />
-        {nextCursor ? (
-          <Button variant="outline" onClick={() => void older()}>
-            {t("older")}
-          </Button>
-        ) : null}
-      </PanelSection>
+      )}
+      {planless ? null : (
+        <PanelSection title={t("history")}>
+          <DataTable
+            caption={t("history")}
+            columns={orderColumns}
+            data={orders}
+            getRowId={(order) => order.id}
+            labels={{ ...labels, empty: t("empty") }}
+            loading={loading}
+          />
+          {nextCursor ? (
+            <Button variant="outline" onClick={() => void older()}>
+              {t("older")}
+            </Button>
+          ) : null}
+        </PanelSection>
+      )}
       {selected ? (
         <Card>
           <CardHeader>

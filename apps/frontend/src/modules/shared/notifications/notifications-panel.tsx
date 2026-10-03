@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { CircleAlertIcon, LockKeyholeIcon, RefreshCwIcon } from "lucide-react";
+import { CircleAlertIcon, RefreshCwIcon } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -16,9 +16,8 @@ import {
   type NotificationTemplateCatalog,
   type NotificationTemplatePreview,
 } from "@saas-core/api-client";
-import { Link } from "#i18n/navigation";
 import { Badge } from "@saas-core/ui/components/badge";
-import { Button, buttonVariants } from "@saas-core/ui/components/button";
+import { Button } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -29,6 +28,7 @@ import {
 import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { PlanGate } from "#components/panel/plan-gate";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { SiteInquiries } from "../sites/site-inquiries";
 
@@ -236,26 +236,19 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
       </div>
 
       {failure === "plan" ? (
-        <div className="flex flex-wrap items-start gap-3 rounded-lg border border-warning-foreground/25 bg-warning p-4 text-sm">
-          <LockKeyholeIcon
-            aria-hidden="true"
-            className="mt-0.5 size-5 shrink-0 text-warning-foreground"
-          />
-          <div className="min-w-0 flex-1 basis-56 space-y-1">
-            <p className="font-medium">{t("planGateTitle")}</p>
-            <p className="text-muted-foreground">
-              {t(canManageBilling ? "planGateOwner" : "planGateMember")}
-            </p>
-          </div>
-          {canManageBilling ? (
-            <Link
-              className={buttonVariants()}
-              href="/panel/settings/billing?feature=notifications.enabled"
-            >
-              {t("planGateAction")}
-            </Link>
-          ) : null}
-        </div>
+        <PlanGate
+          action={
+            canManageBilling
+              ? {
+                  href: "/panel/settings/billing?feature=notifications.enabled",
+                  label: t("planGateAction"),
+                }
+              : undefined
+          }
+          title={t("planGateTitle")}
+        >
+          {t(canManageBilling ? "planGateOwner" : "planGateMember")}
+        </PlanGate>
       ) : failure === "permission" ? (
         <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
           {t("noPermission")}
