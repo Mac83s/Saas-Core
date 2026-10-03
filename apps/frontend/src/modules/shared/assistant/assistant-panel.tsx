@@ -31,6 +31,7 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { PlanGate } from "#components/panel/plan-gate";
+import { useMedia } from "#lib/use-media";
 import { ConsentDialog } from "./consent-dialog";
 import { SetupProfile } from "./setup-profile";
 
@@ -62,8 +63,9 @@ const STATUS_TONE = {
  * consent dialog. A message is answered later, so the conversation is read
  * again until its last turn settles.
  *
- * A `setup` conversation sets the company up: it is free, and the company
- * profile the assistant notes into is shown under it.
+ * A `setup` conversation sets the company up: it is free, and the notes the
+ * assistant keeps about the company are shown with it — beside the
+ * conversation on a wide screen, under it and closed on a narrow one.
  */
 export function AssistantPanel({
   canManageBilling = false,
@@ -80,11 +82,14 @@ export function AssistantPanel({
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [consentOpen, setConsentOpen] = useState(false);
-  // Counts the reads that found the last turn settled: the profile beside a
-  // setup conversation is read again with each.
+  // Counts the reads that found the last turn settled: the notes beside a
+  // setup conversation are read again with each.
   const [settled, setSettled] = useState(0);
   const end = useRef<HTMLDivElement>(null);
   const asked = useRef<string>(undefined);
+  // From 1280 px the page has a column beside the conversation. The first
+  // render does not know the width yet and takes the narrow layout.
+  const wide = useMedia("(min-width: 1280px)");
 
   const last = conversation?.turns.at(-1);
   const working = last ? WORKING.has(last.state) : false;
@@ -203,6 +208,16 @@ export function AssistantPanel({
     ? offer.setup.turns_left <= 0 || offer.setup.turns_left_today <= 0
     : false;
 
+  // One block, in one of two places: never both, so it reads the notes once.
+  const notes =
+    shown && setup ? (
+      <SetupProfile
+        beside={wide}
+        conversationId={shown.id}
+        revision={settled}
+      />
+    ) : undefined;
+
   return (
     <PanelPage
       actions={
@@ -219,6 +234,8 @@ export function AssistantPanel({
           </Button>
         ) : undefined
       }
+      aside={wide ? notes : undefined}
+      asideLabel={t("profileTitle")}
       description={t("description")}
       form
       title={t("title")}
@@ -251,20 +268,20 @@ export function AssistantPanel({
               <p className="text-sm text-muted-foreground">
                 {t("setupCardText")}
               </p>
-              <Button
-                disabled={closed || sending || setupSpent}
-                onClick={() =>
-                  void deliver(t("setupFirstMessage"), "setup", false)
-                }
-                type="button"
-              >
-                {t("setupStart")}
-              </Button>
               {setupSpent ? (
-                <p className="text-sm text-muted-foreground">
-                  {t("setupSpent")}
-                </p>
-              ) : null}
+                // Nothing to press: the sentence says where the rest is done.
+                <p className="text-sm">{t("setupSpent")}</p>
+              ) : (
+                <Button
+                  disabled={closed || sending}
+                  onClick={() =>
+                    void deliver(t("setupFirstMessage"), "setup", false)
+                  }
+                  type="button"
+                >
+                  {t("setupStart")}
+                </Button>
+              )}
             </section>
           ) : null}
           <div aria-live="polite" className="space-y-6" role="log">
@@ -294,9 +311,7 @@ export function AssistantPanel({
             </p>
           ) : null}
           <div ref={end} />
-          {shown && setup ? (
-            <SetupProfile conversationId={shown.id} revision={settled} />
-          ) : null}
+          {wide ? null : notes}
           <form
             className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] space-y-2 border-t bg-background pt-3 pb-2 lg:bottom-0"
             onSubmit={(event) => void send(event)}

@@ -64,6 +64,11 @@ const COLOUR = {
   name: said("Koloryzacja"),
   duration_minutes: said(90, "preset_default", false),
 };
+const COMPANY = {
+  name: said("Salon Fryzjerski Ania"),
+  city: said("Olsztyn"),
+  category: said("hairdresser"),
+};
 const LABELS = {
   categories: { hairdresser: { pl: "Fryzjer", en: "Hairdresser" } },
   presets: {
@@ -77,11 +82,7 @@ const SETUP: AssistantSetup = {
   version: 7,
   document: {
     schema: "company-profile.v1",
-    company: {
-      name: said("Salon Fryzjerski Ania"),
-      city: said("Olsztyn"),
-      category: said("hairdresser"),
-    },
+    company: COMPANY,
     card: { headline: said(HEADLINE, "assistant", false) },
     languages: said(["pl", "en"]),
     places: PLACES,
@@ -101,6 +102,13 @@ const SETUP: AssistantSetup = {
           label: { pl: "Wizyta u specjalisty", en: "Specialist visit" },
         },
       ],
+    },
+    {
+      field: "offers.colour.duration_minutes",
+      kind: "confirm",
+      reason: "preset_default",
+      proposal: 90,
+      options: [],
     },
     {
       field: "card.headline",
@@ -145,7 +153,6 @@ const NOTHING_NOTED: AssistantSetup = {
   waiting: [],
   unsupported: [],
 };
-
 /** What the server may send that has no words: nameless entries, keys without
  *  a label, an answer and a step the panel does not know. */
 const ROUGH: AssistantSetup = {
@@ -161,8 +168,13 @@ const ROUGH: AssistantSetup = {
         name: said("Domek nad jeziorem"),
         preset: said("core.stay"),
         places: said(["place_2"]),
-        inputs: { min_length: said(2), wifi: said("jest") },
+        inputs: {
+          min_length: said(2),
+          wifi: said("jest"),
+          season_dates: said([{ from: "05-01", to: "09-30" }]),
+        },
       },
+      { key: "offer_9", duration_minutes: said(30) },
     ],
   },
   labels: { categories: LABELS.categories, presets: {} },
@@ -189,7 +201,14 @@ const ROUGH: AssistantSetup = {
       options: [],
     },
     {
-      field: "offers.cottage.inputs.season_dates",
+      field: "offers.cottage.inputs.photos",
+      kind: "ask",
+      reason: "preset_requires",
+      proposal: null,
+      options: [],
+    },
+    {
+      field: "offers.offer_9.name",
       kind: "ask",
       reason: "preset_requires",
       proposal: null,
@@ -217,7 +236,9 @@ const ROUGH: AssistantSetup = {
   ],
 };
 const KEYS =
-  /place_2|person_4|cottage|core\.stay|dog-groomer|hairdresser|min_length|wifi|season_dates|site:home/;
+  /place_2|person_4|cottage|offer_9|core\.stay|dog-groomer|hairdresser|min_length|wifi|season_dates|05-01|site:home/;
+/** The panel's hours never break at the dash (U+2060 on both sides). */
+const JOIN = String.fromCharCode(0x2060);
 
 function problem(code: string, status: number) {
   return new ApiProblemError({
@@ -230,29 +251,39 @@ function problem(code: string, status: number) {
   });
 }
 
-function view(locale: "pl" | "en" = "pl", revision = 0) {
-  const page = (shown: number) => (
+/** The notes with the document changed, as a save and a read leave them. */
+function setupWith(document: Record<string, unknown>): AssistantSetup {
+  return { ...SETUP, document: { ...SETUP.document, ...document } };
+}
+
+/** Beside the conversation the notes are open; under it they start closed. */
+function view(locale: "pl" | "en" = "pl", beside = true) {
+  const page = (revision: number) => (
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? polishMessages : englishMessages}
       timeZone="Europe/Warsaw"
     >
-      <SetupProfile conversationId="c1" revision={shown} />
+      <SetupProfile beside={beside} conversationId="c1" revision={revision} />
     </NextIntlClientProvider>
   );
-  const rendered = render(page(revision));
+  const rendered = render(page(0));
   return {
     ...rendered,
     settle: (next: number) => rendered.rerender(page(next)),
   };
 }
 
-/** The row of one value: its label, the value, where it came from, its buttons. */
-function row(label: string, block: HTMLElement = document.body) {
+/** The row of one value: its label, the value, where it came from, its controls. */
+function rowOf(label: string, block: HTMLElement = document.body) {
   const term = within(block)
     .getAllByText(label)
     .find((node) => node.tagName === "DT");
-  return within(term?.parentElement as HTMLElement);
+  return term?.parentElement as HTMLElement;
+}
+
+function row(label: string, block?: HTMLElement) {
+  return within(rowOf(label, block));
 }
 
 /** The block of one place, person or offer, by its name. */
@@ -261,32 +292,57 @@ function entry(name: string) {
     ?.parentElement as HTMLElement;
 }
 
+function button(name: string) {
+  return screen.getByRole("button", { name });
+}
+
+/** Picks an action behind a row's „…”. */
+async function choose(more: string, item: string) {
+  fireEvent.click(button(more));
+  fireEvent.click(await screen.findByRole("menuitem", { name: item }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAssistantSetup.mockResolvedValue(SETUP);
   api.changeAssistantProfile.mockResolvedValue({});
 });
 
-test("the profile says in words what is known, from whom, and what is still open", async () => {
+test("the notes say in words what is known, from whom, and what is still open", async () => {
   const { container } = view();
 
   expect(await screen.findByText("Salon Fryzjerski Ania")).toBeInTheDocument();
   expect(api.getAssistantSetup).toHaveBeenCalledWith("c1", expect.anything());
-  // Each value with where it came from; an unconfirmed one says so.
+  expect(
+    screen.getByText("Notatki o firmie — co już wiadomo i czego brakuje"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "To notatki z rozmowy. W koncie firmy nic się nie zmieni bez Twojej zgody.",
+    ),
+  ).toBeInTheDocument();
+  // A value says where it came from only when that is not the owner; an
+  // unconfirmed one says so, and is the only kind with an action in sight.
   const headline = row("Jedno zdanie o firmie");
   expect(headline.getByText(HEADLINE)).toBeInTheDocument();
-  expect(headline.getByText("Propozycja asystenta")).toBeInTheDocument();
+  expect(headline.getByText("propozycja asystenta")).toBeInTheDocument();
   expect(headline.getByText("Do potwierdzenia")).toBeInTheDocument();
-  const city = row("Miasto");
-  expect(city.getByText("Twoje słowa")).toBeInTheDocument();
-  expect(city.queryByText("Do potwierdzenia")).toBeNull();
-  expect(city.queryByRole("button", { name: /Potwierdź/ })).toBeNull();
+  expect(
+    headline.getByRole("button", { name: "Potwierdź: Jedno zdanie o firmie" }),
+  ).toBeInTheDocument();
+  expect(rowOf("Miasto").querySelector("dd")).toHaveTextContent(/^Olsztyn$/);
+  expect(row("Miasto").getAllByRole("button")).toEqual([
+    button("Więcej: Miasto"),
+  ]);
+  expect(screen.queryByRole("button", { name: /^(Popraw|Usuń: Miasto)/ })).toBe(
+    null,
+  );
   expect(row("Języki").getByText("polski, angielski")).toBeInTheDocument();
   // Keys are shown as the names they stand for.
   expect(row("Kategoria").getByText("Fryzjer")).toBeInTheDocument();
   expect(
     row("Godziny pracy").getByText(
-      "pon. 10:00–14:00 — Studio Kortowo wt. 09:00–17:00 — Salon na Mazurskiej",
+      `pon. 10:00${JOIN}–${JOIN}14:00 — Studio Kortowo wt. 09:00${JOIN}–${JOIN}17:00 — Salon na Mazurskiej`,
     ),
   ).toBeInTheDocument();
   const cut = entry("Strzyżenie damskie");
@@ -295,31 +351,36 @@ test("the profile says in words what is known, from whom, and what is still open
   ).toBeInTheDocument();
   expect(row("Czas trwania", cut).getByText("45 minut")).toBeInTheDocument();
   expect(
-    row("Cena", cut).getByText("90,00 PLN / rezerwacja"),
+    row("Cena", cut).getByText("90,00 zł za rezerwację"),
   ).toBeInTheDocument();
   expect(
     row("Miejsca", cut).getByText("Salon na Mazurskiej, Studio Kortowo"),
   ).toBeInTheDocument();
   expect(row("Osoby", cut).getByText("Ania")).toBeInTheDocument();
   expect(
-    row("Czas trwania", entry("Koloryzacja")).getByText("Wartość domyślna"),
+    row("Czas trwania", entry("Koloryzacja")).getByText("wartość domyślna"),
   ).toBeInTheDocument();
-  // Only plain text and whole numbers are corrected here.
-  expect(
-    screen.getByRole("button", { name: "Popraw: Miasto" }),
-  ).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Popraw: Cena/ })).toBeNull();
 
+  for (const heading of [
+    "Co już wiadomo",
+    "O co asystent jeszcze zapyta",
+    "Gotowe do ustawienia",
+    "Co zostaje na później",
+    "Czego nie da się jeszcze ustawić",
+  ]) {
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+  }
   for (const line of [
-    "Jak klienci rezerwują usługę „Koloryzacja”.",
-    "Do potwierdzenia: Jedno zdanie o firmie.",
+    "Jak klienci rezerwują usługę „Koloryzacja”?",
+    "Do potwierdzenia: „Czas trwania — Koloryzacja”.",
+    "Do potwierdzenia: „Jedno zdanie o firmie”.",
     "Zapisz miejsce: Salon na Mazurskiej",
     "Zmień wizytówkę",
     "Asystent zaproponuje to w rozmowie. Nic się nie zmieni bez Twojej zgody.",
     "W kolejnym kroku: usługa „Strzyżenie damskie”. Najpierw: miejsce „Salon na Mazurskiej”, osoba „Ania”.",
     "Usługę „Koloryzacja” włączasz samodzielnie w panelu.",
-    "Ceny usługi „Strzyżenie damskie” nie da się jeszcze zapisać.",
-    "Miasta „Olsztyn” nie ma na liście miast katalogu firm.",
+    "Ceny usługi „Strzyżenie damskie” nie da się jeszcze zapisać w panelu — zostaje w notatkach.",
+    "Miasta „Olsztyn” nie ma na liście miast katalogu firm. Wybierz najbliższe z listy w Wizytówce.",
     "Język niemiecki nie jest jeszcze dostępny.",
   ]) {
     expect(screen.getByText(line)).toBeInTheDocument();
@@ -331,7 +392,7 @@ test("the profile says in words what is known, from whom, and what is still open
   expect((await axe.run(container)).violations).toEqual([]);
 });
 
-test("with nothing noted the profile says so and shows no empty list", async () => {
+test("with nothing noted the notes say so and show no empty list", async () => {
   api.getAssistantSetup.mockResolvedValue(NOTHING_NOTED);
   const { container } = view("en");
 
@@ -341,12 +402,40 @@ test("with nothing noted the profile says so and shows no empty list", async () 
     ),
   ).toBeInTheDocument();
   expect(
-    screen.getByText("Company profile — what I know and what is missing"),
+    screen.getByText(
+      "Notes about the company — what is known and what is missing",
+    ),
   ).toBeInTheDocument();
   expect(screen.getAllByRole("heading")).toHaveLength(1);
   expect(screen.queryByRole("button")).toBeNull();
-  expect(screen.queryByText(/company's account/)).toBeNull();
+  expect(screen.queryByText(/company's account is changed/)).toBeNull();
   expect((await axe.run(container)).violations).toEqual([]);
+});
+
+test("under the conversation the notes start closed and say whether they need the person", async () => {
+  const polish = view("pl", false);
+
+  const summary = await screen.findByText(
+    "Notatki o firmie · 2 do potwierdzenia · 1 pytanie",
+  );
+  expect(summary.tagName).toBe("SUMMARY");
+  expect(summary.closest("details")).not.toHaveAttribute("open");
+  expect((await axe.run(polish.container)).violations).toEqual([]);
+  polish.unmount();
+
+  const english = view("en", false);
+  expect(
+    await screen.findByText(
+      "Notes about the company · 2 to confirm · 1 question",
+    ),
+  ).toBeInTheDocument();
+  english.unmount();
+
+  // Nothing to confirm and nothing asked: the name alone.
+  api.getAssistantSetup.mockResolvedValue(NOTHING_NOTED);
+  view("pl", false);
+  await screen.findByText("Asystent nie zanotował jeszcze nic o firmie.");
+  expect(screen.getByText("Notatki o firmie").tagName).toBe("SUMMARY");
 });
 
 test("a key, a nameless entry and an unknown answer or step are said in words, never shown", async () => {
@@ -360,33 +449,37 @@ test("a key, a nameless entry and an unknown answer or step are said in words, n
   expect(
     row("Rodzaj rezerwacji", cottage).getByText("nieznana wartość"),
   ).toBeInTheDocument();
-  // An entry without a name is „bez nazwy” wherever it is named.
-  expect(screen.getAllByRole("heading", { name: "bez nazwy" })).toHaveLength(2);
+  // An entry without a name is „bez nazwy”, in plain words, wherever it is named.
+  expect(screen.getAllByRole("heading", { name: "Bez nazwy" })).toHaveLength(3);
   expect(row("Miejsca", cottage).getByText("bez nazwy")).toBeInTheDocument();
+  expect(button("Usuń: miejsce bez nazwy")).toBeInTheDocument();
+  expect(button("Więcej: Adres — bez nazwy")).toBeInTheDocument();
+  // What a kind of booking asks for: the known by name and with their unit,
+  // the rest under one neutral label; an answer with no words is „zanotowane”.
   expect(
-    screen.getByRole("button", { name: "Usuń: miejsce „bez nazwy”" }),
+    row("Najkrótszy pobyt", cottage).getByText("2 noce"),
   ).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Popraw: Adres — bez nazwy" }),
-  ).toBeInTheDocument();
-  // What a kind of booking asks for: the product's own by name, else neutral.
-  expect(row("Najkrótszy pobyt", cottage).getByText("2")).toBeInTheDocument();
   expect(
     row("Dodatkowa informacja", cottage).getByText("jest"),
   ).toBeInTheDocument();
+  expect(
+    row("Daty sezonów", cottage).getByText("zanotowane"),
+  ).toBeInTheDocument();
   for (const line of [
-    "Jak nazywa się miejsce, w którym firma przyjmuje.",
-    "Jak nazywa się osoba z zespołu.",
-    "W jakiej kategorii pokazać firmę w katalogu (propozycja: Fryzjer).",
-    "Usługa „Domek nad jeziorem” wymaga jeszcze: Daty sezonów.",
-    "Do potwierdzenia: Kategoria.",
-    "Produkt jeszcze tego nie umie: miejsce „bez nazwy”.",
-    "Produkt jeszcze tego nie umie: inne ustawienie.",
+    "Jak nazywa się miejsce, w którym firma przyjmuje klientów?",
+    "Jak nazywa się osoba z zespołu?",
+    "W jakiej kategorii pokazać firmę w katalogu? Propozycja: Fryzjer.",
+    "Usługa „Domek nad jeziorem” wymaga jeszcze pola „Zdjęcia”.",
+    "Usługa bez nazwy wymaga jeszcze pola „Nazwa”.",
+    "Do potwierdzenia: „Kategoria”.",
+    "Tego asystent jeszcze nie ustawia: miejsce bez nazwy. Zrobisz to w panelu.",
+    "Tego asystent jeszcze nie ustawia: inne ustawienie. Zrobisz to w panelu.",
     "Wybranej kategorii nie ma w katalogu firm.",
   ]) {
     expect(screen.getByText(line)).toBeInTheDocument();
   }
   expect(labelled.container.innerHTML).not.toMatch(KEYS);
+  expect((await axe.run(labelled.container)).violations).toEqual([]);
   labelled.unmount();
 
   // A proposed category without a label is left out, not shown by its key.
@@ -396,7 +489,7 @@ test("a key, a nameless entry and an unknown answer or step are said in words, n
   });
   const bare = view();
   expect(
-    await screen.findByText("W jakiej kategorii pokazać firmę w katalogu."),
+    await screen.findByText("W jakiej kategorii pokazać firmę w katalogu?"),
   ).toBeInTheDocument();
   expect(bare.container.innerHTML).not.toMatch(KEYS);
 });
@@ -406,11 +499,11 @@ test("a fact of the account is shown but not changed here; the owner's own value
 
   await screen.findByText("Salon Fryzjerski Ania");
   const office = entry("Gabinet na Lipowej");
-  expect(row("Nazwa", office).getByText("Z konta firmy")).toBeInTheDocument();
+  expect(row("Nazwa", office).getByText("z konta firmy")).toBeInTheDocument();
   expect(
     row("Adres", office).getByText("ul. Lipowa 1, Olsztyn"),
   ).toBeInTheDocument();
-  // Neither the place nor its values: no „Popraw”, no „Usuń”.
+  // Neither the place nor its values: no „…”, no „Usuń”.
   expect(within(office).queryByRole("button")).toBeNull();
   expect(
     screen.getByText(
@@ -418,17 +511,24 @@ test("a fact of the account is shown but not changed here; the owner's own value
     ),
   ).toBeInTheDocument();
 
-  const salon = within(entry("Salon na Mazurskiej"));
-  for (const name of [
-    "Usuń: miejsce „Salon na Mazurskiej”",
-    "Popraw: Adres — Salon na Mazurskiej",
-    "Usuń: Adres — Salon na Mazurskiej",
-  ]) {
-    expect(salon.getByRole("button", { name })).toBeEnabled();
-  }
+  expect(button("Usuń: miejsce „Salon na Mazurskiej”")).toBeEnabled();
+  // Text is corrected or removed; a price only removed.
+  fireEvent.click(button("Więcej: Adres — Salon na Mazurskiej"));
+  expect(
+    await screen.findByRole("menuitem", { name: "Popraw" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "Usuń" })).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+  fireEvent.click(button("Więcej: Cena — Strzyżenie damskie"));
+  expect(
+    await screen.findByRole("menuitem", { name: "Usuń" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "Popraw" })).toBeNull();
 });
 
-test("„Potwierdź” keeps the same value as the owner's own, and the profile is read again", async () => {
+test("„Potwierdź” keeps the same value as the owner's own; the focus goes to the row's „…”", async () => {
   let saved: (value: unknown) => void = () => undefined;
   api.changeAssistantProfile.mockReturnValue(
     new Promise((resolve) => {
@@ -449,14 +549,26 @@ test("„Potwierdź” keeps the same value as the owner's own, and the profile 
     expect.any(String),
   );
   // No second change on top of one that is being saved.
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Usuń: Miasto" })).toBeDisabled(),
+  await waitFor(() => expect(button("Więcej: Miasto")).toBeDisabled());
+  expect(screen.queryByText("Zapisano w notatkach.")).toBeNull();
+
+  api.getAssistantSetup.mockResolvedValue(
+    setupWith({ card: { headline: said(HEADLINE, "owner", true) } }),
   );
   saved({});
-  await waitFor(() => expect(api.getAssistantSetup).toHaveBeenCalledTimes(2));
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Usuń: Miasto" })).toBeEnabled(),
+
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Zapisano w notatkach.",
   );
+  expect(api.getAssistantSetup).toHaveBeenCalledTimes(2);
+  // The button that was pressed is gone with the value's „Do potwierdzenia”.
+  expect(
+    screen.queryByRole("button", { name: "Potwierdź: Jedno zdanie o firmie" }),
+  ).toBeNull();
+  await waitFor(() =>
+    expect(button("Więcej: Jedno zdanie o firmie")).toHaveFocus(),
+  );
+  expect(button("Więcej: Miasto")).toBeEnabled();
 });
 
 test("a value inside a list is saved with the lists whole", async () => {
@@ -481,7 +593,7 @@ test("a value inside a list is saved with the lists whole", async () => {
   );
 });
 
-test("„Usuń” on a place takes it out with every reference to it", async () => {
+test("removing a place asks first, then takes it out with every reference to it", async () => {
   view();
 
   fireEvent.click(
@@ -489,37 +601,99 @@ test("„Usuń” on a place takes it out with every reference to it", async () 
       name: "Usuń: miejsce „Studio Kortowo”",
     }),
   );
+  const question = await screen.findByRole("alertdialog", {
+    name: "Usunąć miejsce „Studio Kortowo” z notatek?",
+  });
+  expect(
+    within(question).getByText(
+      "Znikną też godziny pracy w tym miejscu i jego przypisanie do usług. W koncie firmy nic się nie zmieni.",
+    ),
+  ).toBeInTheDocument();
+
+  // „Anuluj” leaves the notes as they are.
+  fireEvent.click(within(question).getByRole("button", { name: "Anuluj" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(api.changeAssistantProfile).not.toHaveBeenCalled();
+
+  const without = {
+    places: [SALON, OFFICE],
+    people: [
+      {
+        ...ANIA,
+        hours: said([
+          { weekday: 1, start: "09:00", end: "17:00", place: "salon" },
+        ]),
+      },
+    ],
+    offers: [{ ...CUT, places: said(["salon"]) }, COLOUR],
+  };
+  api.getAssistantSetup.mockResolvedValue(setupWith(without));
+  fireEvent.click(button("Usuń: miejsce „Studio Kortowo”"));
+  fireEvent.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", {
+      name: "Usuń z notatek",
+    }),
+  );
 
   await waitFor(() =>
     expect(api.changeAssistantProfile).toHaveBeenCalledWith(
-      {
-        places: [SALON, OFFICE],
-        people: [
-          {
-            ...ANIA,
-            hours: said([
-              { weekday: 1, start: "09:00", end: "17:00", place: "salon" },
-            ]),
-          },
-        ],
-        offers: [{ ...CUT, places: said(["salon"]) }, COLOUR],
-      },
+      without,
       7,
       expect.any(String),
     ),
   );
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Usunięto z notatek: miejsce „Studio Kortowo”.",
+  );
+  expect(screen.queryByRole("heading", { name: "Studio Kortowo" })).toBeNull();
+  // What follows is the account's place, which has no control: the group's
+  // heading takes the focus.
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Miejsca" })).toHaveFocus(),
+  );
 });
 
-test("„Usuń” on a person takes them out of the offers, and on a value removes the field", async () => {
+test("after a removed entry the focus goes to the next one's first control, or up to the heading", async () => {
   view();
 
+  // The next place can be removed too: its button is the first control.
+  api.getAssistantSetup.mockResolvedValue(
+    setupWith({ places: [STUDIO, OFFICE] }),
+  );
   fireEvent.click(
-    await screen.findByRole("button", { name: "Usuń: osoba „Ania”" }),
+    await screen.findByRole("button", {
+      name: "Usuń: miejsce „Salon na Mazurskiej”",
+    }),
+  );
+  fireEvent.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", {
+      name: "Usuń z notatek",
+    }),
   );
   await waitFor(() =>
-    expect(api.changeAssistantProfile).toHaveBeenCalledWith(
+    expect(button("Usuń: miejsce „Studio Kortowo”")).toHaveFocus(),
+  );
+
+  // The only person: the group goes with her, the section's heading is left.
+  api.getAssistantSetup.mockResolvedValue(
+    setupWith({ places: [STUDIO, OFFICE], people: [] }),
+  );
+  fireEvent.click(button("Usuń: osoba „Ania”"));
+  const question = await screen.findByRole("alertdialog", {
+    name: "Usunąć osobę „Ania” z notatek?",
+  });
+  expect(
+    within(question).getByText(
+      "Zniknie też jej przypisanie do usług. W koncie firmy nic się nie zmieni.",
+    ),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    within(question).getByRole("button", { name: "Usuń z notatek" }),
+  );
+  await waitFor(() =>
+    expect(api.changeAssistantProfile).toHaveBeenLastCalledWith(
       {
-        places: PLACES,
+        places: [STUDIO, OFFICE],
         people: [],
         offers: [{ ...CUT, people: said([]) }, COLOUR],
       },
@@ -527,35 +701,69 @@ test("„Usuń” on a person takes them out of the offers, and on a value remov
       expect.any(String),
     ),
   );
-  await waitFor(() => expect(api.getAssistantSetup).toHaveBeenCalledTimes(2));
-
-  fireEvent.click(screen.getByRole("button", { name: "Usuń: Miasto" }));
   await waitFor(() =>
-    expect(api.changeAssistantProfile).toHaveBeenLastCalledWith(
+    expect(
+      screen.getByRole("heading", { name: "Co już wiadomo" }),
+    ).toHaveFocus(),
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Usunięto z notatek: osoba „Ania”.",
+  );
+});
+
+test("„Usuń” on a value removes the field at once; the focus goes to the next row", async () => {
+  view();
+
+  await screen.findByText("Salon Fryzjerski Ania");
+  api.getAssistantSetup.mockResolvedValue(
+    setupWith({
+      company: { name: COMPANY.name, category: COMPANY.category },
+    }),
+  );
+  await choose("Więcej: Miasto", "Usuń");
+
+  await waitFor(() =>
+    expect(api.changeAssistantProfile).toHaveBeenCalledWith(
       { company: { city: null } },
       7,
       expect.any(String),
     ),
   );
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Usunięto z notatek: Miasto.",
+  );
+  await waitFor(() => expect(button("Więcej: Kategoria")).toHaveFocus());
+
+  // The last value of a place: nothing follows, so the group's heading.
+  api.getAssistantSetup.mockResolvedValue(
+    setupWith({ places: [SALON, { key: "studio" }, OFFICE] }),
+  );
+  await choose("Więcej: Nazwa — Studio Kortowo", "Usuń");
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Miejsca" })).toHaveFocus(),
+  );
+  expect(
+    screen.getByRole("heading", { name: "Bez nazwy" }),
+  ).toBeInTheDocument();
 });
 
 test("„Popraw” saves the typed text as the owner's confirmed value; an empty one is not saved", async () => {
   view();
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Popraw: Miasto" }),
-  );
-  const input = screen.getByLabelText("Miasto");
+  await screen.findByText("Salon Fryzjerski Ania");
+  await choose("Więcej: Miasto", "Popraw");
+  const input = await screen.findByLabelText("Miasto");
   expect(input).toHaveValue("Olsztyn");
   expect(input).toHaveFocus();
 
   fireEvent.change(input, { target: { value: "  " } });
-  expect(screen.getByRole("button", { name: "Zapisz" })).toBeDisabled();
+  expect(button("Zapisz")).toBeDisabled();
   fireEvent.submit(input);
   expect(api.changeAssistantProfile).not.toHaveBeenCalled();
 
   fireEvent.change(input, { target: { value: " Ostróda " } });
-  fireEvent.click(screen.getByRole("button", { name: "Zapisz" }));
+  fireEvent.click(button("Zapisz"));
 
   await waitFor(() =>
     expect(api.changeAssistantProfile).toHaveBeenCalledWith(
@@ -564,28 +772,31 @@ test("„Popraw” saves the typed text as the owner's confirmed value; an empty
       expect.any(String),
     ),
   );
-  // Saved: the input closes and the focus is back on the button.
+  // Saved: the input closes and the focus is back on the row's „…”.
   await waitFor(() => expect(screen.queryByLabelText("Miasto")).toBeNull());
-  expect(screen.getByRole("button", { name: "Popraw: Miasto" })).toHaveFocus();
+  await waitFor(() => expect(button("Więcej: Miasto")).toHaveFocus());
+  expect(screen.getByRole("status")).toHaveTextContent("Zapisano w notatkach.");
 });
 
 test("„Popraw” takes a whole number for a duration, and „Anuluj” leaves the value alone", async () => {
   view();
   const name = "Czas trwania — Strzyżenie damskie";
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: `Popraw: ${name}` }),
-  );
-  fireEvent.change(screen.getByLabelText(name), { target: { value: "1,5" } });
-  expect(screen.getByRole("button", { name: "Zapisz" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Anuluj" }));
+  await screen.findByText("Salon Fryzjerski Ania");
+  await choose(`Więcej: ${name}`, "Popraw");
+  fireEvent.change(await screen.findByLabelText(name), {
+    target: { value: "1,5" },
+  });
+  expect(button("Zapisz")).toBeDisabled();
+  fireEvent.click(button("Anuluj"));
   expect(screen.queryByLabelText(name)).toBeNull();
   expect(api.changeAssistantProfile).not.toHaveBeenCalled();
+  await waitFor(() => expect(button(`Więcej: ${name}`)).toHaveFocus());
 
-  fireEvent.click(screen.getByRole("button", { name: `Popraw: ${name}` }));
-  expect(screen.getByLabelText(name)).toHaveValue("45");
+  await choose(`Więcej: ${name}`, "Popraw");
+  expect(await screen.findByLabelText(name)).toHaveValue("45");
   fireEvent.change(screen.getByLabelText(name), { target: { value: "60" } });
-  fireEvent.click(screen.getByRole("button", { name: "Zapisz" }));
+  fireEvent.click(button("Zapisz"));
 
   await waitFor(() =>
     expect(api.changeAssistantProfile).toHaveBeenCalledWith(
@@ -600,7 +811,7 @@ test("„Popraw” takes a whole number for a duration, and „Anuluj” leaves 
   );
 });
 
-test("a profile changed in the meantime is read again and the person is told", async () => {
+test("notes changed in the meantime are read again and the person is told", async () => {
   api.changeAssistantProfile.mockRejectedValue(
     problem("assistant_profile_version_conflict", 409),
   );
@@ -608,24 +819,23 @@ test("a profile changed in the meantime is read again and the person is told", a
 
   await screen.findByText("Salon Fryzjerski Ania");
   api.getAssistantSetup.mockResolvedValue({
-    ...SETUP,
-    version: 8,
-    document: {
-      ...SETUP.document,
+    ...setupWith({
       company: { name: said("Salon Ania"), city: said("Ostróda") },
-    },
+    }),
+    version: 8,
   });
-  fireEvent.click(screen.getByRole("button", { name: "Usuń: Miasto" }));
+  await choose("Więcej: Miasto", "Usuń");
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Profil firmy zmienił się w międzyczasie. Sprawdź go i spróbuj ponownie.",
+    "Notatki o firmie zmieniły się w międzyczasie. Sprawdź je i spróbuj ponownie.",
   );
   expect(api.getAssistantSetup).toHaveBeenCalledTimes(2);
   expect(row("Miasto").getByText("Ostróda")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
 
   // The next change names the version now shown.
   api.changeAssistantProfile.mockResolvedValue({});
-  fireEvent.click(screen.getByRole("button", { name: "Usuń: Miasto" }));
+  await choose("Więcej: Miasto", "Usuń");
   await waitFor(() =>
     expect(api.changeAssistantProfile).toHaveBeenLastCalledWith(
       { company: { city: null } },
@@ -640,7 +850,8 @@ test("a change the server refuses is said plainly and nothing is read again", as
   api.changeAssistantProfile.mockRejectedValue(problem("invalid", 400));
   view("en");
 
-  fireEvent.click(await screen.findByRole("button", { name: "Remove: City" }));
+  await screen.findByText("Salon Fryzjerski Ania");
+  await choose("More: City", "Remove");
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "The change could not be saved. Try again.",
@@ -649,11 +860,28 @@ test("a change the server refuses is said plainly and nothing is read again", as
   expect(row("City").getByText("Olsztyn")).toBeInTheDocument();
 });
 
-test("the profile is read again when the conversation settles", async () => {
+test("the notes are read again when the conversation settles", async () => {
   const page = view();
 
   await screen.findByText("Salon Fryzjerski Ania");
   page.settle(1);
 
   await waitFor(() => expect(api.getAssistantSetup).toHaveBeenCalledTimes(2));
+});
+
+test("notes that could not be read offer to try again", async () => {
+  api.getAssistantSetup.mockRejectedValueOnce(new Error("offline"));
+  view();
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Nie udało się wczytać notatek o firmie.");
+  expect(screen.queryByText("Wczytywanie notatek o firmie…")).toBeNull();
+
+  fireEvent.click(
+    within(alert).getByRole("button", { name: "Spróbuj ponownie" }),
+  );
+
+  expect(await screen.findByText("Salon Fryzjerski Ania")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(api.getAssistantSetup).toHaveBeenCalledTimes(2);
 });

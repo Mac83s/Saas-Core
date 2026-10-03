@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, EllipsisIcon } from "lucide-react";
 
 import {
   ApiProblemError,
@@ -20,13 +20,31 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@saas-core/ui/components/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@saas-core/ui/components/dropdown-menu";
 import { Input } from "@saas-core/ui/components/input";
 import { Textarea } from "@saas-core/ui/components/textarea";
+
+import { dateFormat, formatHours } from "#lib/dates";
 
 type Locale = "pl" | "en";
 type Origin =
   "owner" | "account" | "existing_site" | "preset_default" | "assistant";
-/** One value of the profile: what was said, by whom, and whether the owner
+/** One value of the notes: what was said, by whom, and whether the owner
  *  confirmed it. */
 type Said<T = unknown> = { value: T; origin: Origin; confirmed: boolean };
 type Rule = { weekday: number; start: string; end: string; place: string };
@@ -53,20 +71,32 @@ type Profile = {
 type Changes = Record<string, unknown>;
 /** One value as the block shows it. */
 type Row = {
-  /** Where it lives: `company.city`, `offers.cut.inputs.deposit`. */
+  /** Where it lives: `company.city`, `offers.cut.inputs.min_length`. */
   path: string[];
   label: string;
-  /** The label with whose it is; what the row's buttons are named by. */
+  /** The label with whose it is; what the row's controls are named by. */
   name: string;
   text: string;
   said: Said;
   /** What „Popraw” takes: text, a longer text or a whole number. */
   edit?: "text" | "long" | "number";
 };
+/**
+ * Where the focus goes once a change is saved and the notes are read again.
+ * Rows and entries are found by their place in the group, not by their keys:
+ * a key is never written into the page.
+ */
+type Focus =
+  /** The „…” of the confirmed row: the row at `menu` in the block at `block`. */
+  | { group: string; block: number; menu: number }
+  /** What follows a removed row (in the block at `block`) or a removed entry. */
+  | { group: string; block?: number; index: number };
+/** What a saved change is followed by: the line that says so, and the focus. */
+type Outcome = { notice: string; focus?: Focus };
 
 const LISTS = ["places", "people", "offers"] as const;
 type ListName = (typeof LISTS)[number];
-/** The values of each part of the profile, in the order they are shown. */
+/** The values of each part of the notes, in the order they are shown. */
 const FIELDS: Record<"company" | "card" | ListName, readonly string[]> = {
   company: [
     "name",
@@ -102,6 +132,9 @@ const REF_LISTS: Partial<Record<string, ListName>> = {
   hours: "people",
 };
 const CONFLICT = "assistant_profile_version_conflict";
+/** A row's button: 44 px on a phone, the row's height from md — as the
+ *  panel's tables have it. */
+const ROW_BUTTON = "md:h-9 md:px-3";
 
 function isList(name: string | undefined): name is ListName {
   return LISTS.includes(name as ListName);
@@ -121,7 +154,7 @@ function editable(path: string[]): Row["edit"] {
 /**
  * The lists of a changed document, as a merge patch. A list is replaced
  * whole, and the three go together: the document shown already holds the
- * places and people of the account, which the saved profile may not — a list
+ * places and people of the account, which the saved notes may not — a list
  * sent alone could point at a place that is not saved yet, and be refused.
  */
 function lists(profile: Profile): Changes {
@@ -170,12 +203,37 @@ function withoutEntry(profile: Profile, list: ListName, key: string): Changes {
   return lists(next);
 }
 
+/** The element a saved change hands the focus to, in the notes as they are now. */
+function seek(root: HTMLElement | null, focus: Focus): HTMLElement | null {
+  const group = root?.querySelector(`[data-group="${focus.group}"]`);
+  const blocks = Array.from(group?.querySelectorAll("[data-block]") ?? []);
+  const rows = (block: number) =>
+    Array.from(blocks[block]?.querySelectorAll("[data-row]") ?? []);
+  if ("menu" in focus) {
+    const row = rows(focus.block)[focus.menu];
+    return row?.querySelector<HTMLElement>("[data-row-menu]") ?? null;
+  }
+  // What stood after the removed row or entry stands in its place now.
+  const stops = focus.block === undefined ? blocks : rows(focus.block);
+  for (const stop of stops.slice(focus.index)) {
+    const control = stop.querySelector<HTMLElement>("button");
+    if (control) return control;
+  }
+  // Nothing follows: the group's heading, or the section's once the group is gone.
+  return (
+    group?.querySelector<HTMLElement>("h3") ??
+    root?.querySelector<HTMLElement>("h2") ??
+    null
+  );
+}
+
 /**
- * The company profile beside a setup conversation (ADR-076, A3-2): what the
- * assistant knows and from whom, what it will still ask, what is ready, what
- * waits and what the product cannot do yet. A value can be confirmed,
- * corrected or removed here. That changes the profile only — what was said,
- * not the account; a plan still waits for the click in the consent dialog.
+ * The assistant's notes about the company beside a setup conversation
+ * (ADR-076, A3-2): what is known and from whom, what the assistant will still
+ * ask, what is ready, what is left for later and what cannot be set up yet.
+ * A value can be confirmed, corrected or removed here. That changes the notes
+ * only — what was said, not the account; a plan still waits for the click in
+ * the consent dialog.
  *
  * Nothing is shown by its key: a category, a kind of booking, an entry and a
  * field are said in words, or by a neutral text where there are none.
@@ -183,14 +241,23 @@ function withoutEntry(profile: Profile, list: ListName, key: string): Changes {
 export function SetupProfile({
   conversationId,
   revision,
+  beside = false,
 }: {
   conversationId: string;
-  /** Changes when the conversation settles: the profile is read again. */
+  /** Changes when the conversation settles: the notes are read again. */
   revision: number;
+  /**
+   * Beside the conversation on a wide screen: open, with its own scroll.
+   * Otherwise under the conversation, closed until the person opens it.
+   */
+  beside?: boolean;
 }) {
   const t = useTranslations("Assistant");
   const [setup, setSetup] = useState<AssistantSetup>();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [problem, setProblem] = useState<string>();
+  const [outcome, setOutcome] = useState<Outcome>();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -198,28 +265,30 @@ export function SetupProfile({
     getAssistantSetup(conversationId, controller.signal)
       .then((next) => {
         setSetup(next);
-        setProblem(undefined);
+        setFailed(false);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setProblem(t("profileLoadError"));
+        if (!controller.signal.aborted) setFailed(true);
       });
     return () => controller.abort();
-  }, [conversationId, revision, t]);
+  }, [conversationId, revision, attempt]);
 
-  /** Saves against the version shown, then shows what the profile holds. */
-  async function save(changes: Changes): Promise<boolean> {
+  /** Saves against the version shown, then shows what the notes hold. */
+  async function save(changes: Changes, done: Outcome): Promise<boolean> {
     if (!setup || busy) return false;
     setBusy(true);
     setProblem(undefined);
+    setOutcome(undefined);
     try {
       await changeAssistantProfile(changes, setup.version, crypto.randomUUID());
       setSetup(await getAssistantSetup(conversationId));
+      setOutcome(done);
       return true;
     } catch (error) {
       const moved =
         error instanceof ApiProblemError && error.problem.code === CONFLICT;
       if (moved) {
-        // The assistant, or another window, changed it first: show theirs.
+        // The assistant, or another window, changed them first: show theirs.
         await getAssistantSetup(conversationId)
           .then(setSetup)
           .catch(() => undefined);
@@ -231,29 +300,75 @@ export function SetupProfile({
     }
   }
 
+  const count = (kind: AssistantSetupQuestion["kind"]) =>
+    setup?.questions.filter((question) => question.kind === kind).length ?? 0;
+  const body = (
+    <>
+      <p className="text-muted-foreground">{t("notesHint")}</p>
+      {failed ? (
+        <div className="flex flex-wrap items-center gap-3" role="alert">
+          <p className="text-destructive">{t("profileLoadError")}</p>
+          <Button
+            onClick={() => setAttempt((tries) => tries + 1)}
+            type="button"
+            variant="outline"
+          >
+            {t("retry")}
+          </Button>
+        </div>
+      ) : null}
+      {problem ? (
+        <p className="text-destructive" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      {setup ? (
+        <>
+          <p className="text-success-foreground empty:hidden" role="status">
+            {outcome?.notice}
+          </p>
+          <Overview
+            busy={busy}
+            focus={outcome?.focus}
+            onSave={save}
+            setup={setup}
+          />
+        </>
+      ) : failed ? null : (
+        <p className="text-muted-foreground" role="status">
+          {t("profileLoading")}
+        </p>
+      )}
+    </>
+  );
+
+  if (beside) {
+    return (
+      // Stays in view beside a long conversation, and scrolls on its own.
+      <div className="space-y-4 rounded-lg border p-4 text-sm xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto">
+        <p className="font-medium">{t("profileTitle")}</p>
+        {body}
+      </div>
+    );
+  }
+  // Closed, the line says whether the notes need the person.
+  const toConfirm = count("confirm");
+  const questions = count("ask");
+  const summary = [
+    t("summaryTitle"),
+    ...(toConfirm ? [t("summaryToConfirm", { count: toConfirm })] : []),
+    ...(questions ? [t("summaryQuestions", { count: questions })] : []),
+  ].join(" · ");
   return (
-    <details className="group rounded-lg border text-sm" open>
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-3 font-medium [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-lg border text-sm">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 px-4 py-2 font-medium [&::-webkit-details-marker]:hidden">
         <ChevronRightIcon
           aria-hidden="true"
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
         />
-        {t("profileTitle")}
+        {summary}
       </summary>
-      <div className="space-y-5 border-t px-4 py-3">
-        {problem ? (
-          <p className="text-destructive" role="alert">
-            {problem}
-          </p>
-        ) : null}
-        {setup ? (
-          <Overview busy={busy} onSave={save} setup={setup} />
-        ) : problem ? null : (
-          <p className="text-muted-foreground" role="status">
-            {t("profileLoading")}
-          </p>
-        )}
-      </div>
+      <div className="space-y-4 border-t px-4 py-3">{body}</div>
     </details>
   );
 }
@@ -261,36 +376,61 @@ export function SetupProfile({
 function Overview({
   setup,
   busy,
+  focus,
   onSave,
 }: {
   setup: AssistantSetup;
   busy: boolean;
-  onSave: (changes: Changes) => Promise<boolean>;
+  /** Where the last saved change hands the focus to. */
+  focus?: Focus;
+  onSave: (changes: Changes, done: Outcome) => Promise<boolean>;
 }) {
   const t = useTranslations("Assistant");
   const locale = useLocale() as Locale;
   const format = useFormatter();
   const profile = setup.document as Profile;
+  const root = useRef<HTMLDivElement>(null);
+  /** The entry the person is asked about before it is removed. */
+  const [asking, setAsking] = useState<{
+    list: ListName;
+    key: string;
+    index: number;
+  }>();
 
+  // A saved change took its own control away, or disabled it for a moment:
+  // the focus goes on to what the person would reach for next.
+  useEffect(() => {
+    if (focus) seek(root.current, focus)?.focus();
+  }, [focus]);
+
+  const nameOf = (list: ListName, key: string): string | undefined =>
+    profile[list]?.find((entry) => entry.key === key)?.name?.value;
   // A key is the document's own name for an entry: a person never reads one.
   const entryName = (list: ListName, key: string): string =>
-    profile[list]?.find((entry) => entry.key === key)?.name?.value ??
-    t("unnamed");
+    nameOf(list, key) ?? t("unnamed");
+  /** An entry inside a sentence: its name in quotes, a nameless one in words. */
+  const quoted = (list: ListName, key: string): string => {
+    const name = nameOf(list, key);
+    return name === undefined ? t("unnamed") : t("quoted", { name });
+  };
   const language = (code: string): string =>
     new Intl.DisplayNames(locale, { type: "language" }).of(code) ?? code;
-  /** The place, person or offer a field belongs to, by its name. */
-  const subject = ([list, key]: string[]): string | undefined =>
-    isList(list) && key ? entryName(list, key) : undefined;
+  /** The place, person or offer a field belongs to: by its name, and as a
+   *  sentence says it. */
+  const subject = ([list, key]: string[]) =>
+    isList(list) && key
+      ? { plain: entryName(list, key), quoted: quoted(list, key) }
+      : undefined;
   const label = (path: string[]): string => {
     const leaf = path.at(-1) ?? "";
-    // What a kind of booking asks of the company is named where the product
-    // has words for it; anything else goes by one neutral label.
+    // What a kind of booking asks of the company is named where there are
+    // words for it; anything else goes by one neutral label.
     const key = path[2] === "inputs" ? `input_${leaf}` : `field_${leaf}`;
     return t.has(key) ? t(key) : t("inputOther");
   };
   /** A field in words, with whose it is: „Czas trwania — Strzyżenie”. */
   const named = (path: string[]): string => {
-    const whose = subject(path);
+    const whose = subject(path)?.plain;
     if (whose === undefined) return label(path);
     return path.length === 2
       ? whose
@@ -299,7 +439,11 @@ function Overview({
   /** A value as a person reads it. */
   const words = (path: string[], value: unknown): string => {
     const leaf = path.at(-1) ?? "";
-    if (path[2] !== "inputs") {
+    if (path[2] === "inputs") {
+      if (leaf === "min_length" && typeof value === "number") {
+        return t("valueNights", { count: value });
+      }
+    } else {
       if (leaf === "languages") {
         return (value as string[]).map(language).join(", ");
       }
@@ -307,18 +451,21 @@ function Overview({
         const week = [...(value as Rule[])].sort(
           (a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start),
         );
+        // 1 January 2024 was a Monday, the notes' weekday 0.
+        const at = (rule: Rule, time: string) =>
+          new Date(`2024-01-0${1 + rule.weekday}T${time}:00Z`);
         const lines = week.map((rule) =>
           t("hoursLine", {
-            // 1 January 2024 was a Monday, the profile's weekday 0.
-            day: format.dateTime(
-              new Date(Date.UTC(2024, 0, 1 + rule.weekday)),
-              {
-                weekday: "short",
-                timeZone: "UTC",
-              },
+            day: dateFormat(locale, {
+              weekday: "short",
+              timeZone: "UTC",
+            }).format(at(rule, rule.start)),
+            hours: formatHours(
+              at(rule, rule.start),
+              at(rule, rule.end),
+              locale,
+              "UTC",
             ),
-            start: rule.start,
-            end: rule.end,
             place: entryName("places", rule.place),
           }),
         );
@@ -328,10 +475,9 @@ function Overview({
         const { amount, currency, per } = value as Price;
         return t("price", {
           amount: format.number(Number(amount), {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            style: "currency",
+            currency,
           }),
-          currency,
           per: t(`per_${per}`),
         });
       }
@@ -349,13 +495,14 @@ function Overview({
       }
     }
     if (typeof value === "boolean") return t(value ? "valueYes" : "valueNo");
-    return typeof value === "object" ? JSON.stringify(value) : String(value);
+    // An answer with a shape of its own has no words here: it is noted.
+    return typeof value === "object" ? t("valueNoted") : String(value);
   };
   /** What a step is about, in words: `place:salon` → miejsce „Salon”. */
   const thing = (ref: string): string => {
     const [kind, key = ""] = ref.split(":");
     const list = REF_LISTS[kind];
-    if (list) return t(`thing_${kind}`, { name: entryName(list, key) });
+    if (list) return t(`thing_${kind}`, { name: quoted(list, key) });
     return t.has(`thing_${kind}`) ? t(`thing_${kind}`) : t("thing_other");
   };
   const asked = (question: AssistantSetupQuestion): string => {
@@ -375,7 +522,8 @@ function Overview({
     else if (proposal && t.has(`${key}_proposed`)) key = `${key}_proposed`;
     if (!t.has(key)) return t("askOther", { field: named(path) });
     return t(key, {
-      name: whose ?? "",
+      name: whose?.quoted ?? "",
+      person: whose?.plain ?? "",
       field: label(path),
       proposal: proposal ?? "",
     });
@@ -383,7 +531,7 @@ function Overview({
   const waits = (step: AssistantSetup["waiting"][number]): string => {
     if (step.reason === "person_only") {
       const [, key = ""] = step.ref.split(":");
-      return t("waiting_person_only", { name: entryName("offers", key) });
+      return t("waiting_person_only", { name: quoted("offers", key) });
     }
     return t(`waiting_${step.reason}`, {
       thing: thing(step.ref),
@@ -395,7 +543,7 @@ function Overview({
     const key = `unsupported_${entry.code}`;
     if (!t.has(key)) return t("unsupportedOther", { field: named(path) });
     return t(key, {
-      name: subject(path) ?? "",
+      name: subject(path)?.quoted ?? "",
       // The languages come as codes: „en, de”.
       detail: entry.code.startsWith("language_")
         ? entry.detail.split(", ").map(language).join(", ")
@@ -423,7 +571,7 @@ function Overview({
   const entries = (list: ListName) =>
     (profile[list] ?? []).map((entry) => ({
       key: entry.key,
-      title: entry.name?.value ?? t("unnamed"),
+      title: entry.name?.value ?? t("unnamedHeading"),
       // What the account already has would come back with the next read.
       removable: entry.name?.origin !== "account",
       rows: [
@@ -436,13 +584,40 @@ function Overview({
         ),
       ],
     }));
-  const value = (shown: Row) => (
-    <Value
-      busy={busy}
-      key={shown.path.join(".")}
-      onChange={(said) => onSave(patch(profile, shown.path, said))}
-      row={shown}
-    />
+  /** The rows of one block: each knows where the focus goes when it is gone. */
+  const values = (group: string, block: number, shown: Row[]) => (
+    <dl>
+      {shown.map((item, index) => {
+        const save = (said: Said | null, done: Outcome) =>
+          onSave(patch(profile, item.path, said), done);
+        return (
+          <Value
+            busy={busy}
+            key={item.path.join(".")}
+            onConfirm={() =>
+              // The same value, now the owner's own: its „Potwierdź” is gone.
+              save(
+                { ...item.said, origin: "owner", confirmed: true },
+                { notice: t("saved"), focus: { group, block, menu: index } },
+              )
+            }
+            onCorrect={(value) =>
+              save(
+                { value, origin: "owner", confirmed: true },
+                { notice: t("saved") },
+              )
+            }
+            onRemove={() =>
+              save(null, {
+                notice: t("removed", { field: item.name }),
+                focus: { group, block, index },
+              })
+            }
+            row={item}
+          />
+        );
+      })}
+    </dl>
   );
   const blocks = LISTS.map((list) => ({ list, shown: entries(list) }));
   const rows = [
@@ -450,11 +625,14 @@ function Overview({
     ...blocks.flatMap((block) => block.shown.flatMap((entry) => entry.rows)),
   ];
   const noted = rows.length > 0 || blocks.some((block) => block.shown.length);
+  const asks = asking ? `${KINDS[asking.list]}:${asking.key}` : "";
 
   return (
-    <>
+    <div className="space-y-5" ref={root}>
       <section className="space-y-3">
-        <h2 className="font-medium">{t("knownTitle")}</h2>
+        <h2 className="font-medium" tabIndex={-1}>
+          {t("knownTitle")}
+        </h2>
         {noted ? null : (
           <p className="text-muted-foreground">{t("knownEmpty")}</p>
         )}
@@ -462,16 +640,20 @@ function Overview({
           <p className="text-muted-foreground">{t("knownAccountNote")}</p>
         ) : null}
         {company.length ? (
-          <Group title={t("group_company")}>
-            <dl>{company.map(value)}</dl>
+          <Group id="company" title={t("group_company")}>
+            <div data-block="">{values("company", 0, company)}</div>
           </Group>
         ) : null}
         {blocks.map(({ list, shown }) =>
           shown.length ? (
-            <Group key={list} title={t(`group_${list}`)}>
-              {shown.map((entry) => (
-                <div className="rounded-lg border px-3 py-1" key={entry.key}>
-                  <div className="flex min-h-9 items-center justify-between gap-2">
+            <Group id={list} key={list} title={t(`group_${list}`)}>
+              {shown.map((entry, index) => (
+                <div
+                  className="rounded-lg border px-3 py-1"
+                  data-block=""
+                  key={entry.key}
+                >
+                  <div className="flex min-h-11 items-center justify-between gap-2 md:min-h-9">
                     <h4 className="min-w-0 font-medium wrap-anywhere">
                       {entry.title}
                     </h4>
@@ -480,11 +662,11 @@ function Overview({
                         aria-label={t("actionRemoveNamed", {
                           field: thing(`${KINDS[list]}:${entry.key}`),
                         })}
+                        className={ROW_BUTTON}
                         disabled={busy}
                         onClick={() =>
-                          void onSave(withoutEntry(profile, list, entry.key))
+                          setAsking({ list, key: entry.key, index })
                         }
-                        size="sm"
                         type="button"
                         variant="ghost"
                       >
@@ -492,7 +674,7 @@ function Overview({
                       </Button>
                     ) : null}
                   </div>
-                  {entry.rows.length ? <dl>{entry.rows.map(value)}</dl> : null}
+                  {entry.rows.length ? values(list, index, entry.rows) : null}
                 </div>
               ))}
             </Group>
@@ -519,14 +701,74 @@ function Overview({
         lines={setup.unsupported.map(cannot)}
         title={t("unsupportedTitle")}
       />
-    </>
+      {/* A whole place, person or offer takes more with it than its own
+          values, so it asks first; an outside click is not an answer. */}
+      <Dialog
+        disablePointerDismissal
+        onOpenChange={(open) => {
+          if (!open) setAsking(undefined);
+        }}
+        open={Boolean(asking)}
+      >
+        <DialogContent role="alertdialog" showCloseButton={false}>
+          {asking ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {t(`removeEntryTitle_${KINDS[asking.list]}`, {
+                    name: quoted(asking.list, asking.key),
+                  })}
+                </DialogTitle>
+                <DialogDescription>
+                  {t(`removeEntryText_${KINDS[asking.list]}`)}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>
+                  {t("actionCancel")}
+                </DialogClose>
+                <Button
+                  onClick={() => {
+                    setAsking(undefined);
+                    void onSave(
+                      withoutEntry(profile, asking.list, asking.key),
+                      {
+                        notice: t("removed", { field: thing(asks) }),
+                        focus: { group: asking.list, index: asking.index },
+                      },
+                    );
+                  }}
+                  type="button"
+                  variant="destructive"
+                >
+                  {t("removeEntryConfirm")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
+/** One group of what is known; its heading takes the focus when the last of
+ *  its rows is removed. */
+function Group({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-medium text-muted-foreground uppercase">
+    <div className="space-y-2" data-group={id}>
+      <h3
+        className="text-xs font-medium text-muted-foreground uppercase"
+        tabIndex={-1}
+      >
         {title}
       </h3>
       {children}
@@ -558,16 +800,24 @@ function Lines({
   );
 }
 
-/** One value: what it is, where it came from, and what can be done with it. */
+/**
+ * One value: what it is, where it came from, and what can be done with it.
+ * One action is in sight — „Potwierdź”, while the value waits for it; the
+ * rest is behind „…”, as in the panel's tables.
+ */
 function Value({
   row,
   busy,
-  onChange,
+  onConfirm,
+  onCorrect,
+  onRemove,
 }: {
   row: Row;
   busy: boolean;
-  /** The value to keep, or null to remove it; answers whether it was saved. */
-  onChange: (said: Said | null) => Promise<boolean>;
+  onConfirm: () => Promise<boolean>;
+  /** Answers whether the typed value was saved. */
+  onCorrect: (value: string | number) => Promise<boolean>;
+  onRemove: () => Promise<boolean>;
 }) {
   const t = useTranslations("Assistant");
   const [draft, setDraft] = useState<string>();
@@ -579,7 +829,7 @@ function Value({
   const typed = draft?.trim() ?? "";
   const valid = row.edit === "number" ? /^\d+$/.test(typed) : typed !== "";
 
-  // Closing the input gives the focus back to the button that opened it.
+  // Closing the input gives the focus back to the „…” that opened it.
   const opener = useCallback((node: HTMLElement | null) => {
     if (node && closed.current) {
       closed.current = false;
@@ -595,9 +845,8 @@ function Value({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!valid || busy) return;
-    const value = row.edit === "number" ? Number(typed) : typed;
     // The person typed it: it is theirs, and confirmed.
-    if (await onChange({ value, origin: "owner", confirmed: true })) close();
+    if (await onCorrect(row.edit === "number" ? Number(typed) : typed)) close();
   }
 
   const field = {
@@ -612,56 +861,76 @@ function Value({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t py-1.5 first:border-t-0">
+    // The label wraps over the value wherever the block is narrow: on a
+    // phone, and beside the conversation.
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t py-1.5 first:border-t-0"
+      data-row=""
+    >
       <dt className="w-40 shrink-0 text-muted-foreground">{row.label}</dt>
       {draft === undefined ? (
         <dd className="flex min-w-0 flex-1 basis-56 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 wrap-anywhere whitespace-pre-line">
             {row.text}
           </span>
-          <Badge variant="neutral">{t(`origin_${said.origin}`)}</Badge>
+          {/* The owner's own word is what a value is unless it says otherwise. */}
+          {said.origin === "owner" ? null : (
+            <span className="text-xs text-muted-foreground">
+              {t(`origin_${said.origin}`)}
+            </span>
+          )}
           {said.confirmed ? null : (
             <Badge variant="warning">{t("unconfirmed")}</Badge>
           )}
-          <span className="ml-auto flex flex-wrap items-center gap-0.5">
+          <span className="ml-auto flex items-center gap-0.5">
             {said.confirmed ? null : (
               <Button
                 aria-label={t("actionConfirmNamed", { field: row.name })}
+                className={ROW_BUTTON}
                 disabled={busy}
-                onClick={() =>
-                  void onChange({ ...said, origin: "owner", confirmed: true })
-                }
-                size="sm"
+                onClick={() => void onConfirm()}
                 type="button"
-                variant="ghost"
+                variant="outline"
               >
                 {t("actionConfirm")}
               </Button>
             )}
-            {row.edit && !fact ? (
-              <Button
-                aria-label={t("actionEditNamed", { field: row.name })}
-                disabled={busy}
-                onClick={() => setDraft(String(said.value))}
-                ref={opener}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                {t("actionEdit")}
-              </Button>
-            ) : null}
             {fact ? null : (
-              <Button
-                aria-label={t("actionRemoveNamed", { field: row.name })}
-                disabled={busy}
-                onClick={() => void onChange(null)}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                {t("actionRemove")}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  data-row-menu=""
+                  disabled={busy}
+                  ref={opener}
+                  render={
+                    <Button
+                      aria-label={t("actionMore", { field: row.name })}
+                      className="md:size-9"
+                      size="icon"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  <EllipsisIcon aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {row.edit ? (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => setDraft(String(said.value))}
+                      >
+                        {t("actionEdit")}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => void onRemove()}
+                  >
+                    {t("actionRemove")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </span>
         </dd>
@@ -675,18 +944,22 @@ function Value({
               <Textarea className="min-w-0 flex-1 basis-56" {...field} />
             ) : (
               <Input
-                className="h-9 min-w-0 flex-1 basis-40"
+                className="min-w-0 flex-1 basis-40 md:h-9"
                 inputMode={row.edit === "number" ? "numeric" : undefined}
                 {...field}
               />
             )}
-            <Button disabled={busy || !valid} size="sm" type="submit">
+            <Button
+              className={ROW_BUTTON}
+              disabled={busy || !valid}
+              type="submit"
+            >
               {t("actionSave")}
             </Button>
             <Button
+              className={ROW_BUTTON}
               disabled={busy}
               onClick={close}
-              size="sm"
               type="button"
               variant="ghost"
             >

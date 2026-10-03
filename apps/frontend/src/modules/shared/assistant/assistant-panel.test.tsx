@@ -1,5 +1,11 @@
 import axe from "axe-core";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -32,6 +38,9 @@ vi.mock("@saas-core/api-client", async (original) => ({
   ...api,
 }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
+// The page's width: below 1280 px unless a test says otherwise.
+const media = vi.hoisted(() => ({ wide: false }));
+vi.mock("#lib/use-media", () => ({ useMedia: () => media.wide }));
 
 const OFFER: AssistantOffer = {
   available: true,
@@ -143,6 +152,7 @@ function view(locale: "pl" | "en" = "pl", canManageBilling = false) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  media.wide = false;
   api.getAssistantOffer.mockResolvedValue(OFFER);
   api.listAssistantConversations.mockResolvedValue([]);
   api.startAssistantConversation.mockResolvedValue({ id: "c1" });
@@ -320,17 +330,17 @@ test("setting the company up is offered only to who may do it", async () => {
     await screen.findByText("Napisz zwykłymi słowami, na przykład:"),
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Zacznij zakładanie firmy" }),
+    screen.queryByRole("button", { name: "Zacznij ustawianie firmy" }),
   ).toBeNull();
   member.unmount();
 
   api.getAssistantOffer.mockResolvedValue(SETUP_OFFER);
   view();
   expect(
-    await screen.findByRole("heading", { name: "Załóż firmę z asystentem" }),
+    await screen.findByRole("heading", { name: "Ustaw firmę z asystentem" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: "Zacznij zakładanie firmy" }),
+    screen.getByRole("button", { name: "Zacznij ustawianie firmy" }),
   ).toBeEnabled();
   // The examples of an ordinary conversation stay under it.
   expect(
@@ -338,21 +348,32 @@ test("setting the company up is offered only to who may do it", async () => {
   ).toBeInTheDocument();
 });
 
-test("the button starts a setup conversation with its first message: free, with the company profile", async () => {
+test("the button starts a setup conversation with its first message: free, with the notes about the company", async () => {
   api.getAssistantOffer.mockResolvedValue(SETUP_OFFER);
   api.getAssistantConversation.mockResolvedValue(
     setupConversation(
       turn({
-        text: "Chcę założyć firmę z asystentem.",
+        text: "Chcę ustawić firmę z asystentem.",
         items: [{ kind: "text", text: "Czym zajmuje się Twoja firma?" }],
       }),
     ),
   );
-  api.getAssistantSetup.mockResolvedValue(NOTHING_NOTED);
+  api.getAssistantSetup.mockResolvedValue({
+    ...NOTHING_NOTED,
+    questions: [
+      {
+        field: "company.activity",
+        kind: "ask",
+        reason: "what_company_does",
+        proposal: null,
+        options: [],
+      },
+    ],
+  });
   const { container } = view();
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Zacznij zakładanie firmy" }),
+    await screen.findByRole("button", { name: "Zacznij ustawianie firmy" }),
   );
 
   expect(
@@ -365,10 +386,10 @@ test("the button starts a setup conversation with its first message: free, with 
   );
   expect(api.sendAssistantMessage).toHaveBeenCalledWith(
     "c1",
-    "Chcę założyć firmę z asystentem.",
+    "Chcę ustawić firmę z asystentem.",
     expect.any(String),
   );
-  expect(screen.getByText("Zakładanie firmy")).toBeInTheDocument();
+  expect(screen.getByText("Ustawianie firmy")).toBeInTheDocument();
   expect(
     screen.getByText(/Ta rozmowa nie zużywa kredytów\./),
   ).toBeInTheDocument();
@@ -376,18 +397,26 @@ test("the button starts a setup conversation with its first message: free, with 
   expect(
     await screen.findByText("Asystent nie zanotował jeszcze nic o firmie."),
   ).toBeInTheDocument();
-  expect(
-    screen.getByText("Profil firmy — co już wiem i czego brakuje"),
-  ).toBeInTheDocument();
   expect(api.getAssistantSetup).toHaveBeenCalledWith("c1", expect.anything());
+  // Below 1280 px the notes are under the conversation, closed, and their
+  // line says what waits for the person.
+  const notes = screen
+    .getByText("Notatki o firmie · 1 pytanie")
+    .closest("details");
+  expect(notes).not.toHaveAttribute("open");
+  expect(
+    screen.getByRole("log").compareDocumentPosition(notes as HTMLElement) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(screen.queryByRole("complementary")).toBeNull();
   // The offer to start is gone once the conversation is there.
   expect(
-    screen.queryByRole("button", { name: "Zacznij zakładanie firmy" }),
+    screen.queryByRole("button", { name: "Zacznij ustawianie firmy" }),
   ).toBeNull();
   expect((await axe.run(container)).violations).toEqual([]);
 });
 
-test("the company profile is read again when the assistant's answer settles", async () => {
+test("the notes about the company are read again when the assistant's answer settles", async () => {
   const asked = turn({ state: "running", text: "Mam salon fryzjerski" });
   api.listAssistantConversations.mockResolvedValue([{ id: "c1" }]);
   api.getAssistantConversation
@@ -410,7 +439,7 @@ test("the company profile is read again when the assistant's answer settles", as
   await waitFor(() => expect(api.getAssistantSetup).toHaveBeenCalledTimes(2));
 });
 
-test("with the free setup messages used up the button is off and says where to go on", async () => {
+test("with the free setup messages used up there is no button, only where to go on", async () => {
   api.getAssistantOffer.mockResolvedValue({
     ...SETUP_OFFER,
     setup: { allowed: true, turns_left: 12, turns_left_today: 0 },
@@ -418,16 +447,40 @@ test("with the free setup messages used up the button is off and says where to g
   view();
 
   expect(
-    await screen.findByRole("button", { name: "Zacznij zakładanie firmy" }),
-  ).toBeDisabled();
-  expect(
-    screen.getByText(
-      "Bezpłatne wiadomości do zakładania firmy są już wykorzystane. Resztę ustawisz w panelu.",
+    await screen.findByText(
+      "Bezpłatne wiadomości na ustawianie firmy są już wykorzystane. Resztę ustawisz w panelu.",
     ),
   ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Ustaw firmę z asystentem" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Zacznij ustawianie firmy" }),
+  ).toBeNull();
 });
 
-test("a setup message over the limit says what stays and where the rest is done", async () => {
+test("from 1280 px the notes stand beside the conversation, open, and are read once", async () => {
+  media.wide = true;
+  api.listAssistantConversations.mockResolvedValue([{ id: "c1" }]);
+  api.getAssistantConversation.mockResolvedValue(setupConversation(turn({})));
+  api.getAssistantSetup.mockResolvedValue(NOTHING_NOTED);
+  const { container } = view();
+
+  const beside = await screen.findByRole("complementary", {
+    name: "Notatki o firmie — co już wiadomo i czego brakuje",
+  });
+  expect(
+    await within(beside).findByText(
+      "Asystent nie zanotował jeszcze nic o firmie.",
+    ),
+  ).toBeInTheDocument();
+  expect(container.querySelector("details")).toBeNull();
+  expect(beside.contains(screen.getByRole("log"))).toBe(false);
+  expect(api.getAssistantSetup).toHaveBeenCalledTimes(1);
+  expect((await axe.run(container)).violations).toEqual([]);
+});
+
+test("a setup message over the limit says what stays in the notes and where the rest is done", async () => {
   api.listAssistantConversations.mockResolvedValue([{ id: "c1" }]);
   api.getAssistantConversation.mockResolvedValue(setupConversation(turn({})));
   api.getAssistantSetup.mockResolvedValue(NOTHING_NOTED);
@@ -450,10 +503,10 @@ test("a setup message over the limit says what stays and where the rest is done"
 
   expect(
     await screen.findByText(
-      "Today's limit of free messages for setting up the company is used up. What was settled stays in the company profile. Come back tomorrow or do the rest in the panel: Business card, Team, Settings › Services and schedule.",
+      "Today's limit of free messages for setting the company up is used up. What was settled stays in the notes about the company. Come back tomorrow or do the rest in the panel: Business card, Team, Settings › Services and schedule.",
     ),
   ).toBeInTheDocument();
-  expect(screen.getByText("Company setup")).toBeInTheDocument();
+  expect(screen.getByText("Setting the company up")).toBeInTheDocument();
   // A message typed under a setup conversation stays in it.
   expect(api.startAssistantConversation).not.toHaveBeenCalled();
 });
@@ -464,16 +517,16 @@ test("an empty conversation that costs credits does not take the free setup mess
   api.getAssistantConversation.mockImplementation(async (id: string) =>
     id === "c0"
       ? { ...conversation(), id: "c0" }
-      : setupConversation(turn({ text: "Chcę założyć firmę z asystentem." })),
+      : setupConversation(turn({ text: "Chcę ustawić firmę z asystentem." })),
   );
   api.getAssistantSetup.mockResolvedValue(NOTHING_NOTED);
   view();
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Zacznij zakładanie firmy" }),
+    await screen.findByRole("button", { name: "Zacznij ustawianie firmy" }),
   );
 
-  expect(await screen.findByText("Zakładanie firmy")).toBeInTheDocument();
+  expect(await screen.findByText("Ustawianie firmy")).toBeInTheDocument();
   expect(api.startAssistantConversation).toHaveBeenCalledWith(
     "pl",
     expect.any(String),
@@ -481,7 +534,7 @@ test("an empty conversation that costs credits does not take the free setup mess
   );
   expect(api.sendAssistantMessage).toHaveBeenCalledWith(
     "c1",
-    "Chcę założyć firmę z asystentem.",
+    "Chcę ustawić firmę z asystentem.",
     expect.any(String),
   );
 });
