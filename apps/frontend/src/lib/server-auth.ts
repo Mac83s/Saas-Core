@@ -7,6 +7,7 @@ import type {
   BookingOverview,
   CustomerBillingOverview,
   OrganizationSummary,
+  PublicCustomerDocument,
   SettingOptions,
   SettingsSchema,
   UserSummary,
@@ -78,6 +79,17 @@ export async function getServerPublicBookingLocales(
     `/api/v1/booking/public/${encodeURIComponent(publicSlug)}/`,
   );
   return catalog?.locales ?? null;
+}
+
+/** A company's document behind its public address, in a language; null
+ *  when there is none in force (the page answers 404). */
+export async function getServerPublicCustomerDocument(
+  publicId: string,
+  locale: string,
+): Promise<PublicCustomerDocument | null> {
+  return serverGet<PublicCustomerDocument>(
+    `/api/v1/public/documents/${encodeURIComponent(publicId)}/?locale=${encodeURIComponent(locale)}`,
+  );
 }
 
 async function serverGet<T>(path: string): Promise<T | null> {

@@ -15,5 +15,16 @@
       "home": "Página de inicio",
       "catalog": "Directorio de empresas"
     }
+  },
+  "CustomerDocument": {
+    "kinds": {
+      "booking_terms": "Condiciones de reserva",
+      "shop_terms": "Condiciones de la tienda",
+      "privacy_policy": "Política de privacidad",
+      "cancellation_policy": "Política de cancelación"
+    },
+    "version": "Versión {number}, vigente desde el {date}",
+    "otherLanguage": "Este documento aún no tiene texto en el idioma elegido. Lo está leyendo en: {language}.",
+    "readIn": "Leer en"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:df3e4b9a0667fc32ac7c5881ec645357c9a3de8bd192cb310a60f6ff1585c7f3",
+  "profileHash": "sha256:7fde6fda877991d628eca216c8d5616496c50dcd47929b35a3ff032f5a51e156",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -486,17 +486,39 @@
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.customers",
-        "urlPrefix": null,
-        "permissions": [],
+        "urlPrefix": "/api/v1/customers",
+        "permissions": [
+          "customers.read",
+          "customers.manage"
+        ],
+        "roleGrants": {
+          "manager": [
+            "customers.read"
+          ],
+          "admin": [
+            "customers.read",
+            "customers.manage"
+          ],
+          "owner": [
+            "customers.read",
+            "customers.manage"
+          ]
+        },
         "entitlements": [],
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": []
       },
       "frontend": {
-        "routes": [],
+        "routes": [
+          "/panel/settings/documents",
+          "/documents"
+        ],
         "navigation": [],
-        "translationNamespaces": []
+        "translationNamespaces": [
+          "CustomerDocuments",
+          "CustomerDocument"
+        ]
       }
     },
     {

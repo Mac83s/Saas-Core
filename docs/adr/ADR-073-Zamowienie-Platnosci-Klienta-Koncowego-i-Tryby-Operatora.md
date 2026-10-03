@@ -422,9 +422,9 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | Plaster | Zakres | Migracje | Ekran |
 | --- | --- | --- | --- |
 | **4a** | `shared.customers` jako moduł: `Customer` przechodzi stanem modelu (tabela `booking_customer` zostaje), `customers.api` (`Customer`, `CUSTOMER_MODEL`, `match_or_create`, `strip_customer`, `register_customer_anonymizer`), booking rejestruje swoje czyszczenie wizyt; strażnik `deployment-check` (§2); profile `business`, `agro`, `vps-dev`; nota dla produktów | customers 0001, booking 0029 (sam stan) | brak |
-| **4b** | Dokumenty firmy i dziennik zgód (§9): rodzaje, szkic, wersja i wiersze tekstu tylko do dopisywania, zatwierdzenie przez osobę ze step-upem, publiczny adres dokumentu, dwa czytniki dla innych modułów; `customers.read`, `customers.manage`, `/api/v1/customers` | customers 0002 (tabele, RLS, strażnicy), 0003 (uprawnienia ról) | Ustawienia › „Dokumenty dla klientów”; publiczna strona dokumentu |
+| **4b** | Dokumenty firmy i dziennik zgód (§9): rodzaje, szkic, wersja i wiersze tekstu tylko do dopisywania, zatwierdzenie przez osobę ze step-upem, publiczny adres dokumentu, dwa czytniki dla innych modułów; `customers.read`, `customers.manage`, `/api/v1/customers` | customers 0002 (tabele), 0003 (RLS, strażnik relacji, tylko do dopisywania), 0004 (uprawnienia ról) | Ustawienia › „Dokumenty dla klientów”; publiczna strona dokumentu |
 | **4c** | Rezerwacja zapisuje zgody: formularz publiczny pokazuje regulamin rezerwacji i politykę prywatności obowiązujące w języku klienta, rezerwacja dopisuje wpisy dziennika (`source` `booking.appointment`), zgoda marketingowa osobno | — | formularz publiczny |
-| **4d** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika | — | Tłumaczenia |
+| **4d** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; polecenia asystenta dla dokumentów (odczyt i zapis szkicu z identyfikatorem przebiegu) z evalami | — | Tłumaczenia |
 | **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał i token pochodzenia; `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0002, billing (wersje planów) | Zamówienia (lista, szczegół) |
 | **4f** | Wpłaty ręczne i przelew z terminem (§4–§5): `Payment`, `LedgerEntry`, rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, oznaczenie wpłaty przez firmę, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | wpłata w zamówieniu, oferta |
 | **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
@@ -455,6 +455,20 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   przez `source` i `source_reference` (identyfikator zapytania). Jeden dziennik
   na wszystkie zgody; w dzienniku nie ma danych osoby, więc usunięcie zapytania
   niczego w nim nie zostawia.
+- **Wersja zaczyna od jednego języka.** Zatwierdzenie szkicu dopisuje wersję z
+  tekstem w języku szkicu; tekst w kolejnym języku firmy (albo poprawkę
+  istniejącego) dopisuje osoba tą samą bramką jako nowy wiersz. Podgląd
+  zatwierdzenia wymienia języki firmy, w których klienci nie dostaną dokumentu,
+  dopóki nikt nie doda tekstu — to skutek reguły czytnika, powiedziany przed
+  kliknięciem. Publiczna strona dokumentu, na której nikt niczego nie
+  akceptuje, pokazuje wtedy tekst w języku wersji i mówi o tym wprost.
+- **Operacje dokumentów są zablokowane wersją, nie kluczem.** Dokument ma
+  licznik `version`; każdy zapis podaje `expected_version`, a powtórka na tej
+  samej wersji kończy się 409 i niczego nie zmienia (wzór wizytówki), więc
+  `Idempotency-Key` nie jest tu potrzebny. Polecenia asystenta (odczyt, zapis
+  szkicu z `origin_ref`) przychodzą w 4d razem ze źródłem tłumaczeń — oba to
+  „maszyna pisze do dokumentu prawnego”; serwis ma już ich kształt (podgląd,
+  wersja, błędy z polem i kodem), a zatwierdzenie zostaje wyłącznie osobie.
 - **Tekst dokumentu to zwykły tekst** (akapity i puste linie), bez znaczników:
   skrót liczy się z dokładnie tego, co klient zobaczył, a każdy kanał (strona,
   e-mail, formularz) pokazuje to samo.

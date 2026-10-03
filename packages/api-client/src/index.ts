@@ -6219,3 +6219,119 @@ export async function grantCommandConsent(digest: string): Promise<string> {
   if (error || !data) throwProblem(error, response);
   return data.consent_token;
 }
+
+export type CustomerDocument = components["schemas"]["CustomerDocument"];
+export type CustomerDocumentVersion =
+  components["schemas"]["CustomerDocumentVersion"];
+export type CustomerDocumentOptions =
+  components["schemas"]["CustomerDocumentOptions"];
+export type CustomerDocumentList =
+  components["schemas"]["CustomerDocumentList"];
+export type CustomerDocumentDetail =
+  components["schemas"]["CustomerDocumentDetail"];
+export type CustomerDocumentApprovalEffect =
+  components["schemas"]["CustomerDocumentApprovalEffect"];
+export type CustomerDocumentApproval =
+  components["schemas"]["CustomerDocumentApproval"];
+export type PublicCustomerDocument =
+  components["schemas"]["PublicCustomerDocument"];
+
+/** The company's documents for its customers: every kind, what is in force
+ *  today and whether a draft waits (ADR-073 §9). */
+export async function listCustomerDocuments(): Promise<CustomerDocumentList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/customers/documents/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** One document with its draft, versions and the texts of each language. */
+export async function readCustomerDocument(
+  kind: CustomerDocument["kind"],
+): Promise<CustomerDocumentDetail> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/customers/documents/{kind}/",
+    {
+      params: { path: { kind } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Writes the draft (an empty text clears it), at the version last read. */
+export async function saveCustomerDocumentDraft(
+  kind: CustomerDocument["kind"],
+  input: components["schemas"]["CustomerDocumentDraftInput"],
+): Promise<CustomerDocument> {
+  const { data, error, response } = await client.PUT(
+    "/api/v1/customers/documents/{kind}/draft/",
+    {
+      params: { path: { kind } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What approving the draft would do; writes nothing. */
+export async function previewCustomerDocumentApproval(
+  kind: CustomerDocument["kind"],
+  input: components["schemas"]["CustomerDocumentApproveInput"],
+): Promise<CustomerDocumentApproval> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/customers/documents/{kind}/approve/preview/",
+    {
+      params: { path: { kind } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Approves the draft as the next version: a person, after a fresh code from
+ *  the authenticator app (403 `step_up_required`). */
+export async function approveCustomerDocument(
+  kind: CustomerDocument["kind"],
+  input: components["schemas"]["CustomerDocumentApproveInput"],
+): Promise<CustomerDocumentApproval> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/customers/documents/{kind}/approve/",
+    {
+      params: { path: { kind } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Adds a version's text in a language, or a correction of one: a new row. */
+export async function addCustomerDocumentText(
+  kind: CustomerDocument["kind"],
+  input: components["schemas"]["CustomerDocumentTextInput"],
+): Promise<CustomerDocument> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/customers/documents/{kind}/texts/",
+    {
+      params: { path: { kind } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

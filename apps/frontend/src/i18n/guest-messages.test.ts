@@ -17,6 +17,7 @@ const GUEST_NAMESPACES = [
   "BookingSelfService",
   "BookingPrice",
   "Marketing",
+  "CustomerDocument",
 ] as const;
 
 const repository = path.resolve(__dirname, "../../../..");

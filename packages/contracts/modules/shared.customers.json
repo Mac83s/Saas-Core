@@ -5,16 +5,21 @@
   "dependsOn": ["core.organizations"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.customers",
-    "urlPrefix": null,
-    "permissions": [],
+    "urlPrefix": "/api/v1/customers",
+    "permissions": ["customers.read", "customers.manage"],
+    "roleGrants": {
+      "manager": ["customers.read"],
+      "admin": ["customers.read", "customers.manage"],
+      "owner": ["customers.read", "customers.manage"]
+    },
     "entitlements": [],
     "eventSchemas": [],
     "publicTables": [],
     "platformTables": []
   },
   "frontend": {
-    "routes": [],
+    "routes": ["/panel/settings/documents", "/documents"],
     "navigation": [],
-    "translationNamespaces": []
+    "translationNamespaces": ["CustomerDocuments", "CustomerDocument"]
   }
 }

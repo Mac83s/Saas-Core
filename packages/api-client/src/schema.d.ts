@@ -2649,6 +2649,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company's documents for its customers
+         * @description Every kind of document — booking terms, shop terms, privacy policy, cancellation policy — with its draft, the version in force today and one approved for later, plus what a caller may choose from: the company's content languages and the longest text.
+         */
+        get: operations["customers_documents_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/documents/{kind}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One document with its versions and texts
+         * @description The draft, every approved version (newest first) and, for the version in force and the upcoming one, the current text in each language; with what a caller may choose from, as in the list.
+         */
+        get: operations["customers_document_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/documents/{kind}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve the draft as the next version
+         * @description Makes the draft an append-only version in force from a day. Only a person may do it, after a fresh code from the authenticator app: 403 `person_required` for an automation, 403 `step_up_required` without the code (POST /api/v1/auth/step-up/, then repeat), `step_up_mfa_setup_required` for an account without two-factor sign-in.
+         */
+        post: operations["customers_document_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/documents/{kind}/approve/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What approving the draft would do
+         * @description Checks the draft exactly as the approval does and says which version number it gets, from which day, and in which of the company's languages customers will get no document until somebody adds that text. Writes nothing.
+         */
+        post: operations["customers_document_approve_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/documents/{kind}/draft/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write a document's draft
+         * @description Saves the text somebody is still working on, in one content language of the company; an empty text clears it. A draft binds nobody: customers keep reading the version in force until a person approves the draft.
+         */
+        put: operations["customers_document_draft_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/documents/{kind}/texts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a version's text in a language
+         * @description Appends the text of an approved version in another content language of the company, or a correction of a text it already has. Always a new row: what customers agreed to stays as it was. The same gate as the approval — a person, after a fresh code from the authenticator app.
+         */
+        post: operations["customers_document_text_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/": {
         parameters: {
             query?: never;
@@ -5083,6 +5203,26 @@ export interface paths {
          * @description One page of every catalogue entry: its city and slug, the language the card is written in, the languages it has a complete translation in, and when it last changed. Pages hold `page_size` entries in address order; the platform's sitemap lists the card in its own language and in each translated one.
          */
         get: operations["catalog_sitemap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/documents/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A company's document, as anybody may read it
+         * @description The version in force today behind a document's public address. With `locale` the text comes in that language when the version has it, otherwise in the language the version was approved in; `locale` in the answer says which.
+         */
+        get: operations["public_customer_document"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9381,6 +9521,133 @@ export interface components {
             packs: components["schemas"]["CreditPack"][];
             purchases: components["schemas"]["CreditPurchase"][];
         };
+        CustomerDocument: {
+            kind: components["schemas"]["CustomerDocumentKindEnum"];
+            /** @description Send it back as `expected_version` with every write; 0 before the first. */
+            version: number;
+            /** @description What somebody is still writing; binds nobody. */
+            draft: components["schemas"]["CustomerDocumentDraft"] | null;
+            /** @description The version customers get today. */
+            in_force: components["schemas"]["CustomerDocumentVersion"] | null;
+            /** @description A version approved for a later day. */
+            upcoming: components["schemas"]["CustomerDocumentVersion"] | null;
+            /** @description The document's public page; null before the first version. */
+            public_url: string | null;
+            /** @description Every version, newest first; on a detail read. */
+            versions?: components["schemas"]["CustomerDocumentVersion"][];
+        };
+        CustomerDocumentApproval: {
+            effect: components["schemas"]["CustomerDocumentApprovalEffect"];
+            document: components["schemas"]["CustomerDocument"];
+        };
+        CustomerDocumentApprovalEffect: {
+            /** @description The number the new version gets. */
+            number: number;
+            /** Format: date */
+            effective_from: string;
+            source_locale: string;
+            /** @description The company's other languages: the new version has no text in them until a person adds one, and customers who read them get no document. */
+            locales_without_text: string[];
+        };
+        CustomerDocumentApproveInput: {
+            /** @description The document's `version` as last read; another answers 409. */
+            expected_version: number;
+            /**
+             * Format: date
+             * @description The first day the version is in force, in the company's time zone; today when left out, never a past day.
+             */
+            effective_from?: string | null;
+        };
+        CustomerDocumentDetail: {
+            document: components["schemas"]["CustomerDocument"];
+            options: components["schemas"]["CustomerDocumentOptions"];
+        };
+        CustomerDocumentDraft: {
+            /** @description The draft's text, plain paragraphs. */
+            text: string;
+            /** @description The content language the draft is written in. */
+            locale: string;
+            /** @description The assistant's run that wrote the draft; empty when a person did. */
+            origin_ref: string;
+        };
+        CustomerDocumentDraftInput: {
+            /** @description Plain text: paragraphs separated by an empty line. Empty clears the draft. */
+            text: string;
+            /** @description The content language of the draft, e.g. pl. */
+            locale: string;
+            /** @description The document's `version` as last read; another answers 409. */
+            expected_version: number;
+        };
+        /**
+         * @description * `booking_terms` - Regulamin rezerwacji
+         *     * `shop_terms` - Regulamin sklepu
+         *     * `privacy_policy` - Polityka prywatności
+         *     * `cancellation_policy` - Polityka anulowania
+         * @enum {string}
+         */
+        CustomerDocumentKindEnum: "booking_terms" | "shop_terms" | "privacy_policy" | "cancellation_policy";
+        CustomerDocumentList: {
+            documents: components["schemas"]["CustomerDocument"][];
+            options: components["schemas"]["CustomerDocumentOptions"];
+        };
+        CustomerDocumentOptions: {
+            kinds: components["schemas"]["CustomerDocumentKindEnum"][];
+            /** @description The company's content languages. */
+            locales: string[];
+            /** @description The language a new draft starts in. */
+            default_locale: string;
+            /** @description The longest text, in characters. */
+            text_max: number;
+        };
+        CustomerDocumentText: {
+            /**
+             * Format: uuid
+             * @description The text row a consent points at.
+             */
+            id: string;
+            /** @description The row's content language. */
+            locale: string;
+            /** @description Exactly what customers read. */
+            text: string;
+            /** @description sha256 of `text`. */
+            text_hash: string;
+            /**
+             * Format: date-time
+             * @description When a person added the row.
+             */
+            accepted_at: string;
+            /** @description Who added it, by name. */
+            accepted_by: string;
+        };
+        CustomerDocumentTextInput: {
+            /** @description The version the text belongs to. */
+            number: number;
+            /** @description The content language of the text, e.g. en. */
+            locale: string;
+            /** @description Plain text: paragraphs separated by an empty line. */
+            text: string;
+            /** @description The document's `version` as last read; another answers 409. */
+            expected_version: number;
+        };
+        CustomerDocumentVersion: {
+            /** @description The version's number, from 1. */
+            number: number;
+            /** @description The language it was approved in. */
+            source_locale: string;
+            /**
+             * Format: date
+             * @description The first day customers get it, in the company's time zone.
+             */
+            effective_from: string;
+            /** Format: date-time */
+            approved_at: string;
+            /** @description Who approved it, by name. */
+            approved_by: string;
+            /** @description The languages the version has a text in. A customer who reads another one gets no document. */
+            locales: string[];
+            /** @description The current text per language; on a detail read. */
+            texts?: components["schemas"]["CustomerDocumentText"][];
+        };
         CustomerInput: {
             display_name: string;
             email?: string;
@@ -13528,6 +13795,21 @@ export interface components {
             staff_choice: string;
             team_ids: string[];
             person_ids: string[];
+        };
+        PublicCustomerDocument: {
+            kind: components["schemas"]["CustomerDocumentKindEnum"];
+            /** @description The company whose document it is. */
+            organization_name: string;
+            version: number;
+            /** Format: date */
+            effective_from: string;
+            /** @description The language of `text`. */
+            locale: string;
+            /** @description The languages this version can be read in. */
+            locales: string[];
+            text: string;
+            /** @description sha256 of `text`. */
+            text_hash: string;
         };
         /** @description An extra of a service on the booking form. */
         PublicExtra: {
@@ -23598,6 +23880,306 @@ export interface operations {
             };
         };
     };
+    customers_documents_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDocumentList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_document_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDocumentDetail"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_document_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDocumentApproveInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CustomerDocumentApproveInput"];
+                "multipart/form-data": components["schemas"]["CustomerDocumentApproveInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDocumentApproval"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_document_approve_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDocumentApproveInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CustomerDocumentApproveInput"];
+                "multipart/form-data": components["schemas"]["CustomerDocumentApproveInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDocumentApproval"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_document_draft_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDocumentDraftInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CustomerDocumentDraftInput"];
+                "multipart/form-data": components["schemas"]["CustomerDocumentDraftInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_document_text_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDocumentTextInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CustomerDocumentTextInput"];
+                "multipart/form-data": components["schemas"]["CustomerDocumentTextInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     farms_list: {
         parameters: {
             query?: {
@@ -31359,6 +31941,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogSitemapPage"];
+                };
+            };
+        };
+    };
+    public_customer_document: {
+        parameters: {
+            query?: {
+                /** @description A language code, e.g. de. */
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCustomerDocument"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

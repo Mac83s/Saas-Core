@@ -166,5 +166,16 @@
     "times": "{name} × {count}",
     "deposit": "Rückzahlbare Kaution: {amount}",
     "payOnSite": "Zahlung vor Ort."
+  },
+  "CustomerDocument": {
+    "kinds": {
+      "booking_terms": "Buchungsbedingungen",
+      "shop_terms": "Shop-Bedingungen",
+      "privacy_policy": "Datenschutzerklärung",
+      "cancellation_policy": "Stornobedingungen"
+    },
+    "version": "Version {number}, gültig ab {date}",
+    "otherLanguage": "Dieses Dokument hat noch keinen Text in der gewählten Sprache. Sie lesen es auf: {language}.",
+    "readIn": "Lesen auf"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:1b1b824192719dbb485d909166f404e68d669385f780cb0708a4b80cff66f1f3",
+  "profileHash": "sha256:7290d96ceb4eb208e90bfe23df1f8a3fb0a4f637e0bb2e96a9509d3f8ef69437",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -545,17 +545,39 @@
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.customers",
-        "urlPrefix": null,
-        "permissions": [],
+        "urlPrefix": "/api/v1/customers",
+        "permissions": [
+          "customers.read",
+          "customers.manage"
+        ],
+        "roleGrants": {
+          "manager": [
+            "customers.read"
+          ],
+          "admin": [
+            "customers.read",
+            "customers.manage"
+          ],
+          "owner": [
+            "customers.read",
+            "customers.manage"
+          ]
+        },
         "entitlements": [],
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": []
       },
       "frontend": {
-        "routes": [],
+        "routes": [
+          "/panel/settings/documents",
+          "/documents"
+        ],
         "navigation": [],
-        "translationNamespaces": []
+        "translationNamespaces": [
+          "CustomerDocuments",
+          "CustomerDocument"
+        ]
       }
     },
     {

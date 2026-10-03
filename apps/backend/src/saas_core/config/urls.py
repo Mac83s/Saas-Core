@@ -81,6 +81,21 @@ def _profile_routes() -> list[Route]:
     ]
 
 
+def _customer_routes() -> list[Route]:
+    from saas_core.modules.shared.customers.views import PublicDocumentView  # noqa: PLC0415
+
+    return [
+        path("api/v1/customers/", include("saas_core.modules.shared.customers.urls")),
+        # A document's public address (ADR-073 §9): no session, the route's
+        # identifier names the tenant.
+        path(
+            "api/v1/public/documents/<str:public_id>/",
+            PublicDocumentView.as_view(),
+            name="public-customer-document",
+        ),
+    ]
+
+
 def _booking_routes() -> list[Route]:
     return [path("api/v1/booking/", include("saas_core.modules.shared.booking.urls"))]
 
@@ -164,6 +179,7 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "shared.media": _media_routes,
     "shared.notifications": _notification_routes,
     "shared.profiles": _profile_routes,
+    "shared.customers": _customer_routes,
     "shared.booking": _booking_routes,
     "shared.farms": lambda: [path("api/v1/farms/", include("saas_core.modules.shared.farms.urls"))],
     "shared.inventory": lambda: [

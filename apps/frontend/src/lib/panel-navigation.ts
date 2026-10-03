@@ -271,6 +271,12 @@ export const PANEL_SECTIONS = {
       module: "shared.booking",
       permission: "organization.settings.manage",
     },
+    {
+      href: "/panel/settings/documents",
+      labelKey: "sectionDocuments",
+      module: "shared.customers",
+      permission: "customers.read",
+    },
     // The product's own settings (ProductSettingsSection) stand with the
     // company's, before the technical page (UX-002).
     ...(product.settingsSections ?? []),

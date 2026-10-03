@@ -933,6 +933,8 @@ REST_FRAMEWORK = {
         "identity_verification_resend": "5/min",
         "identity_verification_confirm": "10/min",
         "booking_public": BOOKING_PUBLIC_RATE,
+        # A company's document at its public address (ADR-073 §9).
+        "customers_public_document": "60/min",
         "sites_subdomain_availability": "30/min",
     },
 }
@@ -945,6 +947,7 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "LocaleEnum": ["pl", "en"],
         "StockDocumentKindEnum": "saas_core.modules.shared.inventory.models.DocumentKind",
+        "CustomerDocumentKindEnum": "saas_core.modules.shared.customers.models.DocumentKind",
         # A second `state` enum (image jobs) must not rename the SEO one.
         "StateEnum": "saas_core.modules.shared.seo.models.AuditOrderState",
         "ImageGenerationJobStateEnum": "saas_core.modules.shared.image_generation.models.JobState",

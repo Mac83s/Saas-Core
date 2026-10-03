@@ -7597,6 +7597,320 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/customers/documents/:
+    get:
+      operationId: customers_documents_list
+      description: 'Every kind of document — booking terms, shop terms, privacy policy,
+        cancellation policy — with its draft, the version in force today and one approved
+        for later, plus what a caller may choose from: the company''s content languages
+        and the longest text.'
+      summary: The company's documents for its customers
+      tags:
+      - customers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDocumentList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/customers/documents/{kind}/:
+    get:
+      operationId: customers_document_read
+      description: The draft, every approved version (newest first) and, for the version
+        in force and the upcoming one, the current text in each language; with what
+        a caller may choose from, as in the list.
+      summary: One document with its versions and texts
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - customers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDocumentDetail'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/customers/documents/{kind}/approve/:
+    post:
+      operationId: customers_document_approve
+      description: 'Makes the draft an append-only version in force from a day. Only
+        a person may do it, after a fresh code from the authenticator app: 403 `person_required`
+        for an automation, 403 `step_up_required` without the code (POST /api/v1/auth/step-up/,
+        then repeat), `step_up_mfa_setup_required` for an account without two-factor
+        sign-in.'
+      summary: Approve the draft as the next version
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentApproveInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentApproveInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentApproveInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDocumentApproval'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by version: a repeat at the same version answers
+          409 and changes nothing.'
+  /api/v1/customers/documents/{kind}/approve/preview/:
+    post:
+      operationId: customers_document_approve_preview
+      description: Checks the draft exactly as the approval does and says which version
+        number it gets, from which day, and in which of the company's languages customers
+        will get no document until somebody adds that text. Writes nothing.
+      summary: What approving the draft would do
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentApproveInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentApproveInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentApproveInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDocumentApproval'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/customers/documents/{kind}/draft/:
+    put:
+      operationId: customers_document_draft_save
+      description: 'Saves the text somebody is still working on, in one content language
+        of the company; an empty text clears it. A draft binds nobody: customers keep
+        reading the version in force until a person approves the draft.'
+      summary: Write a document's draft
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentDraftInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentDraftInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentDraftInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by version: a repeat at the same version answers
+          409 and changes nothing.'
+  /api/v1/customers/documents/{kind}/texts/:
+    post:
+      operationId: customers_document_text_add
+      description: 'Appends the text of an approved version in another content language
+        of the company, or a correction of a text it already has. Always a new row:
+        what customers agreed to stays as it was. The same gate as the approval —
+        a person, after a fresh code from the authenticator app.'
+      summary: Add a version's text in a language
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentTextInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentTextInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomerDocumentTextInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by version: a repeat at the same version answers
+          409 and changes nothing.'
   /api/v1/farms/:
     get:
       operationId: farms_list
@@ -15019,6 +15333,43 @@ paths:
           description: ''
       x-quality-exempt:
         error-400: A page that is not a number is the first page, never refused.
+  /api/v1/public/documents/{public_id}/:
+    get:
+      operationId: public_customer_document
+      description: The version in force today behind a document's public address.
+        With `locale` the text comes in that language when the version has it, otherwise
+        in the language the version was approved in; `locale` in the answer says which.
+      summary: A company's document, as anybody may read it
+      parameters:
+      - in: query
+        name: locale
+        schema:
+          type: string
+        description: A language code, e.g. de.
+      - in: path
+        name: public_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-customers
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCustomerDocument'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        error-400: A language the version has no text in is answered in its own.
   /api/v1/public/site/:
     get:
       operationId: public_site_page_retrieve
@@ -27190,6 +27541,284 @@ components:
       - payment_mode
       - plan_required
       - purchases
+    CustomerDocument:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/CustomerDocumentKindEnum'
+        version:
+          type: integer
+          description: Send it back as `expected_version` with every write; 0 before
+            the first.
+        draft:
+          oneOf:
+          - $ref: '#/components/schemas/CustomerDocumentDraft'
+          - type: 'null'
+          description: What somebody is still writing; binds nobody.
+        in_force:
+          oneOf:
+          - $ref: '#/components/schemas/CustomerDocumentVersion'
+          - type: 'null'
+          description: The version customers get today.
+        upcoming:
+          oneOf:
+          - $ref: '#/components/schemas/CustomerDocumentVersion'
+          - type: 'null'
+          description: A version approved for a later day.
+        public_url:
+          type:
+          - string
+          - 'null'
+          description: The document's public page; null before the first version.
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerDocumentVersion'
+          description: Every version, newest first; on a detail read.
+      required:
+      - draft
+      - in_force
+      - kind
+      - public_url
+      - upcoming
+      - version
+    CustomerDocumentApproval:
+      type: object
+      properties:
+        effect:
+          $ref: '#/components/schemas/CustomerDocumentApprovalEffect'
+        document:
+          $ref: '#/components/schemas/CustomerDocument'
+      required:
+      - document
+      - effect
+    CustomerDocumentApprovalEffect:
+      type: object
+      properties:
+        number:
+          type: integer
+          description: The number the new version gets.
+        effective_from:
+          type: string
+          format: date
+        source_locale:
+          type: string
+        locales_without_text:
+          type: array
+          items:
+            type: string
+          description: 'The company''s other languages: the new version has no text
+            in them until a person adds one, and customers who read them get no document.'
+      required:
+      - effective_from
+      - locales_without_text
+      - number
+      - source_locale
+    CustomerDocumentApproveInput:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The document's `version` as last read; another answers 409.
+        effective_from:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: The first day the version is in force, in the company's time
+            zone; today when left out, never a past day.
+      required:
+      - expected_version
+    CustomerDocumentDetail:
+      type: object
+      properties:
+        document:
+          $ref: '#/components/schemas/CustomerDocument'
+        options:
+          $ref: '#/components/schemas/CustomerDocumentOptions'
+      required:
+      - document
+      - options
+    CustomerDocumentDraft:
+      type: object
+      properties:
+        text:
+          type: string
+          description: The draft's text, plain paragraphs.
+        locale:
+          type: string
+          description: The content language the draft is written in.
+        origin_ref:
+          type: string
+          description: The assistant's run that wrote the draft; empty when a person
+            did.
+      required:
+      - locale
+      - origin_ref
+      - text
+    CustomerDocumentDraftInput:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 'Plain text: paragraphs separated by an empty line. Empty clears
+            the draft.'
+          maxLength: 100000
+        locale:
+          type: string
+          description: The content language of the draft, e.g. pl.
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The document's `version` as last read; another answers 409.
+      required:
+      - expected_version
+      - locale
+      - text
+    CustomerDocumentKindEnum:
+      enum:
+      - booking_terms
+      - shop_terms
+      - privacy_policy
+      - cancellation_policy
+      type: string
+      description: |-
+        * `booking_terms` - Regulamin rezerwacji
+        * `shop_terms` - Regulamin sklepu
+        * `privacy_policy` - Polityka prywatności
+        * `cancellation_policy` - Polityka anulowania
+    CustomerDocumentList:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerDocument'
+        options:
+          $ref: '#/components/schemas/CustomerDocumentOptions'
+      required:
+      - documents
+      - options
+    CustomerDocumentOptions:
+      type: object
+      properties:
+        kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerDocumentKindEnum'
+        locales:
+          type: array
+          items:
+            type: string
+          description: The company's content languages.
+        default_locale:
+          type: string
+          description: The language a new draft starts in.
+        text_max:
+          type: integer
+          description: The longest text, in characters.
+      required:
+      - default_locale
+      - kinds
+      - locales
+      - text_max
+    CustomerDocumentText:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The text row a consent points at.
+        locale:
+          type: string
+          description: The row's content language.
+        text:
+          type: string
+          description: Exactly what customers read.
+        text_hash:
+          type: string
+          description: sha256 of `text`.
+        accepted_at:
+          type: string
+          format: date-time
+          description: When a person added the row.
+        accepted_by:
+          type: string
+          description: Who added it, by name.
+      required:
+      - accepted_at
+      - accepted_by
+      - id
+      - locale
+      - text
+      - text_hash
+    CustomerDocumentTextInput:
+      type: object
+      properties:
+        number:
+          type: integer
+          minimum: 1
+          description: The version the text belongs to.
+        locale:
+          type: string
+          description: The content language of the text, e.g. en.
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        text:
+          type: string
+          description: 'Plain text: paragraphs separated by an empty line.'
+          maxLength: 100000
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The document's `version` as last read; another answers 409.
+      required:
+      - expected_version
+      - locale
+      - number
+      - text
+    CustomerDocumentVersion:
+      type: object
+      properties:
+        number:
+          type: integer
+          description: The version's number, from 1.
+        source_locale:
+          type: string
+          description: The language it was approved in.
+        effective_from:
+          type: string
+          format: date
+          description: The first day customers get it, in the company's time zone.
+        approved_at:
+          type: string
+          format: date-time
+        approved_by:
+          type: string
+          description: Who approved it, by name.
+        locales:
+          type: array
+          items:
+            type: string
+          description: The languages the version has a text in. A customer who reads
+            another one gets no document.
+        texts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerDocumentText'
+          description: The current text per language; on a detail read.
+      required:
+      - approved_at
+      - approved_by
+      - effective_from
+      - locales
+      - number
+      - source_locale
     CustomerInput:
       type: object
       properties:
@@ -36557,6 +37186,41 @@ components:
       - public_slug
       - staff_choice
       - team_ids
+    PublicCustomerDocument:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/CustomerDocumentKindEnum'
+        organization_name:
+          type: string
+          description: The company whose document it is.
+        version:
+          type: integer
+        effective_from:
+          type: string
+          format: date
+        locale:
+          type: string
+          description: The language of `text`.
+        locales:
+          type: array
+          items:
+            type: string
+          description: The languages this version can be read in.
+        text:
+          type: string
+        text_hash:
+          type: string
+          description: sha256 of `text`.
+      required:
+      - effective_from
+      - kind
+      - locale
+      - locales
+      - organization_name
+      - text
+      - text_hash
+      - version
     PublicExtra:
       type: object
       description: An extra of a service on the booking form.

@@ -1,0 +1,653 @@
+"""The company's documents for its customers and the consent journal
+(ADR-073 §9).
+
+A document has a draft anybody with `customers.manage` writes, and versions
+only a person approves, after a fresh second factor. A version and its texts
+are append-only: a correction is a new text row and a change of substance is
+the next version, so the text a customer agreed to never changes. Another
+module reads the document in force through `current_document` and writes what
+a person saw through `record_consent` — both in `customers.api`.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import secrets
+from dataclasses import dataclass
+from datetime import date
+from typing import Any
+from uuid import UUID
+
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
+
+from saas_core.content_protocol.provenance import ORIGIN_HUMAN, Provenance, unit_hash
+from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.identity.step_up import require_step_up
+from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.authorization import authorize
+from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.locales import (
+    assert_content_locale,
+    organization_content_locales,
+)
+from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.person_gate import assert_person_required
+
+from .models import (
+    ConsentKind,
+    ConsentRecord,
+    Customer,
+    CustomerDocument,
+    DocumentKind,
+    DocumentRoute,
+    DocumentText,
+    DocumentVersion,
+)
+
+CUSTOMERS_READ = "customers.read"
+CUSTOMERS_MANAGE = "customers.manage"
+#: What the person gate and the security log call the approval.
+APPROVAL = "Dokument dla klientów"
+STEP_UP_REASON = "customers.document.approve"
+#: A protective bound, not a company's choice: a document is a few pages.
+DOCUMENT_TEXT_MAX = 100_000
+#: The translation memory's key for a document's text (`content_protocol`).
+UNIT_KIND = "text"
+_PLATFORM_DEFAULT_LOCALE = "pl"
+
+
+class DocumentVersionConflict(APIException):
+    status_code = 409
+    default_detail = "Dokument zmienił się w międzyczasie."
+    default_code = "customers_document_version_conflict"
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentInForce:
+    """What a customer is shown and agrees to: one text row of the version in
+    force, in exactly the language asked for."""
+
+    document_id: UUID
+    kind: str
+    version: int
+    effective_from: date
+    text_id: UUID
+    locale: str
+    text: str
+    text_hash: str
+    #: Where anybody can read it, in that language.
+    url: str
+
+
+def text_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def document_url(public_id: str, locale: str) -> str:
+    """The document's public page on the platform, in a language: a guest
+    page, so the default language has no prefix and every other content
+    language stands under `/<code>` (the routing `notifications.public_url`
+    follows for a booking's link)."""
+    prefix = "" if locale == _PLATFORM_DEFAULT_LOCALE else f"/{locale}"
+    return f"{settings.FRONTEND_BASE_URL.rstrip('/')}{prefix}/documents/{public_id}"
+
+
+def _organization(organization_id: UUID) -> Organization:
+    return Organization.objects.get(pk=organization_id)
+
+
+def _kind(kind: str) -> str:
+    if kind not in DocumentKind.values:
+        raise NotFound("Nie ma takiego dokumentu.")
+    return kind
+
+
+def _document(organization_id: UUID, kind: str, *, lock: bool = False) -> CustomerDocument | None:
+    rows = CustomerDocument.all_objects.filter(organization_id=organization_id, kind=kind)
+    if lock:
+        rows = rows.select_for_update()
+    return rows.first()
+
+
+def _in_force(document: CustomerDocument, today: date) -> DocumentVersion | None:
+    """The version customers get today: the latest one already in force."""
+    return (
+        DocumentVersion.all_objects.filter(
+            organization_id=document.organization_id,
+            document=document,
+            effective_from__lte=today,
+        )
+        .order_by("-effective_from", "-number")
+        .first()
+    )
+
+
+def _current_texts(version: DocumentVersion) -> dict[str, DocumentText]:
+    """The version's text per language: the latest row of each."""
+    texts: dict[str, DocumentText] = {}
+    rows = DocumentText.all_objects.filter(
+        organization_id=version.organization_id, version=version
+    ).order_by("accepted_at", "id")
+    for row in rows:
+        texts[row.locale] = row
+    return texts
+
+
+def _check_version(document: CustomerDocument | None, expected_version: int) -> None:
+    if (document.version if document else 0) != expected_version:
+        raise DocumentVersionConflict
+
+
+def _checked_text(text: str, field: str = "text") -> str:
+    text = text.replace("\r\n", "\n").strip()
+    if not text:
+        raise ValidationError({field: [ErrorDetail("Podaj treść dokumentu.", code="required")]})
+    if len(text) > DOCUMENT_TEXT_MAX:
+        raise ValidationError({
+            field: [
+                ErrorDetail(
+                    f"Dokument może mieć najwyżej {DOCUMENT_TEXT_MAX} znaków.", code="max_length"
+                )
+            ]
+        })
+    return text
+
+
+# --- what the panel reads -------------------------------------------------
+
+
+def _names(user_ids: set[UUID]) -> dict[UUID, str]:
+    return {
+        user.id: f"{user.first_name} {user.last_name}".strip() or user.email
+        for user in User.objects.filter(id__in=user_ids)
+    }
+
+
+def _version_payload(
+    version: DocumentVersion, names: dict[UUID, str], *, with_texts: bool
+) -> dict[str, Any]:
+    texts = _current_texts(version)
+    payload: dict[str, Any] = {
+        "number": version.number,
+        "source_locale": version.source_locale,
+        "effective_from": version.effective_from,
+        "approved_at": version.approved_at,
+        "approved_by": names.get(version.approved_by, ""),
+        "locales": sorted(texts),
+    }
+    if with_texts:
+        payload["texts"] = [
+            {
+                "id": row.id,
+                "locale": row.locale,
+                "text": row.text,
+                "text_hash": row.text_hash,
+                "accepted_at": row.accepted_at,
+                "accepted_by": names.get(row.accepted_by, ""),
+            }
+            for _locale, row in sorted(texts.items())
+        ]
+    return payload
+
+
+def _payload(
+    organization: Organization,
+    kind: str,
+    document: CustomerDocument | None,
+    *,
+    with_texts: bool,
+) -> dict[str, Any]:
+    today = organization.local_today()
+    versions = (
+        list(
+            DocumentVersion.all_objects.filter(
+                organization_id=organization.id, document=document
+            ).order_by("-number")
+        )
+        if document
+        else []
+    )
+    in_force = _in_force(document, today) if document else None
+    upcoming = next((row for row in versions if row.effective_from > today), None)
+    names = _names(
+        {row.approved_by for row in versions}
+        | (
+            set(
+                DocumentText.all_objects.filter(
+                    organization_id=organization.id, version__in=versions
+                ).values_list("accepted_by", flat=True)
+            )
+            if with_texts
+            else set()
+        )
+    )
+    route = DocumentRoute.objects.filter(document_id=document.id).first() if document else None
+    payload: dict[str, Any] = {
+        "kind": kind,
+        "version": document.version if document else 0,
+        "draft": (
+            {
+                "text": document.draft_text,
+                "locale": document.draft_locale,
+                "origin_ref": document.draft_origin_ref,
+            }
+            if document and document.draft_text
+            else None
+        ),
+        "in_force": (
+            _version_payload(in_force, names, with_texts=with_texts) if in_force else None
+        ),
+        "upcoming": (
+            _version_payload(upcoming, names, with_texts=with_texts) if upcoming else None
+        ),
+        "public_url": (
+            document_url(route.public_id, in_force.source_locale) if route and in_force else None
+        ),
+    }
+    if with_texts:
+        payload["versions"] = [_version_payload(row, names, with_texts=False) for row in versions]
+    return payload
+
+
+def document_options(organization: Organization) -> dict[str, Any]:
+    """What a caller may choose from: the kinds, the company's languages and
+    the bound of a text."""
+    locales = organization_content_locales(organization)
+    return {
+        "kinds": list(DocumentKind.values),
+        "locales": list(locales),
+        "default_locale": locales[0] if locales else str(settings.SITES_DEFAULT_LOCALE),
+        "text_max": DOCUMENT_TEXT_MAX,
+    }
+
+
+def list_documents() -> dict[str, Any]:
+    """Every kind of document, with or without anything written yet."""
+    context = authorize(CUSTOMERS_READ)
+    organization = _organization(context.organization_id)
+    existing = {
+        row.kind: row
+        for row in CustomerDocument.all_objects.filter(organization_id=organization.id)
+    }
+    return {
+        "documents": [
+            _payload(organization, kind, existing.get(kind), with_texts=False)
+            for kind in DocumentKind.values
+        ],
+        "options": document_options(organization),
+    }
+
+
+def read_document(kind: str) -> dict[str, Any]:
+    context = authorize(CUSTOMERS_READ)
+    organization = _organization(context.organization_id)
+    return {
+        "document": _payload(
+            organization, _kind(kind), _document(organization.id, kind), with_texts=True
+        ),
+        "options": document_options(organization),
+    }
+
+
+# --- what the panel writes ------------------------------------------------
+
+
+@transaction.atomic
+def save_draft(
+    kind: str,
+    *,
+    text: str,
+    locale: str,
+    expected_version: int,
+    origin_ref: str = "",
+) -> dict[str, Any]:
+    """Writes the draft, or clears it with an empty text. A draft binds
+    nobody: customers keep reading the version in force."""
+    context = authorize(CUSTOMERS_MANAGE)
+    organization = _organization(context.organization_id)
+    document = _document(organization.id, _kind(kind), lock=True)
+    _check_version(document, expected_version)
+    text = text.replace("\r\n", "\n").strip()
+    if text:
+        text = _checked_text(text)
+        assert_content_locale(locale, organization=organization)
+    if document is None:
+        if not text:
+            return _payload(organization, kind, None, with_texts=True)
+        document = CustomerDocument.all_objects.create(organization=organization, kind=kind)
+    locale = locale if text else ""
+    if (document.draft_text, document.draft_locale) != (text, locale):
+        document.draft_text = text
+        document.draft_locale = locale
+        document.draft_origin_ref = origin_ref if text else ""
+        document.version += 1
+        document.save(
+            update_fields=[
+                "draft_text",
+                "draft_locale",
+                "draft_origin_ref",
+                "version",
+                "updated_at",
+            ]
+        )
+        record_audit(
+            organization=organization,
+            action="customers.document.draft_saved",
+            actor=User.objects.filter(pk=context.actor_id).first(),
+            target_type="customer_document",
+            target_id=document.id,
+            metadata={"kind": kind, "locale": document.draft_locale, "cleared": not text},
+        )
+    return _payload(organization, kind, document, with_texts=True)
+
+
+def _approval_effect(
+    organization: Organization,
+    document: CustomerDocument,
+    effective_from: date,
+) -> dict[str, Any]:
+    """What approving the draft does, said before it is done."""
+    last = (
+        DocumentVersion.all_objects.filter(organization_id=organization.id, document=document)
+        .order_by("-number")
+        .first()
+    )
+    others = [
+        code for code in organization_content_locales(organization) if code != document.draft_locale
+    ]
+    return {
+        "number": (last.number if last else 0) + 1,
+        "effective_from": effective_from,
+        "source_locale": document.draft_locale,
+        # A new version starts with its own language only; customers who read
+        # another one get no document until a person adds that text.
+        "locales_without_text": others,
+    }
+
+
+def _effective_from(organization: Organization, value: date | None) -> date:
+    today = organization.local_today()
+    if value is None:
+        return today
+    if value < today:
+        raise ValidationError({
+            "effective_from": [
+                ErrorDetail("Dokument nie może obowiązywać wstecz.", code="date_in_past")
+            ]
+        })
+    return value
+
+
+@transaction.atomic
+def approve_draft(
+    kind: str,
+    *,
+    expected_version: int,
+    effective_from: date | None = None,
+    preview: bool = False,
+) -> dict[str, Any]:
+    """Makes the draft the next version, in force from a date. Only a person,
+    with a fresh second factor — never an automation (ADR-073 §9)."""
+    context = authorize(CUSTOMERS_MANAGE)
+    organization = _organization(context.organization_id)
+    document = _document(organization.id, _kind(kind), lock=True)
+    _check_version(document, expected_version)
+    if document is None or not document.draft_text:
+        raise ValidationError({
+            "draft": [ErrorDetail("Nie ma szkicu do zatwierdzenia.", code="draft_missing")]
+        })
+    # The company may have switched the draft's language off since.
+    assert_content_locale(document.draft_locale, organization=organization, field="draft")
+    effect = _approval_effect(organization, document, _effective_from(organization, effective_from))
+    if preview:
+        return {
+            "effect": effect,
+            "document": _payload(organization, kind, document, with_texts=True),
+        }
+    assert_person_required(context, APPROVAL)
+    require_step_up(user_id=context.actor_id, reason=STEP_UP_REASON)
+    now = timezone.now()
+    version = DocumentVersion.all_objects.create(
+        organization=organization,
+        document=document,
+        number=effect["number"],
+        source_locale=document.draft_locale,
+        effective_from=effect["effective_from"],
+        approved_by=context.actor_id,
+        approved_at=now,
+    )
+    DocumentText.all_objects.create(
+        organization=organization,
+        version=version,
+        locale=document.draft_locale,
+        text=document.draft_text,
+        text_hash=text_hash(document.draft_text),
+        accepted_by=context.actor_id,
+        accepted_at=now,
+    )
+    DocumentRoute.objects.get_or_create(
+        document_id=document.id,
+        defaults={
+            "public_id": secrets.token_urlsafe(16),
+            "organization_id": organization.id,
+        },
+    )
+    document.draft_text = ""
+    document.draft_locale = ""
+    document.draft_origin_ref = ""
+    document.version += 1
+    document.save(
+        update_fields=["draft_text", "draft_locale", "draft_origin_ref", "version", "updated_at"]
+    )
+    record_audit(
+        organization=organization,
+        action="customers.document.approved",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="customer_document",
+        target_id=document.id,
+        metadata={
+            "kind": kind,
+            "number": version.number,
+            "locale": version.source_locale,
+            "effective_from": version.effective_from.isoformat(),
+        },
+    )
+    return {"effect": effect, "document": _payload(organization, kind, document, with_texts=True)}
+
+
+@transaction.atomic
+def add_text(
+    kind: str,
+    *,
+    number: int,
+    locale: str,
+    text: str,
+    expected_version: int,
+) -> dict[str, Any]:
+    """A version's text in another language, or a correction of one it has:
+    always a new row, by a person with a fresh second factor — the same gate
+    as the version itself."""
+    context = authorize(CUSTOMERS_MANAGE)
+    organization = _organization(context.organization_id)
+    document = _document(organization.id, _kind(kind), lock=True)
+    _check_version(document, expected_version)
+    version = (
+        DocumentVersion.all_objects.filter(
+            organization_id=organization.id, document=document, number=number
+        ).first()
+        if document
+        else None
+    )
+    if document is None or version is None:
+        raise NotFound("Nie ma takiej wersji dokumentu.")
+    assert_content_locale(locale, organization=organization)
+    text = _checked_text(text)
+    current = _current_texts(version)
+    if locale in current and current[locale].text == text:
+        raise ValidationError({
+            "text": [ErrorDetail("Ten tekst już obowiązuje.", code="text_unchanged")]
+        })
+    assert_person_required(context, APPROVAL)
+    require_step_up(user_id=context.actor_id, reason=STEP_UP_REASON)
+    now = timezone.now()
+    source = current.get(version.source_locale)
+    provenance = (
+        Provenance(
+            origin=ORIGIN_HUMAN,
+            source_hash=unit_hash(UNIT_KIND, source.text),
+            written_hash=unit_hash(UNIT_KIND, text),
+            at=now.isoformat(),
+        ).as_dict()
+        if source is not None and locale != version.source_locale
+        else {}
+    )
+    row = DocumentText.all_objects.create(
+        organization=organization,
+        version=version,
+        locale=locale,
+        text=text,
+        text_hash=text_hash(text),
+        provenance=provenance,
+        accepted_by=context.actor_id,
+        accepted_at=now,
+    )
+    document.version += 1
+    document.save(update_fields=["version", "updated_at"])
+    record_audit(
+        organization=organization,
+        action="customers.document.text_added",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="customer_document",
+        target_id=document.id,
+        metadata={
+            "kind": kind,
+            "number": version.number,
+            "locale": locale,
+            "text_id": str(row.id),
+            "corrects": locale in current,
+        },
+    )
+    return _payload(organization, kind, document, with_texts=True)
+
+
+# --- what other modules read and write ------------------------------------
+
+
+def current_document(kind: str, locale: str) -> DocumentInForce | None:
+    """The company's document in force today, in exactly this language.
+
+    None when no version is in force yet or the version has no text in
+    `locale` — never another language instead: a consent to a text the person
+    did not choose to read would not be one. The caller holds the company's
+    tenant (a public form's context is enough); no permission is asked,
+    because the answer is what the company published for everybody.
+    """
+    context = require_tenant_context()
+    organization = _organization(context.organization_id)
+    document = _document(organization.id, kind)
+    if document is None:
+        return None
+    version = _in_force(document, organization.local_today())
+    if version is None:
+        return None
+    row = (
+        DocumentText.all_objects.filter(
+            organization_id=organization.id, version=version, locale=locale
+        )
+        .order_by("-accepted_at", "-id")
+        .first()
+    )
+    route = DocumentRoute.objects.filter(document_id=document.id).first()
+    if row is None or route is None:
+        return None
+    return DocumentInForce(
+        document_id=document.id,
+        kind=kind,
+        version=version.number,
+        effective_from=version.effective_from,
+        text_id=row.id,
+        locale=locale,
+        text=row.text,
+        text_hash=row.text_hash,
+        url=document_url(route.public_id, locale),
+    )
+
+
+def record_consent(
+    *,
+    source: str,
+    source_reference: str,
+    customer: Customer | None = None,
+    text_id: UUID | None = None,
+    kind: str = ConsentKind.DOCUMENT,
+    wording: str = "",
+    locale: str = "",
+    granted: bool = True,
+) -> ConsentRecord:
+    """One line of the consent journal, inside the caller's transaction and
+    tenant: this person — a customer, or whoever the source's record names —
+    saw this text row of a document (`text_id`), or agreed to `wording` (a
+    marketing consent, a consent field of a form). Nothing is ever changed:
+    a withdrawal is the next line with `granted=False`."""
+    context = require_tenant_context()
+    row: DocumentText | None = None
+    if kind == ConsentKind.DOCUMENT:
+        row = (
+            DocumentText.all_objects.filter(
+                organization_id=context.organization_id, pk=text_id
+            ).first()
+            if text_id
+            else None
+        )
+        if row is None:
+            raise ValidationError({
+                "text_id": [ErrorDetail("Nie ma takiego tekstu dokumentu.", code="text_unknown")]
+            })
+    return ConsentRecord.all_objects.create(
+        organization_id=context.organization_id,
+        customer=customer,
+        kind=kind,
+        document_text=row,
+        text_hash=row.text_hash if row else (text_hash(wording) if wording else ""),
+        locale=row.locale if row else locale,
+        granted=granted,
+        source=source,
+        source_reference=source_reference,
+    )
+
+
+def public_document(public_id: str, locale: str | None) -> dict[str, Any] | None:
+    """What the document's public page shows: the version in force in the
+    language asked for, or — on a page a person opened to read, where nothing
+    is being agreed to — in the version's own language when that one is
+    missing. The caller set the tenant the route names."""
+    context = require_tenant_context()
+    route = DocumentRoute.objects.filter(
+        public_id=public_id, organization_id=context.organization_id
+    ).first()
+    if route is None:
+        return None
+    document = CustomerDocument.all_objects.filter(
+        organization_id=context.organization_id, pk=route.document_id
+    ).first()
+    organization = _organization(context.organization_id)
+    version = _in_force(document, organization.local_today()) if document else None
+    if document is None or version is None:
+        return None
+    texts = _current_texts(version)
+    row = texts.get(locale or "") or texts.get(version.source_locale)
+    if row is None:
+        return None
+    return {
+        "kind": document.kind,
+        "organization_name": organization.name,
+        "version": version.number,
+        "effective_from": version.effective_from,
+        "locale": row.locale,
+        "locales": sorted(texts),
+        "text": row.text,
+        "text_hash": row.text_hash,
+    }

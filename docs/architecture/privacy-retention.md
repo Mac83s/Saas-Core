@@ -135,6 +135,7 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 | `AppNotification.payload` (powiadomienia zespołu) | identyfikator wizyty, termin, nazwa usługi | zostaje | bez danych klienta |
 | `Appointment` (termin, usługa, osoba z firmy, kwoty), historia stanów, materiały, dokumenty magazynu z `source_reference` | fakty o wizycie | zostaje | zapis pracy firmy; klient jest już nienazwany |
 | `Customer.locale`, `created_at` | język, data rekordu | zostaje | nie wskazują osoby |
+| Dziennik zgód (`customers_consentrecord`, ADR-073 §9) | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu, źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany |
 | Karta gospodarstwa (`shared.farms`) | dane hodowcy | **zostaje — własna reguła** | dlatego grupy nie ma w profilu z gospodarstwami (wyżej) |
 | Rozmowa z asystentem (`assistant_assistantmessage`) | cokolwiek pracownik wpisał, także nazwisko klienta | zostaje do wygaśnięcia rozmowy | nie da się jej znaleźć po identyfikatorze klienta; ogranicza ją retencja rozmów asystenta |
 
