@@ -59,6 +59,7 @@ from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
 from .presets import Preset, list_presets
 from .public import public_choices, public_people, shown_to_customer
+from .quote import quote_offer
 from .rules import (
     copy_closures_to_next_year,
     copy_rules_to_next_year,
@@ -79,6 +80,8 @@ from .serializers import (
     BookingClosurePreviewSerializer,
     BookingClosureSerializer,
     BookingClosureUpdateSerializer,
+    BookingQuoteInputSerializer,
+    BookingQuoteSerializer,
     BookingRuleInputSerializer,
     BookingRuleListSerializer,
     BookingRulePreviewSerializer,
@@ -382,6 +385,7 @@ def _appointment_payload(
         ),
         "requested_staff_id": value.requested_staff_id,
         "customer_notes": value.customer_notes,
+        "quote": value.quote,
     }
 
 
@@ -752,10 +756,21 @@ class AppointmentListCreateView(APIView):
         return Response({"items": [_appointment_payload(x, known=known) for x in items]})
 
     @extend_schema(
+        operation_id="booking_appointment_create",
+        summary="Book a visit",
+        description="Books a free start of a service at a place, for the people named or — "
+        "with none named — the least busy free ones the service needs. The price is worked "
+        "out and frozen in the booking (`quote`); with `quote_digest` a price other than the "
+        "one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`. The same "
+        "Idempotency-Key answers the first booking again (200).",
         tags=["booking"],
         parameters=[IDEMPOTENCY],
         request=AppointmentCreateSerializer,
-        responses={201: AppointmentSerializer},
+        responses={
+            201: AppointmentSerializer,
+            200: AppointmentSerializer,
+            **_SETUP_PROBLEMS,
+        },
     )
     def post(self, request: Request) -> Response:
         context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
@@ -782,10 +797,16 @@ class AppointmentRescheduleView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_appointment_reschedule",
+        summary="Move a visit to another time",
+        description="Moves a confirmed visit with its people; all of them have to be free "
+        "then, or 409 `slot_unavailable` names who is not. A visit that has a price is "
+        "priced again for the new time; with `quote_digest` a price other than the one shown "
+        "is 409 `quote_changed`. A stay moves by its dates (400 `stay_moves_by_dates`).",
         tags=["booking"],
         parameters=[IDEMPOTENCY],
         request=RescheduleSerializer,
-        responses={200: AppointmentSerializer},
+        responses={200: AppointmentSerializer, **_SETUP_PROBLEMS},
     )
     def post(self, request: Request, appointment_id: UUID) -> Response:
         context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
@@ -1312,10 +1333,21 @@ class SelfServiceAppointmentView(APIView):
 
 class SelfServiceRescheduleView(SelfServiceAppointmentView):
     @extend_schema(
+        operation_id="booking_self_service_reschedule",
+        summary="Move one's own visit to another time",
+        description="The customer moves the visit their link names, within what the booking "
+        "allows (409 `appointment_not_changeable` otherwise). A taken time is 409 "
+        "`slot_unavailable`; a visit that has a price is priced again for the new time. An "
+        "unknown, expired or revoked link is 404.",
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=RescheduleSerializer,
-        responses={200: PublicAppointmentSerializer},
+        responses={
+            200: PublicAppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
     )
     def post(self, request: Request, token: str) -> Response:
         route = _self(token)
@@ -2921,6 +2953,7 @@ def _plan_payload(plan: StayPlan) -> dict[str, Any]:
         "ends_at": plan.stay.ends_at,
         "length": plan.stay.length,
         "range_unit": plan.service.range_unit,
+        "quote": plan.quote.snapshot() if plan.quote is not None else None,
     }
 
 
@@ -3008,6 +3041,33 @@ class StayEndsView(APIView):
             start_date=_query_date(request, "start"),
         )
         return Response({"items": days})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingQuoteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_quote",
+        summary="Work out what a booking would cost",
+        description="The price of a visit at `starts_at`, or of a stay from `start_date` to "
+        "`end_date` on the unit a booking would take, for the people who come: lines with "
+        "net, tax and gross, and the totals. Nothing is saved and nothing is held. A booking "
+        "works the price out again and keeps it; send it the `digest` as `quote_digest` and "
+        "a price that changed in between answers 409 `quote_changed`. An offer without a "
+        "price list answers no lines. Refusals name the field: `price_missing`, "
+        "`unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse.",
+        tags=["booking"],
+        request=BookingQuoteInputSerializer,
+        responses={200: BookingQuoteSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = BookingQuoteInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = dict(s.validated_data)
+        data["locale"] = data.get("locale") or None
+        return Response(quote_offer(**data).snapshot())
 
 
 @method_decorator(csrf_protect, name="dispatch")

@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Iterator, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -78,6 +78,11 @@ from .services import (
     upsert_customer,
 )
 
+if TYPE_CHECKING:
+    # Imported late where it runs: the quote reads translations, whose setup
+    # writes import this module's neighbours.
+    from .quote import Quote
+
 #: Without a season saying otherwise, a stay is at least one night or day.
 _MIN_LENGTH = 1
 #: Without a season saying otherwise, the longest stay a calendar offers.
@@ -114,6 +119,8 @@ class StayPlan:
     occupied_until: datetime
     #: The other free units of the group, in the order a lost race tries them.
     fallbacks: tuple[Resource, ...] = ()
+    #: What it would cost, where a preview says so (ADR-072 §7).
+    quote: Quote | None = None
 
 
 class StayRefused(ValidationError):
@@ -249,18 +256,31 @@ def book_stay(
     resource_id: UUID | None = None,
     group_id: UUID | None = None,
     customer_notes: str = "",
+    participants: Sequence[Mapping[str, Any]] | None = None,
+    quote_digest: str = "",
     preview: bool = False,
 ) -> CreatedAppointment | StayPlan:
     """Books a stay from the panel; with `preview`, says which unit it would
-    take and refuses what the booking would, with nothing written."""
+    take and refuses what the booking would, with nothing written.
+
+    `participants` — who comes (`[{"category_id", "count"}]`; one standard
+    person when empty). The price is worked out here and frozen in the booking;
+    `quote_digest` is the digest of the quote the caller showed, and another
+    price by now is 409 `quote_changed` (ADR-072 §7)."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
     if preview:
-        return plan_stay(
+        plan = plan_stay(
             service_id=service_id,
             start_date=start_date,
             end_date=end_date,
             resource_id=resource_id,
             group_id=group_id,
+        )
+        return replace(
+            plan,
+            quote=stay_quote(
+                plan, participants=participants, locale=customer_data.get("locale") or None
+            ),
         )
     request_hash = _hash({
         "stay": True,
@@ -271,6 +291,16 @@ def book_stay(
         "end_date": end_date.isoformat(),
         "customer": customer_data,
         **({"notes": customer_notes} if customer_notes else {}),
+        **(
+            {
+                "participants": [
+                    [str(line.get("category_id") or ""), int(line["count"])]
+                    for line in participants
+                ]
+            }
+            if participants
+            else {}
+        ),
     })
     with connection.cursor() as cursor:
         cursor.execute(
@@ -328,6 +358,8 @@ def book_stay(
         customer_notes=customer_notes.strip()[:500],
     )
     unit = _hold(appointment, plan)
+    # The unit that was held, not the one planned: a lost race takes another.
+    _freeze(appointment, unit, plan.stay, participants, quote_digest)
     record_new_booking(
         organization,
         appointment,
@@ -357,10 +389,12 @@ def move_stay(
     end_date: date,
     idempotency_key: str,
     principal_ref: str,
+    quote_digest: str = "",
     preview: bool = False,
 ) -> Appointment | StayPlan:
     """Moves a stay to other dates: its unit when it is free then, otherwise
-    another free unit of the group it was booked in (ADR-072, Konsekwencje)."""
+    another free unit of the group it was booked in (ADR-072, Konsekwencje).
+    A stay that has a quote is priced again for the new dates."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
     appointment = (
         Appointment.all_objects.select_for_update()
@@ -401,7 +435,16 @@ def move_stay(
             ignore_appointment_id=appointment.id,
         )
     if preview:
-        return plan
+        if appointment.quote is None:
+            return plan
+        return replace(
+            plan,
+            quote=stay_quote(
+                plan,
+                participants=appointment.quote.get("participants"),
+                locale=appointment.customer.locale,
+            ),
+        )
     AppointmentResourceAllocation.all_objects.filter(appointment=appointment, active=True).update(
         active=False
     )
@@ -428,6 +471,8 @@ def move_stay(
         ]
     )
     unit = _hold(appointment, plan)
+    if appointment.quote is not None:
+        _freeze(appointment, unit, plan.stay, appointment.quote.get("participants"), quote_digest)
     mutation = BookingMutation.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -797,6 +842,46 @@ def _hold(appointment: Appointment, plan: StayPlan) -> Resource:
             appointment.save(update_fields=["resource", "location", "updated_at"])
         return unit
     raise SlotUnavailable
+
+
+def stay_quote(
+    plan: StayPlan,
+    *,
+    participants: Sequence[Mapping[str, Any]] | None = None,
+    locale: str | None = None,
+) -> Quote:
+    """What the planned stay costs; nothing is written (ADR-072 §7)."""
+    from .quote import quote_stay
+
+    return quote_stay(
+        service=plan.service,
+        unit=plan.unit,
+        days=plan.stay.days(plan.service.range_unit),
+        participants=participants,
+        locale=locale,
+    )
+
+
+def _freeze(
+    appointment: Appointment,
+    unit: Resource,
+    stay: Stay,
+    participants: Sequence[Mapping[str, Any]] | None,
+    shown: str,
+) -> None:
+    """Works the stay's price out inside the booking's transaction and keeps it."""
+    from .quote import assert_shown, quote_stay
+
+    quote = quote_stay(
+        service=appointment.service,
+        unit=unit,
+        days=stay.days(appointment.service.range_unit),
+        participants=participants,
+        locale=appointment.customer.locale,
+    )
+    assert_shown(quote, shown)
+    appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest
+    appointment.save(update_fields=["quote", "quote_digest", "updated_at"])
 
 
 def _instant(day: date, local: time, zone: ZoneInfo) -> datetime:

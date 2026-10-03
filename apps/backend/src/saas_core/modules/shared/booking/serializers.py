@@ -11,7 +11,7 @@ from saas_core.modules.core.organizations.options import (
 )
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
-from .models import RangeUnit, StaffChoice, TimeModel, TimeOffSource
+from .models import RangeUnit, StaffChoice, TimeModel, TimeOffSource, VatCode
 from .offer_settings import SLOT_STEPS, offer_setting
 
 
@@ -99,6 +99,101 @@ class MaterialsInputSerializer(serializers.Serializer[dict[str, Any]]):
     materials = MaterialInputSerializer(many=True)
 
 
+class ParticipantInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """Who comes: so many people of a category, or standard people without one."""
+
+    category_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="Null — standard people."
+    )
+    count = serializers.IntegerField(min_value=1, max_value=1000)
+
+
+def _participants() -> serializers.ListField:
+    return serializers.ListField(
+        child=ParticipantInputSerializer(),
+        required=False,
+        max_length=20,
+        help_text="Who comes; omitted — one standard person. The price and a unit's "
+        "capacity count them.",
+    )
+
+
+def _quote_digest() -> serializers.CharField:
+    return serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=64,
+        help_text="The `digest` of the quote shown to whoever books. When the price is "
+        "another one by now, the answer is 409 `quote_changed` with the new quote in "
+        "`detail.quote`. Omitted — the booking takes the price as it is.",
+    )
+
+
+class BookingQuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.ChoiceField(
+        choices=["price", "extra_person", "category", "discount"],
+        help_text="`price` — the offer's price; `extra_person` — people beyond those it "
+        "includes; `category` — participants of a category; `discount` — for the length.",
+    )
+    name = serializers.CharField(help_text="In the company's language.")
+    customer_name = serializers.CharField(help_text="In the customer's language.")
+    quantity = serializers.IntegerField(
+        help_text="How many times the amount is charged: nights, people, people × nights."
+    )
+    unit_amount_minor = serializers.IntegerField(
+        help_text="As the price list has it — gross or net by the quote's `amounts`; "
+        "negative for a discount."
+    )
+    net_minor = serializers.IntegerField()
+    vat_minor = serializers.IntegerField()
+    gross_minor = serializers.IntegerField()
+    vat_code = serializers.ChoiceField(choices=VatCode.choices)
+    time_units = serializers.IntegerField(
+        allow_null=True, help_text="Nights or days the line covers; null — charged once."
+    )
+    people = serializers.IntegerField(allow_null=True)
+    category_id = serializers.UUIDField(allow_null=True)
+    price_rule_id = serializers.UUIDField(allow_null=True)
+    percent = serializers.IntegerField(allow_null=True, help_text="A discount's percent.")
+
+
+class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
+    """A booking's price (ADR-072 §7): whole minor units, the tax worked out on
+    each line. No lines — the offer has no price list."""
+
+    currency = serializers.CharField()
+    amounts = serializers.ChoiceField(
+        choices=["gross", "net"], help_text="How `unit_amount_minor` is read."
+    )
+    lines = BookingQuoteLineSerializer(many=True)
+    participants = ParticipantInputSerializer(many=True)
+    net_minor = serializers.IntegerField()
+    vat_minor = serializers.IntegerField()
+    gross_minor = serializers.IntegerField(help_text="What the customer pays.")
+    digest = serializers.CharField(
+        help_text="Of the price, the same in every language; send it back as `quote_digest`."
+    )
+
+
+class BookingQuoteInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """What to price: a visit at `starts_at`, or a stay from `start_date` to
+    `end_date` in a unit or a group."""
+
+    service_id = serializers.UUIDField()
+    starts_at = serializers.DateTimeField(required=False, allow_null=True)
+    start_date = serializers.DateField(required=False, allow_null=True)
+    end_date = serializers.DateField(required=False, allow_null=True)
+    resource_id = serializers.UUIDField(required=False, allow_null=True)
+    group_id = serializers.UUIDField(required=False, allow_null=True)
+    participants = _participants()
+    locale = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=10,
+        help_text="The customer's language, for `customer_name`; omitted — the company's.",
+    )
+
+
 class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     service_id = serializers.UUIDField()
     #: Omitted: the server picks the least busy free person (ADR-058 §4).
@@ -127,6 +222,8 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
         max_length=240,
         help_text="Street and number in that town; optional, and only with a town.",
     )
+    participants = _participants()
+    quote_digest = _quote_digest()
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         _street_needs_town(
@@ -185,6 +282,7 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
 
 class RescheduleSerializer(serializers.Serializer[dict[str, Any]]):
     starts_at = serializers.DateTimeField()
+    quote_digest = _quote_digest()
 
 
 class CrewMemberSerializer(serializers.Serializer[dict[str, Any]]):
@@ -304,6 +402,12 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     requested_staff_id = serializers.UUIDField(allow_null=True)
     #: „Uwagi” from the customer. Panel only; never in an e-mail.
     customer_notes = serializers.CharField()
+    quote = BookingQuoteSerializer(
+        required=False,
+        allow_null=True,
+        help_text="The price frozen when the booking was made or last moved; null for a "
+        "booking from before quotes.",
+    )
 
 
 class PublicSelfServiceSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1415,11 +1519,14 @@ class StayInputSerializer(serializers.Serializer[dict[str, Any]]):
     )
     customer = CustomerInputSerializer()
     customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    participants = _participants()
+    quote_digest = _quote_digest()
 
 
 class StayMoveSerializer(serializers.Serializer[dict[str, Any]]):
     start_date = serializers.DateField()
     end_date = serializers.DateField()
+    quote_digest = _quote_digest()
 
 
 class StayPlanSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1431,6 +1538,11 @@ class StayPlanSerializer(serializers.Serializer[dict[str, Any]]):
     ends_at = serializers.DateTimeField()
     length = serializers.IntegerField(help_text="Nights or days.")
     range_unit = serializers.CharField()
+    quote = BookingQuoteSerializer(
+        required=False,
+        allow_null=True,
+        help_text="What the stay would cost; null for a move of a booking made before quotes.",
+    )
 
 
 class DateListSerializer(serializers.Serializer[dict[str, Any]]):

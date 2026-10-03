@@ -426,3 +426,39 @@ Pierwszym czytelnikiem presetów jest konfigurator asystenta (A2), więc loader,
   formularzem publicznym presetów w fazie 5, gdy słownictwo stanie się polem
   źródła `booking.service`. Do tego czasu nikt by ich nie czytał, a oferta
   wskazuje niezmienną wersję presetu, z której faza 5 je dopisze.
+
+## Uzupełnienie 2026-10-03: cennik i wycena (fazy 3a–3b)
+
+Ustalenia, których §6–§7 nie rozstrzygały, przyjęte przy budowie cennika
+(`prices.py`) i wyceny (`quote.py`).
+
+- **Która cena obowiązuje.** Cena bez dat to cena podstawowa, z datami —
+  sezonu; dni tygodnia i godziny zawężają ją do weekendu albo szczytu. Na dany
+  dzień i godzinę: jednostka przed grupą przed ofertą (jak reguły, §5), potem
+  sezon przed ceną podstawową, potem węższa przed szerszą, potem późniejszy
+  początek. Noc należy do dnia, w którym się zaczyna.
+- **Dzień przyjazdu decyduje** o podstawie ceny, o tym, czy kolejne osoby płacą
+  za każdą jednostkę czasu, czy raz, i o rabacie za długość — tak jak sezon dnia
+  przyjazdu decyduje o regułach (§5, Konsekwencje). Kolejne noce bierze się z
+  cen o tej samej podstawie; noc bez ceny to odmowa `price_missing`.
+- **Kto jest w cenie.** `included_people` obejmuje tych uczestników liczonych do
+  pojemności, którzy zapłaciliby najwięcej, więc gość nie płaci więcej za to, w
+  jakiej kolejności wpisał osoby. Kategoria nieliczona do pojemności (pies) nie
+  zajmuje miejsca „w cenie” i płaci swoją kwotę albo nic, gdy cena jej nie
+  wymienia. Cena „za osobę” liczy każdą osobę: kwotą ceny albo kategorii.
+- **Rabat za długość** obejmuje wszystko, co liczy się za jednostkę czasu (cenę
+  i dopłaty za osoby za noc), jako osobna ujemna pozycja na stawkę VAT.
+- **Brutto albo netto** to ustawienie firmy `pricing.entry.amounts`
+  (domyślnie brutto, klasa zmiany `publish`): zmiana niczego nie przelicza,
+  tylko inaczej czyta wpisane kwoty. Dotyczy cennika usług, pobytów i dopłat;
+  cena sprzedaży produktu w magazynie zostaje netto (uzgodnione z planem
+  ustawień i z magazynem; czy sklep ma iść za tym przełącznikiem — pytanie
+  fazy 9).
+- **Oferta bez cennika** rezerwuje się jak dotąd: wycena nie ma pozycji, ale
+  rezerwacja i tak zapisuje, kto przychodzi. Rezerwacje sprzed fazy 3b nie mają
+  wyceny i przełożenie im jej nie dodaje.
+- **Skrót wyceny** liczy się z ceny, nie ze słów: jest ten sam w każdym języku.
+  409 `quote_changed` niesie nową wycenę w `detail.quote`. Przełożenie wizyty
+  albo pobytu, który ma wycenę, liczy ją od nowa dla tych samych osób.
+- **Pojemność jednostki** sprawdza wycena (`unit_capacity_exceeded` na polu
+  `participants`), bo to ona zna uczestników.

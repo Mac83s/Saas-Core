@@ -635,7 +635,11 @@ export interface paths {
         };
         get: operations["api_v1_booking_appointments_retrieve"];
         put?: never;
-        post: operations["api_v1_booking_appointments_create"];
+        /**
+         * Book a visit
+         * @description Books a free start of a service at a place, for the people named or — with none named — the least busy free ones the service needs. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`. The same Idempotency-Key answers the first booking again (200).
+         */
+        post: operations["booking_appointment_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -775,7 +779,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["api_v1_booking_appointments_reschedule_create"];
+        /**
+         * Move a visit to another time
+         * @description Moves a confirmed visit with its people; all of them have to be free then, or 409 `slot_unavailable` names who is not. A visit that has a price is priced again for the new time; with `quote_digest` a price other than the one shown is 409 `quote_changed`. A stay moves by its dates (400 `stay_moves_by_dates`).
+         */
+        post: operations["booking_appointment_reschedule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1071,6 +1079,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/quote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Work out what a booking would cost
+         * @description The price of a visit at `starts_at`, or of a stay from `start_date` to `end_date` on the unit a booking would take, for the people who come: lines with net, tax and gross, and the totals. Nothing is saved and nothing is held. A booking works the price out again and keeps it; send it the `digest` as `quote_digest` and a price that changed in between answers 409 `quote_changed`. An offer without a price list answers no lines. Refusals name the field: `price_missing`, `unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse.
+         */
+        post: operations["booking_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/schedule/": {
         parameters: {
             query?: never;
@@ -1128,7 +1156,11 @@ export interface paths {
         };
         get: operations["api_v1_booking_self_service_reschedule_retrieve"];
         put?: never;
-        post: operations["api_v1_booking_self_service_reschedule_create"];
+        /**
+         * Move one's own visit to another time
+         * @description The customer moves the visit their link names, within what the booking allows (409 `appointment_not_changeable` otherwise). A taken time is 409 `slot_unavailable`; a visit that has a price is priced again for the new time. An unknown, expired or revoked link is 404.
+         */
+        post: operations["booking_self_service_reschedule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7383,6 +7415,8 @@ export interface components {
             /** Format: uuid */
             requested_staff_id: string | null;
             customer_notes: string;
+            /** @description The price frozen when the booking was made or last moved; null for a booking from before quotes. */
+            quote?: components["schemas"]["BookingQuote"] | null;
         };
         AppointmentCreate: {
             /** Format: uuid */
@@ -7405,6 +7439,10 @@ export interface components {
             place_town?: string;
             /** @description Street and number in that town; optional, and only with a town. */
             place_address?: string;
+            /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
+            participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
+            quote_digest?: string;
         };
         AppointmentKind: {
             /** @description The `appointment_kind` a service sells. */
@@ -8164,6 +8202,82 @@ export interface components {
              *     * `email_and_phone` - email_and_phone
              */
             contact: components["schemas"]["ContactA7eEnum"];
+        };
+        /**
+         * @description A booking's price (ADR-072 §7): whole minor units, the tax worked out on
+         *     each line. No lines — the offer has no price list.
+         */
+        BookingQuote: {
+            currency: string;
+            /**
+             * @description How `unit_amount_minor` is read.
+             *
+             *     * `gross` - gross
+             *     * `net` - net
+             */
+            amounts: components["schemas"]["PriceAmountsEnum"];
+            lines: components["schemas"]["BookingQuoteLine"][];
+            participants: components["schemas"]["ParticipantInput"][];
+            net_minor: number;
+            vat_minor: number;
+            /** @description What the customer pays. */
+            gross_minor: number;
+            /** @description Of the price, the same in every language; send it back as `quote_digest`. */
+            digest: string;
+        };
+        /**
+         * @description What to price: a visit at `starts_at`, or a stay from `start_date` to
+         *     `end_date` in a unit or a group.
+         */
+        BookingQuoteInput: {
+            /** Format: uuid */
+            service_id: string;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
+            participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The customer's language, for `customer_name`; omitted — the company's. */
+            locale?: string;
+        };
+        BookingQuoteLine: {
+            /**
+             * @description `price` — the offer's price; `extra_person` — people beyond those it includes; `category` — participants of a category; `discount` — for the length.
+             *
+             *     * `price` - price
+             *     * `extra_person` - extra_person
+             *     * `category` - category
+             *     * `discount` - discount
+             */
+            kind: components["schemas"]["QuoteLineKindEnum"];
+            /** @description In the company's language. */
+            name: string;
+            /** @description In the customer's language. */
+            customer_name: string;
+            /** @description How many times the amount is charged: nights, people, people × nights. */
+            quantity: number;
+            /** @description As the price list has it — gross or net by the quote's `amounts`; negative for a discount. */
+            unit_amount_minor: number;
+            net_minor: number;
+            vat_minor: number;
+            gross_minor: number;
+            vat_code: components["schemas"]["VatCodeEnum"];
+            /** @description Nights or days the line covers; null — charged once. */
+            time_units: number | null;
+            people: number | null;
+            /** Format: uuid */
+            category_id: string | null;
+            /** Format: uuid */
+            price_rule_id: string | null;
+            /** @description A discount's percent. */
+            percent: number | null;
         };
         BookingRemindersSettings: {
             group: string;
@@ -11478,6 +11592,15 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
+        /** @description Who comes: so many people of a category, or standard people without one. */
+        ParticipantInput: {
+            /**
+             * Format: uuid
+             * @description Null — standard people.
+             */
+            category_id?: string | null;
+            count: number;
+        };
         PasswordResetConfirm: {
             token: string;
             password: string;
@@ -13372,6 +13495,8 @@ export interface components {
             /** Format: uuid */
             requested_staff_id: string | null;
             customer_notes: string;
+            /** @description The price frozen when the booking was made or last moved; null for a booking from before quotes. */
+            quote?: components["schemas"]["BookingQuote"] | null;
         };
         Quote: {
             /** @description Send it with the order. */
@@ -13415,6 +13540,14 @@ export interface components {
             /** @description Why nothing is sent: in_progress, source_unpublished… */
             excluded: string | null;
         };
+        /**
+         * @description * `price` - price
+         *     * `extra_person` - extra_person
+         *     * `category` - category
+         *     * `discount` - discount
+         * @enum {string}
+         */
+        QuoteLineKindEnum: "price" | "extra_person" | "category" | "discount";
         QuoteRequest: {
             /** @description The (object, language) pairs to translate. */
             targets: components["schemas"]["Target"][];
@@ -13467,6 +13600,8 @@ export interface components {
         Reschedule: {
             /** Format: date-time */
             starts_at: string;
+            /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
+            quote_digest?: string;
         };
         /**
          * @description * `mfa_required` - mfa_required
@@ -14906,12 +15041,18 @@ export interface components {
             end_date: string;
             customer: components["schemas"]["CustomerInput"];
             customer_notes?: string;
+            /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
+            participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
+            quote_digest?: string;
         };
         StayMove: {
             /** Format: date */
             start_date: string;
             /** Format: date */
             end_date: string;
+            /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
+            quote_digest?: string;
         };
         /** @description What a booking or a move of a stay would take; nothing is saved. */
         StayPlan: {
@@ -14928,6 +15069,8 @@ export interface components {
             /** @description Nights or days. */
             length: number;
             range_unit: string;
+            /** @description What the stay would cost; null for a move of a booking made before quotes. */
+            quote?: components["schemas"]["BookingQuote"] | null;
         };
         /**
          * @description * `address` - address
@@ -17404,7 +17547,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_appointments_create: {
+    booking_appointment_create: {
         parameters: {
             query?: never;
             header: {
@@ -17421,12 +17564,52 @@ export interface operations {
             };
         };
         responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -17686,7 +17869,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_appointments_reschedule_create: {
+    booking_appointment_reschedule: {
         parameters: {
             query?: never;
             header: {
@@ -17711,6 +17894,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -18262,6 +18477,63 @@ export interface operations {
             };
         };
     };
+    booking_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingQuoteInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingQuoteInput"];
+                "multipart/form-data": components["schemas"]["BookingQuoteInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingQuote"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_booking_schedule_create: {
         parameters: {
             query?: never;
@@ -18375,7 +18647,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_self_service_reschedule_create: {
+    booking_self_service_reschedule: {
         parameters: {
             query?: never;
             header: {
@@ -18400,6 +18672,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

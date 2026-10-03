@@ -954,6 +954,7 @@ SPECTACULAR_SETTINGS = {
         "BasisEnum": ["published", "working"],
         "PriceBasisEnum": "saas_core.modules.shared.booking.models.PriceBasis",
         "PriceAmountsEnum": ["gross", "net"],
+        "QuoteLineKindEnum": ["price", "extra_person", "category", "discount"],
         # An assistant turn's state must not get a hashed name. As values, not
         # an import path: a product that leaves the module out never loads it.
         "AssistantTurnStateEnum": [

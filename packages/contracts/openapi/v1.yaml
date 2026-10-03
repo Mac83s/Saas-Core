@@ -1661,7 +1661,13 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
     post:
-      operationId: api_v1_booking_appointments_create
+      operationId: booking_appointment_create
+      description: Books a free start of a service at a place, for the people named
+        or — with none named — the least busy free ones the service needs. The price
+        is worked out and frozen in the booking (`quote`); with `quote_digest` a price
+        other than the one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`.
+        The same Idempotency-Key answers the first booking again (200).
+      summary: Book a visit
       parameters:
       - in: header
         name: Idempotency-Key
@@ -1690,6 +1696,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Appointment'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/appointments/{appointment_id}/cancel/:
     post:
@@ -1980,7 +2016,13 @@ paths:
           description: ''
   /api/v1/booking/appointments/{appointment_id}/reschedule/:
     post:
-      operationId: api_v1_booking_appointments_reschedule_create
+      operationId: booking_appointment_reschedule
+      description: Moves a confirmed visit with its people; all of them have to be
+        free then, or 409 `slot_unavailable` names who is not. A visit that has a
+        price is priced again for the new time; with `quote_digest` a price other
+        than the one shown is 409 `quote_changed`. A stay moves by its dates (400
+        `stay_moves_by_dates`).
+      summary: Move a visit to another time
       parameters:
       - in: header
         name: Idempotency-Key
@@ -2015,6 +2057,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/appointments/{appointment_id}/stay/:
     post:
@@ -2659,6 +2725,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/Queue'
           description: ''
+  /api/v1/booking/quote/:
+    post:
+      operationId: booking_quote
+      description: 'The price of a visit at `starts_at`, or of a stay from `start_date`
+        to `end_date` on the unit a booking would take, for the people who come: lines
+        with net, tax and gross, and the totals. Nothing is saved and nothing is held.
+        A booking works the price out again and keeps it; send it the `digest` as
+        `quote_digest` and a price that changed in between answers 409 `quote_changed`.
+        An offer without a price list answers no lines. Refusals name the field: `price_missing`,
+        `unit_capacity_exceeded`, `participants_required`, and what a stay''s rules
+        refuse.'
+      summary: Work out what a booking would cost
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingQuoteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingQuoteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingQuoteInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingQuote'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/schedule/:
     post:
       operationId: api_v1_booking_schedule_create
@@ -2771,7 +2897,12 @@ paths:
                 $ref: '#/components/schemas/PublicAppointment'
           description: ''
     post:
-      operationId: api_v1_booking_self_service_reschedule_create
+      operationId: booking_self_service_reschedule
+      description: The customer moves the visit their link names, within what the
+        booking allows (409 `appointment_not_changeable` otherwise). A taken time
+        is 409 `slot_unavailable`; a visit that has a price is priced again for the
+        new time. An unknown, expired or revoked link is 404.
+      summary: Move one's own visit to another time
       parameters:
       - in: header
         name: Idempotency-Key
@@ -2805,6 +2936,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/setup/:
     get:
@@ -22355,6 +22504,12 @@ components:
           format: uuid
         customer_notes:
           type: string
+        quote:
+          oneOf:
+          - $ref: '#/components/schemas/BookingQuote'
+          - type: 'null'
+          description: The price frozen when the booking was made or last moved; null
+            for a booking from before quotes.
       required:
       - appointment_kind
       - auto_assigned
@@ -22442,6 +22597,20 @@ components:
           type: string
           description: Street and number in that town; optional, and only with a town.
           maxLength: 240
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+          description: Who comes; omitted — one standard person. The price and a unit's
+            capacity count them.
+          maxItems: 20
+        quote_digest:
+          type: string
+          description: The `digest` of the quote shown to whoever books. When the
+            price is another one by now, the answer is 409 `quote_changed` with the
+            new quote in `detail.quote`. Omitted — the booking takes the price as
+            it is.
+          maxLength: 64
       required:
       - customer
       - location_id
@@ -24080,6 +24249,171 @@ components:
       - horizon_days
       - paused
       - resume_on
+    BookingQuote:
+      type: object
+      description: |-
+        A booking's price (ADR-072 §7): whole minor units, the tax worked out on
+        each line. No lines — the offer has no price list.
+      properties:
+        currency:
+          type: string
+        amounts:
+          allOf:
+          - $ref: '#/components/schemas/PriceAmountsEnum'
+          description: |-
+            How `unit_amount_minor` is read.
+
+            * `gross` - gross
+            * `net` - net
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingQuoteLine'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+        net_minor:
+          type: integer
+        vat_minor:
+          type: integer
+        gross_minor:
+          type: integer
+          description: What the customer pays.
+        digest:
+          type: string
+          description: Of the price, the same in every language; send it back as `quote_digest`.
+      required:
+      - amounts
+      - currency
+      - digest
+      - gross_minor
+      - lines
+      - net_minor
+      - participants
+      - vat_minor
+    BookingQuoteInput:
+      type: object
+      description: |-
+        What to price: a visit at `starts_at`, or a stay from `start_date` to
+        `end_date` in a unit or a group.
+      properties:
+        service_id:
+          type: string
+          format: uuid
+        starts_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        start_date:
+          type:
+          - string
+          - 'null'
+          format: date
+        end_date:
+          type:
+          - string
+          - 'null'
+          format: date
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+          description: Who comes; omitted — one standard person. The price and a unit's
+            capacity count them.
+          maxItems: 20
+        locale:
+          type: string
+          description: The customer's language, for `customer_name`; omitted — the
+            company's.
+          maxLength: 10
+      required:
+      - service_id
+    BookingQuoteLine:
+      type: object
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuoteLineKindEnum'
+          description: |-
+            `price` — the offer's price; `extra_person` — people beyond those it includes; `category` — participants of a category; `discount` — for the length.
+
+            * `price` - price
+            * `extra_person` - extra_person
+            * `category` - category
+            * `discount` - discount
+        name:
+          type: string
+          description: In the company's language.
+        customer_name:
+          type: string
+          description: In the customer's language.
+        quantity:
+          type: integer
+          description: 'How many times the amount is charged: nights, people, people
+            × nights.'
+        unit_amount_minor:
+          type: integer
+          description: As the price list has it — gross or net by the quote's `amounts`;
+            negative for a discount.
+        net_minor:
+          type: integer
+        vat_minor:
+          type: integer
+        gross_minor:
+          type: integer
+        vat_code:
+          $ref: '#/components/schemas/VatCodeEnum'
+        time_units:
+          type:
+          - integer
+          - 'null'
+          description: Nights or days the line covers; null — charged once.
+        people:
+          type:
+          - integer
+          - 'null'
+        category_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        price_rule_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        percent:
+          type:
+          - integer
+          - 'null'
+          description: A discount's percent.
+      required:
+      - category_id
+      - customer_name
+      - gross_minor
+      - kind
+      - name
+      - net_minor
+      - people
+      - percent
+      - price_rule_id
+      - quantity
+      - time_units
+      - unit_amount_minor
+      - vat_code
+      - vat_minor
     BookingRemindersSettings:
       type: object
       properties:
@@ -31869,6 +32203,23 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    ParticipantInput:
+      type: object
+      description: 'Who comes: so many people of a category, or standard people without
+        one.'
+      properties:
+        category_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Null — standard people.
+        count:
+          type: integer
+          maximum: 1000
+          minimum: 1
+      required:
+      - count
     PasswordResetConfirm:
       type: object
       properties:
@@ -36090,6 +36441,12 @@ components:
           format: uuid
         customer_notes:
           type: string
+        quote:
+          oneOf:
+          - $ref: '#/components/schemas/BookingQuote'
+          - type: 'null'
+          description: The price frozen when the booking was made or last moved; null
+            for a booking from before quotes.
       required:
       - appointment_kind
       - auto_assigned
@@ -36233,6 +36590,18 @@ components:
       - reason
       - skipped
       - source_key
+    QuoteLineKindEnum:
+      enum:
+      - price
+      - extra_person
+      - category
+      - discount
+      type: string
+      description: |-
+        * `price` - price
+        * `extra_person` - extra_person
+        * `category` - category
+        * `discount` - discount
     QuoteRequest:
       type: object
       properties:
@@ -36314,6 +36683,13 @@ components:
         starts_at:
           type: string
           format: date-time
+        quote_digest:
+          type: string
+          description: The `digest` of the quote shown to whoever books. When the
+            price is another one by now, the answer is 409 `quote_changed` with the
+            new quote in `detail.quote`. Omitted — the booking takes the price as
+            it is.
+          maxLength: 64
       required:
       - starts_at
     ResetC60Enum:
@@ -39572,6 +39948,20 @@ components:
         customer_notes:
           type: string
           maxLength: 500
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+          description: Who comes; omitted — one standard person. The price and a unit's
+            capacity count them.
+          maxItems: 20
+        quote_digest:
+          type: string
+          description: The `digest` of the quote shown to whoever books. When the
+            price is another one by now, the answer is 409 `quote_changed` with the
+            new quote in `detail.quote`. Omitted — the booking takes the price as
+            it is.
+          maxLength: 64
       required:
       - customer
       - end_date
@@ -39586,6 +39976,13 @@ components:
         end_date:
           type: string
           format: date
+        quote_digest:
+          type: string
+          description: The `digest` of the quote shown to whoever books. When the
+            price is another one by now, the answer is 409 `quote_changed` with the
+            new quote in `detail.quote`. Omitted — the booking takes the price as
+            it is.
+          maxLength: 64
       required:
       - end_date
       - start_date
@@ -39610,6 +40007,12 @@ components:
           description: Nights or days.
         range_unit:
           type: string
+        quote:
+          oneOf:
+          - $ref: '#/components/schemas/BookingQuote'
+          - type: 'null'
+          description: What the stay would cost; null for a move of a booking made
+            before quotes.
       required:
       - ends_at
       - length

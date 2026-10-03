@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -91,6 +91,9 @@ from .security import (
     issue_self_service_token,
 )
 from .visibility import on_visit_q, own_visits_q, sees_others
+
+if TYPE_CHECKING:
+    from .quote import Quote
 
 BOOKING_READ = "booking.appointment.read"
 BOOKING_MANAGE = "booking.appointment.manage"
@@ -406,6 +409,8 @@ def create_appointment(
     customer_notes: str = "",
     place_town: str = "",
     place_address: str = "",
+    participants: Sequence[Mapping[str, Any]] | None = None,
+    quote_digest: str = "",
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -429,6 +434,11 @@ def create_appointment(
 
     `place_town` and `place_address`: „Miejsce wizyty” (ADR-066), where the
     visit takes place when that is not the company's location.
+
+    `participants` — who comes (`[{"category_id", "count"}]`; one standard
+    person when empty). The price is worked out here and frozen in the booking;
+    `quote_digest` is the digest of the quote the caller showed, and another
+    price by now is 409 `quote_changed` (ADR-072 §7).
     """
     place_town, place_address = place_town.strip(), place_address.strip()
     context = require_tenant_context()
@@ -454,6 +464,16 @@ def create_appointment(
         **({"requested": True} if requested_staff_id else {}),
         **({"notes": customer_notes} if customer_notes else {}),
         **({"place": [place_town, place_address]} if place_town or place_address else {}),
+        **(
+            {
+                "participants": [
+                    [str(line.get("category_id") or ""), int(line["count"])]
+                    for line in participants
+                ]
+            }
+            if participants
+            else {}
+        ),
     })
     with connection.cursor() as cursor:
         # One key at a time: a retry sent while the first request still runs
@@ -602,6 +622,7 @@ def create_appointment(
     occupied_until = ends_at + timedelta(minutes=after)
     token, digest = issue_self_service_token()
     expires = _self_service_expiry(ends_at)
+    quote = _visit_quote(service, starts_at, participants, customer.locale, quote_digest)
     lookup = {
         person.id: person
         for person in StaffMember.all_objects.filter(pk__in=candidates, active=True)
@@ -635,6 +656,8 @@ def create_appointment(
                 customer_notes=customer_notes.strip()[:500],
                 place_town=place_town[:120],
                 place_address=place_address[:240],
+                quote=quote.snapshot(),
+                quote_digest=quote.digest,
             )
             taken: list[UUID] = []
             for person_id in candidates:
@@ -719,9 +742,15 @@ def create_appointment(
 
 @transaction.atomic
 def reschedule_appointment(
-    *, appointment_id: UUID, starts_at: datetime, idempotency_key: str, principal_ref: str
+    *,
+    appointment_id: UUID,
+    starts_at: datetime,
+    idempotency_key: str,
+    principal_ref: str,
+    quote_digest: str = "",
 ) -> Appointment:
-    """Moves a visit with its people.
+    """Moves a visit with its people. A visit that has a quote is priced again
+    for the new time.
 
     From the panel the whole crew has to be free at the new time, or the move
     names who is not. A customer moving their own visit gets the times their
@@ -788,16 +817,18 @@ def reschedule_appointment(
         SelfServiceRoute.objects.filter(
             appointment_id=appointment.id, revoked_at__isnull=True
         ).update(expires_at=expires)
-    appointment.save(
-        update_fields=[
-            "starts_at",
-            "ends_at",
-            "occupied_from",
-            "occupied_until",
-            "self_service_expires_at",
-            "updated_at",
-        ]
-    )
+    fields = ["starts_at", "ends_at", "occupied_from", "occupied_until"]
+    if appointment.quote is not None:
+        quote = _visit_quote(
+            service,
+            starts_at,
+            appointment.quote.get("participants"),
+            appointment.customer.locale,
+            quote_digest,
+        )
+        appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest
+        fields += ["quote", "quote_digest"]
+    appointment.save(update_fields=[*fields, "self_service_expires_at", "updated_at"])
     try:
         for person in StaffMember.all_objects.filter(pk__in=kept):
             allocate(appointment, person)
@@ -1440,6 +1471,26 @@ def strip_customer(customer: Customer) -> None:
         [f"booking:{visit_id}" for visit_id in visit_ids],
         to_customers_only=True,
     )
+
+
+def _visit_quote(
+    service: Service,
+    starts_at: datetime,
+    participants: Sequence[Mapping[str, Any]] | None,
+    locale: str,
+    shown: str,
+) -> Quote:
+    """The visit's price, worked out inside the booking's transaction; another
+    one than the caller showed is 409 `quote_changed` (ADR-072 §7)."""
+    # Imported late: the quote reads translations, whose setup writes import
+    # this module.
+    from .quote import assert_shown, quote_visit
+
+    quote = quote_visit(
+        service=service, starts_at=starts_at, participants=participants, locale=locale
+    )
+    assert_shown(quote, shown)
+    return quote
 
 
 def upsert_customer(

@@ -806,6 +806,12 @@ class Appointment(TenantScopedModel):
     #: Produkty tej wizyty: kopia z usługi albo wpisane ręcznie, z nazwą i
     #: ceną z chwili zapisu. Stan jest zarezerwowany do zakończenia wizyty.
     materials = models.JSONField(default=list, blank=True)
+    #: The price worked out when the booking was made or last moved, frozen
+    #: (ADR-072 §7, `quote.Quote.snapshot`): lines with net, tax and gross, who
+    #: comes, the totals. A later change of the price list never changes it.
+    #: Empty for a booking from before quotes.
+    quote = models.JSONField(null=True, blank=True)
+    quote_digest = models.CharField(max_length=64, blank=True)
     status = models.CharField(
         max_length=16, choices=AppointmentStatus, default=AppointmentStatus.CONFIRMED
     )
