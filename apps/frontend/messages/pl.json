@@ -1132,7 +1132,7 @@
     "cancelEdit": "Anuluj",
     "editDetails": "Zmień dane",
     "buyer": "Nabywca",
-    "address": "Adres",
+    "address": "Adres do faktury (siedziba)",
     "detailsOwnerOnly": "Dane do faktury zmienia właściciel firmy.",
     "free": "Darmowy",
     "freeIncluded": "W koncie od początku"
@@ -3240,7 +3240,7 @@
     "eyebrow": "Ustawienia",
     "companyTitle": "Dane firmy",
     "companyDescription": "Nazwa firmy oraz język, waluta i strefa czasowa, z których korzystają kalendarz, wiadomości i nowe dane.",
-    "companyName": "Nazwa firmy",
+    "companyName": "Nazwa firmy w panelu i na fakturach",
     "defaultLanguage": "Język panelu i e-maili do zespołu",
     "currency": "Waluta",
     "timezone": "Strefa czasowa",
@@ -4263,7 +4263,7 @@
     "loadFailed": "Nie udało się wczytać wizytówki.",
     "saveFailed": "Nie udało się zapisać zmiany.",
     "publishFailed": "Nie udało się zmienić publikacji.",
-    "name": "Nazwa firmy",
+    "name": "Nazwa w katalogu i na stronie",
     "headline": "Jedno zdanie o firmie",
     "headlinePlaceholder": "Np. Salon fryzjerski damsko-męski",
     "bio": "Opis",
@@ -4284,7 +4284,14 @@
     "leadsToCatalog": "Wpis w katalogu prowadzi do strony wizytówki na naszej platformie.",
     "showInCatalog": "Pokazuj wizytówkę w katalogu",
     "pageTitle": "Wizytówka",
-    "pageDescription": "Strona firmy w publicznym katalogu: nazwa, opis, kontakt i usługi. Pokazujesz ją, kiedy chcesz."
+    "pageDescription": "Strona firmy w publicznym katalogu: nazwa, opis, kontakt i usługi. Pokazujesz ją, kiedy chcesz.",
+    "autosave": "Zmiany zapisują się same, gdy wyjdziesz z pola.",
+    "readOnly": "Wizytówkę zmienia właściciel albo administrator.",
+    "saving": "Zapisywanie…",
+    "saved": "Zapisano",
+    "characters": "{count} / {max} znaków",
+    "addressDiffers": "Adres w wizytówce różni się od miejsca, w którym przyjmujesz klientów.",
+    "useAddress": "Użyj adresu: {place}, {address}"
   },
   "SiteInquiries": {
     "title": "Zapytania ze strony",

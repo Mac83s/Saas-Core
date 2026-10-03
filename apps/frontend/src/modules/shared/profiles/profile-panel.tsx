@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLinkIcon, LoaderCircleIcon } from "lucide-react";
+import { CheckIcon, ExternalLinkIcon, LoaderCircleIcon } from "lucide-react";
 
 import {
+  getBookingSetup,
   publishOrganizationProfile,
   readCatalogDictionary,
   readOrganizationProfile,
@@ -12,8 +13,10 @@ import {
   withdrawOrganizationProfile,
   type CatalogDictionary,
   type CatalogState,
+  type PlaceSetup,
   type PublicProfileSummary,
 } from "@saas-core/api-client";
+import { Button } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -54,11 +57,36 @@ type Loaded = {
   dictionary: CatalogDictionary;
 };
 
+const HEADLINE_MAX = 200;
+
+/** A local stack serves sites on the panel's port; the API knows no port. */
+function reachable(url: string): string {
+  try {
+    const address = new URL(url);
+    if (
+      address.hostname.endsWith(".localhost") &&
+      !address.port &&
+      window.location.port
+    )
+      address.port = window.location.port;
+    return address.toString();
+  } catch {
+    return url;
+  }
+}
+
 export function ProfilePanel({ canManage }: { canManage: boolean }) {
   const t = useTranslations("Profile");
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Fields save on leaving them; the page says so and confirms each save
+  // (UX-052).
+  const [saved, setSaved] = useState(false);
+  const [headline, setHeadline] = useState<string>();
+  // Where the company takes visits, to offer its address here instead of a
+  // third one typed by hand (UX-053). No calendar, no offer.
+  const [places, setPlaces] = useState<PlaceSetup[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +104,17 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
         if (!cancelled) setError(profileProblem(caught, t("loadFailed")));
       }
     })();
+    void getBookingSetup().then(
+      (setup) => {
+        if (!cancelled)
+          setPlaces(
+            setup.locations.filter(
+              (place) => place.active && place.address.trim(),
+            ),
+          );
+      },
+      () => undefined,
+    );
     return () => {
       cancelled = true;
     };
@@ -104,7 +143,13 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
   const { profile, catalog, dictionary } = state;
 
   async function save(values: Partial<PublicProfileSummary>) {
+    // Leaving a field untouched is not a change: no request, no new version.
+    const changed = (
+      Object.keys(values) as (keyof PublicProfileSummary)[]
+    ).some((key) => values[key] !== profile[key]);
+    if (!changed) return;
     setBusy(true);
+    setSaved(false);
     try {
       const saved = await updateProfile(profile.id, {
         display_name: values.display_name ?? profile.display_name,
@@ -120,6 +165,7 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
       });
       setState({ ...state!, profile: saved });
       setError(null);
+      setSaved(true);
     } catch (caught) {
       setError(profileProblem(caught, t("saveFailed")));
     } finally {
@@ -151,11 +197,25 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
   return (
     <div className="space-y-6">
       <Card>
+        {/* The page already says „Wizytówka”; the card says how it saves. */}
         <CardHeader>
-          <CardTitle>
-            <h2>{t("title")}</h2>
-          </CardTitle>
-          <CardDescription>{t("intro")}</CardDescription>
+          <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{canManage ? t("autosave") : t("readOnly")}</span>
+            <span
+              aria-live="polite"
+              className="inline-flex items-center gap-1 text-success-foreground"
+              role="status"
+            >
+              {busy ? (
+                <span className="text-muted-foreground">{t("saving")}</span>
+              ) : saved ? (
+                <>
+                  <CheckIcon aria-hidden="true" className="size-4" />
+                  {t("saved")}
+                </>
+              ) : null}
+            </span>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Field>
@@ -171,13 +231,28 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
           </Field>
           <Field>
             <FieldLabel htmlFor="profile-headline">{t("headline")}</FieldLabel>
-            <Input
+            {/* Two lines and a count: a phone cut the sentence at 40
+                characters in a one-line field (UX-052). */}
+            <Textarea
+              aria-describedby="profile-headline-count"
               defaultValue={profile.headline}
               disabled={readOnly}
               id="profile-headline"
+              maxLength={HEADLINE_MAX}
               onBlur={(event) => void save({ headline: event.target.value })}
+              onChange={(event) => setHeadline(event.target.value)}
               placeholder={t("headlinePlaceholder")}
+              rows={2}
             />
+            <p
+              className="text-xs text-muted-foreground tabular-nums"
+              id="profile-headline-count"
+            >
+              {t("characters", {
+                count: (headline ?? profile.headline).length,
+                max: HEADLINE_MAX,
+              })}
+            </p>
           </Field>
           <Field>
             <FieldLabel htmlFor="profile-bio">{t("bio")}</FieldLabel>
@@ -265,6 +340,36 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
               />
             </Field>
           </div>
+          {/* The card's address against where visits take place: one click
+              instead of two addresses that disagree (UX-053). */}
+          {canManage &&
+          places.length > 0 &&
+          !places.some(
+            (place) => place.address.trim() === profile.contact_address.trim(),
+          ) ? (
+            <div className="space-y-2 rounded-lg border border-warning-foreground/25 bg-warning p-3 text-sm">
+              <p>{t("addressDiffers")}</p>
+              <div className="flex flex-wrap gap-2">
+                {places.slice(0, 3).map((place) => (
+                  <Button
+                    disabled={busy}
+                    key={place.id}
+                    onClick={() =>
+                      void save({ contact_address: place.address.trim() })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("useAddress", {
+                      place: place.name,
+                      address: place.address.trim(),
+                    })}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <Field>
             <FieldLabel htmlFor="profile-layout">{t("layout")}</FieldLabel>
             <NativeSelect
@@ -299,7 +404,9 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
             <p>
               <a
                 className="text-primary inline-flex items-center gap-1 underline"
-                href={catalog.site_url ?? catalog.path}
+                href={
+                  catalog.site_url ? reachable(catalog.site_url) : catalog.path
+                }
                 rel="noreferrer"
                 target="_blank"
               >

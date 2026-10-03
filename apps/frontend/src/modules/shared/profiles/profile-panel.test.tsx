@@ -30,6 +30,8 @@ const api = vi.hoisted(() => ({
   withdrawOrganizationProfile: vi.fn(),
   updateProfile: vi.fn(),
   searchCatalog: vi.fn(),
+  // Where the company takes visits; none without the calendar.
+  getBookingSetup: vi.fn(),
   // The card's other languages (TL12d): one language here, no engine.
   getProfileTranslations: vi.fn(async () => ({
     source_locale: "pl",
@@ -123,6 +125,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.readCatalogDictionary.mockResolvedValue(DICTIONARY);
   api.readOrganizationProfile.mockResolvedValue(body());
+  api.getBookingSetup.mockRejectedValue(new Error("no calendar"));
   api.searchCatalog.mockResolvedValue({
     total: 0,
     page: 1,
@@ -251,10 +254,67 @@ test("a refused publication shows the server's own sentence", async () => {
   ).toBeTruthy();
 });
 
+test("a field saves on leaving it and says so; an untouched one asks nothing (UX-052)", async () => {
+  api.updateProfile.mockResolvedValue(
+    profile({ display_name: "Salon Uroda i Styl", version: 4 }),
+  );
+  view(<ProfilePanel canManage />);
+
+  const name = await screen.findByLabelText("Nazwa w katalogu i na stronie");
+  expect(
+    screen.getByText("Zmiany zapisują się same, gdy wyjdziesz z pola."),
+  ).toBeTruthy();
+  fireEvent.blur(name);
+  expect(api.updateProfile).not.toHaveBeenCalled();
+
+  fireEvent.change(name, { target: { value: "Salon Uroda i Styl" } });
+  fireEvent.blur(name);
+  await waitFor(() => expect(api.updateProfile).toHaveBeenCalledOnce());
+  expect(await screen.findByText("Zapisano")).toBeTruthy();
+  // One sentence gets two lines and a count, not a clipped single line.
+  expect(screen.getByText("25 / 200 znaków")).toBeTruthy();
+});
+
+test("the card offers the address of the place where visits happen (UX-053)", async () => {
+  api.getBookingSetup.mockResolvedValue({
+    locations: [
+      {
+        id: "p1",
+        name: "Gabinet",
+        address: "ul. Zdrowa 5, Warszawa",
+        active: true,
+      },
+      { id: "p2", name: "Stary lokal", address: "ul. Dawna 1", active: false },
+    ],
+  });
+  api.readOrganizationProfile.mockResolvedValue(
+    body({ profile: profile({ contact_address: "ul. Testowa 3, Olsztyn" }) }),
+  );
+  api.updateProfile.mockResolvedValue(
+    profile({ contact_address: "ul. Zdrowa 5, Warszawa", version: 4 }),
+  );
+  view(<ProfilePanel canManage />);
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Użyj adresu: Gabinet, ul. Zdrowa 5, Warszawa",
+    }),
+  );
+  await waitFor(() =>
+    expect(api.updateProfile.mock.calls[0]?.[1]).toMatchObject({
+      contact_address: "ul. Zdrowa 5, Warszawa",
+    }),
+  );
+  // The addresses agree now: nothing left to offer.
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: /Użyj adresu/ })).toBeNull(),
+  );
+});
+
 test("without the permission nothing on the card can be edited", async () => {
   view(<ProfilePanel canManage={false} />);
 
-  const name = await screen.findByLabelText("Nazwa firmy");
+  const name = await screen.findByLabelText("Nazwa w katalogu i na stronie");
 
   expect((name as HTMLInputElement).disabled).toBe(true);
   expect(

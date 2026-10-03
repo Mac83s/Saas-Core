@@ -1132,7 +1132,7 @@
     "cancelEdit": "Cancel",
     "editDetails": "Edit details",
     "buyer": "Buyer",
-    "address": "Address",
+    "address": "Invoice address (registered office)",
     "detailsOwnerOnly": "Only the business owner can change invoice details.",
     "free": "Free",
     "freeIncluded": "Included from the start"
@@ -3240,7 +3240,7 @@
     "eyebrow": "Settings",
     "companyTitle": "Company details",
     "companyDescription": "Your company's name, and the language, currency and time zone your calendar, messages and new data use.",
-    "companyName": "Company name",
+    "companyName": "Company name in the panel and on invoices",
     "defaultLanguage": "Panel and team e-mail language",
     "currency": "Currency",
     "timezone": "Time zone",
@@ -4263,7 +4263,7 @@
     "loadFailed": "Could not load the business card.",
     "saveFailed": "Could not save the change.",
     "publishFailed": "Could not change the publication.",
-    "name": "Company name",
+    "name": "Name in the catalogue and on the website",
     "headline": "One sentence about the company",
     "headlinePlaceholder": "For example: Hair salon for women and men",
     "bio": "Description",
@@ -4284,7 +4284,14 @@
     "leadsToCatalog": "The directory entry leads to your business card page on our platform.",
     "showInCatalog": "Show my business card in the directory",
     "pageTitle": "Business card",
-    "pageDescription": "Your company’s page in the public catalogue: name, description, contact and services. Shown only when you want it."
+    "pageDescription": "Your company’s page in the public catalogue: name, description, contact and services. Shown only when you want it.",
+    "autosave": "Changes save themselves when you leave a field.",
+    "readOnly": "The owner or an administrator changes the business card.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "characters": "{count} / {max} characters",
+    "addressDiffers": "The address on the card differs from the place where you take customers.",
+    "useAddress": "Use the address: {place}, {address}"
   },
   "SiteInquiries": {
     "title": "Website inquiries",

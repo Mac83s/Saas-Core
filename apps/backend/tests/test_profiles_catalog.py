@@ -172,6 +172,16 @@ def test_publication_needs_a_place_and_puts_the_company_in_the_public_listing() 
     assert listing.data["items"][0]["url"] == "/katalog/mragowo/wizytowka-publikacja/"
 
 
+def test_a_site_link_uses_the_deployments_scheme(settings: Any) -> None:
+    from saas_core.modules.shared.profiles.public_views import site_origin  # noqa: PLC0415
+
+    assert site_origin("studio.example.test") == "https://studio.example.test/"
+    # A local stack serves sites over http; the catalogue must not send
+    # people to https there (UX-060).
+    settings.PUBLIC_SITE_SCHEME = "http"
+    assert site_origin("studio.business.localhost") == "http://studio.business.localhost/"
+
+
 def test_withdrawal_removes_the_row_rather_than_flagging_it() -> None:
     client, organization, user = catalog_client(slug="wizytowka-wycofanie")
     _ready(client)

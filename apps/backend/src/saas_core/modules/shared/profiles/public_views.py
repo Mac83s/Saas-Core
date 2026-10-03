@@ -98,7 +98,13 @@ def site_url(entry: CatalogEntry) -> str | None:
     if not domains:
         return None
     canonical = next((domain for domain in domains if domain.is_canonical), domains[0])
-    return f"https://{canonical.hostname}/"
+    return site_origin(canonical.hostname)
+
+
+def site_origin(hostname: str) -> str:
+    """A site's address the way the sites module serves it: this deployment's
+    scheme, so a local stack on http is not sent to https (UX-060)."""
+    return f"{settings.PUBLIC_SITE_SCHEME}://{hostname}/"
 
 
 def speaks(entry: CatalogEntry, locale: str | None) -> bool:

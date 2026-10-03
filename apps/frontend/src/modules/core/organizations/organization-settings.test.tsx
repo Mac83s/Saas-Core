@@ -93,9 +93,12 @@ test("zapisuje tylko zmienione pola, z wersją, i odświeża menu", async () => 
   expect(
     (screen.getByLabelText("Strefa czasowa") as HTMLInputElement).value,
   ).toBe("Europe/Warsaw");
-  fireEvent.change(screen.getByLabelText("Nazwa firmy"), {
-    target: { value: "Kowalski i Syn" },
-  });
+  fireEvent.change(
+    screen.getByLabelText("Nazwa firmy w panelu i na fakturach"),
+    {
+      target: { value: "Kowalski i Syn" },
+    },
+  );
   fireEvent.change(screen.getByLabelText("Waluta"), {
     target: { value: "EUR" },
   });
@@ -142,9 +145,12 @@ test("konflikt wersji prosi o odświeżenie zamiast nadpisać cudze zmiany", asy
   );
   renderSettings();
 
-  fireEvent.change(screen.getByLabelText("Nazwa firmy"), {
-    target: { value: "Kowalski i Syn" },
-  });
+  fireEvent.change(
+    screen.getByLabelText("Nazwa firmy w panelu i na fakturach"),
+    {
+      target: { value: "Kowalski i Syn" },
+    },
+  );
   fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -156,9 +162,12 @@ test("konflikt wersji prosi o odświeżenie zamiast nadpisać cudze zmiany", asy
 test("za krótka nazwa nie trafia do API", async () => {
   renderSettings("en");
 
-  fireEvent.change(screen.getByLabelText("Company name"), {
-    target: { value: " K " },
-  });
+  fireEvent.change(
+    screen.getByLabelText("Company name in the panel and on invoices"),
+    {
+      target: { value: " K " },
+    },
+  );
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
   expect(
