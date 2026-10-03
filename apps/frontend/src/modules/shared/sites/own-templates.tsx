@@ -89,7 +89,14 @@ const photoPlaceholder: BlockImageRenderer = (image) => (
 );
 
 /** An own template drawn from its newest version, in the page's look. */
-export function OwnTemplateMiniature({ template }: { template: SiteTemplate }) {
+export function OwnTemplateMiniature({
+  template,
+  row = false,
+}: {
+  template: SiteTemplate;
+  /** The section library's compact row: a small picture of a wide page. */
+  row?: boolean;
+}) {
   const look = useContext(PageEditorContext)?.look ?? "site-theme";
   let blocks: ReactNode = null;
   try {
@@ -104,6 +111,12 @@ export function OwnTemplateMiniature({ template }: { template: SiteTemplate }) {
   } catch {
     blocks = null;
   }
+  if (row)
+    return (
+      <div className="studio-library-thumb" aria-hidden="true" inert>
+        <div className={`${look} studio-library-thumb__canvas`}>{blocks}</div>
+      </div>
+    );
   return (
     <div className="relative aspect-video overflow-hidden bg-muted">
       <div
@@ -485,6 +498,54 @@ export function OwnSectionTemplates({
           .includes(search)),
   );
   if (shown.length === 0) return null;
+  if (compact)
+    return (
+      <section className="space-y-1.5" aria-labelledby="own-section-templates">
+        <h4 id="own-section-templates" className="studio-library-group">
+          {t("sectionGroup")}
+        </h4>
+        <ul className="studio-library-list">
+          {shown.map((template) => (
+            <li
+              key={template.id}
+              className="studio-library-row studio-library-row--own"
+            >
+              <OwnTemplateMiniature template={template} row />
+              <div className="studio-library-row__text">
+                <h5>{template.name}</h5>
+                <p>
+                  {template.description ||
+                    t("versionBy", {
+                      number: template.version.number,
+                      author:
+                        template.version.created_by.name ||
+                        template.version.created_by.email,
+                    })}
+                </p>
+              </div>
+              <div className="studio-library-row__actions">
+                <OwnTemplateActions template={template} />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon-sm"
+                  disabled={disabled}
+                  aria-label={t("addNamed", { name: template.name })}
+                  title={t("add")}
+                  onClick={() =>
+                    onAdd(
+                      editableBlocks(template.version.blocks.slice(0, 1))[0],
+                    )
+                  }
+                >
+                  <PlusIcon aria-hidden="true" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
   return (
     <section className="space-y-3" aria-labelledby="own-section-templates">
       <h3 id="own-section-templates" className="text-sm font-semibold">

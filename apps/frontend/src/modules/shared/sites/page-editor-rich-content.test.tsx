@@ -351,9 +351,15 @@ test("inserting the same chapters layout twice keeps heading anchors unique on t
       name: polishMessages.Sites.sectionLibrary.open,
     }),
   );
-  fireEvent.change(within(rail).getByLabelText("Kategoria"), {
-    target: { value: "core.rich_text" },
-  });
+  fireEvent.click(
+    within(
+      within(rail).getByRole("group", {
+        name: polishMessages.Sites.sectionLibrary.category,
+      }),
+    ).getByRole("button", {
+      name: polishMessages.Sites.sectionLibrary.chip.rich_text,
+    }),
+  );
   const add = within(rail).getByRole("button", {
     name: "Dodaj: Rozdziały z indeksem",
   });
