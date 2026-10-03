@@ -143,6 +143,7 @@ export function ClosuresSection({ places }: { places: PlaceSetup[] }) {
               label: t("editFor", { name: days(item) }),
               icon: <PencilIcon aria-hidden="true" />,
               inline: true,
+              main: true,
               onSelect: (trigger) => {
                 setReturnTo(trigger ?? null);
                 setEditing({ item });

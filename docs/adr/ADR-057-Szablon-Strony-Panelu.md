@@ -62,13 +62,24 @@ zawijały się w dwa rzędy.
    comboboksa). **Akcje strony** (Przyjmij dostawę, Nowy dokument, Dodaj
    gospodarstwo) idą do nagłówka strony, nie do paska. To zamyka punkt ADR-054
    „wspólny komponent filtra dołożymy, gdy dwa ekrany będą go potrzebować” —
-   potrzebuje go pięć.
+   potrzebuje go pięć. Filtr ma szerokość swojej najdłuższej opcji (od 10 do
+   20 rem), więc nie ucina własnej treści, gdy w rzędzie jest miejsce. Na
+   telefonie (< 640 px) wyszukiwanie zostaje, a filtry (`filters`, nie
+   `toolbar`) chowają się pod przyciskiem „Filtry (n)”, który otwiera arkusz
+   (`Sheet` z `@saas-core/ui`) — lista zaczyna się na pierwszym ekranie
+   (UX-007, UX-008). W `toolbar` zostaje to, co mówi, czego dotyczą liczby
+   (okres, magazyn): to nie filtr, tylko zakres strony.
 7. **Kolumna akcji.** `RowActions` przyjmuje `inline` z ikoną: te działania są
-   osobnymi przyciskami w wierszu, reszta pod „…”. Na telefonie karta ma
-   miejsce na jeden przycisk, więc wszystko jest w „…”. Działanie może być
+   osobnymi przyciskami w wierszu, reszta pod „…”. Działanie może być
    linkiem (`link: <Link href>`) — zostaje wtedy linkiem, nie udaje przycisku.
    **„Edytuj” jest zawsze widoczne**, gdy edycja rekordu jest możliwa
-   (uzupełnienie właściciela po odbiorze 24.09) — nigdy tylko pod „…”.
+   (uzupełnienie właściciela po odbiorze 24.09) — nigdy tylko pod „…”, także
+   na telefonie: działanie oznaczone `main` (edycja) stoi na karcie obok „…”,
+   a gdy jest jedynym działaniem wiersza — sam ołówek, bez „…” (odpowiedź
+   Macieja 41a, 03.10; UX-014). Pozostałe przyciski wiersza są na telefonie w
+   „…”. Przyciski trzymają miejsca od prawej krawędzi, więc działanie, które
+   mają tylko niektóre wiersze (telefon), stoi przed edycją. Nie ma przycisku,
+   który robi to samo co nazwa w wierszu — „Otwórz kartę” jest w „…”.
    `DataTable` przyjmuje `emptyAction` — wyjście z pustej listy (wyczyść
    wyszukiwanie, dodaj pierwszą pozycję).
 

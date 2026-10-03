@@ -333,11 +333,13 @@ export function PeoplePanel({
   function actions(row: PersonRow): RowAction[] {
     const items: RowAction[] = [];
     const { member, staff, invitation } = row;
+    // The name is the card's link already; a button would say it twice
+    // (UX-014). A phone number only some rows have goes before editing, so
+    // „Edytuj” keeps its place beside „…”.
     if (row.cardId)
       items.push({
         label: t("openCard", { name: row.name }),
         icon: <IdCardIcon aria-hidden="true" />,
-        inline: true,
         link: <Link href={`/panel/team/${row.cardId}`} />,
       });
     if (row.phone)
@@ -355,6 +357,7 @@ export function PeoplePanel({
         label: t("editFor", { name: row.name }),
         icon: <PencilIcon aria-hidden="true" />,
         inline: true,
+        main: true,
         onSelect: (trigger) => ask("edit", row, trigger),
       });
     if (!row.current) {
@@ -643,7 +646,11 @@ export function PeoplePanel({
                 .join(" ")
             }
             searchable
-            toolbar={
+            activeFilters={
+              [show !== "current", account, role, teamFilter].filter(Boolean)
+                .length
+            }
+            filters={
               <>
                 {canInvite ? (
                   <DataTableFilter

@@ -14,7 +14,7 @@ export default async function ProfilePage() {
   const access = panelAccess(organization);
   if (!allows(access, { module: "shared.profiles" })) notFound();
   return (
-    <PanelPage description={t("pageDescription")} title={t("pageTitle")}>
+    <PanelPage description={t("pageDescription")} form title={t("pageTitle")}>
       {/* The API decides; this only keeps the panel from leading to a 403. */}
       <ProfilePanel
         canManage={allows(access, { permission: "profiles.manage" })}

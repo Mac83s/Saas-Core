@@ -14,5 +14,8 @@ export function useDataTableLabels(): DataTableLabels {
     previousPage: t("previousPage"),
     nextPage: t("nextPage"),
     pageOf: (page, pages) => t("pageOf", { page, pages }),
+    filters: (count) => t("filters", { count }),
+    showResults: t("showResults"),
+    close: t("close"),
   };
 }

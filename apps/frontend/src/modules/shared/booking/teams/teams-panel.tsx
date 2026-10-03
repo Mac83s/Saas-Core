@@ -210,6 +210,7 @@ export function TeamsPanel({
         label: t("editFor", { name: team.name }),
         icon: <PencilIcon aria-hidden="true" />,
         inline: true,
+        main: true,
         onSelect: (trigger) => {
           setReturnTo(trigger);
           setEditing(team);

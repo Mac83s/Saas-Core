@@ -123,7 +123,7 @@ export function CreditsPanel({
       id: "amount",
       accessorKey: "unit_amount_minor",
       header: t("colAmount"),
-      meta: { className: "tabular-nums" },
+      meta: { numeric: true },
       cell: ({ row: { original: purchase } }) =>
         formatMoney(purchase.unit_amount_minor, purchase.currency, locale),
     },

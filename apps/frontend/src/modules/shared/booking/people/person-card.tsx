@@ -36,12 +36,13 @@ import { PanelActions } from "#components/panel/panel-actions";
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { formatVisit } from "#lib/dates";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import { ChangeRoleDialog } from "../../../core/organizations/role-dialog";
 import { managesTeam } from "../../../core/organizations/role-groups";
 import { useRoleLabel } from "../../../core/organizations/role-labels";
 import { hasPassed, shownStatus, StatusBadge } from "../appointment-dialogs";
-import { addDays, formatWhen, wallClock } from "../calendar-time";
+import { addDays, wallClock } from "../calendar-time";
 import { useTodayText } from "./people-panel";
 import {
   EditPersonDialog,
@@ -417,7 +418,7 @@ export function PersonCard({
       meta: { primary: true },
       cell: ({ row: { original: item } }) => (
         <span className="font-medium tabular-nums">
-          {formatWhen(item, locale, zone)}
+          {formatVisit(item.starts_at, item.ends_at, locale, zone)}
         </span>
       ),
     },

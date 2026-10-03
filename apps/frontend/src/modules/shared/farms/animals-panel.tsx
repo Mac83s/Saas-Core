@@ -305,10 +305,10 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
       cell: ({ row: { original: animal } }) => (
         <RowActions
           items={[
+            // The ear tag opens the card already (UX-014): „…” has it too.
             {
               label: t("openCard"),
               icon: <EyeIcon aria-hidden="true" />,
-              inline: true,
               onSelect: (trigger) => open(animal, trigger),
             },
             // Editing is always in sight where it is allowed (ADR-057).
@@ -318,6 +318,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
                     label: t("edit"),
                     icon: <PencilIcon aria-hidden="true" />,
                     inline: true,
+                    main: true,
                     onSelect: (trigger: HTMLElement | null) => {
                       setReturnTo(trigger);
                       setEditing(animal);
@@ -338,14 +339,17 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
   ];
 
   const toolbar = (
+    <DataTableSearch
+      id="animal-search"
+      label={t("search")}
+      onChange={setSearch}
+      hint={t("searchHint")}
+      placeholder={t("searchShort")}
+      value={search}
+    />
+  );
+  const filters = (
     <>
-      <DataTableSearch
-        id="animal-search"
-        label={t("search")}
-        onChange={setSearch}
-        placeholder={t("searchHint")}
-        value={search}
-      />
       <DataTableField htmlFor="animal-farm" label={t("farm")}>
         <FarmField
           allLabel={t("allFarms")}
@@ -369,16 +373,19 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
           </option>
         ))}
       </DataTableFilter>
-      <Button
-        aria-pressed={review}
-        onClick={() => setReview((on) => !on)}
-        type="button"
-        variant={review ? "default" : "outline"}
-      >
+      {/* A filter that is on or off looks it: a checkbox, like the
+          calendar's „Tylko pracujący tego dnia” (UX-007). */}
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input
+          checked={review}
+          className="size-4 accent-primary"
+          onChange={(event) => setReview(event.target.checked)}
+          type="checkbox"
+        />
         {toReview > 0 && !review
           ? t("reviewFilterCount", { count: toReview })
           : t("reviewFilter")}
-      </Button>
+      </label>
     </>
   );
 
@@ -441,6 +448,8 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
             }}
             loading={!animals}
             toolbar={toolbar}
+            activeFilters={[farmId, status, review].filter(Boolean).length}
+            filters={filters}
           />
           <p aria-live="polite" className="text-sm text-muted-foreground">
             {animals ? t("found", { count: rows.length }) : ""}

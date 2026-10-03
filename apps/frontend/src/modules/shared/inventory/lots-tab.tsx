@@ -136,7 +136,8 @@ export function LotsTab({
           loading={!rows}
           searchable
           searchText={(row) => [row.item_name, row.number].join(" ")}
-          toolbar={
+          activeFilters={[soon, itemId, locationId].filter(Boolean).length}
+          filters={
             <>
               <DataTableFilter
                 id="lots-soon"

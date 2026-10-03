@@ -138,6 +138,7 @@ export function SetupTab({
                 label: t("rename"),
                 icon: <PencilIcon aria-hidden="true" />,
                 inline: true,
+                main: true,
                 onSelect: () => rename({ kind: "warehouse", target: location }),
               },
               ...(location.is_default
@@ -199,6 +200,7 @@ export function SetupTab({
               label: t("edit"),
               icon: <PencilIcon aria-hidden="true" />,
               inline: true,
+              main: true,
               onSelect: () => {
                 setSupplierDraft({
                   name: one.name,
@@ -243,6 +245,7 @@ export function SetupTab({
               label: t("rename"),
               icon: <PencilIcon aria-hidden="true" />,
               inline: true,
+              main: true,
               onSelect: () => rename({ kind: "category", target: category }),
             },
             ...(category.system

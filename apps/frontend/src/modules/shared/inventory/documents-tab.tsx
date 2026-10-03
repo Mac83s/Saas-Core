@@ -352,7 +352,8 @@ export function DocumentsTab({
               row.note,
             ].join(" ")
           }
-          toolbar={
+          activeFilters={kindFilter ? 1 : 0}
+          filters={
             <DataTableFilter
               id="documents-kind"
               label={t("kind")}

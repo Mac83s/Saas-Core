@@ -264,6 +264,7 @@ export function BookingSettings({
               label: t("editFor", { name: service.name }),
               icon: <PencilIcon aria-hidden="true" />,
               inline: true,
+              main: true,
               onSelect: (trigger) =>
                 open({ kind: "service", service }, trigger ?? null),
             },
@@ -300,6 +301,7 @@ export function BookingSettings({
       label: t("editFor", { name: item.name }),
       icon: <PencilIcon aria-hidden="true" />,
       inline: true,
+      main: true,
       onSelect: (trigger) =>
         open(
           kind === "location"

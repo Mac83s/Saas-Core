@@ -80,7 +80,10 @@
     "pagination": "Strony listy",
     "previousPage": "Poprzednia strona",
     "nextPage": "Następna strona",
-    "pageOf": "Strona {page} z {pages}"
+    "pageOf": "Strona {page} z {pages}",
+    "filters": "{count, plural, =0 {Filtry} other {Filtry (#)}}",
+    "showResults": "Pokaż wyniki",
+    "close": "Zamknij"
   },
   "Languages": {
     "title": "Języki i tłumaczenia",
@@ -3294,7 +3297,8 @@
     "problem_access": "Rejestr gospodarstw widzą tylko osoby z dostępem do niego. Jeśli go potrzebujesz, poproś właściciela organizacji.",
     "problem_plan": "Rejestr gospodarstw nie jest dostępny w planie tej organizacji.",
     "problem_missing": "Nie ma takiego gospodarstwa albo nie masz do niego dostępu.",
-    "search": "Szukaj: nazwa, miejscowość, hodowca, numer",
+    "search": "Szukaj gospodarstwa",
+    "searchHint": "Nazwa, miejscowość, hodowca albo numer stada",
     "clearSearch": "Wyczyść wyszukiwanie",
     "noResults": "Nic nie pasuje do wyszukiwania.",
     "tableCaption": "Gospodarstwa: nazwa, miejscowość, hodowca z telefonem i liczba zwierząt.",
@@ -3417,6 +3421,7 @@
     "tableCaption": "Zwierzęta ze wszystkich gospodarstw",
     "search": "Szukaj zwierzęcia",
     "searchHint": "Kolczyk (wystarczą ostatnie cyfry), numer roboczy albo imię.",
+    "searchShort": "Kolczyk lub numer",
     "farm": "Gospodarstwo",
     "allFarms": "Wszystkie gospodarstwa",
     "chooseFarm": "Wybierz gospodarstwo",

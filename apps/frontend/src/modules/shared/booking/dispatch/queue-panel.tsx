@@ -25,7 +25,8 @@ import {
 import { PanelPage } from "#components/panel/panel-page";
 import { Link, useRouter } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
-import { addDays, formatWhen, wallClock, weekStart } from "../calendar-time";
+import { formatVisit } from "#lib/dates";
+import { addDays, wallClock, weekStart } from "../calendar-time";
 import { problemText } from "../people/person-dialogs";
 import { CrewDialog } from "./crew-dialog";
 import { visitName, visitPerson } from "../visit-name";
@@ -184,7 +185,7 @@ export function QueuePanel({
         return (
           <>
             <p className="font-medium tabular-nums">
-              {formatWhen(item, locale, zone)}
+              {formatVisit(item.starts_at, item.ends_at, locale, zone)}
             </p>
             {day === today || day === addDays(today, 1) ? (
               <p className="text-sm text-muted-foreground">
@@ -327,7 +328,8 @@ export function QueuePanel({
               ].join(" ")
             }
             searchable
-            toolbar={
+            activeFilters={[when, kind, service].filter(Boolean).length}
+            filters={
               <>
                 <DataTableFilter
                   id="queue-when"

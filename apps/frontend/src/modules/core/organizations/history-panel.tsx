@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   readOrganizationHistory,
@@ -18,6 +18,7 @@ import {
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { formatDateTime } from "#lib/dates";
 
 const PAGE_SIZE = 25;
 
@@ -38,7 +39,7 @@ function humanize(key: string): string {
  */
 export function HistoryPanel() {
   const t = useTranslations("History");
-  const format = useFormatter();
+  const locale = useLocale();
   const labels = useDataTableLabels();
   const [query, setQuery] = useState<DataTableQuery>({
     pageIndex: 0,
@@ -94,13 +95,9 @@ export function HistoryPanel() {
       id: "when",
       header: t("when"),
       enableSorting: false,
-      meta: { primary: true },
       cell: ({ row: { original: entry } }) => (
         <time dateTime={entry.occurred_at} className="font-medium">
-          {format.dateTime(new Date(entry.occurred_at), {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}
+          {formatDateTime(entry.occurred_at, locale)}
         </time>
       ),
     },
@@ -128,6 +125,8 @@ export function HistoryPanel() {
       id: "what",
       header: t("what"),
       enableSorting: false,
+      // On a phone the card is titled by what happened, not by when (UX-009).
+      meta: { primary: true, className: "max-md:order-first" },
       cell: ({ row: { original: entry } }) => (
         <div className="space-y-1">
           <p className="font-medium">{actionLabel(entry.action)}</p>

@@ -121,7 +121,10 @@ export function BlogPanel({ siteId }: { siteId: string }) {
   const entryLocales = useCompanyLocales(["pl", "en"]);
   useEffect(() => {
     const first = entryLocales[0]?.code;
-    if (first && !entryLocales.some((item) => item.code === entryForm.getValues("locale"))) {
+    if (
+      first &&
+      !entryLocales.some((item) => item.code === entryForm.getValues("locale"))
+    ) {
       entryForm.setValue("locale", first);
     }
   }, [entryForm, entryLocales]);
@@ -308,6 +311,7 @@ export function BlogPanel({ siteId }: { siteId: string }) {
               label: t("blogEdit", { title: item.title }),
               icon: <PencilIcon aria-hidden="true" />,
               inline: true,
+              main: true,
               onSelect: () => setEntryId(item.id),
             },
             ...(item.state === "published"

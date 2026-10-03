@@ -372,6 +372,7 @@ export function FarmDetail({
                           label: t("editAnimal"),
                           icon: <PencilIcon aria-hidden="true" />,
                           inline: true,
+                          main: true,
                           onSelect: (trigger: HTMLElement | null) => {
                             setReturnTo(trigger);
                             setEditingAnimal(animal);

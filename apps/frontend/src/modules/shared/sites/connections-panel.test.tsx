@@ -136,14 +136,16 @@ test("nie proponuje odwołania grantu, który już nie działa", async () => {
   renderPanel();
   await screen.findByText(live.credential_id);
 
-  // Only the live connection's menu offers the stop — offering it on a
-  // revoked grant would suggest there is something left to stop.
-  await openMenu(revoked.credential_id);
-  const items = (await screen.findAllByRole("menuitem")).map(
-    (item) => item.textContent,
-  );
-  expect(items).toEqual(["Szczegóły połączenia"]);
-  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+  // Only the live connection offers the stop — offering it on a revoked
+  // grant would suggest there is something left to stop. Its only action,
+  // the details, is a button of its own, without a menu (answer 41a).
+  const row = screen.getByText(revoked.credential_id).closest("tr")!;
+  within(row).getByRole("button", { name: "Szczegóły połączenia" });
+  expect(
+    within(row).queryByRole("button", {
+      name: `Działania dla poświadczenia ${revoked.credential_id}`,
+    }),
+  ).toBeNull();
 
   await openMenu(live.credential_id);
   expect(

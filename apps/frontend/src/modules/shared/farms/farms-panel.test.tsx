@@ -268,7 +268,7 @@ test("wyszukiwarka pyta serwer i da się ją wyczyścić", async () => {
   await screen.findByRole("table");
 
   api.listFarms.mockResolvedValueOnce([]);
-  fireEvent.change(screen.getByLabelText(/Szukaj: nazwa/), {
+  fireEvent.change(screen.getByLabelText("Szukaj gospodarstwa"), {
     target: { value: "wólka" },
   });
   await waitFor(() => expect(api.listFarms).toHaveBeenCalledWith("wólka"));
@@ -332,7 +332,7 @@ test("błąd wczytania da się ponowić, brak w planie prowadzi do abonamentu", 
   await screen.findByRole("table");
 
   api.listFarms.mockRejectedValue(problem(403, "entitlement_required"));
-  fireEvent.change(screen.getByLabelText(/Szukaj: nazwa/), {
+  fireEvent.change(screen.getByLabelText("Szukaj gospodarstwa"), {
     target: { value: "x" },
   });
   expect(

@@ -251,6 +251,7 @@ export function SitePagesTable({
             label: t("edit"),
             icon: <PencilIcon aria-hidden="true" />,
             inline: true,
+            main: true,
             onSelect: () => onEdit(page),
           },
           {
@@ -387,26 +388,27 @@ export function SitePagesTable({
         }}
         loading={show === "live" ? loading : deleted === undefined}
         toolbar={
-          <>
-            <DataTableSearch
-              id="site-pages-search"
-              label={t("search")}
-              onChange={setSearch}
-              value={search}
-            />
-            <DataTableFilter
-              id="site-pages-show"
-              label={t("show")}
-              onChange={(event) => {
-                setShow(event.target.value as Show);
-                setNotice("");
-              }}
-              value={show}
-            >
-              <option value="live">{t("showLive")}</option>
-              <option value="deleted">{t("showDeleted")}</option>
-            </DataTableFilter>
-          </>
+          <DataTableSearch
+            id="site-pages-search"
+            label={t("search")}
+            onChange={setSearch}
+            value={search}
+          />
+        }
+        activeFilters={show === "deleted" ? 1 : 0}
+        filters={
+          <DataTableFilter
+            id="site-pages-show"
+            label={t("show")}
+            onChange={(event) => {
+              setShow(event.target.value as Show);
+              setNotice("");
+            }}
+            value={show}
+          >
+            <option value="live">{t("showLive")}</option>
+            <option value="deleted">{t("showDeleted")}</option>
+          </DataTableFilter>
         }
       />
       {deleting ? (

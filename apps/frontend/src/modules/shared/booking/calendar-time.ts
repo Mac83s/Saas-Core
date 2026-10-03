@@ -4,21 +4,9 @@
  * business's, not the viewer's browser's (ADR-030).
  */
 
-const formats = new Map<string, Intl.DateTimeFormat>();
+import { dateFormat } from "#lib/dates";
 
-/** A cached formatter: a month view formats hundreds of dates per render. */
-export function dateFormat(
-  locale: string,
-  options: Intl.DateTimeFormatOptions,
-): Intl.DateTimeFormat {
-  const key = locale + JSON.stringify(options);
-  let format = formats.get(key);
-  if (!format) {
-    format = new Intl.DateTimeFormat(locale, options);
-    formats.set(key, format);
-  }
-  return format;
-}
+export { dateFormat };
 
 /** The wall-clock day and time ("HH:mm") of an instant in `timeZone`. */
 export function wallClock(

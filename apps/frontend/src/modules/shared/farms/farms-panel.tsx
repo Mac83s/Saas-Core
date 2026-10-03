@@ -209,7 +209,7 @@ export function FarmsPanel({
       id: "animals",
       accessorKey: "animal_count",
       header: t("animals"),
-      meta: { className: "tabular-nums" },
+      meta: { numeric: true },
     },
     {
       id: "actions",
@@ -218,26 +218,14 @@ export function FarmsPanel({
       cell: ({ row: { original: farm } }) => (
         <RowActions
           items={[
+            // The name opens the farm already (UX-014): „Otwórz” is in „…”.
             {
               label: t("open"),
               icon: <EyeIcon aria-hidden="true" />,
-              inline: true,
               link: <Link href={`/panel/farms/${farm.id}`} />,
             },
-            // Editing is always in sight where it is allowed (ADR-057).
-            ...(canManage
-              ? [
-                  {
-                    label: t("edit"),
-                    icon: <PencilIcon aria-hidden="true" />,
-                    inline: true,
-                    onSelect: (trigger: HTMLElement | null) => {
-                      setReturnTo(trigger);
-                      setEditing(farm);
-                    },
-                  },
-                ]
-              : []),
+            // A phone only some farms have goes first, so editing keeps its
+            // place beside „…” — in sight wherever allowed (ADR-057 pkt 7).
             ...(farm.phone
               ? [
                   {
@@ -245,6 +233,20 @@ export function FarmsPanel({
                     icon: <PhoneIcon aria-hidden="true" />,
                     inline: true,
                     link: <a href={`tel:${farm.phone.replaceAll(" ", "")}`} />,
+                  },
+                ]
+              : []),
+            ...(canManage
+              ? [
+                  {
+                    label: t("edit"),
+                    icon: <PencilIcon aria-hidden="true" />,
+                    inline: true,
+                    main: true,
+                    onSelect: (trigger: HTMLElement | null) => {
+                      setReturnTo(trigger);
+                      setEditing(farm);
+                    },
                   },
                 ]
               : []),
@@ -296,6 +298,7 @@ export function FarmsPanel({
         // The server searches, so a big register stays on one screen.
         toolbar={
           <DataTableSearch
+            hint={t("searchHint")}
             id="farms-search"
             label={t("search")}
             onChange={setSearch}

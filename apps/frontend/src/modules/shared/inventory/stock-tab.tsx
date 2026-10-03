@@ -151,6 +151,7 @@ export function StockTab({
       id: "quantity",
       accessorFn: (row) => Number(row.quantity),
       header: t("quantity"),
+      meta: { numeric: true },
       cell: ({ row: { original: row } }) => (
         <span className={Number(row.quantity) < 0 ? "text-destructive" : ""}>
           {amount(row.quantity)} {t(`unit_${row.unit}`)}
@@ -161,12 +162,14 @@ export function StockTab({
       id: "reserved",
       accessorFn: (row) => Number(row.reserved),
       header: t("reserved"),
+      meta: { numeric: true },
       cell: ({ row: { original: row } }) => amount(row.reserved),
     },
     {
       id: "available",
       accessorFn: (row) => Number(row.available),
       header: t("available"),
+      meta: { numeric: true },
       cell: ({ row: { original: row } }) => (
         <span className="inline-flex flex-wrap items-center gap-2">
           {amount(row.available)}
@@ -178,6 +181,7 @@ export function StockTab({
       id: "minimum",
       accessorFn: (row) => Number(row.minimum_quantity),
       header: t("minimum"),
+      meta: { numeric: true },
       cell: ({ row: { original: row } }) => amount(row.minimum_quantity),
     },
     {

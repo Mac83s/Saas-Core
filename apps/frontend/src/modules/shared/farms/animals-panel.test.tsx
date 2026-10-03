@@ -539,12 +539,12 @@ test("sztuki wpisane przez firmę czekają na przejrzenie", async () => {
 
   // Licznik mówi, ile sztuk czeka; znacznik stoi przy samym zwierzęciu.
   expect(
-    await screen.findByRole("button", { name: "Do przejrzenia (1)" }),
+    await screen.findByRole("checkbox", { name: "Do przejrzenia (1)" }),
   ).toBeVisible();
   expect(screen.getByText("Nowe od firmy")).toBeVisible();
 
   // Filtr pyta serwer, a nie chowa wierszy w panelu.
-  fireEvent.click(screen.getByRole("button", { name: "Do przejrzenia (1)" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Do przejrzenia (1)" }));
   await waitFor(() =>
     expect(api.listFarmAnimals).toHaveBeenLastCalledWith(
       expect.objectContaining({ review: true }),

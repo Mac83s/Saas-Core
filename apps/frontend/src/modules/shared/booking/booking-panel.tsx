@@ -37,6 +37,7 @@ import { cn } from "@saas-core/ui/lib/utils";
 import { PanelPage, PanelToolbar } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { formatHours, formatVisit } from "#lib/dates";
 import type { PanelAccess } from "#lib/panel-navigation";
 import {
   AppointmentDialog,
@@ -474,7 +475,7 @@ export function BookingPanel({
             item.status === "canceled" && "line-through",
           )}
         >
-          {formatWhen(item, locale, zone)}
+          {formatVisit(item.starts_at, item.ends_at, locale, zone)}
         </span>
       ),
     },
@@ -1160,14 +1161,7 @@ function AppointmentCard({
           appointment.status === "canceled" && "line-through",
         )}
       >
-        {dateFormat(locale, {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: zone,
-        }).formatRange(
-          new Date(appointment.starts_at),
-          new Date(appointment.ends_at),
-        )}
+        {formatHours(appointment.starts_at, appointment.ends_at, locale, zone)}
       </span>{" "}
       {/* Spaces between the parts keep the spoken name from running together. */}
       <span className={cn("w-full min-w-0", wide && "sm:flex-1")}>

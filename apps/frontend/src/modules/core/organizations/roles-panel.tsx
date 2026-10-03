@@ -197,6 +197,7 @@ export function RolesPanel({
       id: "access",
       header: t("colAccess"),
       enableSorting: false,
+      meta: { long: true },
       cell: ({ row: { original: role } }) => (
         <span className="text-muted-foreground">{describe(role)}</span>
       ),
@@ -205,7 +206,7 @@ export function RolesPanel({
       id: "people",
       accessorKey: "people",
       header: t("colPeople"),
-      meta: { className: "tabular-nums" },
+      meta: { numeric: true },
     },
     {
       id: "actions",
@@ -219,6 +220,7 @@ export function RolesPanel({
                 label: t("edit"),
                 icon: <PencilIcon aria-hidden="true" />,
                 inline: true,
+                main: true,
                 onSelect: () => {
                   setProblem(undefined);
                   setEditing(role);

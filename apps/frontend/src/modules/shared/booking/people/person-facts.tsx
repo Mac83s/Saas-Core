@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 
 import {
   ApiProblemError,
@@ -23,6 +23,7 @@ import {
 
 import { PanelSection } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { formatDateRange } from "#lib/dates";
 import { addDays, addMonths, wallClock } from "../calendar-time";
 
 /**
@@ -129,7 +130,7 @@ export function PersonResults({
   currency: string;
 }) {
   const t = useTranslations("StaffFacts");
-  const format = useFormatter();
+  const locale = useLocale();
   const words = useFactWords();
   const value = useFactValue(currency);
   const [now] = useState(() => new Date());
@@ -157,17 +158,7 @@ export function PersonResults({
   }, [now, period, staffId, zone]);
 
   if (facts === null) return null;
-  const range = (from: string, to: string) =>
-    format.dateTimeRange(
-      new Date(`${from}T12:00:00Z`),
-      new Date(`${to}T12:00:00Z`),
-      {
-        day: "numeric",
-        month: "numeric",
-        year: "numeric",
-        timeZone: "UTC",
-      },
-    );
+  const range = (from: string, to: string) => formatDateRange(from, to, locale);
   const previous = (metric: StaffMetric) =>
     metric.previous === null
       ? null
@@ -426,26 +417,27 @@ export function PersonHistory({
           loading={!items}
           pageSize={100}
           toolbar={
-            <>
-              <DataTableFilter
-                id="history-kind"
-                label={t("kind")}
-                onChange={(event) => setKind(event.target.value)}
-                value={kind}
-              >
-                <option value="">{t("kindAll")}</option>
-                {kinds.map((name) => (
-                  <option key={name} value={name}>
-                    {words.provider(name)}
-                  </option>
-                ))}
-              </DataTableFilter>
-              <PeriodFilter
-                id="history-period"
-                onChange={setPeriod}
-                value={period}
-              />
-            </>
+            <PeriodFilter
+              id="history-period"
+              onChange={setPeriod}
+              value={period}
+            />
+          }
+          activeFilters={kind ? 1 : 0}
+          filters={
+            <DataTableFilter
+              id="history-kind"
+              label={t("kind")}
+              onChange={(event) => setKind(event.target.value)}
+              value={kind}
+            >
+              <option value="">{t("kindAll")}</option>
+              {kinds.map((name) => (
+                <option key={name} value={name}>
+                  {words.provider(name)}
+                </option>
+              ))}
+            </DataTableFilter>
           }
         />
       )}

@@ -115,6 +115,7 @@ export function PerformancePanel({
           id: `${group.provider}.${metric.key}`,
           accessorFn: (row) => row.groups[group.provider]?.[metric.key] ?? -1,
           header: words.metric(group.provider, metric.key),
+          meta: { numeric: true },
           cell: ({ row: { original: row } }) => {
             const number = row.groups[group.provider]?.[metric.key];
             // A person the module has nothing on — no account, no stock —
@@ -153,36 +154,38 @@ export function PerformancePanel({
           loading={!data}
           searchable
           searchText={(row) => row.name}
+          // The period is what the numbers are of: it stays in sight.
           toolbar={
-            <>
+            <DataTableFilter
+              id="performance-period"
+              label={t("period")}
+              onChange={(event) => setPeriod(event.target.value as PeriodKey)}
+              value={period}
+            >
+              {PERIODS.map((key) => (
+                <option key={key} value={key}>
+                  {t(`period_${key}`)}
+                </option>
+              ))}
+            </DataTableFilter>
+          }
+          activeFilters={team ? 1 : 0}
+          filters={
+            teams.length ? (
               <DataTableFilter
-                id="performance-period"
-                label={t("period")}
-                onChange={(event) => setPeriod(event.target.value as PeriodKey)}
-                value={period}
+                id="performance-team"
+                label={t("column.teams")}
+                onChange={(event) => setTeam(event.target.value)}
+                value={team}
               >
-                {PERIODS.map((key) => (
-                  <option key={key} value={key}>
-                    {t(`period_${key}`)}
+                <option value="">{t("allTeams")}</option>
+                {teams.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
               </DataTableFilter>
-              {teams.length ? (
-                <DataTableFilter
-                  id="performance-team"
-                  label={t("column.teams")}
-                  onChange={(event) => setTeam(event.target.value)}
-                  value={team}
-                >
-                  <option value="">{t("allTeams")}</option>
-                  {teams.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </DataTableFilter>
-              ) : null}
-            </>
+            ) : null
           }
         />
       )}

@@ -22,6 +22,8 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 
+import { formatDate } from "#lib/dates";
+
 /** The header every warehouse page shares: section, its title, last outcome. */
 export type PageFrame = { eyebrow: string; notice: string; title: string };
 
@@ -61,13 +63,7 @@ export function useFormat() {
         Number(value),
       ),
     /** A date without a time (an expiry): read where it was written. */
-    day: (iso: string) =>
-      new Intl.DateTimeFormat(locale, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      }).format(new Date(`${iso}T00:00:00Z`)),
+    day: (iso: string) => formatDate(iso.slice(0, 10), locale),
   };
 }
 

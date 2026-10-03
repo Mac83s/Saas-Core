@@ -80,7 +80,10 @@
     "pagination": "List pages",
     "previousPage": "Previous page",
     "nextPage": "Next page",
-    "pageOf": "Page {page} of {pages}"
+    "pageOf": "Page {page} of {pages}",
+    "filters": "{count, plural, =0 {Filters} other {Filters (#)}}",
+    "showResults": "Show results",
+    "close": "Close"
   },
   "Languages": {
     "title": "Languages and translations",
@@ -3294,7 +3297,8 @@
     "problem_access": "Only people with access to the farm register can see it. Ask the organization's owner if you need it.",
     "problem_plan": "The farm register isn't included in this organization's plan.",
     "problem_missing": "There is no such farm, or you have no access to it.",
-    "search": "Search: name, village, keeper, number",
+    "search": "Search farms",
+    "searchHint": "Name, village, keeper or herd number",
     "clearSearch": "Clear the search",
     "noResults": "Nothing matches the search.",
     "tableCaption": "Farms: name, village, keeper with phone and the number of animals.",
@@ -3417,6 +3421,7 @@
     "tableCaption": "Animals of all farms",
     "search": "Search for an animal",
     "searchHint": "Ear tag (the last digits are enough), working number or name.",
+    "searchShort": "Ear tag or number",
     "farm": "Farm",
     "allFarms": "All farms",
     "chooseFarm": "Choose a farm",

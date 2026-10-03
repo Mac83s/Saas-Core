@@ -26,6 +26,7 @@ export function PanelPage({
   notice,
   aside,
   asideLabel,
+  form = false,
   children,
 }: {
   /**
@@ -54,6 +55,12 @@ export function PanelPage({
   aside?: ReactNode;
   /** Names the aside for screen readers, e.g. "Help". */
   asideLabel?: string;
+  /**
+   * A page that is one form (the business card, company details): its fields
+   * keep to 48 rem, a line one reads at a glance, on every such page alike
+   * (UX-013). Lists keep the full width.
+   */
+  form?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -109,6 +116,8 @@ export function PanelPage({
             {aside}
           </aside>
         </div>
+      ) : form ? (
+        <div className="max-w-3xl space-y-6">{children}</div>
       ) : (
         children
       )}

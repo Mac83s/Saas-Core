@@ -29,6 +29,7 @@ import {
   ChevronRightIcon,
   ChevronsUpDownIcon,
   EllipsisIcon,
+  ListFilterIcon,
   SearchIcon,
 } from "lucide-react";
 
@@ -43,6 +44,16 @@ import {
 } from "#components/dropdown-menu";
 import { Input } from "#components/input";
 import { NativeSelect } from "#components/native-select";
+import {
+  Sheet,
+  SheetBody,
+  SheetClose,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "#components/sheet";
 import {
   Table,
   TableBody,
@@ -63,10 +74,17 @@ declare module "@tanstack/react-table" {
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Names the value on a phone card and a header that is not plain text. */
     label?: string;
-    /** Titles the row's card on a phone; shown without a label. */
+    /**
+     * Titles the row's card on a phone; shown without a label. A column that
+     * is not the table's first one adds `max-md:order-first` to its className.
+     */
     primary?: boolean;
     /** Row actions: a narrow right cell, the card's top-right corner on a phone. */
     actions?: boolean;
+    /** A value longer than a line: under its label on a phone card, not beside it. */
+    long?: boolean;
+    /** Amounts and counts: right-aligned with even digits, so they stand under each other (UX-010). */
+    numeric?: boolean;
     className?: string;
   }
 }
@@ -79,6 +97,11 @@ export type DataTableLabels = {
   previousPage: string;
   nextPage: string;
   pageOf: (page: number, pages: number) => string;
+  /** „Filtry”, „Filtry (2)”: the phone's button to the list's filters. */
+  filters?: (active: number) => string;
+  /** The sheet's way back to the list, e.g. „Pokaż wyniki”. */
+  showResults?: string;
+  close?: string;
 };
 
 /** What a server-side list is asked for; the table never pages or sorts it. */
@@ -144,6 +167,8 @@ export function DataTable<TData, TValue>({
   searchable = false,
   searchText,
   toolbar,
+  filters,
+  activeFilters = 0,
   emptyAction,
   pageSize = 20,
   rowCount,
@@ -167,6 +192,13 @@ export function DataTable<TData, TValue>({
    * belong in its header, not here.
    */
   toolbar?: ReactNode;
+  /**
+   * The list's filters (`DataTableFilter`): in the row on a wide screen, under
+   * one „Filtry (n)” button and a sheet on a phone, so the list starts on the
+   * first screen (UX-008). `activeFilters` is the n.
+   */
+  filters?: ReactNode;
+  activeFilters?: number;
   /** A way out of an empty list, e.g. "Clear the search". */
   emptyAction?: ReactNode;
   pageSize?: number;
@@ -263,7 +295,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {searchable || toolbar ? (
+      {searchable || toolbar || filters ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {searchable ? (
             <DataTableSearch
@@ -273,6 +305,11 @@ export function DataTable<TData, TValue>({
             />
           ) : null}
           {toolbar}
+          {filters ? (
+            <ListFilters active={activeFilters} labels={labels}>
+              {filters}
+            </ListFilters>
+          ) : null}
         </div>
       ) : null}
 
@@ -311,6 +348,7 @@ export function DataTable<TData, TValue>({
                       className={cn(
                         "text-xs text-muted-foreground",
                         meta?.actions && "w-px",
+                        meta?.numeric && "text-right",
                         meta?.className,
                       )}
                       key={header.id}
@@ -369,7 +407,7 @@ export function DataTable<TData, TValue>({
             ) : (
               rows.map((row) => (
                 <TableRow
-                  className="max-md:relative max-md:block max-md:rounded-lg max-md:border! max-md:p-3 max-md:hover:bg-transparent"
+                  className="group/row max-md:relative max-md:flex max-md:flex-col max-md:rounded-lg max-md:border! max-md:p-3 max-md:hover:bg-transparent"
                   key={row.id}
                   role="row"
                 >
@@ -379,6 +417,17 @@ export function DataTable<TData, TValue>({
                     const label =
                       meta?.label ??
                       (typeof header === "string" ? header : cell.column.id);
+                    const content = renderSlot(
+                      cell.column.columnDef.cell,
+                      cell.getContext(),
+                    );
+                    // A card leaves out a field with nothing in it rather
+                    // than show its label alone (UX-009).
+                    const blank =
+                      content === null ||
+                      content === undefined ||
+                      content === false ||
+                      content === "";
                     return (
                       <TableCell
                         className={cn(
@@ -386,8 +435,12 @@ export function DataTable<TData, TValue>({
                           meta?.actions
                             ? "py-1.5 text-right whitespace-nowrap max-md:absolute max-md:top-1.5 max-md:right-1.5 max-md:p-0"
                             : meta?.primary
-                              ? "max-md:block max-md:px-0 max-md:pt-0 max-md:pr-12 max-md:pb-1 max-md:text-base"
-                              : "max-md:flex max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-1",
+                              ? "max-md:block max-md:px-0 max-md:pt-0 max-md:pr-12 max-md:pb-1 max-md:text-base max-md:group-has-[[data-phone-actions='2']]/row:pr-24"
+                              : meta?.long
+                                ? "max-md:block max-md:px-0 max-md:py-1"
+                                : "max-md:flex max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-1",
+                          blank && !meta?.actions && "max-md:hidden",
+                          meta?.numeric && "tabular-nums md:text-right",
                           meta?.className,
                         )}
                         key={cell.id}
@@ -403,16 +456,16 @@ export function DataTable<TData, TValue>({
                         )}
                         <div
                           className={cn(
-                            "min-w-0",
+                            // An e-mail or an address breaks inside a card
+                            // instead of leaving it.
+                            "min-w-0 max-md:wrap-anywhere",
                             !meta?.actions &&
                               !meta?.primary &&
+                              !meta?.long &&
                               "max-md:text-right",
                           )}
                         >
-                          {renderSlot(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
+                          {content}
                         </div>
                       </TableCell>
                     );
@@ -456,6 +509,50 @@ export function DataTable<TData, TValue>({
   );
 }
 
+/**
+ * The filters in the toolbar's row on a wide screen; on a phone one button
+ * opens them in a sheet. Only one copy is mounted at a time: the row's copy is
+ * hidden on a phone and leaves while the sheet is open, so a filter's id and
+ * label stay unique.
+ */
+function ListFilters({
+  active,
+  labels,
+  children,
+}: {
+  active: number;
+  labels: DataTableLabels;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const name = (count: number) =>
+    labels.filters?.(count) ?? (count ? `Filters (${count})` : "Filters");
+  return (
+    <>
+      {open ? null : <div className="contents max-sm:hidden">{children}</div>}
+      <Sheet onOpenChange={setOpen} open={open} side="bottom">
+        <SheetTrigger
+          render={<Button className="sm:hidden" variant="outline" />}
+        >
+          <ListFilterIcon aria-hidden="true" />
+          {name(active)}
+        </SheetTrigger>
+        <SheetContent closeLabel={labels.close}>
+          <SheetHeader>
+            <SheetTitle>{name(0)}</SheetTitle>
+          </SheetHeader>
+          <SheetBody className="flex flex-col gap-3 py-3">{children}</SheetBody>
+          <SheetFooter>
+            <SheetClose render={<Button />}>
+              {labels.showResults ?? "Show results"}
+            </SheetClose>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
 /** Rows of a list before they arrive; a page loading its data shows the same. */
 export function ListSkeleton({ label }: { label: string }) {
   return (
@@ -474,17 +571,20 @@ export function DataTableSearch({
   value,
   onChange,
   placeholder,
+  hint,
   id,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  /** What can be searched for, e.g. "Ear tag, name or number". */
+  /** A short prompt that fits the field, e.g. "Ear tag or number". */
   placeholder?: string;
+  /** All that can be searched for, as the field's tooltip (UX-007). */
+  hint?: string;
   id?: string;
 }) {
   return (
-    <div className="relative w-full sm:w-72">
+    <div className="relative min-w-0 flex-1 basis-40 sm:w-72 sm:flex-none">
       <SearchIcon
         aria-hidden="true"
         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -495,6 +595,7 @@ export function DataTableSearch({
         id={id}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder ?? label}
+        title={hint}
         type="search"
         value={value}
       />
@@ -524,7 +625,11 @@ export function DataTableField({
       >
         {label}
       </label>
-      <div className="min-w-0 flex-1 sm:w-48 sm:flex-none">{children}</div>
+      {/* As wide as its longest option, so „Wszystkie gospodarstwa” is never
+          cut while the row has room (UX-007). */}
+      <div className="min-w-0 flex-1 sm:max-w-80 sm:min-w-40 sm:flex-none">
+        {children}
+      </div>
     </div>
   );
 }
@@ -553,6 +658,11 @@ export type RowAction = {
   link?: ReactElement;
   /** Always in sight as its own button on a wide screen; needs `icon`. */
   inline?: boolean;
+  /**
+   * The row's main action, „Edytuj”: an inline button on a phone too, beside
+   * „…” (answer 41a). A row's only inline action is a button there anyway.
+   */
+  main?: boolean;
   icon?: ReactNode;
   destructive?: boolean;
   /** Draws a separator above this item. */
@@ -561,8 +671,9 @@ export type RowAction = {
 
 /**
  * A row's actions: the few that are used all the time as buttons, the rest
- * behind one "…" (ADR-057). On a phone the card has room for one button, so
- * everything is in the menu there.
+ * behind one "…" (ADR-057 pkt 7). The buttons keep their places from the
+ * right edge, so an action only some rows have goes first. On a phone the card
+ * has room for two buttons: the main action and "…" (answer 41a, 03.10).
  */
 export function RowActions({
   label,
@@ -574,18 +685,29 @@ export function RowActions({
   const trigger = useRef<HTMLButtonElement>(null);
   if (items.length === 0) return null;
   const shown = (item: RowAction) => Boolean(item.inline && item.icon);
+  const only = items.length === 1 ? items[0] : undefined;
+  const main =
+    items.find((item) => item.main && shown(item)) ??
+    (only && shown(only) ? only : undefined);
+  const wideMenu = items.filter((item) => !shown(item));
+  const phoneMenu = items.filter((item) => item !== main);
   const phoneOnly = (item: RowAction) =>
     shown(item) ? "md:hidden" : undefined;
   return (
-    <div className="flex items-center justify-end gap-0.5">
-      {items.filter(shown).map((item) =>
+    <div
+      className="flex items-center justify-end gap-0.5"
+      data-phone-actions={(main ? 1 : 0) + (phoneMenu.length ? 1 : 0)}
+    >
+      {items.filter(shown).map((item) => {
+        const phone = item === main ? undefined : "max-md:hidden";
         // A link stays a link: Base UI's Button would give it role="button".
-        item.link ? (
+        return item.link ? (
           cloneElement(item.link as ReactElement<Record<string, unknown>>, {
             "aria-label": item.label,
             className: cn(
               buttonVariants({ size: "icon", variant: "ghost" }),
-              "max-md:hidden md:size-9",
+              phone,
+              "md:size-9",
             ),
             key: item.label,
             title: item.label,
@@ -594,7 +716,7 @@ export function RowActions({
         ) : (
           <Button
             aria-label={item.label}
-            className="max-md:hidden md:size-9"
+            className={cn(phone, "md:size-9")}
             key={item.label}
             onClick={(event) => item.onSelect?.(event.currentTarget)}
             size="icon"
@@ -603,61 +725,63 @@ export function RowActions({
           >
             {item.icon}
           </Button>
-        ),
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          ref={trigger}
-          render={
-            <Button
-              aria-label={label}
-              // 44 px on a phone's card, row height on a wide table.
-              className={items.every(shown) ? "md:hidden" : "md:size-9"}
-              size="icon"
-              variant="ghost"
-            />
-          }
-        >
-          <EllipsisIcon aria-hidden="true" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {items.flatMap((item) => [
-            ...(item.separated
-              ? [
-                  <DropdownMenuSeparator
-                    className={phoneOnly(item)}
-                    key={`${item.label}-separator`}
-                  />,
-                ]
-              : []),
-            item.link ? (
-              <DropdownMenuLinkItem
-                className={cn(
-                  item.destructive && "text-destructive",
-                  phoneOnly(item),
-                )}
-                key={item.label}
-                render={item.link}
-              >
-                {item.icon}
-                {item.label}
-              </DropdownMenuLinkItem>
-            ) : (
-              <DropdownMenuItem
-                className={cn(
-                  item.destructive && "text-destructive",
-                  phoneOnly(item),
-                )}
-                key={item.label}
-                onClick={() => item.onSelect?.(trigger.current)}
-              >
-                {item.icon}
-                {item.label}
-              </DropdownMenuItem>
-            ),
-          ])}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        );
+      })}
+      {phoneMenu.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            ref={trigger}
+            render={
+              <Button
+                aria-label={label}
+                // 44 px on a phone's card, row height on a wide table.
+                className={wideMenu.length ? "md:size-9" : "md:hidden"}
+                size="icon"
+                variant="ghost"
+              />
+            }
+          >
+            <EllipsisIcon aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {phoneMenu.flatMap((item) => [
+              ...(item.separated
+                ? [
+                    <DropdownMenuSeparator
+                      className={phoneOnly(item)}
+                      key={`${item.label}-separator`}
+                    />,
+                  ]
+                : []),
+              item.link ? (
+                <DropdownMenuLinkItem
+                  className={cn(
+                    item.destructive && "text-destructive",
+                    phoneOnly(item),
+                  )}
+                  key={item.label}
+                  render={item.link}
+                >
+                  {item.icon}
+                  {item.label}
+                </DropdownMenuLinkItem>
+              ) : (
+                <DropdownMenuItem
+                  className={cn(
+                    item.destructive && "text-destructive",
+                    phoneOnly(item),
+                  )}
+                  key={item.label}
+                  onClick={() => item.onSelect?.(trigger.current)}
+                >
+                  {item.icon}
+                  {item.label}
+                </DropdownMenuItem>
+              ),
+            ])}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   );
 }

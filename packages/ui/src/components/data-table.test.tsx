@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -247,37 +248,49 @@ test("row actions hide without items and hand the trigger to the chosen one", as
   expect(onSelect).toHaveBeenCalledWith(trigger);
 });
 
-test("inline row actions are buttons of their own, and stay in the menu for phones", async () => {
+test("inline row actions are buttons of their own; on a phone the main one stays beside „…”", async () => {
   const open = vi.fn();
   const remove = vi.fn();
   render(
     <RowActions
       items={[
-        { label: "Open", onSelect: open, inline: true, icon: <svg /> },
+        { label: "Call", onSelect: vi.fn(), inline: true, icon: <svg /> },
+        {
+          label: "Edit",
+          onSelect: open,
+          inline: true,
+          main: true,
+          icon: <svg />,
+        },
         { label: "Remove", onSelect: remove, destructive: true },
       ]}
       label="Actions for Kasia"
     />,
   );
-  const button = screen.getByRole("button", { name: "Open" });
+  const button = screen.getByRole("button", { name: "Edit" });
   fireEvent.click(button);
   expect(open).toHaveBeenCalledWith(button);
+  // The main action („Edytuj”) is a button on a phone too (answer 41a);
+  // another inline one goes into the phone's menu.
+  expect(button.className).not.toContain("max-md:hidden");
+  expect(screen.getByRole("button", { name: "Call" }).className).toContain(
+    "max-md:hidden",
+  );
   fireEvent.click(screen.getByRole("button", { name: "Actions for Kasia" }));
-  // A phone card has room for "…" only, so the menu repeats the inline one
-  // there; a wide screen hides the copy.
-  const copy = await screen.findByRole("menuitem", { name: "Open" });
+  const copy = await screen.findByRole("menuitem", { name: "Call" });
   expect(copy.className).toContain("md:hidden");
+  expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
   expect(
     screen.getByRole("menuitem", { name: "Remove" }).className,
   ).not.toContain("md:hidden");
 });
 
-test("a row whose actions are all inline shows its menu on a phone only", () => {
+test("a row whose only action is inline shows that button alone", () => {
   render(
     <RowActions
       items={[
         {
-          label: "Open",
+          label: "Edit",
           link: <a href="/farms/1" />,
           inline: true,
           icon: <svg />,
@@ -286,8 +299,23 @@ test("a row whose actions are all inline shows its menu on a phone only", () => 
       label="Actions for Kasia"
     />,
   );
-  expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
-    "/farms/1",
+  const edit = screen.getByRole("link", { name: "Edit" });
+  expect(edit.getAttribute("href")).toBe("/farms/1");
+  expect(edit.className).not.toContain("max-md:hidden");
+  expect(
+    screen.queryByRole("button", { name: "Actions for Kasia" }),
+  ).toBeNull();
+});
+
+test("two inline actions: „…” only on a phone, for the one that does not fit", () => {
+  render(
+    <RowActions
+      items={[
+        { label: "Open", onSelect: vi.fn(), inline: true, icon: <svg /> },
+        { label: "Edit", onSelect: vi.fn(), inline: true, icon: <svg /> },
+      ]}
+      label="Actions for Kasia"
+    />,
   );
   expect(
     screen.getByRole("button", { name: "Actions for Kasia" }).className,
@@ -301,4 +329,46 @@ test("a filter names its select on the same line", () => {
     </DataTableFilter>,
   );
   expect(screen.getByRole("combobox", { name: "Kind" })).toBeTruthy();
+});
+
+test("on a phone the filters wait under one button; one copy at a time", async () => {
+  function Filtered() {
+    return (
+      <DataTable
+        activeFilters={1}
+        caption="People"
+        columns={columns}
+        data={people}
+        filters={
+          <DataTableFilter
+            id="city"
+            label="City"
+            onChange={() => undefined}
+            value="lodz"
+          >
+            <option value="">All cities</option>
+            <option value="lodz">Łódź</option>
+          </DataTableFilter>
+        }
+        labels={{
+          ...labels,
+          filters: (count) => (count ? `Filters (${count})` : "Filters"),
+          showResults: "Show results",
+          close: "Close",
+        }}
+        searchable
+      />
+    );
+  }
+  render(<Filtered />);
+  // A wide screen's row: the search and the filter itself.
+  expect(screen.getAllByRole("combobox", { name: "City" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Filters (1)" }));
+
+  const sheet = await screen.findByRole("dialog", { name: "Filters" });
+  expect(screen.getAllByRole("combobox", { name: "City" })).toHaveLength(1);
+  within(sheet).getByRole("combobox", { name: "City" });
+  fireEvent.click(within(sheet).getByRole("button", { name: "Show results" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(screen.getAllByRole("combobox", { name: "City" })).toHaveLength(1);
 });

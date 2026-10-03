@@ -179,12 +179,14 @@ export function ItemsTab({
       id: "minimum",
       accessorFn: (item) => Number(item.minimum_quantity),
       header: t("minimum"),
+      meta: { numeric: true },
       cell: ({ row: { original: item } }) => amount(item.minimum_quantity),
     },
     {
       id: "cost",
       accessorKey: "average_cost_minor",
       header: t("averageCost"),
+      meta: { numeric: true },
       cell: ({ row: { original: item } }) =>
         money(item.average_cost_minor, item.currency),
     },
@@ -192,6 +194,7 @@ export function ItemsTab({
       id: "price",
       accessorFn: (item) => item.sale_price_net_minor ?? -1,
       header: t("salePrice"),
+      meta: { numeric: true },
       cell: ({ row: { original: item } }) =>
         money(item.sale_price_net_minor, item.currency),
     },
@@ -208,6 +211,7 @@ export function ItemsTab({
                     label: t("edit"),
                     icon: <PencilIcon aria-hidden="true" />,
                     inline: true,
+                    main: true,
                     onSelect: () => open(item),
                   },
                   {
@@ -257,7 +261,8 @@ export function ItemsTab({
         searchText={(item) =>
           [item.name, item.sku, item.ean, item.category_name].join(" ")
         }
-        toolbar={
+        activeFilters={category ? 1 : 0}
+        filters={
           data.categories.length ? (
             <DataTableFilter
               id="items-category"
