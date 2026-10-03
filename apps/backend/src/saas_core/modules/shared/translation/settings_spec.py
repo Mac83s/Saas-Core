@@ -13,7 +13,6 @@ profile gives only the starting value, never a ceiling (ADR-069 pkt 12).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -29,7 +28,9 @@ MODE = SettingSpec(
     key="translation.settings.mode",
     type="enum",
     default="automatic",
-    scopes=("organization",),
+    # The platform's value is the default for companies that chose none and
+    # whose product names none (ADR-078 pkt 3; TL22).
+    scopes=("platform", "organization"),
     strategy="restrict",
     # Most permissive first: `restrict` picks the later one.
     values=(
@@ -69,7 +70,7 @@ AUTO_MONTHLY_LIMIT = SettingSpec(
     key="translation.settings.auto_monthly_limit",
     type="int",
     default=100,
-    scopes=("organization",),
+    scopes=("platform", "organization"),
     strategy="restrict",
     minimum=0,
     maximum=100_000,
@@ -204,9 +205,24 @@ def strictest(*modes: str) -> str:
     return max(modes, key=MODE_ORDER.index)
 
 
-def profile_default(defaults: Mapping[str, Any], spec: SettingSpec) -> Any:
-    """The profile's starting value for a key, else the code's."""
-    return defaults.get(spec.key, spec.default)
+def below_company(spec: SettingSpec) -> tuple[Any, str]:
+    """The value and its source where the company has none of its own, in the
+    registry's order (ADR-078 pkt 3): the product's `settingsDefaults`, then
+    the platform's value (an operator's, else the deployment's), then the
+    code's. A product's default stands above the operator's on purpose: a
+    platform-wide change must not move a product off what it chose."""
+    from saas_core.modules.core.organizations.settings_registry import (  # noqa: PLC0415
+        live_product_value,
+        platform_value,
+    )
+
+    product = live_product_value(spec)
+    if product is not None:
+        return product, "product"
+    platform = platform_value(spec)
+    if platform is not None:
+        return platform, "platform"
+    return spec.default, "code"
 
 
 # --- The engine's own values (TL22) ------------------------------------------------

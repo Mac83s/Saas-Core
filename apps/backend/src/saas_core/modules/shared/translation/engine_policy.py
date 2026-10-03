@@ -22,7 +22,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 
 from .models import TranslationCeiling, TranslationOverride, TranslationSettings
-from .settings_spec import MODE, mass_publication_cap, profile_default, strictest
+from .settings_spec import MODE, below_company, mass_publication_cap, strictest
 
 REASON_KILL_SWITCH = "kill_switch"
 REASON_ORGANIZATION_PAUSED = "organization_paused"
@@ -56,9 +56,8 @@ def company_mode(organization_id: UUID) -> tuple[str, str]:
     row = TranslationSettings.all_objects.filter(organization_id=organization_id).first()
     if row is not None and row.mode:
         return row.mode, "organization"
-    if MODE.key in settings.SETTINGS_DEFAULTS:
-        return profile_default(settings.SETTINGS_DEFAULTS, MODE), "product"
-    return MODE.default, "code"
+    mode, source = below_company(MODE)
+    return str(mode), source
 
 
 def effective_mode(organization_id: UUID) -> EffectiveMode:

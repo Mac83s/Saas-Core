@@ -57,7 +57,7 @@ from .settings_spec import (
     DECLARATIONS,
     MODE,
     SETTINGS,
-    profile_default,
+    below_company,
 )
 
 SETTINGS_GROUP = SETTINGS.key
@@ -218,17 +218,19 @@ def settings_state(organization_id: UUID) -> dict[str, Any]:
     row = _settings_row(organization_id)
     override = operator_override(organization_id)
     effective = effective_mode(organization_id)
-    defaults = settings.SETTINGS_DEFAULTS
     limit_own = row.auto_monthly_limit if row is not None else None
-    limit_default = profile_default(defaults, AUTO_MONTHLY_LIMIT)
-    limit = limit_own if limit_own is not None else limit_default
+    limit_default, limit_source = below_company(AUTO_MONTHLY_LIMIT)
+    limit = limit_own if limit_own is not None else int(limit_default)
     limit_cap = override.auto_monthly_limit_cap if override is not None else None
     if limit_cap is not None:
         limit = min(limit, limit_cap)
     auto_own = row.auto_changes if row is not None else None
     # A person's consent: never a product's starting value (translation.E003).
     auto = auto_own if auto_own is not None else AUTO_CHANGES.default
-    mode_locked = effective.source in ("operator", "platform")
+    # A reason means somebody above the company decided: the operator's
+    # override or the deployment's switch. The platform's default is no lock —
+    # the company may still choose its own.
+    mode_locked = effective.reason is not None
     return {
         "group": SETTINGS_GROUP,
         "version": row.version if row is not None else 0,
@@ -254,7 +256,7 @@ def settings_state(organization_id: UUID) -> dict[str, Any]:
                 "effective": limit,
                 "source": "operator"
                 if limit_cap is not None and limit == limit_cap
-                else ("organization" if limit_own is not None else "code"),
+                else ("organization" if limit_own is not None else limit_source),
                 "locked": limit_cap is not None,
                 "lock_reason": "operator_cap" if limit_cap is not None else None,
                 "operator_reason": override.reason

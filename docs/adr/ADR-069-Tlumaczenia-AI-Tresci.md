@@ -504,3 +504,14 @@ bez restartu:
 - Zostają poza rejestrem: wyłącznik `translation.ceiling` (własna tabela i komenda z
   powodem) i sufity USD portu modeli (limity ochronne w `.env`, ADR-078).
 
+Dwa klucze firmowe mają też zasięg platformy (TL22b): `translation.settings.mode` i
+`translation.settings.auto_monthly_limit`. Operator ustawia w panelu „Platforma”
+wartość domyślną dla firm, które same nic nie wybrały; kolejność jest ta z ADR-078
+pkt 3 i moduł jej nie zmienia: firma → domyślna wartość produktu (`settingsDefaults`)
+→ wartość platformy (operator, potem wdrożenie) → kod. Domyślna wartość produktu
+stoi nad wartością operatora celowo: zmiana dla całej platformy nie może po cichu
+przestawić firm MedPlano z „po akceptacji” na publikację automatyczną. Operator ma
+do tego nadpisanie jednej firmy i wyłącznik wdrożenia, a panel pokazuje, gdzie wygrywa
+wartość produktu (development-15). Wartość domyślna platformy nie blokuje pola firmy —
+blokadą jest tylko nadpisanie operatora albo wyłącznik (jest wtedy powód).
+

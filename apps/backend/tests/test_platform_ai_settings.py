@@ -177,3 +177,101 @@ def test_the_quality_thresholds_decide_what_is_flagged() -> None:
     assert QA_SOURCE_LEFTOVERS not in check_soft(
         segment, half, glossary=(), target_script="Latn", thresholds=lenient
     )
+
+
+# --- The platform's default for two company keys (TL22) -----------------------------
+
+
+def _state(owner: Any) -> dict[str, Any]:
+    from saas_core.modules.shared.translation.services import settings_state
+    from test_booking import tenant
+
+    with tenant(owner):
+        values: dict[str, Any] = settings_state(owner.organization_id)["values"]
+    return values
+
+
+def test_the_operators_default_reaches_a_company_that_chose_nothing(
+    chosen: dict[str, Any], settings: Any
+) -> None:
+    from saas_core.modules.shared.translation.engine_policy import company_mode
+    from saas_core.modules.shared.translation.settings_spec import AUTO_MONTHLY_LIMIT, MODE
+    from test_booking import membership
+
+    settings.SETTINGS_DEFAULTS = {}
+    settings.MODEL_PORT_PROCESSOR_LISTED = True
+    owner = membership("tl22-default")
+    assert MODE.scopes == AUTO_MONTHLY_LIMIT.scopes == ("platform", "organization")
+    assert company_mode(owner.organization_id) == ("automatic", "code")
+
+    chosen.update({MODE.key: "review", AUTO_MONTHLY_LIMIT.key: 40})
+
+    assert company_mode(owner.organization_id) == ("review", "platform")
+    values = _state(owner)
+    mode = values[MODE.key]
+    assert (mode["effective"], mode["source"]) == ("review", "platform")
+    # A default, not a lock: the company may still choose its own.
+    assert (mode["locked"], mode["lock_reason"]) == (False, None)
+    limit = values[AUTO_MONTHLY_LIMIT.key]
+    assert (limit["effective"], limit["source"], limit["locked"]) == (40, "platform", False)
+
+
+def test_a_products_default_stands_above_the_operators(
+    chosen: dict[str, Any], settings: Any
+) -> None:
+    """ADR-078 pkt 3: a platform-wide change must not move a product off what
+    it chose — MedPlano starts with review whatever the platform says."""
+    from saas_core.modules.shared.translation.engine_policy import company_mode
+    from saas_core.modules.shared.translation.settings_spec import AUTO_MONTHLY_LIMIT, MODE
+    from test_booking import membership
+
+    settings.SETTINGS_DEFAULTS = {MODE.key: "review", AUTO_MONTHLY_LIMIT.key: 30}
+    settings.MODEL_PORT_PROCESSOR_LISTED = True
+    owner = membership("tl22-product")
+    chosen.update({MODE.key: "automatic", AUTO_MONTHLY_LIMIT.key: 500})
+
+    assert company_mode(owner.organization_id) == ("review", "product")
+    values = _state(owner)
+    assert values[MODE.key]["source"] == "product"
+    limit = values[AUTO_MONTHLY_LIMIT.key]
+    assert (limit["effective"], limit["source"]) == (30, "product")
+
+
+def test_a_companys_own_choice_stands_above_both(chosen: dict[str, Any], settings: Any) -> None:
+    from saas_core.modules.shared.translation.engine_policy import company_mode
+    from saas_core.modules.shared.translation.models import TranslationSettings
+    from saas_core.modules.shared.translation.settings_spec import AUTO_MONTHLY_LIMIT, MODE
+    from test_booking import membership, tenant
+
+    settings.SETTINGS_DEFAULTS = {}
+    settings.MODEL_PORT_PROCESSOR_LISTED = True
+    owner = membership("tl22-own")
+    with tenant(owner):
+        TranslationSettings.all_objects.create(
+            organization=owner.organization, mode="automatic", auto_monthly_limit=10
+        )
+    chosen.update({MODE.key: "review", AUTO_MONTHLY_LIMIT.key: 40})
+
+    assert company_mode(owner.organization_id) == ("automatic", "organization")
+    limit = _state(owner)[AUTO_MONTHLY_LIMIT.key]
+    assert (limit["effective"], limit["source"]) == (10, "organization")
+
+
+def test_the_deployments_switch_still_locks_whatever_the_default_says(
+    chosen: dict[str, Any], settings: Any
+) -> None:
+    from saas_core.modules.shared.translation.models import TranslationCeiling
+    from saas_core.modules.shared.translation.settings_spec import MODE
+    from test_booking import membership
+    from test_sites_ai_badge import operator
+
+    settings.SETTINGS_DEFAULTS = {}
+    settings.MODEL_PORT_PROCESSOR_LISTED = True
+    owner = membership("tl22-ceiling")
+    chosen[MODE.key] = "automatic"
+    TranslationCeiling.objects.create(state="review", reason="przegląd", changed_by=operator())
+
+    mode = _state(owner)[MODE.key]
+
+    assert (mode["effective"], mode["locked"]) == ("review", True)
+    assert mode["lock_reason"] is not None

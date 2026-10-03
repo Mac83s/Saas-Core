@@ -332,7 +332,8 @@ def test_the_offer_says_why_translation_is_not_available_yet() -> None:
     mode = offer["settings"][0]
     assert [variant["value"] for variant in mode["values"]] == ["automatic", "review"]
     assert mode["label"] == {"pl": "Publikacja tłumaczeń", "en": "Publishing translations"}
-    assert mode["type"] == "enum" and mode["scopes"] == ["organization"]
+    # The platform sets the default, the company its own (TL22).
+    assert mode["type"] == "enum" and mode["scopes"] == ["platform", "organization"]
     response = authenticated_client(owner).get("/api/v1/translation/offer/")
     assert response.status_code == 200 and response.json()["available"] is False
 
