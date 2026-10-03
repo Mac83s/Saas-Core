@@ -41,12 +41,44 @@ SOURCE_OUTDATED = "source_outdated"
 MEDIA_UNAVAILABLE = "media_unavailable"
 
 
+# What a publication does with one page's version in another language (the
+# publication preview, TL15).
+#: This version goes out with the publication.
+OUTCOME_PUBLISH = "publish"
+#: The published version is the current one: nothing changes.
+OUTCOME_UNCHANGED = "unchanged"
+#: The last published version stays; the current one does not pass (`reason`).
+OUTCOME_CARRIED = "carried"
+#: The source changed a fact the published version has not caught up with:
+#: its address answers 307 to the source page until it is refreshed.
+OUTCOME_WITHHELD = "withheld"
+#: A person took it off the site; it stays off.
+OUTCOME_WITHDRAWN = "withdrawn"
+#: Never public and not passing now (`reason`).
+OUTCOME_SKIPPED = "skipped"
+#: The page has no version in this language.
+OUTCOME_MISSING = "missing"
+
+OUTCOMES = (
+    OUTCOME_PUBLISH,
+    OUTCOME_UNCHANGED,
+    OUTCOME_CARRIED,
+    OUTCOME_WITHHELD,
+    OUTCOME_WITHDRAWN,
+    OUTCOME_SKIPPED,
+    OUTCOME_MISSING,
+)
+
+
 @dataclass(slots=True)
 class LanguageEntries:
     # (page id, locale) → the locale entry the snapshot carries.
     entries: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     skipped: list[dict[str, str]] = field(default_factory=list)
     live_locales: list[str] = field(default_factory=list)
+    # (page id, locale) → why the current version stays back while the last
+    # published entry is carried; "" when there is no version to judge.
+    held: dict[tuple[str, str], str] = field(default_factory=dict)
 
 
 def home_page(pages: Sequence[Page]) -> Page | None:
@@ -98,6 +130,7 @@ def language_entries(
             if entry is not None and page is not home and not live:
                 entry, reason = None, LOCALE_HOME_MISSING
             if entry is None and key in before:
+                result.held[key] = reason or ""
                 entry = _carried(
                     before[key],
                     old_blocks=blocks.get(UUID(str(before[key]["source_version_id"])), []),

@@ -2,6 +2,7 @@ from typing import Any
 
 from rest_framework import serializers
 
+from .language_publication import OUTCOMES
 from .language_versions import OVERVIEW_KINDS, OVERVIEW_STATES
 from .localized_bodies import (
     DATA_PUBLIC,
@@ -95,6 +96,11 @@ class LocaleBodySerializer(serializers.Serializer[dict[str, Any]]):
     withdrawn = serializers.BooleanField(
         help_text="A person took this language version off the site; it stays off until "
         "somebody publishes it again."
+    )
+    live_version_id = serializers.UUIDField(
+        allow_null=True,
+        help_text="The version visitors read now, or null when this language version is not "
+        "on the site; differing from `version_id` means unpublished changes.",
     )
     untranslated = serializers.IntegerField(help_text="Units still without a translation.")
     block_types = serializers.ListField(
@@ -295,3 +301,38 @@ class SiteTextsPublicationSerializer(serializers.Serializer[dict[str, Any]]):
     publication_id = serializers.UUIDField(
         help_text="The publication visitors now read; the current one when nothing changed."
     )
+
+
+class PlannedPageSerializer(serializers.Serializer[dict[str, Any]]):
+    page_id = serializers.UUIDField()
+    page_name = serializers.CharField()
+    outcome = serializers.ChoiceField(
+        choices=list(OUTCOMES),
+        help_text="`publish`: this version goes out; `unchanged`: the published one is "
+        "current; `carried`: the last published one stays and the current one does not pass "
+        "(`reason`); `withheld`: the source changed a fact, the address answers 307 until the "
+        "version is refreshed; `withdrawn`: a person took it off; `skipped`: never public and "
+        "not passing (`reason`); `missing`: no version in this language.",
+    )
+    reason = serializers.CharField(
+        allow_blank=True,
+        help_text="Why the current version does not go out: `metadata_incomplete`, "
+        "`untranslated_units`, `source_placeholder`, `locale_home_missing`, "
+        "`source_unpublished`, `source_outdated`; empty otherwise.",
+    )
+
+
+class PlannedLanguageSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.CharField()
+    live = serializers.BooleanField(help_text="Visitors can read the site in it now.")
+    live_after = serializers.BooleanField(
+        help_text="Visitors could read it after this publication (its home page goes out)."
+    )
+    pages = PlannedPageSerializer(many=True)
+
+
+class PublicationPlanSerializer(serializers.Serializer[dict[str, Any]]):
+    ready_to_publish = serializers.BooleanField(
+        help_text="The site's own language is complete; the other languages never block."
+    )
+    languages = PlannedLanguageSerializer(many=True)

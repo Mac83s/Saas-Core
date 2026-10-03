@@ -23,6 +23,7 @@ from .language_decisions import (
     reject_locale_version,
     withdraw_locale_version,
 )
+from .language_plan import preview_site_publication
 from .language_version_serializers import (
     LanguageDecisionSerializer,
     LocaleAcceptSerializer,
@@ -35,6 +36,7 @@ from .language_version_serializers import (
     LocaleBodySerializer,
     LocaleBodyVersionListSerializer,
     LocaleBodyVersionPreviewSerializer,
+    PublicationPlanSerializer,
     SiteTextsPublicationSerializer,
     SiteTextsSaveSerializer,
     SiteTextsSerializer,
@@ -90,6 +92,9 @@ def _body(body: LocaleBody) -> dict[str, Any]:
             else None
         ),
         "withdrawn": body.translation.withdrawn_at is not None,
+        # The version visitors read now; differing from `version_id` means
+        # this language has changes that are not on the site yet.
+        "live_version_id": _live_version_id(body),
         "untranslated": body.untranslated,
         # The source's sections in order, so the editor can name the section
         # a unit's key starts with (`2/…` is the third).
@@ -112,6 +117,23 @@ def _body(body: LocaleBody) -> dict[str, Any]:
             for state in body.units
         ],
     }
+
+
+def _live_version_id(body: LocaleBody) -> str | None:
+    publication = body.page.site.current_publication
+    if publication is None:
+        return None
+    for page in publication.snapshot.get("pages", []):
+        if isinstance(page, dict) and page.get("page_id") == str(body.page.id):
+            for entry in page.get("locales", []):
+                if (
+                    isinstance(entry, dict)
+                    and entry.get("locale") == body.translation.locale
+                    and "blocks" in entry
+                    and not entry.get("withheld")
+                ):
+                    return str(entry.get("locale_version_id") or "") or None
+    return None
 
 
 def _version(version: PageLocaleVersion) -> dict[str, Any]:
@@ -660,4 +682,45 @@ class SiteTextsPublishView(APIView):
             "site_id": str(site_id),
             "locale": locale,
             "publication_id": str(publication.id),
+        })
+
+
+class SitePublicationPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_publication_preview",
+        summary="What publishing the site would carry in each other language",
+        description="Read before publishing: per language whether visitors could read the "
+        "site in it afterwards, and per page whether its version goes out, stays in its last "
+        "published form, is withheld, taken off, skipped or missing — with the reason. The "
+        "same verdict the publication uses; nothing is saved.",
+        tags=["sites"],
+        responses={
+            200: PublicationPlanSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, site_id: UUID) -> Response:
+        plan = preview_site_publication(site_id=site_id)
+        return Response({
+            "ready_to_publish": plan.ready_to_publish,
+            "languages": [
+                {
+                    "locale": language.locale,
+                    "live": language.live,
+                    "live_after": language.live_after,
+                    "pages": [
+                        {
+                            "page_id": page.page_id,
+                            "page_name": page.page_name,
+                            "outcome": page.outcome,
+                            "reason": page.reason,
+                        }
+                        for page in language.pages
+                    ],
+                }
+                for language in plan.languages
+            ],
         })

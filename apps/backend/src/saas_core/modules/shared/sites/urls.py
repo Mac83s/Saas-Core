@@ -38,6 +38,7 @@ from .language_version_views import (
     PageLocaleWithdrawView,
     SiteLocaleBatchAcceptPreviewView,
     SiteLocaleBatchAcceptView,
+    SitePublicationPreviewView,
     SiteTextsPublishView,
     SiteTextsView,
     SiteTranslationOverviewView,
@@ -275,6 +276,11 @@ urlpatterns = [
         "<uuid:site_id>/publications/",
         SitePublicationCreateView.as_view(),
         name="publication-create",
+    ),
+    path(
+        "<uuid:site_id>/publications/preview/",
+        SitePublicationPreviewView.as_view(),
+        name="publication-preview",
     ),
     path(
         "<uuid:site_id>/publications/<uuid:publication_id>/rollback/",
