@@ -1238,8 +1238,10 @@ export function PageEditor({
                   className="studio-editor-fieldset"
                 >
                   {/* One row: the page on the left, the device in the middle,
-                      saving on the right, the rest under „Więcej”. A phone
-                      keeps the page over save, preview and „…” (UX-039). */}
+                      saving on the right, the rest under „Więcej” — below
+                      1280 px also the mode and undo/redo, so the row never
+                      wraps. A phone keeps the page over save, preview and
+                      „…” (UX-039). */}
                   <div className="studio-toolbar studio-topbar">
                     {leading}
                     <div className="studio-topbar-page">
@@ -1258,7 +1260,7 @@ export function PageEditor({
                     />
                     <div
                       aria-label={t("studio.mode")}
-                      className="studio-segmented inline-flex max-sm:hidden"
+                      className="studio-segmented inline-flex max-xl:hidden"
                       role="group"
                     >
                       <Button
@@ -1282,7 +1284,7 @@ export function PageEditor({
                         {t("studio.forms")}
                       </Button>
                     </div>
-                    <div className="flex gap-0.5 max-sm:hidden">
+                    <div className="flex gap-0.5 max-xl:hidden">
                       <Button
                         type="button"
                         variant="ghost"
@@ -1358,7 +1360,7 @@ export function PageEditor({
                         <DropdownMenuContent align="end">
                           {/* What a wide screen shows in the row. */}
                           <DropdownMenuRadioGroup
-                            className="sm:hidden"
+                            className="xl:hidden"
                             onValueChange={(value) =>
                               setVisual(value === "visual")
                             }
@@ -1371,7 +1373,7 @@ export function PageEditor({
                               {t("studio.forms")}
                             </DropdownMenuRadioItem>
                           </DropdownMenuRadioGroup>
-                          <DropdownMenuGroup className="sm:hidden">
+                          <DropdownMenuGroup className="xl:hidden">
                             <DropdownMenuItem
                               disabled={!history.canUndo}
                               onClick={history.undo}
@@ -1387,7 +1389,7 @@ export function PageEditor({
                               {t("studio.redo")}
                             </DropdownMenuItem>
                           </DropdownMenuGroup>
-                          <DropdownMenuSeparator className="sm:hidden" />
+                          <DropdownMenuSeparator className="xl:hidden" />
                           <DropdownMenuItem onClick={() => setMediaOpen(true)}>
                             <ImageIcon aria-hidden="true" />
                             {t("media")}
@@ -1418,7 +1420,8 @@ export function PageEditor({
                         title={t("preview")}
                       >
                         <EyeIcon aria-hidden="true" />
-                        <span className="max-sm:hidden">{t("preview")}</span>
+                        {/* The word has room from 1024 px. */}
+                        <span className="max-lg:hidden">{t("preview")}</span>
                       </Button>
                       <Button
                         disabled={loading || draftConflict}

@@ -98,7 +98,7 @@ export function LanguageSwitch({
   const id = useId();
   if (options.length < 2) return null;
   return (
-    <Field className="w-auto sm:min-w-56">
+    <Field className="w-auto md:min-w-56">
       <FieldLabel htmlFor={id} className="sr-only">
         {t("switchLabel")}
       </FieldLabel>
@@ -120,11 +120,11 @@ export function LanguageSwitch({
             {(current: string) => {
               const option = options.find((item) => item.locale === current);
               if (!option) return current;
-              // A phone keeps the toolbar to one row: the name only.
+              // Below 768 px the toolbar's one row has room for the name only.
               return (
                 <>
                   <span>{option.name}</span>
-                  <span className="max-sm:hidden">
+                  <span className="max-md:hidden">
                     {" "}
                     — {t(`states.${option.state}`)}
                   </span>
