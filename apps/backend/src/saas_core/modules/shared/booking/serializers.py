@@ -454,7 +454,7 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
 
 class AppointmentKindSerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.CharField(help_text="The `appointment_kind` a service sells.")
-    label = serializers.CharField(help_text="Its name, as the module declares it.")
+    label = serializers.CharField(help_text="Its name, as the module declares it.")  # type: ignore[assignment]
 
 
 class PlaceSetupSerializer(serializers.Serializer[dict[str, Any]]):
