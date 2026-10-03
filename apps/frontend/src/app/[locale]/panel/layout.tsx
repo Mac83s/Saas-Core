@@ -129,7 +129,9 @@ async function withSettingsAreas(
   const schema = await getServerSettingsSchema();
   if (!schema) return access;
   const changeable = new Set(
-    schema.groups.filter((group) => group.can_change).map((group) => group.area),
+    schema.groups
+      .filter((group) => group.can_change)
+      .map((group) => group.area),
   );
   return {
     ...access,

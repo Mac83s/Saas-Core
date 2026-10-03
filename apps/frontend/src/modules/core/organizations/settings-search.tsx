@@ -4,10 +4,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import {
-  getSettingsSchema,
-  type SettingsSchema,
-} from "@saas-core/api-client";
+import { getSettingsSchema, type SettingsSchema } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import {
   Dialog,

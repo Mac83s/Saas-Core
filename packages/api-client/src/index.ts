@@ -1059,7 +1059,12 @@ export type HistoryEntry = components["schemas"]["HistoryEntry"];
 
 /** The organization's history of changes, newest first (owner and admin). */
 export async function readOrganizationHistory(
-  query: { page?: number; pageSize?: number; action?: string; group?: string } = {},
+  query: {
+    page?: number;
+    pageSize?: number;
+    action?: string;
+    group?: string;
+  } = {},
 ): Promise<HistoryPage> {
   const { data, error, response } = await client.GET(
     "/api/v1/organizations/current/history/",
