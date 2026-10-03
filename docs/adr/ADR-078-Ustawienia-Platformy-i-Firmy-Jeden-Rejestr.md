@@ -477,7 +477,7 @@ wejścia API i poleceń.
   strategie `restrict`/`lockable`, `copy_at_creation` i `settingsDefaults` wejdą z
   pierwszym kluczem, który ich potrzebuje.
 
-## Uzupełnienie 2026-10-03 (2): R2b i odpowiedzi 34, 35, 37
+## Uzupełnienie 2026-10-03 (2): R2b i odpowiedzi 34–37
 
 - **Grupa encji (zmienia pkt 7).** Grupa z `api` deklaruje klucze w rejestrze,
   a tabelę, endpoint, potwierdzenia i polecenia zostawia modułowi; `read_explicit`
@@ -508,6 +508,15 @@ wejścia API i poleceń.
   wylogowuje — zatrzymuje następne żądanie, a zgody asystenta wygasają z
   `COMMAND_CONSENT_TTL`. Lista zespołu pokazuje 2FA tylko temu, kto zarządza
   zespołem albo ustawieniami firmy.
+- **36a.** E-mail do klienta firmy (szablon z `audience=customer`) wychodzi z
+  adresu platformy pod nazwą firmy z wizytówki (albo nazwą organizacji), a
+  Reply-To to e-mail z wizytówki, inaczej właściciela. Grupa
+  `notifications.customer_mail` ma jeden klucz — tekst firmy dopisywany na końcu
+  każdego takiego e-maila: do 300 znaków, zwykły tekst, bez linków i adresów
+  (`SettingSpec.no_links`, kod błędu `links`), nigdy dane klienta. Nadawcę, Reply-To
+  i tekst ustala doręczenie, bo treść e-maila też renderuje się dopiero wtedy.
+  Wizytówka należy do Profili, więc Profile podają ją powiadomieniom
+  (`register_customer_sender`), a nie odwrotnie.
 - **37a (zmienia ADR-036, rozstrzygnięcie 3).** Automatyczne usuwanie danych
   klientów jest domyślnie wyłączone; firma może je włączyć na 12, 24 albo 36
   miesięcy od ostatniej wizyty, z podglądem „dotyczy N osób” przed zapisem
