@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
+from django.conf import settings
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
@@ -21,6 +22,9 @@ from saas_core.modules.shared.billing.models import (
     SubscriptionState,
 )
 from saas_core.modules.shared.profiles.catalog import _place_entry
+from saas_core.modules.shared.profiles.catalog_contract import (
+    categories as catalog_categories,
+)
 from saas_core.modules.shared.profiles.models import PublicProfile
 from test_command_evals import assistant, clicked, invocation, owner, writes
 
@@ -69,8 +73,10 @@ def test_the_catalogue_options_carry_what_a_match_needs() -> None:
 
     assert result.status == "done", result
     categories = {entry["key"]: entry for entry in result.output["categories"]}
-    assert "fryzjer" in categories["uroda-i-zdrowie"]["keywords"]["pl"]
-    assert categories["uroda-i-zdrowie"]["label"]["pl"]
+    # The profile's own dictionary: a product names its own categories.
+    key, known = next(iter(catalog_categories(settings.DEFAULT_ORGANIZATION_TYPE).items()))
+    assert categories[key]["keywords"]["pl"] == list(known.keywords["pl"])
+    assert categories[key]["label"]["pl"]
     towns = {entry["slug"]: entry for entry in result.output["cities"]}
     assert towns["olsztyn"]["name"] == "Olsztyn"
     # The same keys the card accepts, in the catalogue's own order.

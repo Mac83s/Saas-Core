@@ -8,10 +8,12 @@ import re
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
 from django.test import override_settings
 from rest_framework.test import APIClient
 
+from saas_core.modules.shared.profiles.catalog_contract import categories
 from saas_core.modules.shared.profiles.models import PublicProfile
 from saas_core.modules.shared.sites.models import Publication, Site
 from saas_core.modules.shared.sites.seo_graph import organization_node, page_graph
@@ -229,7 +231,9 @@ def test_every_language_of_a_site_names_the_same_company_with_the_same_facts() -
     company = polish["LocalBusiness"]
     assert company == english["LocalBusiness"]
     assert company["@id"] == f"https://{host}/#organization"
-    assert company["@type"] == ["LocalBusiness", "Store"]
+    # „handel” is a shop in the core's dictionary; a product brings its own categories.
+    shop = categories(settings.DEFAULT_ORGANIZATION_TYPE).get("handel")
+    assert company["@type"] == (["LocalBusiness", "Store"] if shop else "LocalBusiness")
     assert company["name"] == "Studio Projektowe Ewa"
     assert company["telephone"] == "+48 600 100 200"
     assert company["address"]["streetAddress"] == "Długa 5"
