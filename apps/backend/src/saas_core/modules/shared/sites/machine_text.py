@@ -60,7 +60,9 @@ PLATFORM_AREA = SettingArea(
         "pl": "Co platforma ustawia dla stron wszystkich firm.",
         "en": "What the platform sets for every company's site.",
     },
-    order=85,
+    # After every company area and the "ai" area: the „Platforma” page lists
+    # areas in registry order, platform-only ones last.
+    order=95,
 )
 
 TRANSLATION = SettingGroup(
