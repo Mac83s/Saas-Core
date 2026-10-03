@@ -519,3 +519,39 @@ nim. Kontrakt wykonawczy: `docs/architecture/assistant-chat.md`.
 10. **Wdrożenie:** moduł jest w profilach `business` i `agro`. Do `vps-dev` dołącza
     dopiero po wyborze modelu przez właściciela; do tego czasu na VPS nie ma ani
     tras, ani tabel, ani pozycji w menu.
+
+## Uzupełnienie 2026-10-03: profil firmy i konfigurator (A2)
+
+Kontrakt wykonawczy: `docs/architecture/assistant-profile.md`.
+
+1. **Profil to dokument z pochodzeniem wartości** (`company-profile.v1`). Każda
+   wartość niesie `origin` i `confirmed`; do konta trafia tylko potwierdzona. Profil
+   jest firmy, nie rozmowy: czyta go i zmienia zarządzający ustawieniami firmy, a
+   każdy zapis to nowa wersja z autorem i rozmową. Zapis profilu nie zmienia konta.
+2. **Konfigurator jest czystą funkcją nad wynikami poleceń odczytu.** Nie importuje
+   innych modułów (pkt 9), nie woła modelu i niczego nie wykonuje; dostaje też listę
+   poleceń, którymi wolno planować. Krok, do którego brakuje polecenia, raportuje
+   jako `command_missing` — konfigurator nie obchodzi rejestru.
+3. **Plan idzie rundami.** Argumenty planu są stałe przed wykonaniem (pkt 3 pierwotnej
+   decyzji), więc krok zależny od identyfikatora z tego samego planu czeka na
+   następną rundę. Konfigurator tylko dokłada: niczego, czego profil nie wymienia,
+   nie usuwa.
+4. **Dodane pole wyjścia nie zmienia wersji polecenia.** `organization.read@1`
+   zwraca teraz `organization_type`, a `booking.setup.read@1` tydzień pracy każdej
+   osoby (`hours`) — w kształcie, który przyjmuje `booking.staff.hours.set@1`.
+   Wyjście polecenia jest otwarte na dodanie pola; zmiana łamiąca (usunięcie, zmiana
+   typu albo znaczenia) wymaga `@2`. Różnicę pokazuje manifest poleceń.
+5. **Nowe polecenia dla zakładania firmy:** `profiles.catalog_options.read@1`
+   (kategorie z nazwami i słowami kluczowymi, miasta z nazwami) i
+   `booking.location.save@1` (`apply`: nowe miejsce jest od razu włączone i widoczne
+   w rezerwacji online, jak w panelu; adres nie trafia do słów zgody).
+   `booking.preset.list@1`, `booking.preset.apply@1` i `booking.staff.add@1` są
+   zapowiedziane w `commands/planned.json` (plan rezerwacji, faza 3).
+6. **Lista typów firm i szablonów usług przechodzi z A2 do A6.** Asystent nie zakłada
+   organizacji i nie zmienia jej typu, a szablony usług zastępują presety (ADR-072
+   §10); listę typów potrzebuje dopiero zakładanie firmy przez asystenta jako ścieżka
+   domyślna.
+7. **Retencja:** profil znika z firmą, a wersje starsze od bieżącej podlegają
+   `assistant.retention.conversation_days`. A2 nie dodaje zadania czyszczącego —
+   tabelę przejmuje hak retencji platformy; warunek zastępczy jest w kontrakcie
+   wykonawczym.

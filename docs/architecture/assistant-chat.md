@@ -57,6 +57,7 @@ GET rozmowa  <-  tura done
 | `GET conversations/{id}/` | tury: wiadomość osoby, teksty asystenta, kroki ze statusem, grupy zgody |
 | `POST conversations/{id}/turns/` | wiadomość (`Idempotency-Key`), 202 |
 | `POST conversations/{id}/turns/{turn}/consents/` | tokeny zgód albo `declined`, 202 |
+| `GET`, `PATCH profile/`, `POST profile/preview/` | profil firmy (A2) — `assistant-profile.md` |
 
 Kody: 503 `assistant_unavailable`, 403 `assistant_not_in_plan`, 403
 `assistant_person_only` (klucz API, kontekst „w imieniu”), 429
@@ -71,6 +72,10 @@ Kody: 503 `assistant_unavailable`, 403 `assistant_not_in_plan`, 403
 `assistant_assistantmessage` — tabele firmy z RLS. Treść rozmowy nie trafia do
 logów ani telemetrii portu. Retencja: `assistant.retention.conversation_days`
 (zadanie dobowe `assistant-purge`); usunięcie firmy zabiera rozmowy.
+
+`assistant_assistantprofileversion` — profil firmy i jego wersje (A2), opisany w
+`assistant-profile.md`. Profil nie trafia do żadnego wywołania modelu: w A2 nie ma
+kodu, który by go wysyłał, a A3-2 wyśle tylko to, czego wymaga pytanie.
 
 ## Ustawienia platformy
 
