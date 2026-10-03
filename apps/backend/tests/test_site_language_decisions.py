@@ -128,6 +128,9 @@ def test_the_body_says_what_waits_for_a_decision_and_what_was_taken_off():
         "reason": "review_mode",
     }
     assert (waiting.json()["version_id"], waiting.json()["withdrawn"]) == (None, False)
+    # The editor names a unit's section from its key's position.
+    assert waiting.json()["block_types"] == ["core.hero"]
+    assert {unit["key"].split("/")[0] for unit in waiting.json()["units"]} == {"0"}
 
     _post(client, _url(offer, tail="accept/"), {"expected_body_version": row.body_version}, "ok")
     accepted = client.get(_url(offer)).json()

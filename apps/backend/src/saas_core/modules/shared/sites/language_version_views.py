@@ -52,6 +52,7 @@ from .language_versions import (
     save_locale_body,
     site_translation_overview,
 )
+from .localized_bodies import inline_marks
 from .models import PageLocaleVersion
 from .site_texts import SiteTexts, list_site_texts, publish_site_texts, save_site_texts
 from .views import IDEMPOTENCY_PARAMETER
@@ -65,7 +66,8 @@ PROBLEMS = {
 
 
 def _body(body: LocaleBody) -> dict[str, Any]:
-    marks = body.marks
+    blocks = body.source_blocks()
+    marks = inline_marks(blocks)
     return {
         "page_id": body.page.id,
         "locale": body.translation.locale,
@@ -89,6 +91,9 @@ def _body(body: LocaleBody) -> dict[str, Any]:
         ),
         "withdrawn": body.translation.withdrawn_at is not None,
         "untranslated": body.untranslated,
+        # The source's sections in order, so the editor can name the section
+        # a unit's key starts with (`2/…` is the third).
+        "block_types": [str(block["block_type"]) for block in blocks],
         "units": [
             {
                 "key": state.unit.key,

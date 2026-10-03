@@ -44,7 +44,6 @@ from .localized_bodies import (
     TextUnit,
     assemble,
     extract_units,
-    inline_marks,
 )
 from .localized_bodies import structure_signature as body_structure_signature
 from .models import (
@@ -173,10 +172,10 @@ class LocaleBody:
     def untranslated(self) -> int:
         return sum(1 for state in self.units if not state.translated)
 
-    @property
-    def marks(self) -> dict[str, list[dict[str, Any]]]:
-        """What each token of an inline unit marks in the source (TL15)."""
-        return inline_marks(_source_blocks(self.source_version))
+    def source_blocks(self) -> list[dict[str, Any]]:
+        """The source version's blocks, which the editor's language mode names
+        sections and marks from (TL15)."""
+        return _source_blocks(self.source_version)
 
     @property
     def outdated(self) -> bool:

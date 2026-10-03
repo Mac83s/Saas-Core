@@ -97,6 +97,10 @@ class LocaleBodySerializer(serializers.Serializer[dict[str, Any]]):
         "somebody publishes it again."
     )
     untranslated = serializers.IntegerField(help_text="Units still without a translation.")
+    block_types = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The source's sections in order; a unit key starts with the position.",
+    )
     units = LocaleBodyUnitSerializer(many=True)
 
 
