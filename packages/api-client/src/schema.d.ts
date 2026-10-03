@@ -529,6 +529,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/{appointment_id}/no-show/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark that the customer did not come
+         * @description Closes a confirmed visit that has begun as `no_show` (UX-031): it leaves the assignment queue, counts neither as done nor as canceled, the people and the resource are free from now, the customer's self-service link stops working and products reserved for it return to stock. Before its start it is 409 `visit_not_started_yet`; a visit that is not confirmed (completed, canceled) is 409 `appointment_not_changeable`. There is no undo. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_appointment_no_show"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/appointments/{appointment_id}/place/": {
         parameters: {
             query?: never;
@@ -5935,7 +5955,12 @@ export interface components {
             ends_at: string;
             timezone: string;
             service_name: string;
+            /** @description `confirmed`, `completed`, `canceled` or `no_show` (the customer did not come). */
             status: string;
+            /** @description Confirmed and its planned end is behind us: nobody closed it with complete or no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work. */
+            passed: boolean;
+            /** @description Its module closes visits of this kind itself (e.g. when field work ends): a passed one is not finished rather than done, and only a completed one counts as done. */
+            closes_explicitly: boolean;
             customer_name: string;
             /** @description What the module that owns the visit's detail calls it (a herd visit's farm), shown before the customer's name; empty when none. */
             title: string;
@@ -9746,7 +9771,12 @@ export interface components {
             ends_at: string;
             timezone: string;
             service_name: string;
+            /** @description `confirmed`, `completed`, `canceled` or `no_show` (the customer did not come). */
             status: string;
+            /** @description Confirmed and its planned end is behind us: nobody closed it with complete or no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work. */
+            passed: boolean;
+            /** @description Its module closes visits of this kind itself (e.g. when field work ends): a passed one is not finished rather than done, and only a completed one counts as done. */
+            closes_explicitly: boolean;
             customer_name: string;
             /** @description What the module that owns the visit's detail calls it (a herd visit's farm), shown before the customer's name; empty when none. */
             title: string;
@@ -12946,6 +12976,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    booking_appointment_no_show: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

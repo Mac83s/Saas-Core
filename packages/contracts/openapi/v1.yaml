@@ -1278,6 +1278,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
           description: ''
+  /api/v1/booking/appointments/{appointment_id}/no-show/:
+    post:
+      operationId: booking_appointment_no_show
+      description: 'Closes a confirmed visit that has begun as `no_show` (UX-031):
+        it leaves the assignment queue, counts neither as done nor as canceled, the
+        people and the resource are free from now, the customer''s self-service link
+        stops working and products reserved for it return to stock. Before its start
+        it is 409 `visit_not_started_yet`; a visit that is not confirmed (completed,
+        canceled) is 409 `appointment_not_changeable`. There is no undo. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `booking_idempotency_conflict`.'
+      summary: Mark that the customer did not come
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/appointments/{appointment_id}/place/:
     put:
       operationId: api_v1_booking_appointments_place_update
@@ -18021,6 +18080,18 @@ components:
           type: string
         status:
           type: string
+          description: '`confirmed`, `completed`, `canceled` or `no_show` (the customer
+            did not come).'
+        passed:
+          type: boolean
+          description: 'Confirmed and its planned end is behind us: nobody closed
+            it with complete or no-show yet (UX-031). It is no longer ahead, and a
+            vacancy on it is nobody''s work.'
+        closes_explicitly:
+          type: boolean
+          description: 'Its module closes visits of this kind itself (e.g. when field
+            work ends): a passed one is not finished rather than done, and only a
+            completed one counts as done.'
         customer_name:
           type: string
         title:
@@ -18135,6 +18206,7 @@ components:
       required:
       - appointment_kind
       - auto_assigned
+      - closes_explicitly
       - crew
       - crew_version
       - customer_email
@@ -18146,6 +18218,7 @@ components:
       - id
       - location_name
       - needs_assignment
+      - passed
       - place
       - place_address
       - place_town
@@ -27435,6 +27508,18 @@ components:
           type: string
         status:
           type: string
+          description: '`confirmed`, `completed`, `canceled` or `no_show` (the customer
+            did not come).'
+        passed:
+          type: boolean
+          description: 'Confirmed and its planned end is behind us: nobody closed
+            it with complete or no-show yet (UX-031). It is no longer ahead, and a
+            vacancy on it is nobody''s work.'
+        closes_explicitly:
+          type: boolean
+          description: 'Its module closes visits of this kind itself (e.g. when field
+            work ends): a passed one is not finished rather than done, and only a
+            completed one counts as done.'
         customer_name:
           type: string
         title:
@@ -27541,6 +27626,7 @@ components:
       required:
       - appointment_kind
       - auto_assigned
+      - closes_explicitly
       - crew
       - crew_version
       - customer_email
@@ -27552,6 +27638,7 @@ components:
       - id
       - location_name
       - needs_assignment
+      - passed
       - place
       - place_address
       - place_town
