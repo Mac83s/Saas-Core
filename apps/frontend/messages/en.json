@@ -425,6 +425,7 @@
       "counts_towards_capacity": "Counts towards capacity",
       "kind": "Kind",
       "mandatory": "Mandatory",
+      "payment_policy": "Payment",
       "max_quantity": "Most per booking",
       "starts_on": "From",
       "window_days": "Booking window (days)",
@@ -3134,7 +3135,11 @@
     "status": "Status",
     "statusConfirmed": "Confirmed",
     "addToCalendar": "Add to calendar",
-    "manageHint": "The link to manage the booking is in the e-mail too."
+    "manageHint": "The link to manage the booking is in the e-mail too.",
+    "extrasLegend": "Extras",
+    "extraOption": "{name} — {amount}{basis, select, per_person { per person} per_time_unit { per day} per_person_per_time_unit { per person per day} other {}}",
+    "extraQuantity": "{name}: how many",
+    "priceChanged": "The price changed before we saved your booking. Check the new price and confirm again."
   },
   "BookingMaterials": {
     "title": "Products from the warehouse",
@@ -3177,7 +3182,9 @@
     "canceled": "canceled",
     "no_show": "no-show",
     "chosenTeam": "Chosen team: {team}",
-    "seenBy": "You'll be seen by: {name}"
+    "seenBy": "You'll be seen by: {name}",
+    "newPrice": "The price is different at this time. Check it before you move your visit.",
+    "rescheduleAtPrice": "Move at this price"
   },
   "Notifications": {
     "navigation": "Notifications",
@@ -5211,5 +5218,12 @@
       "language_not_live": "The home page has no version in this language, so no page in it is public.",
       "other": "This language version will not go out with the next publication."
     }
+  },
+  "BookingPrice": {
+    "title": "Price",
+    "total": "Total",
+    "times": "{name} × {count}",
+    "deposit": "Refundable deposit: {amount}",
+    "payOnSite": "You pay on site."
   }
 }

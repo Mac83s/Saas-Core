@@ -8,13 +8,16 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import {
+  ApiProblemError,
   createPublicBookingAppointment,
   getPublicBookingCatalog,
   getPublicBookingDays,
+  getPublicBookingQuote,
   getPublicBookingTimes,
   type BookingPublicAppointment,
   type BookingPublicCatalog,
   type BookingPublicChoice,
+  type BookingPublicQuote,
   type BookingSlotTimeList,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
@@ -44,6 +47,7 @@ import {
   formatWhen,
   wallClock,
 } from "./calendar-time";
+import { QuoteSummary } from "./quote-summary";
 
 type Values = {
   service_id: string;
@@ -163,6 +167,32 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const choiceKey =
     service?.staff_choice === "person" ? "person_id" : "team_id";
   const loading = (!!query && !days) || (!!day && !times);
+  // The extras the customer may add to this service, and how many of each.
+  const options = (catalog?.extras ?? []).filter(
+    (x) => String(x.service_id) === serviceId && !x.mandatory,
+  );
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  const extras = useMemo(
+    () =>
+      Object.entries(picked)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([extra_id, quantity]) => ({ extra_id, quantity })),
+    [picked],
+  );
+  // The price of what is chosen now; an answer for an earlier choice is not
+  // shown. No price shown never stops a booking: the server prices it anyway.
+  const startsAt = useWatch({ control: form.control, name: "starts_at" });
+  const quoteKey =
+    serviceId && startsAt ? JSON.stringify([serviceId, startsAt, extras]) : "";
+  const [priced, setPriced] = useState<{
+    key: string;
+    quote: BookingPublicQuote | null;
+  }>();
+  const quote = priced?.key === quoteKey ? priced.quote : undefined;
+  const money = (minor: number, currency: string) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency }).format(
+      minor / 100,
+    );
 
   useEffect(() => {
     void getPublicBookingCatalog(publicSlug)
@@ -197,6 +227,25 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       current = false;
     };
   }, [catalog?.online.last_day, publicSlug, query, t, zone]);
+  useEffect(() => {
+    if (!quoteKey) return;
+    let current = true;
+    getPublicBookingQuote(publicSlug, {
+      service_id: serviceId,
+      starts_at: startsAt,
+      extras,
+      locale,
+    })
+      .then((value) => {
+        if (current) setPriced({ key: quoteKey, quote: value });
+      })
+      .catch(() => {
+        if (current) setPriced({ key: quoteKey, quote: null });
+      });
+    return () => {
+      current = false;
+    };
+  }, [extras, locale, publicSlug, quoteKey, serviceId, startsAt]);
   useEffect(() => {
     if (!query || !day) return;
     let current = true;
@@ -253,6 +302,9 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             ...(query?.team_id ? { team_id: query.team_id } : {}),
             ...(query?.person_id ? { person_id: query.person_id } : {}),
             ...(notes.trim() ? { customer_notes: notes.trim() } : {}),
+            ...(extras.length ? { extras } : {}),
+            // The price shown: another one by now is asked about, not charged.
+            ...(quote ? { quote_digest: quote.digest } : {}),
             customer: {
               display_name,
               email,
@@ -264,7 +316,18 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         );
         setBooked(created);
         setProblem(undefined);
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof ApiProblemError &&
+          error.problem.code === "quote_changed"
+        ) {
+          const detail = error.problem.detail as {
+            quote?: BookingPublicQuote | null;
+          };
+          setPriced({ key: quoteKey, quote: detail.quote ?? null });
+          setProblem(t("priceChanged"));
+          return;
+        }
         setProblem(t("createError"));
       }
     },
@@ -315,6 +378,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             <dt className="text-muted-foreground">{t("status")}</dt>
             <dd className="font-medium">{t("statusConfirmed")}</dd>
           </dl>
+          {booked.quote ? <QuoteSummary quote={booked.quote} /> : null}
           <div className="flex flex-wrap gap-3">
             {booked.self_service_token ? (
               <a
@@ -370,7 +434,10 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
                 aria-invalid={Boolean(errors.service_id)}
                 id="booking-service"
                 {...form.register("service_id", {
-                  onChange: () => choose({}),
+                  onChange: () => {
+                    setPicked({});
+                    choose({});
+                  },
                 })}
               >
                 <option value="">{t("choose")}</option>
@@ -499,6 +566,71 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               <FieldError errors={[errors.starts_at]} />
             </Field>
           </div>
+          {options.length ? (
+            <FieldSet>
+              <FieldLegend variant="label">{t("extrasLegend")}</FieldLegend>
+              <div className="grid gap-1">
+                {options.map((option) => {
+                  const id = String(option.id);
+                  const label = t("extraOption", {
+                    name: option.name,
+                    amount: money(
+                      option.unit_gross_minor,
+                      catalog?.currency ?? "PLN",
+                    ),
+                    basis: option.basis,
+                  });
+                  return option.max_quantity > 1 ? (
+                    <label
+                      className="flex min-h-11 items-center justify-between gap-3 text-sm"
+                      key={id}
+                    >
+                      {label}
+                      <NativeSelect
+                        aria-label={t("extraQuantity", { name: option.name })}
+                        className="w-20"
+                        onChange={(event) =>
+                          setPicked({
+                            ...picked,
+                            [id]: Number(event.target.value),
+                          })
+                        }
+                        value={picked[id] ?? 0}
+                      >
+                        {Array.from(
+                          { length: option.max_quantity + 1 },
+                          (_, count) => (
+                            <option key={count} value={count}>
+                              {count}
+                            </option>
+                          ),
+                        )}
+                      </NativeSelect>
+                    </label>
+                  ) : (
+                    <label
+                      className="flex min-h-11 items-center gap-2 text-sm"
+                      key={id}
+                    >
+                      <input
+                        checked={Boolean(picked[id])}
+                        className="size-4"
+                        onChange={(event) =>
+                          setPicked({
+                            ...picked,
+                            [id]: event.target.checked ? 1 : 0,
+                          })
+                        }
+                        type="checkbox"
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </FieldSet>
+          ) : null}
+          {quote ? <QuoteSummary quote={quote} /> : null}
           <Field data-invalid={Boolean(errors.display_name)}>
             <FieldLabel htmlFor="booking-name">{t("name")}</FieldLabel>
             <Input

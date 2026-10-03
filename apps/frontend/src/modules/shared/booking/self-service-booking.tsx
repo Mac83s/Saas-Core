@@ -7,10 +7,12 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import {
+  ApiProblemError,
   cancelSelfServiceBooking,
   getSelfServiceBooking,
   rescheduleSelfServiceBooking,
   type BookingPublicAppointment,
+  type BookingPublicQuote,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -24,6 +26,8 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { Label } from "@saas-core/ui/components/label";
 
+import { QuoteSummary } from "./quote-summary";
+
 const schema = z.object({ starts_at: z.string().min(1) });
 
 export function SelfServiceBooking({ token }: { token: string }) {
@@ -31,6 +35,12 @@ export function SelfServiceBooking({ token }: { token: string }) {
   const locale = useLocale();
   const [appointment, setAppointment] = useState<BookingPublicAppointment>();
   const [problem, setProblem] = useState<string>();
+  // The price of the time just asked for, when it is another one than the
+  // visit has: shown first, taken with the next click (ADR-072 §7).
+  const [offered, setOffered] = useState<{
+    startsAt: string;
+    quote: BookingPublicQuote;
+  }>();
   // The booking's own terms (B4); a booking read from an older server has
   // none and keeps both actions, as before.
   const terms = appointment?.self_service ?? {
@@ -50,15 +60,31 @@ export function SelfServiceBooking({ token }: { token: string }) {
   }, [t, token]);
 
   const reschedule = form.handleSubmit(async ({ starts_at }) => {
+    const startsAt = new Date(starts_at).toISOString();
     try {
       const value = await rescheduleSelfServiceBooking(
         token,
-        new Date(starts_at).toISOString(),
+        startsAt,
         crypto.randomUUID(),
+        offered?.startsAt === startsAt ? offered.quote.digest : undefined,
       );
       setAppointment(value);
+      setOffered(undefined);
       setProblem(undefined);
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof ApiProblemError &&
+        error.problem.code === "quote_changed"
+      ) {
+        const detail = error.problem.detail as {
+          quote?: BookingPublicQuote | null;
+        };
+        if (detail.quote) {
+          setOffered({ startsAt, quote: detail.quote });
+          setProblem(undefined);
+          return;
+        }
+      }
       setProblem(t("rescheduleError"));
     }
   });
@@ -111,6 +137,9 @@ export function SelfServiceBooking({ token }: { token: string }) {
                 </p>
               ) : null}
             </div>
+            {appointment.quote ? (
+              <QuoteSummary quote={appointment.quote} />
+            ) : null}
             {appointment.status === "confirmed" ? (
               <>
                 {/* What the link may still do: the booking's own terms (B4). */}
@@ -120,13 +149,21 @@ export function SelfServiceBooking({ token }: { token: string }) {
                     <Input
                       id="self-service-start"
                       type="datetime-local"
-                      {...form.register("starts_at")}
+                      {...form.register("starts_at", {
+                        onChange: () => setOffered(undefined),
+                      })}
                     />
+                    {offered ? (
+                      <div className="space-y-2" role="status">
+                        <p className="text-sm">{t("newPrice")}</p>
+                        <QuoteSummary quote={offered.quote} />
+                      </div>
+                    ) : null}
                     <Button
                       disabled={form.formState.isSubmitting}
                       type="submit"
                     >
-                      {t("reschedule")}
+                      {offered ? t("rescheduleAtPrice") : t("reschedule")}
                     </Button>
                   </form>
                 ) : null}

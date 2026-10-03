@@ -34,6 +34,7 @@ const api = vi.hoisted(() => ({
   getPeopleDay: vi.fn(),
   getPublicBookingCatalog: vi.fn(),
   getPublicBookingDays: vi.fn(),
+  getPublicBookingQuote: vi.fn(),
   getPublicBookingTimes: vi.fn(),
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
@@ -251,6 +252,8 @@ beforeEach(() => {
     items: [],
   });
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
+  // A service without a price: the form shows none.
+  api.getPublicBookingQuote.mockResolvedValue(null);
   api.getPublicBookingTimes.mockResolvedValue([
     { starts_at: "2026-08-20T08:00:00Z", ends_at: "2026-08-20T08:30:00Z" },
     { starts_at: "2026-08-20T08:30:00Z", ends_at: "2026-08-20T09:00:00Z" },
@@ -1913,6 +1916,195 @@ test("self-service reschedules an active booking", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Reschedule" }));
   await waitFor(() =>
     expect(api.rescheduleSelfServiceBooking).toHaveBeenCalledOnce(),
+  );
+});
+
+const PHOTOS = "99999999-9999-4999-8999-aaaaaaaaaaaa";
+/** The total of the price shown; Intl puts a hard space after the currency. */
+const totalShown = () =>
+  within(screen.getByRole("region", { name: "Price" }))
+    .getByText("Total")
+    .parentElement?.textContent?.replace(/\u00a0/g, " ");
+const priceOf = (gross: number, digest: string, photos = 0) => ({
+  currency: "PLN",
+  lines: [
+    { kind: "price", name: "Consultation", quantity: 1, gross_minor: gross },
+    ...(photos
+      ? [
+          {
+            kind: "extra",
+            name: "Photos",
+            quantity: photos,
+            gross_minor: photos * 2000,
+          },
+        ]
+      : []),
+  ],
+  gross_minor: gross + photos * 2000,
+  security_deposit_minor: 0,
+  payment_policy: "on_site",
+  digest,
+});
+
+test("the public form shows the price, books at the price shown and asks again when it moved (ADR-072 §7)", async () => {
+  api.getPublicBookingCatalog.mockResolvedValue({
+    locations: catalog.locations,
+    services: catalog.services,
+    resources: catalog.resources,
+    timezone: "Europe/Warsaw",
+    currency: "PLN",
+    online: { paused: false, resume_on: null },
+    extras: [
+      {
+        id: PHOTOS,
+        service_id: catalog.services[0].id,
+        name: "Photos",
+        basis: "per_booking",
+        mandatory: false,
+        max_quantity: 3,
+        unit_gross_minor: 2000,
+      },
+    ],
+  });
+  api.getPublicBookingQuote.mockImplementation(
+    async (_slug: string, input: { extras?: { quantity: number }[] }) =>
+      priceOf(15000, "shown", input.extras?.[0]?.quantity ?? 0),
+  );
+  renderPublic();
+  await screen.findByText("Consultation");
+  fireEvent.change(screen.getByLabelText("Service"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(screen.getByLabelText("Place"), {
+    target: { value: catalog.locations[0].id },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Show times" }));
+  await waitFor(() =>
+    expect(screen.getByLabelText("Day")).toHaveProperty("disabled", false),
+  );
+  fireEvent.change(screen.getByLabelText("Day"), {
+    target: { value: "2026-08-20" },
+  });
+  const time = screen.getByLabelText("Time");
+  await waitFor(() =>
+    expect(within(time).getAllByRole("option")).toHaveLength(3),
+  );
+  // No time, no price: nothing is asked for before there is something to price.
+  expect(api.getPublicBookingQuote).not.toHaveBeenCalled();
+  fireEvent.change(time, { target: { value: "2026-08-20T08:30:00Z" } });
+  const price = await screen.findByRole("region", { name: "Price" });
+  expect(totalShown()).toBe("TotalPLN 150.00");
+  expect(within(price).getByText("You pay on site.")).toBeInTheDocument();
+
+  // Two of the extra: the price is asked for again, with them.
+  fireEvent.change(screen.getByLabelText("Photos: how many"), {
+    target: { value: "2" },
+  });
+  await waitFor(() =>
+    expect(api.getPublicBookingQuote).toHaveBeenLastCalledWith("demo", {
+      service_id: catalog.services[0].id,
+      starts_at: "2026-08-20T08:30:00Z",
+      extras: [{ extra_id: PHOTOS, quantity: 2 }],
+      locale: "en",
+    }),
+  );
+  expect(await screen.findByText("Photos × 2")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Full name"), {
+    target: { value: "Anna Nowak" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "anna@example.test" },
+  });
+  // The price went up in between: the customer is shown the new one first.
+  api.createPublicBookingAppointment.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "",
+      status: 409,
+      code: "quote_changed",
+      detail: { message: "", quote: priceOf(16000, "fresh", 2) },
+      correlation_id: null,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(
+    await screen.findByText(
+      "The price changed before we saved your booking. Check the new price and confirm again.",
+    ),
+  ).toBeInTheDocument();
+  expect(totalShown()).toBe("TotalPLN 200.00");
+  expect(api.createPublicBookingAppointment.mock.calls[0][1]).toMatchObject({
+    extras: [{ extra_id: PHOTOS, quantity: 2 }],
+    quote_digest: "shown",
+  });
+
+  api.createPublicBookingAppointment.mockResolvedValue({
+    ...publicAppointment,
+    self_service_token: "bk_new",
+    quote: priceOf(16000, "fresh", 2),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(await screen.findByText("Booking confirmed")).not.toBeNull();
+  expect(api.createPublicBookingAppointment.mock.calls[1][1]).toMatchObject({
+    quote_digest: "fresh",
+  });
+  // The confirmation carries the price the visit was booked at.
+  expect(totalShown()).toBe("TotalPLN 200.00");
+});
+
+test("a customer moving their visit sees the new price before taking it (ADR-072 §7)", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    quote: priceOf(15000, "booked"),
+  });
+  api.rescheduleSelfServiceBooking.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "",
+      status: 409,
+      code: "quote_changed",
+      detail: { message: "", quote: priceOf(20000, "evening") },
+      correlation_id: null,
+    }),
+  );
+  api.rescheduleSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    starts_at: "2026-08-21T16:00:00Z",
+    ends_at: "2026-08-21T16:30:00Z",
+    quote: priceOf(20000, "evening"),
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_test" />
+    </NextIntlClientProvider>,
+  );
+  // The price the visit was booked at.
+  expect(
+    within(await screen.findByRole("region", { name: "Price" })).getByText(
+      "PLN 150.00",
+      { selector: "p span" },
+    ),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("New time"), {
+    target: { value: "2026-08-21T18:00" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Reschedule" }));
+  expect(
+    await screen.findByText(
+      "The price is different at this time. Check it before you move your visit.",
+    ),
+  ).toBeInTheDocument();
+  expect(api.rescheduleSelfServiceBooking.mock.calls[0][3]).toBeUndefined();
+  fireEvent.click(screen.getByRole("button", { name: "Move at this price" }));
+  await waitFor(() =>
+    expect(api.rescheduleSelfServiceBooking).toHaveBeenCalledTimes(2),
+  );
+  expect(api.rescheduleSelfServiceBooking.mock.calls[1][3]).toBe("evening");
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Move at this price" }),
+    ).toBeNull(),
   );
 });
 

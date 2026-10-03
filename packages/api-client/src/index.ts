@@ -307,6 +307,7 @@ export type BookingPublicCatalog = components["schemas"]["PublicCatalog"];
 export type BookingAppointment = components["schemas"]["Appointment"];
 export type BookingPublicAppointment =
   components["schemas"]["PublicAppointment"];
+export type BookingPublicQuote = components["schemas"]["PublicQuote"];
 export type BookingMaterialInput = components["schemas"]["MaterialInput"];
 export type BookingVisitPlace = components["schemas"]["VisitPlaceInput"];
 export type BookingPlaceSuggestion =
@@ -3738,6 +3739,20 @@ export async function createPublicBookingAppointment(
   return data;
 }
 
+/** What a visit from the booking form would cost, as the customer reads it;
+ *  null when the service has no price. Nothing is saved (ADR-072 §7). */
+export async function getPublicBookingQuote(
+  publicSlug: string,
+  input: components["schemas"]["PublicQuoteInput"],
+): Promise<BookingPublicQuote | null> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/public/{public_slug}/quote/",
+    { params: { path: { public_slug: publicSlug } }, body: input },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.quote;
+}
+
 export async function getSelfServiceBooking(
   token: string,
 ): Promise<BookingPublicAppointment> {
@@ -3749,10 +3764,14 @@ export async function getSelfServiceBooking(
   return data;
 }
 
+/** `quoteDigest`: the price the customer was shown for the new time. A move
+ *  to another price without it answers 409 `quote_changed` with that price in
+ *  `detail.quote` (ADR-072 §7). */
 export async function rescheduleSelfServiceBooking(
   token: string,
   startsAt: string,
   idempotencyKey: string,
+  quoteDigest?: string,
 ): Promise<BookingPublicAppointment> {
   const { data, error, response } = await client.POST(
     "/api/v1/booking/self-service/{token}/reschedule/",
@@ -3761,7 +3780,10 @@ export async function rescheduleSelfServiceBooking(
         path: { token },
         header: { "Idempotency-Key": idempotencyKey },
       },
-      body: { starts_at: startsAt },
+      body: {
+        starts_at: startsAt,
+        ...(quoteDigest ? { quote_digest: quoteDigest } : {}),
+      },
     },
   );
   if (error || !data) throwProblem(error, response);

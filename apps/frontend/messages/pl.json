@@ -425,6 +425,7 @@
       "counts_towards_capacity": "Liczy się do pojemności",
       "kind": "Rodzaj",
       "mandatory": "Obowiązkowa",
+      "payment_policy": "Płatność",
       "max_quantity": "Najwięcej sztuk",
       "starts_on": "Od dnia",
       "window_days": "Okno rezerwacji (dni)",
@@ -3134,7 +3135,11 @@
     "status": "Status",
     "statusConfirmed": "Potwierdzona",
     "addToCalendar": "Dodaj do kalendarza",
-    "manageHint": "Link do zarządzania rezerwacją jest też w e-mailu."
+    "manageHint": "Link do zarządzania rezerwacją jest też w e-mailu.",
+    "extrasLegend": "Dodatki",
+    "extraOption": "{name} — {amount}{basis, select, per_person { za osobę} per_time_unit { za dobę} per_person_per_time_unit { za osobę za dobę} other {}}",
+    "extraQuantity": "{name}: ile",
+    "priceChanged": "Cena zmieniła się, zanim zapisaliśmy rezerwację. Sprawdź nową cenę i potwierdź jeszcze raz."
   },
   "BookingMaterials": {
     "title": "Produkty z magazynu",
@@ -3177,7 +3182,9 @@
     "canceled": "anulowana",
     "no_show": "nieobecność",
     "chosenTeam": "Wybrany zespół: {team}",
-    "seenBy": "Przyjmie Cię: {name}"
+    "seenBy": "Przyjmie Cię: {name}",
+    "newPrice": "W tym terminie cena jest inna. Sprawdź ją, zanim przełożysz wizytę.",
+    "rescheduleAtPrice": "Przełóż w tej cenie"
   },
   "Notifications": {
     "navigation": "Powiadomienia",
@@ -5211,5 +5218,12 @@
       "language_not_live": "Strona główna nie ma wersji w tym języku, więc żadna podstrona w nim nie jest publiczna.",
       "other": "Ta wersja językowa nie wyjdzie z następną publikacją."
     }
+  },
+  "BookingPrice": {
+    "title": "Cena",
+    "total": "Razem",
+    "times": "{name} × {count}",
+    "deposit": "Kaucja zwrotna: {amount}",
+    "payOnSite": "Płatność na miejscu."
   }
 }
