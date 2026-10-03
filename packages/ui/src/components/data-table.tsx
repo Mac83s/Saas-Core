@@ -333,8 +333,9 @@ export function DataTable<TData, TValue>({
     Boolean(first.columnDef.meta?.primary);
   const pin = cn(
     "md:sticky md:left-0 md:z-10 md:bg-background",
+    // A gradient, not a box-shadow: a collapsed table paints no cell shadow.
     edges.start &&
-      "md:shadow-[6px_0_8px_-4px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
+      "md:after:pointer-events-none md:after:absolute md:after:inset-y-0 md:after:-right-2 md:after:w-2 md:after:bg-linear-to-r md:after:from-foreground/15 md:after:to-transparent",
   );
   // A list with nothing in it and nothing narrowing it shows no search, no
   // filters and no column names over nothing — only its empty state and the
