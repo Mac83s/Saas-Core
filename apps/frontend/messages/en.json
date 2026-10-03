@@ -2359,7 +2359,129 @@
     "unfinishedShow": "Show: {page}",
     "unfinishedPublish": "Visitors will not see the sentences with places to fill in, nor the buttons with the template's phone and e-mail — they are left out of the page. Fill them in before you publish.",
     "connectionsAsk": "Write to us to connect an integration",
-    "blogNameExample": "e.g. News or Tips"
+    "blogNameExample": "e.g. News or Tips",
+    "languageMode": {
+      "switchLabel": "Language version",
+      "source": "source",
+      "states": {
+        "source": "Source",
+        "published": "On the site",
+        "complete": "Ready to publish",
+        "missing": "Missing",
+        "pending": "Waiting for approval",
+        "outdated": "Out of date",
+        "untranslated": "Incomplete",
+        "incomplete": "Incomplete",
+        "withdrawn": "Taken off the site"
+      },
+      "structureHint": "You change the layout, images and links in the source version.",
+      "toSource": "Go to the version: {language}",
+      "save": "Save translation",
+      "saved": "Translation saved: {language}.",
+      "nothingToSave": "There are no unsaved changes.",
+      "preview": "Preview",
+      "history": "Version history",
+      "settings": "Address and description",
+      "loading": "Loading the translation…",
+      "loadError": "The translation could not be loaded. Try again.",
+      "retry": "Try again",
+      "notEnabled": "This language is not enabled for the company. Enable it in Settings › Languages.",
+      "noAddress": {
+        "title": "This version has no address yet",
+        "text": "Before you translate the content, give the page an address and a title in {language}.",
+        "action": "Add an address and a title"
+      },
+      "empty": {
+        "title": "This page has no version in {language} yet",
+        "text": "Translate it fragment by fragment — the source text is shown next to each field.",
+        "manual": "Translate manually"
+      },
+      "banner": {
+        "untranslated": "{count, plural, one {# fragment is missing} other {# fragments are missing}} — this version goes on the site once it is complete.",
+        "complete": "All fragments are translated.",
+        "outdated": "The source page has changed since this translation.",
+        "pending": "The translation is waiting for your decision: {reason}.",
+        "withdrawn": "This version has been taken off the site. It returns once this version is published.",
+        "reasons": {
+          "review_mode": "translations in this company wait for approval",
+          "legal_document": "it is a legal document",
+          "overwrites_human": "it would overwrite your corrections",
+          "qa_flagged": "the quality check has remarks",
+          "qa_failed": "the text did not pass the quality check",
+          "gate_failed": "the text did not pass the checks",
+          "operator_forced_review": "the platform operator requires a review",
+          "publisher_required": "someone allowed to publish has to decide",
+          "locale_first_appearance": "it is the first version in this language",
+          "mass_publication": "the change covers many pages at once",
+          "model_refused": "the model refused to translate",
+          "other": "it needs a review"
+        }
+      },
+      "rebase": {
+        "action": "Move to the current version",
+        "title": "Move the translation to the page's current version?",
+        "text": "Fragments whose source text did not change stay. {count, plural, =0 {Nothing will need translating again.} one {# fragment will be left to translate.} other {# fragments will be left to translate.}}",
+        "confirm": "Move",
+        "done": "The translation now follows the page's current version."
+      },
+      "unit": {
+        "status": {
+          "missing": "Missing",
+          "ai": "Translated (AI)",
+          "human": "Corrected",
+          "copy": "Copied from the source",
+          "integration": "From an integration",
+          "template": "From a template",
+          "import": "Imported",
+          "dirty": "Unsaved"
+        },
+        "copied": "The same in every language",
+        "placeholder": "Fill it in in the source version first",
+        "keep": "Keep unchanged",
+        "suggestion": "Earlier translation: {text}",
+        "useSuggestion": "Use",
+        "source": "Source text",
+        "translation": "Translation: {label}"
+      },
+      "section": "{number}. {name}",
+      "item": "{label} {number}",
+      "fragment": "Fragment {number}",
+      "conflict": "Someone changed this translation — the new version is loaded and your unsaved changes are applied on top.",
+      "unitErrors": {
+        "required": "This field cannot be empty.",
+        "too_long": "The text is too long.",
+        "token_missing": "A formatting mark from the source text is missing.",
+        "token_unexpected": "The text has a formatting mark the source does not have.",
+        "token_malformed": "A formatting mark is damaged.",
+        "token_nesting": "Formatting marks cannot overlap.",
+        "token_empty": "A formatting mark cannot be empty.",
+        "unknown_unit": "This fragment is no longer in the source version.",
+        "block_invalid": "The text does not fit this section.",
+        "other": "This fragment could not be saved."
+      },
+      "tokenLink": "link to {href}",
+      "refused": {
+        "token_removed": "This formatting cannot be removed — change its words or move it within the sentence.",
+        "token_split": "This formatting cannot be split in two."
+      },
+      "previewTitle": "Preview of the version: {language}",
+      "previewEmpty": "This version has no saved content yet.",
+      "historyTitle": "Version history: {language}",
+      "historyEmpty": "This version has no saved versions yet.",
+      "versionNamed": "Version {number}",
+      "restore": "Restore",
+      "restoreTitle": "Restore version {number}?",
+      "restoreText": "A new version of the translation is created with the text of version {number}. The current one stays in the history.",
+      "restored": "Version {from} restored as version {number}.",
+      "versionOrigin": {
+        "save": "Saved in the editor",
+        "copy": "Copy of the source text",
+        "restore": "Restored version",
+        "rebase": "Moved to a new source version",
+        "job": "AI translation",
+        "unknown": "Saved"
+      }
+    }
   },
   "BillingSupport": {
     "navigation": "Billing & access",

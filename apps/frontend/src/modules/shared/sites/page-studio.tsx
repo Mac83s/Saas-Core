@@ -9,6 +9,7 @@ import {
   getSiteLocalizationReport,
   saveSiteAppearance,
   type PageSummary,
+  type SiteLocalizationReport,
 } from "@saas-core/api-client";
 import {
   parseSiteAppearance,
@@ -25,7 +26,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@saas-core/ui/components/dialog";
+import { useCompanyLocales } from "#lib/company-locales";
+import { LanguageSwitch, pageLanguageOptions } from "./language-switch";
 import { PageEditor } from "./page-editor";
+import { PageLanguageEditor } from "./page-language-editor";
+
+/** The language the editor shows, kept in the address (`?language=de`) so a
+ *  refresh or a shared link opens the same one (TL15). */
+function addressLanguage(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("language");
+}
+
+function keepLanguageInAddress(locale: string | null) {
+  const url = new URL(window.location.href);
+  if (locale) url.searchParams.set("language", locale);
+  else url.searchParams.delete("language");
+  window.history.replaceState(window.history.state, "", url);
+}
 
 export function PageStudio({
   page,
@@ -52,10 +70,46 @@ export function PageStudio({
     setOpen(false);
     onClose?.();
   };
-  // What waits for "Odrzuć zmiany": closing the studio or another page.
+  // What waits for "Odrzuć zmiany": closing the studio, another page or
+  // another language.
   const [confirmExit, setConfirmExit] = useState<
-    false | { close: true } | { pageId: string }
+    false | { close: true } | { pageId: string } | { locale: string }
   >(false);
+  const [report, setReport] = useState<SiteLocalizationReport>();
+  const [reloadReport, setReloadReport] = useState(0);
+  const companyLocales = useCompanyLocales(["pl", "en"]);
+  const [requestedLanguage, setRequestedLanguage] = useState<string | null>(
+    addressLanguage,
+  );
+  const languages = useMemo(
+    () => pageLanguageOptions(report, page.id, companyLocales),
+    [report, page.id, companyLocales],
+  );
+  const sourceLocale = report?.default_locale ?? languages[0]?.locale ?? "pl";
+  // A language the company no longer has, or the source by its code, is
+  // the source.
+  const contentLocale =
+    requestedLanguage &&
+    requestedLanguage !== sourceLocale &&
+    languages.some((item) => item.locale === requestedLanguage)
+      ? requestedLanguage
+      : sourceLocale;
+  const nameOf = (code: string) =>
+    languages.find((item) => item.locale === code)?.name ?? code.toUpperCase();
+  function chooseLanguage(locale: string) {
+    if (locale === contentLocale || exitState.busy) return;
+    if (exitState.dirty) {
+      setConfirmExit({ locale });
+      return;
+    }
+    applyLanguage(locale);
+  }
+  function applyLanguage(locale: string) {
+    const next = locale === sourceLocale ? null : locale;
+    setRequestedLanguage(next);
+    keepLanguageInAddress(next);
+    setExitState({ dirty: false, busy: false });
+  }
   const [menuOrder, setMenuOrder] = useState<
     { page_id: string; parent_page_id?: string | null }[]
   >([]);
@@ -113,6 +167,7 @@ export function PageStudio({
       .then(([menu, report]) => {
         if (!active) return;
         setMenuOrder(menu.items);
+        setReport(report);
         const links: NavigationLink[] = [];
         const visible = new Set(
           menu.items.filter((item) => item.visible).map((item) => item.page_id),
@@ -146,7 +201,7 @@ export function PageStudio({
     return () => {
       active = false;
     };
-  }, [open, page.site_id]);
+  }, [open, page.site_id, reloadReport]);
   useEffect(() => {
     if (!appearanceDirty) return;
     const preventLoss = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -264,6 +319,15 @@ export function PageStudio({
         </ul>
       </>
     ) : undefined;
+  // In the editor's toolbar, whichever language it shows (UX-039 slot).
+  const languageSwitch = (
+    <LanguageSwitch
+      value={contentLocale}
+      options={languages}
+      onChange={chooseLanguage}
+      disabled={exitState.busy}
+    />
+  );
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger render={<Button type="button" />}>
@@ -300,7 +364,24 @@ export function PageStudio({
           className="min-h-0 flex-1 overflow-hidden"
           data-testid="fullscreen-studio"
         >
-          {open && (
+          {open && contentLocale !== sourceLocale && (
+            <PageLanguageEditor
+              key={`${page.id}-${contentLocale}`}
+              page={page}
+              locale={contentLocale}
+              languageName={nameOf(contentLocale)}
+              sourceName={nameOf(sourceLocale)}
+              languageSwitch={languageSwitch}
+              appearance={savedAppearance?.data}
+              onSwitchToSource={() => chooseLanguage(sourceLocale)}
+              onChanged={() => {
+                setReloadReport((value) => value + 1);
+                void onChanged();
+              }}
+              onExitStateChange={setExitState}
+            />
+          )}
+          {open && contentLocale === sourceLocale && (
             <PageEditor
               key={page.id}
               page={page}
@@ -312,6 +393,7 @@ export function PageStudio({
               appearance={previewAppearance}
               savedAppearance={savedAppearance?.data}
               appearanceControls={appearanceControls}
+              languageSwitch={languageSwitch}
             />
           )}
         </div>
@@ -324,7 +406,8 @@ export function PageStudio({
           <DialogContent>
             <DialogTitle>{t("unsavedTitle")}</DialogTitle>
             <DialogDescription>
-              {confirmExit && "pageId" in confirmExit
+              {confirmExit &&
+              ("pageId" in confirmExit || "locale" in confirmExit)
                 ? t("unsavedSwitchDescription")
                 : t("unsavedDescription")}
             </DialogDescription>
@@ -348,12 +431,17 @@ export function PageStudio({
                     onSelectPage?.(pending.pageId);
                     return;
                   }
+                  if (pending && "locale" in pending) {
+                    applyLanguage(pending.locale);
+                    return;
+                  }
                   close();
                   setAppearance(savedAppearance?.data);
                   setAppearanceProblem(undefined);
                 }}
               >
-                {confirmExit && "pageId" in confirmExit
+                {confirmExit &&
+                ("pageId" in confirmExit || "locale" in confirmExit)
                   ? t("discardAndSwitch")
                   : t("discardChanges")}
               </Button>

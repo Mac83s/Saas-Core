@@ -19,6 +19,25 @@ vi.mock("@saas-core/api-client", async (original) => ({
     .fn()
     .mockResolvedValue({ pages: [], default_locale: "en" }),
   saveSiteAppearance: vi.fn(),
+  getPublicLocales: vi.fn().mockRejectedValue(new Error("offline")),
+}));
+
+vi.mock("./page-language-editor", () => ({
+  PageLanguageEditor: ({
+    locale,
+    languageSwitch,
+    onSwitchToSource,
+  }: {
+    locale: string;
+    languageSwitch: ReactNode;
+    onSwitchToSource: () => void;
+  }) => (
+    <>
+      {languageSwitch}
+      <p>Translating into {locale}</p>
+      <button onClick={onSwitchToSource}>Back to the source</button>
+    </>
+  ),
 }));
 
 vi.mock("./page-editor", () => ({
@@ -235,4 +254,34 @@ test("the studio switches pages without closing, and asks first about unsaved ch
   expect(await screen.findByText("Editing Home")).toBeDefined();
   // The studio itself never closed.
   expect(screen.getByTestId("fullscreen-studio")).toBeDefined();
+});
+
+test("the studio edits another language of the page and keeps it in the address", async () => {
+  const { getSiteLocalizationReport } = await import("@saas-core/api-client");
+  vi.mocked(getSiteLocalizationReport).mockResolvedValueOnce({
+    default_locale: "pl",
+    languages: [
+      { locale: "pl", is_source: true, live: true },
+      { locale: "de", is_source: false, live: true },
+    ],
+    pages: [
+      {
+        page_id: "page",
+        locales: [
+          { locale: "pl", state: "complete" },
+          { locale: "de", state: "untranslated" },
+        ],
+      },
+    ],
+  } as never);
+  window.history.replaceState(null, "", "/panel/sites/pages/page?language=de");
+  setup("pl", "site");
+
+  expect(await screen.findByText("Translating into de")).not.toBeNull();
+  expect(
+    screen.getByRole("combobox", { name: "Wersja językowa" }).textContent,
+  ).toContain("Niepełna");
+  fireEvent.click(screen.getByRole("button", { name: "Back to the source" }));
+  expect(await screen.findByText("Editing Home")).not.toBeNull();
+  expect(window.location.search).toBe("");
 });

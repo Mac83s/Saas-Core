@@ -2359,7 +2359,129 @@
     "unfinishedShow": "Pokaż: {page}",
     "unfinishedPublish": "Odwiedzający nie zobaczą zdań z miejscami do uzupełnienia ani przycisków z telefonem i e-mailem z szablonu — znikną ze strony. Uzupełnij je, zanim opublikujesz.",
     "connectionsAsk": "Napisz do nas, żeby podłączyć integrację",
-    "blogNameExample": "np. Aktualności albo Porady"
+    "blogNameExample": "np. Aktualności albo Porady",
+    "languageMode": {
+      "switchLabel": "Wersja językowa",
+      "source": "źródło",
+      "states": {
+        "source": "Źródło",
+        "published": "Na stronie",
+        "complete": "Gotowa do publikacji",
+        "missing": "Brak",
+        "pending": "Czeka na akceptację",
+        "outdated": "Nieaktualna",
+        "untranslated": "Niepełna",
+        "incomplete": "Niepełna",
+        "withdrawn": "Zdjęta ze strony"
+      },
+      "structureHint": "Układ, zdjęcia i linki zmieniasz w wersji źródłowej.",
+      "toSource": "Przejdź do wersji: {language}",
+      "save": "Zapisz tłumaczenie",
+      "saved": "Zapisano tłumaczenie: {language}.",
+      "nothingToSave": "Nie ma niezapisanych zmian.",
+      "preview": "Podgląd",
+      "history": "Historia wersji",
+      "settings": "Adres i opis",
+      "loading": "Wczytywanie tłumaczenia…",
+      "loadError": "Nie udało się wczytać tłumaczenia. Spróbuj ponownie.",
+      "retry": "Spróbuj ponownie",
+      "notEnabled": "Ten język nie jest włączony dla firmy. Włączysz go w Ustawienia › Języki.",
+      "noAddress": {
+        "title": "Ta wersja nie ma jeszcze adresu",
+        "text": "Zanim przetłumaczysz treść, nadaj stronie w języku {language} adres i tytuł.",
+        "action": "Nadaj adres i tytuł"
+      },
+      "empty": {
+        "title": "Ta strona nie ma jeszcze wersji: {language}",
+        "text": "Przetłumacz ją fragment po fragmencie — obok każdego pola zobaczysz tekst źródłowy.",
+        "manual": "Przetłumacz ręcznie"
+      },
+      "banner": {
+        "untranslated": "{count, plural, one {Brakuje # fragmentu} few {Brakuje # fragmentów} many {Brakuje # fragmentów} other {Brakuje # fragmentu}} — ta wersja trafi na stronę, gdy będzie pełna.",
+        "complete": "Wszystkie fragmenty są przetłumaczone.",
+        "outdated": "Strona źródłowa zmieniła się od tego tłumaczenia.",
+        "pending": "Tłumaczenie czeka na Twoją decyzję: {reason}.",
+        "withdrawn": "Ta wersja jest zdjęta ze strony. Wróci po opublikowaniu tej wersji.",
+        "reasons": {
+          "review_mode": "tłumaczenia w tej firmie czekają na akceptację",
+          "legal_document": "to dokument prawny",
+          "overwrites_human": "nadpisałoby Twoje poprawki",
+          "qa_flagged": "kontrola jakości ma uwagi",
+          "qa_failed": "tekst nie przeszedł kontroli jakości",
+          "gate_failed": "tekst nie przeszedł kontroli",
+          "operator_forced_review": "operator platformy wymaga przeglądu",
+          "publisher_required": "potrzebna osoba z prawem publikacji",
+          "locale_first_appearance": "to pierwsza wersja w tym języku",
+          "mass_publication": "zmiana obejmuje wiele stron naraz",
+          "model_refused": "model odmówił przetłumaczenia",
+          "other": "trzeba ją przejrzeć"
+        }
+      },
+      "rebase": {
+        "action": "Przenieś na bieżącą wersję",
+        "title": "Przenieść tłumaczenie na bieżącą wersję strony?",
+        "text": "Fragmenty, których tekst źródłowy się nie zmienił, zostaną. {count, plural, =0 {Nic nie trzeba będzie tłumaczyć od nowa.} one {Do przetłumaczenia zostanie # fragment.} few {Do przetłumaczenia zostaną # fragmenty.} many {Do przetłumaczenia zostanie # fragmentów.} other {Do przetłumaczenia zostanie # fragmentu.}}",
+        "confirm": "Przenieś",
+        "done": "Tłumaczenie przeniesione na bieżącą wersję strony."
+      },
+      "unit": {
+        "status": {
+          "missing": "Brak",
+          "ai": "Przetłumaczone (AI)",
+          "human": "Poprawione",
+          "copy": "Skopiowane ze źródła",
+          "integration": "Z integracji",
+          "template": "Z szablonu",
+          "import": "Zaimportowane",
+          "dirty": "Niezapisane"
+        },
+        "copied": "Taki sam we wszystkich językach",
+        "placeholder": "Najpierw uzupełnij w wersji źródłowej",
+        "keep": "Zostaw bez zmian",
+        "suggestion": "Wcześniejsze tłumaczenie: {text}",
+        "useSuggestion": "Użyj",
+        "source": "Tekst źródłowy",
+        "translation": "Tłumaczenie: {label}"
+      },
+      "section": "{number}. {name}",
+      "item": "{label} {number}",
+      "fragment": "Fragment {number}",
+      "conflict": "Ktoś zmienił to tłumaczenie — wczytałem nową wersję, Twoje niezapisane zmiany są nałożone.",
+      "unitErrors": {
+        "required": "To pole nie może być puste.",
+        "too_long": "Tekst jest za długi.",
+        "token_missing": "Brakuje wyróżnienia z tekstu źródłowego.",
+        "token_unexpected": "Tekst ma wyróżnienie, którego nie ma w źródle.",
+        "token_malformed": "Wyróżnienie jest uszkodzone.",
+        "token_nesting": "Wyróżnienia nie mogą na siebie nachodzić.",
+        "token_empty": "Wyróżnienie nie może być puste.",
+        "unknown_unit": "Tego fragmentu nie ma już w wersji źródłowej.",
+        "block_invalid": "Tekst nie pasuje do tej sekcji.",
+        "other": "Nie udało się zapisać tego fragmentu."
+      },
+      "tokenLink": "link do {href}",
+      "refused": {
+        "token_removed": "Tego wyróżnienia nie można usunąć — zmień jego słowa albo przenieś je w zdaniu.",
+        "token_split": "Wyróżnienia nie można rozdzielić na dwie części."
+      },
+      "previewTitle": "Podgląd wersji: {language}",
+      "previewEmpty": "Ta wersja nie ma jeszcze zapisanej treści.",
+      "historyTitle": "Historia wersji: {language}",
+      "historyEmpty": "Ta wersja nie ma jeszcze zapisanych wersji.",
+      "versionNamed": "Wersja {number}",
+      "restore": "Przywróć",
+      "restoreTitle": "Przywrócić wersję {number}?",
+      "restoreText": "Powstanie nowa wersja tłumaczenia z tekstem wersji {number}. Obecna zostaje w historii.",
+      "restored": "Przywrócono wersję {from} jako wersję {number}.",
+      "versionOrigin": {
+        "save": "Zapis w edytorze",
+        "copy": "Kopia tekstu źródłowego",
+        "restore": "Przywrócona wersja",
+        "rebase": "Przeniesienie na nową wersję źródła",
+        "job": "Tłumaczenie AI",
+        "unknown": "Zapis"
+      }
+    }
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

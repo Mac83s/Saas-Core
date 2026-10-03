@@ -797,17 +797,15 @@ export function PageEditor({
   const handleSaveTranslation: SubmitHandler<TranslationValues> = async (
     values,
   ) => {
+    // No language borrows the source's title or description any more: a
+    // version with its own body has its own words (TL15).
     const input = {
       ...values,
       expected_version: selectedTranslation?.version ?? 0,
-      ...(locale === baseLocale
-        ? {
-            allow_title_fallback: false,
-            allow_description_fallback: false,
-            allow_social_title_fallback: false,
-            allow_social_description_fallback: false,
-          }
-        : {}),
+      allow_title_fallback: false,
+      allow_description_fallback: false,
+      allow_social_title_fallback: false,
+      allow_social_description_fallback: false,
     };
     setMetadataProblem(undefined);
     setTranslationConflict(false);
@@ -1741,36 +1739,6 @@ export function PageEditor({
                       name="social_description"
                     />
                   </FieldGroup>
-
-                  {locale !== baseLocale && (
-                    <fieldset className="space-y-2 rounded-lg border p-4">
-                      <legend className="px-1 text-sm font-medium">
-                        {t("fallbacks")}
-                      </legend>
-                      {(
-                        [
-                          ["allow_title_fallback", "metaTitle"],
-                          ["allow_description_fallback", "metaDescription"],
-                          ["allow_social_title_fallback", "socialTitle"],
-                          [
-                            "allow_social_description_fallback",
-                            "socialDescription",
-                          ],
-                        ] as const
-                      ).map(([name, label]) => (
-                        <label
-                          className="flex items-center gap-2 text-sm"
-                          key={name}
-                        >
-                          <input
-                            type="checkbox"
-                            {...translationForm.register(name)}
-                          />
-                          {t("allowFallback", { field: t(label) })}
-                        </label>
-                      ))}
-                    </fieldset>
-                  )}
 
                   <div className="flex flex-wrap items-center gap-3">
                     <Button

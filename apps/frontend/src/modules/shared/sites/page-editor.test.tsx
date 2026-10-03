@@ -543,7 +543,7 @@ test("the page list's preview opens the saved draft once it is loaded", async ()
   expect(getPageDraftPreview).toHaveBeenCalledWith(page.id, draft.draft_id);
 });
 
-test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () => {
+test("zapisuje metadane EN bez zapożyczeń ze źródła i z optimistic lockiem", async () => {
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
 
@@ -554,17 +554,14 @@ test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () 
   fireEvent.pointerDown(englishOption, { button: 0 });
   fireEvent.pointerUp(englishOption, { button: 0 });
   fireEvent.click(englishOption);
-  await screen.findByRole("checkbox", {
-    name: "Allow fallback for Meta description",
-  });
+  // A version with its own body has its own words (TL15): nothing to borrow.
+  await waitFor(() =>
+    expect(screen.getByLabelText("Page title")).not.toBeNull(),
+  );
+  expect(screen.queryByRole("checkbox", { name: /Allow fallback/ })).toBeNull();
   fireEvent.change(screen.getByLabelText("Page title"), {
     target: { value: "English home" },
   });
-  fireEvent.click(
-    screen.getByRole("checkbox", {
-      name: "Allow fallback for Meta description",
-    }),
-  );
   fireEvent.click(screen.getByRole("button", { name: "Save metadata" }));
 
   await waitFor(() => expect(savePageTranslation).toHaveBeenCalledOnce());
@@ -574,7 +571,10 @@ test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () 
     expect.objectContaining({
       slug: "home",
       title: "English home",
-      allow_description_fallback: true,
+      allow_title_fallback: false,
+      allow_description_fallback: false,
+      allow_social_title_fallback: false,
+      allow_social_description_fallback: false,
       expected_version: 0,
     }),
   ]);
