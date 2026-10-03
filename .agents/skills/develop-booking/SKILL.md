@@ -205,6 +205,16 @@ a code (`VatCode`), because exempt is not 0%. A rule's currency is always
 (`register_currency_use`, `currency_in_use`). A `ParticipantCategory` is never
 deleted, only switched off: frozen quotes name it.
 
+A booking's price is worked out in one place, `quote.py` (ADR-072 §7):
+`quote_visit` and `quote_stay` write nothing, and every booking path — the
+panel, the public form, a product through `booking.api` — works the price out
+again inside its transaction and freezes it in `Appointment.quote`. Never
+compute an amount anywhere else, and never read the price list to show a
+price: ask for a quote. The tax is rounded on each line, halves up; a caller
+that showed a price sends its `digest` back (`quote_digest`) and gets 409
+`quote_changed` with the new quote when it moved. A booking moved is priced
+again for the same people; one from before quotes has none and gets none.
+
 ## Done means
 
 ```
