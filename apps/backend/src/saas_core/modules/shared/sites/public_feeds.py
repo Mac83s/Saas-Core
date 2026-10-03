@@ -20,6 +20,7 @@ from .publication_routing import (
     index_languages,
     index_page_path,
     language_home,
+    navigation_links,
     parse_moment,
     published_entries,
     serving_locales,
@@ -108,15 +109,9 @@ def render_site_feed(*, host: str, locale: str | None = None) -> HttpResponse:
             # `dc:creator` rather than RSS's own `author`, which is specified as
             # an email address: publishing a person's address to satisfy a
             # schema is not a trade worth making.
-            parts.append(
-                "<dc:creator>" + escape(entry["author_name"]) + "</dc:creator>"
-            )
+            parts.append("<dc:creator>" + escape(entry["author_name"]) + "</dc:creator>")
         if entry["published_at"] is not None:
-            parts.append(
-                "<pubDate>"
-                + escape(_rfc822(entry["published_at"]))
-                + "</pubDate>"
-            )
+            parts.append("<pubDate>" + escape(_rfc822(entry["published_at"])) + "</pubDate>")
         items.append("<item>" + "".join(parts) + "</item>")
 
     document = (
@@ -126,8 +121,7 @@ def render_site_feed(*, host: str, locale: str | None = None) -> HttpResponse:
         "<title>" + escape(domain.site.name) + "</title>"
         "<link>" + escape(origin + language_home(default_locale, language)) + "</link>"
         "<description>" + escape(domain.site.name) + "</description>"
-        "<language>" + escape(language) + "</language>" + "".join(items)
-        + "</channel></rss>"
+        "<language>" + escape(language) + "</language>" + "".join(items) + "</channel></rss>"
     )
     return HttpResponse(document, content_type="application/rss+xml; charset=utf-8")
 
@@ -148,9 +142,7 @@ def render_site_atom(*, host: str, locale: str | None = None) -> HttpResponse:
     # The feed's own `updated` is the newest article's, and "now" when there is
     # none: a feed that claims to change every time it is fetched teaches a
     # reader to stop trusting the field.
-    stamps = [
-        entry["updated_at"] for entry in entries if entry["updated_at"] is not None
-    ]
+    stamps = [entry["updated_at"] for entry in entries if entry["updated_at"] is not None]
     updated = max(stamps) if stamps else timezone.now()
 
     items = []
@@ -163,17 +155,11 @@ def render_site_atom(*, host: str, locale: str | None = None) -> HttpResponse:
             "<updated>" + escape(_rfc3339(entry["updated_at"] or updated)) + "</updated>",
         ]
         if entry["published_at"] is not None:
-            parts.append(
-                "<published>" + escape(_rfc3339(entry["published_at"])) + "</published>"
-            )
+            parts.append("<published>" + escape(_rfc3339(entry["published_at"])) + "</published>")
         if entry["author_name"]:
-            parts.append(
-                "<author><name>" + escape(entry["author_name"]) + "</name></author>"
-            )
+            parts.append("<author><name>" + escape(entry["author_name"]) + "</name></author>")
         if entry["excerpt"]:
-            parts.append(
-                '<summary type="text">' + escape(entry["excerpt"]) + "</summary>"
-            )
+            parts.append('<summary type="text">' + escape(entry["excerpt"]) + "</summary>")
         items.append("<entry>" + "".join(parts) + "</entry>")
 
     document = (
@@ -265,9 +251,7 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
             pages = max(1, -(-len(listed) // page_size))
             for number in range(2, pages + 1):
                 window = listed[(number - 1) * page_size : number * page_size]
-                locations.append(
-                    _Location(index_page_path(first, locale, number), _latest(window))
-                )
+                locations.append(_Location(index_page_path(first, locale, number), _latest(window)))
         # One address per subject that has enough articles to be worth
         # indexing. Below that the archive exists for readers but asks not to
         # be indexed, so listing it — or naming it as another's version —
@@ -334,6 +318,118 @@ def _alternates(origin: str, versions: dict[str, str], site_locale: str) -> list
     ]
 
 
+#: Links an llms.txt carries. The file is a map for a model's first read, not
+#: a sitemap: past fifty it stops being one (and the format's checkers say so).
+LLMS_LINK_LIMIT = 50
+_LLMS_SECTIONS = {
+    "pages": {"pl": "Strony", "en": "Pages", "de": "Seiten", "es": "Páginas", "ru": "Страницы"},
+    "articles": {
+        "pl": "Najnowsze wpisy",
+        "en": "Latest articles",
+        "de": "Neueste Artikel",
+        "es": "Últimos artículos",
+        "ru": "Последние статьи",
+    },
+}
+
+
+def _llms_text(value: Any) -> str:
+    """One line of plain text: Markdown would read a bracket or a break as its own."""
+    return " ".join(str(value or "").split()).replace("[", "(").replace("]", ")")
+
+
+def llms_path(default_locale: str, locale: str) -> str:
+    """`/llms.txt` in the site's language, `/en/llms.txt` in another (TL19)."""
+    return feed_path(default_locale, locale, "llms.txt")
+
+
+def render_site_llms(*, host: str, locale: str | None = None) -> HttpResponse:
+    """`/llms.txt` (llmstxt.org): what the site is and where its pages are, in
+    one language, for a language model's first read (TL19).
+
+    An H1 with the site's name, its tagline as the summary, the pages in the
+    menu's order and the newest articles — only addresses a visitor gets now,
+    in that language, and at most fifty of them. `/xx/llms.txt` is the same for
+    another language the site is live in; the site's own language has the
+    bare address only."""
+    domain, origin, available = _resolve_site(host)
+    language = _feed_language(domain, locale, available)
+    site = domain.site
+    default_locale = str(site.default_locale)
+    publication = site.current_publication
+    if publication is None:
+        raise PublicSiteNotFound
+    snapshot = visible_snapshot(publication, available)
+    versions: dict[str, dict[str, Any]] = {}
+    home: dict[str, Any] | None = None
+    for raw_page in snapshot["pages"]:
+        if raw_page.get("noindex"):
+            continue
+        for raw_locale in raw_page.get("locales", []):
+            if (
+                isinstance(raw_locale, dict)
+                and raw_locale.get("locale") == language
+                and raw_locale.get("path")
+            ):
+                versions[str(raw_page.get("page_id"))] = raw_locale
+                if raw_locale["path"] == language_home(default_locale, language):
+                    home = raw_locale
+    entries = _feed_entries(domain, language, available)
+    if not versions and not entries:
+        # A language the company serves but this site is not written in.
+        raise PublicSiteNotFound
+
+    appearance = snapshot.get("appearance") or {}
+    header = appearance.get("header") if isinstance(appearance, dict) else None
+    header = header if isinstance(header, dict) else {}
+    texts = (snapshot.get("site_texts") or {}).get(language) or {}
+    name = _llms_text(header.get("brand") or site.name)
+    # The tagline in this language; untranslated, the home page says it better
+    # than another language's tagline would.
+    tagline = header.get("tagline") if language == default_locale else texts.get("header/tagline")
+    summary = _llms_text(tagline or (home or {}).get("description"))
+
+    def line(title: Any, path: Any, description: Any) -> str:
+        text = f"- [{_llms_text(title)}]({origin}{path})"
+        described = _llms_text(description)
+        return f"{text}: {described}" if described else text
+
+    menu = navigation_links(
+        snapshot,
+        language,
+        collections=frozenset(entry["collection_id"] for entry in entries),
+    )
+    pages: list[str] = []
+    listed: set[str] = set()
+    for link in menu:
+        version = versions.get(str(link["page_id"]))
+        path = str(version["path"] if version else link["path"])
+        if not path or path in listed:
+            continue
+        listed.add(path)
+        pages.append(line(link["title"], path, (version or {}).get("description")))
+    for version in versions.values():
+        # Pages the menu does not name still answer, and a model may be asked
+        # about them.
+        if version["path"] not in listed:
+            listed.add(str(version["path"]))
+            pages.append(line(version.get("title"), version["path"], version.get("description")))
+    pages = pages[:LLMS_LINK_LIMIT]
+    articles = [
+        line(entry["title"], entry["path"], entry["excerpt"])
+        for entry in entries[: LLMS_LINK_LIMIT - len(pages)]
+    ]
+
+    parts = [f"# {name}", ""]
+    if summary:
+        parts += [f"> {summary}", ""]
+    for key, lines in (("pages", pages), ("articles", articles)):
+        if lines:
+            heading = _LLMS_SECTIONS[key].get(language) or _LLMS_SECTIONS[key]["en"]
+            parts += [f"## {heading}", "", *lines, ""]
+    return HttpResponse("\n".join(parts), content_type="text/plain; charset=utf-8")
+
+
 def render_site_robots(*, host: str) -> HttpResponse:
     """Points a crawler at the sitemap it would otherwise never look for.
 
@@ -348,8 +444,18 @@ def render_site_robots(*, host: str) -> HttpResponse:
 
 _DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _MONTHS = (
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 )
 
 
@@ -374,4 +480,3 @@ def _rfc822(value: Any) -> str:
     month = f"{_MONTHS[moment.month - 1]} {moment.year:04d}"
     clock = f"{moment.hour:02d}:{moment.minute:02d}:{moment.second:02d}"
     return f"{date} {month} {clock} +0000"
-

@@ -191,6 +191,9 @@ export const config = {
     // A language's own feeds (TL14).
     "/:locale/rss.xml",
     "/:locale/atom.xml",
+    // What a language model reads first about a site, per language (TL19).
+    "/llms.txt",
+    "/:locale/llms.txt",
     "/sitemap.xml",
     "/robots.txt",
   ],

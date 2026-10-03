@@ -91,6 +91,7 @@ def _sites_routes() -> list[Route]:
         CaddyDomainAuthorizationView,
         PublicSiteAtomView,
         PublicSiteFeedView,
+        PublicSiteLlmsView,
         PublicSiteMediaView,
         PublicSitePageView,
         PublicSiteRobotsView,
@@ -121,6 +122,11 @@ def _sites_routes() -> list[Route]:
             "api/v1/public/site/atom.xml",
             PublicSiteAtomView.as_view(),
             name="public-site-atom",
+        ),
+        path(
+            "api/v1/public/site/llms.txt",
+            PublicSiteLlmsView.as_view(),
+            name="public-site-llms",
         ),
         path(
             "api/v1/public/site/sitemap.xml",

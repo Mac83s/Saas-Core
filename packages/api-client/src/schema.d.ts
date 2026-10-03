@@ -11999,6 +11999,11 @@ export interface components {
             }[];
             navigation: components["schemas"]["PublicNavigationLink"][];
             feeds: components["schemas"]["PublicFeedLinks"];
+            /**
+             * Format: uri
+             * @description The site's llms.txt in the page's language (`rel=describedby`, TL19).
+             */
+            describedby?: string;
             social: components["schemas"]["PublicSocial"];
             breadcrumbs: {
                 [key: string]: unknown;

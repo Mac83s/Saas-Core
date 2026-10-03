@@ -32777,6 +32777,11 @@ components:
             $ref: '#/components/schemas/PublicNavigationLink'
         feeds:
           $ref: '#/components/schemas/PublicFeedLinks'
+        describedby:
+          type: string
+          format: uri
+          description: The site's llms.txt in the page's language (`rel=describedby`,
+            TL19).
         social:
           $ref: '#/components/schemas/PublicSocial'
         breadcrumbs:

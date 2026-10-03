@@ -46,7 +46,20 @@ export default async function PublicSitePage({
     if (result.temporary) redirect(location);
     permanentRedirect(location);
   }
-  return <PublicSiteRenderer page={result.page} />;
+  return (
+    <>
+      {/* Where a language model finds the site's map in this language
+          (TL19); React hoists the link into the head. */}
+      {result.page.describedby ? (
+        <link
+          href={result.page.describedby}
+          rel="describedby"
+          type="text/plain"
+        />
+      ) : null}
+      <PublicSiteRenderer page={result.page} />
+    </>
+  );
 }
 
 function withSearchParams(

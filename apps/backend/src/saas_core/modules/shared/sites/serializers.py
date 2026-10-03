@@ -205,6 +205,10 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
     feeds = PublicFeedLinksSerializer()
+    describedby = serializers.URLField(
+        required=False,
+        help_text="The site's llms.txt in the page's language (`rel=describedby`, TL19).",
+    )
     social = PublicSocialSerializer()
     breadcrumbs = serializers.ListField(child=serializers.DictField())
     pagination = serializers.DictField(allow_null=True)

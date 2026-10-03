@@ -335,6 +335,8 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             name: f"{canonical_origin}{feed_path(default_locale, page.locale, file)}"
             for name, file in (("rss", "rss.xml"), ("atom", "atom.xml"))
         },
+        # The llms.txt of the language being read (TL19): `rel=describedby`.
+        "describedby": f"{canonical_origin}{feed_path(default_locale, page.locale, 'llms.txt')}",
     }
 
 
@@ -578,6 +580,14 @@ def _absolute_pagination(
             f"{origin}{pagination['next_path']}" if pagination["next_path"] else None
         ),
     }
+
+
+def navigation_links(
+    snapshot: dict[str, Any], locale: str, *, collections: frozenset[str] = frozenset()
+) -> list[dict[str, Any]]:
+    """The menu in one language, for a reader outside this module's pages
+    (llms.txt, TL19): the same entries a visitor sees."""
+    return _navigation_links(snapshot, locale, collections=collections)
 
 
 def _navigation_links(

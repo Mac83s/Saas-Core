@@ -60,7 +60,7 @@ function requestBackend(
  *  `/en/rss.xml` does (TL14). */
 export async function getPublicProjection(
   host: string,
-  resource: "feed.xml" | "atom.xml" | "sitemap.xml" | "robots.txt",
+  resource: "feed.xml" | "atom.xml" | "sitemap.xml" | "robots.txt" | "llms.txt",
   locale?: string,
 ): Promise<ProjectionResult> {
   const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";

@@ -17,6 +17,7 @@ from .measurement import COUNT_VIEW_HEADER, record_page_view
 from .public_feeds import (
     render_site_atom,
     render_site_feed,
+    render_site_llms,
     render_site_robots,
     render_site_sitemap,
 )
@@ -131,6 +132,19 @@ class PublicSiteAtomView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         try:
             return render_site_atom(
+                host=str(request.META.get("HTTP_HOST", "")),
+                locale=request.GET.get("locale"),
+            )
+        except PublicSiteNotFound:
+            return HttpResponseNotFound()
+
+
+class PublicSiteLlmsView(View):
+    """`/llms.txt` and `/xx/llms.txt` (TL19); plain Django like the feeds."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return render_site_llms(
                 host=str(request.META.get("HTTP_HOST", "")),
                 locale=request.GET.get("locale"),
             )
