@@ -151,7 +151,20 @@ def test_a_local_stack_served_over_https_hands_out_secure_cookies_and_hsts() -> 
     }
 
 
+@pytest.fixture
+def own_login_throttle():  # type: ignore[no-untyped-def]
+    """The login throttle counts sign-ins per address in the cache, across
+    tests: these two neither meet somebody's count nor leave their own (they
+    pushed two later address tests over 5/min in a full run)."""
+    from django.core.cache import cache  # noqa: PLC0415
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
 @pytest.mark.django_db
+@pytest.mark.usefixtures("own_login_throttle")
 @pytest.mark.parametrize(("scheme", "secure"), [("http", False), ("https", True)])
 def test_the_cookies_and_the_hsts_header_follow_the_scheme_the_stack_is_served_over(
     settings, scheme: str, secure: bool
