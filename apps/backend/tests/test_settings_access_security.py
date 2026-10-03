@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.identity.models import User, UserMfaMethod, UserStatus
 from saas_core.modules.core.identity.step_up import StepUpMfaSetupRequired, activate_step_up
@@ -53,6 +54,12 @@ def _member(owner: Membership, email: str, role: Role) -> Membership:
     user.status = UserStatus.ACTIVE
     user.save()
     return Membership.objects.create(organization=owner.organization, user=user, role=role)
+
+
+def _preview(group: str, **changes: Any) -> Any:
+    return change_settings(
+        group, changes=changes, expected_version=read_group(group).version, preview=True
+    )
 
 
 def _change(group: str, key: str, **changes: Any) -> Any:
@@ -102,6 +109,19 @@ def test_the_company_decides_whose_sign_in_needs_2fa() -> None:
 
     with tenant(owner):
         assert [membership_requires_mfa(m) for m in (owner, staff, manager)] == [False] * 3
+        # Without 2FA of their own the owner would shut themselves out.
+        with pytest.raises(ValidationError) as refused:
+            _change("organization.security", "k-0", mfa_required="managers")
+        assert [e.code for e in refused.value.detail["mfa_required"]] == ["mfa_required_self"]
+    UserMfaMethod.objects.create(
+        user_id=owner.user_id, secret_ciphertext="x", confirmed_at=timezone.now()
+    )
+    with tenant(owner):
+        # The preview says who loses access: the manager now, the staff with "all".
+        effects = _preview("organization.security", mfa_required="managers").effects
+        assert [e.summary["pl"] for e in effects] == [
+            "1 osoba w firmie straci dostęp, dopóki nie włączy 2FA."
+        ]
         _change("organization.security", "k-1", mfa_required="managers")
         assert [membership_requires_mfa(m) for m in (owner, staff, manager)] == [
             True,

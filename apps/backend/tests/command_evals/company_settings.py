@@ -7,7 +7,9 @@ from __future__ import annotations
 from typing import Any
 
 from django.db.models import F
+from django.utils import timezone
 
+from saas_core.modules.core.identity.models import UserMfaMethod
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import OrganizationSetting
 from saas_core.modules.shared.billing.models import (
@@ -27,6 +29,14 @@ def _booking_plan(context: TenantContext) -> None:
         features={"booking.enabled": True},
         quotas={},
         sources={"booking.enabled": {"kind": "plan"}},
+    )
+
+
+def _with_2fa(context: TenantContext) -> None:
+    """The person acting has 2FA — requiring it of them would otherwise shut
+    them out, which the change refuses."""
+    UserMfaMethod.objects.create(
+        user_id=context.actor_id, secret_ciphertext="x", confirmed_at=timezone.now()
     )
 
 
@@ -109,6 +119,7 @@ EVALS.update({
         wrong_field="mfa_required",
         stale=_stale("organization.security.mfa_required"),
         state=_values,
+        prepare=_with_2fa,
     ),
 })
 

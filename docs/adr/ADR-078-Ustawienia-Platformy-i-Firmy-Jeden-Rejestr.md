@@ -506,7 +506,12 @@ wejścia API i poleceń.
   (`membership_requires_mfa`, pamiętane per firma i czyszczone przy zmianie);
   bramka przy wejściu do firmy należy do tożsamości. Włączenie wymogu nikogo nie
   wylogowuje — zatrzymuje następne żądanie, a zgody asystenta wygasają z
-  `COMMAND_CONSENT_TTL`. Lista zespołu pokazuje 2FA tylko temu, kto zarządza
+  `COMMAND_CONSENT_TTL`. Dlatego podgląd zmiany mówi, ile osób straci dostęp, a
+  zmiana, która objęłaby zmieniającego bez potwierdzonego 2FA, jest odrzucana
+  (`mfa_required_self` przy polu) — inaczej zamknąłby sobie stronę, na której
+  wymóg się wyłącza. Odmowy, których deklaracja nie wyrazi, grupa podaje w
+  `SettingGroup.check(before, after)`; działa w podglądzie i w zapisie, w panelu
+  i u asystenta. Lista zespołu pokazuje 2FA tylko temu, kto zarządza
   zespołem albo ustawieniami firmy.
 - **36a.** E-mail do klienta firmy (szablon z `audience=customer`) wychodzi z
   adresu platformy pod nazwą firmy z wizytówki (albo nazwą organizacji), a

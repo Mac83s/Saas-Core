@@ -268,6 +268,10 @@ def change_settings(
         for field in group.fields
         if after[field] != current[field]
     }
+    if group.check and changed and (refused := group.check(current, after)):
+        raise ValidationError({
+            field: [ErrorDetail(message, code)] for field, (message, code) in refused.items()
+        })
     touched = [
         spec
         for spec in group.settings

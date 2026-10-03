@@ -119,6 +119,12 @@ class SettingGroup:
     #: What a change would do beyond the values, for the preview — pure, no
     #: writes: `effects(before, after)`; values by field.
     effects: Callable[[Mapping[str, Any], Mapping[str, Any]], tuple[Effect, ...]] | None = None
+    #: What the module refuses that the declaration cannot state — a change
+    #: that would lock out the person making it: `check(before, after)` →
+    #: {field: (message, code)}; no writes, run by the preview and the save.
+    check: (
+        Callable[[Mapping[str, Any], Mapping[str, Any]], Mapping[str, tuple[str, str]]] | None
+    ) = None
     #: Called in the change's transaction, after the values are saved.
     on_changed: Callable[[Mapping[str, Any], Mapping[str, Any]], None] | None = None
     #: The assistant's `read` and `update` commands, `name@version`.
