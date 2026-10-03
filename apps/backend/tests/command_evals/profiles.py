@@ -96,6 +96,14 @@ EVALS = {
         state=_state,
         prepare=_card,
     ),
+    "profiles.catalog_options.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"locale": "pl"},
+        wrong_field="locale",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_state,
+        prepare=_card,
+    ),
     "profiles.organization.update@1": CommandEval(
         arguments=lambda _context: _fields(headline="Domki z widokiem na jezioro"),
         # Refused by the catalogue's dictionary, in the service.

@@ -60,6 +60,27 @@ def test_reading_never_creates_the_card() -> None:
     assert not PublicProfile.all_objects.filter(organization_id=person.organization_id).exists()
 
 
+def test_the_catalogue_options_carry_what_a_match_needs() -> None:
+    """The card read lists keys only; matching „fryzjer w Olsztynie” to a
+    category and a town needs the keywords and the names (A2)."""
+    person = _no_card("card-options", "profiles.catalog_options.read@1")
+    with activate_tenant_context(assistant(person)), CaptureQueriesContext(connection) as queries:
+        (result,) = execute_plan([invocation("profiles.catalog_options.read@1", {})])
+
+    assert result.status == "done", result
+    categories = {entry["key"]: entry for entry in result.output["categories"]}
+    assert "fryzjer" in categories["uroda-i-zdrowie"]["keywords"]["pl"]
+    assert categories["uroda-i-zdrowie"]["label"]["pl"]
+    towns = {entry["slug"]: entry for entry in result.output["cities"]}
+    assert towns["olsztyn"]["name"] == "Olsztyn"
+    # The same keys the card accepts, in the catalogue's own order.
+    with activate_tenant_context(assistant(person)):
+        (card,) = execute_plan([invocation("profiles.organization.read@1", {})])
+    assert sorted(categories) == card.output["categories"]
+    assert sorted(towns) == card.output["cities"]
+    assert writes(queries) == []
+
+
 def test_a_company_without_a_card_gets_one_from_its_first_change() -> None:
     person = _no_card("card-first", "profiles.organization.update@1")
     acting = assistant(person)

@@ -2326,7 +2326,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's basic settings: name, slug, panel language (pl or en), IANA time zone, ISO 4217 currency and the settings version. Use it before proposing a change to them. It does not return the site's public languages, the company profile or billing.",
+      "model_description": "Returns the company's basic settings: name, slug, the kind of company (organization_type, fixed at creation), panel language (pl or en), IANA time zone, ISO 4217 currency and the settings version. Use it before proposing a change to them. It does not return the site's public languages, the company profile or billing.",
       "modifiers": [],
       "module": "core.organizations",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -2340,6 +2340,9 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "organization_type": {
             "type": "string"
           },
           "slug": {
@@ -2602,6 +2605,9 @@
           "name": {
             "type": "string"
           },
+          "organization_type": {
+            "type": "string"
+          },
           "slug": {
             "type": "string"
           },
@@ -2730,6 +2736,81 @@
       },
       "tool_name": "profiles_catalog_withdraw_v1",
       "undo": "command:profiles.catalog.publish@1",
+      "version_field": null
+    },
+    {
+      "command": "profiles.catalog_options.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the public company directory's dictionary for this kind of company: every category with its key, its name in each language and the trades it is found by (keywords), and every town with its slug, name and region. Use it to match what the person says about their business and town to a category key and a town slug for the company card. Only these keys and slugs are accepted; a town outside the list cannot be set.",
+      "modifiers": [],
+      "module": "shared.profiles",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "categories": {
+            "items": {
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "keywords": {
+                  "type": "object"
+                },
+                "label": {
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "cities": {
+            "items": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "voivodeship": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "profiles.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The directory's categories with names and keywords, and its towns with names.",
+        "pl": "Kategorie katalogu firm z nazwami i słowami kluczowymi oraz miasta z nazwami."
+      },
+      "title": {
+        "en": "Read the directory's categories and towns",
+        "pl": "Odczytaj kategorie i miasta katalogu"
+      },
+      "tool_name": "profiles_catalog_options_read_v1",
+      "undo": "none:a read changes nothing",
       "version_field": null
     },
     {

@@ -37,6 +37,8 @@ _OUTPUT = {
     "properties": {
         "name": {"type": "string"},
         "slug": {"type": "string"},
+        # The kind of company the product knows it as; set once, at creation.
+        "organization_type": {"type": "string"},
         "default_locale": {"type": "string"},
         "timezone": {"type": "string"},
         "currency": {"type": "string"},
@@ -49,6 +51,7 @@ def _settings(organization: Organization) -> dict[str, Any]:
     return {
         "name": organization.name,
         "slug": organization.slug,
+        "organization_type": organization.organization_type,
         "default_locale": organization.default_locale,
         "timezone": organization.timezone,
         "currency": organization.currency,
@@ -115,10 +118,11 @@ ORGANIZATION_READ_COMMAND = CommandSpec(
         "en": "The company's name, panel language, time zone and currency.",
     },
     model_description=(
-        "Returns the company's basic settings: name, slug, panel language (pl or en), "
-        "IANA time zone, ISO 4217 currency and the settings version. Use it before "
-        "proposing a change to them. It does not return the site's public languages, "
-        "the company profile or billing."
+        "Returns the company's basic settings: name, slug, the kind of company "
+        "(organization_type, fixed at creation), panel language (pl or en), IANA time "
+        "zone, ISO 4217 currency and the settings version. Use it before proposing a "
+        "change to them. It does not return the site's public languages, the company "
+        "profile or billing."
     ),
     input_schema={
         "type": "object",

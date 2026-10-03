@@ -343,6 +343,86 @@ CATALOG_WITHDRAW = CommandSpec(
 )
 
 
+_CATALOG_OPTIONS = {
+    "type": "object",
+    "x-data-class": "public",
+    "properties": {
+        "categories": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string"},
+                    "label": {"type": "object"},
+                    # Trades the label does not name: „hydraulik”, „fryzjer”.
+                    "keywords": {"type": "object"},
+                },
+            },
+        },
+        "cities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "name": {"type": "string"},
+                    "voivodeship": {"type": "string"},
+                },
+            },
+        },
+    },
+}
+
+
+def _catalog_options(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    """The catalogue's own dictionary, in its order, for this company's type."""
+    return {
+        "categories": [
+            {
+                "key": category.key,
+                "label": dict(category.label),
+                "keywords": {locale: list(words) for locale, words in category.keywords.items()},
+            }
+            for category in categories(_organization_type(call)).values()
+        ],
+        "cities": [
+            {"slug": city.slug, "name": city.name, "voivodeship": city.voivodeship}
+            for city in cities().values()
+        ],
+    }
+
+
+CATALOG_OPTIONS_READ = CommandSpec(
+    name="profiles.catalog_options.read",
+    version=1,
+    module="shared.profiles",
+    title={
+        "pl": "Odczytaj kategorie i miasta katalogu",
+        "en": "Read the directory's categories and towns",
+    },
+    summary={
+        "pl": "Kategorie katalogu firm z nazwami i słowami kluczowymi oraz miasta z nazwami.",
+        "en": "The directory's categories with names and keywords, and its towns with names.",
+    },
+    model_description=(
+        "Returns the public company directory's dictionary for this kind of company: "
+        "every category with its key, its name in each language and the trades it is found "
+        "by (keywords), and every town with its slug, name and region. Use it to match what "
+        "the person says about their business and town to a category key and a town slug "
+        "for the company card. Only these keys and slugs are accepted; a town outside the "
+        "list cannot be set."
+    ),
+    input_schema=_NO_INPUT,
+    output_schema=_CATALOG_OPTIONS,
+    permission=PROFILES_MANAGE,
+    risk="read",
+    run=_catalog_options,
+    undo="none:a read changes nothing",
+    no_preview_reason="A read changes nothing, so there is nothing to show first.",
+    no_version_reason="A read checks no version.",
+)
+
+
 def register_profile_commands() -> None:
-    for spec in (CARD_READ, CARD_UPDATE, CATALOG_PUBLISH, CATALOG_WITHDRAW):
+    for spec in (CARD_READ, CARD_UPDATE, CATALOG_PUBLISH, CATALOG_WITHDRAW, CATALOG_OPTIONS_READ):
         register_command(spec)
