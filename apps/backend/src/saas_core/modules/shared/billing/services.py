@@ -24,13 +24,13 @@ from saas_core.modules.core.organizations.models import (
     OrganizationAuditAction,
 )
 from saas_core.modules.core.organizations.permissions import (
-    BILLING_MANAGE,
     ORGANIZATION_READ,
 )
 from saas_core.modules.core.organizations.platform_workspace import (
     assert_not_platform,
 )
 
+from .billing_settings import billing_manager, may_manage_billing
 from .models import (
     AccessMode,
     BillingCheckout,
@@ -128,7 +128,7 @@ def _refuse_platform_workspace(organization_id: UUID) -> None:
 def activate_customer_trial(*, checkout_session_id: str) -> TrialActivationResult:
     """Activate the selected plan after Stripe confirms Setup Checkout."""
 
-    context = authorize(BILLING_MANAGE, owner_only=True)
+    context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
     from .lifecycle import activate_trial_for_product
 
@@ -195,7 +195,7 @@ def update_billing_details(*, changes: dict[str, Any]) -> BillingProfile:
     sends the current one — going further and rewriting the remote customer
     from here would put a second writer on data the Customer Portal also edits.
     """
-    context = authorize(BILLING_MANAGE, owner_only=True)
+    context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
     organization = Organization.objects.get(pk=context.organization_id)
     profile, _created = BillingProfile.objects.select_for_update().get_or_create(
@@ -307,7 +307,7 @@ def create_credit_checkout(*, pack_key: str, idempotency_key: str) -> CreditPurc
     purchase is recorded first and credited only by the webhook — a browser
     returning from Stripe proves nothing.
     """
-    context = authorize(BILLING_MANAGE, owner_only=True)
+    context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
     from .credits import start_credit_purchase
 
@@ -385,7 +385,7 @@ def create_credit_checkout(*, pack_key: str, idempotency_key: str) -> CreditPurc
 
 
 def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutResult:
-    context = authorize(BILLING_MANAGE, owner_only=True)
+    context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
     normalized_key = idempotency_key.strip()
     if not normalized_key or len(normalized_key) > 120:
@@ -496,7 +496,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
 
 
 def create_customer_portal() -> PortalResult:
-    context = authorize(BILLING_MANAGE, owner_only=True)
+    context = billing_manager()
     _refuse_platform_workspace(context.organization_id)
     if settings.BILLING_PROVIDER == "simulated":
         raise BillingPortalUnavailable
@@ -605,11 +605,7 @@ def customer_credits_overview() -> dict[str, Any]:
         )
     ]
     return {
-        "can_buy": (
-            context.role_key == "owner"
-            and context.has_permission(BILLING_MANAGE)
-            and has_plan
-        ),
+        "can_buy": may_manage_billing(context) and has_plan,
         "plan_required": not has_plan,
         "payment_mode": settings.BILLING_PROVIDER,
         "balance": {

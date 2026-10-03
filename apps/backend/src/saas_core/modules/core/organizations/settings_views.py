@@ -56,6 +56,10 @@ class SettingsGroupSchemaSerializer(serializers.Serializer[dict[str, Any]]):
         allow_blank=True, help_text="Why the plan does not let the company change them; empty."
     )
     keys = SettingOptionSerializer(many=True)
+    step_up = serializers.BooleanField(
+        help_text="A change asks for a fresh code from the authenticator app first "
+        "(403 step_up_required; POST /api/v1/auth/step-up/, then repeat)."
+    )
     api = serializers.CharField(
         allow_null=True,
         help_text="The module's own endpoint for a group it stores itself; null: "
@@ -103,6 +107,7 @@ class SettingsSchemaView(APIView):
                     "locked": locked,
                     "keys": [schema_entry(spec) for spec in group.settings],
                     "api": group.api,
+                    "step_up": bool(group.step_up_reason),
                 }
                 for group, can_change, locked in schema(context)
             ]

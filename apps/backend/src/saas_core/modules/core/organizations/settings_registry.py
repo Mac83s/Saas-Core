@@ -116,6 +116,11 @@ class SettingGroup:
     on_changed: Callable[[Mapping[str, Any], Mapping[str, Any]], None] | None = None
     #: The assistant's `read` and `update` commands, `name@version`.
     commands: tuple[str, str] | None = None
+    #: Only the company's owner changes it (the permission alone is not enough).
+    owner_only: bool = False
+    #: A change asks for a fresh code from the authenticator app first
+    #: (ADR-076, 30a/31b); the reason names it in the security log.
+    step_up_reason: str = ""
     #: An entity group: the module's endpoint that reads and changes it.
     api: str | None = None
     #: An entity group at company scope: the company's own values by field in
@@ -284,6 +289,8 @@ def _group_problems(group: SettingGroup) -> list[str]:
         problems.append("read_explicit ma tylko grupa encji (z api)")
     if group.api is not None and group.commands is not None:
         problems.append("polecenia grupy encji pisze jej moduł")
+    if group.step_up_reason and group.commands is not None:
+        problems.append("grupa ze step-upem nie ma jeszcze poleceń asystenta")
     if len(set(group.fields)) != len(group.fields):
         problems.append("pola grupy powtarzają się")
     for spec in group.settings:

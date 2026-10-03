@@ -46,6 +46,12 @@ class BillingConfig(AppConfig):
         register_command_gate("features", plan_features)
         # Whether the plan covers a settings group (ADR-078 pkt 5).
         register_settings_feature_check(settings_feature)
+        # Who manages billing besides the owner (34a, ADR-078).
+        from saas_core.modules.core.organizations.api import register_setting_group  # noqa: PLC0415
+
+        from .billing_settings import ACCESS  # noqa: PLC0415
+
+        register_setting_group(ACCESS)
         # A demo organization's plan, before any module needs it (seed_demo).
         from saas_core.modules.core.organizations.demo import (  # noqa: PLC0415
             register_demo_part,

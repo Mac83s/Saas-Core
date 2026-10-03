@@ -152,6 +152,9 @@ class MembershipSummarySerializer(serializers.Serializer[dict[str, Any]]):
     joined_at = serializers.DateTimeField()
     #: When a former member lost access or left; null for a current one.
     revoked_at = serializers.DateTimeField(allow_null=True)
+    #: Whether the person signs in with two-factor verification (35a) — shown
+    #: to who manages the team or the company's settings; null for others.
+    mfa_enabled = serializers.BooleanField(allow_null=True, required=False)
 
 
 class MembershipListQuerySerializer(serializers.Serializer[dict[str, Any]]):

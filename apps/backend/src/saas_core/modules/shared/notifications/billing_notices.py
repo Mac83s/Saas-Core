@@ -24,6 +24,7 @@ from saas_core.modules.core.organizations.context import (
 )
 from saas_core.modules.core.organizations.models import Membership, MembershipStatus
 from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
+from saas_core.modules.shared.billing.billing_settings import billing_delegated
 from saas_core.modules.shared.billing.models import BillingNotice, BillingNoticeType
 from saas_core.modules.shared.billing.tenant_scope import (
     billing_organization_ids,
@@ -73,8 +74,8 @@ def _who_can_act(organization_id: uuid.UUID) -> list[Membership]:
     """The people who could do something about a billing warning.
 
     Not the invoice address: that is where documents go, and it is often an
-    accountant who cannot change a plan. This is whoever holds the permission
-    to manage billing in this organization.
+    accountant who cannot change a plan. This is whoever may manage billing in
+    this organization: the owner, and the billing roles when delegated.
     """
     # Membership status is the tenant's own answer to "does this person still
     # work here". Whether the account has finished verifying its e-mail is a
@@ -83,10 +84,14 @@ def _who_can_act(organization_id: uuid.UUID) -> list[Membership]:
     memberships = Membership.objects.select_related("role", "user").filter(
         organization_id=organization_id, status=MembershipStatus.ACTIVE
     )
+    # The owner, and the billing roles only when the owner let them act (34a):
+    # a warning to someone who cannot do anything about it is noise.
+    delegated = billing_delegated(organization_id)
     return [
         membership
         for membership in memberships
         if BILLING_MANAGE in (membership.role.permissions or [])
+        and (membership.role.key == "owner" or delegated)
     ]
 
 

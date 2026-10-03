@@ -35,6 +35,7 @@ const GROUP: SettingsGroupSchema = {
   can_change: true,
   locked: "",
   api: null,
+  step_up: false,
   keys: [
     {
       key: "booking.reminders.enabled",

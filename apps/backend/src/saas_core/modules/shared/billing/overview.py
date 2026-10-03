@@ -9,6 +9,7 @@ from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.models import BillingProfile
 from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
 
+from .billing_settings import may_manage_billing
 from .models import (
     BillingSubscription,
     EntitlementSnapshot,
@@ -125,7 +126,7 @@ def customer_billing_overview() -> dict[str, Any]:
     )
 
     return {
-        "can_manage": context.role_key == "owner",
+        "can_manage": may_manage_billing(context),
         "payment_mode": settings.BILLING_PROVIDER,
         # Whether a subscription is live, which is not the same question as
         # whether there is anything to show. The payload below falls back to the

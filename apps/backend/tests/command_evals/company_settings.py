@@ -93,3 +93,20 @@ EVALS = {
         prepare=_booking_plan,
     ),
 }
+
+EVALS.update({
+    "organization.settings_security.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"mfa_required": "all"},
+        wrong_field="mfa_required",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+    ),
+    "organization.settings_security.update@1": CommandEval(
+        arguments=lambda _context: {"mfa_required": "managers", "reset": None},
+        wrong_arguments={"mfa_required": "sometimes", "reset": None},
+        wrong_field="mfa_required",
+        stale=_stale("organization.security.mfa_required"),
+        state=_values,
+    ),
+})

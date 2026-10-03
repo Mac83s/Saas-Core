@@ -9544,6 +9544,152 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/current/settings/billing.access/:
+    get:
+      operationId: organization_settings_billing_access_retrieve
+      description: By default only the owner changes the plan, payments and invoice
+        details. Every billing change needs a code from the authenticator app. The
+        values that apply, where each comes from (code, platform or the company) and
+        the group's version token.
+      summary: 'Read the company''s settings: Who manages billing'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingAccessSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_billing_access_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Who manages billing'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBillingAccessSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBillingAccessSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBillingAccessSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingAccessSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/billing.access/preview/:
+    post:
+      operationId: organization_settings_billing_access_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Who manages
+        billing'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillingAccessSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BillingAccessSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BillingAccessSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingAccessSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/organizations/current/settings/booking.online/:
     get:
       operationId: organization_settings_booking_online_retrieve
@@ -9807,6 +9953,150 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BookingRemindersSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/organization.security/:
+    get:
+      operationId: organization_settings_organization_security_retrieve
+      description: Whether the company's people must sign in with two-factor verification
+        (2FA). The values that apply, where each comes from (code, platform or the
+        company) and the group's version token.
+      summary: 'Read the company''s settings: Security'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSecuritySettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_organization_security_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Security'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOrganizationSecuritySettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOrganizationSecuritySettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOrganizationSecuritySettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSecuritySettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/organization.security/preview/:
+    post:
+      operationId: organization_settings_organization_security_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Security'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationSecuritySettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrganizationSecuritySettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrganizationSecuritySettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSecuritySettingsPreview'
           description: ''
         '400':
           content:
@@ -18077,6 +18367,100 @@ components:
       description: |-
         * `published` - published
         * `working` - working
+    BillingAccessSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BillingAccessSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/BillingAccessSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    BillingAccessSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BillingAccessSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        delegated:
+          type:
+          - boolean
+          - 'null'
+          description: Whether roles holding organization.billing.manage may change
+            the plan, payments and invoice details, not only the owner. Only the owner
+            turns it, with a code from the authenticator app.
+      required:
+      - expected_version
+    BillingAccessSettingsChangeResetEnum:
+      enum:
+      - delegated
+      type: string
+      description: '* `delegated` - delegated'
+    BillingAccessSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BillingAccessSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    BillingAccessSettingsSources:
+      type: object
+      properties:
+        delegated:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - delegated
+    BillingAccessSettingsValues:
+      type: object
+      properties:
+        delegated:
+          type: boolean
+          description: Whether roles holding organization.billing.manage may change
+            the plan, payments and invoice details, not only the owner. Only the owner
+            turns it, with a code from the authenticator app.
+      required:
+      - delegated
     BillingDetails:
       type: object
       description: What the panel shows and sends back for the invoice form.
@@ -23437,6 +23821,10 @@ components:
           - string
           - 'null'
           format: date-time
+        mfa_enabled:
+          type:
+          - boolean
+          - 'null'
       required:
       - email
       - first_name
@@ -23472,14 +23860,9 @@ components:
       type: object
       properties:
         status:
-          $ref: '#/components/schemas/MfaChallengeStatusEnum'
+          $ref: '#/components/schemas/StatusC60Enum'
       required:
       - status
-    MfaChallengeStatusEnum:
-      enum:
-      - mfa_required
-      type: string
-      description: '* `mfa_required` - mfa_required'
     MfaCode:
       type: object
       properties:
@@ -23490,6 +23873,16 @@ components:
           minLength: 6
       required:
       - code
+    MfaRequired487Enum:
+      enum:
+      - none
+      - managers
+      - all
+      type: string
+      description: |-
+        * `none` - none
+        * `managers` - managers
+        * `all` - all
     ModeEnum:
       enum:
       - consume
@@ -23693,6 +24086,102 @@ components:
       required:
       - catalog
       - profile
+    OrganizationSecuritySettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/OrganizationSecuritySettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/OrganizationSecuritySettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    OrganizationSecuritySettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResetC60Enum'
+          description: Fields given back to the default (the platform's or the code's).
+        mfa_required:
+          description: |-
+            Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on.
+
+            * `none` - none
+            * `managers` - managers
+            * `all` - all
+          oneOf:
+          - $ref: '#/components/schemas/MfaRequired487Enum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - expected_version
+    OrganizationSecuritySettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/OrganizationSecuritySettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    OrganizationSecuritySettingsSources:
+      type: object
+      properties:
+        mfa_required:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - mfa_required
+    OrganizationSecuritySettingsValues:
+      type: object
+      properties:
+        mfa_required:
+          allOf:
+          - $ref: '#/components/schemas/MfaRequired487Enum'
+          description: |-
+            Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on.
+
+            * `none` - none
+            * `managers` - managers
+            * `all` - all
+      required:
+      - mfa_required
     OrganizationSummary:
       type: object
       properties:
@@ -24477,6 +24966,24 @@ components:
           type: string
         reviewed:
           type: boolean
+    PatchedBillingAccessSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BillingAccessSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        delegated:
+          type:
+          - boolean
+          - 'null'
+          description: Whether roles holding organization.billing.manage may change
+            the plan, payments and invoice details, not only the owner. Only the owner
+            turns it, with a code from the authenticator app.
     PatchedBookingClosureUpdate:
       type: object
       description: Days the company, or one of its places, takes no bookings.
@@ -24813,6 +25320,27 @@ components:
           pattern: ^[-a-zA-Z0-9_]+$
         status:
           $ref: '#/components/schemas/MembershipUpdateStatusEnum'
+    PatchedOrganizationSecuritySettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResetC60Enum'
+          description: Fields given back to the default (the platform's or the code's).
+        mfa_required:
+          description: |-
+            Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on.
+
+            * `none` - none
+            * `managers` - managers
+            * `all` - all
+          oneOf:
+          - $ref: '#/components/schemas/MfaRequired487Enum'
+          - $ref: '#/components/schemas/NullEnum'
     PatchedOrganizationUpdate:
       type: object
       properties:
@@ -26947,6 +27475,11 @@ components:
           format: date-time
       required:
       - starts_at
+    ResetC60Enum:
+      enum:
+      - mfa_required
+      type: string
+      description: '* `mfa_required` - mfa_required'
     Resource:
       type: object
       properties:
@@ -28126,6 +28659,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SettingOption'
+        step_up:
+          type: boolean
+          description: A change asks for a fresh code from the authenticator app first
+            (403 step_up_required; POST /api/v1/auth/step-up/, then repeat).
         api:
           type:
           - string
@@ -28142,6 +28679,7 @@ components:
       - locked
       - module
       - permission
+      - step_up
       - title
     SettingsSchema:
       type: object
@@ -29422,6 +29960,11 @@ components:
         * `sold` - Sprzedane
         * `culled` - Wybrakowane
         * `dead` - Padłe
+    StatusC60Enum:
+      enum:
+      - mfa_required
+      type: string
+      description: '* `mfa_required` - mfa_required'
     StayInput:
       type: object
       description: 'A stay or rental from the panel: a range offer, a unit or a group,

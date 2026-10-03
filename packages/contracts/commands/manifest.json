@@ -1046,6 +1046,168 @@
       "version_field": null
     },
     {
+      "command": "organization.settings_security.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Security' (mfa_required): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether the company's people must sign in with two-factor verification (2FA).",
+      "modifiers": [],
+      "module": "core.organizations",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "mfa_required": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "mfa_required": {
+                "enum": [
+                  "none",
+                  "managers",
+                  "all"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Whether the company's people must sign in with two-factor verification (2FA).",
+        "pl": "Czy osoby w firmie muszą logować się z weryfikacją dwuetapową (2FA)."
+      },
+      "title": {
+        "en": "Read settings: Security",
+        "pl": "Odczytaj ustawienia: Bezpieczeństwo"
+      },
+      "tool_name": "organization_settings_security_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "organization.settings_security.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "mfa_required": {
+            "description": "Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on. Null keeps it as it is.",
+            "enum": [
+              "none",
+              "managers",
+              "all",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "mfa_required"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "mfa_required",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Security'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). Whether the company's people must sign in with two-factor verification (2FA).",
+      "modifiers": [],
+      "module": "core.organizations",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "mfa_required": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "mfa_required": {
+                "enum": [
+                  "none",
+                  "managers",
+                  "all"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Whether the company's people must sign in with two-factor verification (2FA).",
+        "pl": "Czy osoby w firmie muszą logować się z weryfikacją dwuetapową (2FA)."
+      },
+      "title": {
+        "en": "Change settings: Security",
+        "pl": "Zmień ustawienia: Bezpieczeństwo"
+      },
+      "tool_name": "organization_settings_security_update_v1",
+      "undo": "command:organization.settings_security.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "organization.update@1",
       "entitlement": null,
       "exposure": [

@@ -3293,6 +3293,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/settings/billing.access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Who manages billing
+         * @description By default only the owner changes the plan, payments and invoice details. Every billing change needs a code from the authenticator app. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_billing_access_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Who manages billing
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_billing_access_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/billing.access/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Who manages billing
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_billing_access_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/settings/booking.online/": {
         parameters: {
             query?: never;
@@ -3375,6 +3419,50 @@ export interface paths {
          * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
          */
         post: operations["organization_settings_booking_reminders_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/organization.security/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Security
+         * @description Whether the company's people must sign in with two-factor verification (2FA). The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_organization_security_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Security
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_organization_security_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/organization.security/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Security
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_organization_security_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5989,6 +6077,50 @@ export interface components {
          * @enum {string}
          */
         BasisEnum: "published" | "working";
+        BillingAccessSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["BillingAccessSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["BillingAccessSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        BillingAccessSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BillingAccessSettingsChangeResetEnum"][];
+            /** @description Whether roles holding organization.billing.manage may change the plan, payments and invoice details, not only the owner. Only the owner turns it, with a code from the authenticator app. */
+            delegated?: boolean | null;
+        };
+        /**
+         * @description * `delegated` - delegated
+         * @enum {string}
+         */
+        BillingAccessSettingsChangeResetEnum: "delegated";
+        BillingAccessSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["BillingAccessSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        BillingAccessSettingsSources: {
+            delegated: components["schemas"]["SettingSourceEnum"];
+        };
+        BillingAccessSettingsValues: {
+            /** @description Whether roles holding organization.billing.manage may change the plan, payments and invoice details, not only the owner. Only the owner turns it, with a code from the authenticator app. */
+            delegated: boolean;
+        };
         /** @description What the panel shows and sends back for the invoice form. */
         BillingDetails: {
             customer_kind: components["schemas"]["CustomerKindEnum"];
@@ -8152,6 +8284,7 @@ export interface components {
             joined_at: string;
             /** Format: date-time */
             revoked_at: string | null;
+            mfa_enabled?: boolean | null;
         };
         /**
          * @description * `active` - active
@@ -8166,16 +8299,18 @@ export interface components {
             status: string;
         };
         MfaChallenge: {
-            status: components["schemas"]["MfaChallengeStatusEnum"];
+            status: components["schemas"]["StatusC60Enum"];
         };
-        /**
-         * @description * `mfa_required` - mfa_required
-         * @enum {string}
-         */
-        MfaChallengeStatusEnum: "mfa_required";
         MfaCode: {
             code: string;
         };
+        /**
+         * @description * `none` - none
+         *     * `managers` - managers
+         *     * `all` - all
+         * @enum {string}
+         */
+        MfaRequired487Enum: "none" | "managers" | "all";
         /**
          * @description * `consume` - consume
          *     * `sale` - sale
@@ -8273,6 +8408,57 @@ export interface components {
         OrganizationProfile: {
             profile: components["schemas"]["ProfileSummary"];
             catalog: components["schemas"]["CatalogState"];
+        };
+        OrganizationSecuritySettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["OrganizationSecuritySettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["OrganizationSecuritySettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        OrganizationSecuritySettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["ResetC60Enum"][];
+            /**
+             * @description Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on.
+             *
+             *     * `none` - none
+             *     * `managers` - managers
+             *     * `all` - all
+             */
+            mfa_required?: components["schemas"]["MfaRequired487Enum"] | components["schemas"]["NullEnum"];
+        };
+        OrganizationSecuritySettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["OrganizationSecuritySettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        OrganizationSecuritySettingsSources: {
+            mfa_required: components["schemas"]["SettingSourceEnum"];
+        };
+        OrganizationSecuritySettingsValues: {
+            /**
+             * @description Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on.
+             *
+             *     * `none` - none
+             *     * `managers` - managers
+             *     * `all` - all
+             */
+            mfa_required: components["schemas"]["MfaRequired487Enum"];
         };
         OrganizationSummary: {
             /** Format: uuid */
@@ -8576,6 +8762,14 @@ export interface components {
             notes?: string;
             reviewed?: boolean;
         };
+        PatchedBillingAccessSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BillingAccessSettingsChangeResetEnum"][];
+            /** @description Whether roles holding organization.billing.manage may change the plan, payments and invoice details, not only the owner. Only the owner turns it, with a code from the authenticator app. */
+            delegated?: boolean | null;
+        };
         /** @description Days the company, or one of its places, takes no bookings. */
         PatchedBookingClosureUpdate: {
             /**
@@ -8708,6 +8902,20 @@ export interface components {
         PatchedMembershipUpdate: {
             role?: string;
             status?: components["schemas"]["MembershipUpdateStatusEnum"];
+        };
+        PatchedOrganizationSecuritySettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["ResetC60Enum"][];
+            /**
+             * @description Who in the company must have two-factor sign-in: none, the managing roles (company settings or team management) or everyone. A person without it is refused entry to the company until they turn it on.
+             *
+             *     * `none` - none
+             *     * `managers` - managers
+             *     * `all` - all
+             */
+            mfa_required?: components["schemas"]["MfaRequired487Enum"] | components["schemas"]["NullEnum"];
         };
         PatchedOrganizationUpdate: {
             version?: number;
@@ -9568,6 +9776,11 @@ export interface components {
             /** Format: date-time */
             starts_at: string;
         };
+        /**
+         * @description * `mfa_required` - mfa_required
+         * @enum {string}
+         */
+        ResetC60Enum: "mfa_required";
         Resource: {
             /** Format: uuid */
             id: string;
@@ -10090,6 +10303,8 @@ export interface components {
             /** @description Why the plan does not let the company change them; empty. */
             locked: string;
             keys: components["schemas"]["SettingOption"][];
+            /** @description A change asks for a fresh code from the authenticator app first (403 step_up_required; POST /api/v1/auth/step-up/, then repeat). */
+            step_up: boolean;
             /** @description The module's own endpoint for a group it stores itself; null: …/current/settings/<group>/. */
             api: string | null;
         };
@@ -10605,6 +10820,11 @@ export interface components {
          * @enum {string}
          */
         Status891Enum: "active" | "sold" | "culled" | "dead";
+        /**
+         * @description * `mfa_required` - mfa_required
+         * @enum {string}
+         */
+        StatusC60Enum: "mfa_required";
         /** @description A stay or rental from the panel: a range offer, a unit or a group, dates. */
         StayInput: {
             /** Format: uuid */
@@ -21041,6 +21261,158 @@ export interface operations {
             };
         };
     };
+    organization_settings_billing_access_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccessSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_billing_access_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBillingAccessSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBillingAccessSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedBillingAccessSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccessSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_billing_access_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingAccessSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["BillingAccessSettingsChange"];
+                "multipart/form-data": components["schemas"]["BillingAccessSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccessSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     organization_settings_booking_online_retrieve: {
         parameters: {
             query?: never;
@@ -21309,6 +21681,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingRemindersSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_organization_security_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSecuritySettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_organization_security_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOrganizationSecuritySettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOrganizationSecuritySettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedOrganizationSecuritySettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSecuritySettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_organization_security_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationSecuritySettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrganizationSecuritySettingsChange"];
+                "multipart/form-data": components["schemas"]["OrganizationSecuritySettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSecuritySettingsPreview"];
                 };
             };
             400: {

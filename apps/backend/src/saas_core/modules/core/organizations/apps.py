@@ -28,5 +28,13 @@ class OrganizationsConfig(AppConfig):
         from .settings_registry import register_setting_group  # noqa: PLC0415
 
         register_setting_group(BASICS)
+        # Whether the company requires 2FA of its people (35a).
+        from .command_registry import register_command  # noqa: PLC0415
+        from .security_settings import SECURITY  # noqa: PLC0415
+        from .settings_commands import group_commands  # noqa: PLC0415
+
+        register_setting_group(SECURITY)
+        for command in group_commands(SECURITY):
+            register_command(command)
         # A product's starting value for a setting nobody declares fails the start.
         from . import settings_checks  # noqa: F401, PLC0415

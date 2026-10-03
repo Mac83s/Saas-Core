@@ -46,6 +46,7 @@ from .lifecycle import (
 )
 from .models import Invitation, InvitationStatus, Membership, Organization, Role
 from .permissions import ORGANIZATION_READ
+from .security_settings import mfa_status
 from .serializers import (
     ActiveOrganizationResultSerializer,
     ActiveOrganizationSerializer,
@@ -305,7 +306,8 @@ class MembershipListView(ProtectedOrganizationView):
         query = MembershipListQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         members = list_memberships(include_former=query.validated_data["include_former"])
-        return Response([_membership_summary(item) for item in members])
+        with_mfa = mfa_status(members)
+        return Response([_membership_summary(item, with_mfa) for item in members])
 
 
 class SeatUsageView(ProtectedOrganizationView):
@@ -413,7 +415,9 @@ def _invitation_summary(invitation: Invitation) -> dict[str, object]:
     }
 
 
-def _membership_summary(membership: Membership) -> dict[str, object]:
+def _membership_summary(
+    membership: Membership, with_mfa: frozenset[object] | None = None
+) -> dict[str, object]:
     return {
         "id": str(membership.id),
         "user_id": str(membership.user_id),
@@ -424,6 +428,7 @@ def _membership_summary(membership: Membership) -> dict[str, object]:
         "status": membership.status,
         "joined_at": membership.joined_at,
         "revoked_at": membership.revoked_at,
+        "mfa_enabled": None if with_mfa is None else membership.user_id in with_mfa,
     }
 
 

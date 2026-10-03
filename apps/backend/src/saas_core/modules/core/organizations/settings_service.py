@@ -28,6 +28,7 @@ from django.db import transaction
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.identity.step_up import require_step_up
 
 from .audit import record_audit
 from .authorization import authorize
@@ -130,8 +131,10 @@ def settings_snapshot() -> Iterator[None]:
         _snapshot.reset(token)
 
 
-def resolve(key: str) -> Resolved:
-    """The value of `key` for the company of the current tenant context.
+def resolve(key: str, *, organization_id: UUID | None = None) -> Resolved:
+    """The value of `key` for the company of the current tenant context — or of
+    `organization_id`, for work that runs per company (a sweep) with that
+    company's tenant set, so row-level security lets its rows through.
 
     A `restrict` setting's value in force may be stricter: its module applies
     its own ceilings on top (ADR-078 pkt 3)."""
@@ -142,7 +145,7 @@ def resolve(key: str) -> Resolved:
             raise LookupError(f"{key}: wartość węższego zasięgu czyta jej moduł.")
         explicit = group.read_explicit().get(spec.field)
     else:
-        row = _rows().get(key)
+        row = _rows(organization_id).get(key)
         explicit = row.value if row is not None else None
     if explicit is not None:
         return Resolved(explicit, "organization")
@@ -155,8 +158,8 @@ def resolve(key: str) -> Resolved:
     return Resolved(spec.default, "code")
 
 
-def setting(key: str) -> Any:
-    return resolve(key).value
+def setting(key: str, *, organization_id: UUID | None = None) -> Any:
+    return resolve(key, organization_id=organization_id).value
 
 
 def read_group(group_key: str) -> GroupState:
@@ -171,7 +174,7 @@ def _state(context: TenantContext, group: SettingGroup) -> GroupState:
         group=group,
         values={spec.field: resolve(spec.key) for spec in group.settings},
         version=_token(group, rows),
-        can_change=context.has_permission(group.permission) and not locked,
+        can_change=_may_change(context, group) and not locked,
         locked=locked,
     )
 
@@ -182,7 +185,7 @@ def schema(context: TenantContext) -> list[tuple[SettingGroup, bool, str]]:
     return [
         (
             group,
-            context.has_permission(group.permission) and not group_locked(group),
+            _may_change(context, group) and not group_locked(group),
             group_locked(group),
         )
         for group in organization_groups(context.organization_id)
@@ -206,9 +209,12 @@ def change_settings(
     what the change would do, with every problem the save would raise."""
     context = authorize(ORGANIZATION_READ)
     group = _group(context, group_key)
-    context = authorize(group.permission)
+    context = authorize(group.permission, owner_only=group.owner_only)
     if reason := group_locked(group, write=True):
         raise SettingsEntitlementRequired(detail=_DENIALS.get(reason, reason))
+    if group.step_up_reason and not preview:
+        # Who may first, then the code: nobody is asked for a code in vain.
+        require_step_up(user_id=context.actor_id, reason=group.step_up_reason)
     given = {name: value for name, value in changes.items() if value is not None}
     resetting = tuple(dict.fromkeys(reset))
     request_hash = canonical_json_hash({
@@ -335,6 +341,12 @@ def validate_settings(
     return _validated(setting_group(group_key), given, tuple(dict.fromkeys(reset)))
 
 
+def _may_change(context: TenantContext, group: SettingGroup) -> bool:
+    return context.has_permission(group.permission) and (
+        not group.owner_only or context.role_key == "owner"
+    )
+
+
 def group_locked(group: SettingGroup, *, write: bool = False) -> str:
     if group.entitlement is None:
         return ""
@@ -405,19 +417,21 @@ def _save(
     _forget(organization.id)
 
 
-def _rows() -> dict[str, OrganizationSetting]:
-    context = current_tenant_context()
-    if context is None:
-        raise RuntimeError("Ustawienia firmy czyta się w kontekście firmy.")
+def _rows(organization_id: UUID | None = None) -> dict[str, OrganizationSetting]:
+    if organization_id is None:
+        context = current_tenant_context()
+        if context is None:
+            raise RuntimeError("Ustawienia firmy czyta się w kontekście firmy.")
+        organization_id = context.organization_id
     snapshot = _snapshot.get()
-    if snapshot is not None and context.organization_id in snapshot:
-        return snapshot[context.organization_id]
+    if snapshot is not None and organization_id in snapshot:
+        return snapshot[organization_id]
     rows = {
         row.key: row
-        for row in OrganizationSetting.objects.filter(organization_id=context.organization_id)
+        for row in OrganizationSetting.objects.filter(organization_id=organization_id)
     }
     if snapshot is not None:
-        snapshot[context.organization_id] = rows
+        snapshot[organization_id] = rows
     return rows
 
 
