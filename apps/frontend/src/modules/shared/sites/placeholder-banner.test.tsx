@@ -210,13 +210,12 @@ test.each([
     fireEvent.click(save);
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(savePageDraft).toHaveBeenCalledOnce();
-    await waitFor(() =>
-      expect(
-        within(inspector).getByLabelText(messages.Sites.text),
-      ).toBeEnabled(),
-    );
+    // The field, not the inspector's tab of the same name ("Treść").
+    const text = () =>
+      within(inspector).getByRole("textbox", { name: messages.Sites.text });
+    await waitFor(() => expect(text()).toBeEnabled());
 
-    fireEvent.change(within(inspector).getByLabelText(messages.Sites.text), {
+    fireEvent.change(text(), {
       target: { value: "Odpowiadamy w ciągu doby." },
     });
     expect(await screen.findByText(two)).toHaveAttribute("role", "status");

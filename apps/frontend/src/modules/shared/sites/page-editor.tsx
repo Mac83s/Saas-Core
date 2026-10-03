@@ -20,6 +20,7 @@ import {
 } from "react-hook-form";
 import {
   ChevronLeftIcon,
+  CopyIcon,
   EllipsisIcon,
   MonitorIcon,
   EyeIcon,
@@ -144,6 +145,7 @@ import {
   outlineTitle,
   pageLookClassName,
   SectionCanvas,
+  type InspectorTab,
   type SectionCanvasHandle,
 } from "./section-canvas";
 import {
@@ -626,6 +628,7 @@ export function PageEditor({
   const [mediaProblem, setMediaProblem] = useState<string>();
   const [metadataProblem, setMetadataProblem] = useState<string>();
   const [inspectorRequest, setInspectorRequest] = useState(0);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("content");
   // The canvas's "+" and "Zmień zdjęcie": where to insert, which field to open.
   const [insertAt, setInsertAt] = useState<number | null>(null);
   const [focusField, setFocusField] = useState<{
@@ -1207,6 +1210,21 @@ export function PageEditor({
                       /^\d+$/.test(key),
                     );
                     if (first !== undefined) {
+                      // The inspector's tab that holds the first error.
+                      const invalid = (
+                        errors.blocks as unknown as
+                          | Record<string, Record<string, object> | undefined>
+                          | undefined
+                      )?.[first];
+                      const dataErrors = Object.keys(invalid?.data ?? {});
+                      setInspectorTab(
+                        invalid?.presentation || invalid?.decoration
+                          ? "style"
+                          : dataErrors.length === 1 &&
+                              dataErrors[0] === "layout"
+                            ? "layout"
+                            : "content",
+                      );
                       setSelectedSection(Number(first));
                       setInspectorRequest((request) => request + 1);
                       setProblem(t("studio.validationError"));
@@ -1513,7 +1531,10 @@ export function PageEditor({
                           unfilled={unfilled}
                           inspectorActions={
                             blocks.fields.length > 0 ? (
+                              // Move, duplicate, keep as a company template and
+                              // remove: one row of icons beside the name.
                               <SectionMoveButtons
+                                compact
                                 isFirst={activeSection === 0}
                                 isLast={
                                   activeSection === blocks.fields.length - 1
@@ -1527,9 +1548,47 @@ export function PageEditor({
                                   setSelectedSection(activeSection + 1);
                                 }}
                                 onRemove={() => blocks.remove(activeSection)}
-                              />
+                              >
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="pointer-fine:size-8"
+                                  aria-label={t("studio.duplicate")}
+                                  title={t("studio.duplicate")}
+                                  onClick={() => {
+                                    const current =
+                                      draftForm.getValues("blocks");
+                                    // The copy's headings get anchors of their own.
+                                    const [copy] = withUniqueAnchors(
+                                      [structuredClone(current[activeSection])],
+                                      current,
+                                    );
+                                    blocks.insert(activeSection + 1, copy);
+                                    setSelectedSection(activeSection + 1);
+                                  }}
+                                >
+                                  <CopyIcon aria-hidden="true" />
+                                </Button>
+                                <SaveAsTemplate
+                                  iconOnly
+                                  kind="section"
+                                  triggerLabel={t("ownTemplates.saveSection")}
+                                  disabled={loading}
+                                  blocks={() => [
+                                    draftForm.getValues(
+                                      `blocks.${activeSection}`,
+                                    ),
+                                  ]}
+                                  sourcePageId={page.id}
+                                />
+                              </SectionMoveButtons>
                             ) : null
                           }
+                          inspectorTab={{
+                            value: inspectorTab,
+                            onChange: setInspectorTab,
+                          }}
                           inspectorRequest={inspectorRequest}
                           appearance={appearance}
                           navigation={navigation}
@@ -1650,6 +1709,7 @@ export function PageEditor({
                               assetId,
                             );
                             if (!path) return;
+                            setInspectorTab("content");
                             setFocusField((previous) => ({
                               name: `blocks.${index}.data.${path.join(".")}`,
                               request: (previous?.request ?? 0) + 1,
@@ -1663,47 +1723,13 @@ export function PageEditor({
                           inspector={
                             blocks.fields.length > 0 ? (
                               <>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => {
-                                    const current =
-                                      draftForm.getValues("blocks");
-                                    // The copy's headings get anchors of their own.
-                                    const [copy] = withUniqueAnchors(
-                                      [structuredClone(current[activeSection])],
-                                      current,
-                                    );
-                                    blocks.insert(activeSection + 1, copy);
-                                    setSelectedSection(activeSection + 1);
-                                  }}
-                                >
-                                  {t("studio.duplicate")}
-                                </Button>
-                                <SaveAsTemplate
-                                  kind="section"
-                                  triggerLabel={t("ownTemplates.saveSection")}
-                                  disabled={loading}
-                                  blocks={() => [
-                                    draftForm.getValues(
-                                      `blocks.${activeSection}`,
-                                    ),
-                                  ]}
-                                  sourcePageId={page.id}
-                                />
-                                <SectionLibrary
-                                  onBusyChange={setLoading}
-                                  triggerLabel={t("studio.insertAfter")}
-                                  onAdd={(block) =>
-                                    addSection(block, activeSection + 1)
-                                  }
-                                />
                                 <BlockFields
                                   assets={assets}
                                   form={draftForm}
                                   index={activeSection}
                                   key={blocks.fields[activeSection].id}
                                   titled
+                                  part={inspectorTab}
                                   type={blocks.fields[activeSection].block_type}
                                   isFirst={activeSection === 0}
                                   isLast={

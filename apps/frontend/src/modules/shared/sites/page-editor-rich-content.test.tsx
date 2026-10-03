@@ -266,6 +266,10 @@ test("section width and surface are saved beside the content and reset removes t
   );
   renderEditor(true);
   await screen.findByLabelText("Nagłówek");
+  // A section's width and surface are under the inspector's "Styl".
+  fireEvent.click(
+    screen.getByRole("tab", { name: polishMessages.Sites.studio.tabStyle }),
+  );
   fireEvent.change(screen.getByLabelText("Szerokość treści"), {
     target: { value: "narrow" },
   });

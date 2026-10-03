@@ -1306,6 +1306,93 @@ test("the outline moves a section by its own handle, between the site's header a
   expect(savePageDraft).not.toHaveBeenCalled();
 });
 
+test("the inspector names the section's place, keeps its icons beside the name and shows one part at a time", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const t = polishMessages.Sites;
+  fireEvent.click(screen.getByRole("button", { name: t.studio.duplicate }));
+  const inspector = screen.getByRole("complementary", {
+    name: t.studio.inspector,
+  });
+  expect(within(inspector).getByText("Sekcja 2 z 2")).toBeDefined();
+  for (const name of [
+    t.moveBlockUp,
+    t.moveBlockDown,
+    t.studio.duplicate,
+    t.ownTemplates.saveSection,
+    t.removeBlock,
+  ])
+    expect(within(inspector).getByRole("button", { name })).toBeDefined();
+  const tab = (name: string) => within(inspector).getByRole("tab", { name });
+  expect(tab(t.studio.tabContent)).toHaveAttribute("aria-selected", "true");
+  expect(
+    within(inspector).getByRole("textbox", { name: "Nagłówek" }),
+  ).toBeDefined();
+  expect(
+    within(inspector).queryByRole("combobox", {
+      name: t.sectionLibrary.layout,
+    }),
+  ).toBeNull();
+  fireEvent.click(tab(t.studio.tabLayout));
+  expect(
+    within(inspector).getByRole("combobox", { name: t.sectionLibrary.layout }),
+  ).toBeDefined();
+  expect(
+    within(inspector).queryByRole("textbox", { name: "Nagłówek" }),
+  ).toBeNull();
+  fireEvent.click(tab(t.studio.tabStyle));
+  expect(
+    within(inspector).getByRole("combobox", {
+      name: t.sectionPresentation.fields.inner,
+    }),
+  ).toBeDefined();
+  expect(
+    (
+      await axe.run(inspector, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).violations,
+  ).toEqual([]);
+});
+
+test("a save the content refuses takes the inspector back to that content", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const t = polishMessages.Sites;
+  const inspector = screen.getByRole("complementary", {
+    name: t.studio.inspector,
+  });
+  fireEvent.click(
+    within(inspector).getByRole("tab", { name: t.studio.tabStyle }),
+  );
+  // The heading's field is mounted, only hidden, while "Styl" is shown.
+  fireEvent.change(screen.getByLabelText("Nagłówek"), {
+    target: { value: "" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: t.studio.save }));
+  await waitFor(() =>
+    expect(
+      within(inspector).getByRole("tab", { name: t.studio.tabContent }),
+    ).toHaveAttribute("aria-selected", "true"),
+  );
+  await waitFor(() =>
+    expect(
+      within(inspector).getByRole("textbox", { name: "Nagłówek" }),
+    ).toHaveFocus(),
+  );
+  expect(savePageDraft).not.toHaveBeenCalled();
+});
+
 test("inline text commits to the existing form, cancels and undoes without submitting", async () => {
   renderEditor(
     "pl",
@@ -1413,7 +1500,13 @@ test("the contextual library inserts between sections and undo restores the orig
     target: { value: "Ostatnia sekcja" },
   });
   fireEvent.click(screen.getByRole("button", { name: /Edytuj sekcję 1:/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Dodaj sekcję poniżej" }));
+  // The panel's library puts it under the selected section.
+  fireEvent.click(screen.getByRole("button", { name: "Biblioteka sekcji" }));
+  expect(
+    screen.getByText(
+      polishMessages.Sites.studio.insertAfterNumber.replace("{number}", "1"),
+    ),
+  ).toBeDefined();
   fireEvent.click(
     await screen.findByRole("button", { name: "Dodaj: Klasyczna lista" }),
   );
@@ -1620,13 +1713,8 @@ test.each(["pl", "en"] as const)(
         screen.getByTestId("live-canvas").querySelectorAll("[data-block-type]"),
       ).toHaveLength(1),
     );
-    // Contextual dialog can coexist with the rail without duplicate field IDs.
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: locale === "pl" ? "Dodaj sekcję poniżej" : "Add section below",
-      }),
-    );
-    await screen.findByRole("dialog");
+    // The library, the outline and the inspector's hidden tabs share the
+    // studio without duplicate field IDs.
     const ids = [...document.querySelectorAll("[id]")].map(
       (element) => element.id,
     );
@@ -2088,9 +2176,8 @@ test("section decoration preset persists, preview stays static and reset clears 
   await screen.findByLabelText("Heading");
   const canvas = screen.getByTestId("live-canvas");
   expect(canvas.querySelector(".site-decoration")).toBeNull();
-  fireEvent.click(
-    screen.getByText("Section decorations", { selector: "summary" }),
-  );
+  // Decorations are under the inspector's "Style".
+  fireEvent.click(screen.getByRole("tab", { name: "Style" }));
   fireEvent.change(screen.getByRole("combobox", { name: "Ready-made style" }), {
     target: { value: preset.id },
   });
@@ -2126,11 +2213,11 @@ test("section decoration preset persists, preview stays static and reset clears 
   fireEvent.keyDown(document, { key: "Escape" });
   await waitFor(() => expect(screen.queryByTestId("draft-preview")).toBeNull());
 
-  const summary = screen.getByText("Section decorations", {
-    selector: "summary",
-  });
-  if (!(summary.closest("details") as HTMLDetailsElement).open)
-    fireEvent.click(summary);
+  // The inspector stayed on "Style" through the save and the preview.
+  expect(screen.getByRole("tab", { name: "Style" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   expect(
     screen.getByRole("combobox", { name: "Ready-made style" }),
   ).toHaveValue(preset.id);

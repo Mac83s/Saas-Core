@@ -7,7 +7,7 @@
  *  panel, the future drag-and-drop canvas and the AI generator agree on what a
  *  block is — a second copy would drift the moment a block gains a field. */
 
-import { useContext, useMemo } from "react";
+import { useContext, useMemo, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -114,28 +114,38 @@ export function useSectionTypeName(): (blockType: string) => string {
   };
 }
 
-/** Up, down and remove for one section, in one row with its name. */
+/** Up, down and remove for one section, in one row with its name; the
+ *  studio's inspector puts its own icons (duplicate, save) before remove. */
 export function SectionMoveButtons({
   isFirst,
   isLast,
   moveDown,
   moveUp,
   onRemove,
+  compact = false,
+  children,
 }: {
   isFirst: boolean;
   isLast: boolean;
   moveDown: () => void;
   moveUp: () => void;
   onRemove: () => void;
+  /** 32 px icons on a mouse, as in the studio's inspector header. */
+  compact?: boolean;
+  children?: ReactNode;
 }) {
   const t = useTranslations("Sites");
+  const size = compact ? "icon-sm" : "icon";
+  const fine = compact ? "pointer-fine:size-8" : undefined;
   return (
-    <div className="flex shrink-0 gap-1">
+    <div className={cn("flex shrink-0", compact ? "gap-0.5" : "gap-1")}>
       <Button
         aria-label={t("moveBlockUp")}
+        title={compact ? t("moveBlockUp") : undefined}
+        className={fine}
         disabled={isFirst}
         onClick={moveUp}
-        size="icon"
+        size={size}
         type="button"
         variant="ghost"
       >
@@ -143,18 +153,27 @@ export function SectionMoveButtons({
       </Button>
       <Button
         aria-label={t("moveBlockDown")}
+        title={compact ? t("moveBlockDown") : undefined}
+        className={fine}
         disabled={isLast}
         onClick={moveDown}
-        size="icon"
+        size={size}
         type="button"
         variant="ghost"
       >
         <ArrowDownIcon aria-hidden="true" />
       </Button>
+      {children}
       <Button
         aria-label={t("removeBlock")}
+        title={compact ? t("removeBlock") : undefined}
+        className={cn(
+          fine,
+          compact &&
+            "text-destructive hover:bg-destructive/10 hover:text-destructive",
+        )}
         onClick={onRemove}
-        size="icon"
+        size={size}
         type="button"
         variant="ghost"
       >
@@ -279,6 +298,7 @@ export function BlockFields<TValues extends FieldValues>({
   onReplace,
   type,
   titled = false,
+  part,
 }: {
   assets?: readonly MediaAsset[];
   form: UseFormReturn<TValues>;
@@ -296,6 +316,9 @@ export function BlockFields<TValues extends FieldValues>({
   /** The section as another type (F4-C); absent, the change is not offered. */
   onReplace?: (block: BlockFormValues) => void;
   type: string;
+  /** One of the studio inspector's tabs: the words, the layout or the look.
+   *  Absent, everything at once, as the forms mode shows it. */
+  part?: "content" | "layout" | "style";
 }) {
   const t = useTranslations("Sites");
   const prefix = `blocks.${index}` as const;
@@ -350,6 +373,35 @@ export function BlockFields<TValues extends FieldValues>({
   const selectedTemplate = layouts.find(
     (template) => template.layout === selectedLayout,
   );
+  // The inspector shows one part; the others stay mounted and hidden, so a
+  // registered select (the layout, a separator's size) keeps giving the form
+  // the value it shows, exactly as when everything was one column.
+  const hides = (wanted: "content" | "layout" | "style") =>
+    part !== undefined && part !== wanted;
+  const decorationFields = (
+    <SectionDecorationFields
+      value={decoration}
+      onChange={(value) =>
+        form.setValue(`${prefix}.decoration` as Path<TValues>, value as never, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+      }
+    />
+  );
+  const presentationFields = (
+    <SectionPresentationFields
+      blockIndex={index}
+      value={presentation}
+      onChange={(value) =>
+        form.setValue(
+          `${prefix}.presentation` as Path<TValues>,
+          value as never,
+          { shouldDirty: true, shouldValidate: true },
+        )
+      }
+    />
+  );
   return (
     <fieldset className={cn("space-y-4", !titled && "rounded-lg border p-4")}>
       <legend className="sr-only">{typeName}</legend>
@@ -367,72 +419,81 @@ export function BlockFields<TValues extends FieldValues>({
           />
         </div>
       )}
-      {onReplace && data && (
-        <SectionTypeChooser
-          block={blockPayload({
-            block_type: type,
-            data,
-            ...(decoration ? { decoration } : {}),
-            ...(presentation ? { presentation } : {}),
-          })}
-          locale={locale}
-          onConvert={(converted) => onReplace(editableBlocks([converted])[0]!)}
-        />
-      )}
-      {layouts.length > 0 && (
-        <Field>
-          <FieldLabel htmlFor={`block-layout-${index}`}>
-            {t("sectionLibrary.layout")}
-          </FieldLabel>
-          <NativeSelect
-            id={`block-layout-${index}`}
-            {...form.register(layoutPath)}
-            value={String(selectedLayout)}
-          >
-            {layoutOptional && (
-              <option value="">{t("sectionLibrary.noLayout")}</option>
-            )}
-            {layouts.map((template) => (
-              <option key={template.id} value={template.layout}>
-                {template.labels[locale].name}
-              </option>
-            ))}
-          </NativeSelect>
-          {selectedTemplate && (
-            <p className="text-sm text-muted-foreground">
-              {selectedTemplate.labels[locale].description}{" "}
-              {t("sectionLibrary.preservesContent")}
-            </p>
-          )}
-          <LayoutChooser
-            type={type}
-            data={data ?? {}}
-            layouts={layouts}
-            current={String(selectedLayout)}
+      <div className="space-y-4" hidden={hides("layout")}>
+        {onReplace && data && (
+          <SectionTypeChooser
+            block={blockPayload({
+              block_type: type,
+              data,
+              ...(decoration ? { decoration } : {}),
+              ...(presentation ? { presentation } : {}),
+            })}
             locale={locale}
-            onChoose={(layout) =>
-              form.setValue(layoutPath, layout as never, {
-                shouldDirty: true,
-              })
+            onConvert={(converted) =>
+              onReplace(editableBlocks([converted])[0]!)
             }
           />
-          {hidden.length > 0 && (
-            <p className="text-sm" role="status">
-              {t("sectionLibrary.hiddenFields", {
-                fields: hidden
-                  .map(({ field, parent }) =>
-                    parent
-                      ? `${t(parent.labelKey)}: ${t(field.labelKey)}`
-                      : t(field.labelKey),
-                  )
-                  .join(", "),
-              })}
-            </p>
-          )}
-        </Field>
-      )}
+        )}
+        {part === "layout" && layouts.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {t("studio.oneLayout")}
+          </p>
+        )}
+        {layouts.length > 0 && (
+          <Field>
+            <FieldLabel htmlFor={`block-layout-${index}`}>
+              {t("sectionLibrary.layout")}
+            </FieldLabel>
+            <NativeSelect
+              id={`block-layout-${index}`}
+              {...form.register(layoutPath)}
+              value={String(selectedLayout)}
+            >
+              {layoutOptional && (
+                <option value="">{t("sectionLibrary.noLayout")}</option>
+              )}
+              {layouts.map((template) => (
+                <option key={template.id} value={template.layout}>
+                  {template.labels[locale].name}
+                </option>
+              ))}
+            </NativeSelect>
+            {selectedTemplate && (
+              <p className="text-sm text-muted-foreground">
+                {selectedTemplate.labels[locale].description}{" "}
+                {t("sectionLibrary.preservesContent")}
+              </p>
+            )}
+            <LayoutChooser
+              type={type}
+              data={data ?? {}}
+              layouts={layouts}
+              current={String(selectedLayout)}
+              locale={locale}
+              onChoose={(layout) =>
+                form.setValue(layoutPath, layout as never, {
+                  shouldDirty: true,
+                })
+              }
+            />
+            {hidden.length > 0 && (
+              <p className="text-sm" role="status">
+                {t("sectionLibrary.hiddenFields", {
+                  fields: hidden
+                    .map(({ field, parent }) =>
+                      parent
+                        ? `${t(parent.labelKey)}: ${t(field.labelKey)}`
+                        : t(field.labelKey),
+                    )
+                    .join(", "),
+                })}
+              </p>
+            )}
+          </Field>
+        )}
+      </div>
       {type === "core.separator" && (
-        <FieldGroup>
+        <FieldGroup hidden={hides("content")}>
           {(
             [
               ["size", ["small", "medium", "large"], "medium"],
@@ -459,68 +520,59 @@ export function BlockFields<TValues extends FieldValues>({
           ))}
         </FieldGroup>
       )}
-      <details className="border-t pt-3">
-        <summary className="cursor-pointer py-1 text-sm font-medium">
-          {t("decorations.title")}
-        </summary>
-        <div className="pt-4">
-          <SectionDecorationFields
-            value={decoration}
-            onChange={(value) =>
-              form.setValue(
-                `${prefix}.decoration` as Path<TValues>,
-                value as never,
-                { shouldDirty: true, shouldValidate: true },
-              )
-            }
-          />
+      {part === undefined ? (
+        <>
+          <details className="border-t pt-3">
+            <summary className="cursor-pointer py-1 text-sm font-medium">
+              {t("decorations.title")}
+            </summary>
+            <div className="pt-4">{decorationFields}</div>
+          </details>
+          <details className="border-t pt-3">
+            <summary className="cursor-pointer py-1 text-sm font-medium">
+              {t("sectionPresentation.title")}
+            </summary>
+            <div className="pt-4">{presentationFields}</div>
+          </details>
+        </>
+      ) : (
+        // Each set names itself with its own legend.
+        <div className="space-y-4" hidden={hides("style")}>
+          {presentationFields}
+          <div className="border-t pt-4">{decorationFields}</div>
         </div>
-      </details>
-      <details className="border-t pt-3">
-        <summary className="cursor-pointer py-1 text-sm font-medium">
-          {t("sectionPresentation.title")}
-        </summary>
-        <div className="pt-4">
-          <SectionPresentationFields
-            blockIndex={index}
-            value={presentation}
-            onChange={(value) =>
-              form.setValue(
-                `${prefix}.presentation` as Path<TValues>,
-                value as never,
-                { shouldDirty: true, shouldValidate: true },
-              )
-            }
-          />
-        </div>
-      </details>
+      )}
       <input
         type="hidden"
         {...form.register(`${prefix}.block_type` as Path<TValues>)}
       />
-      {type === "core.contact_form" && (
-        <p className="text-sm text-muted-foreground">{t("formDeliveryHint")}</p>
-      )}
-      <FieldGroup>
-        {(option?.fields ?? [])
-          .filter(
-            (field) =>
-              !elsewhere.has(field.path.join(".")) ||
-              !isEmptyValue(data && readAt(data, field.path)),
-          )
-          .map((field) => (
-            <BlockField
-              assets={assets}
-              blockIndex={index}
-              elsewhere={elsewhere}
-              field={field}
-              form={form}
-              key={field.path.join(".")}
-              onMediaUploaded={onMediaUploaded}
-              pathPrefix={`${prefix}.data`}
-            />
-          ))}
-      </FieldGroup>
+      <div className="space-y-4" hidden={hides("content")}>
+        {type === "core.contact_form" && (
+          <p className="text-sm text-muted-foreground">
+            {t("formDeliveryHint")}
+          </p>
+        )}
+        <FieldGroup>
+          {(option?.fields ?? [])
+            .filter(
+              (field) =>
+                !elsewhere.has(field.path.join(".")) ||
+                !isEmptyValue(data && readAt(data, field.path)),
+            )
+            .map((field) => (
+              <BlockField
+                assets={assets}
+                blockIndex={index}
+                elsewhere={elsewhere}
+                field={field}
+                form={form}
+                key={field.path.join(".")}
+                onMediaUploaded={onMediaUploaded}
+                pathPrefix={`${prefix}.data`}
+              />
+            ))}
+        </FieldGroup>
+      </div>
     </fieldset>
   );
 }
