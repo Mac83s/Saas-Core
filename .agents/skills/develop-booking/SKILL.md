@@ -93,8 +93,10 @@ not in PostgreSQL.
 - `Customer` is a **tenant entity independent of `User`**. Guest booking is the
   default and complete; there is no fictional membership for a customer, and
   there will not be one.
-- Anonymisation clears contact data without deleting business history. Retention
-  is 24 months from the last appointment by default, configurable per deployment.
+- Anonymisation clears contact data without deleting business history. It is
+  manual (`anonymize_customer`) today; automatic deletion after inactivity is off
+  by default and a company may turn it on at 12, 24 or 36 months from the last
+  appointment (ADR-078, addendum 37a, which changes ADR-036).
 - **Self-service is a token, not an account.** At least 256 bits of randomness;
   the database stores a digest in a global, PII-free routing index; the token is
   bound to **one** appointment, expires, and is invalidated on cancellation.
