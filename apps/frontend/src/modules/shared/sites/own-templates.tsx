@@ -587,12 +587,70 @@ export function OwnSectionTemplates({
 export function OwnPageTemplates({
   disabled,
   onUse,
+  compact = false,
+  save,
 }: {
   disabled: boolean;
   onUse: (template: SiteTemplate) => void;
+  /** The studio's panel: one row per template, "save" beside them. */
+  compact?: boolean;
+  save?: ReactNode;
 }) {
   const t = useTranslations("Sites.ownTemplates");
   const templates = useOwnTemplates("page");
+  if (compact)
+    return (
+      <section className="space-y-2" aria-labelledby="own-page-templates">
+        <h4 id="own-page-templates" className="studio-library-group">
+          {t("pageGroup")}
+        </h4>
+        {templates.loaded && templates.items.length === 0 ? (
+          <div className="studio-template-empty">
+            <p>{t("pageEmpty")}</p>
+            {save}
+          </div>
+        ) : (
+          <>
+            <ul className="studio-library-list">
+              {templates.items.map((template) => (
+                <li
+                  key={template.id}
+                  className="studio-library-row studio-library-row--own"
+                >
+                  <OwnTemplateMiniature template={template} row />
+                  <div className="studio-library-row__text">
+                    <h5>{template.name}</h5>
+                    <p>
+                      {template.description ||
+                        t("versionBy", {
+                          number: template.version.number,
+                          author:
+                            template.version.created_by.name ||
+                            template.version.created_by.email,
+                        })}
+                    </p>
+                  </div>
+                  <div className="studio-library-row__actions">
+                    <OwnTemplateActions template={template} />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="studio-row-text-button"
+                      disabled={disabled}
+                      aria-label={t("useNamed", { name: template.name })}
+                      onClick={() => onUse(template)}
+                    >
+                      {t("use")}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {save}
+          </>
+        )}
+      </section>
+    );
   return (
     <section className="space-y-3" aria-labelledby="own-page-templates">
       <h3 id="own-page-templates" className="text-sm font-semibold">

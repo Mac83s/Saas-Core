@@ -1832,6 +1832,9 @@
       "insertAtStart": "at the top of the page",
       "insertAfterNumber": "after section {number}",
       "blankHint": "Need something else?",
+      "allTemplates": "All templates",
+      "templateSections": "{count, plural, one {Contains # section} other {Contains # sections}}",
+      "useTemplate": "Use template",
       "validationError": "Complete the highlighted fields in section settings.",
       "placeholders": {
         "summary": "{count, plural, one {This page still has # place to fill in.} other {This page still has # places to fill in.}}",

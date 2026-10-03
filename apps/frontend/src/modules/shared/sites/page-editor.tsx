@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -18,6 +19,7 @@ import {
   type SubmitHandler,
 } from "react-hook-form";
 import {
+  ChevronLeftIcon,
   EllipsisIcon,
   MonitorIcon,
   EyeIcon,
@@ -129,6 +131,7 @@ import {
   registry,
   SectionMoveButtons,
   toSiteBlock,
+  useSectionTypeName,
   withUniqueAnchors,
   type BlockFormValues,
   type BlockOption,
@@ -138,6 +141,7 @@ import { mutationKey, type MutationReceipt } from "./idempotency";
 import { privateMediaRenderer } from "./private-media-preview";
 import { TemplateSwapDialog } from "./template-swap-dialog";
 import {
+  outlineTitle,
   pageLookClassName,
   SectionCanvas,
   type SectionCanvasHandle,
@@ -187,35 +191,63 @@ const previewWidths: Record<PreviewViewport, string> = {
   mobile: "390px",
 };
 
-export function TemplateOption({
-  closeLabel,
-  loading,
-  locale,
-  onApply,
-  previewLabel,
-  previewTitle,
+/** A ready page in the gallery: its picture, name and goal; it opens the
+ *  template's details in the same panel (Kreator stron). */
+export function TemplateTile({
   template,
+  locale,
   thumbnailLabel,
-  useLabel,
+  onOpen,
+  buttonRef,
 }: {
-  closeLabel: string;
-  loading: boolean;
-  locale: "pl" | "en";
-  onApply: () => void;
-  previewLabel: string;
-  previewTitle: string;
   template: PageTemplate;
+  locale: "pl" | "en";
   thumbnailLabel: string;
-  useLabel: string;
+  onOpen: () => void;
+  buttonRef?: (node: HTMLButtonElement | null) => void;
 }) {
   const t = useTranslations("Sites");
   const label = template.labels[locale];
-  const style =
-    template.pagePresentation && "style" in template.pagePresentation
-      ? template.pagePresentation.style
-      : undefined;
+  return (
+    <li className="studio-template-tile">
+      <div
+        aria-label={thumbnailLabel}
+        className="studio-template-thumb"
+        role="img"
+      >
+        <div aria-hidden="true" className="studio-template-thumb__canvas" inert>
+          <TemplateRender template={template} locale={locale} />
+        </div>
+      </div>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="studio-template-tile__open"
+        onClick={onOpen}
+      >
+        <span className="studio-template-tile__name">{label.name}</span>{" "}
+        {template.conversion ? (
+          <span className="studio-template-tile__goal">
+            {t("templateGoal", {
+              goal: t(`conversionGoals.${template.conversion.goal}`),
+            })}
+          </span>
+        ) : null}
+      </button>
+    </li>
+  );
+}
+
+/** The recipe as the import would build it, in the neutral look. */
+function TemplateRender({
+  template,
+  locale,
+}: {
+  template: PageTemplate;
+  locale: "pl" | "en";
+}) {
   const preview = pageTemplatePreview(template, locale);
-  const rendered = renderDraftPreview(
+  return renderDraftPreview(
     {
       kind: "draft-preview",
       versionId: `template:${template.id}:v${template.version}`,
@@ -226,33 +258,54 @@ export function TemplateOption({
     registry,
     preview.imageRenderer,
   );
+}
 
+/** One template in the panel: what it is for, the sections it brings, its
+ *  full preview and "use". */
+export function TemplateDetail({
+  closeLabel,
+  loading,
+  locale,
+  onApply,
+  onBack,
+  template,
+}: {
+  closeLabel: string;
+  loading: boolean;
+  locale: "pl" | "en";
+  onApply: () => void;
+  onBack?: () => void;
+  template: PageTemplate;
+}) {
+  const t = useTranslations("Sites");
+  const typeName = useSectionTypeName();
+  const label = template.labels[locale];
+  const style =
+    template.pagePresentation && "style" in template.pagePresentation
+      ? template.pagePresentation.style
+      : undefined;
+  const sections = pageTemplatePreview(template, locale).blocks;
+  const sectionsId = useId();
   return (
-    <Card className="h-full overflow-hidden">
-      <div
-        aria-label={thumbnailLabel}
-        className="relative h-40 overflow-hidden border-b bg-muted/30"
-        role="img"
-      >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 w-[960px] origin-top-left scale-[0.32]"
-          inert
+    <div className="studio-template-detail">
+      {onBack ? (
+        <button
+          // The detail replaces the gallery: the way back takes the focus.
+          autoFocus
+          type="button"
+          className="studio-back"
+          onClick={onBack}
         >
-          {rendered}
-        </div>
-        <div className="absolute inset-x-0 bottom-0 bg-background/95 px-4 py-3 shadow-[0_-8px_24px_hsl(var(--background))]">
-          <p className="font-medium">{label.name}</p>
-          <p className="line-clamp-1 text-xs text-muted-foreground">
-            {label.description}
-          </p>
-        </div>
-      </div>
-      <CardHeader>
-        <CardTitle className="text-base">{label.name}</CardTitle>
-        <CardDescription>{label.description}</CardDescription>
+          <ChevronLeftIcon aria-hidden="true" />
+          {t("studio.allTemplates")}
+        </button>
+      ) : null}
+      <div className="space-y-1.5">
+        <h4 className="text-[0.9375rem] leading-snug font-semibold">
+          {label.name}
+        </h4>
         {(template.conversion || style) && (
-          <p className="flex flex-wrap gap-1.5">
+          <p className="flex flex-wrap gap-1">
             {template.conversion && (
               <Badge variant="secondary">
                 {t("templateGoal", {
@@ -269,52 +322,145 @@ export function TemplateOption({
             )}
           </p>
         )}
-      </CardHeader>
-      <CardContent className="grid gap-2">
+      </div>
+      <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
+        {label.description}
+      </p>
+      <div className="space-y-1.5">
+        <h5 className="studio-library-group" id={sectionsId}>
+          {t("studio.templateSections", { count: sections.length })}
+        </h5>
+        <ol aria-labelledby={sectionsId} className="studio-template-sections">
+          {sections.map((block, index) => (
+            <li key={index}>
+              <span aria-hidden="true">{index + 1}</span>
+              <span className="shrink-0">{typeName(block.block_type)}</span>
+              <span className="min-w-0 truncate text-muted-foreground">
+                {outlineTitle({
+                  block_type: block.block_type,
+                  data: block.data,
+                } as BlockFormValues)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="studio-template-actions">
         <Dialog>
           <DialogTrigger
             render={
               <Button
-                className="h-auto min-h-10 w-full whitespace-normal py-2"
+                className="pointer-fine:h-8"
+                size="sm"
                 type="button"
                 variant="outline"
               />
             }
           >
             <EyeIcon aria-hidden="true" />
-            {previewLabel}
+            {t("sectionLibrary.previewAction")}
           </DialogTrigger>
           <DialogContent
             className="max-h-[90vh] max-w-4xl overflow-y-auto"
             closeLabel={closeLabel}
           >
             <DialogHeader>
-              <DialogTitle>{previewTitle}</DialogTitle>
+              <DialogTitle>
+                {t("previewNamedTemplate", { name: label.name })}
+              </DialogTitle>
               <DialogDescription>{label.description}</DialogDescription>
             </DialogHeader>
             <div
-              aria-label={previewTitle}
+              aria-label={t("previewNamedTemplate", { name: label.name })}
               className="overflow-hidden rounded-xl border bg-background p-5 [&_a]:underline [&_address]:space-y-2 [&_address]:not-italic [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:font-medium [&_li]:mt-2 [&_main]:space-y-5 [&_p]:mt-2 [&_section]:rounded-lg [&_section]:border [&_section]:p-5"
               role="img"
             >
               <div aria-hidden="true" inert>
-                {rendered}
+                <TemplateRender template={template} locale={locale} />
               </div>
             </div>
           </DialogContent>
         </Dialog>
-        {/* The studio rail is 300 px: a long template name wraps. */}
+        {/* A long template name wraps in the 300 px panel. */}
         <Button
-          aria-label={useLabel}
-          className="h-auto min-h-10 whitespace-normal py-2"
+          aria-label={t("useNamedTemplate", { name: label.name })}
+          className="h-auto min-h-9 flex-1 whitespace-normal py-1.5 pointer-fine:min-h-8"
           disabled={loading}
           onClick={onApply}
+          size="sm"
           type="button"
         >
-          {useLabel}
+          {t("studio.useTemplate")}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
+  );
+}
+
+/** The panel's page templates: the company's first, then the ready ones as
+ *  a gallery; one opens its details in place of the gallery. */
+function PageTemplatePicker({
+  closeLabel,
+  company,
+  loading,
+  locale,
+  onApply,
+  templates,
+}: {
+  closeLabel: string;
+  company: ReactNode;
+  loading: boolean;
+  locale: "pl" | "en";
+  onApply: (template: PageTemplate) => void;
+  templates: readonly PageTemplate[];
+}) {
+  const t = useTranslations("Sites");
+  const [open, setOpen] = useState<string | null>(null);
+  const tiles = useRef(new Map<string, HTMLButtonElement>());
+  const opened = templates.find((template) => template.id === open);
+  if (opened)
+    return (
+      <TemplateDetail
+        closeLabel={closeLabel}
+        loading={loading}
+        locale={locale}
+        onApply={() => onApply(opened)}
+        onBack={() => {
+          setOpen(null);
+          requestAnimationFrame(() => tiles.current.get(opened.id)?.focus());
+        }}
+        template={opened}
+      />
+    );
+  return (
+    <div className="space-y-5">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {t("startFromTemplateDescription")}
+      </p>
+      {company}
+      <section aria-labelledby="ready-page-templates" className="space-y-2">
+        <h4 id="ready-page-templates" className="studio-library-group">
+          {t("ownTemplates.readyGroup")} · {templates.length}
+        </h4>
+        <ul className="studio-template-grid">
+          {templates.map((template) => (
+            <TemplateTile
+              key={template.id}
+              buttonRef={(node) => {
+                if (node) tiles.current.set(template.id, node);
+                else tiles.current.delete(template.id);
+              }}
+              locale={locale}
+              onOpen={() => setOpen(template.id)}
+              template={template}
+              thumbnailLabel={t("templateThumbnail", {
+                name: template.labels[locale].name,
+              })}
+            />
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 
@@ -1390,69 +1536,50 @@ export function PageEditor({
                             </div>
                           }
                           templates={
-                            <div className="space-y-4">
-                              <p className="text-sm text-muted-foreground">
-                                {t("startFromTemplateDescription")}
-                              </p>
-                              <SaveAsTemplate
-                                kind="page"
-                                triggerLabel={t("ownTemplates.savePage")}
-                                disabled={loading || blocks.fields.length === 0}
-                                blocks={() => draftForm.getValues("blocks")}
-                                pagePresentation={() =>
-                                  draftForm.getValues("page_presentation")
-                                }
-                                sourcePageId={page.id}
-                              />
-                              <OwnPageTemplates
-                                disabled={loading}
-                                onUse={(template) => {
-                                  if (blocks.fields.length)
-                                    setReplacement({
-                                      template,
-                                      blocks: draftForm.getValues("blocks"),
-                                    });
-                                  else void applyTemplate(template);
-                                }}
-                              />
-                              <h3 className="text-sm font-semibold">
-                                {t("ownTemplates.readyGroup")}
-                              </h3>
-                              <ul className="grid gap-4">
-                                {pageTemplates.map((template) => (
-                                  <li key={template.id}>
-                                    <TemplateOption
-                                      closeLabel={common("close")}
-                                      loading={loading}
-                                      locale={templateLocale}
-                                      onApply={() => {
-                                        if (blocks.fields.length)
-                                          setReplacement({
-                                            template,
-                                            blocks:
-                                              draftForm.getValues("blocks"),
-                                          });
-                                        else void applyTemplate(template);
-                                      }}
-                                      previewLabel={t("previewTemplate")}
-                                      previewTitle={t("previewNamedTemplate", {
-                                        name: template.labels[templateLocale]
-                                          .name,
-                                      })}
-                                      template={template}
-                                      thumbnailLabel={t("templateThumbnail", {
-                                        name: template.labels[templateLocale]
-                                          .name,
-                                      })}
-                                      useLabel={t("useNamedTemplate", {
-                                        name: template.labels[templateLocale]
-                                          .name,
-                                      })}
+                            <PageTemplatePicker
+                              closeLabel={common("close")}
+                              company={
+                                <OwnPageTemplates
+                                  compact
+                                  disabled={loading}
+                                  onUse={(template) => {
+                                    if (blocks.fields.length)
+                                      setReplacement({
+                                        template,
+                                        blocks: draftForm.getValues("blocks"),
+                                      });
+                                    else void applyTemplate(template);
+                                  }}
+                                  save={
+                                    <SaveAsTemplate
+                                      kind="page"
+                                      triggerLabel={t("ownTemplates.savePage")}
+                                      disabled={
+                                        loading || blocks.fields.length === 0
+                                      }
+                                      blocks={() =>
+                                        draftForm.getValues("blocks")
+                                      }
+                                      pagePresentation={() =>
+                                        draftForm.getValues("page_presentation")
+                                      }
+                                      sourcePageId={page.id}
                                     />
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
+                                  }
+                                />
+                              }
+                              loading={loading}
+                              locale={templateLocale}
+                              onApply={(template) => {
+                                if (blocks.fields.length)
+                                  setReplacement({
+                                    template,
+                                    blocks: draftForm.getValues("blocks"),
+                                  });
+                                else void applyTemplate(template);
+                              }}
+                              templates={pageTemplates}
+                            />
                           }
                           emptyState={
                             <div className="studio-empty-page">

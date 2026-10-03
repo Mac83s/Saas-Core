@@ -21,7 +21,7 @@ import {
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { registry } from "./block-form";
-import { PageEditor, TemplateOption } from "./page-editor";
+import { PageEditor, TemplateDetail, TemplateTile } from "./page-editor";
 
 const {
   getPageDraft,
@@ -457,7 +457,7 @@ test("the template gallery shows the new recipes with their bundled photos", asy
   ])
     expect(
       within(rail).getByRole("button", {
-        name: new RegExp(`^Użyj szablonu .*${name}`),
+        name: (accessible) => accessible.startsWith(name),
       }),
     ).toBeDefined();
   const images = [...rail.querySelectorAll("img")];
@@ -551,12 +551,12 @@ test("the gallery offers no retired template and labels each recipe's goal", asy
   );
   expect(retired.length).toBeGreaterThan(0);
   expect(
-    within(rail).getAllByRole("button", { name: /^Użyj szablonu / }),
+    within(rail).getAllByRole("img", { name: /^Miniatura szablonu / }),
   ).toHaveLength(offered.length);
   for (const template of retired)
     expect(
-      within(rail).queryByRole("button", {
-        name: `Użyj szablonu ${template.labels.pl.name}`,
+      within(rail).queryByRole("img", {
+        name: `Miniatura szablonu ${template.labels.pl.name}`,
       }),
     ).toBeNull();
   expect(within(rail).queryAllByText(/^Cel: /)).toHaveLength(
@@ -579,23 +579,36 @@ test.each([
         stages: base.blocks.map(() => "interest" as const),
       },
     };
+    const onOpen = vi.fn();
     const { container } = render(
       <NextIntlClientProvider locale={locale} messages={messages}>
-        <TemplateOption
+        <ul>
+          <TemplateTile
+            locale={locale}
+            onOpen={onOpen}
+            template={template}
+            thumbnailLabel="Thumbnail"
+          />
+        </ul>
+        <TemplateDetail
           closeLabel="Close"
           loading={false}
           locale={locale}
           onApply={vi.fn()}
-          previewLabel="Preview"
-          previewTitle="Preview title"
           template={template}
-          thumbnailLabel="Thumbnail"
-          useLabel="Use"
         />
       </NextIntlClientProvider>,
     );
-    expect(screen.getByText(goal)).toBeDefined();
+    // The tile names the goal; the details add the page style.
+    expect(screen.getAllByText(goal)).toHaveLength(2);
     expect(screen.getByText(style)).toBeDefined();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: (accessible) =>
+          accessible.startsWith(template.labels[locale].name),
+      }),
+    );
+    expect(onOpen).toHaveBeenCalledOnce();
     expect(
       screen
         .getByRole("img", { name: "Thumbnail" })

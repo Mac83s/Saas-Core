@@ -40,7 +40,7 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
 | 1   | One 52 px top bar: back, page name + "Szkic, wersja N", mode, undo/redo, device switch in the middle, language, „…”, preview, save | done  |
 | 2   | Vertical 72 px icon rail + one 300 px panel; compact outline with header/footer rows and a working drag handle         | done  |
 | 3   | Section library: category chips with counts, compact rows (thumbnail, name, two lines, eye + "+"), insert hint, canvas "+" opens it in the panel | done  |
-| 4   | Page templates: two-column grid of thumbnails, in-panel detail (description, goal/style, section list, preview, use)   | todo  |
+| 4   | Page templates: two-column gallery of rendered thumbnails, in-panel detail (description, goal/style, section list, preview, use) | done  |
 | 5   | Inspector: "Sekcja N z M" header with icon actions; tabs Treść / Układ / Styl                                           | todo  |
 | 6   | Tests, axe, PL/EN, 390 px check                                                                                       | todo  |
 
@@ -51,7 +51,8 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
 - `apps/frontend/src/modules/shared/sites/section-canvas.tsx`
 - `apps/frontend/src/modules/shared/sites/section-library.tsx` and its test
 - `apps/frontend/src/modules/shared/sites/own-templates.tsx` (compact rows
-  for company section templates; the page-template part is unchanged)
+  for company section and page templates in the studio's panel; the cards
+  elsewhere are unchanged)
 - `apps/frontend/src/modules/shared/sites/page-editor-rich-content.test.tsx`
   (picks the category by its chip)
 - `packages/ui/src/styles/site-studio.css`
@@ -102,6 +103,17 @@ No backend, API, OpenAPI, `api-client` or migration changes so far.
   moved under the library („Potrzebujesz czegoś innego?”).
 - Messages: `Sites.sectionLibrary.allShort`, `Sites.sectionLibrary.chip.*`,
   `Sites.studio.insertAtStart`, `insertAfterNumber`, `blankHint` added.
+
+- Page templates: `TemplateOption` (one tall card per recipe) is replaced by
+  `TemplateTile` (a 3:4 render at 12.5 % with name and goal; the whole tile is
+  one button) and `TemplateDetail` (the template's goal and style, its
+  sections by type and heading, the full preview dialog and "Użyj szablonu",
+  which keeps its accessible name „Użyj szablonu {name}”). `PageTemplatePicker`
+  in `page-editor.tsx` holds which one is open; the way back focuses its tile.
+  Company page templates sit above as compact rows, or a dashed box with
+  "save this page" when there are none. The swap flow is unchanged.
+- Messages: `Sites.studio.allTemplates`, `templateSections`, `useTemplate`
+  added.
 
 ## How to verify
 
