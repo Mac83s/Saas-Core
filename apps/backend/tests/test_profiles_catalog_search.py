@@ -676,6 +676,8 @@ def test_a_vet_is_found_by_its_german_trade(
     engine: FakeEngine, django_capture_on_commit_callbacks: Any, settings: Any
 ) -> None:
     settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+    if "zwierzeta" not in categories(settings.DEFAULT_ORGANIZATION_TYPE):
+        pytest.skip("The product's own dictionary has no animal trade (MedPlano 55a).")
     _client, organization = _published(
         "szukaj-weterynarz",
         django_capture_on_commit_callbacks,

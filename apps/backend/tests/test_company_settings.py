@@ -31,6 +31,7 @@ from saas_core.modules.core.organizations.settings_registry import (
     area_problems,
     register_setting_area,
     register_setting_group,
+    registered_areas,
     schema_entry,
     settings_defaults_problems,
 )
@@ -348,7 +349,10 @@ def test_the_api_reads_previews_and_changes_a_group_with_a_key() -> None:
     assert {group["area"] for group in groups.values()} == set(areas)
     assert areas["company"]["page"] == "/panel/settings/company"
     assert areas["security"]["page"] is None
-    assert areas["customer-emails"]["title"]["pl"] == "E-maile do klientów"
+    # A product may give the area its own words (relabel_settings, UX-082).
+    assert areas["customer-emails"]["title"] == dict(
+        next(area for area in registered_areas() if area.key == "customer-emails").title
+    )
     assert groups[REMINDERS]["can_change"] is True
     assert [key["key"] for key in groups[REMINDERS]["keys"]] == [
         "booking.reminders.enabled",

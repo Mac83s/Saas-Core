@@ -261,30 +261,33 @@ def test_a_product_moves_a_card_to_its_own_category_once_and_says_so() -> None:
         CATEGORY_CHANGED_NOTICE,
         recategorize_organization_card,
     )
+    from saas_core.modules.shared.profiles.catalog_contract import categories  # noqa: PLC0415
 
     organization = _organization("przenosiny")
     manager = _member(organization)
+    # Two categories the profile's own dictionary has; a product may have its own.
+    old, new = list(categories(organization.organization_type))[:2]
     profile = _create(
         organization,
         subject_kind=ProfileSubjectKind.ORGANIZATION,
         display_name="Gabinet Przenosiny",
-        category="uroda-i-zdrowie",
+        category=old,
     )
-    label = {"pl": "Usługi dla domu", "en": "Home services"}
+    label = {"pl": "Nowa kategoria", "en": "New category"}
 
     def move() -> bool:
         with activate_tenant_context(_context(organization)):
             set_local_organization_id(organization.id)
             return recategorize_organization_card(
                 organization_id=organization.id,
-                old="uroda-i-zdrowie",
-                new="uslugi-dla-domu",
+                old=old,
+                new=new,
                 label=label,
             )
 
     assert move() is True
     moved = PublicProfile.all_objects.get(pk=profile.id)
-    assert (moved.category, moved.version) == ("uslugi-dla-domu", profile.version + 1)
+    assert (moved.category, moved.version) == (new, profile.version + 1)
     (notice,) = AppNotification.all_objects.filter(
         organization_id=organization.id, kind=CATEGORY_CHANGED_NOTICE
     )
