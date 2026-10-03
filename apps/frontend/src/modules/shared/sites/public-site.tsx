@@ -136,6 +136,7 @@ function notFoundOf(body: string): PublicSiteResult {
 
 /** What `article` carries for an entry (`null` on every other page). */
 interface PublishedArticle {
+  readonly title?: string;
   readonly author_name?: string;
   readonly published_at?: string | null;
   readonly updated_at?: string;
@@ -203,6 +204,7 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       kind: "publication",
       locale: page.locale,
       article: article && {
+        title: article.title,
         authorName: article.author_name,
         publishedAt: article.published_at,
         updatedAt: article.updated_at,

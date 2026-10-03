@@ -718,6 +718,9 @@ def _find_entry(
                 # What a reader and a search engine both want to know about an
                 # article and never about a page: who wrote it and when.
                 "article": {
+                    # In the article's own language: each language is its own
+                    # entry. The page opens with it unless its text already does.
+                    "title": str(snapshot["title"]),
                     "author_name": str(snapshot.get("author_name", "")),
                     "published_at": (
                         entry.published_at.isoformat()

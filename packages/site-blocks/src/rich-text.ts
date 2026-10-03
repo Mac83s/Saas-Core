@@ -118,7 +118,7 @@ export function setAtPath(
   parent[last] = value;
 }
 
-function richTextHeadings(
+export function richTextHeadings(
   block: SiteBlock,
 ): Extract<RichTextNode, { type: "heading" }>[] {
   const content = block.data.content;

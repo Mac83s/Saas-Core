@@ -323,13 +323,23 @@
   text-decoration: none;
 }
 
-/* An article's author and day, above its text and in line with it. */
-.site-article-byline {
+/* An article's opening: its title and who wrote it when. A section like any
+   other, so the theme's type and gutter apply; closer to the text it opens. */
+.site-theme .site-block.site-article-header {
+  --site-heading-size: clamp(1.875rem, 1.2rem + 2.4cqw, 3rem);
+  display: grid;
+  gap: 0.75rem;
+  padding-bottom: 0;
+}
+.site-article-header h1 {
+  max-width: 28ch;
+}
+.site-theme .site-block .site-article-byline {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
   margin: 0;
-  padding: 2rem 1.5rem 0;
   font-size: 0.875rem;
+  line-height: 1.5;
   opacity: 0.85;
 }

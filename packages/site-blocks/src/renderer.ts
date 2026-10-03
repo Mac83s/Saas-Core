@@ -9,7 +9,7 @@ import {
   type SiteAppearance,
 } from "./appearance";
 import {
-  renderArticleByline,
+  renderArticleHeader,
   renderLanguageSwitcher,
   renderSiteHeader,
   renderSiteFooter,
@@ -198,7 +198,7 @@ function renderDocument(
   pagePresentation?: PagePresentationV1 | PagePresentationV2 | null,
   appearanceLang?: AppearanceLang,
   languageSwitch?: ReactElement | null,
-  byline?: ReactElement | null,
+  articleHeader?: ReactElement | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -218,7 +218,7 @@ function renderDocument(
     createElement(
       contentElement,
       null,
-      byline ?? null,
+      articleHeader ?? null,
       ...blocks.map((block, index) =>
         registry.render(
           block,
@@ -291,17 +291,18 @@ export function renderPublishedPage(
   ) {
     throw new TypeError("Renderer publiczny wymaga zweryfikowanej publikacji.");
   }
+  // A visitor never reads a template's slot or its sample contact (UX-038);
+  // a block the cleaning would make invalid stays as it was.
+  const blocks = withoutTemplateLeftovers(document.blocks, (block) => {
+    try {
+      registry.validate(block);
+      return true;
+    } catch {
+      return false;
+    }
+  });
   return renderDocument(
-    // A visitor never reads a template's slot or its sample contact (UX-038);
-    // a block the cleaning would make invalid stays as it was.
-    withoutTemplateLeftovers(document.blocks, (block) => {
-      try {
-        registry.validate(block);
-        return true;
-      } catch {
-        return false;
-      }
-    }),
+    blocks,
     document.designTokens,
     registry,
     document.navigation ?? [],
@@ -322,8 +323,9 @@ export function renderPublishedPage(
       document.languageLinks,
       siteUiTexts(document.locale).languages,
     ),
-    renderArticleByline(
+    renderArticleHeader(
       document.article,
+      blocks,
       document.locale ?? "pl",
       siteUiTexts(document.locale).updated,
     ),

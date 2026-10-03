@@ -1,10 +1,12 @@
 import { createElement as h, type ReactNode } from "react";
 import type { SiteAppearance } from "./appearance";
+import { richTextHeadings } from "./rich-text";
 import type {
   AppearanceLang,
-  ArticleByline,
   LanguageLink,
   NavigationLink,
+  PublishedArticle,
+  SiteBlock,
 } from "./types";
 
 /** Plain links, so the switch works without JavaScript: each language at the
@@ -41,14 +43,37 @@ export function renderLanguageSwitcher(
   );
 }
 
-/** An article's author and day, in the page's language and the company's
- *  zone. The day the text changed is added once it is a later one. */
-export function renderArticleByline(
-  article: ArticleByline | null | undefined,
+/** Case, spacing and closing punctuation apart: "Zima." is "zima". */
+function comparableTitle(value: string): string {
+  return value
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[\p{P}\s]+$/u, "");
+}
+
+/** Whether the article's own sections already say its title: a hero is the
+ *  page's `h1`, and a title typed as the first heading of the text stays as
+ *  its author wrote it. The page never says the title twice. */
+export function articleShowsItsTitle(
+  blocks: readonly SiteBlock[],
+  title: string,
+): boolean {
+  if (blocks.some((block) => block.block_type === "core.hero")) return true;
+  const text = blocks.find((block) => block.block_type === "core.rich_text");
+  const heading = text ? richTextHeadings(text)[0] : undefined;
+  return (
+    heading !== undefined &&
+    comparableTitle(heading.text) === comparableTitle(title)
+  );
+}
+
+function renderArticleByline(
+  article: PublishedArticle,
   locale: string,
   updatedLabel: string,
 ) {
-  if (!article) return null;
   const day = (moment: string | null | undefined) => {
     const date = moment ? new Date(moment) : null;
     if (!date || Number.isNaN(date.getTime())) return null;
@@ -87,6 +112,30 @@ export function renderArticleByline(
           h("time", { dateTime: updated.moment.toISOString() }, updated.text),
         )
       : null,
+  );
+}
+
+/** What an article opens with: its title as the page's `h1` unless its own
+ *  sections already say it, then the author and the day — in the page's
+ *  language and the company's zone, with the day the text changed once that
+ *  is a later one. A section like any other, so the theme sets its type. */
+export function renderArticleHeader(
+  article: PublishedArticle | null | undefined,
+  blocks: readonly SiteBlock[],
+  locale: string,
+  updatedLabel: string,
+) {
+  if (!article) return null;
+  const title = article.title?.trim();
+  const heading =
+    title && !articleShowsItsTitle(blocks, title) ? h("h1", null, title) : null;
+  const byline = renderArticleByline(article, locale, updatedLabel);
+  if (!heading && !byline) return null;
+  return h(
+    "header",
+    { className: "site-block site-article-header" },
+    heading,
+    byline,
   );
 }
 

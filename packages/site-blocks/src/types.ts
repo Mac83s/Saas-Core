@@ -602,8 +602,9 @@ export interface LanguageLink {
   readonly current: boolean;
 }
 
-/** Who wrote an article and when, as its page says it under no heading. */
-export interface ArticleByline {
+/** What an article's page opens with: its title, who wrote it and when. */
+export interface PublishedArticle {
+  readonly title?: string;
   readonly authorName?: string;
   readonly publishedAt?: string | null;
   /** When the text last changed; shown only on a later day than publishing. */
@@ -615,7 +616,7 @@ export interface ArticleByline {
 export interface PublishedPageDocument {
   readonly locale?: string;
   /** Only an article has one. */
-  readonly article?: ArticleByline | null;
+  readonly article?: PublishedArticle | null;
   /** Each live language of the site; nothing to switch to, no switch. */
   readonly languageLinks?: readonly LanguageLink[];
   readonly appearance?: SiteAppearance | null;

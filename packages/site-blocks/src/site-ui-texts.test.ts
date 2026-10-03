@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 import { coreSiteBlockManifest } from "./core-manifest";
 import { createSiteBlockRegistry } from "./registry";
 import { renderPublishedPage } from "./renderer";
-import { renderArticleByline, renderLanguageSwitcher } from "./site-chrome";
+import {
+  articleShowsItsTitle,
+  renderArticleHeader,
+  renderLanguageSwitcher,
+} from "./site-chrome";
+import type { SiteBlock } from "./types";
 import { SITE_UI_LOCALES, siteUiTexts } from "./site-ui-texts";
 
 describe("site UI texts", () => {
@@ -55,34 +60,94 @@ describe("language switch", () => {
   });
 });
 
-describe("article byline", () => {
+describe("article header", () => {
   const article = {
+    title: "Jak dbać o włosy zimą",
     authorName: "Anna Kowalska",
     // Half past midnight on 1 October in Warsaw.
     publishedAt: "2026-09-30T22:30:00+00:00",
     updatedAt: "2026-09-30T23:10:00+00:00",
     timeZone: "Europe/Warsaw",
   };
+  const paragraphs: SiteBlock[] = [
+    {
+      block_type: "core.rich_text",
+      schema_version: 2,
+      data: {
+        content: [
+          { type: "paragraph", content: [{ text: "Mróz wysusza włosy." }] },
+        ],
+      },
+    },
+  ];
+  const withHeading = (text: string): SiteBlock[] => [
+    {
+      block_type: "core.rich_text",
+      schema_version: 2,
+      data: {
+        content: [
+          { type: "paragraph", content: [{ text: "Wstęp." }] },
+          { type: "heading", level: 2, anchor: "tytul", text },
+          { type: "heading", level: 2, anchor: "dalej", text: "Dalej" },
+        ],
+      },
+    },
+  ];
+  const hero: SiteBlock = {
+    block_type: "core.hero",
+    schema_version: 6,
+    data: { title: "Zima" },
+  };
+  const header = (
+    blocks: readonly SiteBlock[],
+    locale = "pl",
+    facts: Parameters<typeof renderArticleHeader>[0] = article,
+  ) =>
+    renderToStaticMarkup(
+      renderArticleHeader(facts, blocks, locale, siteUiTexts(locale).updated),
+    );
 
-  it("names the author and the day in the page's language and the company's zone", () => {
-    expect(
-      renderToStaticMarkup(
-        renderArticleByline(article, "pl", siteUiTexts("pl").updated),
-      ),
-    ).toBe(
-      '<p class="site-article-byline"><span>Anna Kowalska</span>' +
-        '<time dateTime="2026-09-30T22:30:00.000Z">1 października 2026</time></p>',
+  it("opens plain paragraphs with the title, the author and the day in the company's zone", () => {
+    expect(header(paragraphs)).toBe(
+      '<header class="site-block site-article-header"><h1>Jak dbać o włosy zimą</h1>' +
+        '<p class="site-article-byline"><span>Anna Kowalska</span>' +
+        '<time dateTime="2026-09-30T22:30:00.000Z">1 października 2026</time></p></header>',
     );
   });
 
-  it("adds the day the text changed once it is a later one", () => {
-    const html = renderToStaticMarkup(
-      renderArticleByline(
-        { ...article, updatedAt: "2026-10-04T08:00:00+00:00" },
-        "de",
-        siteUiTexts("de").updated,
-      ),
+  it("leaves the title to a hero, wherever it stands", () => {
+    expect(header([hero, ...paragraphs])).not.toContain("<h1>");
+    expect(header([...paragraphs, hero])).not.toContain("<h1>");
+    expect(header([hero])).toContain("Anna Kowalska");
+  });
+
+  it("leaves the title to the text's first heading when that is the title", () => {
+    // Case, spacing and closing punctuation apart.
+    expect(header(withHeading("  jak dbać o   włosy ZIMĄ?! "))).not.toContain(
+      "<h1>",
     );
+    expect(articleShowsItsTitle(withHeading("Dalej"), "Dalej")).toBe(true);
+    // Another heading, or the title further down, is not the opening.
+    expect(header(withHeading("Pielęgnacja"))).toContain(
+      "<h1>Jak dbać o włosy zimą</h1>",
+    );
+    expect(
+      articleShowsItsTitle(withHeading("Pielęgnacja"), "Dalej"),
+    ).toBe(false);
+    // Only the first text section is the opening.
+    expect(
+      articleShowsItsTitle(
+        [...paragraphs, ...withHeading(article.title)],
+        article.title,
+      ),
+    ).toBe(false);
+  });
+
+  it("adds the day the text changed once it is a later one", () => {
+    const html = header(paragraphs, "de", {
+      ...article,
+      updatedAt: "2026-10-04T08:00:00+00:00",
+    });
 
     expect(html).toContain(">1. Oktober 2026</time>");
     expect(html).toContain(
@@ -91,13 +156,18 @@ describe("article byline", () => {
   });
 
   it("is not there on a page, nor with nothing to say", () => {
-    expect(renderArticleByline(null, "pl", "Zaktualizowano")).toBeNull();
+    expect(renderArticleHeader(null, paragraphs, "pl", "x")).toBeNull();
     expect(
-      renderArticleByline({ authorName: "", publishedAt: null }, "pl", "x"),
+      renderArticleHeader(
+        { title: " ", authorName: "", publishedAt: null },
+        paragraphs,
+        "pl",
+        "x",
+      ),
     ).toBeNull();
   });
 
-  it("opens the article, before its first section", () => {
+  it("opens the published article, before its first section", () => {
     const html = renderToStaticMarkup(
       renderPublishedPage(
         {
@@ -119,7 +189,7 @@ describe("article byline", () => {
               data: { text: "Body" },
             },
           ],
-          article: { ...article, timeZone: "No/Such_Zone" },
+          article: { ...article, title: "Winter hair", timeZone: "No/Such_Zone" },
         },
         createSiteBlockRegistry([coreSiteBlockManifest]),
       ),
@@ -127,8 +197,9 @@ describe("article byline", () => {
 
     // A zone the runtime does not know counts the day in UTC.
     expect(html).toContain(
-      '<main><p class="site-article-byline"><span>Anna Kowalska</span>' +
-        '<time dateTime="2026-09-30T22:30:00.000Z">September 30, 2026</time></p><section',
+      '<main><header class="site-block site-article-header"><h1>Winter hair</h1>' +
+        '<p class="site-article-byline"><span>Anna Kowalska</span>' +
+        '<time dateTime="2026-09-30T22:30:00.000Z">September 30, 2026</time></p></header><section',
     );
   });
 });
