@@ -266,7 +266,10 @@ def test_a_product_moves_a_card_to_its_own_category_once_and_says_so() -> None:
     organization = _organization("przenosiny")
     manager = _member(organization)
     # Two categories the profile's own dictionary has; a product may have its own.
-    old, new = list(categories(organization.organization_type))[:2]
+    known = list(categories(organization.organization_type))
+    if len(known) < 2:
+        pytest.skip("The type's dictionary has one category: nowhere to move a card.")
+    old, new = known[:2]
     profile = _create(
         organization,
         subject_kind=ProfileSubjectKind.ORGANIZATION,
