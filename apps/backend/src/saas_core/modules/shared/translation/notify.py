@@ -100,7 +100,7 @@ def notify_job_problem(job: TranslationJob, *, written: int, total: int) -> None
         queue_email(
             recipient_email=user.email,
             template_key=JOB_PROBLEM,
-            template_version=1,
+            template_version=2,
             locale=locale,
             template_context={
                 "organization_name": organization.name,
@@ -151,7 +151,7 @@ def notify_waiting_reviews() -> int:
                     queue_email(
                         recipient_email=user.email,
                         template_key=REVIEW_WAITING,
-                        template_version=1,
+                        template_version=2,
                         locale=locale,
                         template_context={
                             "organization_name": organization.name,
@@ -232,6 +232,60 @@ def register_templates() -> None:
                 ),
             },
             allowed_context=frozenset({"organization_name", "written", "total", "panel_url"}),
+            audience=AUDIENCE_STAFF,
+        )
+    )
+    # Version 2 of the two counted notices: the number stands apart, so the
+    # sentence is right for 1, 2 and 5 alike ("1 tłumaczeń czeka" was not).
+    register_email_template(
+        EmailTemplate(
+            key=JOB_PROBLEM,
+            version=2,
+            category="required",
+            subjects={
+                "pl": "Tłumaczenie zakończone z brakami",
+                "en": "A translation finished with gaps",
+            },
+            bodies={
+                "pl": (
+                    "<p>{organization_name}: zlecenie tłumaczenia nie objęło wszystkiego. "
+                    "Przetłumaczone pozycje: {written} z {total}. Za resztę nie pobrano "
+                    "kredytów.</p>"
+                    '<p><a href="{panel_url}">Zobacz zlecenie</a></p>'
+                ),
+                "en": (
+                    "<p>{organization_name}: a translation job did not cover everything. "
+                    "Items translated: {written} of {total}. No credits were taken for the "
+                    "rest.</p>"
+                    '<p><a href="{panel_url}">Open the job</a></p>'
+                ),
+            },
+            allowed_context=frozenset({"organization_name", "written", "total", "panel_url"}),
+            audience=AUDIENCE_STAFF,
+        )
+    )
+    register_email_template(
+        EmailTemplate(
+            key=REVIEW_WAITING,
+            version=2,
+            category="required",
+            subjects={
+                "pl": "Tłumaczenia czekają na akceptację",
+                "en": "Translations wait for approval",
+            },
+            bodies={
+                "pl": (
+                    "<p>{organization_name}: na Twoją decyzję czekają tłumaczenia "
+                    "({count}).</p>"
+                    '<p><a href="{panel_url}">Przejrzyj</a></p>'
+                ),
+                "en": (
+                    "<p>{organization_name}: translations are waiting for your decision "
+                    "({count}).</p>"
+                    '<p><a href="{panel_url}">Review them</a></p>'
+                ),
+            },
+            allowed_context=frozenset({"organization_name", "count", "panel_url"}),
             audience=AUDIENCE_STAFF,
         )
     )

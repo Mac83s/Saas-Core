@@ -185,3 +185,25 @@ def test_the_operator_takes_a_job_back_with_a_reason(pages: JobSource) -> None:
         organization=owner.organization, action="translation.job_reverted"
     )
     assert (entry.actor_user_id, entry.metadata["reason"]) == (staff.id, "Skarga klienta")
+
+
+@pytest.mark.parametrize("count", ["1", "2", "5"])
+def test_the_counted_notices_read_right_whatever_the_number(count: str) -> None:
+    """„1 tłumaczeń czeka” was the first wording: the number now stands apart."""
+    from saas_core.modules.shared.notifications.templates import render_template
+
+    for key, context in (
+        (REVIEW_WAITING, {"count": count}),
+        (JOB_PROBLEM, {"written": count, "total": "7"}),
+    ):
+        for locale in ("pl", "en"):
+            _subject, body = render_template(
+                key=key,
+                version=2,
+                locale=locale,
+                context={"organization_name": "Studio", "panel_url": "https://a.test", **context},
+            )
+            # The number is never the grammatical subject of a noun after it.
+            assert f"{count} tłumaczeń" not in body and f"{count} translations" not in body
+            assert f"{count} pozycji" not in body and f"{count} items" not in body
+            assert count in body
