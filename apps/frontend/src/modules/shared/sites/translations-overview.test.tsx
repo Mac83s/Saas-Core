@@ -23,6 +23,7 @@ const { api } = vi.hoisted(() => ({
     getTranslationOffer: vi.fn(),
     quoteTranslation: vi.fn(),
     getCustomerCredits: vi.fn(),
+    listTranslationJobs: vi.fn(),
   },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -106,6 +107,7 @@ beforeEach(() => {
   api.getSiteTranslationOverview.mockResolvedValue(PAGES);
   api.getTranslationOffer.mockResolvedValue(OFFER);
   api.getCustomerCredits.mockResolvedValue({ balance: { available: 40 } });
+  api.listTranslationJobs.mockResolvedValue({ items: [], next_cursor: null });
 });
 
 test("lists every page against the site's other languages, with the way into each version", async () => {
@@ -493,4 +495,45 @@ test("the page's action says when nothing is left, and is absent without an engi
   const second = action();
   await waitFor(() => expect(api.getTranslationOffer).toHaveBeenCalledTimes(2));
   expect(second.container.querySelector("button")).toBeNull();
+});
+
+test("a job that runs stands above the list with its progress", async () => {
+  api.listTranslationJobs.mockResolvedValue({
+    items: [
+      {
+        id: "0199f0a0-0000-7000-8000-0000000000d1",
+        state: "running",
+        trigger: "click",
+        error_code: "",
+        confirmation_required: false,
+        created_at: "2026-10-03T12:00:00Z",
+        next_attempt_at: "2026-10-03T12:00:00Z",
+        items: [{ state: "written" }, { state: "queued" }, { state: "queued" }],
+      },
+    ],
+    next_cursor: null,
+  });
+  const { container } = view();
+
+  const bar = await screen.findByRole("region", { name: "Tłumaczenia w toku" });
+  expect(bar.textContent).toContain("Tłumaczenie w toku: 1 z 3");
+  expect(bar.textContent).toContain("zlecone 3 paź 2026, 14:00");
+  expect(within(bar).getByRole("progressbar")).toBeTruthy();
+  expect(api.listTranslationJobs).toHaveBeenCalledWith({
+    active: true,
+    limit: 5,
+  });
+  await screen.findByRole("table");
+  await expectNoAxeViolations(container);
+});
+
+test("no bar where the deployment has no translation engine", async () => {
+  api.getTranslationOffer.mockRejectedValue(new Error("404"));
+  view();
+  await screen.findByRole("table");
+  await waitFor(() =>
+    expect(api.getSiteTranslationOverview).toHaveBeenCalled(),
+  );
+  expect(api.listTranslationJobs).not.toHaveBeenCalled();
+  expect(screen.queryByRole("region")).toBeNull();
 });

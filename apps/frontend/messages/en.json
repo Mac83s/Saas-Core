@@ -5158,6 +5158,7 @@
       "tabOverview": "Overview",
       "tabReview": "To approve",
       "tabReviewCount": "To approve ({count})",
+      "tabJobs": "Jobs",
       "caption": "Translations waiting for a decision",
       "colSelect": "Select",
       "colWhat": "What",
@@ -5263,6 +5264,130 @@
           "text": "{name} · {language}: the translation stays on the site although its source is no longer there.",
           "confirm": "Keep the translation"
         }
+      }
+    },
+    "jobs": {
+      "tab": "Jobs",
+      "description": "AI translation orders — yours and the automation's. The detail shows what was translated and what it cost in credits; a running job can be stopped and the last one taken back.",
+      "caption": "Translation jobs",
+      "colCreated": "Ordered",
+      "colTrigger": "Kind",
+      "colState": "State",
+      "colProgress": "Progress",
+      "colCredits": "Credits",
+      "colActions": "Actions",
+      "actionsFor": "Actions for the job of {date}",
+      "details": "Details",
+      "detailsOf": "Details of the job of {date}",
+      "trigger": {
+        "click": "Order",
+        "automatic": "Automatic translation of changes"
+      },
+      "states": {
+        "queued": "Queued",
+        "running": "Running",
+        "succeeded": "Done",
+        "partial": "Partly done",
+        "failed": "Failed",
+        "canceled": "Stopped"
+      },
+      "reverted": "Taken back",
+      "progress": "{done} of {total}",
+      "filterState": "State",
+      "allStates": "All",
+      "active": "Running",
+      "ended": "Ended",
+      "empty": "No translation has been ordered yet.",
+      "loadFailed": "The translation jobs could not be loaded.",
+      "waiting": {
+        "confirmation": "Waiting for the platform operator's confirmation.",
+        "pool": "Waiting for room at the AI provider — it resumes {time}.",
+        "stopping": "Stopping: the items already started are finishing."
+      },
+      "bar": {
+        "label": "Translations in progress",
+        "running": "Translation in progress: {done} of {total}",
+        "queued": "Translation waiting in the queue: {done} of {total}",
+        "from": {
+          "click": "ordered {date}",
+          "automatic": "automatic, {date}"
+        },
+        "progress": "Progress of the job of {date}"
+      },
+      "detail": {
+        "title": "Translation job",
+        "subtitle": "{trigger} · {date}",
+        "loading": "Loading the job…",
+        "notFound": "There is no such job.",
+        "summary": "The job's state",
+        "created": "Ordered",
+        "started": "Started",
+        "finished": "Ended",
+        "revertedAt": "Taken back",
+        "credits": "Credits",
+        "creditsLine": "quoted {quoted} · held now {held} · settled {settled}",
+        "platformBudget": "At the platform's cost — none of the company's credits.",
+        "items": "The job's items",
+        "colWhat": "What",
+        "colLanguage": "Language",
+        "colCharacters": "Characters",
+        "characters": "{delivered} of {quoted}",
+        "itemStates": {
+          "queued": "Queued",
+          "running": "Running",
+          "written": "Translated",
+          "failed": "Failed",
+          "canceled": "Cancelled",
+          "other": "Another state"
+        },
+        "outcomes": {
+          "live": "Published",
+          "draft": "Saved as a draft",
+          "pending": "Waiting for approval",
+          "conflict": "The content changed meanwhile",
+          "refused": "Not saved",
+          "other": "Saved"
+        },
+        "errors": {
+          "model_refused": "The model refused to translate.",
+          "qa_failed": "It did not pass the quality check.",
+          "deadline_passed": "The job's deadline passed.",
+          "authorization_revoked": "The person who ordered it no longer has the rights.",
+          "canceled": "Stopped before it started.",
+          "other": "It could not be translated."
+        },
+        "parts": "The job's parts",
+        "partsHint": "A large order is split into parts. Each holds its credits when it starts and settles only the translations delivered when it ends — the rest of the hold is released.",
+        "colPart": "Part",
+        "part": "Part {number}",
+        "colUnits": "Thousands of characters",
+        "colReserved": "Credits held",
+        "colSettled": "Credits settled",
+        "partStates": {
+          "queued": "Waiting",
+          "running": "Running",
+          "settled": "Settled",
+          "other": "Another state"
+        },
+        "cancel": "Stop the job",
+        "revert": "Take back the last job",
+        "keep": "Leave it",
+        "cancelDialog": {
+          "title": "Stop this job?",
+          "text": "Items not started yet are cancelled and those already started finish. Credits for the translations delivered are settled and the rest of the hold is released.",
+          "confirm": "Stop the job"
+        },
+        "revertDialog": {
+          "title": "Take this job back?",
+          "text": "The texts this job wrote go back to what stood before it — on the site too. Credits do not come back.",
+          "confirm": "Take the job back"
+        },
+        "stopped": "The job has been stopped.",
+        "takenBack": "The job was taken back: the texts are as they were before it.",
+        "finishedMeanwhile": "This job has already ended.",
+        "alreadyReverted": "This job was already taken back.",
+        "forbidden": "This decision belongs to a person who may order translations — in person, not the assistant.",
+        "failed": "It did not work. Try again."
       }
     },
     "unavailable": {

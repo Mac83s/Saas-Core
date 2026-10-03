@@ -6,9 +6,10 @@ import { listTranslationReview } from "@saas-core/api-client";
 
 import { PageTabs } from "#components/panel/page-tabs";
 
-/** „Tłumaczenia”: the overview and what waits for a person, one menu entry
- *  (TL16). The second view exists only where the engine does and the person
- *  may decide — the queue's own answer says so, and how much waits. */
+/** „Tłumaczenia”: the overview, what waits for a person and the jobs, one
+ *  menu entry (TL16). The views beside the overview exist only where the
+ *  engine does and the person may decide — the queue's own answer says so,
+ *  and how much waits. */
 export function TranslationTabs({
   waiting,
 }: {
@@ -46,6 +47,7 @@ export function TranslationTabs({
           href: "/panel/sites/translations/review",
           label: count ? t("tabReviewCount", { count }) : t("tabReview"),
         },
+        { href: "/panel/sites/translations/jobs", label: t("tabJobs") },
       ]}
     />
   );

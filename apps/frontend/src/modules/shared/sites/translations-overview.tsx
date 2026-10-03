@@ -27,6 +27,7 @@ import {
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { TranslationJobsBar } from "../translation/jobs-bar";
 import {
   TranslateDialog,
   TranslationUnavailable,
@@ -108,9 +109,12 @@ function useReasonText() {
  *  where an order can be taken; the list below says why when it cannot. */
 export function TranslateSiteAction({
   siteId,
+  onOrdered,
   onDone,
 }: {
   siteId: string;
+  /** An order was placed: a job runs now. */
+  onOrdered?: () => void;
   /** The order ended: what the list shows has changed. */
   onDone: () => void;
 }) {
@@ -166,7 +170,10 @@ export function TranslateSiteAction({
         onOpenChange={(open) => {
           if (!open) setTargets(undefined);
         }}
-        onOrdered={(started) => setJobId(started.id)}
+        onOrdered={(started) => {
+          setJobId(started.id);
+          onOrdered?.();
+        }}
         open={targets !== undefined}
         reasonText={reasonText}
         targets={targets ?? []}
@@ -411,6 +418,13 @@ export function TranslationsOverview({
       {offer.state === "unavailable" ? (
         <TranslationUnavailable reasons={offer.reasons} />
       ) : null}
+      {offer.state === "absent" || offer.state === "loading" ? null : (
+        <TranslationJobsBar
+          onFinished={() => setReloads((value) => value + 1)}
+          // Asked again when an order is placed here or from the page's header.
+          reloadKey={`${reloadKey}|${jobId ?? ""}`}
+        />
+      )}
       {answer?.problem && !loading ? (
         <div
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"

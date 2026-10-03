@@ -35,6 +35,7 @@ import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { SOURCE_KINDS, translationPlace } from "./job-words";
 import { ReviewCompareDialog } from "./review-compare";
 import { TranslationTabs } from "./translation-tabs";
 
@@ -57,33 +58,6 @@ const REASONS = [
   "gate_failed",
   "model_refused",
 ] as const;
-
-/** What each source's object is called in the panel. */
-const KINDS: Record<string, string> = {
-  "sites.page": "page",
-  "sites.entry": "entry",
-  "sites.site_texts": "siteTexts",
-  "profiles.public_profile": "profile",
-  "booking.catalog": "catalog",
-};
-
-/** Where the waiting text can be read and changed by hand. */
-function placeOf(row: Row): string | undefined {
-  switch (row.source_key) {
-    case "sites.page":
-      return `/panel/sites/pages/${row.object_id}?language=${row.locale}`;
-    case "sites.entry":
-      return row.scope
-        ? `/panel/sites/blog?site=${row.scope}`
-        : "/panel/sites/blog";
-    case "profiles.public_profile":
-      return "/panel/profile";
-    case "booking.catalog":
-      return "/panel/settings/services";
-    default:
-      return undefined;
-  }
-}
 
 /** The source was taken off the site: "accepting" takes the translation down
  *  with it, so it is its own decision with its own words, never a bulk one. */
@@ -166,7 +140,8 @@ export function TranslationReviewPanel() {
   const marked = rows.filter((row) => selected.has(row.id) && bulkable(row));
   const markable = rows.filter(bulkable);
 
-  const kindOf = (row: Row) => t(`kinds.${KINDS[row.source_key] ?? "other"}`);
+  const kindOf = (row: Row) =>
+    t(`kinds.${SOURCE_KINDS[row.source_key] ?? "other"}`);
   const nameOf = (row: Row) => row.label || kindOf(row);
   const reasonOf = (row: Row) =>
     t.has(`reasons.${row.reason}`)
@@ -369,7 +344,7 @@ export function TranslationReviewPanel() {
       meta: { actions: true },
       cell: ({ row: { original: row } }) => {
         const items: RowAction[] = [];
-        const place = placeOf(row);
+        const place = translationPlace(row);
         // Its text waits only here: reading it comes before the decision.
         if (row.comparable)
           items.push({

@@ -343,3 +343,47 @@ def test_stopping_a_job_cancels_what_has_not_started_and_releases_the_hold(
     ) == {(ItemState.CANCELED, "canceled")}
     reservation = CreditReservation.all_objects.get(organization=owner.organization)
     assert reservation.state == "released"
+
+
+def test_a_jobs_detail_names_its_items_and_says_whether_it_can_be_taken_back(
+    pages: JobSource,
+) -> None:
+    owner = company("tl16d-detail")
+    first = run(order(owner, [page(pages, "Alfa")], key="job-a"))
+    client = authenticated_client(owner)
+
+    def detail(job: Any, query: str = "") -> Any:
+        return client.get(f"/api/v1/translation/jobs/{job.id}/{query}").json()
+
+    plain = detail(first)
+    assert plain["revertable"] is True
+    # Following a job reads no source: the items go without their names.
+    assert [(item["label"], item["scope"]) for item in plain["items"]] == [("", FAKE_SCOPE)]
+    assert detail(first, "?labels=true")["items"][0]["label"] == "Studio Testowe"
+    [part] = plain["parts"]
+    assert (part["state"], part["reserved_credits"], part["settled_credits"]) == ("settled", 2, 2)
+
+    # A later job wrote too: it is the one to take back now, and only once.
+    second = run(order(owner, [page(pages, "Beta")], key="job-b"))
+    assert (detail(first)["revertable"], detail(second)["revertable"]) == (False, True)
+    with tenant(owner):
+        revert_job(job_id=second.id, idempotency_key="take-back")
+    assert detail(second)["revertable"] is False
+
+    # The list keeps the jobs still running apart from those that ended.
+    waiting = order(owner, [page(pages, "Gamma")], key="job-c")
+    assert detail(waiting)["revertable"] is False
+
+    def listed(query: str) -> list[str]:
+        answer = client.get(f"/api/v1/translation/jobs/{query}").json()
+        return [job["id"] for job in answer["items"]]
+
+    assert listed("?active=true") == [str(waiting.id)]
+    assert listed("?active=false") == [str(second.id), str(first.id)]
+    assert len(listed("")) == 3
+    assert client.get("/api/v1/translation/jobs/?active=perhaps").status_code == 400
+
+    # Another company sees none of it.
+    stranger = authenticated_client(company("tl16d-stranger"))
+    assert stranger.get(f"/api/v1/translation/jobs/{first.id}/").status_code == 404
+    assert stranger.get("/api/v1/translation/jobs/").json()["items"] == []

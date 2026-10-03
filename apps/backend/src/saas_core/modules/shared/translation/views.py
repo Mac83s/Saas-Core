@@ -26,7 +26,6 @@ from .jobs import (
     TargetRequest,
     TranslationQuoteChanged,
     TranslationUnavailable,
-    get_job,
     job_payload,
     list_jobs,
     order_translation,
@@ -38,6 +37,7 @@ from .review import (
     cancel_job,
     count_review,
     decide_review,
+    job_detail,
     list_review,
     revert_job,
     review_detail,
@@ -51,7 +51,10 @@ from .serializers import (
     GlossaryTermPreviewSerializer,
     GlossaryTermSerializer,
     GlossaryTermUpdateSerializer,
+    JobDetailQuerySerializer,
+    JobDetailSerializer,
     JobPageSerializer,
+    JobQuerySerializer,
     JobSerializer,
     OrderRequestSerializer,
     QuoteRequestSerializer,
@@ -379,9 +382,11 @@ class JobListView(APIView):
     @extend_schema(
         operation_id="translation_job_list",
         summary="Translation jobs",
-        description="The company's translation jobs, newest first, paged by `cursor`.",
+        description="The company's translation jobs, newest first, paged by `cursor`. "
+        "`active=true` keeps the jobs still queued or running — a screen follows those; "
+        "`active=false` keeps the ones that ended.",
         tags=["translation"],
-        parameters=[GlossaryQuerySerializer],
+        parameters=[JobQuerySerializer],
         responses={
             200: JobPageSerializer,
             400: ProblemDetailsSerializer,
@@ -389,10 +394,12 @@ class JobListView(APIView):
         },
     )
     def get(self, request: Request) -> Response:
-        query = GlossaryQuerySerializer(data=request.query_params)
+        query = JobQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         jobs, next_cursor = list_jobs(
-            cursor=query.validated_data.get("cursor"), limit=query.validated_data["limit"]
+            cursor=query.validated_data.get("cursor"),
+            limit=query.validated_data["limit"],
+            active=query.validated_data.get("active"),
         )
         return Response({"items": [job_payload(job) for job in jobs], "next_cursor": next_cursor})
 
@@ -443,16 +450,22 @@ class JobDetailView(APIView):
         operation_id="translation_job_retrieve",
         summary="A translation job",
         description="The job with its parts (credits held and settled) and items (object × "
-        "language, state, delivered characters and what the source answered).",
+        "language, state, delivered characters and what the source answered), and whether it "
+        "can still be taken back. `labels=true` names every item as its source lists it.",
         tags=["translation"],
+        parameters=[JobDetailQuerySerializer],
         responses={
-            200: JobSerializer,
+            200: JobDetailSerializer,
+            400: ProblemDetailsSerializer,
             403: ProblemDetailsSerializer,
             404: ProblemDetailsSerializer,
         },
     )
-    def get(self, _request: Request, job_id: UUID) -> Response:
-        return Response(JobSerializer(job_payload(get_job(job_id))).data)
+    def get(self, request: Request, job_id: UUID) -> Response:
+        query = JobDetailQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        detail = job_detail(job_id, labels=query.validated_data["labels"])
+        return Response(JobDetailSerializer(detail).data)
 
 
 def _choices(request: Request) -> list[ReviewChoice]:

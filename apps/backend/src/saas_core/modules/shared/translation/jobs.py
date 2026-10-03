@@ -40,6 +40,7 @@ from saas_core.modules.shared.model_port.api import ModelError, estimate
 from .engine_policy import ENGINE_POLICY
 from .models import (
     ITEM_ACTIVE,
+    JOB_TERMINAL,
     JobState,
     TranslationJob,
     TranslationJobItem,
@@ -467,6 +468,21 @@ def quote_payload(result: QuoteResult | Quote, reasons: Sequence[str] = ()) -> d
 
 
 def job_payload(job: TranslationJob) -> dict[str, Any]:
+    # A part holds its credits from its start; the platform's budget holds none.
+    held = (job.unit_cost or 0) if job.billing == "credits" else 0
+    parts = [
+        {
+            "index": part.index,
+            "units": part.units,
+            "state": part.state,
+            "deadline_at": part.deadline_at,
+            "delivered_characters": part.delivered_characters,
+            "settled_units": part.settled_units,
+            "settled_credits": part.settled_credits,
+            "reserved_credits": part.units * held if part.reservation_key else 0,
+        }
+        for part in job.parts.order_by("index")
+    ]
     return {
         "id": job.id,
         "state": job.state,
@@ -481,23 +497,14 @@ def job_payload(job: TranslationJob) -> dict[str, Any]:
         "finished_at": job.finished_at,
         "reverted_at": job.reverted_at,
         "confirmation_required": job.confirmation_required and job.confirmed_at is None,
-        "parts": list(
-            job.parts.order_by("index").values(
-                "index",
-                "units",
-                "state",
-                "deadline_at",
-                "delivered_characters",
-                "settled_units",
-                "settled_credits",
-            )
-        ),
+        "parts": parts,
         "items": list(
             job.items.order_by("position").values(
                 "id",
                 "source_key",
                 "object_id",
                 "locale",
+                "scope",
                 "state",
                 "quoted_characters",
                 "delivered_characters",
@@ -508,11 +515,19 @@ def job_payload(job: TranslationJob) -> dict[str, Any]:
     }
 
 
-def list_jobs(*, cursor: str | None, limit: int) -> tuple[list[TranslationJob], str | None]:
+def list_jobs(
+    *, cursor: str | None, limit: int, active: bool | None = None
+) -> tuple[list[TranslationJob], str | None]:
+    """The company's jobs, newest first; `active` keeps those still queued or
+    running (true) or those that ended (false)."""
     context = authorize(TRANSLATION_REQUEST)
     jobs = TranslationJob.all_objects.filter(organization_id=context.organization_id).order_by(
         "-created_at", "-id"
     )
+    if active is not None:
+        jobs = (
+            jobs.exclude(state__in=JOB_TERMINAL) if active else jobs.filter(state__in=JOB_TERMINAL)
+        )
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = list(jobs[start : start + limit + 1])
     return page[:limit], (str(start + limit) if len(page) > limit else None)

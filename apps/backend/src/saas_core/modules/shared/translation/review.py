@@ -13,7 +13,7 @@ audited correction (pkt 22).
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -41,6 +41,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 
 from .demand import SOURCE_WITHDRAWN
+from .jobs import get_job, job_payload
 from .models import (
     JOB_TERMINAL,
     ItemState,
@@ -103,14 +104,14 @@ def list_review(
 LABEL_PAGES = 5
 
 
-def review_labels(rows: Sequence[TranslationReviewItem]) -> dict[UUID, ObjectRef]:
-    """What each waiting object is called and where it publishes, as its source
-    lists it. A source the person may not read, or one no longer installed,
-    answers nothing: the row is shown without a name."""
+def object_labels(pairs: Iterable[tuple[str, UUID]]) -> dict[UUID, ObjectRef]:
+    """What each (source, object) is called and where it publishes, as its
+    source lists it. A source the person may not read, or one no longer
+    installed, answers nothing: the row is shown without a name."""
     context = authorize(TRANSLATION_REQUEST)
     wanted: dict[str, set[UUID]] = defaultdict(set)
-    for row in rows:
-        wanted[row.source_key].add(row.object_id)
+    for source_key, object_id in pairs:
+        wanted[source_key].add(object_id)
     found: dict[UUID, ObjectRef] = {}
     for source_key, ids in wanted.items():
         try:
@@ -129,7 +130,7 @@ def review_labels(rows: Sequence[TranslationReviewItem]) -> dict[UUID, ObjectRef
 
 def review_listing(rows: Sequence[TranslationReviewItem]) -> list[dict[str, Any]]:
     """The rows as the panel lists them: each with its object's name and scope."""
-    named = review_labels(rows)
+    named = object_labels((row.source_key, row.object_id) for row in rows)
     listed = []
     for row in rows:
         ref = named.get(row.object_id)
@@ -396,6 +397,40 @@ def _job(organization: Organization, job_id: UUID, *, lock: bool = False) -> Tra
     if job is None:
         raise NotFound("Nie ma takiego zlecenia.")
     return job
+
+
+def _revertable(job: TranslationJob) -> bool:
+    """„Cofnij ostatnie zadanie” is offered for the newest job that wrote
+    something, once it has ended: taking back an older one would also undo
+    what a later job put in its place."""
+    if job.state not in JOB_TERMINAL or job.reverted_at is not None:
+        return False
+    newest = (
+        TranslationJobItem.all_objects.filter(
+            organization_id=job.organization_id, state=ItemState.WRITTEN
+        )
+        .order_by("-job__created_at", "-job_id")
+        .values_list("job_id", flat=True)
+        .first()
+    )
+    return bool(newest == job.id)
+
+
+def job_detail(job_id: UUID, *, labels: bool = False) -> dict[str, Any]:
+    """The job as its own screen shows it: whether it can still be taken back
+    and — on request, since it reads the sources — every item named as its
+    source lists it."""
+    job = get_job(job_id)
+    payload = job_payload(job)
+    named = (
+        object_labels((item["source_key"], item["object_id"]) for item in payload["items"])
+        if labels
+        else {}
+    )
+    for item in payload["items"]:
+        ref = named.get(item["object_id"])
+        item["label"] = ref.label if ref else ""
+    return {**payload, "revertable": _revertable(job)}
 
 
 def revert_job(*, job_id: UUID, idempotency_key: str) -> Saved[TranslationJob]:

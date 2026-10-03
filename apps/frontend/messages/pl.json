@@ -5158,6 +5158,7 @@
       "tabOverview": "Przegląd",
       "tabReview": "Do akceptacji",
       "tabReviewCount": "Do akceptacji ({count})",
+      "tabJobs": "Zadania",
       "caption": "Tłumaczenia czekające na decyzję",
       "colSelect": "Zaznacz",
       "colWhat": "Co",
@@ -5263,6 +5264,130 @@
           "text": "{name} · {language}: tłumaczenie zostanie na stronie, choć źródła już na niej nie ma.",
           "confirm": "Zostaw tłumaczenie"
         }
+      }
+    },
+    "jobs": {
+      "tab": "Zadania",
+      "description": "Zlecenia tłumaczeń AI — Twoje i automatu zmian. W szczegółach widać, co przetłumaczono i ile kredytów to kosztowało; zadanie w toku można zatrzymać, a ostatnie cofnąć.",
+      "caption": "Zadania tłumaczeń",
+      "colCreated": "Zlecono",
+      "colTrigger": "Rodzaj",
+      "colState": "Stan",
+      "colProgress": "Postęp",
+      "colCredits": "Kredyty",
+      "colActions": "Działania",
+      "actionsFor": "Działania dla zadania z {date}",
+      "details": "Szczegóły",
+      "detailsOf": "Szczegóły zadania z {date}",
+      "trigger": {
+        "click": "Zlecenie",
+        "automatic": "Automat zmian"
+      },
+      "states": {
+        "queued": "W kolejce",
+        "running": "W toku",
+        "succeeded": "Gotowe",
+        "partial": "Gotowe częściowo",
+        "failed": "Nieudane",
+        "canceled": "Zatrzymane"
+      },
+      "reverted": "Cofnięte",
+      "progress": "{done} z {total}",
+      "filterState": "Stan",
+      "allStates": "Wszystkie",
+      "active": "W toku",
+      "ended": "Zakończone",
+      "empty": "Nie było jeszcze żadnego zlecenia tłumaczeń.",
+      "loadFailed": "Nie udało się wczytać zadań tłumaczeń.",
+      "waiting": {
+        "confirmation": "Czeka na potwierdzenie operatora platformy.",
+        "pool": "Czeka na wolne miejsce u dostawcy AI — wznowi się {time}.",
+        "stopping": "Zatrzymuje się: rozpoczęte pozycje jeszcze się kończą."
+      },
+      "bar": {
+        "label": "Tłumaczenia w toku",
+        "running": "Tłumaczenie w toku: {done} z {total}",
+        "queued": "Tłumaczenie czeka w kolejce: {done} z {total}",
+        "from": {
+          "click": "zlecone {date}",
+          "automatic": "automat zmian, {date}"
+        },
+        "progress": "Postęp zadania z {date}"
+      },
+      "detail": {
+        "title": "Zadanie tłumaczenia",
+        "subtitle": "{trigger} · {date}",
+        "loading": "Wczytuję zadanie…",
+        "notFound": "Nie ma takiego zadania.",
+        "summary": "Stan zadania",
+        "created": "Zlecono",
+        "started": "Rozpoczęto",
+        "finished": "Zakończono",
+        "revertedAt": "Cofnięto",
+        "credits": "Kredyty",
+        "creditsLine": "wycena {quoted} · zarezerwowane teraz {held} · rozliczone {settled}",
+        "platformBudget": "Na koszt platformy — bez kredytów firmy.",
+        "items": "Pozycje zadania",
+        "colWhat": "Co",
+        "colLanguage": "Język",
+        "colCharacters": "Znaki",
+        "characters": "{delivered} z {quoted}",
+        "itemStates": {
+          "queued": "W kolejce",
+          "running": "W toku",
+          "written": "Przetłumaczone",
+          "failed": "Nieudane",
+          "canceled": "Anulowane",
+          "other": "Inny stan"
+        },
+        "outcomes": {
+          "live": "Opublikowane",
+          "draft": "Zapisane jako szkic",
+          "pending": "Czeka na akceptację",
+          "conflict": "Treść zmieniła się w trakcie",
+          "refused": "Nie zapisano",
+          "other": "Zapisane"
+        },
+        "errors": {
+          "model_refused": "Model odmówił tłumaczenia.",
+          "qa_failed": "Nie przeszło kontroli jakości.",
+          "deadline_passed": "Minął termin zadania.",
+          "authorization_revoked": "Osoba, która zleciła, nie ma już uprawnień.",
+          "canceled": "Zatrzymane, zanim ruszyło.",
+          "other": "Nie udało się przetłumaczyć."
+        },
+        "parts": "Części zadania",
+        "partsHint": "Duże zlecenie dzieli się na części. Każda rezerwuje kredyty, gdy rusza, a po zakończeniu rozlicza tylko dostarczone tłumaczenia — reszta rezerwacji wraca.",
+        "colPart": "Część",
+        "part": "Część {number}",
+        "colUnits": "Tysiące znaków",
+        "colReserved": "Zarezerwowane kredyty",
+        "colSettled": "Rozliczone kredyty",
+        "partStates": {
+          "queued": "Czeka",
+          "running": "W toku",
+          "settled": "Rozliczona",
+          "other": "Inny stan"
+        },
+        "cancel": "Zatrzymaj zadanie",
+        "revert": "Cofnij ostatnie zadanie",
+        "keep": "Zostaw",
+        "cancelDialog": {
+          "title": "Zatrzymać to zadanie?",
+          "text": "Pozycje, które jeszcze nie ruszyły, zostaną anulowane, a rozpoczęte dokończą się. Kredyty za dostarczone tłumaczenia zostaną rozliczone, reszta rezerwacji wróci.",
+          "confirm": "Zatrzymaj zadanie"
+        },
+        "revertDialog": {
+          "title": "Cofnąć to zadanie?",
+          "text": "Teksty, które zapisało to zadanie, wrócą do stanu sprzed niego — także na stronie. Kredyty nie wracają.",
+          "confirm": "Cofnij zadanie"
+        },
+        "stopped": "Zadanie zatrzymane.",
+        "takenBack": "Zadanie cofnięte: teksty wróciły do stanu sprzed niego.",
+        "finishedMeanwhile": "To zadanie zdążyło się już zakończyć.",
+        "alreadyReverted": "To zadanie zostało już cofnięte.",
+        "forbidden": "Tę decyzję podejmuje osoba z prawem do tłumaczeń — sama, nie asystent.",
+        "failed": "Nie udało się. Spróbuj ponownie."
       }
     },
     "unavailable": {

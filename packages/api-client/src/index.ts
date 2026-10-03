@@ -5970,13 +5970,19 @@ export async function orderTranslation(
 }
 
 /** One translation order with its parts and items, to follow its progress. */
+/** The job as its own screen shows it; `labels` names every item as its
+ *  source lists it — a read of the sources, so not while only following. */
+export type TranslationJobDetail = components["schemas"]["JobDetail"];
+export type TranslationJobPage = components["schemas"]["JobPage"];
+
 export async function getTranslationJob(
   jobId: string,
-): Promise<TranslationJob> {
+  query: { labels?: boolean } = {},
+): Promise<TranslationJobDetail> {
   const { data, error, response } = await client.GET(
     "/api/v1/translation/jobs/{job_id}/",
     {
-      params: { path: { job_id: jobId } },
+      params: { path: { job_id: jobId }, query },
       credentials: "same-origin",
       cache: "no-store",
     },
@@ -5984,6 +5990,61 @@ export async function getTranslationJob(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+/** The company's translation jobs, newest first; `active` keeps those still
+ *  queued or running (true) or those that ended (false). */
+export async function listTranslationJobs(
+  query: { cursor?: string; limit?: number; active?: boolean } = {},
+): Promise<TranslationJobPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/jobs/",
+    {
+      params: { query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+async function decideTranslationJob(
+  path:
+    | "/api/v1/translation/jobs/{job_id}/cancel/"
+    | "/api/v1/translation/jobs/{job_id}/revert/",
+  jobId: string,
+  idempotencyKey: string,
+): Promise<TranslationJob> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(path, {
+    params: {
+      path: { job_id: jobId },
+      header: { "Idempotency-Key": idempotencyKey },
+    },
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Stops a job that still runs: what has not started is cancelled, what was
+ *  delivered is settled and the rest of the held credits is released. */
+export const cancelTranslationJob = (jobId: string, idempotencyKey: string) =>
+  decideTranslationJob(
+    "/api/v1/translation/jobs/{job_id}/cancel/",
+    jobId,
+    idempotencyKey,
+  );
+
+/** „Cofnij ostatnie zadanie”: the texts the job wrote go back to what stood
+ *  before it. A person's decision; credits do not come back. */
+export const revertTranslationJob = (jobId: string, idempotencyKey: string) =>
+  decideTranslationJob(
+    "/api/v1/translation/jobs/{job_id}/revert/",
+    jobId,
+    idempotencyKey,
+  );
 
 /** A translation result waiting for a person, with why it waits. */
 export type TranslationReviewItem = components["schemas"]["ReviewListItem"];

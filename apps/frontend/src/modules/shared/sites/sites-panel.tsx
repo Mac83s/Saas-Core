@@ -513,6 +513,7 @@ export function SitesPanel({
             <TranslateSiteAction
               key={selectedSiteId}
               onDone={() => setTranslationsReload((value) => value + 1)}
+              onOrdered={() => setTranslationsReload((value) => value + 1)}
               siteId={selectedSiteId}
             />
           ) : null}
