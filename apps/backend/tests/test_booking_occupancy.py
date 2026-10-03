@@ -107,9 +107,8 @@ def test_a_long_window_over_many_units_costs_the_same_few_queries() -> None:
     assert many <= 12
 
 
-def test_the_window_is_bounded_and_the_grid_is_the_managers() -> None:
+def test_the_window_is_bounded() -> None:
     owner, _ = company("oblozenie-granice")
-    worker = member_of(owner, "oblozenie-granice.pracownik@example.test", "staff")
     first = saturday_after(7)
     client = authenticated_client(owner)
     too_long = client.get(
@@ -119,9 +118,45 @@ def test_the_window_is_bounded_and_the_grid_is_the_managers() -> None:
     backwards = client.get(f"/api/v1/booking/occupancy/?from={first}&to={first - timedelta(1)}")
     assert backwards.status_code == 400
     assert client.get("/api/v1/booking/occupancy/?from=2026-02-30&to=2026-03-01").status_code == 400
-    # Until a product narrows who sees whose bookings (UX-023), the grid is
-    # the calendar manager's.
-    staff = authenticated_client(worker).get(
-        f"/api/v1/booking/occupancy/?from={first}&to={first + timedelta(days=6)}"
+
+
+def test_somebody_elses_stay_takes_its_unit_but_keeps_its_guest_to_itself(settings: Any) -> None:
+    """UX-023: where a product narrows whose visits a person sees, the grid
+    still shows the unit taken — never who took it."""
+    owner, setup = company("oblozenie-prywatnie")
+    worker = member_of(owner, "oblozenie-prywatnie.pracownik@example.test", "staff")
+    first = saturday_after(7)
+    with tenant(owner):
+        stay(setup, first, first + timedelta(days=2), resource_id=setup["units"][0].id)
+    url = f"/api/v1/booking/occupancy/?from={first}&to={first + timedelta(days=6)}"
+
+    # By default whoever reads the calendar sees whose stay it is.
+    shown = authenticated_client(worker).get(url).json()["held"]
+    assert [(item["title"], item["status"]) for item in shown] == [("Gość", "confirmed")]
+
+    settings.BOOKING_OTHERS_PERMISSION = "booking.staff.performance.read"
+    narrowed = authenticated_client(worker).get(url)
+    assert narrowed.status_code == 200
+    [item] = narrowed.json()["held"]
+    assert (item["kind"], item["appointment_id"], item["title"], item["status"]) == (
+        "stay",
+        None,
+        "",
+        "",
     )
-    assert staff.status_code == 403
+    # Nothing of the guest anywhere in the answer: no name, notes or contact.
+    assert "Gość" not in narrowed.content.decode()
+    assert "gosc@example.test" not in narrowed.content.decode()
+    assert set(item) == {
+        "unit_id",
+        "kind",
+        "starts_at",
+        "ends_at",
+        "appointment_id",
+        "block_id",
+        "title",
+        "status",
+    }
+    # Whoever plans visits still sees them all.
+    planner = authenticated_client(owner).get(url).json()["held"]
+    assert planner[0]["title"] == "Gość"

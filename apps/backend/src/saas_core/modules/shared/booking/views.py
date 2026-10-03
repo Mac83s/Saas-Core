@@ -3105,7 +3105,10 @@ class BookingOccupancyView(APIView):
         description="Every active unit (of one group with `group_id`) with what holds it from "
         "`from` to `to`, local days included: stays, visits that take the unit, and blocks — "
         "a block that could not take its time is listed too. Closed days of the company or "
-        f"of a unit's place come with it. At most {MAX_OCCUPANCY_DAYS} days per read.",
+        f"of a unit's place come with it. At most {MAX_OCCUPANCY_DAYS} days per read. A "
+        "booking of somebody else's that the caller may not see (a product's "
+        "`appointmentsOfOthersPermission`, UX-023) comes with its time only: no "
+        "`appointment_id`, `title` or `status`.",
         tags=["booking"],
         parameters=[
             OpenApiParameter("from", date, OpenApiParameter.QUERY, required=True),
@@ -3152,10 +3155,14 @@ class BookingOccupancyView(APIView):
                     "kind": item.kind,
                     "starts_at": item.starts_at,
                     "ends_at": item.ends_at,
-                    "appointment_id": item.appointment.id if item.appointment else None,
+                    "appointment_id": (
+                        item.appointment.id if item.appointment and not item.hidden else None
+                    ),
                     "block_id": item.block.id if item.block else None,
-                    "title": _held_title(item, titles),
-                    "status": item.appointment.status if item.appointment else "",
+                    "title": "" if item.hidden else _held_title(item, titles),
+                    "status": (
+                        item.appointment.status if item.appointment and not item.hidden else ""
+                    ),
                 }
                 for item in value.held
             ],

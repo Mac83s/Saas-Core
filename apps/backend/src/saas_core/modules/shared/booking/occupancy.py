@@ -6,13 +6,15 @@ block — and the days the company or a place is closed. The same few queries wh
 the window, the units or the stays (seven with the permission check, pinned by
 a test), so a season's worth of days stays cheap.
 
-Who may see whose bookings is still the calendar manager's question here; a
-product's narrower rule (UX-023) applies once it exists in booking.
+Whoever reads the calendar reads the grid. Where a product narrows whose
+visits a person sees (UX-023, `visibility.py`), somebody else's booking still
+takes its unit — the time is not personal — but comes without its name and
+without a way into it.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
@@ -33,7 +35,8 @@ from .models import (
     TimeModel,
     TimeOff,
 )
-from .services import BOOKING_ENABLED, BOOKING_MANAGE
+from .services import BOOKING_ENABLED, BOOKING_READ
+from .visibility import own_visits_q, sees_others
 
 #: The longest window one read covers: two months of a grid.
 MAX_DAYS = 62
@@ -48,6 +51,8 @@ class Held:
     ends_at: datetime
     appointment: Appointment | None = None
     block: TimeOff | None = None
+    #: Somebody else's booking the caller may not see (UX-023): only the time.
+    hidden: bool = False
 
     @property
     def kind(self) -> str:
@@ -69,7 +74,7 @@ class Occupancy:
 
 def occupancy(*, first: date, last: date, group_id: UUID | None = None) -> Occupancy:
     """What holds each active unit from `first` to `last`, local days included."""
-    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
+    context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED, operation=FeatureOperation.READ)
     if last < first:
         raise ValidationError({"to": "Koniec przed początkiem."})
     if (last - first).days + 1 > MAX_DAYS:
@@ -108,6 +113,19 @@ def occupancy(*, first: date, last: date, group_id: UUID | None = None) -> Occup
         )
         if block.resource_id is not None
     ]
+    if not sees_others(context):
+        booked = [item.appointment.pk for item in held if item.appointment is not None]
+        own = set(
+            Appointment.all_objects.filter(own_visits_q(context), pk__in=booked).values_list(
+                "pk", flat=True
+            )
+        )
+        held = [
+            replace(item, hidden=item.appointment.pk not in own)
+            if item.appointment is not None
+            else item
+            for item in held
+        ]
     held.sort(key=lambda item: (item.starts_at, str(item.unit_id)))
     closures = list(
         BookingClosure.all_objects.filter(

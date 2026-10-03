@@ -1332,9 +1332,12 @@ class OccupancyHeldSerializer(serializers.Serializer[dict[str, Any]]):
     appointment_id = serializers.UUIDField(allow_null=True)
     block_id = serializers.UUIDField(allow_null=True)
     title = serializers.CharField(
-        help_text="The booking's name (a module's, else the customer's), or the block's reason."
+        help_text="The booking's name (a module's, else the customer's), or the block's reason; "
+        "empty for somebody else's booking the caller may not see."
     )
-    status = serializers.CharField(help_text="The booking's status; empty for a block.")
+    status = serializers.CharField(
+        help_text="The booking's status; empty for a block and for a booking not shown."
+    )
 
 
 class OccupancySerializer(serializers.Serializer[dict[str, Any]]):
