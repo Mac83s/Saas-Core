@@ -76,6 +76,11 @@ are both harder than they look.
   `appointmentKindsCompletedExplicitly` (`closes_explicitly`; `""` names the
   plain service). The customer who did not come is `mark_no_show` — from the
   visit's start, no undo; it counts as `no_shows`, never as done.
+- **What the calendar shows but does not own** (UX-078) comes from a source in
+  `apps/frontend/src/lib/calendar-sources.ts`, gated like a menu entry — today
+  the companies' visits on a farm's calendar, from `shared.farms`. They are
+  read-only cards beside the bookings, never `BookingAppointment`s: do not put
+  them into the appointments state, the day board or any count of the team.
 - **Whose visits a person sees is one rule (UX-023), in `visibility.py`.**
   Everyone's by default; a product that declares
   `appointmentsOfOthersPermission` (MedPlano: a doctor does not see another
