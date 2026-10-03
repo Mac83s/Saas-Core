@@ -84,9 +84,10 @@ Zasady:
 - **Usługa** powstaje przez `booking.preset.apply@1`, gdy produkt ma to polecenie; do
   tego czasu wizyta na godzinę (`slot`) powstaje przez `booking.offer.create@1`, bez
   zapisanego presetu. Zawsze wyłączona — włącza ją właściciel.
-- **Kategoria katalogu**: propozycja z presetu oferty, a gdy jej nie ma — jedyna
-  kategoria, której słowo kluczowe pada w opisie działalności (potem także w nazwach
-  ofert). Zawsze jako pytanie do właściciela.
+- **Kategoria katalogu**: propozycja z presetu oferty, a gdy jej nie ma — kategoria,
+  której słowo kluczowe pada najwcześniej w opisie działalności, a potem w nazwach
+  ofert (zawód pada przed szczegółami: „hydraulik: awarie, instalacje”). Zawsze jako
+  pytanie do właściciela.
 - **Miasto** musi być w słowniku katalogu (ADR-053 §7); inne trafia do `unsupported`.
 
 ## Dowody

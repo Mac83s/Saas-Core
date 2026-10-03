@@ -26,9 +26,9 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 - polecenie `booking.preset.apply@1` — plan rezerwacji, faza 3 (zastosowanie rodzaju rezerwacji)
 - polecenie `booking.preset.list@1` — plan rezerwacji, faza 3 (odczyt rodzajów rezerwacji)
 - polecenie `booking.staff.add@1` — plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)
-- rodzaj rezerwacji „Nocleg” jest w przygotowaniu — plan rezerwacji, faza 2 (silnik okresu: pobyty i wynajem na dni lub godziny)
-- rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu — plan rezerwacji, faza 2 (silnik okresu: pobyty i wynajem na dni lub godziny)
-- rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu — plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji)
+- rodzaj rezerwacji „Nocleg” jest w przygotowaniu — silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
+- rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu — silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
+- rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu — odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji); wcześniejsza, okrojona wersja w fazie 3 — decyzja właściciela w toku (pytanie 68)
 - ceny usług: produkt ich nie przechowuje — plan rezerwacji, faza 3 (cennik i wycena)
 - miasto „Mikołajki” jest poza słownikiem miast katalogu firm
 
@@ -69,7 +69,7 @@ Właściciel powiedział: „hydraulik: awarie, instalacje wodne i kanalizacyjne
 
 **Zapyta**
 
-- kategoria w katalogu firm — wybór z listy, bez podpowiedzi
+- kategoria w katalogu firm — asystent podpowie „Usługi dla domu”
 
 **Czeka**
 
@@ -77,8 +77,8 @@ Właściciel powiedział: „hydraulik: awarie, instalacje wodne i kanalizacyjne
 
 **Produkt jeszcze nie umie**
 
-- „Usuwanie awarii” — rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji)
-- „Montaż instalacji” — rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji)
+- „Usuwanie awarii” — rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji); wcześniejsza, okrojona wersja w fazie 3 — decyzja właściciela w toku (pytanie 68)
+- „Montaż instalacji” — rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji); wcześniejsza, okrojona wersja w fazie 3 — decyzja właściciela w toku (pytanie 68)
 
 ## Domki letniskowe — Domki nad Jeziorem, Mikołajki
 
@@ -100,7 +100,7 @@ Właściciel powiedział: „domki letniskowe nad jeziorem”.
 **Produkt jeszcze nie umie**
 
 - miasto „Mikołajki” — nie ma go w słowniku miast katalogu firm, więc wizytówka nie trafi do katalogu; odblokuje: dopisanie miasta do słownika (ADR-053 §7, słownik rośnie z zasięgiem sprzedaży)
-- „Domek 6-osobowy” — rodzaj rezerwacji „Nocleg” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 2 (silnik okresu: pobyty i wynajem na dni lub godziny)
+- „Domek 6-osobowy” — rodzaj rezerwacji „Nocleg” jest w przygotowaniu; silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
 
 ## Wypożyczalnia kajaków — Kajaki Krutynia, Mrągowo
 
@@ -122,7 +122,7 @@ Właściciel powiedział: „wypożyczalnia kajaków na Krutyni”.
 
 **Produkt jeszcze nie umie**
 
-- „Kajak dwuosobowy” — rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 2 (silnik okresu: pobyty i wynajem na dni lub godziny)
+- „Kajak dwuosobowy” — rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu; silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
 
 ## Skąd te dane
 

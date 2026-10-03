@@ -17,30 +17,32 @@ TITLES = {
     "cottages": "Domki letniskowe",
     "kayak-rental": "Wypożyczalnia kajaków",
 }
-#: The phase of the bookings plan that makes a kind of booking ready: the
-#: „faza” column of its preset catalogue (memex
-#: `saas-core-rezerwacje-uniwersalne-i-sprzedaz`).
-PRESET_PHASE = {
-    "core.specialist_visit": "3",
-    "core.online_visit": "13",
-    "core.service_at_customer": "13",
-    "core.hourly_space": "2",
-    "core.table_or_group": "13",
-    "core.lodging": "2",
-    "core.rental": "2",
-    "core.care_stay": "2",
-    "core.exclusive_date": "2",
-    "core.group_class": "8",
-    "core.ticketed_event": "8",
-    "core.course": "8",
-    "core.pickup_window": "9",
-}
-PHASES = {
-    "2": "silnik okresu: pobyty i wynajem na dni lub godziny",
-    "3": "cennik i wycena",
-    "8": "wydarzenia i zajęcia",
-    "9": "sklep",
-    "13": "pozostałe rodzaje rezerwacji",
+#: What makes a kind of booking ready, from the bookings plan (memex
+#: `saas-core-rezerwacje-uniwersalne-i-sprzedaz`: the „faza” column of its
+#: preset catalogue and the owner's open questions 67 and 68). The engine for
+#: stays and rentals exists; when their presets count as ready is undecided.
+_RANGE = (
+    "silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku "
+    "(plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — "
+    "decyzja właściciela w toku (pytanie 67)"
+)
+_LATER = "odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji)"
+_EVENTS = "odblokuje: plan rezerwacji, faza 8 (wydarzenia i zajęcia)"
+PRESET_UNBLOCKS = {
+    "core.specialist_visit": "odblokuje: plan rezerwacji, faza 3 (cennik i wycena)",
+    "core.online_visit": _LATER,
+    "core.service_at_customer": f"{_LATER}; wcześniejsza, okrojona wersja w fazie 3 — "
+    "decyzja właściciela w toku (pytanie 68)",
+    "core.hourly_space": _RANGE,
+    "core.table_or_group": _LATER,
+    "core.lodging": _RANGE,
+    "core.rental": _RANGE,
+    "core.care_stay": _RANGE,
+    "core.exclusive_date": _RANGE,
+    "core.group_class": _EVENTS,
+    "core.ticketed_event": _EVENTS,
+    "core.course": _EVENTS,
+    "core.pickup_window": "odblokuje: plan rezerwacji, faza 9 (sklep)",
 }
 COMMAND_PHASE = {
     "booking.staff.add@1": "plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)",
@@ -127,7 +129,8 @@ def render(
         "",
         *(f"- polecenie `{command}` — {COMMAND_PHASE[command]}" for command in missing_commands),
         *(
-            f"- rodzaj rezerwacji „{labels[preset]}” jest w przygotowaniu — {_phase(preset)}"
+            f"- rodzaj rezerwacji „{labels[preset]}” jest w przygotowaniu — "
+            f"{PRESET_UNBLOCKS[preset]}"
             for preset in sorted({
                 entry["detail"]
                 for _profile, answer in answers.values()
@@ -181,11 +184,6 @@ def render(
 
 def _section(title: str, items: list[str]) -> list[str]:
     return ["", f"**{title}**", "", *(f"- {item}" for item in items or ["nic"])]
-
-
-def _phase(preset: str) -> str:
-    phase = PRESET_PHASE[preset]
-    return f"plan rezerwacji, faza {phase} ({PHASES[phase]})"
 
 
 def _entry(profile: Mapping[str, Any], listed: str, key: str) -> Mapping[str, Any]:
@@ -292,7 +290,7 @@ def _unsupported(
     if code == "preset_not_ready":
         return (
             f"{name} — rodzaj rezerwacji „{labels[detail]}” jest w przygotowaniu; "
-            f"odblokuje: {_phase(detail)}"
+            f"{PRESET_UNBLOCKS[detail]}"
         )
     if code == "price_list":
         parts = entry["key"].split(".")

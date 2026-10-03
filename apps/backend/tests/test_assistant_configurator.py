@@ -520,6 +520,9 @@ def test_what_the_product_can_do_today(monkeypatch: pytest.MonkeyPatch) -> None:
             schema = command(planned["command"]).input_schema
             assert not list(Draft202012Validator(schema).iter_errors(planned["arguments"])), planned
         answers[name] = (profile, answer)
+        # Each of the four is told its category, not handed the whole list.
+        (category,) = [q for q in answer["missing"] if q["key"] == "company.category"]
+        assert category["proposal"], name
 
     missing_commands = sorted({*READS, *WRITES} - registered)
     assert {

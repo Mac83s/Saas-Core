@@ -306,9 +306,9 @@ def _card(run: _Run) -> None:
 
 
 def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | None:
-    """The category an offer's preset names; else the only one with a keyword
-    among the words the owner used for what the company does — and, when those
-    name none or several, for what it sells as well."""
+    """The category an offer's preset names; else the one whose keyword comes
+    first in what the owner said the company does and then sells — a trade is
+    named before its details ("hydraulik: awarie, instalacje")."""
     keys = [entry["key"] for entry in categories]
     presets = {entry["id"]: entry for entry in (run.reads.get(PRESETS) or {}).get("presets", [])}
     offers = run.profile.get("offers", [])
@@ -316,22 +316,21 @@ def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | 
         hint = presets.get(_confirmed(offer.get("preset")), {}).get("catalog_category")
         if hint in keys:
             return str(hint)
-    activity = run.said("company", "activity")
-    sold = [_confirmed(offer.get("name")) for offer in offers]
-    for said in ([activity], [activity, *sold]):
-        words = f" {_fold(' '.join(text for text in said if text))} "
-        matches = [
-            entry["key"]
-            for entry in categories
-            if any(
-                f" {_fold(keyword)} " in words
-                for keywords in entry["keywords"].values()
-                for keyword in keywords
-            )
+    said = [run.said("company", "activity"), *(_confirmed(offer.get("name")) for offer in offers)]
+    words = f" {_fold(' '.join(text for text in said if text))} "
+    first: dict[str, int] = {}
+    for entry in categories:
+        found = [
+            at
+            for keywords in entry["keywords"].values()
+            for keyword in keywords
+            if (at := words.find(f" {_fold(keyword)} ")) >= 0
         ]
-        if len(matches) == 1:
-            return str(matches[0])
-    return None
+        if found:
+            first[entry["key"]] = min(found)
+    leading = [key for key, at in first.items() if at == min(first.values())]
+    # Two categories sharing the first word say nothing about which it is.
+    return leading[0] if len(leading) == 1 else None
 
 
 # --- Places, people, offers and hours ----------------------------------------------
