@@ -190,14 +190,10 @@ Presets are data, read by `presets.py` from the image's copy of
 check `booking.E010`); `GET /booking/presets/` is the only list a caller
 chooses from. `presets.apply_preset` is a setup write that copies a `ready`
 preset into a switched-off offer with its origin (`preset_id`,
-`preset_version`, `origin_ref`) and picks nobody and no place for the company;
-a stay's units and every price stay the company's own to add. Ready means the
-engine runs it, not that customers book it themselves: a preset whose
-`online_booking` is `soon` (a stay, a rental, a visit at the customer's — owner
-decision 67a) makes an offer hidden from the public form, which the team books
-in the panel, and says so in its description. A ready version uses only what
-the engine does today — the contract test's `ENGINE` list — so a phase that
-teaches the engine more publishes new preset versions in the same change.
+`preset_version`, `origin_ref`) and picks nobody, no place, no unit and no
+price for the company. Ready means the engine runs it (the contract test's
+`ENGINE` list), not that customers book it: `online_booking` `soon` (decision
+67a) makes an offer hidden from the public form, which the team books.
 A service made switched off is a `draft` until somebody switches it on, and
 **only a draft without bookings is ever deleted** (`setup.discard_draft`, the
 undo of commands that make drafts). Every other service is switched off, never
@@ -206,11 +202,10 @@ removed.
 The price list is `prices.py` (ADR-072 §6): a `PriceRule` prices an offer, a
 group or a unit — the base price without dates, a season's with them, a
 weekend's or a peak's with weekdays and hours — and `price_for` picks the one
-that applies: a price for some days only (a season, weekdays, hours) over a
-base price, whoever it is for (owner decision 75b: „Domek 350, lipiec 500 dla
-wszystkich” is 500 in July); between two of one kind the unit's over its
-group's over the offer's, then a season's over one without dates, the narrower
-over the wider, the later start. Amounts are whole minor
+that applies: one for some days only (a season, weekdays, hours) over a base
+price, whoever it is for (decision 75b); then the unit's over its group's over
+the offer's, a season's over one without dates, the narrower over the wider,
+the later start. Amounts are whole minor
 units, read gross or net by the company's `pricing.entry.amounts`; the tax is
 a code (`VatCode`), because exempt is not 0%. A rule's currency is always
 `Organization.currency`, and a company with prices cannot change its currency
