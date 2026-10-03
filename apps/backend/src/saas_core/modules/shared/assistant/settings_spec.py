@@ -84,7 +84,7 @@ SETUP_STEPS_PER_TURN = SettingSpec(
     maximum=30,
     scopes=("platform",),
     label={
-        "pl": "Wywołania modelu na jedną wiadomość zakładania firmy",
+        "pl": "Wywołania modelu na jedną wiadomość ustawiania firmy",
         "en": "Model calls per setup message",
     },
     model_description="How many times the model may be called to answer one message of a "
@@ -100,7 +100,7 @@ SETUP_TURNS_PER_COMPANY = SettingSpec(
     maximum=10_000,
     scopes=("platform",),
     label={
-        "pl": "Bezpłatne wiadomości zakładania firmy na firmę",
+        "pl": "Bezpłatne wiadomości na ustawianie firmy — na firmę",
         "en": "Free setup messages per company",
     },
     model_description="Messages one company may send in conversations that set it up, which "
@@ -115,7 +115,7 @@ SETUP_TURNS_PER_DAY = SettingSpec(
     maximum=1_000,
     scopes=("platform",),
     label={
-        "pl": "Bezpłatne wiadomości zakładania firmy na osobę na dzień",
+        "pl": "Bezpłatne wiadomości na ustawianie firmy — na osobę na dzień",
         "en": "Free setup messages per person per day",
     },
     model_description="Messages one person may send in a day (UTC) in conversations that "

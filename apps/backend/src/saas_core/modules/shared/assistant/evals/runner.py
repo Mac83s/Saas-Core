@@ -129,8 +129,10 @@ _GENDERED = re.compile(
     r"\b(?:\w*(?:zmieni|stawi|doda|robi|sprawdzi|pisa|usun[ąę]|kona|znalaz|tworzy|"
     r"owa|wysła|czyta|prawi|łączy|wybra|mog|musia|chcia|by|pomin[ąę]|stali|wprowadzi))"
     r"(?:łem|łam)\b"
-    # „chciałbym”, „mogłabym”: the conditional has a gender too.
-    r"|\b\w+ł[ao]?bym\b",
+    # „chciałbym”, „mogłabym”: the conditional has a gender too — also when it
+    # is split („żebym to zrobił”).
+    r"|\b\w+ł[ao]?bym\b"
+    r"|\b(?:że|a|gdy|o)bym\b[^.?!\n]{0,40}?\b\w+ła?\b",
     re.IGNORECASE,
 )
 _MARKDOWN = re.compile(r"(\*\*|__|^#{1,6} |^\|.*\|$|`)", re.MULTILINE)

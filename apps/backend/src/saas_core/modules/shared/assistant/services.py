@@ -125,8 +125,8 @@ class SetupBudgetSpent(APIException):
 
     status_code = 429
     default_detail = (
-        "Bezpłatna rozmowa zakładająca firmę wykorzystała limit wiadomości. To, co już "
-        "ustalono, zostaje w profilu firmy. Resztę ustawisz w panelu — Wizytówka, Zespół, "
+        "Limit bezpłatnych wiadomości na ustawianie firmy jest wykorzystany. To, co ustalone, "
+        "zostaje w notatkach o firmie. Resztę ustawisz w panelu — Wizytówka, Zespół, "
         "Ustawienia › Usługi i grafik — albo w zwykłej rozmowie z asystentem."
     )
     default_code = "assistant_setup_budget"
@@ -134,8 +134,8 @@ class SetupBudgetSpent(APIException):
 
 class SetupBudgetSpentToday(SetupBudgetSpent):
     default_detail = (
-        "Na dziś bezpłatna rozmowa zakładająca firmę wykorzystała limit wiadomości. To, co "
-        "już ustalono, zostaje w profilu firmy. Wróć do niej jutro albo dokończ w panelu — "
+        "Dzisiejszy limit bezpłatnych wiadomości na ustawianie firmy jest wykorzystany. To, co "
+        "ustalone, zostaje w notatkach o firmie. Wróć jutro albo ustaw resztę w panelu — "
         "Wizytówka, Zespół, Ustawienia › Usługi i grafik."
     )
     default_code = "assistant_setup_daily_budget"

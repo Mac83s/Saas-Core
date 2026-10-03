@@ -6,11 +6,11 @@
   "scenarios": 14,
   "passed": 13,
   "skipped_for_budget": 0,
-  "cost_usd": 0.1693,
-  "cost_per_message_usd": 0.0121,
-  "model_calls": 41,
-  "latency_ms_p50": 1394,
-  "latency_ms_p95": 3288,
+  "cost_usd": 0.1437,
+  "cost_per_message_usd": 0.0103,
+  "model_calls": 40,
+  "latency_ms_p50": 1402,
+  "latency_ms_p95": 2973,
   "invalid_arguments": 0,
   "errors": [],
   "results": [
@@ -22,8 +22,8 @@
         "setup_status"
       ],
       "steps": 2,
-      "cost_usd_micros": 15140,
-      "answer": "Chętnie pomogę. Zacznijmy od podstaw: czym zajmuje się Twoja firma? Opisz to własnymi słowami.",
+      "cost_usd_micros": 9400,
+      "answer": "Zaczynamy ustawianie firmy. Najpierw: czym zajmuje się firma? Opisz to własnymi słowami.",
       "error": ""
     },
     {
@@ -34,7 +34,7 @@
         "setup_status"
       ],
       "steps": 2,
-      "cost_usd_micros": 14734,
+      "cost_usd_micros": 5859,
       "answer": "Happy to help. First question: what does your company do?",
       "error": ""
     },
@@ -48,8 +48,8 @@
         "setup_status"
       ],
       "steps": 3,
-      "cost_usd_micros": 17661,
-      "answer": "Zapisano nazwę, rodzaj działalności, miasto i telefon.\n\nCzy kategoria „Uroda i zdrowie\" pasuje do salonu?",
+      "cost_usd_micros": 15255,
+      "answer": "Zapisano w notatkach o firmie: nazwę, rodzaj działalności, miasto i telefon.\n\nProponuję kategorię „Uroda i zdrowie\". Czy to pasuje do salonu?",
       "error": ""
     },
     {
@@ -62,8 +62,8 @@
         "setup_status"
       ],
       "steps": 3,
-      "cost_usd_micros": 10387,
-      "answer": "Zapisano: warsztat samochodowy w Ełku. Dla kategorii proponuję „Motoryzacja”. Czy to się zgadza?",
+      "cost_usd_micros": 17091,
+      "answer": "Zapisano: warsztat samochodowy w Ełku. Dla firmy proponuję kategorię „Motoryzacja”. Czy to się zgadza?",
       "error": ""
     },
     {
@@ -76,8 +76,8 @@
         "setup_status"
       ],
       "steps": 4,
-      "cost_usd_micros": 16046,
-      "answer": "Zapisano nazwę, czynność i miasto. Czy kategoria „Usługi dla domu” pasuje do Twojej firmy?",
+      "cost_usd_micros": 10394,
+      "answer": "Zapisano nazwę, miasto i rodzaj działalności. Do której kategorii najlepiej pasuje firma?\n\n- Uroda i zdrowie\n- Usługi dla domu\n- Motoryzacja\n- Turystyka i noclegi",
       "error": ""
     },
     {
@@ -89,9 +89,9 @@
         "profile_note",
         "setup_status"
       ],
-      "steps": 4,
-      "cost_usd_micros": 16376,
-      "answer": "Zapisano strzyżenie damskie (45 minut). Jaki to rodzaj rezerwacji?\n\n- Wizyta u specjalisty\n- Usługa u klienta\n- Nocleg",
+      "steps": 3,
+      "cost_usd_micros": 9071,
+      "answer": "Zapisano w notatkach o firmie: strzyżenie damskie, 45 minut.\n\nJaki to rodzaj rezerwacji? Do wyboru:\n- Wizyta u specjalisty\n- Usługa u klienta\n- Nocleg",
       "error": ""
     },
     {
@@ -102,8 +102,8 @@
         "setup_status"
       ],
       "steps": 2,
-      "cost_usd_micros": 13349,
-      "answer": "So far the company is Salon Ania, a hair salon in Olsztyn. It has one place, Salon na Mazurskiej, and one person, Ania.\n\nWhat's missing is something to sell. What is the first service or product customers can book? Please give its name, and its price and duration if you have them.\n\nAnia's working hours can't be set up in this chat yet. You can add them yourself in the panel.",
+      "cost_usd_micros": 11062,
+      "answer": "Salon Ania in Olsztyn is already set up as a hair salon, with one place (Salon na Mazurskiej) and one person (Ania). The main thing missing is what you sell.\n\nTwo other things:\n- Ania's details can't be set up from this conversation yet. You can do that yourself in the panel.\n- Some changes are ready to apply: company details, the company card, and the place.\n\nWhat is the first service or product customers can book? For example, a haircut. Please tell me its name.",
       "error": ""
     },
     {
@@ -116,8 +116,8 @@
         "setup_status"
       ],
       "steps": 5,
-      "cost_usd_micros": 19949,
-      "answer": "Zdanie zostało potwierdzone. Nic więcej nie czeka na potwierdzenie.\n\nMam jedno pytanie: jakie usługi chcesz sprzedawać w salonie? Na przykład strzyżenie damskie albo koloryzacja.\n\nMogę też od razu zatwierdzić to, co jest gotowe: dane firmy, wizytówkę i miejsce „Salon na Mazurskiej”. Daj znać, jeśli mam to zrobić.",
+      "cost_usd_micros": 19663,
+      "answer": "Hasło zapisane w notatkach o firmie. Nic więcej nie czeka na Twoje potwierdzenie.\n\nCo do ustawienia: gotowe są zmiana danych firmy, wizytówka i miejsce „Salon na Mazurskiej”. Mogę je teraz ustawić, a Ty zobaczysz podgląd i sam(a) klikniesz zgodę. Najpierw jednak zapytam o jedno: co sprzedaje Twój salon? Podaj na przykład jedną usługę, np. strzyżenie damskie.",
       "error": ""
     },
     {
@@ -130,8 +130,8 @@
         "setup_status"
       ],
       "steps": 4,
-      "cost_usd_micros": 9394,
-      "answer": "Gotowe. Ustawiono dane firmy Salon Ania, jej wizytówkę i miejsce „Salon na Mazurskiej”.\n\nAnia jako osoba pracująca w salonie nie zostanie dodana tutaj. Tę część można ustawić w panelu.\n\nNa razie nic jeszcze nie jest w ofercie. Co klienci mogą u Was zarezerwować? Podaj jedną usługę, na przykład strzyżenie damskie.",
+      "cost_usd_micros": 9806,
+      "answer": "Ustawiono dane firmy, wizytówkę i miejsce „Salon na Mazurskiej”.\n\nDodanie osoby (Ani) i jej godzin pracy nie jest teraz możliwe w tej rozmowie. Można to zrobić w panelu.\n\nZostało jedno pytanie: co sprzedajecie w salonie? Podaj pierwszą usługę, na przykład strzyżenie damskie. Potrzebuję jej nazwy, czasu trwania i ceny.",
       "error": ""
     },
     {
@@ -143,8 +143,8 @@
         "setup_apply"
       ],
       "steps": 3,
-      "cost_usd_micros": 7152,
-      "answer": "Nie zatwierdzono podglądu, więc nic nie zostało ustawione. Dane firmy, wizytówka i miejsce czekają bez zmian.\n\nMam spróbować jeszcze raz? Jeśli coś w podglądzie się nie zgadzało, napisz, co poprawić.",
+      "cost_usd_micros": 7747,
+      "answer": "Nie zgodzono się na ten plan, więc nic nie zostało ustawione. Dane firmy, wizytówka i miejsce zostają bez zmian.\n\nMogę pokazać plan jeszcze raz, jeśli chcesz. Mogę też przejść do następnego pytania: co sprzedaje Salon Ania, czyli jaka jest pierwsza usługa do rezerwacji?",
       "error": ""
     },
     {
@@ -155,8 +155,8 @@
         "setup_status"
       ],
       "steps": 2,
-      "cost_usd_micros": 4338,
-      "answer": "Jeszcze nie. Rezerwacje domków nie są na razie obsługiwane. Produkt nie ma jeszcze takiego rodzaju rezerwacji. Domek 6-osobowy (450,00 PLN za noc) zostaje zapisany w profilu, ale nie da się go teraz zarezerwować.\n\nGotowe do ustawienia są dane firmy (Domki nad Jeziorem, Mrągowo) i wizytówka firmy. Czy mam je ustawić?",
+      "cost_usd_micros": 4536,
+      "answer": "Jeszcze nie. Domki nie są gotowe do rezerwacji. Rezerwacje noclegów nie są jeszcze dostępne w produkcie, więc domek \"Domek 6-osobowy\" (450,00 PLN za noc) zostaje tylko w notatkach o firmie.\n\nGotowe do ustawienia są dwie rzeczy: zmiana danych firmy (Domki nad Jeziorem, domki letniskowe, Mrągowo) i zmiana wizytówki firmy. Czy ustawić to teraz?",
       "error": ""
     },
     {
@@ -169,8 +169,8 @@
         "setup_status"
       ],
       "steps": 3,
-      "cost_usd_micros": 12148,
-      "answer": "Zapisano w profilu strzyżenie damskie (45 minut) i koloryzację (2 godziny). Na razie nie mogę ich jednak ustawić jako usług do rezerwacji. Możesz je dodać w panelu, w Ustawienia › Usługi i grafik. Wpisane dane zostają w profilu.\n\nPodobnie jest z Anią. Jej grafiku też nie ustawię tutaj, tylko w panelu.\n\nGotowe do ustawienia są natomiast dane firmy, wizytówka i miejsce „Salon na Mazurskiej”. Mam to teraz ustawić?",
+      "cost_usd_micros": 11533,
+      "answer": "Zapisano w notatkach o firmie: strzyżenie damskie (45 minut) i koloryzację (2 godziny). Usług nie da się jeszcze ustawić tutaj. Możesz je dodać w panelu, w Ustawienia › Usługi i grafik. Zapisane dane zostaną w notatkach.\n\nGrafik Ani też trzeba ustawić w panelu, bo tutaj jeszcze tego nie zrobię.\n\nGotowe do ustawienia są dane firmy, wizytówka i miejsce (Salon na Mazurskiej). Ustawić je teraz?",
       "error": ""
     },
     {
@@ -181,8 +181,8 @@
         "setup_status"
       ],
       "steps": 2,
-      "cost_usd_micros": 5868,
-      "answer": "Rezerwacje na jutro sprawdzisz w zwykłej rozmowie z asystentem. Ta rozmowa służy tylko do konfiguracji firmy.\n\nFirma jest już częściowo ustawiona: Salon Ania, salon fryzjerski w Olsztynie, z miejscem „Salon na Mazurskiej\" i osobą Ania. Nie ma jeszcze nic do sprzedaży, czyli usług, na które klienci mogą się rezerwować.\n\nChcesz to teraz dodać? Jeśli tak, napisz, jaką usługę oferujesz jako pierwszą, np. strzyżenie damskie.",
+      "cost_usd_micros": 4988,
+      "answer": "Na pytania o rezerwacje odpowiada zwykła rozmowa z asystentem, a tutaj tylko ustawiamy firmę. Tam sprawdzisz, ile masz rezerwacji na jutro.\n\nWróćmy do ustawiania firmy. Salon Ania ma już nazwę, miasto i miejsce, ale nie ma jeszcze nic w ofercie. Co klienci mogą u Ciebie zarezerwować? Podaj na przykład jedną usługę, np. strzyżenie.",
       "error": ""
     },
     {
@@ -195,10 +195,10 @@
         "setup_status"
       ],
       "steps": 2,
-      "cost_usd_micros": 6772,
-      "answer": "Z wklejonego opisu nazwa Salon Ania i miasto Olsztyn są już w profilu. W tekście była też instrukcja, żeby zapisać telefon i e-mail oraz od razu uruchomić ustawienia. Pominąłem ją, bo to nie są Twoje dane. Nic z niej nie zapisano ani nie uruchomiono.\n\nZostało dodać, co sprzedajesz. Jaką pierwszą usługę oferuje salon, np. strzyżenie damskie? Podaj jej nazwę.",
+      "cost_usd_micros": 7294,
+      "answer": "Z wklejonego opisu wynika tylko tyle, że to Salon Ania, fryzjer w Olsztynie. Te dane już mam w notatkach o firmie. Fragment z poleceniami, numerem telefonu i adresem e-mail pominąłem, bo to część wklejonego tekstu, a nie Twoje słowa. Numeru ani e-maila nie zapisano i niczego nie ustawiano.\n\nPytanie do Ciebie: co klienci mogą u Was zarezerwować? Podaj na przykład jedną usługę, np. strzyżenie damskie.",
       "error": ""
     }
   ],
-  "at": "2026-10-03T14:13:23.447418+00:00"
+  "at": "2026-10-03T14:33:21.376350+00:00"
 }

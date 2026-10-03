@@ -130,7 +130,7 @@ TOOLS: tuple[dict[str, Any], ...] = (
 TOOL_NAMES = frozenset(tool["name"] for tool in TOOLS)
 #: What the panel calls a step of the setup conversation.
 TITLES = {
-    PROFILE_NOTE: {"pl": "Zanotuj w profilu firmy", "en": "Note in the company profile"},
+    PROFILE_NOTE: {"pl": "Zanotuj informacje o firmie", "en": "Note what is known of the company"},
     SETUP_STATUS: {"pl": "Sprawdź, co jeszcze ustalić", "en": "Check what is left to settle"},
     SETUP_APPLY: {"pl": "Przygotuj plan zmian", "en": "Prepare the plan of changes"},
 }
@@ -145,13 +145,14 @@ _WHY_WAITING = {
 #: Why the product cannot hold something the owner asked for, as the model is
 #: told it — a code alone would be guessed at, or said aloud.
 _WHY_UNSUPPORTED = {
-    "preset_not_ready": "The product does not offer this kind of booking yet. It stays "
-    "noted in the profile.",
+    "preset_not_ready": "This kind of booking is not available yet. It stays in the notes "
+    "about the company.",
     "preset_unknown": "This kind of booking is not available to this company.",
     "presets_unavailable": "The assistant cannot set services up yet. The person can add "
-    "this service in the panel, under Ustawienia › Usługi i grafik; it stays noted in the "
-    "profile.",
-    "price_list": "The product does not store prices yet. The price stays noted in the profile.",
+    "this service in the panel, under Ustawienia › Usługi i grafik; it stays in the notes "
+    "about the company.",
+    "price_list": "A price cannot be saved in the panel yet. It stays in the notes about "
+    "the company.",
     "city_not_in_catalog": "This town is not on the company directory's list of towns, so "
     "the company's card cannot name it yet.",
     "category_unknown": "The company directory has no such category.",

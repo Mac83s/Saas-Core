@@ -158,6 +158,10 @@ def test_the_words_are_graded_too() -> None:
     assert grade(polish, answered, {}) == ["gendered_verb"]
     wished = ScenarioResult(key=polish.key, answer="Najpierw chciałbym zapytać: jaka nazwa?")
     assert grade(polish, wished, {}) == ["gendered_verb"]
+    split = ScenarioResult(key=polish.key, answer="Chcesz, żebym to zrobił? Jaka nazwa?")
+    assert grade(polish, split, {}) == ["gendered_verb"]
+    neutral = ScenarioResult(key=polish.key, answer="Czy ustawić to teraz? Jaka ma być nazwa?")
+    assert grade(polish, neutral, {}) == []
     # A Polish answer without diacritics, and an English one quoting a Polish name.
     plain = ScenarioResult(key=polish.key, answer="Jaka ma byc nowa nazwa firmy?")
     assert grade(polish, plain, {}) == []
@@ -306,8 +310,8 @@ def test_services_the_product_cannot_set_up_yet_are_said_in_words() -> None:
         {
             "field": "offers.cut",
             "why": "The assistant cannot set services up yet. The person can add this "
-            "service in the panel, under Ustawienia › Usługi i grafik; it stays noted in "
-            "the profile.",
+            "service in the panel, under Ustawienia › Usługi i grafik; it stays in the "
+            "notes about the company.",
         }
     ]
 

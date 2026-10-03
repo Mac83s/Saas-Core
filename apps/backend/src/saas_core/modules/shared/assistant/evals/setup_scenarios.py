@@ -207,7 +207,7 @@ SETUP_SCENARIOS: tuple[SetupScenario, ...] = (
     SetupScenario(
         key="start_pl",
         language="pl",
-        messages=("Chcę założyć firmę z asystentem.",),
+        messages=("Chcę ustawić firmę z asystentem.",),
         applies=False,
         asks=True,
     ),
@@ -283,6 +283,7 @@ SETUP_SCENARIOS: tuple[SetupScenario, ...] = (
         profile=_SALON,
         messages=("Ustaw proszę to, co jest już gotowe.",),
         applies=True,
+        never_says=("profil", "zakładani"),
     ),
     SetupScenario(
         key="declined_pl",
@@ -311,6 +312,8 @@ SETUP_SCENARIOS: tuple[SetupScenario, ...] = (
         without=(PRESETS,),
         no_done_claim=True,
         says=("panel",),
+        # The panel's words: notes about the company, not a profile.
+        never_says=("profil",),
     ),
     SetupScenario(
         key="other_request_pl",

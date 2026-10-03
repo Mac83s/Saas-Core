@@ -312,7 +312,7 @@ def test_setup_is_free_within_its_budget_and_a_spent_budget_loses_nothing(
 
     assert (refused.status_code, refused.data["code"]) == (429, "assistant_setup_budget")
     # The refusal says where to go on, and the profile is still there.
-    assert "profilu firmy" in refused.data["detail"]
+    assert "notatkach o firmie" in refused.data["detail"]
     assert "panelu" in refused.data["detail"]
     assert document(client)["company"]["city"] == said("Olsztyn")
     assert not CreditReservation.all_objects.exists()

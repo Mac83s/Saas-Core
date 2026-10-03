@@ -37,13 +37,13 @@ _CONVERSATION = "conversation:"
 
 class ProfileVersionConflict(APIException):
     status_code = 409
-    default_detail = "Profil firmy zmienił się w międzyczasie. Odśwież go i spróbuj ponownie."
+    default_detail = "Notatki o firmie zmieniły się w międzyczasie. Odśwież je i spróbuj ponownie."
     default_code = "assistant_profile_version_conflict"
 
 
 class ProfileKeyReused(APIException):
     status_code = 409
-    default_detail = "Ten klucz Idempotency-Key był już użyty do innej zmiany profilu."
+    default_detail = "Ten klucz Idempotency-Key był już użyty do innej zmiany notatek."
     default_code = "assistant_idempotency_conflict"
 
 
@@ -152,7 +152,7 @@ def _manager(operation: FeatureOperation) -> TenantContext:
     context = authorize(SETTINGS_MANAGE)
     if context.principal_kind != "membership":
         raise PermissionDenied(
-            "Profil firmy zmienia osoba zalogowana w panelu.", code="assistant_person_only"
+            "Notatki o firmie zmienia osoba zalogowana w panelu.", code="assistant_person_only"
         )
     if not decide_feature(TEXT_FEATURE, operation=operation).allowed:
         raise PermissionDenied(
