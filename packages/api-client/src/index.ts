@@ -344,6 +344,9 @@ export type SetupOption = components["schemas"]["SetupOption"];
 /** A visit in „Do przydzielenia”, with the customer's contact. */
 export type QueueItem = components["schemas"]["QueueItem"];
 export type BookingOverview = components["schemas"]["Overview"];
+export type BookingOccupancy = components["schemas"]["Occupancy"];
+export type OccupancyHeld = components["schemas"]["OccupancyHeld"];
+export type OccupancyUnit = components["schemas"]["OccupancyUnit"];
 /** One person for one visit: free, or why not (ADR-058 §9). */
 export type CrewCandidate = components["schemas"]["Candidate"];
 export type CrewInput = components["schemas"]["CrewInput"];
@@ -2551,6 +2554,20 @@ export async function getBookingOverview(): Promise<BookingOverview> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/overview/",
     { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Obłożenie: units against days, `from`–`to` local days (≤ 62). */
+export async function getBookingOccupancy(query: {
+  from: string;
+  to: string;
+  group_id?: string;
+}): Promise<BookingOccupancy> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/occupancy/",
+    { params: { query }, credentials: "same-origin", cache: "no-store" },
   );
   if (error || !data) throwProblem(error, response);
   return data;

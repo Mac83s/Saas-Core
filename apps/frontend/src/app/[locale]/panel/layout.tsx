@@ -132,6 +132,7 @@ async function withBooking(access: PanelAccess): Promise<PanelAccess> {
           bookableStaff: overview.bookable_staff,
           teams: overview.teams,
           waiting: overview.waiting,
+          stays: overview.stays,
         },
       }
     : access;

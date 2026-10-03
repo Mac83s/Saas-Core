@@ -2,8 +2,9 @@
 
 One read for the grid the office books stays from: every active unit, what
 holds each of them in the window — a stay, a visit that takes the room, a
-block — and the days the company or a place is closed. Three queries whatever
-the window and the number of units, so a season's worth of days stays cheap.
+block — and the days the company or a place is closed. The same few queries whatever
+the window, the units or the stays (seven with the permission check, pinned by
+a test), so a season's worth of days stays cheap.
 
 Who may see whose bookings is still the calendar manager's question here; a
 product's narrower rule (UX-023) applies once it exists in booking.

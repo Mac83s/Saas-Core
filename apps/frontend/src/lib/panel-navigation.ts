@@ -69,6 +69,8 @@ export type PanelSectionTab = Pick<
    * waits; "teams" while a team exists.
    */
   dispatch?: "queue" | "teams";
+  /** Only for a company that sells by dates (`GET /booking/overview/` `stays`). */
+  stays?: boolean;
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
   count?: number;
 };
@@ -87,6 +89,14 @@ export const PANEL_SECTIONS = {
       module: "shared.booking",
       permission: "booking.appointment.manage",
       dispatch: "queue",
+    },
+    {
+      // Units against days (ADR-072 phase 2d).
+      href: "/panel/calendar/occupancy",
+      labelKey: "calendarOccupancy",
+      module: "shared.booking",
+      permission: "booking.appointment.manage",
+      stays: true,
     },
   ],
   team: [
@@ -266,7 +276,13 @@ export type PanelAccess = {
   limited: boolean;
   organizationType?: string;
   /** Who takes visits and what waits (GET /booking/overview/); none without the calendar. */
-  booking?: { bookableStaff: number; teams: number; waiting: number | null };
+  booking?: {
+    bookableStaff: number;
+    teams: number;
+    waiting: number | null;
+    /** The company sells by dates: „Obłożenie” has a use. */
+    stays?: boolean;
+  };
 };
 
 export function panelAccess(
@@ -393,9 +409,13 @@ export function allows(
     | "notForLimited"
     | "anyAccess"
     | "organizationTypes"
-  > & { dispatch?: PanelSectionTab["dispatch"] },
+  > & {
+    dispatch?: PanelSectionTab["dispatch"];
+    stays?: PanelSectionTab["stays"];
+  },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
+  if (item.stays && !access.booking?.stays) return false;
   if (item.dispatch) {
     const booking = access.booking;
     if (!booking) return false;
