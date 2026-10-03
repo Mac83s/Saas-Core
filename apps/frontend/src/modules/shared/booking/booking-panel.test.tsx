@@ -105,6 +105,9 @@ vi.mock("../../../product/calendar", () => ({
     },
     check: section.check,
     save: section.save,
+    // A chosen farm gives the customer and the place (answer 50a).
+    summarizes: (value: unknown) =>
+      Boolean((value as { farm?: string } | undefined)?.farm),
     detailsSection: ({ appointment }: { appointment: { id: string } }) => (
       <p>Product details of {appointment.id}</p>
     ),
@@ -834,6 +837,47 @@ test("a product's kind of visit: its section fills the form and books the visit 
     value: { farm: "farm-1" },
   });
   expect(api.createBookingAppointment).not.toHaveBeenCalled();
+});
+
+test("a chosen farm sums up the customer and the place; „Change for this visit” opens them", async () => {
+  address.params = new URLSearchParams(`new=1&service_id=${FIELD}`);
+  api.getBookingCatalog.mockResolvedValue({
+    ...catalog,
+    services: [
+      ...catalog.services,
+      {
+        ...catalog.services[0],
+        id: FIELD,
+        name: "Field visit",
+        appointment_kind: "test.field",
+      },
+    ],
+  });
+  api.getBookingSlots.mockResolvedValue({ items: [] });
+  renderCalendar({ access: ACCESS });
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  const fields = () =>
+    within(dialog)
+      .getByLabelText("Full name")
+      .closest('[data-slot="customer-fields"]');
+  expect(fields()?.className).not.toContain("hidden");
+
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Pick the farm" }),
+  );
+  within(dialog).getByText("Jan Rolnik");
+  within(dialog).getByText("600 700 800");
+  within(dialog).getByText("Wólka, Polna 1");
+  expect(fields()?.className).toContain("hidden");
+
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Change for this visit" }),
+  );
+  expect(fields()?.className).not.toContain("hidden");
+  expect(within(dialog).getByLabelText("Town")).toHaveValue("Wólka");
+  expect(
+    within(dialog).queryByRole("button", { name: "Change for this visit" }),
+  ).toBeNull();
 });
 
 test("a link's farm belongs to the form it opened, not to the next one", async () => {

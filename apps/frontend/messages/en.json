@@ -2408,6 +2408,7 @@
     "email": "Email",
     "phone": "Phone",
     "contactHint": "Enter an email or a phone number. We send the confirmation and a reminder by email.",
+    "changeForVisit": "Change for this visit",
     "customerLocale": "Customer's language",
     "save": "Save appointment",
     "createError": "The appointment could not be saved.",

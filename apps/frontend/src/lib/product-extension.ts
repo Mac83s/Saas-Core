@@ -158,6 +158,12 @@ export type ProductCalendar = {
   }) => Promise<ProductVisitBooked>;
   /** The section's field errors in a server problem; null when not its own. */
   problemErrors?: (error: unknown) => Record<string, string> | null;
+  /**
+   * The section's value gives the visit's customer and place already (a farm
+   * from the register): the form shows them as one summary, and „Zmień dla tej
+   * wizyty” opens the fields (answer 50a, ADR-067 pkt 1).
+   */
+  summarizes?: (value: unknown) => boolean;
   /** Below a visit's details: the product's own actions on it. */
   detailsSection?: ComponentType<ProductVisitDetailsProps>;
   /**

@@ -28,6 +28,14 @@ szczegół produktu (`HerdVisit`) zapisane razem.
    swojego POST, a zapisuje produkt — atomowo, przez własne API. Kontrakt jest
    mały celowo, żeby przetrwał przebudowę formularza (presety rezerwacji
    uniwersalnych). **Rdzeń nie dostaje pola `details` w `create_appointment`.**
+   *Uzupełnienie 03.10 (odpowiedź Macieja 50a):* gdy wartość sekcji już daje
+   klienta i miejsce (gospodarstwo z rejestru), produkt mówi to przez
+   `summarizes(value)`; formularz pokazuje je wtedy jednym podsumowaniem
+   (nazwa, telefon i e-mail, miejscowość i adres) z linkiem „Zmień dla tej
+   wizyty”, który odsłania pola. Pola zostają w formularzu i idą do zapisu jak
+   dotąd; inna karta z listy znów jest podsumowana, a pole odrzucone przez
+   walidację nigdy nie chowa się pod podsumowaniem. Uwagi do wizyty są zawsze
+   widoczne.
 2. **Adres Kalendarza**: `?new=1&service_id=<usługa>` otwiera formularz z usługą
    (`service` to dalej filtr po nazwie), a każdy inny parametr należy do sekcji
    produktu (np. `farm`); zostają w adresie, dopóki formularz jest otwarty.

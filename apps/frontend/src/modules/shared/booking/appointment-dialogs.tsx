@@ -799,6 +799,14 @@ function NewAppointmentForm({
     control: form.control,
     name: ["service_id", "location_id", "date", "time"],
   });
+  // „Zmień dla tej wizyty” opens the fields for the section's value it was
+  // pressed at; another farm is summed up again (answer 50a).
+  const [openedFor, setOpenedFor] = useState<unknown>();
+  const [customerName, customerPhone, customerEmail, placeTown, placeAddress] =
+    useWatch({
+      control: form.control,
+      name: ["display_name", "phone", "email", "place_town", "place_address"],
+    });
   const search = useFreeSlots(serviceId, locationId, date, version);
   const materials = useTranslations("BookingMaterials");
   const warehouse = useWarehouse(canUseInventory);
@@ -824,6 +832,17 @@ function NewAppointmentForm({
   );
   const checked = Boolean(time && search.slots);
   const errors = form.formState.errors;
+  // A refused field is never hidden behind the summary.
+  const summed =
+    Boolean(section?.summarizes?.(sectionValue)) &&
+    openedFor !== sectionValue &&
+    !(
+      errors.display_name ||
+      errors.email ||
+      errors.phone ||
+      errors.place_town ||
+      errors.place_address
+    );
 
   function pick(slot: Slot) {
     const local = wallClock(slot.starts_at, zone);
@@ -1165,7 +1184,31 @@ function NewAppointmentForm({
       ) : null}
       <FieldSet>
         <FieldLegend>{t("customer")}</FieldLegend>
-        <div className="grid gap-4 sm:grid-cols-2">
+        {summed ? (
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <div className="min-w-0 space-y-0.5 wrap-anywhere">
+              <p className="font-medium">{customerName}</p>
+              <p className="text-muted-foreground">
+                {[customerPhone, customerEmail].filter(Boolean).join(" · ")}
+              </p>
+              <p className="text-muted-foreground">
+                {[placeTown, placeAddress].filter(Boolean).join(", ")}
+              </p>
+            </div>
+            <Button
+              className="h-auto p-0"
+              onClick={() => setOpenedFor(sectionValue)}
+              type="button"
+              variant="link"
+            >
+              {t("changeForVisit")}
+            </Button>
+          </div>
+        ) : null}
+        <div
+          className={cn("grid gap-4 sm:grid-cols-2", summed && "hidden")}
+          data-slot="customer-fields"
+        >
           <Field
             className="sm:col-span-2"
             data-invalid={Boolean(errors.display_name)}
@@ -1222,7 +1265,9 @@ function NewAppointmentForm({
             </Field>
           )}
         </div>
-        <FieldDescription>{t("contactHint")}</FieldDescription>
+        {summed ? null : (
+          <FieldDescription>{t("contactHint")}</FieldDescription>
+        )}
         <Field data-invalid={Boolean(errors.notes)}>
           <FieldLabel htmlFor="appointment-notes">{t("notes")}</FieldLabel>
           <Textarea
@@ -1236,7 +1281,7 @@ function NewAppointmentForm({
           <FieldError errors={[errors.notes]} />
         </Field>
       </FieldSet>
-      <FieldSet>
+      <FieldSet className={cn(summed && "hidden")}>
         <FieldLegend>{t("placeLegend")}</FieldLegend>
         <FieldDescription>{t("placeHint")}</FieldDescription>
         {/* A product's section owns the places of its own visits. */}

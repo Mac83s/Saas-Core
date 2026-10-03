@@ -2408,6 +2408,7 @@
     "email": "E-mail",
     "phone": "Telefon",
     "contactHint": "Podaj e-mail albo telefon. Na e-mail wyślemy potwierdzenie i przypomnienie o wizycie.",
+    "changeForVisit": "Zmień dla tej wizyty",
     "customerLocale": "Język klienta",
     "save": "Zapisz wizytę",
     "createError": "Nie udało się zapisać wizyty.",
