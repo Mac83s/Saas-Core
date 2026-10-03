@@ -674,6 +674,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/occupancy/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read what holds each unit, day by day
+         * @description Every active unit (of one group with `group_id`) with what holds it from `from` to `to`, local days included: stays, visits that take the unit, and blocks — a block that could not take its time is listed too. Closed days of the company or of a unit's place come with it. At most 62 days per read.
+         */
+        get: operations["booking_occupancy_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/overview/": {
         parameters: {
             query?: never;
@@ -8479,6 +8499,71 @@ export interface components {
             note: string;
         };
         NullEnum: null;
+        /** @description The company's units against days (ADR-072 phase 2d). */
+        Occupancy: {
+            /**
+             * Format: date
+             * @description First local day of the window.
+             */
+            date_from: string;
+            /**
+             * Format: date
+             * @description Last local day of the window, included.
+             */
+            date_to: string;
+            timezone: string;
+            units: components["schemas"]["OccupancyUnit"][];
+            held: components["schemas"]["OccupancyHeld"][];
+            closures: components["schemas"]["BookingClosure"][];
+        };
+        OccupancyHeld: {
+            /** Format: uuid */
+            unit_id: string;
+            /**
+             * @description `stay` — a booking by dates; `visit` — a visit that takes the unit; `block` — the unit taken out (renovation, owner's use).
+             *
+             *     * `stay` - stay
+             *     * `visit` - visit
+             *     * `block` - block
+             */
+            kind: components["schemas"]["OccupancyHeldKindEnum"];
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: uuid */
+            appointment_id: string | null;
+            /** Format: uuid */
+            block_id: string | null;
+            /** @description The booking's name (a module's, else the customer's), or the block's reason. */
+            title: string;
+            /** @description The booking's status; empty for a block. */
+            status: string;
+        };
+        /**
+         * @description * `stay` - stay
+         *     * `visit` - visit
+         *     * `block` - block
+         * @enum {string}
+         */
+        OccupancyHeldKindEnum: "stay" | "visit" | "block";
+        OccupancyUnit: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * Format: uuid
+             * @description Its pool of identical units.
+             */
+            group_id: string | null;
+            group_name: string | null;
+            /**
+             * Format: uuid
+             * @description Where the unit is.
+             */
+            location_id: string | null;
+            capacity: number | null;
+        };
         OfferAutomation: {
             /**
              * Format: uuid
@@ -8627,6 +8712,8 @@ export interface components {
             bookable_staff: number;
             teams: number;
             waiting: number | null;
+            /** @description The company sells an offer booked by dates: „Obłożenie” has a use. */
+            stays: boolean;
         };
         /**
          * @description F4-C: the page's sections in the template's places, the rest after it.
@@ -13391,6 +13478,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerAnonymized"];
+                };
+            };
+        };
+    };
+    booking_occupancy_retrieve: {
+        parameters: {
+            query: {
+                from: string;
+                /** @description Only the units of this group. */
+                group_id?: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Occupancy"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

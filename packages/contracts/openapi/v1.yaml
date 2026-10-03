@@ -1662,6 +1662,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/CustomerAnonymized'
           description: ''
+  /api/v1/booking/occupancy/:
+    get:
+      operationId: booking_occupancy_retrieve
+      description: 'Every active unit (of one group with `group_id`) with what holds
+        it from `from` to `to`, local days included: stays, visits that take the unit,
+        and blocks — a block that could not take its time is listed too. Closed days
+        of the company or of a unit''s place come with it. At most 62 days per read.'
+      summary: Read what holds each unit, day by day
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        description: Only the units of this group.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Occupancy'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/overview/:
     get:
       operationId: api_v1_booking_overview_retrieve
@@ -24334,6 +24384,131 @@ components:
       - note
     NullEnum:
       type: 'null'
+    Occupancy:
+      type: object
+      description: The company's units against days (ADR-072 phase 2d).
+      properties:
+        date_from:
+          type: string
+          format: date
+          description: First local day of the window.
+        date_to:
+          type: string
+          format: date
+          description: Last local day of the window, included.
+        timezone:
+          type: string
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccupancyUnit'
+        held:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccupancyHeld'
+        closures:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingClosure'
+      required:
+      - closures
+      - date_from
+      - date_to
+      - held
+      - timezone
+      - units
+    OccupancyHeld:
+      type: object
+      properties:
+        unit_id:
+          type: string
+          format: uuid
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/OccupancyHeldKindEnum'
+          description: |-
+            `stay` — a booking by dates; `visit` — a visit that takes the unit; `block` — the unit taken out (renovation, owner's use).
+
+            * `stay` - stay
+            * `visit` - visit
+            * `block` - block
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        appointment_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        block_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        title:
+          type: string
+          description: The booking's name (a module's, else the customer's), or the
+            block's reason.
+        status:
+          type: string
+          description: The booking's status; empty for a block.
+      required:
+      - appointment_id
+      - block_id
+      - ends_at
+      - kind
+      - starts_at
+      - status
+      - title
+      - unit_id
+    OccupancyHeldKindEnum:
+      enum:
+      - stay
+      - visit
+      - block
+      type: string
+      description: |-
+        * `stay` - stay
+        * `visit` - visit
+        * `block` - block
+    OccupancyUnit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Its pool of identical units.
+        group_name:
+          type:
+          - string
+          - 'null'
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Where the unit is.
+        capacity:
+          type:
+          - integer
+          - 'null'
+      required:
+      - capacity
+      - group_id
+      - group_name
+      - id
+      - location_id
+      - name
     OfferAutomation:
       type: object
       properties:
@@ -24649,8 +24824,13 @@ components:
           type:
           - integer
           - 'null'
+        stays:
+          type: boolean
+          description: 'The company sells an offer booked by dates: „Obłożenie” has
+            a use.'
       required:
       - bookable_staff
+      - stays
       - teams
       - waiting
     OwnTemplateImport:
