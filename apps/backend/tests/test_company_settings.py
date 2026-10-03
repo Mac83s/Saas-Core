@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
@@ -252,6 +253,8 @@ def test_a_paused_company_refuses_online_bookings_and_the_team_books_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _no_delivery(monkeypatch)
+    # The public form is throttled per client address; start with a fresh allowance.
+    cache.clear()
     member = membership("settings-paused")
     configured = catalog(member)
     PublicBookingRoute.objects.create(

@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -20,6 +21,16 @@ from saas_core.modules.shared.notifications.models import AppNotification, Notif
 from test_booking import _no_delivery, catalog, membership, tenant
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_throttle() -> Any:
+    # The public form is throttled per client address: no test spends
+    # another's allowance.
+    cache.clear()
+    yield
+    cache.clear()
+
 
 ONLINE = "booking.online"
 NOTICES = "booking.notices"
