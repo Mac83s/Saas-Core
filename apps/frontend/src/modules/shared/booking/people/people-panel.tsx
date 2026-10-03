@@ -726,7 +726,8 @@ export function PeoplePanel({
           canInvite ? (
             <p className="text-muted-foreground">{t("alone")}</p>
           ) : null}
-          {data?.seats?.limit != null ? (
+          {/* The plan's limit is for whoever invites (UX-024). */}
+          {canInvite && data?.seats?.limit != null ? (
             <p className="text-sm text-muted-foreground">
               {t("seats", { used: data.seats.used, limit: data.seats.limit })}
             </p>

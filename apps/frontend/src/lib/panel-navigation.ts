@@ -38,6 +38,18 @@ export type PanelNavItem = ProductNavigationItem & {
   section?: keyof typeof PANEL_SECTIONS;
   /** Access to at least one independent feature on a combined screen. */
   anyAccess?: readonly { module: string; permission: string }[];
+  /** Another name for whoever lacks `unless` (UX-024); see `PanelSectionTab`. */
+  otherwise?: Otherwise;
+};
+
+/**
+ * The name a page has for someone without a right: the warehouse's stock is
+ * „Mój zapas” for whoever does not run the warehouse, „Abonament” is
+ * „Kredyty” for whoever does not pay — the menu says what the page shows.
+ */
+type Otherwise = {
+  unless: Pick<PanelNavItem, "permission" | "ownerOnly">;
+  labelKey: string;
 };
 
 export type PanelSectionTab = Pick<
@@ -48,6 +60,7 @@ export type PanelSectionTab = Pick<
   | "permission"
   | "ownerOnly"
   | "organizationTypes"
+  | "otherwise"
 > & {
   /**
    * Choosing between people only makes sense when more than one takes visits
@@ -108,6 +121,10 @@ export const PANEL_SECTIONS = {
       labelKey: "inventoryStock",
       module: "shared.inventory",
       permission: "inventory.read",
+      otherwise: {
+        unless: { permission: "inventory.manage" },
+        labelKey: "inventoryMine",
+      },
     },
     {
       href: "/panel/inventory/items",
@@ -353,6 +370,7 @@ const COMPANY: PanelNavItem[] = [
     group: "company",
     module: "shared.billing",
     notForLimited: true,
+    otherwise: { unless: { ownerOnly: true }, labelKey: "credits" },
     section: "subscription",
   },
 ];
@@ -421,7 +439,7 @@ export function panelNavigation(access: PanelAccess): {
   const visible = (items: PanelNavItem[]): PanelNavEntry[] =>
     items.flatMap((item) => {
       if (!allows(access, item)) return [];
-      if (!item.section) return [item];
+      if (!item.section) return [named(access, item)];
       const pages = PANEL_SECTIONS[item.section]
         .filter((tab) => allows(access, tab))
         .map((tab) => withCount(access, tab));
@@ -429,7 +447,7 @@ export function panelNavigation(access: PanelAccess): {
       // One page is the entry itself: nothing to unfold.
       return [
         {
-          ...item,
+          ...named(access, item),
           href: pages[0].href,
           ...(pages.length > 1 ? { pages } : {}),
         },
@@ -448,7 +466,19 @@ export function panelNavigation(access: PanelAccess): {
 
 function withCount(access: PanelAccess, tab: PanelSectionTab): PanelSectionTab {
   const waiting = access.booking?.waiting;
-  return tab.dispatch === "queue" && waiting ? { ...tab, count: waiting } : tab;
+  const tabNamed = named(access, tab);
+  return tab.dispatch === "queue" && waiting
+    ? { ...tabNamed, count: waiting }
+    : tabNamed;
+}
+
+function named<T extends { labelKey: string; otherwise?: Otherwise }>(
+  access: PanelAccess,
+  item: T,
+): T {
+  return item.otherwise && !allows(access, item.otherwise.unless)
+    ? { ...item, labelKey: item.otherwise.labelKey }
+    : item;
 }
 
 /** The tabs of the section `pathname` is in, when there is more than one. */

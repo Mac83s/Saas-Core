@@ -3,6 +3,7 @@ import {
   CalendarDaysIcon,
   CreditCardIcon,
   Globe2Icon,
+  PackageIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -35,6 +36,9 @@ export default async function PanelHomePage() {
   const modules = new Set(access.modules);
   // The same gates as the menu, so the start page offers no tile the menu hides.
   const can = (permission: string) => allows(access, { permission });
+  // Who plans the team's day sets the company up too; everybody else gets
+  // their own day and their own things (UX-023).
+  const plans = can("booking.appointment.manage");
   const actions = [
     modules.has("shared.sites") && can("site.content.edit")
       ? {
@@ -52,12 +56,24 @@ export default async function PanelHomePage() {
           description: t("calendarDescription"),
         }
       : null,
-    can("organization.members.read")
+    // „Zaproś zespół” for whoever may invite, not for whoever may look.
+    can("organization.members.manage") ||
+    can("organization.members.manage_limited")
       ? {
           href: "/panel/team",
           icon: UsersIcon,
           title: t("teamTitle"),
           description: t("teamDescription"),
+        }
+      : null,
+    modules.has("shared.inventory") &&
+    can("inventory.use") &&
+    !can("inventory.manage")
+      ? {
+          href: "/panel/inventory",
+          icon: PackageIcon,
+          title: t("stockTitle"),
+          description: t("stockDescription"),
         }
       : null,
     modules.has("shared.billing") && access.isOwner
@@ -72,7 +88,7 @@ export default async function PanelHomePage() {
 
   return (
     <PanelPage
-      description={t("description")}
+      description={t(plans ? "description" : "descriptionOwn")}
       eyebrow={t("eyebrow")}
       title={t("greeting", {
         name:

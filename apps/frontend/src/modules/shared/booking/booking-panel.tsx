@@ -182,7 +182,11 @@ export function BookingPanel({
   const [cursor, setCursor] = useState(() =>
     DAY.test(asked("date")) ? asked("date") : today,
   );
-  const [staffFilter, setStaffFilter] = useState(() => asked("staff"));
+  // Whoever does not plan the team's visits opens on their own; „Wszyscy
+  // pracownicy” is one choice away (UX-023).
+  const [staffFilter, setStaffFilter] = useState(
+    () => asked("staff") || (canManage ? "" : "mine"),
+  );
   const [serviceFilter, setServiceFilter] = useState(() => asked("service"));
   const [selected, setSelected] = useState<BookingAppointment>();
   const [detailsOpen, setDetailsOpen] = useState(false);
