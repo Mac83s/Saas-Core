@@ -27,6 +27,7 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+from functools import partial
 from typing import Any
 from uuid import UUID
 
@@ -220,8 +221,19 @@ def set_share_schedule(*, request: HttpRequest, share_id: UUID, allowed: bool) -
             farm,
             metadata={"can_publish_schedule": allowed},
         )
+        if allowed:
+            # What the company already planned reaches the register once the
+            # consent is committed (UX-078); taken back, the planned rows hide
+            # by `_visible_visits` as before.
+            transaction.on_commit(partial(_enqueue_republish, share.id), robust=True)
     _name_partner(share, context.organization_id)
     return share
+
+
+def _enqueue_republish(share_id: UUID) -> None:
+    from .tasks import republish_schedule_task  # noqa: PLC0415
+
+    republish_schedule_task.delay(str(share_id))
 
 
 @transaction.atomic

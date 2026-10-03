@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterator
+import logging
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -71,6 +72,8 @@ from .sharing import (
     share_for_schedule,
     share_for_writing,
 )
+
+logger = logging.getLogger(__name__)
 
 #: What the register receives about an animal. The company's private note about
 #: a cow stays with the company, like the private note on a card.
@@ -661,6 +664,49 @@ def publish_farm_visit(
             },
         )
         return entry
+
+
+#: Who knows a company's planned visits to a card. A vertical registers one
+#: (HoofCare's herd visits); core names none (ADR-049).
+_schedule_sources: dict[str, Callable[[UUID, UUID], int]] = {}
+
+
+def register_schedule_source(name: str, source: Callable[[UUID, UUID], int]) -> None:
+    """`source(company_organization_id, company_farm_id)` publishes that
+    company's upcoming planned visits to the card through `publish_farm_visit`
+    and returns how many it handed over. It runs after commit, outside any
+    tenant, so it sets the company's own — the way an appointment observer does.
+    """
+    _schedule_sources[name] = source
+
+
+def republish_schedule(share_id: UUID) -> int:
+    """The keeper turned the schedule consent on (UX-078): what the company has
+    already planned for this farm reaches the register now, not at its next
+    move. For the keeper the consent means „show me the company's plan", so a
+    visit planned the day before must not stay invisible.
+
+    Upcoming visits only — nothing that already happened is backfilled — and
+    idempotent: `publish_farm_visit` rewrites the one row of a visit, so
+    turning the consent off and on again adds nothing. A consent taken back
+    before this runs publishes nothing. A failing source is logged, not
+    raised: the consent is committed and the calendar stays the source of truth.
+    """
+    # `FarmShare` has no organization key and no RLS: readable without a tenant.
+    share = FarmShare.objects.filter(
+        pk=share_id, status=ShareStatus.ACTIVE, can_publish_schedule=True
+    ).first()
+    if share is None:
+        return 0
+    published = 0
+    for name, source in _schedule_sources.items():
+        try:
+            published += source(share.company_organization_id, share.company_farm_id)
+        except Exception:
+            logger.exception(
+                "Źródło grafiku zawiodło.", extra={"source": name, "share_id": str(share_id)}
+            )
+    return published
 
 
 def _visible_visits(organization_id: UUID) -> Q:

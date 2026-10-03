@@ -174,3 +174,12 @@ może je zmienić):
    listy wszystkich (`GET /api/v1/farms/visits/?from&to&status`).
 3. **PDF raportu zostaje po stronie firmy (pkt 6 bez zmian).** „Dziś” rolnika
    otwiera raport z `details.sections` i mówi, że PDF przyszedł e-mailem.
+4. **Włączenie zgody na grafik przynosi plan firmy.** Dla rolnika zgoda znaczy
+   „pokaż mi plan firmy”, więc wizyta zaplanowana, gdy zgoda była wyłączona, nie
+   może zostać niewidoczna do następnego przełożenia. Po zatwierdzeniu
+   `set_share_schedule(allowed=True)` zadanie `republish_schedule` pyta źródła
+   grafiku zarejestrowane przez wertykał (`register_schedule_source`; HoofCare:
+   wizyty w gospodarstwach) o nadchodzące zaplanowane wizyty tej karty i
+   publikuje je zwykłym `publish_farm_visit`. Tylko nadchodzące — nic, co już
+   minęło, nie jest dopisywane wstecz — i idempotentnie: ponowne
+   wyłączenie i włączenie zgody nie dokłada wierszy. Wyłączenie działa jak w pkt 2.

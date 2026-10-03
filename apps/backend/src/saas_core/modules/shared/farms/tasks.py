@@ -12,6 +12,8 @@ a kolejny przebieg bez nowych sztuk nie mówi nic.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from celery import shared_task
 from django.db import transaction
 from django.db.models import Count, Max
@@ -20,6 +22,7 @@ from saas_core.modules.core.organizations.context import set_local_organization_
 from saas_core.modules.core.organizations.models import Membership, MembershipStatus
 from saas_core.modules.shared.notifications.api import notify_in_app
 
+from .herd_sync import republish_schedule
 from .models import Animal, FarmShare
 from .services import FARMS_MANAGE
 
@@ -72,3 +75,12 @@ def notify_pending_reviews() -> int:
                         idempotency_key=key,
                     )
     return created
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.farms.tasks.republish_schedule"
+)
+def republish_schedule_task(share_id: str) -> int:
+    """The company's plan for a farm whose keeper just turned the schedule
+    consent on (`sharing.set_share_schedule`, UX-078)."""
+    return republish_schedule(UUID(share_id))

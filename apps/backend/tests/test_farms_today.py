@@ -11,13 +11,15 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
+from saas_core.modules.shared.farms import herd_sync
 from saas_core.modules.shared.farms.api import farm_animals
 from saas_core.modules.shared.farms.herd_sync import (
     list_register_visits,
     publish_farm_visit,
     publish_health_entry,
+    republish_schedule,
 )
-from saas_core.modules.shared.farms.models import FarmShare, VisitStatus
+from saas_core.modules.shared.farms.models import FarmShare, FarmVisitEntry, VisitStatus
 from saas_core.modules.shared.farms.services import (
     create_animal,
     create_farm,
@@ -27,6 +29,7 @@ from saas_core.modules.shared.farms.sharing import (
     issue_activation_code,
     redeem_activation_code,
     revoke_share,
+    set_share_schedule,
 )
 from test_farms import link_for_schedule, membership, tenant
 from test_tenant_context import authenticated_client
@@ -207,3 +210,66 @@ def test_a_control_reaches_the_keeper_only_under_the_health_consent() -> None:
     with tenant(farmer) as request:
         assert list_follow_ups() == []
         revoke_share(request=request, share_id=share.id)
+
+
+def test_the_consent_to_the_schedule_brings_what_the_company_already_planned(
+    django_capture_on_commit_callbacks: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """For the keeper the consent means „show me the company's plan": a visit
+    planned while it was off reaches the register once it is on, and turning
+    it off and on again adds nothing (UX-078, coordinator's decision of 03.10)."""
+    farmer = membership("rolnik-plan-firmy")
+    company = membership("firma-plan-firmy")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Planu"})
+    card, share = link_for_schedule(company, farmer, farm.id, schedule=False)
+    tomorrow = timezone.localdate(timezone=WARSAW) + timedelta(days=1)
+
+    # The company's own calendar, which only the vertical can read.
+    asked: list[tuple[Any, Any]] = []
+
+    def plan(company_organization_id: Any, company_farm_id: Any) -> int:
+        asked.append((company_organization_id, company_farm_id))
+        visit(company, card, "plan-jutro", VisitStatus.PLANNED, tomorrow)
+        return 1
+
+    def broken(company_organization_id: Any, company_farm_id: Any) -> int:
+        raise RuntimeError("a vertical's bug")
+
+    monkeypatch.setitem(herd_sync._schedule_sources, "test.broken", broken)
+    monkeypatch.setitem(herd_sync._schedule_sources, "test.plan", plan)
+
+    # Planned while the consent is off: the register learns nothing.
+    visit(company, card, "plan-jutro", VisitStatus.PLANNED, tomorrow)
+    with tenant(farmer):
+        assert list_register_visits() == []
+
+    def turn(allowed: bool) -> int:
+        with (
+            django_capture_on_commit_callbacks(execute=True) as callbacks,
+            tenant(farmer) as request,
+        ):
+            set_share_schedule(request=request, share_id=share.id, allowed=allowed)
+        return len(callbacks)
+
+    # Turned on: after commit the job asks the company's plan for this card;
+    # a broken source does not keep the others from publishing.
+    assert turn(True) == 1
+    assert asked == [(company.organization_id, card.id)]
+    with tenant(farmer):
+        assert [item.summary for item in list_register_visits()] == ["plan-jutro"]
+
+    # Off: no job, the planned row hides. On again: the same one row.
+    assert turn(False) == 0
+    with tenant(farmer):
+        assert list_register_visits() == []
+    assert turn(True) == 1
+    with tenant(farmer):
+        assert [item.summary for item in list_register_visits()] == ["plan-jutro"]
+    assert FarmVisitEntry.all_objects.filter(farm_id=farm.id).count() == 1
+
+    # A consent taken back before the job runs publishes nothing.
+    FarmShare.objects.filter(pk=share.pk).update(can_publish_schedule=False)
+    asked.clear()
+    assert republish_schedule(share.id) == 0
+    assert asked == []
