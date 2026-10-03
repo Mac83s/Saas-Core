@@ -15,7 +15,6 @@ import psycopg
 import pytest
 from django.db import OperationalError, close_old_connections, connection
 from django.test.utils import CaptureQueriesContext
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -43,7 +42,7 @@ from saas_core.modules.shared.booking.models import (
 )
 from saas_core.modules.shared.booking.security import public_booking_context
 from saas_core.modules.shared.booking.services import SlotUnavailable, create_appointment
-from test_booking import _no_delivery, catalog, membership, tenant
+from test_booking import _no_delivery, catalog, company_today, membership, tenant
 from test_tenant_context import authenticated_client
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -132,7 +131,7 @@ def test_a_busy_day_keeps_its_last_person_and_their_last_start(
     _no_delivery(monkeypatch)
     member = membership("sloty-limit")
     configured = team(member, people=3, hours=(time(6), time(16)), duration=60)
-    day = timezone.localdate() + timedelta(days=7)
+    day = company_today() + timedelta(days=7)
     last = configured["staff"][-1]
     with tenant(member):
         slots = available_slots(
@@ -155,7 +154,7 @@ def test_one_person_nine_to_five_offers_every_working_day_of_two_weeks(
 ) -> None:
     member = membership("sloty-dni")
     configured = team(member, people=1, hours=(time(9), time(17)), duration=30, weekdays=range(5))
-    start = timezone.localdate() + timedelta(days=1)
+    start = company_today() + timedelta(days=1)
     horizon = [start + timedelta(days=n) for n in range(14)]
     query = {"service_id": configured["service"].id, "location_id": configured["location"].id}
     with tenant(member):
@@ -178,7 +177,7 @@ def test_nobody_named_gets_the_least_busy_person_that_day_then_week_then_id(
     member = membership("sloty-dobor")
     configured = team(member, people=2, hours=(time(8), time(16)), duration=60)
     first, second = configured["staff"]
-    today = timezone.localdate()
+    today = company_today()
     monday = today + timedelta(days=14 - today.weekday())
     wednesday = monday + timedelta(days=2)
     book(member, configured, at(monday, 8), "pon-1", staff=first)
@@ -200,7 +199,7 @@ def test_the_pick_skips_a_person_on_time_off_or_off_schedule(
     member = membership("sloty-pomija")
     configured = team(member, people=2, hours=(time(8), time(16)), duration=60)
     first, second = configured["staff"]
-    day = timezone.localdate() + timedelta(days=7)
+    day = company_today() + timedelta(days=7)
     following = day + timedelta(days=1)
     with tenant(member):
         TimeOff.all_objects.create(
@@ -236,7 +235,7 @@ def test_losing_a_person_to_a_concurrent_booking_moves_on_to_the_next(
         return create(**kwargs)
 
     monkeypatch.setattr(AppointmentStaffAllocation.all_objects, "create", lose_first)
-    booked = book(member, configured, at(timezone.localdate() + timedelta(days=7), 9), "drugi")
+    booked = book(member, configured, at(company_today() + timedelta(days=7), 9), "drugi")
     assert booked.staff_id == second.id
     with tenant(member):
         # The attempt on the first person rolled back to its savepoint, row and all.
@@ -252,7 +251,7 @@ def test_two_bookings_for_anybody_at_one_start_race_to_different_people(
     _no_delivery(monkeypatch)
     member = membership(f"sloty-wyscig-{people}")
     configured = team(member, people=people, hours=(time(8), time(16)), duration=60)
-    starts_at = at(timezone.localdate() + timedelta(days=7), 9)
+    starts_at = at(company_today() + timedelta(days=7), 9)
     both_looked = threading.Barrier(2, timeout=60)
     free_at = services.free_at
 
@@ -305,7 +304,7 @@ def test_one_key_sent_twice_at_once_books_once_and_answers_both(
     _no_delivery(monkeypatch)
     member = membership("sloty-klucz")
     configured = team(member, people=2, hours=(time(8), time(16)), duration=60)
-    starts_at = at(timezone.localdate() + timedelta(days=7), 9)
+    starts_at = at(company_today() + timedelta(days=7), 9)
     both_looked = threading.Barrier(2, timeout=5)
     free_at = services.free_at
 
@@ -351,7 +350,7 @@ def test_a_start_is_checked_against_that_persons_visits_that_day_only(
     _no_delivery(monkeypatch)
     member = membership("sloty-okno")
     configured = team(member, people=2, hours=(time(8), time(10)), duration=60)
-    start = timezone.localdate() + timedelta(days=7)
+    start = company_today() + timedelta(days=7)
     window = [start, start + timedelta(days=1)]
     for number, day in enumerate(window):
         for person in configured["staff"]:
@@ -405,7 +404,7 @@ def test_more_people_to_choose_from_cost_no_more_queries(
     for people in (1, 6):
         member = membership(f"sloty-zapytania-{people}")
         configured = team(member, people=people, hours=(time(8), time(16)), duration=60)
-        day = timezone.localdate() + timedelta(days=7)
+        day = company_today() + timedelta(days=7)
         query = {"service_id": configured["service"].id, "location_id": configured["location"].id}
         # Warm whatever a first booking of an organization sets up once. Keys
         # differ per organization: the test database ignores RLS, so a shared
@@ -424,7 +423,7 @@ def test_more_people_to_choose_from_cost_no_more_queries(
 
 def _fall_back_sunday() -> date:
     """The next night Warsaw sets its clocks back: the last Sunday of October."""
-    today = timezone.localdate()
+    today = company_today()
     ends = (date(year, 10, 31) for year in (today.year, today.year + 1))
     sundays = (end - timedelta(days=(end.weekday() - 6) % 7) for end in ends)
     return next(sunday for sunday in sundays if sunday > today + timedelta(days=1))

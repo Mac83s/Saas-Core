@@ -32,7 +32,7 @@ from saas_core.modules.shared.booking.presets import apply_preset, find_preset, 
 from saas_core.modules.shared.booking.prices import save_extra, save_price
 from saas_core.modules.shared.booking.services import BookingIdempotencyConflict
 from saas_core.modules.shared.booking.setup import discard_draft, save_service
-from test_booking import membership, tenant
+from test_booking import company_today, membership, tenant
 from test_booking_slots import at, book, team
 from test_organization_lifecycle import authenticated_member
 from test_team_people import bookable, member_of
@@ -51,7 +51,7 @@ def fresh() -> Iterator[None]:
 
 
 def next_monday() -> date:
-    today = date.today()
+    today = company_today()
     return today + timedelta(days=7 - today.weekday())
 
 

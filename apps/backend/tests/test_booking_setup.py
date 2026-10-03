@@ -9,7 +9,6 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.models import OrganizationAuditEntry
@@ -34,8 +33,8 @@ from saas_core.modules.shared.booking.setup import (
     save_resource,
     save_service,
 )
-from test_booking import membership, tenant
-from test_booking_slots import WARSAW, at, book, team
+from test_booking import company_today, membership, tenant
+from test_booking_slots import at, book, team
 from test_organization_lifecycle import authenticated_member, csrf_value
 from test_team_people import bookable, member_of
 from test_tenant_context import authenticated_client
@@ -88,7 +87,7 @@ def test_editing_a_service_keeps_the_visits_booked_before() -> None:
     owner = membership("uslugi-zmiana")
     configured = team(owner, people=3, hours=(time(8), time(16)), duration=60)
     first, second, third = configured["staff"]
-    day = timezone.localdate() + timedelta(days=7)
+    day = company_today() + timedelta(days=7)
     with tenant(owner):
         visit = create_appointment(
             service_id=configured["service"].id,
@@ -275,7 +274,7 @@ def test_a_service_says_how_many_bookings_switching_it_off_leaves(settings: Any)
     owner = membership("uslugi-przyszle")
     bookable(owner.organization)
     configured = team(owner, people=1, hours=(time(8), time(16)), duration=60)
-    day = timezone.localdate(timezone=WARSAW) + timedelta(days=7)
+    day = company_today() + timedelta(days=7)
     book(owner, configured, at(day, 9), "a")
     called_off = book(owner, configured, at(day, 11), "b")
     with tenant(owner):

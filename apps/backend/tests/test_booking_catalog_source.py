@@ -20,7 +20,6 @@ import pytest
 from django.core.cache import cache
 from django.db import transaction
 from django.test import override_settings
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.content_protocol.provenance import (
@@ -58,7 +57,7 @@ from saas_core.modules.shared.booking.translation_source import (
     notify_catalog_changed,
 )
 from saas_core.testing.translation_sources import TranslationSourceContract, UnitSpec
-from test_booking import membership, tenant
+from test_booking import company_today, membership, tenant
 from test_booking_slots import team
 from test_team_people import bookable
 
@@ -363,7 +362,7 @@ def test_a_visit_keeps_the_service_in_the_customers_language_and_older_ones_fall
             idempotency_key=str(uuid4()),
         )
     url = "/api/v1/booking/public/tl12c-visit"
-    day = timezone.localdate() + timedelta(days=7)
+    day = company_today() + timedelta(days=7)
     query = {"service_id": str(service.id), "location_id": str(configured["location"].id)}
     client = APIClient()
     times = client.get(f"{url}/times/", {**query, "date": day.isoformat()}).json()["items"]

@@ -127,6 +127,19 @@ def tenant(member: Membership):
         yield context
 
 
+def company_today() -> date:
+    """Today on the company's clock: every company of these tests keeps
+    Warsaw's, and so do the hours they book.
+
+    Not `timezone.localdate()`: that is the server's day, UTC's, and between
+    midnight in Warsaw and midnight UTC it is still the company's yesterday —
+    a day ahead counted from it is the company's today, a week's Monday may be
+    the one that has begun. A test that passes all day must pass in those two
+    hours too.
+    """
+    return timezone.localdate(timezone=ZoneInfo("Europe/Warsaw"))
+
+
 def catalog(member: Membership) -> dict[str, Any]:
     with tenant(member):
         organization = member.organization
@@ -155,7 +168,7 @@ def catalog(member: Membership) -> dict[str, Any]:
         ServiceResource.all_objects.create(
             organization=organization, service=service, resource=resource
         )
-        future = timezone.localdate() + timedelta(days=7)
+        future = company_today() + timedelta(days=7)
         AvailabilityRule.all_objects.create(
             organization=organization,
             staff=staff,

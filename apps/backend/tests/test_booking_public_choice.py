@@ -8,7 +8,6 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Membership, OrganizationAuditEntry
@@ -22,7 +21,7 @@ from saas_core.modules.shared.booking.staff import list_people, set_person_publi
 from saas_core.modules.shared.booking.teams import create_team
 from saas_core.modules.shared.notifications.models import NotificationMessage
 from saas_core.modules.shared.profiles.models import PublicProfile
-from test_booking import _no_delivery, membership, tenant
+from test_booking import _no_delivery, company_today, membership, tenant
 from test_booking_slots import team
 
 pytestmark = pytest.mark.django_db
@@ -39,7 +38,7 @@ def setup(slug: str, *, people: int, need: int, choice: str) -> dict[str, Any]:
     configured.update(
         owner=owner,
         url=f"/api/v1/booking/public/{slug}",
-        day=timezone.localdate() + timedelta(days=7),
+        day=company_today() + timedelta(days=7),
         query={
             "service_id": str(configured["service"].id),
             "location_id": str(configured["location"].id),

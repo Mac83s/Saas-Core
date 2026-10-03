@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.cache import cache
-from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from saas_core.http.exceptions import problem_errors
@@ -23,7 +22,7 @@ from saas_core.modules.shared.booking.quote import Quote, QuoteChanged, quote_of
 from saas_core.modules.shared.booking.rules import save_rule
 from saas_core.modules.shared.booking.services import create_appointment, reschedule_appointment
 from saas_core.modules.shared.booking.setup import save_resource, save_service
-from test_booking import catalog, membership, tenant
+from test_booking import catalog, company_today, membership, tenant
 from test_booking_prices import add, key, season
 from test_booking_slots import team
 from test_booking_stays import GUEST, cottages, stay
@@ -34,7 +33,7 @@ pytestmark = pytest.mark.django_db
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 #: Next year, so the dates are ahead whenever the tests run.
-YEAR = timezone.localdate().year + 1
+YEAR = company_today().year + 1
 
 
 @pytest.fixture(autouse=True)
@@ -362,7 +361,7 @@ def test_a_visit_keeps_its_price_and_a_move_prices_it_again() -> None:
     owner = membership("wycena-wizyta-zapis")
     configured = team(owner, people=1, hours=(time(8), time(16)), duration=60)
     service = configured["service"]
-    monday = timezone.localdate() + timedelta(days=7 - timezone.localdate().weekday())
+    monday = company_today() + timedelta(days=7 - company_today().weekday())
     with tenant(owner):
         add(15000, service_id=service.id)
         add(18000, service_id=service.id, weekdays=[1])

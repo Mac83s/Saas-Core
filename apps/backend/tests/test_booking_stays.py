@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.cache import cache
-from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from saas_core.http.exceptions import problem_errors
@@ -36,7 +35,7 @@ from saas_core.modules.shared.booking.setup import (
     save_service,
 )
 from saas_core.modules.shared.booking.units import add_unit_block
-from test_booking import membership, tenant
+from test_booking import company_today, membership, tenant
 from test_organization_lifecycle import authenticated_member, csrf_value
 from test_team_people import bookable
 
@@ -58,7 +57,7 @@ def key() -> str:
 
 
 def saturday_after(days: int) -> date:
-    day = timezone.localdate() + timedelta(days=days)
+    day = company_today() + timedelta(days=days)
     return day + timedelta(days=(5 - day.weekday()) % 7)
 
 

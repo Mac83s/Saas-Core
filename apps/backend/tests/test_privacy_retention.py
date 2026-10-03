@@ -53,7 +53,7 @@ from saas_core.modules.shared.customers.api import Customer
 from saas_core.modules.shared.notifications.models import NotificationMessage
 from saas_core.modules.shared.notifications.services import queue_email
 from saas_core.modules.shared.sites.models import SiteInquiry
-from test_booking import catalog, create, membership, tenant
+from test_booking import catalog, company_today, create, membership, tenant
 from test_site_inquiries import published_form, submit  # noqa: F401 — a fixture
 
 pytestmark = pytest.mark.django_db
@@ -527,7 +527,7 @@ def catalog_again(member: Membership) -> dict[str, Any]:
             "staff": StaffMember.all_objects.get(organization_id=organization_id),
             "resource": Resource.all_objects.get(organization_id=organization_id),
             "service": Service.all_objects.get(organization_id=organization_id),
-            "date": timezone.localdate() + timedelta(days=7),
+            "date": company_today() + timedelta(days=7),
         }
 
 

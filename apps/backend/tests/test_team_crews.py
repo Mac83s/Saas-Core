@@ -10,7 +10,6 @@ from typing import Any
 
 import pytest
 from django.db import close_old_connections
-from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.organizations.models import Membership
@@ -46,7 +45,7 @@ from saas_core.modules.shared.booking.services import (
 from saas_core.modules.shared.booking.staff import add_time_off, list_people
 from saas_core.modules.shared.booking.teams import create_team, delete_team, update_team
 from saas_core.modules.shared.notifications.models import AppNotification, NotificationMessage
-from test_booking import _no_delivery, membership, tenant
+from test_booking import _no_delivery, company_today, membership, tenant
 from test_booking_slots import at, team
 from test_organization_lifecycle import authenticated_member, csrf_value
 from test_team_people import add_staff, bookable, member_of
@@ -61,7 +60,7 @@ def crew(owner: Membership, *, people: int = 3, need: int = 2) -> dict[str, Any]
     with tenant(owner):
         Service.all_objects.filter(pk=configured["service"].id).update(staff_count=need)
         configured["service"].refresh_from_db()
-    configured["day"] = timezone.localdate() + timedelta(days=7)
+    configured["day"] = company_today() + timedelta(days=7)
     return configured
 
 

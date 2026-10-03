@@ -48,7 +48,7 @@ from saas_core.modules.core.organizations.settings_service import (
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
 from saas_core.modules.shared.booking.company_settings import reminder_due
 from saas_core.modules.shared.booking.models import Appointment, PublicBookingRoute, ReminderRoute
-from test_booking import _no_delivery, catalog, create, membership, tenant
+from test_booking import _no_delivery, catalog, company_today, create, membership, tenant
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -293,7 +293,7 @@ def test_a_paused_company_refuses_online_bookings_and_the_team_books_on(
 
     # A pause until a day that has come is over by itself.
     with tenant(member):
-        yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
+        yesterday = (company_today() - timedelta(days=1)).isoformat()
         _change(ONLINE, read_group(ONLINE).version, "k-2", resume_on=yesterday)
     online = client.get(f"{url}/").json()["online"]
     assert (online["paused"], online["resume_on"]) == (False, None)

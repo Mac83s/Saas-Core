@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from saas_core.modules.shared.booking.models import SelfServiceRoute
 from saas_core.modules.shared.booking.services import create_appointment, reschedule_appointment
-from test_booking import membership, tenant
+from test_booking import company_today, membership, tenant
 from test_booking_slots import at, team
 
 pytestmark = pytest.mark.django_db
@@ -21,7 +21,7 @@ pytestmark = pytest.mark.django_db
 def test_the_link_lives_until_the_booking_ends_and_moves_with_it() -> None:
     owner = membership("link-do-konca")
     configured = team(owner, people=1, hours=(time(8), time(16)), duration=60)
-    far = timezone.localdate() + timedelta(days=60)
+    far = company_today() + timedelta(days=60)
     with tenant(owner):
         visit = create_appointment(
             service_id=configured["service"].id,
@@ -58,7 +58,7 @@ def test_the_link_lives_until_the_booking_ends_and_moves_with_it() -> None:
 def test_a_booking_soon_keeps_the_thirty_days() -> None:
     owner = membership("link-blisko")
     configured = team(owner, people=1, hours=(time(8), time(16)), duration=60)
-    soon = timezone.localdate() + timedelta(days=2)
+    soon = company_today() + timedelta(days=2)
     before = timezone.now()
     with tenant(owner):
         visit = create_appointment(
