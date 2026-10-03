@@ -1,0 +1,522 @@
+"""The panel's and the assistant's API of the price list (ADR-072 §6, phase 3a):
+prices of offers, groups and units, and who comes when it changes the price.
+Every write is a setup write with its preview (§11)."""
+
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+
+from .models import ParticipantCategory, PriceBasis, PriceRule, VatCode
+from .prices import (
+    GROSS,
+    NET,
+    amounts_are_gross,
+    copy_prices_to_next_year,
+    delete_price,
+    list_categories,
+    list_prices,
+    save_category,
+    save_price,
+)
+from .serializers import (
+    CopyYearInputSerializer,
+    CopyYearResultSerializer,
+    _changes,
+    _expected_version,
+    _weekdays,
+)
+from .views import (
+    _PREVIEW,
+    _PREVIEW_NOTE,
+    _SETUP_PROBLEMS,
+    _UPDATE_NOTE,
+    _VERSION_QUERY,
+    _WRITE_NOTE,
+    IDEMPOTENCY,
+    _expected,
+    _idem,
+    _update,
+    _with_changes,
+)
+
+#: A protective bound, not a business rule: 1 000 000.00 of the currency.
+MAX_AMOUNT_MINOR = 100_000_000
+
+
+def _amount(**kwargs: Any) -> serializers.IntegerField:
+    return serializers.IntegerField(min_value=0, max_value=MAX_AMOUNT_MINOR, **kwargs)
+
+
+class CategoryPriceSerializer(serializers.Serializer[dict[str, Any]]):
+    category_id = serializers.UUIDField()
+    amount_minor = _amount(help_text="What one participant of the category pays.")
+
+
+class LengthDiscountSerializer(serializers.Serializer[dict[str, Any]]):
+    min_length = serializers.IntegerField(
+        min_value=2, max_value=1000, help_text="From this many time units of the offer."
+    )
+    percent = serializers.IntegerField(min_value=1, max_value=100)
+
+
+class PriceRuleInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A price of exactly one of an offer, a group of units or a unit."""
+
+    name = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    service_id = serializers.UUIDField(required=False, allow_null=True)
+    group_id = serializers.UUIDField(required=False, allow_null=True)
+    resource_id = serializers.UUIDField(required=False, allow_null=True)
+    starts_on = serializers.DateField(
+        required=False,
+        allow_null=True,
+        help_text="First local day of the season; null with `ends_on` — the base price.",
+    )
+    ends_on = serializers.DateField(
+        required=False, allow_null=True, help_text="Last local day of the season, included."
+    )
+    weekdays = _weekdays()
+    local_from = serializers.TimeField(
+        required=False,
+        allow_null=True,
+        help_text="With `local_to`: the local hours it prices, by a booking's start.",
+    )
+    local_to = serializers.TimeField(required=False, allow_null=True)
+    basis = serializers.ChoiceField(
+        choices=PriceBasis.choices,
+        help_text="`per_booking`; `per_time_unit` — a night or a day of a stay, not for a "
+        "visit; `per_person`; `per_group` — one price for the group that comes.",
+    )
+    amount_minor = _amount(
+        help_text="In minor units of the company's currency (grosze), gross or net as the "
+        "company set it (`pricing.entry.amounts`)."
+    )
+    vat_code = serializers.ChoiceField(
+        choices=VatCode.choices,
+        required=False,
+        help_text="The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).",
+    )
+    included_people = serializers.IntegerField(
+        min_value=0,
+        max_value=1000,
+        required=False,
+        allow_null=True,
+        help_text="How many people the amount covers; null — everybody who comes.",
+    )
+    extra_person_amount_minor = _amount(
+        required=False,
+        allow_null=True,
+        help_text="What each person beyond `included_people` adds.",
+    )
+    extra_person_per_time_unit = serializers.BooleanField(
+        required=False, help_text="The extra person pays per night or day, not once."
+    )
+    category_prices = serializers.ListField(
+        child=CategoryPriceSerializer(),
+        required=False,
+        max_length=20,
+        help_text="A participant category's own amount instead of a person's.",
+    )
+    length_discounts = serializers.ListField(
+        child=LengthDiscountSerializer(),
+        required=False,
+        max_length=10,
+        help_text="For `per_time_unit`: the longest reached threshold's percent off the stay.",
+    )
+    active = serializers.BooleanField(required=False)
+
+
+class PriceRuleUpdateSerializer(PriceRuleInputSerializer):
+    basis = serializers.ChoiceField(choices=PriceBasis.choices, required=False)
+    amount_minor = _amount(required=False)
+    expected_version = _expected_version()
+
+
+class PriceRuleSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    service_id = serializers.UUIDField(allow_null=True)
+    group_id = serializers.UUIDField(allow_null=True)
+    resource_id = serializers.UUIDField(allow_null=True)
+    starts_on = serializers.DateField(allow_null=True)
+    ends_on = serializers.DateField(allow_null=True)
+    weekdays = serializers.ListField(child=serializers.IntegerField())
+    local_from = serializers.TimeField(allow_null=True)
+    local_to = serializers.TimeField(allow_null=True)
+    basis = serializers.ChoiceField(choices=PriceBasis.choices)
+    amount_minor = serializers.IntegerField()
+    currency = serializers.CharField(help_text="The company's currency, ISO 4217.")
+    vat_code = serializers.ChoiceField(choices=VatCode.choices)
+    included_people = serializers.IntegerField(allow_null=True)
+    extra_person_amount_minor = serializers.IntegerField(allow_null=True)
+    extra_person_per_time_unit = serializers.BooleanField()
+    category_prices = CategoryPriceSerializer(many=True)
+    length_discounts = LengthDiscountSerializer(many=True)
+    active = serializers.BooleanField()
+    version = serializers.IntegerField()
+
+
+class PriceRulePreviewSerializer(PriceRuleSerializer):
+    changes = _changes()
+
+
+class PriceRuleListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = PriceRuleSerializer(many=True)
+    amounts = serializers.ChoiceField(
+        choices=[GROSS, NET],
+        help_text="How the company's amounts are read (`pricing.entry.amounts`); a "
+        "customer always sees gross.",
+    )
+
+
+class ParticipantCategoryInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """Who comes, when it changes the price: a child, a senior, a dog."""
+
+    name = serializers.CharField(max_length=160)
+    counts_towards_capacity = serializers.BooleanField(
+        required=False,
+        help_text="Whether a participant of it takes a place in a unit's capacity and may "
+        "be one of the people a price includes. A dog does not.",
+    )
+    active = serializers.BooleanField(required=False)
+
+
+class ParticipantCategoryUpdateSerializer(ParticipantCategoryInputSerializer):
+    name = serializers.CharField(max_length=160, required=False)
+    expected_version = _expected_version()
+
+
+class ParticipantCategorySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    counts_towards_capacity = serializers.BooleanField()
+    active = serializers.BooleanField()
+    version = serializers.IntegerField()
+
+
+class ParticipantCategoryPreviewSerializer(ParticipantCategorySerializer):
+    changes = _changes()
+
+
+class ParticipantCategoryListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = ParticipantCategorySerializer(many=True)
+
+
+def _price_payload(value: PriceRule) -> dict[str, Any]:
+    return {
+        "id": value.id,
+        "name": value.name,
+        "service_id": value.service_id,
+        "group_id": value.group_id,
+        "resource_id": value.resource_id,
+        "starts_on": value.starts_on,
+        "ends_on": value.ends_on,
+        "weekdays": value.weekdays,
+        "local_from": value.local_from,
+        "local_to": value.local_to,
+        "basis": value.basis,
+        "amount_minor": value.amount_minor,
+        "currency": value.currency,
+        "vat_code": value.vat_code,
+        "included_people": value.included_people,
+        "extra_person_amount_minor": value.extra_person_amount_minor,
+        "extra_person_per_time_unit": value.extra_person_per_time_unit,
+        "category_prices": value.category_prices,
+        "length_discounts": value.length_discounts,
+        "active": value.active,
+        "version": value.version,
+    }
+
+
+def _category_payload(value: ParticipantCategory) -> dict[str, Any]:
+    return {
+        "id": value.id,
+        "name": value.name,
+        "counts_towards_capacity": value.counts_towards_capacity,
+        "active": value.active,
+        "version": value.version,
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PriceRuleListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_prices_list",
+        summary="List the price list",
+        description="Every price of the company's offers, groups and units, switched-off "
+        "ones included, and how its amounts are read. For a day and an hour one price "
+        "applies: the unit's over its group's over the offer's, a season's over the base "
+        "price, the narrower one (weekdays, hours) over the wider, then the later start.",
+        tags=["booking"],
+        responses={200: PriceRuleListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({
+            "items": [_price_payload(item) for item in list_prices()],
+            "amounts": GROSS if amounts_are_gross() else NET,
+        })
+
+    @extend_schema(
+        operation_id="booking_price_create",
+        summary="Add a price",
+        description="A price of exactly one offer, group or unit: the base price without "
+        "dates, a season's with them, a weekend's or a peak's with weekdays and hours. Its "
+        "currency is the company's." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=PriceRuleInputSerializer,
+        responses={201: PriceRuleSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = PriceRuleInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_price(
+            price_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(_price_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PriceRuleCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_price_create_preview",
+        summary="Check a price without adding it",
+        description="Validates a price as `booking_price_create` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=PriceRuleInputSerializer,
+        responses={200: PriceRulePreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = PriceRuleInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_price(price_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_price_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PriceRuleDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_price_update",
+        summary="Change a price",
+        description="Changes a price's amount, dates or terms, or switches it off. Bookings "
+        "already made keep the price they were quoted." + _UPDATE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=PriceRuleUpdateSerializer,
+        responses={200: PriceRuleSerializer, **_SETUP_PROBLEMS},
+    )
+    def patch(self, request: Request, price_id: UUID) -> Response:
+        s = PriceRuleUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_price(
+            price_id=price_id, data=data, expected_version=version, idempotency_key=_idem(request)
+        )
+        return Response(_price_payload(saved.value))
+
+    @extend_schema(
+        operation_id="booking_price_delete",
+        summary="Delete a price",
+        description="Removes the price; bookings already made keep the price they were "
+        "quoted." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY, _VERSION_QUERY],
+        responses={204: None, **_SETUP_PROBLEMS},
+    )
+    def delete(self, request: Request, price_id: UUID) -> Response:
+        delete_price(
+            price_id=price_id, expected_version=_expected(request), idempotency_key=_idem(request)
+        )
+        return Response(status=204)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PriceRuleUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_price_update_preview",
+        summary="Check a change to a price without saving it",
+        description="Validates a change as `booking_price_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=PriceRuleUpdateSerializer,
+        responses={200: PriceRulePreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, price_id: UUID) -> Response:
+        s = PriceRuleUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_price(price_id=price_id, data=data, expected_version=version, preview=True)
+        return Response(_with_changes(_price_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PriceRuleCopyYearView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_prices_copy_year",
+        summary="Copy a year's season prices to the next year",
+        description="Every price whose season starts in `year` again a year later, as new "
+        "prices; the weekdays move, so check the dates after. Base prices have no dates and "
+        "are not copied." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=CopyYearInputSerializer,
+        responses={201: CopyYearResultSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = CopyYearInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = copy_prices_to_next_year(
+            year=s.validated_data["year"], idempotency_key=_idem(request)
+        )
+        return Response({"count": len(saved.value)}, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PriceRuleCopyYearPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_prices_copy_year_preview",
+        summary="Count the prices a copy to the next year would make",
+        description="Answers as `booking_prices_copy_year` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=CopyYearInputSerializer,
+        responses={200: CopyYearResultSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = CopyYearInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = copy_prices_to_next_year(year=s.validated_data["year"], preview=True)
+        return Response({"count": len(saved.value)})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ParticipantCategoryListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_participant_categories_list",
+        summary="List the participant categories",
+        description="Who comes when it changes the price — a child, a senior, a dog — "
+        "switched-off ones included. A participant without a category is a standard person.",
+        tags=["booking"],
+        responses={200: ParticipantCategoryListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"items": [_category_payload(item) for item in list_categories()]})
+
+    @extend_schema(
+        operation_id="booking_participant_category_create",
+        summary="Add a participant category",
+        description="A kind of participant a price may price on its own. Whether it counts "
+        "towards a unit's capacity decides if it may be one of the people a price includes."
+        + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=ParticipantCategoryInputSerializer,
+        responses={201: ParticipantCategorySerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = ParticipantCategoryInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_category(
+            category_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(_category_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ParticipantCategoryCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_participant_category_create_preview",
+        summary="Check a participant category without adding it",
+        description="Validates a category as `booking_participant_category_create` would."
+        + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ParticipantCategoryInputSerializer,
+        responses={200: ParticipantCategoryPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = ParticipantCategoryInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_category(category_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_category_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ParticipantCategoryDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_participant_category_update",
+        summary="Change a participant category",
+        description="Renames a category, changes whether it counts towards capacity, or "
+        "switches it off. A category is never deleted: bookings name it." + _UPDATE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=ParticipantCategoryUpdateSerializer,
+        responses={200: ParticipantCategorySerializer, **_SETUP_PROBLEMS},
+    )
+    def patch(self, request: Request, category_id: UUID) -> Response:
+        s = ParticipantCategoryUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_category(
+            category_id=category_id,
+            data=data,
+            expected_version=version,
+            idempotency_key=_idem(request),
+        )
+        return Response(_category_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ParticipantCategoryUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_participant_category_update_preview",
+        summary="Check a change to a participant category without saving it",
+        description="Validates a change as `booking_participant_category_update` would."
+        + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ParticipantCategoryUpdateSerializer,
+        responses={200: ParticipantCategoryPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, category_id: UUID) -> Response:
+        s = ParticipantCategoryUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_category(
+            category_id=category_id, data=data, expected_version=version, preview=True
+        )
+        return Response(_with_changes(_category_payload(saved.value), saved.changes))

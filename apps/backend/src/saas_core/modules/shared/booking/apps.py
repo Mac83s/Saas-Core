@@ -56,6 +56,12 @@ class BookingConfig(AppConfig):
         from .retention import register_retention
 
         register_retention()
+        # A company with a price list keeps its currency (ADR-073 §8).
+        from saas_core.modules.core.organizations.api import register_currency_use
+
+        from .prices import has_prices
+
+        register_currency_use(has_prices)
         # The booking catalogue as a translation source (ADR-069, TL12c).
         from .translation_source import register_catalog_source
 

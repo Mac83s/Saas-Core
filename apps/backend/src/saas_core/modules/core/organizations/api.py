@@ -25,6 +25,7 @@ from .command_registry import (
     register_command,
     registered_commands,
 )
+from .currency import register_currency_use
 from .events import (
     DomainEvent,
     DomainEventDeliveryError,
@@ -175,6 +176,7 @@ __all__ = [
     "organization_facts",
     "register_organization_facts",
     "register_public_locales_changed",
+    "register_currency_use",
     "register_public_locales_guard",
     "register_public_locales_impact",
     "register_public_locales_limit",

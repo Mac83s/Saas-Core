@@ -387,12 +387,90 @@ BOOKINGS_AREA = SettingArea(
 )
 
 
+def _price_effects(before: Mapping[str, Any], after: Mapping[str, Any]) -> tuple[Effect, ...]:
+    from .models import PriceRule  # noqa: PLC0415 — models import nothing from here
+
+    count = PriceRule.all_objects.filter(
+        organization_id=require_tenant_context().organization_id
+    ).count()
+    if not count:
+        return ()
+    gross = after["amounts"] == "gross"
+    return (
+        Effect(
+            kind="updated",
+            resource="booking.price",
+            resource_id="",
+            summary={
+                "pl": f"Zmieni znaczenie {count} cen w cenniku: kwoty zostają, a "
+                + (
+                    "podatek będzie wyliczany z kwoty."
+                    if gross
+                    else "podatek będzie do nich doliczany."
+                ),
+                "en": f"Changes what {count} prices in the price list mean: the amounts "
+                "stay, and the tax is "
+                + ("worked out from the amount." if gross else "added on top of them."),
+            },
+        ),
+    )
+
+
+#: Whoever holds prices reads this: booking now, `shared.customers` from the
+#: phase that makes it (ADR-073) — the keys and the companies' values stay.
+PRICING = SettingGroup(
+    key="pricing.entry",
+    module="shared.booking",
+    title={"pl": "Ceny i podatek", "en": "Prices and tax"},
+    description={
+        "pl": "Jak czytamy kwoty w cenniku usług, pobytów i dopłat. Klient zawsze widzi "
+        "cenę brutto.",
+        "en": "How the amounts in the price list of services, stays and extras are read. "
+        "A customer always sees the gross price.",
+    },
+    permission=SETTINGS_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    # One switch changes every price a customer sees.
+    risk="publish",
+    area="bookings",
+    settings=(
+        SettingSpec(
+            key="pricing.entry.amounts",
+            type="enum",
+            default="gross",
+            scopes=("organization",),
+            values=(
+                ("gross", {"pl": "brutto (z VAT)", "en": "gross (with VAT)"}),
+                ("net", {"pl": "netto (bez VAT)", "en": "net (without VAT)"}),
+            ),
+            label={"pl": "Ceny w cenniku wpisujesz", "en": "You enter prices in the price list"},
+            help={
+                "pl": "Klient zawsze widzi cenę brutto. Zmiana nie przelicza wpisanych kwot — "
+                "zmienia tylko to, czy podatek jest w nich, czy doliczamy go do nich. Ceny "
+                "produktów w magazynie są zawsze netto.",
+                "en": "A customer always sees the gross price. A change does not recalculate "
+                "the amounts entered — only whether the tax is in them or added to them. "
+                "Product prices in the warehouse are always net.",
+            },
+            model_description="Whether the amounts in the company's price list of services, "
+            "stays and extras include VAT (gross) or not (net). What a customer sees is "
+            "always gross, whatever this says. Changing it recalculates nothing: every "
+            "amount stays as entered and is read the other way, so every price a customer "
+            "sees changes. It does not cover product sale prices in the warehouse, which "
+            "are always net.",
+        ),
+    ),
+    effects=_price_effects,
+    commands=("pricing.settings_entry.read@1", "pricing.settings_entry.update@1"),
+)
+
+
 def register_company_settings() -> None:
     from .offer_settings import OFFER  # noqa: PLC0415
 
     register_setting_area(SERVICES_AREA)
     register_setting_area(BOOKINGS_AREA)
-    for group in (REMINDERS, ONLINE, SELF_SERVICE, NOTICES):
+    for group in (REMINDERS, ONLINE, SELF_SERVICE, NOTICES, PRICING):
         register_setting_group(group)
         for command in group_commands(group):
             register_command(command)

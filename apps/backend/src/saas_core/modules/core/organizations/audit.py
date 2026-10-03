@@ -57,6 +57,10 @@ def _json_value(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, list | tuple | set | frozenset):
         return [_json_value(item) for item in value]
+    if isinstance(value, dict):
+        # By key, not as text: the database gives a JSON object's keys back in
+        # its own order, and that is no change.
+        return {str(key): _json_value(item) for key, item in value.items()}
     return str(value)
 
 

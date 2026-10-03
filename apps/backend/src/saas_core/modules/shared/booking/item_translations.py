@@ -46,6 +46,8 @@ from .models import (
     ItemTranslation,
     Location,
     LocationTranslation,
+    ParticipantCategory,
+    ParticipantCategoryTranslation,
     Resource,
     ResourceGroup,
     ResourceGroupTranslation,
@@ -100,6 +102,14 @@ for _builtin in (
         "group", ResourceGroup, ResourceGroupTranslation, "group", ("name", "description")
     ),
     Translatable("team", StaffTeam, StaffTeamTranslation, "team", ("name",), proper_name=True),
+    # Who comes: a quote's lines name it in the customer's language (ADR-072 §7).
+    Translatable(
+        "participant_category",
+        ParticipantCategory,
+        ParticipantCategoryTranslation,
+        "category",
+        ("name",),
+    ),
 ):
     register_translatable(_builtin)
 

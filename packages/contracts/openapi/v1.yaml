@@ -3824,6 +3824,715 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/setup/participant-categories/:
+    get:
+      operationId: booking_participant_categories_list
+      description: Who comes when it changes the price — a child, a senior, a dog
+        — switched-off ones included. A participant without a category is a standard
+        person.
+      summary: List the participant categories
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantCategoryList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: booking_participant_category_create
+      description: A kind of participant a price may price on its own. Whether it
+        counts towards a unit's capacity decides if it may be one of the people a
+        price includes. A repeated Idempotency-Key answers the first result again;
+        the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Add a participant category
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/participant-categories/{category_id}/:
+    patch:
+      operationId: booking_participant_category_update
+      description: 'Renames a category, changes whether it counts towards capacity,
+        or switches it off. A category is never deleted: bookings name it. Only the
+        fields sent change. `expected_version` is the version the change was made
+        on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.'
+      summary: Change a participant category
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantCategoryUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantCategoryUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantCategoryUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/participant-categories/{category_id}/preview/:
+    post:
+      operationId: booking_participant_category_update_preview
+      description: 'Validates a change as `booking_participant_category_update` would.
+        Nothing is saved: the answer is the item as the write would leave it, with
+        `changes`, or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a participant category without saving it
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantCategoryPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/participant-categories/preview/:
+    post:
+      operationId: booking_participant_category_create_preview
+      description: 'Validates a category as `booking_participant_category_create`
+        would. Nothing is saved: the answer is the item as the write would leave it,
+        with `changes`, or the same 400, 404 and 409 the write would answer.'
+      summary: Check a participant category without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantCategoryInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantCategoryPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/prices/:
+    get:
+      operationId: booking_prices_list
+      description: 'Every price of the company''s offers, groups and units, switched-off
+        ones included, and how its amounts are read. For a day and an hour one price
+        applies: the unit''s over its group''s over the offer''s, a season''s over
+        the base price, the narrower one (weekdays, hours) over the wider, then the
+        later start.'
+      summary: List the price list
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRuleList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: booking_price_create
+      description: 'A price of exactly one offer, group or unit: the base price without
+        dates, a season''s with them, a weekend''s or a peak''s with weekdays and
+        hours. Its currency is the company''s. A repeated Idempotency-Key answers
+        the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.'
+      summary: Add a price
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceRuleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PriceRuleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PriceRuleInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRule'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/prices/{price_id}/:
+    patch:
+      operationId: booking_price_update
+      description: Changes a price's amount, dates or terms, or switches it off. Bookings
+        already made keep the price they were quoted. Only the fields sent change.
+        `expected_version` is the version the change was made on; another one is 409
+        `booking_version_conflict`. A repeated Idempotency-Key answers the first result
+        again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Change a price
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: price_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPriceRuleUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPriceRuleUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPriceRuleUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRule'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: booking_price_delete
+      description: Removes the price; bookings already made keep the price they were
+        quoted. A repeated Idempotency-Key answers the first result again; the key
+        reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Delete a price
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: expected_version
+        schema:
+          type: integer
+        description: The version the deletion was decided on; another one is 409 `booking_version_conflict`.
+        required: true
+      - in: path
+        name: price_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/prices/{price_id}/preview/:
+    post:
+      operationId: booking_price_update_preview
+      description: 'Validates a change as `booking_price_update` would. Nothing is
+        saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to a price without saving it
+      parameters:
+      - in: path
+        name: price_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceRuleUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PriceRuleUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PriceRuleUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRulePreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/prices/copy-year/:
+    post:
+      operationId: booking_prices_copy_year
+      description: Every price whose season starts in `year` again a year later, as
+        new prices; the weekdays move, so check the dates after. Base prices have
+        no dates and are not copied. A repeated Idempotency-Key answers the first
+        result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Copy a year's season prices to the next year
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyYearResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/prices/copy-year/preview/:
+    post:
+      operationId: booking_prices_copy_year_preview
+      description: 'Answers as `booking_prices_copy_year` would. Nothing is saved:
+        the answer is the item as the write would leave it, with `changes`, or the
+        same 400, 404 and 409 the write would answer.'
+      summary: Count the prices a copy to the next year would make
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CopyYearInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopyYearResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/prices/preview/:
+    post:
+      operationId: booking_price_create_preview
+      description: 'Validates a price as `booking_price_create` would. Nothing is
+        saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a price without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceRuleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PriceRuleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PriceRuleInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRulePreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/resources/:
     post:
       operationId: booking_setup_resource_create
@@ -4961,10 +5670,12 @@ paths:
           enum:
           - group
           - location
+          - participant_category
           - resource
           - service
           - team
-        description: service, location, resource (a unit), group (of units) or team.
+        description: service, location, resource (a unit), group (of units), team
+          or participant_category.
         required: true
       tags:
       - booking
@@ -5016,10 +5727,12 @@ paths:
           enum:
           - group
           - location
+          - participant_category
           - resource
           - service
           - team
-        description: service, location, resource (a unit), group (of units) or team.
+        description: service, location, resource (a unit), group (of units), team
+          or participant_category.
         required: true
       - in: path
         name: locale
@@ -5094,10 +5807,12 @@ paths:
           enum:
           - group
           - location
+          - participant_category
           - resource
           - service
           - team
-        description: service, location, resource (a unit), group (of units) or team.
+        description: service, location, resource (a unit), group (of units), team
+          or participant_category.
         required: true
       - in: path
         name: locale
@@ -12631,6 +13346,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationSecuritySettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/pricing.entry/:
+    get:
+      operationId: organization_settings_pricing_entry_retrieve
+      description: How the amounts in the price list of services, stays and extras
+        are read. A customer always sees the gross price. The values that apply, where
+        each comes from (code, platform or the company) and the group's version token.
+      summary: 'Read the company''s settings: Prices and tax'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingEntrySettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_pricing_entry_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Prices and tax'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPricingEntrySettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPricingEntrySettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPricingEntrySettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingEntrySettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/pricing.entry/preview/:
+    post:
+      operationId: organization_settings_pricing_entry_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Prices and
+        tax'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingEntrySettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PricingEntrySettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PricingEntrySettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingEntrySettingsPreview'
           description: ''
         '400':
           content:
@@ -24451,6 +25311,20 @@ components:
       - published_at
       - site_url
       - slug
+    CategoryPrice:
+      type: object
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+          description: What one participant of the category pays.
+      required:
+      - amount_minor
+      - category_id
     ChangeSetApply:
       type: object
       properties:
@@ -28735,6 +29609,21 @@ components:
         * `card` - Wizytówka
         * `cover` - Ze zdjęciem na całą szerokość
         * `compact` - Zwięzła
+    LengthDiscount:
+      type: object
+      properties:
+        min_length:
+          type: integer
+          maximum: 1000
+          minimum: 2
+          description: From this many time units of the offer.
+        percent:
+          type: integer
+          maximum: 100
+          minimum: 1
+      required:
+      - min_length
+      - percent
     Level:
       type: object
       properties:
@@ -30889,6 +31778,97 @@ components:
       - number
       - origin
       - origin_ref
+    ParticipantCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        counts_towards_capacity:
+          type: boolean
+        active:
+          type: boolean
+        version:
+          type: integer
+      required:
+      - active
+      - counts_towards_capacity
+      - id
+      - name
+      - version
+    ParticipantCategoryInput:
+      type: object
+      description: 'Who comes, when it changes the price: a child, a senior, a dog.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        counts_towards_capacity:
+          type: boolean
+          description: Whether a participant of it takes a place in a unit's capacity
+            and may be one of the people a price includes. A dog does not.
+        active:
+          type: boolean
+      required:
+      - name
+    ParticipantCategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantCategory'
+      required:
+      - items
+    ParticipantCategoryPreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        counts_towards_capacity:
+          type: boolean
+        active:
+          type: boolean
+        version:
+          type: integer
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - changes
+      - counts_towards_capacity
+      - id
+      - name
+      - version
+    ParticipantCategoryUpdate:
+      type: object
+      description: 'Who comes, when it changes the price: a child, a senior, a dog.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        counts_towards_capacity:
+          type: boolean
+          description: Whether a participant of it takes a place in a unit's capacity
+            and may be one of the people a price includes. A dog does not.
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     PasswordResetConfirm:
       type: object
       properties:
@@ -31594,6 +32574,24 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+    PatchedParticipantCategoryUpdate:
+      type: object
+      description: 'Who comes, when it changes the price: a child, a senior, a dog.'
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        counts_towards_capacity:
+          type: boolean
+          description: Whether a participant of it takes a place in a unit's capacity
+            and may be one of the people a price includes. A dog does not.
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
     PatchedPersonUpdate:
       type: object
       properties:
@@ -31629,6 +32627,136 @@ components:
           minimum: 1
           description: The version the change was made on, as the last read gave it;
             another one answers 409 `booking_version_conflict`.
+    PatchedPriceRuleUpdate:
+      type: object
+      description: A price of exactly one of an offer, a group of units or a unit.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: First local day of the season; null with `ends_on` — the base
+            price.
+        ends_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: Last local day of the season, included.
+        weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        local_from:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: 'With `local_to`: the local hours it prices, by a booking''s
+            start.'
+        local_to:
+          type:
+          - string
+          - 'null'
+          format: time
+        basis:
+          $ref: '#/components/schemas/PriceBasisEnum'
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        vat_code:
+          allOf:
+          - $ref: '#/components/schemas/VatCodeEnum'
+          description: |-
+            The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).
+
+            * `23` - 23%
+            * `8` - 8%
+            * `5` - 5%
+            * `0` - 0%
+            * `zw` - zw.
+            * `np` - np.
+        included_people:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 0
+          description: How many people the amount covers; null — everybody who comes.
+        extra_person_amount_minor:
+          type:
+          - integer
+          - 'null'
+          maximum: 100000000
+          minimum: 0
+          description: What each person beyond `included_people` adds.
+        extra_person_per_time_unit:
+          type: boolean
+          description: The extra person pays per night or day, not once.
+        category_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryPrice'
+          description: A participant category's own amount instead of a person's.
+          maxItems: 20
+        length_discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LengthDiscount'
+          description: 'For `per_time_unit`: the longest reached threshold''s percent
+            off the stay.'
+          maxItems: 10
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+    PatchedPricingEntrySettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/PricingEntrySettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        amounts:
+          description: |-
+            Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net.
+
+            * `gross` - gross
+            * `net` - net
+          oneOf:
+          - $ref: '#/components/schemas/PriceAmountsEnum'
+          - $ref: '#/components/schemas/NullEnum'
     PatchedResourceUpdate:
       type: object
       description: 'A change to a resource: only the fields sent change.'
@@ -33060,6 +34188,580 @@ components:
         * `slot` - slot
         * `range` - range
         * `session` - session
+    PriceAmountsEnum:
+      enum:
+      - gross
+      - net
+      type: string
+      description: |-
+        * `gross` - gross
+        * `net` - net
+    PriceBasisEnum:
+      enum:
+      - per_booking
+      - per_time_unit
+      - per_person
+      - per_group
+      type: string
+      description: |-
+        * `per_booking` - Za rezerwację
+        * `per_time_unit` - Za jednostkę czasu
+        * `per_person` - Za osobę
+        * `per_group` - Za grupę
+    PriceRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        ends_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        weekdays:
+          type: array
+          items:
+            type: integer
+        local_from:
+          type:
+          - string
+          - 'null'
+          format: time
+        local_to:
+          type:
+          - string
+          - 'null'
+          format: time
+        basis:
+          $ref: '#/components/schemas/PriceBasisEnum'
+        amount_minor:
+          type: integer
+        currency:
+          type: string
+          description: The company's currency, ISO 4217.
+        vat_code:
+          $ref: '#/components/schemas/VatCodeEnum'
+        included_people:
+          type:
+          - integer
+          - 'null'
+        extra_person_amount_minor:
+          type:
+          - integer
+          - 'null'
+        extra_person_per_time_unit:
+          type: boolean
+        category_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryPrice'
+        length_discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LengthDiscount'
+        active:
+          type: boolean
+        version:
+          type: integer
+      required:
+      - active
+      - amount_minor
+      - basis
+      - category_prices
+      - currency
+      - ends_on
+      - extra_person_amount_minor
+      - extra_person_per_time_unit
+      - group_id
+      - id
+      - included_people
+      - length_discounts
+      - local_from
+      - local_to
+      - name
+      - resource_id
+      - service_id
+      - starts_on
+      - vat_code
+      - version
+      - weekdays
+    PriceRuleInput:
+      type: object
+      description: A price of exactly one of an offer, a group of units or a unit.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: First local day of the season; null with `ends_on` — the base
+            price.
+        ends_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: Last local day of the season, included.
+        weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        local_from:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: 'With `local_to`: the local hours it prices, by a booking''s
+            start.'
+        local_to:
+          type:
+          - string
+          - 'null'
+          format: time
+        basis:
+          allOf:
+          - $ref: '#/components/schemas/PriceBasisEnum'
+          description: |-
+            `per_booking`; `per_time_unit` — a night or a day of a stay, not for a visit; `per_person`; `per_group` — one price for the group that comes.
+
+            * `per_booking` - Za rezerwację
+            * `per_time_unit` - Za jednostkę czasu
+            * `per_person` - Za osobę
+            * `per_group` - Za grupę
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+          description: In minor units of the company's currency (grosze), gross or
+            net as the company set it (`pricing.entry.amounts`).
+        vat_code:
+          allOf:
+          - $ref: '#/components/schemas/VatCodeEnum'
+          description: |-
+            The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).
+
+            * `23` - 23%
+            * `8` - 8%
+            * `5` - 5%
+            * `0` - 0%
+            * `zw` - zw.
+            * `np` - np.
+        included_people:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 0
+          description: How many people the amount covers; null — everybody who comes.
+        extra_person_amount_minor:
+          type:
+          - integer
+          - 'null'
+          maximum: 100000000
+          minimum: 0
+          description: What each person beyond `included_people` adds.
+        extra_person_per_time_unit:
+          type: boolean
+          description: The extra person pays per night or day, not once.
+        category_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryPrice'
+          description: A participant category's own amount instead of a person's.
+          maxItems: 20
+        length_discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LengthDiscount'
+          description: 'For `per_time_unit`: the longest reached threshold''s percent
+            off the stay.'
+          maxItems: 10
+        active:
+          type: boolean
+      required:
+      - amount_minor
+      - basis
+    PriceRuleList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceRule'
+        amounts:
+          allOf:
+          - $ref: '#/components/schemas/PriceAmountsEnum'
+          description: |-
+            How the company's amounts are read (`pricing.entry.amounts`); a customer always sees gross.
+
+            * `gross` - gross
+            * `net` - net
+      required:
+      - amounts
+      - items
+    PriceRulePreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        ends_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        weekdays:
+          type: array
+          items:
+            type: integer
+        local_from:
+          type:
+          - string
+          - 'null'
+          format: time
+        local_to:
+          type:
+          - string
+          - 'null'
+          format: time
+        basis:
+          $ref: '#/components/schemas/PriceBasisEnum'
+        amount_minor:
+          type: integer
+        currency:
+          type: string
+          description: The company's currency, ISO 4217.
+        vat_code:
+          $ref: '#/components/schemas/VatCodeEnum'
+        included_people:
+          type:
+          - integer
+          - 'null'
+        extra_person_amount_minor:
+          type:
+          - integer
+          - 'null'
+        extra_person_per_time_unit:
+          type: boolean
+        category_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryPrice'
+        length_discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LengthDiscount'
+        active:
+          type: boolean
+        version:
+          type: integer
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - amount_minor
+      - basis
+      - category_prices
+      - changes
+      - currency
+      - ends_on
+      - extra_person_amount_minor
+      - extra_person_per_time_unit
+      - group_id
+      - id
+      - included_people
+      - length_discounts
+      - local_from
+      - local_to
+      - name
+      - resource_id
+      - service_id
+      - starts_on
+      - vat_code
+      - version
+      - weekdays
+    PriceRuleUpdate:
+      type: object
+      description: A price of exactly one of an offer, a group of units or a unit.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        service_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: First local day of the season; null with `ends_on` — the base
+            price.
+        ends_on:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: Last local day of the season, included.
+        weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Weekdays, 0 = Monday … 6 = Sunday; empty — any.
+          maxItems: 7
+        local_from:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: 'With `local_to`: the local hours it prices, by a booking''s
+            start.'
+        local_to:
+          type:
+          - string
+          - 'null'
+          format: time
+        basis:
+          $ref: '#/components/schemas/PriceBasisEnum'
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        vat_code:
+          allOf:
+          - $ref: '#/components/schemas/VatCodeEnum'
+          description: |-
+            The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).
+
+            * `23` - 23%
+            * `8` - 8%
+            * `5` - 5%
+            * `0` - 0%
+            * `zw` - zw.
+            * `np` - np.
+        included_people:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000
+          minimum: 0
+          description: How many people the amount covers; null — everybody who comes.
+        extra_person_amount_minor:
+          type:
+          - integer
+          - 'null'
+          maximum: 100000000
+          minimum: 0
+          description: What each person beyond `included_people` adds.
+        extra_person_per_time_unit:
+          type: boolean
+          description: The extra person pays per night or day, not once.
+        category_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryPrice'
+          description: A participant category's own amount instead of a person's.
+          maxItems: 20
+        length_discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LengthDiscount'
+          description: 'For `per_time_unit`: the longest reached threshold''s percent
+            off the stay.'
+          maxItems: 10
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
+    PricingEntrySettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/PricingEntrySettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/PricingEntrySettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    PricingEntrySettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/PricingEntrySettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        amounts:
+          description: |-
+            Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net.
+
+            * `gross` - gross
+            * `net` - net
+          oneOf:
+          - $ref: '#/components/schemas/PriceAmountsEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - expected_version
+    PricingEntrySettingsChangeResetEnum:
+      enum:
+      - amounts
+      type: string
+      description: '* `amounts` - amounts'
+    PricingEntrySettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/PricingEntrySettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    PricingEntrySettingsSources:
+      type: object
+      properties:
+        amounts:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - amounts
+    PricingEntrySettingsValues:
+      type: object
+      properties:
+        amounts:
+          allOf:
+          - $ref: '#/components/schemas/PriceAmountsEnum'
+          description: |-
+            Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net.
+
+            * `gross` - gross
+            * `net` - net
+      required:
+      - amounts
     ProblemDetails:
       type: object
       properties:
@@ -39171,6 +40873,22 @@ components:
       - locale
       - status
       - timezone
+    VatCodeEnum:
+      enum:
+      - '23'
+      - '8'
+      - '5'
+      - '0'
+      - zw
+      - np
+      type: string
+      description: |-
+        * `23` - 23%
+        * `8` - 8%
+        * `5` - 5%
+        * `0` - 0%
+        * `zw` - zw.
+        * `np` - np.
     VatRateEnum:
       enum:
       - '23'

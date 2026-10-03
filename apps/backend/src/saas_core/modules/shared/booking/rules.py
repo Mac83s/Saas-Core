@@ -13,7 +13,7 @@ the company checks the dates afterwards.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -27,11 +27,29 @@ from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.decisions import FeatureOperation
 
-from .models import BookingClosure, BookingRule, Location, Resource, ResourceGroup, Service
+from .models import (
+    BookingClosure,
+    BookingRule,
+    Location,
+    ParticipantCategory,
+    PriceRule,
+    Resource,
+    ResourceGroup,
+    Service,
+)
 from .setup import Saved, _manage, _own, check_version, setup_write
 
 RULE_CHANGED = "booking.rule.changed"
 CLOSURE_CHANGED = "booking.closure.changed"
+PRICE_CHANGED = "booking.price.changed"
+CATEGORY_CHANGED = "booking.participant_category.changed"
+#: What the history names as the changed item, by the action that changed it.
+_TARGETS = {
+    RULE_CHANGED: "booking_rule",
+    CLOSURE_CHANGED: "booking_closure",
+    PRICE_CHANGED: "booking_price",
+    CATEGORY_CHANGED: "booking_participant_category",
+}
 
 _RULE_FIELDS = (
     "name",
@@ -268,7 +286,7 @@ def _check_dates(starts_on: date, ends_on: date) -> None:
         )
 
 
-def _write[T: (BookingRule, BookingClosure)](
+def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory)](
     context: TenantContext,
     organization: Organization,
     model: type[T],
@@ -278,7 +296,11 @@ def _write[T: (BookingRule, BookingClosure)](
     fields: Sequence[str],
     check: Any,
     action: str,
+    *,
+    unnamed: Collection[str] = (),
 ) -> Saved[T]:
+    """`unnamed` fields go to the history as changed, without their values —
+    a list of ids says nothing to a person."""
     if item_id is None:
         item = model(organization=organization, **data)
         before: dict[str, Any] = {}
@@ -296,7 +318,7 @@ def _write[T: (BookingRule, BookingClosure)](
         for name, value in data.items():
             setattr(item, name, value)
     check(organization, item)
-    changes = field_changes(before, audit_snapshot(item, fields)) if before else {}
+    changes = field_changes(before, audit_snapshot(item, fields), private=unnamed) if before else {}
     if changes:
         item.version += 1
     item.save()
@@ -307,7 +329,7 @@ def _write[T: (BookingRule, BookingClosure)](
     return Saved(item, item.id, item.version, not before, changes)
 
 
-def _replay[T: (BookingRule, BookingClosure)](
+def _replay[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory)](
     model: type[T], organization: Organization, item_id: UUID, created: bool
 ) -> Saved[T]:
     item = model.all_objects.get(organization=organization, pk=item_id)
@@ -315,7 +337,7 @@ def _replay[T: (BookingRule, BookingClosure)](
 
 
 def _delete(
-    model: type[BookingRule] | type[BookingClosure],
+    model: type[BookingRule] | type[BookingClosure] | type[PriceRule],
     action: str,
     item_id: UUID,
     expected_version: int,
@@ -349,7 +371,7 @@ def _delete(
     )
 
 
-def _copy[T: (BookingRule, BookingClosure)](
+def _copy[T: (BookingRule, BookingClosure, PriceRule)](
     context: TenantContext,
     organization: Organization,
     model: type[T],
@@ -361,6 +383,8 @@ def _copy[T: (BookingRule, BookingClosure)](
         item.pk = None
         item.id = model._meta.pk.get_default()
         item._state.adding = True
+        # The filter took only dated ones; a price may have no dates.
+        assert item.starts_on is not None and item.ends_on is not None
         item.starts_on, item.ends_on = next_year(item.starts_on), next_year(item.ends_on)
         item.version = 1
         item.save()
@@ -380,7 +404,7 @@ def _audit(
         organization=organization,
         action=action,
         actor=User.objects.filter(pk=context.actor_id).first(),
-        target_type="booking_rule" if action == RULE_CHANGED else "booking_closure",
+        target_type=_TARGETS[action],
         target_id=target_id,
         metadata=metadata,
     )

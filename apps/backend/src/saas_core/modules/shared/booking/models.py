@@ -38,6 +38,30 @@ class RangeUnit(models.TextChoices):
     HOUR = "hour", "Godzina"
 
 
+class PriceBasis(models.TextChoices):
+    """What a price is charged for (ADR-072 §6)."""
+
+    PER_BOOKING = "per_booking", "Za rezerwację"
+    #: A night, a day or an hour — the offer's time unit.
+    PER_TIME_UNIT = "per_time_unit", "Za jednostkę czasu"
+    PER_PERSON = "per_person", "Za osobę"
+    #: One price for the group that comes, whatever its size.
+    PER_GROUP = "per_group", "Za grupę"
+
+
+class VatCode(models.TextChoices):
+    """A tax rate as a code, because an exemption is not 0% (ADR-072 §6).
+    The warehouse keeps the same codes for products (`inventory.VatRate`)."""
+
+    STANDARD = "23", "23%"
+    REDUCED = "8", "8%"
+    SUPER_REDUCED = "5", "5%"
+    ZERO = "0", "0%"
+    EXEMPT = "zw", "zw."
+    #: Outside VAT: what the company only collects, like a local tax.
+    OUTSIDE = "np", "np."
+
+
 class StaffChoice(models.TextChoices):
     """What a customer may pick on the public form (ADR-058 §8, answer 2)."""
 
@@ -601,6 +625,127 @@ class BookingClosure(TenantScopedModel):
         ]
 
 
+class ParticipantCategory(TenantScopedModel):
+    """Who comes, when it changes the price — „Dziecko”, „Senior”, „Pies”
+    (ADR-072 §6). A price rule may price a category; a participant without one
+    is a standard person."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    name = models.CharField(max_length=160)
+    #: A child takes a bed, a dog does not: only who counts is checked against
+    #: a unit's capacity and may fill the people the price includes.
+    counts_towards_capacity = models.BooleanField(default=True)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "name", "id")
+        constraints = [
+            models.UniqueConstraint(
+                models.F("organization"),
+                Lower("name"),
+                name="booking_participantcategory_org_name_uq",
+            ),
+        ]
+
+
+class PriceRule(TenantScopedModel):
+    """A price of an offer, a group of units or one unit (ADR-072 §6).
+
+    Without dates it is the base price; with dates a season's. `weekdays` and
+    the hours narrow it to a weekend or a peak. For a day and an hour the most
+    specific active rule applies (`prices.price_for`). Amounts are whole minor
+    units of `currency`, read gross or net as the company set it
+    (`pricing.entry.amounts`); the tax is a code.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    #: For the company: „Sezon wysoki”, „Weekend”.
+    name = models.CharField(max_length=160, blank=True)
+    service = models.ForeignKey(
+        Service, null=True, blank=True, on_delete=models.PROTECT, related_name="price_rules"
+    )
+    group = models.ForeignKey(
+        ResourceGroup, null=True, blank=True, on_delete=models.PROTECT, related_name="price_rules"
+    )
+    resource = models.ForeignKey(
+        Resource, null=True, blank=True, on_delete=models.PROTECT, related_name="price_rules"
+    )
+    #: Local dates, both included; both empty — always.
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    #: The weekdays it prices, 0 = Monday; empty — every day. A night belongs
+    #: to the day it begins on.
+    weekdays = ArrayField(models.PositiveSmallIntegerField(), default=list, blank=True)
+    #: The local hours it prices, by a booking's start; both empty — all day.
+    local_from = models.TimeField(null=True, blank=True)
+    local_to = models.TimeField(null=True, blank=True)
+    basis = models.CharField(max_length=16, choices=PriceBasis)
+    amount_minor = models.PositiveIntegerField()
+    #: The company's currency when the price was made (`Organization.currency`).
+    currency = models.CharField(max_length=3)
+    vat_code = models.CharField(max_length=2, choices=VatCode, default=VatCode.STANDARD)
+    #: How many people the amount covers; empty — everybody who comes.
+    included_people = models.PositiveSmallIntegerField(null=True, blank=True)
+    #: What each further person adds, per booking or per time unit.
+    extra_person_amount_minor = models.PositiveIntegerField(null=True, blank=True)
+    extra_person_per_time_unit = models.BooleanField(default=False)
+    #: A category's own amount instead of a person's:
+    #: `[{"category_id", "amount_minor"}]`.
+    category_prices = models.JSONField(default=list, blank=True)
+    #: From this many time units the stay is cheaper, the longest reached one
+    #: applies: `[{"min_length", "percent"}]`.
+    length_discounts = models.JSONField(default=list, blank=True)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "starts_on", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(service__isnull=False, group__isnull=True, resource__isnull=True)
+                    | models.Q(service__isnull=True, group__isnull=False, resource__isnull=True)
+                    | models.Q(service__isnull=True, group__isnull=True, resource__isnull=False)
+                ),
+                name="booking_price_one_scope_ck",
+            ),
+            models.CheckConstraint(
+                # Both or neither: a check passes on NULL, so say it.
+                condition=models.Q(starts_on__isnull=True, ends_on__isnull=True)
+                | models.Q(
+                    starts_on__isnull=False,
+                    ends_on__isnull=False,
+                    ends_on__gte=models.F("starts_on"),
+                ),
+                name="booking_price_dates_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(local_from__isnull=True, local_to__isnull=True)
+                | models.Q(
+                    local_from__isnull=False,
+                    local_to__isnull=False,
+                    local_to__gt=models.F("local_from"),
+                ),
+                name="booking_price_hours_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(weekdays__contained_by=list(range(7))),
+                name="booking_price_weekdays_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(currency__regex=r"^[A-Z]{3}$"),
+                name="booking_price_currency_ck",
+            ),
+        ]
+
+
 class Customer(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     display_name = models.CharField(max_length=160)
@@ -994,6 +1139,23 @@ class StaffTeamTranslation(ItemTranslation):
             ),
             models.CheckConstraint(
                 condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_team_tr_locale_ck"
+            ),
+        ]
+
+
+class ParticipantCategoryTranslation(ItemTranslation):
+    category = models.ForeignKey(
+        ParticipantCategory, on_delete=models.CASCADE, related_name="translations"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "category", "locale"], name="booking_category_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="booking_category_tr_locale_ck",
             ),
         ]
 

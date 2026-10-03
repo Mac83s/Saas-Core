@@ -129,6 +129,25 @@ EVALS = {
 }
 
 EVALS.update({
+    "pricing.settings_entry.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"amounts": "net"},
+        wrong_field="amounts",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_booking_plan,
+    ),
+    "pricing.settings_entry.update@1": CommandEval(
+        arguments=lambda _context: {"amounts": "net", "reset": None},
+        wrong_arguments={"amounts": "oba", "reset": None},
+        wrong_field="amounts",
+        stale=_stale("pricing.entry.amounts"),
+        state=_values,
+        prepare=_booking_plan,
+    ),
+})
+
+EVALS.update({
     "organization.settings_security.read@1": CommandEval(
         arguments=lambda _context: {},
         wrong_arguments={"mfa_required": "all"},

@@ -1483,6 +1483,218 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/setup/participant-categories/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the participant categories
+         * @description Who comes when it changes the price — a child, a senior, a dog — switched-off ones included. A participant without a category is a standard person.
+         */
+        get: operations["booking_participant_categories_list"];
+        put?: never;
+        /**
+         * Add a participant category
+         * @description A kind of participant a price may price on its own. Whether it counts towards a unit's capacity decides if it may be one of the people a price includes. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_participant_category_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/participant-categories/{category_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a participant category
+         * @description Renames a category, changes whether it counts towards capacity, or switches it off. A category is never deleted: bookings name it. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_participant_category_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/participant-categories/{category_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a participant category without saving it
+         * @description Validates a change as `booking_participant_category_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_participant_category_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/participant-categories/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a participant category without adding it
+         * @description Validates a category as `booking_participant_category_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_participant_category_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/prices/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the price list
+         * @description Every price of the company's offers, groups and units, switched-off ones included, and how its amounts are read. For a day and an hour one price applies: the unit's over its group's over the offer's, a season's over the base price, the narrower one (weekdays, hours) over the wider, then the later start.
+         */
+        get: operations["booking_prices_list"];
+        put?: never;
+        /**
+         * Add a price
+         * @description A price of exactly one offer, group or unit: the base price without dates, a season's with them, a weekend's or a peak's with weekdays and hours. Its currency is the company's. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_price_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/prices/{price_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a price
+         * @description Removes the price; bookings already made keep the price they were quoted. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        delete: operations["booking_price_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a price
+         * @description Changes a price's amount, dates or terms, or switches it off. Bookings already made keep the price they were quoted. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_price_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/prices/{price_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a price without saving it
+         * @description Validates a change as `booking_price_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_price_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/prices/copy-year/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a year's season prices to the next year
+         * @description Every price whose season starts in `year` again a year later, as new prices; the weekdays move, so check the dates after. Base prices have no dates and are not copied. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_prices_copy_year"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/prices/copy-year/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Count the prices a copy to the next year would make
+         * @description Answers as `booking_prices_copy_year` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_prices_copy_year_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/prices/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a price without adding it
+         * @description Validates a price as `booking_price_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_price_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/setup/resources/": {
         parameters: {
             query?: never;
@@ -4285,6 +4497,50 @@ export interface paths {
          * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
          */
         post: operations["organization_settings_organization_security_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/pricing.entry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Prices and tax
+         * @description How the amounts in the price list of services, stays and extras are read. A customer always sees the gross price. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_pricing_entry_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Prices and tax
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_pricing_entry_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/pricing.entry/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Prices and tax
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_pricing_entry_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8395,6 +8651,12 @@ export interface components {
             /** Format: date-time */
             published_at: string | null;
         };
+        CategoryPrice: {
+            /** Format: uuid */
+            category_id: string;
+            /** @description What one participant of the category pays. */
+            amount_minor: number;
+        };
         ChangeSetApply: {
             change_set: {
                 [key: string]: unknown;
@@ -10224,6 +10486,11 @@ export interface components {
          * @enum {string}
          */
         LayoutEnum: "card" | "cover" | "compact";
+        LengthDiscount: {
+            /** @description From this many time units of the offer. */
+            min_length: number;
+            percent: number;
+        };
         Level: {
             level: string;
             spent_usd_micros: number;
@@ -11172,6 +11439,45 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        ParticipantCategory: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            counts_towards_capacity: boolean;
+            active: boolean;
+            version: number;
+        };
+        /** @description Who comes, when it changes the price: a child, a senior, a dog. */
+        ParticipantCategoryInput: {
+            name: string;
+            /** @description Whether a participant of it takes a place in a unit's capacity and may be one of the people a price includes. A dog does not. */
+            counts_towards_capacity?: boolean;
+            active?: boolean;
+        };
+        ParticipantCategoryList: {
+            items: components["schemas"]["ParticipantCategory"][];
+        };
+        ParticipantCategoryPreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            counts_towards_capacity: boolean;
+            active: boolean;
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Who comes, when it changes the price: a child, a senior, a dog. */
+        ParticipantCategoryUpdate: {
+            name?: string;
+            /** @description Whether a participant of it takes a place in a unit's capacity and may be one of the people a price includes. A dog does not. */
+            counts_towards_capacity?: boolean;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
         PasswordResetConfirm: {
             token: string;
             password: string;
@@ -11500,6 +11806,15 @@ export interface components {
             timezone?: string;
             currency?: string;
         };
+        /** @description Who comes, when it changes the price: a child, a senior, a dog. */
+        PatchedParticipantCategoryUpdate: {
+            name?: string;
+            /** @description Whether a participant of it takes a place in a unit's capacity and may be one of the people a price includes. A dog does not. */
+            counts_towards_capacity?: boolean;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
+        };
         PatchedPersonUpdate: {
             name?: string;
             phone?: string;
@@ -11515,6 +11830,74 @@ export interface components {
             online?: boolean;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
+        };
+        /** @description A price of exactly one of an offer, a group of units or a unit. */
+        PatchedPriceRuleUpdate: {
+            name?: string;
+            /** Format: uuid */
+            service_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /**
+             * Format: date
+             * @description First local day of the season; null with `ends_on` — the base price.
+             */
+            starts_on?: string | null;
+            /**
+             * Format: date
+             * @description Last local day of the season, included.
+             */
+            ends_on?: string | null;
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            weekdays?: number[];
+            /**
+             * Format: time
+             * @description With `local_to`: the local hours it prices, by a booking's start.
+             */
+            local_from?: string | null;
+            /** Format: time */
+            local_to?: string | null;
+            basis?: components["schemas"]["PriceBasisEnum"];
+            amount_minor?: number;
+            /**
+             * @description The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).
+             *
+             *     * `23` - 23%
+             *     * `8` - 8%
+             *     * `5` - 5%
+             *     * `0` - 0%
+             *     * `zw` - zw.
+             *     * `np` - np.
+             */
+            vat_code?: components["schemas"]["VatCodeEnum"];
+            /** @description How many people the amount covers; null — everybody who comes. */
+            included_people?: number | null;
+            /** @description What each person beyond `included_people` adds. */
+            extra_person_amount_minor?: number | null;
+            /** @description The extra person pays per night or day, not once. */
+            extra_person_per_time_unit?: boolean;
+            /** @description A participant category's own amount instead of a person's. */
+            category_prices?: components["schemas"]["CategoryPrice"][];
+            /** @description For `per_time_unit`: the longest reached threshold's percent off the stay. */
+            length_discounts?: components["schemas"]["LengthDiscount"][];
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
+        };
+        PatchedPricingEntrySettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["PricingEntrySettingsChangeResetEnum"][];
+            /**
+             * @description Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net.
+             *
+             *     * `gross` - gross
+             *     * `net` - net
+             */
+            amounts?: components["schemas"]["PriceAmountsEnum"] | components["schemas"]["NullEnum"];
         };
         /** @description A change to a resource: only the fields sent change. */
         PatchedResourceUpdate: {
@@ -12141,6 +12524,269 @@ export interface components {
          * @enum {string}
          */
         PresetTimeModelEnum: "slot" | "range" | "session";
+        /**
+         * @description * `gross` - gross
+         *     * `net` - net
+         * @enum {string}
+         */
+        PriceAmountsEnum: "gross" | "net";
+        /**
+         * @description * `per_booking` - Za rezerwację
+         *     * `per_time_unit` - Za jednostkę czasu
+         *     * `per_person` - Za osobę
+         *     * `per_group` - Za grupę
+         * @enum {string}
+         */
+        PriceBasisEnum: "per_booking" | "per_time_unit" | "per_person" | "per_group";
+        PriceRule: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            service_id: string | null;
+            /** Format: uuid */
+            group_id: string | null;
+            /** Format: uuid */
+            resource_id: string | null;
+            /** Format: date */
+            starts_on: string | null;
+            /** Format: date */
+            ends_on: string | null;
+            weekdays: number[];
+            /** Format: time */
+            local_from: string | null;
+            /** Format: time */
+            local_to: string | null;
+            basis: components["schemas"]["PriceBasisEnum"];
+            amount_minor: number;
+            /** @description The company's currency, ISO 4217. */
+            currency: string;
+            vat_code: components["schemas"]["VatCodeEnum"];
+            included_people: number | null;
+            extra_person_amount_minor: number | null;
+            extra_person_per_time_unit: boolean;
+            category_prices: components["schemas"]["CategoryPrice"][];
+            length_discounts: components["schemas"]["LengthDiscount"][];
+            active: boolean;
+            version: number;
+        };
+        /** @description A price of exactly one of an offer, a group of units or a unit. */
+        PriceRuleInput: {
+            name?: string;
+            /** Format: uuid */
+            service_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /**
+             * Format: date
+             * @description First local day of the season; null with `ends_on` — the base price.
+             */
+            starts_on?: string | null;
+            /**
+             * Format: date
+             * @description Last local day of the season, included.
+             */
+            ends_on?: string | null;
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            weekdays?: number[];
+            /**
+             * Format: time
+             * @description With `local_to`: the local hours it prices, by a booking's start.
+             */
+            local_from?: string | null;
+            /** Format: time */
+            local_to?: string | null;
+            /**
+             * @description `per_booking`; `per_time_unit` — a night or a day of a stay, not for a visit; `per_person`; `per_group` — one price for the group that comes.
+             *
+             *     * `per_booking` - Za rezerwację
+             *     * `per_time_unit` - Za jednostkę czasu
+             *     * `per_person` - Za osobę
+             *     * `per_group` - Za grupę
+             */
+            basis: components["schemas"]["PriceBasisEnum"];
+            /** @description In minor units of the company's currency (grosze), gross or net as the company set it (`pricing.entry.amounts`). */
+            amount_minor: number;
+            /**
+             * @description The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).
+             *
+             *     * `23` - 23%
+             *     * `8` - 8%
+             *     * `5` - 5%
+             *     * `0` - 0%
+             *     * `zw` - zw.
+             *     * `np` - np.
+             */
+            vat_code?: components["schemas"]["VatCodeEnum"];
+            /** @description How many people the amount covers; null — everybody who comes. */
+            included_people?: number | null;
+            /** @description What each person beyond `included_people` adds. */
+            extra_person_amount_minor?: number | null;
+            /** @description The extra person pays per night or day, not once. */
+            extra_person_per_time_unit?: boolean;
+            /** @description A participant category's own amount instead of a person's. */
+            category_prices?: components["schemas"]["CategoryPrice"][];
+            /** @description For `per_time_unit`: the longest reached threshold's percent off the stay. */
+            length_discounts?: components["schemas"]["LengthDiscount"][];
+            active?: boolean;
+        };
+        PriceRuleList: {
+            items: components["schemas"]["PriceRule"][];
+            /**
+             * @description How the company's amounts are read (`pricing.entry.amounts`); a customer always sees gross.
+             *
+             *     * `gross` - gross
+             *     * `net` - net
+             */
+            amounts: components["schemas"]["PriceAmountsEnum"];
+        };
+        PriceRulePreview: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            service_id: string | null;
+            /** Format: uuid */
+            group_id: string | null;
+            /** Format: uuid */
+            resource_id: string | null;
+            /** Format: date */
+            starts_on: string | null;
+            /** Format: date */
+            ends_on: string | null;
+            weekdays: number[];
+            /** Format: time */
+            local_from: string | null;
+            /** Format: time */
+            local_to: string | null;
+            basis: components["schemas"]["PriceBasisEnum"];
+            amount_minor: number;
+            /** @description The company's currency, ISO 4217. */
+            currency: string;
+            vat_code: components["schemas"]["VatCodeEnum"];
+            included_people: number | null;
+            extra_person_amount_minor: number | null;
+            extra_person_per_time_unit: boolean;
+            category_prices: components["schemas"]["CategoryPrice"][];
+            length_discounts: components["schemas"]["LengthDiscount"][];
+            active: boolean;
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A price of exactly one of an offer, a group of units or a unit. */
+        PriceRuleUpdate: {
+            name?: string;
+            /** Format: uuid */
+            service_id?: string | null;
+            /** Format: uuid */
+            group_id?: string | null;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /**
+             * Format: date
+             * @description First local day of the season; null with `ends_on` — the base price.
+             */
+            starts_on?: string | null;
+            /**
+             * Format: date
+             * @description Last local day of the season, included.
+             */
+            ends_on?: string | null;
+            /** @description Weekdays, 0 = Monday … 6 = Sunday; empty — any. */
+            weekdays?: number[];
+            /**
+             * Format: time
+             * @description With `local_to`: the local hours it prices, by a booking's start.
+             */
+            local_from?: string | null;
+            /** Format: time */
+            local_to?: string | null;
+            basis?: components["schemas"]["PriceBasisEnum"];
+            amount_minor?: number;
+            /**
+             * @description The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT).
+             *
+             *     * `23` - 23%
+             *     * `8` - 8%
+             *     * `5` - 5%
+             *     * `0` - 0%
+             *     * `zw` - zw.
+             *     * `np` - np.
+             */
+            vat_code?: components["schemas"]["VatCodeEnum"];
+            /** @description How many people the amount covers; null — everybody who comes. */
+            included_people?: number | null;
+            /** @description What each person beyond `included_people` adds. */
+            extra_person_amount_minor?: number | null;
+            /** @description The extra person pays per night or day, not once. */
+            extra_person_per_time_unit?: boolean;
+            /** @description A participant category's own amount instead of a person's. */
+            category_prices?: components["schemas"]["CategoryPrice"][];
+            /** @description For `per_time_unit`: the longest reached threshold's percent off the stay. */
+            length_discounts?: components["schemas"]["LengthDiscount"][];
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
+        PricingEntrySettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["PricingEntrySettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["PricingEntrySettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        PricingEntrySettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["PricingEntrySettingsChangeResetEnum"][];
+            /**
+             * @description Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net.
+             *
+             *     * `gross` - gross
+             *     * `net` - net
+             */
+            amounts?: components["schemas"]["PriceAmountsEnum"] | components["schemas"]["NullEnum"];
+        };
+        /**
+         * @description * `amounts` - amounts
+         * @enum {string}
+         */
+        PricingEntrySettingsChangeResetEnum: "amounts";
+        PricingEntrySettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["PricingEntrySettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        PricingEntrySettingsSources: {
+            amounts: components["schemas"]["SettingSourceEnum"];
+        };
+        PricingEntrySettingsValues: {
+            /**
+             * @description Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net.
+             *
+             *     * `gross` - gross
+             *     * `net` - net
+             */
+            amounts: components["schemas"]["PriceAmountsEnum"];
+        };
         ProblemDetails: {
             /** @description Always `about:blank`; `code` names the problem. */
             type: string;
@@ -14835,6 +15481,16 @@ export interface components {
             /** @description 0: not a platform operator; 1: an operator (staff with 2FA); 2: a platform administrator. The „Platforma” panel is for 1 and 2. */
             operator_level?: number;
         };
+        /**
+         * @description * `23` - 23%
+         *     * `8` - 8%
+         *     * `5` - 5%
+         *     * `0` - 0%
+         *     * `zw` - zw.
+         *     * `np` - np.
+         * @enum {string}
+         */
+        VatCodeEnum: "23" | "8" | "5" | "0" | "zw" | "np";
         /**
          * @description * `23` - 23%
          *     * `8` - 8%
@@ -18764,6 +19420,705 @@ export interface operations {
             };
         };
     };
+    booking_participant_categories_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantCategoryList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_participant_category_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantCategoryInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantCategoryInput"];
+                "multipart/form-data": components["schemas"]["ParticipantCategoryInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantCategory"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_participant_category_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedParticipantCategoryUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedParticipantCategoryUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedParticipantCategoryUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantCategory"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_participant_category_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantCategoryUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantCategoryUpdate"];
+                "multipart/form-data": components["schemas"]["ParticipantCategoryUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantCategoryPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_participant_category_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantCategoryInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantCategoryInput"];
+                "multipart/form-data": components["schemas"]["ParticipantCategoryInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantCategoryPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_prices_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRuleList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_price_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceRuleInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PriceRuleInput"];
+                "multipart/form-data": components["schemas"]["PriceRuleInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRule"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_price_delete: {
+        parameters: {
+            query: {
+                /** @description The version the deletion was decided on; another one is 409 `booking_version_conflict`. */
+                expected_version: number;
+            };
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                price_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_price_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                price_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPriceRuleUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPriceRuleUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedPriceRuleUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRule"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_price_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceRuleUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PriceRuleUpdate"];
+                "multipart/form-data": components["schemas"]["PriceRuleUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRulePreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_prices_copy_year: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CopyYearInput"];
+                "multipart/form-data": components["schemas"]["CopyYearInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyYearResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_prices_copy_year_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CopyYearInput"];
+                "multipart/form-data": components["schemas"]["CopyYearInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyYearResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_price_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceRuleInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PriceRuleInput"];
+                "multipart/form-data": components["schemas"]["PriceRuleInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRulePreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     booking_setup_resource_create: {
         parameters: {
             query?: never;
@@ -19856,8 +21211,8 @@ export interface operations {
             header?: never;
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units) or team. */
-                kind: "group" | "location" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team or participant_category. */
+                kind: "group" | "location" | "participant_category" | "resource" | "service" | "team";
             };
             cookie?: never;
         };
@@ -19897,8 +21252,8 @@ export interface operations {
             };
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units) or team. */
-                kind: "group" | "location" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team or participant_category. */
+                kind: "group" | "location" | "participant_category" | "resource" | "service" | "team";
                 locale: string;
             };
             cookie?: never;
@@ -19959,8 +21314,8 @@ export interface operations {
             header?: never;
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units) or team. */
-                kind: "group" | "location" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team or participant_category. */
+                kind: "group" | "location" | "participant_category" | "resource" | "service" | "team";
                 locale: string;
             };
             cookie?: never;
@@ -27752,6 +29107,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationSecuritySettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_pricing_entry_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingEntrySettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_pricing_entry_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPricingEntrySettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPricingEntrySettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedPricingEntrySettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingEntrySettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_pricing_entry_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingEntrySettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PricingEntrySettingsChange"];
+                "multipart/form-data": components["schemas"]["PricingEntrySettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingEntrySettingsPreview"];
                 };
             };
             400: {

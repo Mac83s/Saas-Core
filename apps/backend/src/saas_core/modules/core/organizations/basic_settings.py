@@ -116,12 +116,14 @@ BASICS = SettingGroup(
             label={"pl": "Waluta", "en": "Currency"},
             help={
                 "pl": "Waluta cen i wyceny magazynu. Pozycja magazynu zachowuje walutę, w "
-                "której ją założono.",
+                "której ją założono. Firma z cennikiem nie zmienia waluty.",
                 "en": "The currency of prices and stock values. A stock item keeps the "
-                "currency it was created in.",
+                "currency it was created in. A company with a price list keeps its currency.",
             },
             model_description="The ISO 4217 currency the company keeps its prices and stock "
-            "values in. A stock item keeps the currency it was created in.",
+            "values in. A stock item keeps the currency it was created in. A company that "
+            "has prices in its price list cannot change it: the change is refused with "
+            "`currency_in_use` on the field currency.",
         ),
     ),
 )

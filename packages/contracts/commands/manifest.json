@@ -3042,6 +3042,165 @@
       "version_field": "version"
     },
     {
+      "command": "pricing.settings_entry.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Prices and tax' (amounts): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. How the amounts in the price list of services, stays and extras are read. A customer always sees the gross price.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "amounts": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "amounts": {
+                "enum": [
+                  "gross",
+                  "net"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "How the amounts in the price list of services, stays and extras are read. A customer always sees the gross price.",
+        "pl": "Jak czytamy kwoty w cenniku usług, pobytów i dopłat. Klient zawsze widzi cenę brutto."
+      },
+      "title": {
+        "en": "Read settings: Prices and tax",
+        "pl": "Odczytaj ustawienia: Ceny i podatek"
+      },
+      "tool_name": "pricing_settings_entry_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "pricing.settings_entry.update@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "amounts": {
+            "description": "Whether the amounts in the company's price list of services, stays and extras include VAT (gross) or not (net). What a customer sees is always gross, whatever this says. Changing it recalculates nothing: every amount stays as entered and is read the other way, so every price a customer sees changes. It does not cover product sale prices in the warehouse, which are always net. Null keeps it as it is.",
+            "enum": [
+              "gross",
+              "net",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "amounts"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "amounts",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Prices and tax'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). How the amounts in the price list of services, stays and extras are read. A customer always sees the gross price.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "amounts": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "amounts": {
+                "enum": [
+                  "gross",
+                  "net"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "publish",
+      "summary": {
+        "en": "How the amounts in the price list of services, stays and extras are read. A customer always sees the gross price.",
+        "pl": "Jak czytamy kwoty w cenniku usług, pobytów i dopłat. Klient zawsze widzi cenę brutto."
+      },
+      "title": {
+        "en": "Change settings: Prices and tax",
+        "pl": "Zmień ustawienia: Ceny i podatek"
+      },
+      "tool_name": "pricing_settings_entry_update_v1",
+      "undo": "command:pricing.settings_entry.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "profiles.catalog.publish@1",
       "entitlement": "profiles.enabled",
       "exposure": [

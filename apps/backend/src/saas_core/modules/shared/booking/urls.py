@@ -1,5 +1,17 @@
 from django.urls import path
 
+from .price_views import (
+    ParticipantCategoryCreatePreviewView,
+    ParticipantCategoryDetailView,
+    ParticipantCategoryListView,
+    ParticipantCategoryUpdatePreviewView,
+    PriceRuleCopyYearPreviewView,
+    PriceRuleCopyYearView,
+    PriceRuleCreatePreviewView,
+    PriceRuleDetailView,
+    PriceRuleListView,
+    PriceRuleUpdatePreviewView,
+)
 from .translation_views import (
     ItemTranslationListView,
     ItemTranslationPreviewView,
@@ -238,6 +250,40 @@ urlpatterns = [
         "setup/rules/<uuid:rule_id>/preview/",
         BookingRuleUpdatePreviewView.as_view(),
         name="rule-preview",
+    ),
+    path("setup/prices/", PriceRuleListView.as_view(), name="prices"),
+    path("setup/prices/preview/", PriceRuleCreatePreviewView.as_view(), name="prices-preview"),
+    path("setup/prices/copy-year/", PriceRuleCopyYearView.as_view(), name="prices-copy-year"),
+    path(
+        "setup/prices/copy-year/preview/",
+        PriceRuleCopyYearPreviewView.as_view(),
+        name="prices-copy-year-preview",
+    ),
+    path("setup/prices/<uuid:price_id>/", PriceRuleDetailView.as_view(), name="price"),
+    path(
+        "setup/prices/<uuid:price_id>/preview/",
+        PriceRuleUpdatePreviewView.as_view(),
+        name="price-preview",
+    ),
+    path(
+        "setup/participant-categories/",
+        ParticipantCategoryListView.as_view(),
+        name="participant-categories",
+    ),
+    path(
+        "setup/participant-categories/preview/",
+        ParticipantCategoryCreatePreviewView.as_view(),
+        name="participant-categories-preview",
+    ),
+    path(
+        "setup/participant-categories/<uuid:category_id>/",
+        ParticipantCategoryDetailView.as_view(),
+        name="participant-category",
+    ),
+    path(
+        "setup/participant-categories/<uuid:category_id>/preview/",
+        ParticipantCategoryUpdatePreviewView.as_view(),
+        name="participant-category-preview",
     ),
     path("setup/closures/", BookingClosureListView.as_view(), name="closures"),
     path(

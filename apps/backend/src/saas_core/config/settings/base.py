@@ -949,6 +949,11 @@ SPECTACULAR_SETTINGS = {
         # A warehouse setting named `source` and a low-stock row's `location_kind`
         # must not rename the time-off source and the stock location's kind.
         "SourceEnum": "saas_core.modules.shared.booking.models.TimeOffSource",
+        # A price's basis must not rename a translation target's basis, and how
+        # a price list's amounts are read is one enum on the list and the setting.
+        "BasisEnum": ["published", "working"],
+        "PriceBasisEnum": "saas_core.modules.shared.booking.models.PriceBasis",
+        "PriceAmountsEnum": ["gross", "net"],
         # An assistant turn's state must not get a hashed name. As values, not
         # an import path: a product that leaves the module out never loads it.
         "AssistantTurnStateEnum": [

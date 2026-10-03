@@ -16,6 +16,7 @@ from saas_core.modules.core.identity.sessions import rotate_managed_session
 from .audit import audit_snapshot, field_changes, record_audit
 from .authorization import authorize
 from .context import set_local_organization_id
+from .currency import refuse_currency_in_use
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
     WORKING_ORGANIZATION_STATUSES,
@@ -63,16 +64,18 @@ def list_organizations(*, request: HttpRequest) -> list[OrganizationAccess]:
     active_id = request.session.get(ACTIVE_ORGANIZATION_SESSION_KEY)
     # ADR-041: the switcher asks which companies this account belongs to, which
     # is the question that has to be answered before a tenant exists.
-    memberships = Membership.objects.using(PRE_TENANT_DB).select_related(
-        "organization", "role"
-    ).filter(
-        user=user,
-        status__in=[MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED],
-        organization__status__in=[
-            OrganizationStatus.ONBOARDING,
-            OrganizationStatus.ACTIVE,
-            OrganizationStatus.SUSPENDED,
-        ],
+    memberships = (
+        Membership.objects.using(PRE_TENANT_DB)
+        .select_related("organization", "role")
+        .filter(
+            user=user,
+            status__in=[MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED],
+            organization__status__in=[
+                OrganizationStatus.ONBOARDING,
+                OrganizationStatus.ACTIVE,
+                OrganizationStatus.SUSPENDED,
+            ],
+        )
     )
     accesses = [
         OrganizationAccess(
@@ -81,8 +84,7 @@ def list_organizations(*, request: HttpRequest) -> list[OrganizationAccess]:
             active=(
                 str(membership.organization_id) == active_id
                 and membership.status == MembershipStatus.ACTIVE
-                and membership.organization.status
-                in WORKING_ORGANIZATION_STATUSES
+                and membership.organization.status in WORKING_ORGANIZATION_STATUSES
             ),
         )
         for membership in memberships
@@ -239,9 +241,12 @@ def planned_organization(
 
 
 def _apply_changes(organization: Organization, changes: dict[str, Any]) -> None:
+    currency = organization.currency
     for field, value in changes.items():
         setattr(organization, field, value)
     _validate_model(organization)
+    if organization.currency != currency:
+        refuse_currency_in_use(organization.id)
 
 
 @transaction.atomic
