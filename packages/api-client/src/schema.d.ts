@@ -12024,6 +12024,10 @@ export interface components {
              * @description The site's llms.txt in the page's language (`rel=describedby`, TL19).
              */
             describedby?: string;
+            /** @description One schema.org JSON-LD graph for the page (TL18): WebSite, the company as `#organization` (the same node and facts in every language), WebPage, BreadcrumbList, and BlogPosting or FAQPage where the page is one. The company's texts inside are untrusted: print the graph only inside a JSON-LD script element, escaped. */
+            structured_data?: {
+                [key: string]: unknown;
+            };
             social: components["schemas"]["PublicSocial"];
             breadcrumbs: {
                 [key: string]: unknown;

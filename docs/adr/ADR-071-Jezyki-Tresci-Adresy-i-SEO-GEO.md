@@ -226,3 +226,42 @@ korzeniem. Strony firm nie mają JSON-LD.
 - **ADR-053, ADR-064** — wizytówka i katalog per język.
 - **ADR-069** — tłumaczenia, zgody i koszty; **ADR-070** — treść podstron per język,
   `live_locales`, wstrzymanie i zdjęcie wersji.
+
+## Uzupełnienie 2026-10-03: graf JSON-LD i fakty firmy (TL18a, pkt 16)
+
+Jak pkt 16 jest wykonany, żeby drugi raz tego nie rozstrzygać:
+
+- **Rejestr faktów w rdzeniu.** `register_organization_facts` / `organization_facts`
+  w `core.organizations` (`identity_facts.py`); wizytówka rejestruje
+  `business_card_facts`. Fakty to nazwa, telefon, e-mail, adres, miejscowość z
+  województwem i krajem ze słownika miast oraz linki (`sameAs`). Bierzemy je z
+  wizytówki firmy bez względu na to, czy jest opublikowana w katalogu — tak samo jak
+  telefon i e-mail w stronach z szablonu (`register_company_contact`, UX-038): to
+  dane, które firma podała po to, żeby je pokazać, a trafiają na jej własną stronę.
+- **Fakty są w migawce.** Publikacja strony zapisuje je pod kluczem `organization`
+  (tylko to, co podane). Żądanie publiczne nie czyta tabel wizytówki, a zmiana
+  wizytówki pojawia się na stronie przy następnej publikacji — jak menu i wygląd.
+  Migawka bez klucza (sprzed tej zmiany, także po wycofaniu do starszej publikacji)
+  daje `Organization` z nazwą strony.
+- **Typ.** `LocalBusiness`, gdy wizytówka ma adres (ulicę); inaczej `Organization`.
+  Podtyp to `schemaType` kategorii katalogu: w profilu produktu
+  (`organizationTypes[].catalogCategories[].schemaType`, np. `LodgingBusiness`) albo
+  w słowniku rdzenia. Rdzeń nazywa podtyp tylko tam, gdzie pasuje do każdego zawodu
+  kategorii: usługi dla domu i budowlanka → `HomeAndConstructionBusiness`,
+  motoryzacja → `AutomotiveBusiness`, gastronomia → `FoodEstablishment`, handel →
+  `Store`. „Uroda i zdrowie” łączy fryzjera z lekarzem, więc zostaje samo
+  `LocalBusiness` — nieprawdziwy podtyp jest gorszy niż jego brak.
+- **Graf.** `sites/seo_graph.py` buduje jeden `@graph` z tych samych wartości co
+  head: `WebSite` (`<origin>/#website`), firma (`<origin>/#organization` — ten sam
+  węzeł, którego używa karta katalogu), `WebPage` (`<adres kanoniczny>#webpage`,
+  `inLanguage`), `BreadcrumbList`, a dla wpisu `BlogPosting` z autorem (bez podpisu:
+  firma), datami z `article` i firmą jako wydawcą; strona z blokiem FAQ jest też
+  `FAQPage`. Ładunek strony publicznej niesie go w `structured_data`.
+- **Druk tylko przez `JsonLd`.** Komponent `#components/json-ld` drukuje graf przez
+  `serializeJsonLd` z `#lib/seo`, która zapisuje `<`, `>`, `&`, U+2028 i U+2029 jako
+  sekwencje ucieczki; test przeszukuje źródła frontendu i nie dopuszcza innego
+  `application/ld+json`. Strony marketingowe i karta katalogu używają tego samego,
+  a strona główna platformy dostała własny węzeł `Organization`.
+- **Poza tym etapem:** `translationOfWork` na wersjach AI (z TL19b), ceny, podgląd
+  SEO dla panelu i asystenta (TL18b).
+

@@ -322,6 +322,7 @@
           "en": "Home services",
           "de": "Haushaltsdienste"
         },
+        "schemaType": "HomeAndConstructionBusiness",
         "keywords": {
           "pl": [
             "sprzątanie",
@@ -363,6 +364,7 @@
           "en": "Construction",
           "de": "Bau und Renovierung"
         },
+        "schemaType": "HomeAndConstructionBusiness",
         "keywords": {
           "pl": [
             "remont",
@@ -408,6 +410,7 @@
           "en": "Automotive",
           "de": "Auto und Verkehr"
         },
+        "schemaType": "AutomotiveBusiness",
         "keywords": {
           "pl": [
             "mechanik",
@@ -446,6 +449,7 @@
           "en": "Food and drink",
           "de": "Gastronomie"
         },
+        "schemaType": "FoodEstablishment",
         "keywords": {
           "pl": [
             "restauracja",
@@ -482,6 +486,7 @@
           "en": "Retail",
           "de": "Handel"
         },
+        "schemaType": "Store",
         "keywords": {
           "pl": [
             "sklep",

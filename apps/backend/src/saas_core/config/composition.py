@@ -144,6 +144,9 @@ class CatalogCategory:
     label: dict[str, str]
     #: Words the catalogue search finds this category by, per language.
     keywords: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: The schema.org subtype of LocalBusiness every company of this category
+    #: is ("LodgingBusiness"); "" when the category is too wide to name one.
+    schema_type: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +277,7 @@ def organization_types_from(
                                 str(locale): tuple(str(word) for word in words)
                                 for locale, words in (category.get("keywords") or {}).items()
                             },
+                            schema_type=str(category.get("schemaType") or ""),
                         )
                         for category in raw["catalogCategories"]
                     )

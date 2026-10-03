@@ -676,6 +676,8 @@ test("kategorie katalogu należą do typu i wymagają modułu profili", async ()
   const category = {
     key: "specialists",
     label: { pl: "Specjaliści", en: "Specialists" },
+    // The schema.org subtype every company of the category is (TL18).
+    schemaType: "ProfessionalService",
   };
   const company = {
     key: "company",
@@ -718,6 +720,10 @@ test("kategorie katalogu należą do typu i wymagają modułu profili", async ()
     ],
     [
       { catalogCategories: [{ ...category, label: { pl: "Specjaliści" } }] },
+      /catalogCategories/,
+    ],
+    [
+      { catalogCategories: [{ ...category, schemaType: "lodging business" }] },
       /catalogCategories/,
     ],
   ]) {

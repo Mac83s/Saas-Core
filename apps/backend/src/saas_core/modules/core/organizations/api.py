@@ -33,6 +33,7 @@ from .events import (
     register_domain_event_handler,
 )
 from .history import HistoryTarget, register_history_target
+from .identity_facts import OrganizationFacts, organization_facts, register_organization_facts
 from .joining import (
     InvitationAcceptedHandler,
     SeatLimit,
@@ -144,6 +145,9 @@ __all__ = [
     "register_command_gate",
     "register_domain_event_handler",
     "register_invitation_accepted",
+    "OrganizationFacts",
+    "organization_facts",
+    "register_organization_facts",
     "register_public_locales_changed",
     "register_public_locales_guard",
     "register_public_locales_impact",

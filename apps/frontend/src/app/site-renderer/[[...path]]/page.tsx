@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 
+import { JsonLd } from "#components/json-ld";
 import { countsAsPageView } from "../../../modules/shared/sites/page-view";
 import {
   getPublicSite,
@@ -56,6 +57,11 @@ export default async function PublicSitePage({
           rel="describedby"
           type="text/plain"
         />
+      ) : null}
+      {/* The page's structured data, built by the backend from the same
+          values as the head (TL18); printed only through `JsonLd`. */}
+      {result.page.structured_data ? (
+        <JsonLd data={result.page.structured_data} />
       ) : null}
       <PublicSiteRenderer page={result.page} />
     </>

@@ -31,6 +31,7 @@ from .models import (
     Publication,
     Site,
 )
+from .seo_graph import page_graph
 
 
 def tenant_is_servable(organization_id: Any) -> bool:
@@ -141,9 +142,7 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     try:
         if publication is None:
             raise PublicSiteNotFound
-        page, locale_document = find_page(
-            visible_snapshot(publication, available), normalized_path
-        )
+        page, locale_document = find_page(visible_snapshot(publication, available), normalized_path)
     except PublicSiteNotFound:
         # Not a page, so it may be a collection entry, or the collection's own
         # index. Entries publish on their own (ADR-035 §1) and are therefore
@@ -279,11 +278,23 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         locale: f"{canonical_origin}{path}"
         for locale, path in page.page.get("hreflang", {}).items()
     }
+    canonical_url = f"{canonical_origin}{page.canonical_path}"
+    # Derived from the menu, never stored: a stored trail is wrong the moment
+    # somebody reorders the tree, and the whole point of the hierarchy is that
+    # reordering is cheap.
+    breadcrumbs = _breadcrumbs(
+        navigation,
+        page_id=str(page.page.get("page_id", "")),
+        title=selected_locale["title"],
+        path=page.canonical_path,
+    )
+    article = _localized_article(page, site_snapshot, default_locale)
+    image = _social_image(page, blocks, canonical_origin)
     return {
         "publication_id": str(page.publication.id),
         "snapshot_hash": page.publication.snapshot_hash,
         "locale": page.locale,
-        "canonical_url": f"{canonical_origin}{page.canonical_path}",
+        "canonical_url": canonical_url,
         "hreflang": hreflang,
         "x_default": f"{canonical_origin}{page.page['x_default']}",
         "title": selected_locale["title"],
@@ -302,19 +313,11 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # page's blocks.
         "blocks": blocks,
         "navigation": navigation,
-        # Derived from the menu, never stored: a stored trail is wrong the
-        # moment somebody reorders the tree, and the whole point of the
-        # hierarchy is that reordering is cheap.
-        "breadcrumbs": _breadcrumbs(
-            navigation,
-            page_id=str(page.page.get("page_id", "")),
-            title=selected_locale["title"],
-            path=page.canonical_path,
-        ),
+        "breadcrumbs": breadcrumbs,
         # Present only where they mean something: an index has pages, an
         # article has an author and dates, a plain page has neither.
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
-        "article": _localized_article(page, site_snapshot, default_locale),
+        "article": article,
         "ai_media_ids": _ai_media_ids(page),
         # Pages that ask not to be indexed (thin tag archives, entries marked
         # by their author) say so in the document itself; a sitemap that
@@ -325,10 +328,8 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "social": {
             "site_name": site_name,
             "locale": _og_locale(page.locale),
-            "alternate_locales": [
-                _og_locale(code) for code in hreflang if code != page.locale
-            ],
-            "image": _social_image(page, blocks, canonical_origin),
+            "alternate_locales": [_og_locale(code) for code in hreflang if code != page.locale],
+            "image": image,
         },
         # The feeds of the language being read, and only those (TL14).
         "feeds": {
@@ -337,6 +338,22 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         },
         # The llms.txt of the language being read (TL19): `rel=describedby`.
         "describedby": f"{canonical_origin}{feed_path(default_locale, page.locale, 'llms.txt')}",
+        # One JSON-LD graph from the same values as the head above (TL18): the
+        # company is one `#organization` in every language, with the facts the
+        # publication froze.
+        "structured_data": page_graph(
+            origin=canonical_origin,
+            site_name=site_name,
+            locale=page.locale,
+            canonical_url=canonical_url,
+            title=str(selected_locale["title"]),
+            description=str(selected_locale["description"] or ""),
+            breadcrumbs=breadcrumbs,
+            blocks=blocks,
+            article=article,
+            image=image,
+            facts=site_snapshot.get("organization"),
+        ),
     }
 
 
@@ -564,21 +581,15 @@ def _ai_media_ids(page: PublicPage) -> list[str]:
         )
 
 
-def _absolute_pagination(
-    pagination: dict[str, Any] | None, origin: str
-) -> dict[str, Any] | None:
+def _absolute_pagination(pagination: dict[str, Any] | None, origin: str) -> dict[str, Any] | None:
     if pagination is None:
         return None
     return {
         **pagination,
         "previous_url": (
-            f"{origin}{pagination['previous_path']}"
-            if pagination["previous_path"]
-            else None
+            f"{origin}{pagination['previous_path']}" if pagination["previous_path"] else None
         ),
-        "next_url": (
-            f"{origin}{pagination['next_path']}" if pagination["next_path"] else None
-        ),
+        "next_url": (f"{origin}{pagination['next_path']}" if pagination["next_path"] else None),
     }
 
 
@@ -733,9 +744,7 @@ def _find_entry(
                     "title": str(snapshot["title"]),
                     "author_name": str(snapshot.get("author_name", "")),
                     "published_at": (
-                        entry.published_at.isoformat()
-                        if entry.published_at is not None
-                        else None
+                        entry.published_at.isoformat() if entry.published_at is not None else None
                     ),
                     # When the text changed, which publishing it again does
                     # not move (TL14); older snapshots: the publication.
@@ -804,9 +813,7 @@ def published_entries(
             "excerpt": str(snapshot.get("excerpt", "")),
             "author_name": str(snapshot.get("author_name", "")),
             "tags": [
-                tag
-                for tag in snapshot.get("tags", [])
-                if isinstance(tag, dict) and tag.get("slug")
+                tag for tag in snapshot.get("tags", []) if isinstance(tag, dict) and tag.get("slug")
             ],
             "published_at": entry.published_at,
             # When the article last changed, which is when its current
@@ -1030,8 +1037,8 @@ def _find_collection_index(
     if requested_page > total_pages:
         raise PublicSiteNotFound
     window = entries[(requested_page - 1) * page_size : requested_page * page_size]
-    path = first_path if requested_page == 1 else index_page_path(
-        first_path, locale, requested_page
+    path = (
+        first_path if requested_page == 1 else index_page_path(first_path, locale, requested_page)
     )
     name = _site_texts(site, locale, available).get(f"collection/{collection.id}") or (
         collection.name

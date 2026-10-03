@@ -214,6 +214,11 @@
                   "maxLength": 64
                 },
                 "label": { "$ref": "#/$defs/localizedLabel" },
+                "schemaType": {
+                  "description": "Podtyp schema.org LocalBusiness, którym jest każda firma tej kategorii (np. LodgingBusiness); trafia do JSON-LD strony firmy jako ['LocalBusiness', podtyp]. Bez pola: samo LocalBusiness.",
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Za-z]{2,63}$"
+                },
                 "keywords": {
                   "description": "Słowa, po których wyszukiwarka katalogu znajduje firmy tej kategorii (np. nazwy zawodów), per język.",
                   "type": "object",

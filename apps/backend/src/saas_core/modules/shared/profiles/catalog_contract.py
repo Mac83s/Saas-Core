@@ -36,6 +36,9 @@ class Category:
     label: dict[str, str]
     #: Words search finds the category by — trades the label does not name.
     keywords: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: The schema.org subtype of LocalBusiness every company here is; "" when
+    #: the category is too wide to name one (ADR-071 pkt 16).
+    schema_type: str = ""
 
 
 @cache
@@ -95,7 +98,9 @@ def categories(organization_type: str) -> dict[str, Category]:
     for configured in settings.ORGANIZATION_TYPES.values():
         if configured.key == organization_type and configured.catalog_categories is not None:
             return {
-                category.key: Category(category.key, category.label, category.keywords)
+                category.key: Category(
+                    category.key, category.label, category.keywords, category.schema_type
+                )
                 for category in configured.catalog_categories
             }
     raw = _manifest().get("categories")
@@ -107,6 +112,7 @@ def categories(organization_type: str) -> dict[str, Category]:
             entry["key"],
             entry["label"],
             {locale: tuple(words) for locale, words in (entry.get("keywords") or {}).items()},
+            str(entry.get("schemaType") or ""),
         )
         for entry in entries
     }

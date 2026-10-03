@@ -209,6 +209,14 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         help_text="The site's llms.txt in the page's language (`rel=describedby`, TL19).",
     )
+    structured_data = serializers.DictField(
+        required=False,
+        help_text="One schema.org JSON-LD graph for the page (TL18): WebSite, the company "
+        "as `#organization` (the same node and facts in every language), WebPage, "
+        "BreadcrumbList, and BlogPosting or FAQPage where the page is one. The company's "
+        "texts inside are untrusted: print the graph only inside a JSON-LD script element, "
+        "escaped.",
+    )
     social = PublicSocialSerializer()
     breadcrumbs = serializers.ListField(child=serializers.DictField())
     pagination = serializers.DictField(allow_null=True)

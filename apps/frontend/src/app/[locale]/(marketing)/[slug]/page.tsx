@@ -11,6 +11,7 @@ import {
 } from "../../../../marketing/content";
 import { localizedUrl, marketingMetadata } from "../../../../marketing/seo";
 import { Button } from "@saas-core/ui/components/button";
+import { JsonLd } from "#components/json-ld";
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -75,12 +76,7 @@ export default async function DetailPage({ params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
-        }}
-      />
+      <JsonLd data={structuredData} />
       <section className="relative overflow-hidden border-b bg-gradient-to-br from-primary/10 via-background to-background">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-16 sm:py-24">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">

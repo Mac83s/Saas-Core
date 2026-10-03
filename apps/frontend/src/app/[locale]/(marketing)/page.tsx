@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import { JsonLd } from "#components/json-ld";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -34,7 +35,17 @@ export default async function HomePage({ params }: Props) {
   const copy = productCopy(locale);
   const t = await getTranslations("Marketing");
 
+  // The platform itself: one node in every language (TL18), like a company
+  // on its own site.
+  const platform = `${localizedUrl("pl", "/")}#organization`;
   const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": platform,
+      name: productName,
+      url: localizedUrl("pl", "/"),
+    },
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
@@ -44,6 +55,7 @@ export default async function HomePage({ params }: Props) {
       operatingSystem: "Web",
       url: localizedUrl(locale, "/"),
       inLanguage: locale,
+      publisher: { "@id": platform },
     },
     {
       "@context": "https://schema.org",
@@ -58,13 +70,7 @@ export default async function HomePage({ params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // Our own static copy, serialized — not user input.
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
-        }}
-      />
+      <JsonLd data={structuredData} />
 
       <section className="relative overflow-hidden border-b bg-gradient-to-br from-primary/10 via-background to-background">
         {copy.hero.backgroundImage ? (

@@ -26,6 +26,7 @@ from saas_core.modules.core.organizations.api import (
     dispatch_domain_event,
     include_site_source_locale,
     list_resource_reference_ids,
+    organization_facts,
     record_resource_references,
 )
 
@@ -2843,6 +2844,7 @@ def _publication_snapshot(
 
     appearance = appearance_snapshot(site)
     site_texts = snapshot_site_texts(site, appearance)
+    facts = organization_facts(site.organization_id)
     localization_by_page = {page.page.id: page for page in localization.pages}
 
     def locales(page: Page) -> list[dict[str, Any]]:
@@ -2943,6 +2945,10 @@ def _publication_snapshot(
         # The site's own texts in its other languages, as visitors read them
         # (ADR-070 pkt 15); absent while there are none.
         **({"site_texts": site_texts} if site_texts else {}),
+        # Who the company is, as its business card states it at this
+        # publication (ADR-071 pkt 16): the facts under `#organization` in
+        # every language. Absent while the company has no card.
+        **({"organization": facts.as_snapshot()} if facts else {}),
     }
 
 

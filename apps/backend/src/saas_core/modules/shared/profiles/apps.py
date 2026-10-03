@@ -15,6 +15,7 @@ class ProfilesConfig(AppConfig):
         from django.db.models.signals import post_delete, post_save
 
         from saas_core.modules.core.organizations.api import (
+            register_organization_facts,
             register_public_locales_changed,
             register_public_locales_guard,
         )
@@ -33,9 +34,11 @@ class ProfilesConfig(AppConfig):
         # writes to its own e-mail, not the template's samples (UX-038).
         from saas_core.modules.shared.sites.api import register_company_contact
 
-        from .api import business_card_contact
+        from .api import business_card_contact, business_card_facts
 
         register_company_contact(business_card_contact)
+        # The company's identity in its site's structured data (ADR-071 pkt 16).
+        register_organization_facts(business_card_facts)
         # A customer's mail comes from the card's name and a reply goes to its
         # e-mail (36a).
         from saas_core.modules.shared.notifications.api import register_customer_sender

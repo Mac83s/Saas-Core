@@ -12,8 +12,10 @@ from uuid import UUID
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError
 
+from saas_core.modules.core.organizations.api import OrganizationFacts
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
 
+from .catalog_contract import categories, cities
 from .models import ProfileSubjectKind, PublicProfile
 from .search_index import catalog_changed, register_catalog_terms
 from .services import CATEGORY_CHANGED_NOTICE, recategorize_organization_card
@@ -55,6 +57,37 @@ def business_card_sender(organization_id: UUID) -> tuple[str, str]:
         organization_id=organization_id, subject_kind=ProfileSubjectKind.ORGANIZATION
     ).first()
     return (profile.display_name, profile.contact_email) if profile else ("", "")
+
+
+def business_card_facts(organization_id: UUID) -> OrganizationFacts | None:
+    """What the company's business card states about it, for whoever prints
+    the company's identity (the sites' JSON-LD, ADR-071 pkt 16). Facts, in no
+    language: the name, where it is and how to reach it. None without a card.
+    """
+    profile = PublicProfile.all_objects.filter(
+        organization_id=organization_id, subject_kind=ProfileSubjectKind.ORGANIZATION
+    ).first()
+    if profile is None or not profile.display_name.strip():
+        return None
+    city = cities().get(profile.city_slug)
+    organization_type = (
+        Organization.objects.filter(pk=organization_id)
+        .values_list("organization_type", flat=True)
+        .first()
+    )
+    category = categories(organization_type or "").get(profile.category)
+    return OrganizationFacts(
+        name=profile.display_name.strip(),
+        business_type=category.schema_type if category else "",
+        telephone=profile.contact_phone,
+        email=profile.contact_email,
+        street_address=profile.contact_address,
+        locality=city.name if city else "",
+        region=city.voivodeship if city else "",
+        # The dictionary's towns are Polish (ADR-053 §7).
+        country="PL" if city else "",
+        same_as=tuple(link["url"] for link in profile.links or ()),
+    )
 
 
 def _saved(profile: PublicProfile) -> PublicProfile:
@@ -119,6 +152,7 @@ __all__ = [
     "catalog_changed",
     "create_person_profile",
     "business_card_contact",
+    "business_card_facts",
     "organization_contact",
     "person_names",
     "register_catalog_terms",

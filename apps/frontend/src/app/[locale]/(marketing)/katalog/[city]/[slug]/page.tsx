@@ -13,6 +13,7 @@ import {
   catalogCardMetadata,
 } from "../../../../../../modules/shared/profiles/catalog-seo";
 import { readCatalogProfileOnServer } from "../../../../../../modules/shared/profiles/catalog-server";
+import { JsonLd } from "#components/json-ld";
 
 type Props = {
   params: Promise<{ locale: string; city: string; slug: string }>;
@@ -57,14 +58,8 @@ export default async function CatalogEntryPage({ params }: Props) {
       className="mx-auto w-full max-w-3xl px-5 py-12 sm:py-16"
       lang={profile.locale}
     >
-      <script
-        type="application/ld+json"
-        // JSON in a script element: `<` escaped so a company's text cannot
-        // close the element.
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(identity).replace(/</g, "\\u003c"),
-        }}
-      />
+      {/* A company's text: printed only through `JsonLd`. */}
+      <JsonLd data={identity} />
       <CatalogProfilePage profile={profile} />
     </section>
   );

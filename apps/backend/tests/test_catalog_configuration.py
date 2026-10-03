@@ -81,3 +81,35 @@ def test_a_products_category_keywords_reach_the_search_dictionary(settings: Any)
         "business": replace(core, key="business", catalog_categories=None)
     }
     assert "stomatolog" in categories("business")["uroda-i-zdrowie"].keywords["pl"]
+
+
+def test_a_category_names_the_kind_of_local_business_its_companies_are(settings: Any) -> None:
+    """The site's JSON-LD says `['LocalBusiness', subtype]` (TL18): a product
+    names the subtype per category, the core only where every trade fits."""
+    core = django_settings.ORGANIZATION_TYPES[django_settings.DEFAULT_ORGANIZATION_TYPE]
+    raw = {
+        "key": "lodging_company",
+        "label": {"pl": "Pensjonat", "en": "Guest house"},
+        "modules": ["shared.profiles"],
+        "selfSignup": True,
+        "catalogCategories": [
+            {
+                "key": "noclegi",
+                "label": {"pl": "Noclegi", "en": "Stays"},
+                "schemaType": "LodgingBusiness",
+            },
+            {"key": "inne", "label": {"pl": "Inne", "en": "Other"}},
+        ],
+    }
+    (company,) = organization_types_from({"organizationTypes": [raw]}, ("shared.profiles",))
+    settings.ORGANIZATION_TYPES = {company.key: company}
+
+    assert categories(company.key)["noclegi"].schema_type == "LodgingBusiness"
+    assert categories(company.key)["inne"].schema_type == ""
+
+    settings.ORGANIZATION_TYPES = {
+        "business": replace(core, key="business", catalog_categories=None)
+    }
+    assert categories("business")["gastronomia"].schema_type == "FoodEstablishment"
+    # Doctors and hairdressers share this one: no subtype is true of both.
+    assert categories("business")["uroda-i-zdrowie"].schema_type == ""
