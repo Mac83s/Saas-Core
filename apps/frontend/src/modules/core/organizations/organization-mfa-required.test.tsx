@@ -32,9 +32,7 @@ test("says why the company is closed and offers turning 2FA on, in both language
       name: "Ta firma wymaga weryfikacji dwuetapowej",
     }),
   ).toBeTruthy();
-  expect(
-    screen.getByText(/Firma Domki nad jeziorem chroni dostęp/),
-  ).toBeTruthy();
+  expect(screen.getByText(/„Domki nad jeziorem” chroni dostęp/)).toBeTruthy();
   expect(
     screen.getByRole("button", {
       name: "Weryfikacja włączona — przejdź do firmy",

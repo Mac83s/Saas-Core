@@ -862,7 +862,7 @@
   },
   "OrganizationMfa": {
     "title": "This company requires two-factor sign-in",
-    "description": "{company} protects access to the panel with a code from an authenticator app. Turn on two-factor sign-in below to keep working in this company.",
+    "description": "“{company}” protects access to the panel with a code from an authenticator app. Turn on two-factor sign-in below to keep working in this company.",
     "descriptionNoName": "This company protects access to the panel with a code from an authenticator app. Turn on two-factor sign-in below to keep working in it.",
     "otherCompany": "You can switch to another company that does not require it from the menu on the left.",
     "continue": "Two-factor sign-in is on — go to the company"
