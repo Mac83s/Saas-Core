@@ -20,7 +20,8 @@ test("katalogi PL i EN mają identyczny zestaw kluczy", () => {
 
 test("polski jest jawnym fallbackiem routingu", () => {
   expect(routing.defaultLocale).toBe("pl");
-  expect(routing.locales).toEqual(["pl", "en"]);
+  // The panel's two first, then the profile's content languages (TL17).
+  expect(routing.locales.slice(0, 2)).toEqual(["pl", "en"]);
 });
 
 test("produkt dokłada klucze na każdej głębokości i nie gubi kluczy rdzenia", () => {

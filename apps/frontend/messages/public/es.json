@@ -1,0 +1,19 @@
+{
+  "Common": {
+    "close": "Cerrar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "loading": "Cargando…",
+    "refresh": "Actualizar",
+    "polish": "Polski",
+    "english": "English"
+  },
+  "Marketing": {
+    "notFound": {
+      "title": "Página no encontrada",
+      "body": "Puede que la página se haya movido o eliminado. Comprueba la dirección o sigue por aquí:",
+      "home": "Página de inicio",
+      "catalog": "Directorio de empresas"
+    }
+  }
+}
