@@ -17,6 +17,7 @@ import {
   getServerCustomerBillingOverview,
   getServerOrganizationRequiresMfa,
   getServerOrganizations,
+  getServerSettingsSchema,
   getServerUser,
 } from "#lib/server-auth";
 import { typeRole, typeText } from "#lib/organization-types";
@@ -57,7 +58,10 @@ export default async function PanelLayout({
   // saying who it is (ADR-050) instead of landing in an empty panel.
   if (organizations.length === 0) redirect(`${prefix}/onboarding`);
 
-  const access = await withBooking(panelAccess(organization));
+  const access = await withSettingsAreas(
+    await withBooking(panelAccess(organization)),
+    locale,
+  );
   const typeRoleInfo = typeRole(
     organization?.organization_type,
     organization?.role,
@@ -110,6 +114,32 @@ async function ownerBillingAttention(access: PanelAccess) {
     return null;
   const billing = await getServerCustomerBillingOverview();
   return billing ? billingAttention(billing.subscription, Date.now()) : null;
+}
+
+/**
+ * The areas of „Ustawienia” the generic page draws (answer 33a): in the menu
+ * for whoever may change one of their groups, named as the API names them.
+ */
+async function withSettingsAreas(
+  access: PanelAccess,
+  locale: string,
+): Promise<PanelAccess> {
+  if (!allows(access, { permission: "organization.settings.manage" }))
+    return access;
+  const schema = await getServerSettingsSchema();
+  if (!schema) return access;
+  const changeable = new Set(
+    schema.groups.filter((group) => group.can_change).map((group) => group.area),
+  );
+  return {
+    ...access,
+    settingsAreas: schema.areas
+      .filter((area) => area.page === null && changeable.has(area.key))
+      .map((area) => ({
+        key: area.key,
+        label: locale === "en" ? area.title.en : area.title.pl,
+      })),
+  };
 }
 
 /**

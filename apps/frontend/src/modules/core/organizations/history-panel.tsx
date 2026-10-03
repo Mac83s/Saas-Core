@@ -37,7 +37,8 @@ function humanize(key: string): string {
  * what, when, through which channel, and what a field was before and after.
  * A product adds labels for its own actions under `History.actions`.
  */
-export function HistoryPanel() {
+/** `group`: only the changes of one settings group (its „Historia zmian” link). */
+export function HistoryPanel({ group }: { group?: string } = {}) {
   const t = useTranslations("History");
   const locale = useLocale();
   const labels = useDataTableLabels();
@@ -61,6 +62,7 @@ export function HistoryPanel() {
           page: query.pageIndex + 1,
           pageSize: query.pageSize,
           action,
+          group,
         }),
       );
     } catch {
@@ -68,7 +70,7 @@ export function HistoryPanel() {
     } finally {
       setLoading(false);
     }
-  }, [query.pageIndex, query.pageSize, action]);
+  }, [query.pageIndex, query.pageSize, action, group]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load on query change

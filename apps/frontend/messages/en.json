@@ -118,6 +118,8 @@
     "saveError": "The change of languages could not be saved."
   },
   "History": {
+    "allChanges": "Show all changes",
+    "groupDescription": "Changes to the “{group}” settings: who changed what, and when.",
     "title": "Change history",
     "description": "Who changed what in the company and when — with the value before and after.",
     "caption": "The organization's history of changes, newest first",
@@ -4220,6 +4222,14 @@
     "rangeLength_day": "by the day"
   },
   "CompanySettings": {
+    "searchOpen": "Search settings",
+    "searchTitle": "Search settings",
+    "searchHint": "Type what you are looking for — we will find the setting and the page it is on.",
+    "searchLabel": "What are you looking for?",
+    "searchPlaceholder": "e.g. reminder, 2FA, currency",
+    "searchLoading": "Loading settings…",
+    "searchEmpty": "Nothing matches “{query}”.",
+    "groupHistory": "Change history",
     "stepUpTitle": "Confirm with a code from the app",
     "stepUpDescription": "A billing change needs a code from the authenticator app — even from the owner.",
     "stepUpCode": "Code from the app",

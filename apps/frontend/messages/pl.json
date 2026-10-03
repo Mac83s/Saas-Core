@@ -118,6 +118,8 @@
     "saveError": "Nie udało się zapisać zmiany języków."
   },
   "History": {
+    "allChanges": "Pokaż wszystkie zmiany",
+    "groupDescription": "Zmiany w ustawieniach „{group}”: kto, kiedy i co zmienił.",
     "title": "Historia zmian",
     "description": "Kto, kiedy i co zmienił w firmie — z wartością przed i po zmianie.",
     "caption": "Historia zmian w organizacji, od najnowszych",
@@ -4220,6 +4222,14 @@
     "rangeLength_day": "na dni"
   },
   "CompanySettings": {
+    "searchOpen": "Szukaj w ustawieniach",
+    "searchTitle": "Szukaj w ustawieniach",
+    "searchHint": "Wpisz, czego szukasz — znajdziemy ustawienie i stronę, na której jest.",
+    "searchLabel": "Czego szukasz?",
+    "searchPlaceholder": "np. przypomnienie, 2FA, waluta",
+    "searchLoading": "Wczytuję ustawienia…",
+    "searchEmpty": "Nic nie pasuje do „{query}”.",
+    "groupHistory": "Historia zmian",
     "stepUpTitle": "Potwierdź kodem z aplikacji",
     "stepUpDescription": "Zmiana rozliczeń wymaga kodu z aplikacji uwierzytelniającej — nawet od właściciela.",
     "stepUpCode": "Kod z aplikacji",

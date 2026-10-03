@@ -4,7 +4,6 @@ import { getTranslations } from "next-intl/server";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
-import { allows, panelAccess } from "#lib/panel-navigation";
 import {
   getServerCurrentOrganization,
   getServerSettingsSchema,
@@ -14,31 +13,48 @@ import {
   SettingsSearch,
 } from "../../../../../modules/core/organizations";
 
-/** The company's booking settings: reminders and the online-booking pause (ADR-078). */
-export default async function BookingSettingsPage() {
-  const [t, organization, schema] = await Promise.all([
+/**
+ * An area of „Ustawienia” without a page of its own (answer 33a, ADR-078
+ * R4): its groups drawn from their declarations, so a module's — or a
+ * product's — new settings need no code in the panel.
+ */
+export default async function SettingsAreaPage({
+  params,
+}: {
+  params: Promise<{ area: string; locale: string }>;
+}) {
+  const [{ area: key, locale }, t, organization, schema] = await Promise.all([
+    params,
     getTranslations("Settings"),
     getServerCurrentOrganization(),
     getServerSettingsSchema(),
   ]);
-  const access = panelAccess(organization);
-  if (!allows(access, { module: "shared.booking" })) notFound();
-  const groups = (schema?.groups ?? []).filter(
-    (group) => group.area === "bookings",
+  const area = schema?.areas.find(
+    (item) => item.key === key && item.page === null,
   );
+  if (organization && !area) notFound();
+  const groups = (schema?.groups ?? []).filter(
+    (group) => group.area === key && group.api === null,
+  );
+  const title = area ? (locale === "en" ? area.title.en : area.title.pl) : "";
+  const description = area
+    ? locale === "en"
+      ? area.description.en
+      : area.description.pl
+    : "";
   return (
     <PanelPage
       actions={organization ? <SettingsSearch /> : undefined}
-      description={t("bookingsDescription")}
+      description={description}
       eyebrow={t("eyebrow")}
       form
-      title={t("bookingsTitle")}
+      title={title || t("eyebrow")}
     >
       {!organization ? (
         <SettingsNotice icon={Building2Icon} title={t("noCompanyTitle")}>
           {t("noCompany")}
         </SettingsNotice>
-      ) : allows(access, { permission: "organization.settings.manage" }) ? (
+      ) : groups.some((group) => group.can_change) ? (
         <div className="space-y-6">
           {groups.map((group) => (
             <SettingsGroupForm group={group} key={group.key} />

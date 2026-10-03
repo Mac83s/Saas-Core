@@ -404,11 +404,20 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
           <p aria-live="polite" className="text-sm text-muted-foreground">
             {saved ? t("saved") : null}
           </p>
-          {readOnly ? null : (
-            <Button disabled={isSubmitting || !state} type="submit">
-              {isSubmitting ? t("saving") : t("save")}
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {readOnly ? null : (
+              <Button disabled={isSubmitting || !state} type="submit">
+                {isSubmitting ? t("saving") : t("save")}
+              </Button>
+            )}
+            {/* Who changed what, and when: this group's history (R4). */}
+            <Link
+              className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              href={`/panel/settings/history?group=${encodeURIComponent(group.key)}`}
+            >
+              {t("groupHistory")}
+            </Link>
+          </div>
         </form>
       </CardContent>
       <Dialog

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import type {
   BookingOverview,
@@ -40,11 +41,11 @@ export async function getServerOrganizationRequiresMfa(): Promise<boolean> {
 }
 
 /** Every settings group the company has, with what it may choose (ADR-078). */
-export async function getServerSettingsSchema(): Promise<SettingsSchema | null> {
-  return serverGet<SettingsSchema>(
-    "/api/v1/organizations/current/settings/schema/",
-  );
-}
+/** Once per request: the layout's menu and the page both read it. */
+export const getServerSettingsSchema = cache(
+  async (): Promise<SettingsSchema | null> =>
+    serverGet<SettingsSchema>("/api/v1/organizations/current/settings/schema/"),
+);
 
 /** What a company may choose for its basic settings (ADR-078). */
 export async function getServerOrganizationOptions(): Promise<SettingOptions | null> {

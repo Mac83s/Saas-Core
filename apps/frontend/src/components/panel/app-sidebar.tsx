@@ -175,7 +175,7 @@ function NavEntry({ item }: { item: PanelNavEntry }) {
               >
                 {/* Two lines rather than „Powiadomienia automatyc…” (UX-002). */}
                 <span className="min-w-0 py-1.5 leading-snug">
-                  {t(sub.labelKey)}
+                  {sub.label ?? t(sub.labelKey)}
                 </span>
                 <PageCount count={sub.count} />
               </Link>

@@ -77,7 +77,9 @@ export function SectionTabs({ access }: { access: PanelAccess }) {
                 )}
                 href={tab.href}
               >
-                {t.has(short) ? (
+                {tab.label ? (
+                  tab.label
+                ) : t.has(short) ? (
                   <>
                     <span aria-hidden="true">{t(short)}</span>
                     <span className="sr-only">{t(tab.labelKey)}</span>

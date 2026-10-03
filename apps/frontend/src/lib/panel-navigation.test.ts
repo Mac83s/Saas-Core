@@ -165,6 +165,29 @@ describe("ustawienia", () => {
     // Their only tab: no tab bar to choose from.
     expect(sectionTabs("/panel/settings/account", LIMITED)).toBeNull();
   });
+
+  it("obszary bez własnej strony stoją zaraz po Danych firmy, z nazwą z API, i świecą się pod Ustawieniami (33a)", () => {
+    const access = {
+      ...OWNER,
+      settingsAreas: [
+        { key: "security", label: "Bezpieczeństwo" },
+        { key: "customer-emails", label: "E-maile do klientów" },
+      ],
+    };
+    const tabs = sectionTabs("/panel/settings/security", access);
+    expect(tabs?.slice(0, 4).map((tab) => [tab.href, tab.label])).toEqual([
+      ["/panel/settings/company", undefined],
+      ["/panel/settings/security", "Bezpieczeństwo"],
+      ["/panel/settings/customer-emails", "E-maile do klientów"],
+      ["/panel/settings/languages", undefined],
+    ]);
+    expect(isActive("/panel/settings/security", settings(access))).toBe(true);
+    // A page of another section stays that section's.
+    expect(isActive("/panel/settings/billing", settings(access))).toBe(false);
+    expect(settings(access).pages?.map((page) => page.href)).toContain(
+      "/panel/settings/customer-emails",
+    );
+  });
 });
 
 describe("abonament w menu", () => {

@@ -73,7 +73,13 @@ export type PanelSectionTab = Pick<
   stays?: boolean;
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
   count?: number;
+  /** The name as the API gives it, already in the panel's language — an
+   * area of „Ustawienia” without a page of its own; `labelKey` otherwise. */
+  label?: string;
 };
+
+/** An area of „Ustawienia” the generic page draws (answer 33a, ADR-078). */
+export type SettingsAreaTab = { key: string; label: string };
 
 export const PANEL_SECTIONS = {
   calendar: [
@@ -284,6 +290,9 @@ export type PanelAccess = {
     /** The company sells by dates: „Obłożenie” has a use. */
     stays?: boolean;
   };
+  /** The areas of „Ustawienia” the person may change that have no page of
+   * their own (GET …/settings/schema/). */
+  settingsAreas?: readonly SettingsAreaTab[];
 };
 
 export function panelAccess(
@@ -461,7 +470,7 @@ export function panelNavigation(access: PanelAccess): {
     items.flatMap((item) => {
       if (!allows(access, item)) return [];
       if (!item.section) return [named(access, item)];
-      const pages = PANEL_SECTIONS[item.section]
+      const pages = sectionPages(item.section, access)
         .filter((tab) => allows(access, tab))
         .map((tab) => withCount(access, tab));
       if (pages.length === 0) return [];
@@ -502,12 +511,38 @@ function named<T extends { labelKey: string; otherwise?: Otherwise }>(
     : item;
 }
 
+/**
+ * A section's pages: the declared ones, and in „Ustawienia” the areas the
+ * generic page draws, right after the company's details (answer 33a).
+ */
+export function sectionPages(
+  section: keyof typeof PANEL_SECTIONS,
+  access: PanelAccess,
+): PanelSectionTab[] {
+  const pages: PanelSectionTab[] = [...PANEL_SECTIONS[section]];
+  if (section === "settings" && access.settingsAreas?.length) {
+    pages.splice(
+      1,
+      0,
+      ...access.settingsAreas.map((area) => ({
+        href: `/panel/settings/${area.key}`,
+        labelKey: "settings",
+        label: area.label,
+      })),
+    );
+  }
+  return pages;
+}
+
 /** The tabs of the section `pathname` is in, when there is more than one. */
 export function sectionTabs(
   pathname: string,
   access: PanelAccess,
 ): PanelSectionTab[] | null {
-  for (const tabs of Object.values(PANEL_SECTIONS) as PanelSectionTab[][]) {
+  for (const section of Object.keys(
+    PANEL_SECTIONS,
+  ) as (keyof typeof PANEL_SECTIONS)[]) {
+    const tabs = sectionPages(section, access);
     if (!tabs.some((tab) => matches(pathname, tab.href))) continue;
     const visible = tabs
       .filter((tab) => allows(access, tab))
@@ -533,9 +568,20 @@ export function ariaCurrent(
     : [];
   return [item.href, ...tabs.map((tab) => tab.href)].some((href) =>
     matches(pathname, href),
-  )
+  ) ||
+    (item.section === "settings" && genericSettingsPage(pathname))
     ? "true"
     : undefined;
+}
+
+/** `/panel/settings/<area>` that no section names: an area the generic page draws. */
+function genericSettingsPage(pathname: string): boolean {
+  return (
+    /^\/panel\/settings\/[a-z][a-z0-9-]*$/.test(pathname) &&
+    !(Object.values(PANEL_SECTIONS) as PanelSectionTab[][]).some((tabs) =>
+      tabs.some((tab) => matches(pathname, tab.href)),
+    )
+  );
 }
 
 /**

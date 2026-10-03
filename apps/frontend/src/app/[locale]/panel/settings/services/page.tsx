@@ -7,6 +7,7 @@ import { SettingsNotice } from "#components/panel/settings-notice";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
 import { BookingSettings } from "../../../../../modules/shared/booking";
+import { SettingsSearch } from "../../../../../modules/core/organizations";
 
 export default async function ServicesSettingsPage() {
   const [t, organization] = await Promise.all([
@@ -18,6 +19,7 @@ export default async function ServicesSettingsPage() {
   if (!allows(access, { module: "shared.booking" })) notFound();
   return (
     <PanelPage
+      actions={organization ? <SettingsSearch /> : undefined}
       description={t("servicesDescription")}
       eyebrow={t("eyebrow")}
       title={t("servicesTitle")}

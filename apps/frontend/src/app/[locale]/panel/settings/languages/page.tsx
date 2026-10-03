@@ -5,7 +5,10 @@ import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
-import { LanguagesPanel } from "../../../../../modules/core/organizations";
+import {
+  LanguagesPanel,
+  SettingsSearch,
+} from "../../../../../modules/core/organizations";
 
 export default async function LanguagesSettingsPage() {
   const [t, languages, organization] = await Promise.all([
@@ -21,6 +24,7 @@ export default async function LanguagesSettingsPage() {
   }
   return (
     <PanelPage
+      actions={organization ? <SettingsSearch /> : undefined}
       description={languages("description")}
       eyebrow={t("eyebrow")}
       title={languages("title")}
