@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { allows, panelAccess } from "#lib/panel-navigation";
@@ -9,7 +9,7 @@ import { NotificationsPanel } from "../../../../../modules/shared/notifications"
 /** Wiadomości › Powiadomienia automatyczne: templates and one's own choices. */
 export default async function AutomationPage() {
   const [t, organization] = await Promise.all([
-    getTranslations("Notifications"),
+    getPanelTranslations("Notifications"),
     getServerCurrentOrganization(),
   ]);
   if (

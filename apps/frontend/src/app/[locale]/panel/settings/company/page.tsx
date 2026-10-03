@@ -1,5 +1,5 @@
 import { Building2Icon, LockIcon } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
@@ -15,7 +15,7 @@ import {
 
 export default async function CompanySettingsPage() {
   const [t, organization, options] = await Promise.all([
-    getTranslations("Settings"),
+    getPanelTranslations("Settings"),
     getServerCurrentOrganization(),
     getServerOrganizationOptions(),
   ]);

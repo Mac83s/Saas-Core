@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { getServerUser } from "#lib/server-auth";
@@ -12,7 +12,7 @@ import { OrganizationPanel } from "../../../../../modules/core/organizations";
 
 export default async function AccountSettingsPage() {
   const [t, user] = await Promise.all([
-    getTranslations("AccountSettings"),
+    getPanelTranslations("AccountSettings"),
     getServerUser(),
   ]);
   return (

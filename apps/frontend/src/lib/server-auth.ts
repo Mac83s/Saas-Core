@@ -18,9 +18,11 @@ export async function getServerUser(): Promise<UserSummary | null> {
   return serverGet<UserSummary>("/api/v1/auth/me/");
 }
 
-export async function getServerCurrentOrganization(): Promise<OrganizationSummary | null> {
-  return serverGet<OrganizationSummary>("/api/v1/organizations/current/");
-}
+/** Once per request: the layout, its messages and the page all read it. */
+export const getServerCurrentOrganization = cache(
+  async (): Promise<OrganizationSummary | null> =>
+    serverGet<OrganizationSummary>("/api/v1/organizations/current/"),
+);
 
 /**
  * Whether the active company refuses this account until it turns on

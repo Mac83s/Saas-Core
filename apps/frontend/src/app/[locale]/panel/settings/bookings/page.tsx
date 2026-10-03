@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Building2Icon, LockIcon } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
@@ -17,7 +17,7 @@ import {
 /** The company's booking settings: reminders and the online-booking pause (ADR-078). */
 export default async function BookingSettingsPage() {
   const [t, organization, schema] = await Promise.all([
-    getTranslations("Settings"),
+    getPanelTranslations("Settings"),
     getServerCurrentOrganization(),
     getServerSettingsSchema(),
   ]);

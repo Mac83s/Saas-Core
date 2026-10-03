@@ -36,7 +36,12 @@ are `Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md`.
    images must be rebuilt together, or the frontend's `/healthz` reports the
    mismatch.
 3. Product menu entries that belong to one kind carry `organizationTypes` in
-   `apps/frontend/src/product/index.ts`.
+   `apps/frontend/src/product/index.ts`. Words that differ by kind („Wizytówka
+   gospodarstwa” where a company has „Wizytówka firmy”) go to the slot
+   `apps/frontend/src/product/organization-messages.ts`, keyed by type and
+   locale (UX-080): only the panel of that type gets them. A panel server page
+   reads its words through `getPanelTranslations` (`#lib/panel-messages`), not
+   `getTranslations`, or its title keeps the generic word.
 4. Roles: give the type `roles` with `owner` (every `core.organizations`
    permission) and `admin`; mark the ones a limited manager may hand out with
    `limited`. Label the product's own permissions in its messages

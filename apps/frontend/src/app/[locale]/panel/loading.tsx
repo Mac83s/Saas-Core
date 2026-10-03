@@ -1,9 +1,9 @@
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelSkeleton } from "#components/panel/panel-page";
 
 /** Between two panel pages: the same placeholder everywhere (ADR-057). */
 export default async function PanelLoading() {
-  const t = await getTranslations("Common");
+  const t = await getPanelTranslations("Common");
   return <PanelSkeleton label={t("loading")} />;
 }

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { allows, panelAccess } from "#lib/panel-navigation";
@@ -13,7 +14,7 @@ import { CustomerBillingPanel } from "../../../../../modules/shared/billing";
 
 export default async function BillingSettingsPage() {
   const [t, locale, organization, schema] = await Promise.all([
-    getTranslations("CustomerBilling"),
+    getPanelTranslations("CustomerBilling"),
     getLocale(),
     getServerCurrentOrganization(),
     getServerSettingsSchema(),

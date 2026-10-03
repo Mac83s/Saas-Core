@@ -7,7 +7,7 @@ import {
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { Link } from "#i18n/navigation";
 import { GettingStarted } from "#components/panel/getting-started";
@@ -22,7 +22,7 @@ export default async function PanelHomePage() {
   const [user, organization, t] = await Promise.all([
     getServerUser(),
     getServerCurrentOrganization(),
-    getTranslations("Dashboard"),
+    getPanelTranslations("Dashboard"),
   ]);
   const access = panelAccess(organization);
   // A product's "Today" only where it applies (e.g. HoofCare's for trimming

@@ -1,5 +1,5 @@
 import { Building2Icon, LockIcon } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
@@ -12,13 +12,15 @@ import {
 
 export default async function LanguagesSettingsPage() {
   const [t, languages, organization] = await Promise.all([
-    getTranslations("Settings"),
-    getTranslations("Languages"),
+    getPanelTranslations("Settings"),
+    getPanelTranslations("Languages"),
     getServerCurrentOrganization(),
   ]);
   if (
     organization &&
-    allows(panelAccess(organization), { permission: "organization.settings.manage" })
+    allows(panelAccess(organization), {
+      permission: "organization.settings.manage",
+    })
   ) {
     return <LanguagesPanel />;
   }

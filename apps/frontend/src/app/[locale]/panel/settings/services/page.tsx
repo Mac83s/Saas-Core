@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Building2Icon, LockIcon } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
@@ -11,7 +11,7 @@ import { SettingsSearch } from "../../../../../modules/core/organizations";
 
 export default async function ServicesSettingsPage() {
   const [t, organization] = await Promise.all([
-    getTranslations("Settings"),
+    getPanelTranslations("Settings"),
     getServerCurrentOrganization(),
   ]);
   const access = panelAccess(organization);

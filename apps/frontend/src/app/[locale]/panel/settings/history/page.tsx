@@ -1,5 +1,6 @@
 import { Building2Icon, LockIcon } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
@@ -21,8 +22,8 @@ export default async function HistorySettingsPage({
 }) {
   const [{ group }, t, history, organization, locale] = await Promise.all([
     searchParams,
-    getTranslations("Settings"),
-    getTranslations("History"),
+    getPanelTranslations("Settings"),
+    getPanelTranslations("History"),
     getServerCurrentOrganization(),
     getLocale(),
   ]);

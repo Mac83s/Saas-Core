@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Building2Icon, LockIcon } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
@@ -25,7 +25,7 @@ export default async function SettingsAreaPage({
 }) {
   const [{ area: key, locale }, t, organization, schema] = await Promise.all([
     params,
-    getTranslations("Settings"),
+    getPanelTranslations("Settings"),
     getServerCurrentOrganization(),
     getServerSettingsSchema(),
   ]);

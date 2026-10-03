@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { getTranslations } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
 
 import { AppSidebar } from "#components/panel/app-sidebar";
 import { PanelDocumentTitle } from "#components/panel/document-title";
@@ -21,6 +21,7 @@ import {
   getServerUser,
 } from "#lib/server-auth";
 import { typeRole, typeText } from "#lib/organization-types";
+import { getPanelMessages, getPanelTranslations } from "#lib/panel-messages";
 import { allows, panelAccess, type PanelAccess } from "#lib/panel-navigation";
 import { PANEL_WIDTH_COOKIE } from "#lib/panel-width";
 import {
@@ -37,14 +38,15 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const [{ locale }, user, organization, organizations, t, jar] =
+  const [{ locale }, user, organization, organizations, t, jar, words] =
     await Promise.all([
       params,
       getServerUser(),
       getServerCurrentOrganization(),
       getServerOrganizations(),
-      getTranslations("Organizations"),
+      getPanelTranslations("Organizations"),
       cookies(),
+      getPanelMessages(),
     ]);
   // A company that requires 2FA of this account refuses it until it is on
   // (35a): the panel then shows how to turn it on, whatever page was asked.
@@ -75,7 +77,7 @@ export default async function PanelLayout({
         : t("customRole");
   const attention = await ownerBillingAttention(access);
 
-  return (
+  const panel = (
     <SidebarProvider>
       <AppSidebar
         access={access}
@@ -105,6 +107,15 @@ export default async function PanelLayout({
         <MobileTabBar access={access} />
       </SidebarInset>
     </SidebarProvider>
+  );
+  // The kind of organization's own words (UX-080), for the client components
+  // under it; only a type that has some pays for a second set of messages.
+  return words.overridden ? (
+    <NextIntlClientProvider messages={words.messages}>
+      {panel}
+    </NextIntlClientProvider>
+  ) : (
+    panel
   );
 }
 

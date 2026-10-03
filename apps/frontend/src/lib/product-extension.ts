@@ -67,6 +67,17 @@ export type ProductExtension = {
 };
 
 /**
+ * The panel's words for one kind of organization (slot file
+ * `src/product/organization-messages.ts`, UX-080): keyed by the organization
+ * type, then the locale, laid over the messages only in the panel of that
+ * type. A file of its own, read on the server only, because `product` is
+ * imported by the menu on the client.
+ */
+export type OrganizationTypeMessages = Partial<
+  Record<string, Partial<Record<"pl" | "en", Messages>>>
+>;
+
+/**
  * The product's own "Today" under /panel (slot file `src/product/dashboard.tsx`,
  * ADR-049). Core ships `null` there and shows its start page instead. A file of
  * its own rather than a field of `product`, because `product` is imported by

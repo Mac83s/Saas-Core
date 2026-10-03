@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getTranslations } from "next-intl/server";
+import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { getServerCurrentOrganization } from "#lib/server-auth";
@@ -7,7 +7,7 @@ import { CreditsPanel } from "../../../../../modules/shared/billing";
 
 export default async function CreditsSettingsPage() {
   const [t, organization] = await Promise.all([
-    getTranslations("Credits"),
+    getPanelTranslations("Credits"),
     getServerCurrentOrganization(),
   ]);
   return (
