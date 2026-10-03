@@ -17,6 +17,7 @@ import polishMessages from "../../../../messages/pl.json";
 import {
   ApiProblemError,
   type CustomerBillingOverview,
+  type CustomerPlan,
   type CustomerSubscription,
 } from "@saas-core/api-client";
 import { CustomerBillingPanel } from "./customer-billing-panel";
@@ -100,6 +101,7 @@ const overview: CustomerBillingOverview = {
         "appointments.monthly": 250,
       },
       is_current: false,
+      own_terms: null,
       checkout_available: true,
     },
     {
@@ -118,6 +120,7 @@ const overview: CustomerBillingOverview = {
         "appointments.monthly": 1_000,
       },
       is_current: false,
+      own_terms: null,
       checkout_available: true,
     },
     {
@@ -137,10 +140,38 @@ const overview: CustomerBillingOverview = {
         "storage.bytes": 5 * 1024 ** 3,
       },
       is_current: false,
+      own_terms: null,
       checkout_available: true,
     },
   ],
 };
+
+/**
+ * The plans as the API sends them when `key` is the company's: marked by the
+ * plan's key, with the terms of the company's own version — the catalogue's
+ * unless `own` says the company is on an older one.
+ */
+function plansOf(
+  key: string,
+  own: Partial<NonNullable<CustomerPlan["own_terms"]>> = {},
+): CustomerPlan[] {
+  return overview.plans.map((plan) => ({
+    ...plan,
+    is_current: plan.key === key,
+    own_terms:
+      plan.key === key
+        ? {
+            version: plan.version,
+            currency: plan.currency,
+            billing_interval: plan.billing_interval,
+            unit_amount_minor: plan.unit_amount_minor,
+            features: plan.features,
+            quotas: plan.quotas,
+            ...own,
+          }
+        : null,
+  }));
+}
 
 /** An organization on the Profile plan, in the given subscription state. */
 function subscribed(
@@ -161,10 +192,7 @@ function subscribed(
       cancel_at_period_end: false,
       ...subscription,
     },
-    plans: overview.plans.map((plan) => ({
-      ...plan,
-      is_current: plan.key === "profile",
-    })),
+    plans: plansOf("profile"),
     ...extra,
   };
 }
@@ -422,12 +450,16 @@ test("plan nadany bez płatności jest planem firmy: bez „wybieram” na nim i
     ...subscribed({ plan_key: "pro", current_period_end: null }),
     payment_mode: "stripe",
     has_active_subscription: false,
-    // Given before the plan's price changed: an older version of Pro, so no
-    // version on offer is „current” — the plan is the company's by its key.
-    plans: overview.plans.map((plan) => ({ ...plan, is_current: false })),
+    // Given before the plan's price changed: the catalogue offers a newer
+    // version of Pro, and the plan is still the company's — by its key.
+    plans: plansOf("pro", {
+      unit_amount_minor: 24_900,
+      features: ["sites.enabled"],
+      quotas: { "sites.max": 2, "team_members.max": 4 },
+    }).map((plan) => (plan.key === "pro" ? { ...plan, version: 2 } : plan)),
   });
 
-  renderPanel();
+  const rendered = renderPanel();
 
   expect(await screen.findByText("Nadany bez płatności")).not.toBeNull();
   const pro = planCard("Pro");
@@ -436,6 +468,21 @@ test("plan nadany bez płatności jest planem firmy: bez „wybieram” na nim i
     within(pro).getByText("Twój plan — nadany bez płatności"),
   ).not.toBeNull();
   expect(within(pro).queryByRole("button")).toBeNull();
+  // The card shows what the company was given — its price, limits and
+  // features — and one line names the offer for new orders.
+  expect(within(pro).getByText("249 zł")).not.toBeNull();
+  expect(within(pro).queryByText("299 zł")).toBeNull();
+  expect(
+    within(pro).getByText(
+      "Karta pokazuje Twoje warunki. Nowe zamówienia tego planu: 299 zł netto / miesiąc.",
+    ),
+  ).not.toBeNull();
+  expect(within(pro).getByText("2")).not.toBeNull();
+  expect(within(pro).queryByText("5 GB")).toBeNull();
+  // What only the newer version includes is not claimed on the company's card.
+  expect(within(pro).queryByText("Własna domena")).toBeNull();
+  // A limit only the company's version has is a row in every card.
+  expect(screen.getAllByText("Konta w zespole")).toHaveLength(3);
   // The other cards say where the change leads; none is „the usual choice”.
   expect(
     within(planCard("Witryna")).getByRole("button", {
@@ -443,6 +490,44 @@ test("plan nadany bez płatności jest planem firmy: bez „wybieram” na nim i
     }),
   ).not.toBeNull();
   expect(screen.queryByText("Najczęściej wybierany")).toBeNull();
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("po zmianie ceny abonent widzi swoją cenę, a nowa jest ofertą dla nowych zamówień", async () => {
+  // The subscription stays on the version it was bought on; the catalogue's
+  // newer version must neither take the „current” mark nor be sold to it.
+  getCustomerBillingOverview.mockResolvedValue(
+    subscribed(
+      {},
+      {
+        payment_mode: "stripe",
+        portal_available: true,
+        plans: plansOf("profile", { unit_amount_minor: 7_900 }).map((plan) =>
+          plan.key === "profile" ? { ...plan, version: 2 } : plan,
+        ),
+      },
+    ),
+  );
+
+  renderPanel();
+
+  // The header and the next payment are what the company pays.
+  expect(await screen.findByText("4 paź 2026 · 79 zł netto")).not.toBeNull();
+  expect(screen.getByText("79 zł netto / miesiąc")).not.toBeNull();
+  const profile = planCard("Profil");
+  expect(within(profile).getByText("Twój plan")).not.toBeNull();
+  expect(within(profile).getByText("79 zł")).not.toBeNull();
+  expect(
+    within(profile).getByText(
+      "Karta pokazuje Twoje warunki. Nowe zamówienia tego planu: 99 zł netto / miesiąc.",
+    ),
+  ).not.toBeNull();
+  expect(within(profile).getByText("Bieżący plan")).not.toBeNull();
+  expect(within(profile).queryByRole("button")).toBeNull();
+  // A change leads to the portal from the other two cards only.
+  expect(
+    screen.getAllByRole("button", { name: "Zmień plan w portalu płatności" }),
+  ).toHaveLength(2);
 });
 
 test("konto bezpłatne na czas: karta planu mówi, do kiedy i co dalej (UX-081)", async () => {
@@ -451,10 +536,7 @@ test("konto bezpłatne na czas: karta planu mówi, do kiedy i co dalej (UX-081)"
     payment_mode: "stripe",
     has_active_subscription: false,
     free_until: "2027-03-26",
-    plans: overview.plans.map((plan) => ({
-      ...plan,
-      is_current: plan.key === "pro",
-    })),
+    plans: plansOf("pro"),
   });
 
   renderPanel();
@@ -587,6 +669,8 @@ test("z aktywnym planem pokazuje następną płatność i kieruje zmianę planu 
 
     expect(await screen.findByText("Następna płatność")).not.toBeNull();
     expect(screen.getByText("4 paź 2026 · 99 zł netto")).not.toBeNull();
+    // On the catalogue's own version there is no other offer to mention.
+    expect(screen.queryByText(/Nowe zamówienia tego planu/)).toBeNull();
     expect(
       screen.getByText(
         "Metoda płatności, historia faktur i anulowanie planu są w portalu operatora płatności.",

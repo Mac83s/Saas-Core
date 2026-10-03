@@ -27,6 +27,17 @@ class TrialActivationResultSerializer(serializers.Serializer[dict[str, Any]]):
     created = serializers.BooleanField()
 
 
+class CustomerPlanTermsSerializer(serializers.Serializer[dict[str, Any]]):
+    """One version of a plan: what it costs and what it includes."""
+
+    version = serializers.IntegerField()
+    currency = serializers.CharField()
+    billing_interval = serializers.CharField()
+    unit_amount_minor = serializers.IntegerField()
+    features = serializers.ListField(child=serializers.CharField())
+    quotas = serializers.DictField(child=serializers.IntegerField())
+
+
 class CustomerPlanSerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.SlugField()
     name = serializers.CharField()
@@ -38,7 +49,18 @@ class CustomerPlanSerializer(serializers.Serializer[dict[str, Any]]):
     trial_days = serializers.IntegerField()
     features = serializers.ListField(child=serializers.CharField())
     quotas = serializers.DictField(child=serializers.IntegerField())
-    is_current = serializers.BooleanField()
+    is_current = serializers.BooleanField(
+        help_text="The plan the company's subscription or entitlements name, by the plan's "
+        "key — whatever the version. Also true after that plan ended; "
+        "`has_active_subscription` and the subscription's state say whether it is live.",
+    )
+    own_terms = CustomerPlanTermsSerializer(
+        allow_null=True,
+        help_text="For the company's plan (`is_current`): the terms of the version the "
+        "company is on — its price, interval, features and limits. The plan's other fields "
+        "are the catalogue's current version, the offer for new orders; where `version` "
+        "differs from `own_terms.version`, the company keeps its own. Null for other plans.",
+    )
     checkout_available = serializers.BooleanField()
 
 

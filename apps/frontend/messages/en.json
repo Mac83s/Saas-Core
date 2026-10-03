@@ -1219,7 +1219,9 @@
     "free": "Free",
     "freeIncluded": "Included from the start",
     "currentGranted": "Your plan — given without payment",
-    "switchTo": "Switch to the {plan} plan"
+    "switchTo": "Switch to the {plan} plan",
+    "newerOffer": "This card shows your terms. New orders of this plan get newer ones.",
+    "newerOfferPrice": "This card shows your terms. New orders of this plan: {price}."
   },
   "Sites": {
     "navigation": "Sites",

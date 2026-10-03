@@ -14,6 +14,7 @@ from .models import (
     BillingSubscription,
     EntitlementSnapshot,
     Plan,
+    PlanVersion,
     StripePriceMapping,
     SubscriptionState,
 )
@@ -21,15 +22,30 @@ from .plan_offer import free_until, plan_keys_for_organization, plan_keys_for_ty
 from .services import missing_billing_details, reusable_customer_id
 
 
+def _terms_payload(version: PlanVersion) -> dict[str, Any]:
+    return {
+        "version": version.version,
+        "currency": version.currency,
+        "billing_interval": version.billing_interval,
+        "unit_amount_minor": version.unit_amount_minor,
+        "features": version.feature_keys,
+        "quotas": version.quotas,
+    }
+
+
 def _plan_payload(
     plan: Plan,
     *,
-    current_plan_version_id: UUID | None,
+    own_version: PlanVersion | None,
     checkout_versions: set[UUID],
 ) -> dict[str, Any]:
     version = plan.current_version
     if version is None:  # Defensive guard for catalog drift between query and serialization.
         raise RuntimeError("Publiczny plan nie ma bieżącej wersji.")
+    # The company's plan is this plan whatever its version: a plan given or
+    # bought before the catalogue moved on is still the same plan, on the
+    # terms it was taken on — and the catalogue's are the offer for new orders.
+    is_current = own_version is not None and own_version.plan_id == plan.id
     return {
         "key": plan.key,
         "name": plan.name,
@@ -41,7 +57,8 @@ def _plan_payload(
         "trial_days": version.trial_days,
         "features": version.feature_keys,
         "quotas": version.quotas,
-        "is_current": version.id == current_plan_version_id,
+        "is_current": is_current,
+        "own_terms": _terms_payload(own_version) if own_version and is_current else None,
         "checkout_available": version.id in checkout_versions,
     }
 
@@ -117,10 +134,10 @@ def customer_billing_overview() -> dict[str, Any]:
         .first()
     )
     profile = BillingProfile.objects.filter(organization_id=context.organization_id).first()
-    current_plan_version_id = (
-        subscription.price_mapping.plan_version_id
+    own_version = (
+        subscription.price_mapping.plan_version
         if subscription is not None
-        else snapshot.plan_version_id
+        else snapshot.plan_version
         if snapshot is not None
         else None
     )
@@ -164,7 +181,7 @@ def customer_billing_overview() -> dict[str, Any]:
         "plans": [
             _plan_payload(
                 plan,
-                current_plan_version_id=current_plan_version_id,
+                own_version=own_version,
                 checkout_versions=checkout_versions,
             )
             for plan in plans

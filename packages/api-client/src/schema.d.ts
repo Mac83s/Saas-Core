@@ -534,7 +534,7 @@ export interface paths {
         };
         /**
          * Read the company's plan and billing state
-         * @description What the plan page shows: the current plan and its state (trial, period end), the plans this kind of organization may choose with their prices, features and limits, the invoice details and what is missing in them, whether the person may change billing, and `free_until` — the last free day of an account whose product gives it a free period. For whoever may manage billing.
+         * @description What the plan page shows: the current plan and its state (trial, period end), the plans this kind of organization may choose with their prices, features and limits — the company's own plan marked by its key (`is_current`) with the terms of the version it is on (`own_terms`) beside the catalogue's current offer — the invoice details and what is missing in them, whether the person may change billing, and `free_until` — the last free day of an account whose product gives it a free period. For whoever may manage billing.
          */
         get: operations["billing_overview_retrieve"];
         put?: never;
@@ -9407,8 +9407,22 @@ export interface components {
             quotas: {
                 [key: string]: number;
             };
+            /** @description The plan the company's subscription or entitlements name, by the plan's key — whatever the version. Also true after that plan ended; `has_active_subscription` and the subscription's state say whether it is live. */
             is_current: boolean;
+            /** @description For the company's plan (`is_current`): the terms of the version the company is on — its price, interval, features and limits. The plan's other fields are the catalogue's current version, the offer for new orders; where `version` differs from `own_terms.version`, the company keeps its own. Null for other plans. */
+            own_terms: components["schemas"]["CustomerPlanTerms"] | null;
             checkout_available: boolean;
+        };
+        /** @description One version of a plan: what it costs and what it includes. */
+        CustomerPlanTerms: {
+            version: number;
+            currency: string;
+            billing_interval: string;
+            unit_amount_minor: number;
+            features: string[];
+            quotas: {
+                [key: string]: number;
+            };
         };
         CustomerSubscription: {
             state: string;

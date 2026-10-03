@@ -230,14 +230,18 @@ export function CustomerBillingPanel({
     : undefined;
   // A plan given by hand: access is on, no subscription pays for it. It is
   // the company's plan all the same — one source for the header and the
-  // cards (UX-057). By its key: `is_current` compares versions, and a plan
-  // given before its price changed is an older version of the same plan.
+  // cards (UX-057). `is_current` names it by the plan's key, so a plan taken
+  // before its price changed is still the company's.
   const grantedPlan =
     overview && granted(overview)
-      ? overview.plans.find(
-          (plan) => plan.key === overview.subscription?.plan_key,
-        )
+      ? overview.plans.find((plan) => plan.is_current)
       : undefined;
+  const ownPlan = livePlan ?? grantedPlan;
+  // What each card shows: the catalogue's version — and on the company's own
+  // plan the version the company is on, so the cards still compare row by row.
+  const shownPlans = (overview?.plans ?? []).map((plan) =>
+    plan === ownPlan && plan.own_terms ? { ...plan, ...plan.own_terms } : plan,
+  );
   // Only a feature the pricing page names: the message has to say which.
   const featureLabel = requestedFeature
     ? featureLabels[requestedFeature]
@@ -245,7 +249,8 @@ export function CustomerBillingPanel({
   const missingFeature =
     requestedFeature &&
     featureLabel &&
-    !livePlan?.features.includes(requestedFeature)
+    // What the company has is its own version's, not the catalogue's.
+    !(livePlan?.own_terms ?? livePlan)?.features.includes(requestedFeature)
       ? { key: requestedFeature, label: featureLabel }
       : undefined;
   // The same question as the plan buttons ask: a canceled plan still has a
@@ -263,10 +268,12 @@ export function CustomerBillingPanel({
   const highlighted = awaitingActivation
     ? undefined
     : missingFeature
-      ? overview?.plans.find((plan) =>
-          plan.features.includes(missingFeature.key),
+      ? // Never the company's own plan: there is no switch to offer there.
+        overview?.plans.find(
+          (plan) =>
+            plan !== ownPlan && plan.features.includes(missingFeature.key),
         )?.key
-      : overview?.has_active_subscription || grantedPlan
+      : ownPlan
         ? // „Najczęściej wybierany” is advice for a company without a plan.
           undefined
         : RECOMMENDED_PLAN;
@@ -440,12 +447,11 @@ export function CustomerBillingPanel({
               </Notice>
             ) : null}
             <ul className="grid items-stretch gap-4 lg:grid-cols-3">
-              {overview.plans.map((plan) => (
+              {overview.plans.map((plan, index) => (
                 <li className="flex" key={`${plan.key}:${plan.version}`}>
                   <PlanCard
                     badge={
-                      (plan.is_current && overview.has_active_subscription) ||
-                      grantedPlan?.key === plan.key
+                      plan === ownPlan
                         ? t("currentPlan")
                         : plan.key !== highlighted
                           ? undefined
@@ -459,15 +465,16 @@ export function CustomerBillingPanel({
                       overview.billing_details.missing.length === 0
                     }
                     featureLabels={featureLabels}
-                    granted={grantedPlan?.key === plan.key}
-                    hasPlan={Boolean(livePlan ?? grantedPlan)}
+                    granted={plan === grantedPlan}
+                    hasPlan={Boolean(ownPlan)}
                     hasSubscription={overview.has_active_subscription}
                     highlighted={plan.key === highlighted}
+                    offer={plan}
                     onChoose={() => void choosePlan(plan)}
                     paymentMode={overview.payment_mode}
                     pending={pending === plan.key}
-                    plan={plan}
-                    plans={overview.plans}
+                    plan={shownPlans[index]!}
+                    plans={shownPlans}
                     showTrial={trialEligible}
                   />
                 </li>
@@ -497,7 +504,9 @@ function CurrentPlan({
   const locale = useLocale();
   const subscription = overview.subscription;
   const isSimulated = overview.payment_mode === "simulated";
-  const plan = overview.plans.find((item) => item.is_current);
+  // The company's own terms: after a price change it still pays its price.
+  const current = overview.plans.find((item) => item.is_current);
+  const plan = current?.own_terms ?? current;
   const portal =
     overview.payment_mode === "stripe" &&
     overview.portal_available &&
@@ -677,6 +686,7 @@ function CurrentPlan({
 
 function PlanCard({
   plan,
+  offer,
   plans,
   badge,
   highlighted,
@@ -692,7 +702,10 @@ function PlanCard({
   paymentMode,
   onChoose,
 }: {
+  /** What the card shows: for the company's own plan, the version it is on. */
   plan: CustomerPlan;
+  /** The catalogue's current version of the same plan: what a new order gets. */
+  offer: CustomerPlan;
   plans: CustomerPlan[];
   badge: string | undefined;
   highlighted: boolean;
@@ -715,6 +728,10 @@ function PlanCard({
   // The snapshot keeps naming the last plan after it ended, and the API sells
   // it again then; only a live plan is the one there is nothing to buy.
   const current = (plan.is_current && hasSubscription) || granted;
+  // The company is on an older version of its plan: the card shows its terms,
+  // one line names the catalogue's as the offer for new orders, and nothing
+  // offers a switch to the plan already held.
+  const newerOffer = offer.version !== plan.version;
   const simulatedPlanLocked =
     paymentMode === "simulated" && hasSubscription && !current;
   // Every card lists the same rows in the same order, so the plans compare
@@ -762,6 +779,20 @@ function PlanCard({
             </span>
           </p>
         )}
+        {newerOffer ? (
+          <p className="text-sm text-muted-foreground">
+            {offer.unit_amount_minor === plan.unit_amount_minor &&
+            offer.billing_interval === plan.billing_interval
+              ? t("newerOffer")
+              : t("newerOfferPrice", {
+                  price: `${formatMoney(offer.unit_amount_minor, offer.currency, locale)} ${t(
+                    offer.billing_interval === "year"
+                      ? "perYearNet"
+                      : "perMonthNet",
+                  )}`,
+                })}
+          </p>
+        ) : null}
         {showTrial && plan.trial_days > 0 ? (
           <p className="text-sm font-medium text-primary">
             {t("trialDays", { count: plan.trial_days })}

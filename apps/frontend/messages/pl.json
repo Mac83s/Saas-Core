@@ -1219,7 +1219,9 @@
     "free": "Darmowy",
     "freeIncluded": "W koncie od początku",
     "currentGranted": "Twój plan — nadany bez płatności",
-    "switchTo": "Przejdź na plan {plan}"
+    "switchTo": "Przejdź na plan {plan}",
+    "newerOffer": "Karta pokazuje Twoje warunki. Nowe zamówienia tego planu mają nowsze.",
+    "newerOfferPrice": "Karta pokazuje Twoje warunki. Nowe zamówienia tego planu: {price}."
   },
   "Sites": {
     "navigation": "Strony",

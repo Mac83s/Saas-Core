@@ -30,6 +30,7 @@ from saas_core.modules.shared.billing.models import (
     Plan,
     PlanVersion,
     StripePriceMapping,
+    StripeSubscriptionStatus,
     StripeWebhookEvent,
     SubscriptionState,
     WebhookProcessingStatus,
@@ -449,6 +450,110 @@ def test_owner_sees_customer_billing_overview_and_deployment_plan_catalog() -> N
     assert plans["profile"]["trial_days"] == 14
     assert plans["starter"]["is_current"] is True
     assert plans["starter"]["checkout_available"] is True
+    # On the catalogue's own version the company's terms are the offer's.
+    assert plans["starter"]["own_terms"]["version"] == plans["starter"]["version"]
+    assert plans["pro"]["is_current"] is False and plans["pro"]["own_terms"] is None
+
+
+def _catalogue_moves_on(plan_key: str, *, unit_amount_minor: int) -> PlanVersion:
+    """A newer version becomes the plan's offer; returns the one it replaced."""
+    plan = Plan.objects.select_related("current_version").get(key=plan_key)
+    older = plan.current_version
+    assert older is not None
+    plan.current_version = PlanVersion.objects.create(
+        plan=plan,
+        version=older.version + 1,
+        currency=older.currency,
+        billing_interval=older.billing_interval,
+        unit_amount_minor=unit_amount_minor,
+        feature_keys=[*older.feature_keys, "newer.feature"],
+        quotas={**older.quotas, "sites.max": 99},
+        trial_days=older.trial_days,
+    )
+    plan.save(update_fields=["current_version", "updated_at"])
+    return older
+
+
+def _own_terms(version: PlanVersion) -> dict[str, Any]:
+    return {
+        "version": version.version,
+        "currency": version.currency,
+        "billing_interval": version.billing_interval,
+        "unit_amount_minor": version.unit_amount_minor,
+        "features": version.feature_keys,
+        "quotas": version.quotas,
+    }
+
+
+@override_settings(BILLING_PLAN_KEYS=("profile", "starter", "pro"))
+def test_a_plan_given_on_an_older_version_is_the_companys_plan_on_its_own_terms() -> None:
+    """A plan given by hand has no subscription, and the catalogue has moved on
+    since: the card is still the company's plan (by the plan's key), shows the
+    terms it was given on and keeps the catalogue's as the offer for new orders."""
+    client, organization = billing_client(role_key="owner", slug="billing-granted-older")
+    mapping = StripePriceMapping.objects.create(
+        plan_version=Plan.objects.get(key="pro").current_version,
+        stripe_product_id="prod_granted",
+        stripe_price_id="price_granted",
+    )
+    update_entitlement_snapshot(
+        organization,
+        mapping,
+        state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+        effective_until=None,
+    )
+    given = _catalogue_moves_on("pro", unit_amount_minor=34_900)
+
+    data = client.get("/api/v1/billing/overview/").data
+
+    assert data["has_active_subscription"] is False
+    assert (data["subscription"]["plan_key"], data["subscription"]["plan_version"]) == (
+        "pro",
+        given.version,
+    )
+    plans = {plan["key"]: plan for plan in data["plans"]}
+    assert [key for key, plan in plans.items() if plan["is_current"]] == ["pro"]
+    assert plans["pro"]["own_terms"] == _own_terms(given)
+    # The card's other fields stay the catalogue's: what a new order would get.
+    assert (plans["pro"]["version"], plans["pro"]["unit_amount_minor"]) == (
+        given.version + 1,
+        34_900,
+    )
+    assert "newer.feature" in plans["pro"]["features"]
+    assert "newer.feature" not in plans["pro"]["own_terms"]["features"]
+    assert plans["starter"]["own_terms"] is None
+
+
+@override_settings(BILLING_PLAN_KEYS=("profile", "starter", "pro"))
+def test_a_subscriber_keeps_its_plan_and_price_after_the_price_changes() -> None:
+    client, organization = billing_client(role_key="owner", slug="billing-price-change")
+    bought = Plan.objects.get(key="starter").current_version
+    assert bought is not None
+    BillingSubscription.all_objects.create(
+        organization=organization,
+        price_mapping=StripePriceMapping.objects.create(
+            plan_version=bought,
+            stripe_product_id="prod_price_change",
+            stripe_price_id="price_before_change",
+        ),
+        stripe_subscription_id="sub_price_change",
+        state=SubscriptionState.ACTIVE,
+        provider_status=StripeSubscriptionStatus.ACTIVE,
+    )
+    _catalogue_moves_on("starter", unit_amount_minor=bought.unit_amount_minor + 5_000)
+
+    data = client.get("/api/v1/billing/overview/").data
+
+    assert data["has_active_subscription"] is True
+    plans = {plan["key"]: plan for plan in data["plans"]}
+    assert [key for key, plan in plans.items() if plan["is_current"]] == ["starter"]
+    # What the company pays, and what the plan costs a new customer today.
+    assert plans["starter"]["own_terms"] == _own_terms(bought)
+    assert plans["starter"]["unit_amount_minor"] == bought.unit_amount_minor + 5_000
+    # The newer version has no price in the provider yet; the company's plan is
+    # not something to buy either way.
+    assert plans["starter"]["checkout_available"] is False
 
 
 def test_the_overview_says_until_when_a_products_free_account_is_free(
