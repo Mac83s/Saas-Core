@@ -444,10 +444,12 @@ export function PageLanguageEditor({
   async function askPublish() {
     try {
       const planned = await previewPublishLocaleBody(page.id, locale);
+      // A preview publishes nothing, so `published` is never true here: what
+      // says "it would not go out" is the reason it would be skipped for.
       setDecision(
-        planned.published
-          ? { kind: "publish" }
-          : { kind: "blocked", reason: skippedText(planned.skipped) },
+        planned.skipped
+          ? { kind: "blocked", reason: skippedText(planned.skipped) }
+          : { kind: "publish" },
       );
     } catch (error) {
       decisionFailed(error);

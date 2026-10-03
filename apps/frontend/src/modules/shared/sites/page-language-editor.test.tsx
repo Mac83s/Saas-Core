@@ -336,6 +336,42 @@ test("a waiting translation is accepted and published from the banner", async ()
   ).not.toBeNull();
 });
 
+test("a complete version that can go out is published after one confirmation", async () => {
+  api.getLocaleBody.mockResolvedValue(body({ untranslated: 0 }));
+  // As the server answers a preview: nothing went out, and nothing stops it.
+  api.previewPublishLocaleBody.mockResolvedValue({
+    ...DECISION,
+    published: false,
+    publication_id: null,
+    skipped: null,
+  });
+  api.publishLocaleBody.mockResolvedValue(DECISION);
+  show();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Opublikuj tę wersję" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog.textContent).toContain(
+    "Opublikować wersję Deutsch tej strony?",
+  );
+  expect(api.publishLocaleBody).not.toHaveBeenCalled();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Opublikuj tę wersję" }),
+  );
+
+  await waitFor(() =>
+    expect(api.publishLocaleBody).toHaveBeenCalledWith(
+      PAGE.id,
+      "de",
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText("Wersja Deutsch jest na stronie."),
+  ).not.toBeNull();
+});
+
 test("a complete version says it is not on the site and why it cannot go yet", async () => {
   api.getLocaleBody.mockResolvedValue(body({ untranslated: 0 }));
   api.previewPublishLocaleBody.mockResolvedValue({
