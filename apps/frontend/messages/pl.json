@@ -151,6 +151,15 @@
     "no": "nie",
     "loadError": "Nie udało się wczytać historii zmian.",
     "retry": "Spróbuj ponownie",
+    "retention": {
+      "run": "{kind} · okres: {period} · usunięto: {count}",
+      "months": "{count, plural, one {# miesiąc} few {# miesiące} many {# miesięcy} other {# miesiąca}}",
+      "days": "{count, plural, one {# dzień} few {# dni} many {# dni} other {# dnia}}",
+      "kinds": {
+        "booking_customers": "Dane klientów",
+        "sites_inquiries": "Zapytania ze strony"
+      }
+    },
     "actions": {
       "organization_created": "Utworzono organizację",
       "organization_updated": "Zmieniono dane firmy",

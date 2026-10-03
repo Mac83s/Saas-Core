@@ -151,6 +151,15 @@
     "no": "no",
     "loadError": "The change history could not be loaded.",
     "retry": "Try again",
+    "retention": {
+      "run": "{kind} · period: {period} · removed: {count}",
+      "months": "{count, plural, one {# month} other {# months}}",
+      "days": "{count, plural, one {# day} other {# days}}",
+      "kinds": {
+        "booking_customers": "Customers' data",
+        "sites_inquiries": "Website enquiries"
+      }
+    },
     "actions": {
       "organization_created": "Organization created",
       "organization_updated": "Company details changed",

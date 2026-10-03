@@ -342,3 +342,35 @@ test("a setting reads as its form calls it, a choice by its name, a price in zł
   ).toBeTruthy();
   expect(screen.getByText("Cena sprzedaży netto: 12,50 → 15,00")).toBeTruthy();
 });
+
+test("a retention run says which data, after how long and how many", async () => {
+  api.readOrganizationHistory.mockResolvedValue(
+    page([
+      entry({
+        action: "privacy.retention.run",
+        actor: null,
+        channel: null,
+        details: { sweep: "booking.customers", period: "24 mies.", removed: 2 },
+      }),
+      entry({
+        action: "privacy.retention.run",
+        actor: null,
+        channel: null,
+        details: { sweep: "sites.inquiries", period: "90 dni", removed: 5 },
+      }),
+    ]),
+  );
+  const polish = view();
+  expect(
+    await screen.findByText("Dane klientów · okres: 24 miesiące · usunięto: 2"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Zapytania ze strony · okres: 90 dni · usunięto: 5"),
+  ).toBeTruthy();
+  polish.unmount();
+
+  view("en");
+  expect(
+    await screen.findByText("Customers' data · period: 24 months · removed: 2"),
+  ).toBeTruthy();
+});

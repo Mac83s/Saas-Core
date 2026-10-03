@@ -241,6 +241,9 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
             fieldLabel={(field) => fieldLabel(entry, field)}
             value={(raw, field) => value(raw, field, entry)}
           />
+          {entry.action === "privacy.retention.run" ? (
+            <RetentionRun details={entry.details} />
+          ) : null}
         </div>
       ),
     },
@@ -335,4 +338,32 @@ function Changes({
     );
   }
   return null;
+}
+
+/** What a retention run removed: which data, after how long and how many —
+ *  never a person. The API words the period as the command's report does:
+ *  „24 mies.”, „90 dni”. */
+function RetentionRun({ details }: { details: HistoryEntry["details"] }) {
+  const t = useTranslations("History");
+  const { sweep, period, removed } = details as {
+    sweep?: string;
+    period?: string;
+    removed?: number;
+  };
+  if (!sweep || typeof removed !== "number") return null;
+  const kind = `retention.kinds.${messageKey(sweep)}`;
+  const [, length, unit] = /^(\d+) (mies\.|dni)$/.exec(period ?? "") ?? [];
+  return (
+    <p className="text-sm text-muted-foreground wrap-anywhere">
+      {t("retention.run", {
+        kind: t.has(kind) ? t(kind) : humanize(sweep),
+        period: length
+          ? t(unit === "dni" ? "retention.days" : "retention.months", {
+              count: Number(length),
+            })
+          : (period ?? t("empty")),
+        count: removed,
+      })}
+    </p>
+  );
 }
