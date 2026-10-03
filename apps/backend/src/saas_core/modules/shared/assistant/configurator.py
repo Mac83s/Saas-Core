@@ -308,7 +308,8 @@ def _card(run: _Run) -> None:
 def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | None:
     """The category an offer's preset names; else the one whose keyword comes
     first in what the owner said the company does and then sells — a trade is
-    named before its details ("hydraulik: awarie, instalacje")."""
+    named before its details ("hydraulik: awarie, instalacje") — and, of two
+    that begin at the same word, the longer ("fotograf ślubny" over "fotograf")."""
     keys = [entry["key"] for entry in categories]
     presets = {entry["id"]: entry for entry in (run.reads.get(PRESETS) or {}).get("presets", [])}
     offers = run.profile.get("offers", [])
@@ -318,18 +319,18 @@ def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | 
             return str(hint)
     said = [run.said("company", "activity"), *(_confirmed(offer.get("name")) for offer in offers)]
     words = f" {_fold(' '.join(text for text in said if text))} "
-    first: dict[str, int] = {}
+    best: dict[str, tuple[int, int]] = {}
     for entry in categories:
         found = [
-            at
+            (at, -len(folded))
             for keywords in entry["keywords"].values()
             for keyword in keywords
-            if (at := words.find(f" {_fold(keyword)} ")) >= 0
+            if (at := words.find(f" {(folded := _fold(keyword))} ")) >= 0
         ]
         if found:
-            first[entry["key"]] = min(found)
-    leading = [key for key, at in first.items() if at == min(first.values())]
-    # Two categories sharing the first word say nothing about which it is.
+            best[entry["key"]] = min(found)
+    leading = [key for key, match in best.items() if match == min(best.values())]
+    # The same keyword in two categories says nothing about which it is.
     return leading[0] if len(leading) == 1 else None
 
 

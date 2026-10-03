@@ -24,6 +24,7 @@ from assistant_setup import (
     EXAMPLES,
     PRESET_OPTIONS,
     SERVICE_FIELDS,
+    catalog_from_contract,
     example,
     new_company,
     presets_from_contract,
@@ -35,6 +36,7 @@ from saas_core.modules.core.organizations.command_registry import command, regis
 from saas_core.modules.core.organizations.context import activate_tenant_context
 from saas_core.modules.shared.assistant.configurator import (
     CARD,
+    CARD_OPTIONS,
     ORGANIZATION,
     PRESETS,
     READS,
@@ -424,6 +426,45 @@ def test_several_places_and_people_are_asked_about_by_name() -> None:
         ),
     ]
     assert "offer:cut" not in [entry["ref"] for entry in answer["blocked"]]
+
+
+# --- The directory's words ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("activity", "category"),
+    [
+        ("fryzjerka", "uroda-i-zdrowie"),
+        ("hydraulik: awarie, instalacje wodne", "uslugi-dla-domu"),
+        ("domki letniskowe nad jeziorem", "turystyka-i-noclegi"),
+        ("Wypożyczalnia kajaków i transport na Krutyni", "turystyka-i-noclegi"),
+        ("koszenie trawy i pielęgnacja ogrodów", "uslugi-dla-domu"),
+        # The longer keyword is the more exact one.
+        ("fotograf ślubny", "wydarzenia"),
+        ("elektryk samochodowy", "motoryzacja"),
+        ("gabinet weterynaryjny dla psów i kotów", "zwierzeta"),
+        ("psi fryzjer", "zwierzeta"),
+        # Two categories own the word: no guess.
+        ("przeprowadzki", None),
+        ("naprawa zegarków", None),
+    ],
+)
+def test_the_directorys_keywords_name_a_category_for_what_owners_say(
+    activity: str, category: str | None
+) -> None:
+    """Against the real directory (`packages/contracts/catalog/manifest.json`):
+    its keywords are what the suggestion — and the directory's search — go by."""
+    profile = {
+        "schema": "company-profile.v1",
+        "company": {"activity": {"value": activity, "origin": "owner", "confirmed": True}},
+    }
+    reads = new_company("Nowa firma")
+    reads[CARD_OPTIONS] = catalog_from_contract()
+
+    answer = configure(profile, reads, COMMANDS)
+
+    (question,) = [entry for entry in answer["missing"] if entry["key"] == "company.category"]
+    assert question["proposal"] == category
 
 
 # --- The contract ------------------------------------------------------------------

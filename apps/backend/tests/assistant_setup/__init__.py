@@ -209,6 +209,26 @@ def new_company(name: str) -> dict[str, dict[str, Any]]:
     }
 
 
+def catalog_from_contract() -> dict[str, Any]:
+    """The real directory of a `business` company, in the shape of
+    `profiles.catalog_options.read@1`."""
+    manifest = json.loads((CONTRACTS / "catalog" / "manifest.json").read_text(encoding="utf-8"))
+    return {
+        "categories": [
+            {
+                "key": category["key"],
+                "label": category["label"],
+                "keywords": category.get("keywords") or {},
+            }
+            for category in manifest["categories"]["business"]
+        ],
+        "cities": [
+            {"slug": city["slug"], "name": city["name"], "voivodeship": city["voivodeship"]}
+            for city in manifest["cities"]
+        ],
+    }
+
+
 def presets_from_contract() -> dict[str, Any]:
     """The real preset catalogue in the shape of `booking.preset.list@1`, for
     as long as that command is only announced (`commands/planned.json`)."""

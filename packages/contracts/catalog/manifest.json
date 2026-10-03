@@ -281,7 +281,19 @@
             "dietetyk",
             "psycholog",
             "rehabilitacja",
-            "spa"
+            "spa",
+            "fryzjerka",
+            "salon fryzjerski",
+            "kosmetolog",
+            "paznokcie",
+            "rzęsy",
+            "brwi",
+            "depilacja",
+            "makijaż",
+            "masażysta",
+            "fizjoterapia",
+            "podolog",
+            "tatuaż"
           ],
           "en": [
             "hairdresser",
@@ -333,7 +345,17 @@
             "pranie dywanów",
             "przeprowadzki",
             "naprawa AGD",
-            "ślusarz"
+            "ślusarz",
+            "sprzątaczka",
+            "mycie okien",
+            "hydraulika",
+            "kominiarz",
+            "dezynsekcja",
+            "pralnia",
+            "serwis AGD",
+            "pielęgnacja ogrodów",
+            "koszenie trawy",
+            "odśnieżanie"
           ],
           "en": [
             "cleaning",
@@ -377,7 +399,19 @@
             "instalacje",
             "okna",
             "drzwi",
-            "projekt domu"
+            "projekt domu",
+            "budowa domów",
+            "tynki",
+            "elewacje",
+            "docieplenia",
+            "brukarz",
+            "kostka brukowa",
+            "ogrodzenia",
+            "płytkarz",
+            "posadzki",
+            "wylewki",
+            "geodeta",
+            "architekt"
           ],
           "en": [
             "renovation",
@@ -422,7 +456,16 @@
             "myjnia",
             "diagnostyka",
             "klimatyzacja samochodowa",
-            "holowanie"
+            "holowanie",
+            "serwis samochodowy",
+            "wymiana opon",
+            "auto detailing",
+            "pomoc drogowa",
+            "elektryk samochodowy",
+            "stacja kontroli pojazdów",
+            "wypożyczalnia samochodów",
+            "wynajem aut",
+            "wypożyczalnia przyczep"
           ],
           "en": [
             "car mechanic",
@@ -459,7 +502,14 @@
             "catering",
             "cukiernia",
             "piekarnia",
-            "jedzenie na wynos"
+            "jedzenie na wynos",
+            "bistro",
+            "pub",
+            "food truck",
+            "lodziarnia",
+            "kebab",
+            "sushi",
+            "obiady domowe"
           ],
           "en": [
             "restaurant",
@@ -494,7 +544,13 @@
             "sklep internetowy",
             "butik",
             "kwiaciarnia",
-            "apteka"
+            "apteka",
+            "sklep spożywczy",
+            "księgarnia",
+            "drogeria",
+            "sklep zoologiczny",
+            "komis",
+            "odzież"
           ],
           "en": [
             "shop",
@@ -530,7 +586,23 @@
             "apartament",
             "kemping",
             "biuro podróży",
-            "wypożyczalnia kajaków"
+            "wypożyczalnia kajaków",
+            "nocleg",
+            "domki",
+            "domek",
+            "domki letniskowe",
+            "pokoje gościnne",
+            "kwatery",
+            "hostel",
+            "glamping",
+            "pole namiotowe",
+            "kajaki",
+            "spływy kajakowe",
+            "wypożyczalnia rowerów",
+            "wypożyczalnia sprzętu wodnego",
+            "rejsy",
+            "czarter jachtów",
+            "przewodnik"
           ],
           "en": [
             "accommodation",
@@ -570,7 +642,18 @@
             "basen",
             "szkoła tańca",
             "sztuki walki",
-            "jazda konna"
+            "jazda konna",
+            "pilates",
+            "crossfit",
+            "tenis",
+            "kort tenisowy",
+            "stadnina",
+            "nauka pływania",
+            "ścianka wspinaczkowa",
+            "paintball",
+            "strzelnica",
+            "kręgle",
+            "sauna"
           ],
           "en": [
             "gym",
@@ -610,7 +693,12 @@
             "żłobek",
             "szkoła jazdy",
             "nauka języka",
-            "opieka nad dziećmi"
+            "opieka nad dziećmi",
+            "kursy",
+            "szkolenia",
+            "nauka jazdy",
+            "zajęcia dla dzieci",
+            "szkoła muzyczna"
           ],
           "en": [
             "tutoring",
@@ -649,7 +737,10 @@
             "social media",
             "pozycjonowanie",
             "serwis komputerowy",
-            "programista"
+            "programista",
+            "agencja reklamowa",
+            "copywriter",
+            "tworzenie stron"
           ],
           "en": [
             "web design",
@@ -691,7 +782,14 @@
             "radca prawny",
             "notariusz",
             "ubezpieczenia",
-            "kredyty"
+            "kredyty",
+            "księgowość",
+            "rachunkowość",
+            "kancelaria",
+            "doradca finansowy",
+            "pośrednik kredytowy",
+            "agent ubezpieczeniowy",
+            "tłumacz przysięgły"
           ],
           "en": [
             "accountant",
@@ -730,7 +828,12 @@
             "przeprowadzki",
             "spedycja",
             "bus",
-            "wynajem busa"
+            "wynajem busa",
+            "przewozy",
+            "transport towarów",
+            "taksówka",
+            "przewóz mebli",
+            "wynajem busów"
           ],
           "en": [
             "transport",
@@ -767,7 +870,12 @@
             "szkolenie psów",
             "behawiorysta",
             "korekcja racic",
-            "kowal"
+            "kowal",
+            "gabinet weterynaryjny",
+            "psi fryzjer",
+            "petsitter",
+            "szkoła dla psów",
+            "hodowla psów"
           ],
           "en": [
             "vet",
@@ -808,7 +916,12 @@
             "sprzęt rolniczy",
             "hodowla",
             "nasiona",
-            "pasze"
+            "pasze",
+            "usługi leśne",
+            "pasieka",
+            "miód",
+            "szkółka roślin",
+            "płody rolne"
           ],
           "en": [
             "farm services",
@@ -849,7 +962,13 @@
             "sala weselna",
             "organizacja imprez",
             "dekoracje",
-            "wodzirej"
+            "wodzirej",
+            "dom weselny",
+            "animator",
+            "fotobudka",
+            "wynajem namiotów",
+            "konferansjer",
+            "nagłośnienie"
           ],
           "en": [
             "wedding",
