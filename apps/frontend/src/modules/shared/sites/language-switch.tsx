@@ -109,7 +109,13 @@ export function LanguageSwitch({
           if (typeof next === "string" && next !== value) onChange(next);
         }}
       >
-        <SelectTrigger id={id} size="sm" aria-label={t("switchLabel")}>
+        {/* As tall as the studio's top bar controls: 32 px on a mouse. */}
+        <SelectTrigger
+          id={id}
+          size="sm"
+          aria-label={t("switchLabel")}
+          className="pointer-fine:data-[size=sm]:h-8"
+        >
           <SelectValue>
             {(current: string) => {
               const option = options.find((item) => item.locale === current);
