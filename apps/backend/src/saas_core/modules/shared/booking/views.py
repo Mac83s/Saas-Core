@@ -43,6 +43,8 @@ from .models import (
     Service,
     TimeModel,
 )
+from .occupancy import MAX_DAYS as MAX_OCCUPANCY_DAYS
+from .occupancy import Held, books_stays, occupancy
 from .passing import closes_explicitly, has_passed
 from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
@@ -86,6 +88,7 @@ from .serializers import (
     GroupSetupSerializer,
     GroupUpdateSerializer,
     MaterialsInputSerializer,
+    OccupancySerializer,
     OverviewSerializer,
     PeopleDaySerializer,
     PerformanceSerializer,
@@ -1708,6 +1711,7 @@ class BookingOverviewView(APIView):
             "bookable_staff": value.bookable_staff,
             "teams": value.teams,
             "waiting": value.waiting,
+            "stays": books_stays(),
         })
 
 
@@ -3080,3 +3084,80 @@ class PerformanceView(APIView):
         except ValueError as error:
             raise ParseError("Nieprawidłowy zespół.") from error
         return Response(PerformanceSerializer(team_performance(first, last, team_id=team)).data)
+
+
+def _held_title(item: Held, titles: Mapping[UUID, str]) -> str:
+    """A block says why; a booking goes by its module's name, else the customer's."""
+    if item.block is not None:
+        return item.block.reason
+    assert item.appointment is not None
+    return titles.get(item.appointment.id) or item.appointment.customer.display_name
+
+
+class BookingOccupancyView(APIView):
+    """Obłożenie: units against days (ADR-072 phase 2d)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_occupancy_retrieve",
+        summary="Read what holds each unit, day by day",
+        description="Every active unit (of one group with `group_id`) with what holds it from "
+        "`from` to `to`, local days included: stays, visits that take the unit, and blocks — "
+        "a block that could not take its time is listed too. Closed days of the company or "
+        f"of a unit's place come with it. At most {MAX_OCCUPANCY_DAYS} days per read.",
+        tags=["booking"],
+        parameters=[
+            OpenApiParameter("from", date, OpenApiParameter.QUERY, required=True),
+            OpenApiParameter("to", date, OpenApiParameter.QUERY, required=True),
+            OpenApiParameter(
+                "group_id",
+                UUID,
+                OpenApiParameter.QUERY,
+                description="Only the units of this group.",
+            ),
+        ],
+        responses={
+            200: OccupancySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        value = occupancy(
+            first=_query_date(request, "from"),
+            last=_query_date(request, "to"),
+            group_id=_query_uuid(request, "group_id"),
+        )
+        bookings = [item.appointment for item in value.held if item.appointment is not None]
+        titles = appointment_titles([item.id for item in bookings])
+        return Response({
+            "date_from": value.first,
+            "date_to": value.last,
+            "timezone": value.timezone,
+            "units": [
+                {
+                    "id": unit.id,
+                    "name": unit.name,
+                    "group_id": unit.group_id,
+                    "group_name": unit.group.name if unit.group else None,
+                    "location_id": unit.location_id,
+                    "capacity": unit.capacity,
+                }
+                for unit in value.units
+            ],
+            "held": [
+                {
+                    "unit_id": item.unit_id,
+                    "kind": item.kind,
+                    "starts_at": item.starts_at,
+                    "ends_at": item.ends_at,
+                    "appointment_id": item.appointment.id if item.appointment else None,
+                    "block_id": item.block.id if item.block else None,
+                    "title": _held_title(item, titles),
+                    "status": item.appointment.status if item.appointment else "",
+                }
+                for item in value.held
+            ],
+            "closures": [_closure_payload(item) for item in value.closures],
+        })

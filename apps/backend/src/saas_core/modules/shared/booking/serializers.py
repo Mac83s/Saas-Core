@@ -341,6 +341,9 @@ class OverviewSerializer(serializers.Serializer[dict[str, Any]]):
     teams = serializers.IntegerField()
     #: Visits in „Do przydzielenia”; null for whoever may not assign.
     waiting = serializers.IntegerField(allow_null=True)
+    stays = serializers.BooleanField(
+        help_text="The company sells an offer booked by dates: „Obłożenie” has a use."
+    )
 
 
 class CrewInputSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1306,3 +1309,40 @@ class StayPlanSerializer(serializers.Serializer[dict[str, Any]]):
 
 class DateListSerializer(serializers.Serializer[dict[str, Any]]):
     items = serializers.ListField(child=serializers.DateField())
+
+
+class OccupancyUnitSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    group_id = serializers.UUIDField(allow_null=True, help_text="Its pool of identical units.")
+    group_name = serializers.CharField(allow_null=True)
+    location_id = serializers.UUIDField(allow_null=True, help_text="Where the unit is.")
+    capacity = serializers.IntegerField(allow_null=True)
+
+
+class OccupancyHeldSerializer(serializers.Serializer[dict[str, Any]]):
+    unit_id = serializers.UUIDField()
+    kind = serializers.ChoiceField(
+        choices=["stay", "visit", "block"],
+        help_text="`stay` — a booking by dates; `visit` — a visit that takes the unit; "
+        "`block` — the unit taken out (renovation, owner's use).",
+    )
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    appointment_id = serializers.UUIDField(allow_null=True)
+    block_id = serializers.UUIDField(allow_null=True)
+    title = serializers.CharField(
+        help_text="The booking's name (a module's, else the customer's), or the block's reason."
+    )
+    status = serializers.CharField(help_text="The booking's status; empty for a block.")
+
+
+class OccupancySerializer(serializers.Serializer[dict[str, Any]]):
+    """The company's units against days (ADR-072 phase 2d)."""
+
+    date_from = serializers.DateField(help_text="First local day of the window.")
+    date_to = serializers.DateField(help_text="Last local day of the window, included.")
+    timezone = serializers.CharField()
+    units = OccupancyUnitSerializer(many=True)
+    held = OccupancyHeldSerializer(many=True)
+    closures = BookingClosureSerializer(many=True)
