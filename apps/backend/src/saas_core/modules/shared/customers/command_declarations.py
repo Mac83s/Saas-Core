@@ -160,21 +160,23 @@ def _preview_draft(arguments: Mapping[str, Any], call: Any) -> Preview:
         }
     else:
         kind_of_effect = "updated" if planned.replaces else "created"
+        # „Liczba znaków: n”, not „n znaków”: the Polish noun changes with the
+        # number (2 znaki, 5 znaków), and a consent is read by a person.
         replaced = (
             (
-                f" Zastąpi obecny szkic ({planned.replaces} znaków).",
-                f" It replaces the current draft ({planned.replaces} characters).",
+                f" Zastąpi obecny szkic (liczba znaków: {planned.replaces}).",
+                f" It replaces the current draft (characters: {planned.replaces}).",
             )
             if planned.replaces
             else ("", "")
         )
         summary = {
-            "pl": f"Szkic dokumentu „{names[0]}” w języku {planned.locale}: "
-            f"{len(planned.text)} znaków.{replaced[0]} Szkic nikogo nie wiąże — wersję "
+            "pl": f"Szkic dokumentu „{names[0]}” — język: {planned.locale}, liczba znaków: "
+            f"{len(planned.text)}.{replaced[0]} Szkic nikogo nie wiąże — wersję "
             f"zatwierdza osoba w panelu.{binds[0]}",
-            "en": f"A draft of “{names[1]}” in {planned.locale}: {len(planned.text)} "
-            f"characters.{replaced[1]} A draft binds nobody — a person approves a version "
-            f"in the panel.{binds[1]}",
+            "en": f"A draft of “{names[1]}” — language: {planned.locale}, characters: "
+            f"{len(planned.text)}.{replaced[1]} A draft binds nobody — a person approves a "
+            f"version in the panel.{binds[1]}",
         }
     return Preview(
         effects=(

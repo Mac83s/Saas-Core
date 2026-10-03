@@ -89,8 +89,11 @@ def test_a_draft_from_the_assistant_names_its_conversation_and_binds_nobody() ->
     (effect,) = group.calls[0].preview.effects
     # A reversible change of a working copy: one click, no second factor.
     assert (group.risk, group.calls[0].step_up_required, effect.kind) == ("draft", False, "created")
-    assert "nikogo nie wiąże" in effect.summary["pl"]
-    assert "Klienci dalej czytają wersję 1" in effect.summary["pl"]
+    assert effect.summary["pl"] == (
+        f"Szkic dokumentu „Regulamin rezerwacji” — język: pl, liczba znaków: {len(text)}. "
+        "Szkic nikogo nie wiąże — wersję zatwierdza osoba w panelu. "
+        "Klienci dalej czytają wersję 1."
+    )
 
     tokens = clicked(person, acting, plan)
     with activate_tenant_context(acting):
