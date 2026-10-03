@@ -109,6 +109,7 @@ def _body(body: LocaleBody) -> dict[str, Any]:
                 "origin": state.origin,
                 "translated": state.translated,
                 "suggestion": state.suggestion,
+                "current_text": state.current_text,
                 "data_class": state.unit.data_class,
                 "placeholder": state.unit.placeholder,
                 "max_length": state.unit.max_length,
@@ -157,9 +158,9 @@ class PageLocaleBodyView(APIView):
         operation_id="sites_page_locale_body_retrieve",
         summary="Read a page body in another language",
         description="Every text unit of the source version this language follows, with this "
-        "language's text, who wrote it and what is still untranslated (ADR-070). A language "
-        "whose first version waits for acceptance is read with that version's text "
-        "(`pending.in_units`).",
+        "language's text, who wrote it and what is still untranslated (ADR-070). While a "
+        "version waits for acceptance the units carry that version's text "
+        "(`pending.in_units`), each beside what the language says now (`current_text`).",
         tags=["sites"],
         responses={200: LocaleBodySerializer, **PROBLEMS},
     )

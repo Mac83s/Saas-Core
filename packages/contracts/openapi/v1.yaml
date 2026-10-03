@@ -19896,8 +19896,8 @@ paths:
       operationId: sites_page_locale_body_retrieve
       description: Every text unit of the source version this language follows, with
         this language's text, who wrote it and what is still untranslated (ADR-070).
-        A language whose first version waits for acceptance is read with that version's
-        text (`pending.in_units`).
+        While a version waits for acceptance the units carry that version's text (`pending.in_units`),
+        each beside what the language says now (`current_text`).
       summary: Read a page body in another language
       parameters:
       - in: path
@@ -31473,9 +31473,9 @@ components:
             `review_mode`, `legal_document`, `overwrites_human`, `qa_flagged`).'
         in_units:
           type: boolean
-          description: 'The units carry this waiting version''s text and follow its
-            source: the language has no version of its own yet. Accept or reject it
-            first — a save now starts the language''s own body without this text.'
+          description: The units carry this waiting version's text and follow its
+            source, as the panel's read gives them. Accept or reject it first — a
+            save writes over the language's own body, without this text.
       required:
       - in_units
       - number
@@ -31556,6 +31556,14 @@ components:
           - 'null'
           description: A person's text for this unit's earlier source wording, kept
             when the source changed; for review, never published as the translation.
+        current_text:
+          type:
+          - string
+          - 'null'
+          description: 'While the units carry a waiting version (`pending.in_units`):
+            what the language''s own version says here now, so a unit whose `text`
+            differs is one the decision changes. Null where the language has nothing
+            for it, and outside that read.'
         data_class:
           $ref: '#/components/schemas/DataClassEnum'
         placeholder:
@@ -31577,6 +31585,7 @@ components:
             `⟦n⟧` is entry n-1. A translation keeps every token and may move it, never
             change it.'
       required:
+      - current_text
       - data_class
       - key
       - kind

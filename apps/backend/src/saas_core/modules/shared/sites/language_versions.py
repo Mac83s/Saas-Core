@@ -15,7 +15,7 @@ these doors are a person's.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from uuid import UUID
 
@@ -150,6 +150,9 @@ class UnitState:
     # A person's text for the unit's earlier source, kept after the source
     # changed: offered for review, never published as a translation.
     suggestion: str | None = None
+    # While a waiting version is read (`LocaleBody.waiting`): what the
+    # language's own version says here now, so the change can be seen.
+    current_text: str | None = None
 
     @property
     def translated(self) -> bool:
@@ -167,8 +170,8 @@ class LocaleBody:
     source_version: PageVersion
     version: PageLocaleVersion | None
     units: tuple[UnitState, ...]
-    # The units are the waiting version's text, not a body of the language's
-    # own: its first version waits for a person's decision (`_waiting`).
+    # The units are the waiting version's text against its source, not the
+    # language's own body: a person decides on it first (`_waiting`).
     waiting: bool = False
 
     @property
@@ -194,10 +197,11 @@ def site_locales(site: Site) -> tuple[str, ...]:
 
 
 def get_locale_body(*, page_id: UUID, locale: str, waiting: bool = False) -> LocaleBody:
-    """The language's body. `waiting`: for a person reading it — a language
-    whose first version waits for acceptance is read with that version's text
-    (`LocaleBody.waiting`), so the decision is made on words that can be seen.
-    Writes go on from the language's own body, which is still empty then."""
+    """The language's body. `waiting`: for a person reading it — while a
+    version waits for acceptance the language is read with that version's
+    text (`LocaleBody.waiting`), each unit beside what the language says now,
+    so the decision is made on words that can be seen. Writes go on from the
+    language's own body."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
     page, translation = _target(context, page_id=page_id, locale=locale, lock=False)
     body = _body(page, translation)
@@ -604,20 +608,42 @@ def _body(page: Page, translation: PageTranslation) -> LocaleBody:
 
 
 def _waiting(body: LocaleBody) -> LocaleBody | None:
-    """The first version of a language while it waits for a person's decision:
-    its text against the source it was written for. Nothing is accepted yet,
-    so there is still no `version`."""
+    """The version that waits for a person's decision: its text against the
+    source it was written for, each unit with what the language's own version
+    says there now (`current_text`). `version` stays the language's own — None
+    while its first version waits, since nothing is accepted yet."""
     pending = body.translation.body_pending
-    if body.version is not None or pending is None:
+    if pending is None:
         return None
     source = pending.source_version
+    # The waiting version may follow a newer source than the language's own:
+    # a unit is the same place when its key and source text agree, otherwise
+    # the same words wherever the source has them now.
+    own = {state.unit.key: state for state in body.units}
+    by_source: dict[tuple[str, str], str] = {}
+    for state in body.units:
+        if state.text is not None:
+            by_source.setdefault((state.unit.kind, state.unit.source_hash), state.text)
+
+    def current(unit: TextUnit) -> str | None:
+        same = own.get(unit.key)
+        if same is not None and (same.unit.kind, same.unit.source_hash) == (
+            unit.kind,
+            unit.source_hash,
+        ):
+            return same.text
+        return by_source.get((unit.kind, unit.source_hash))
+
     return LocaleBody(
         page=body.page,
         translation=body.translation,
         source_version=source,
-        version=None,
+        version=body.version,
         units=tuple(
-            _state(unit, pending.units.get(unit.key))
+            replace(
+                _state(unit, pending.units.get(unit.key)),
+                current_text=current(unit) if body.version is not None else None,
+            )
             for unit in extract_units(_source_blocks(source))
         ),
         waiting=True,

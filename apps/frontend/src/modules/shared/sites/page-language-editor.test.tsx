@@ -64,6 +64,7 @@ function unit(
     origin: "",
     translated: false,
     suggestion: null,
+    current_text: null,
     data_class: "public",
     placeholder: false,
     max_length: null,
@@ -668,6 +669,117 @@ test("a first version that waits is read in the fields, and nothing offers to or
       "019ff20d-a000-7000-8000-0000000000dd",
     ),
   );
+});
+
+test("a version that waits beside the language's own is read with what it changes", async () => {
+  const WAITING = "019ff20d-a000-7000-8000-0000000000dd";
+  api.getLocaleBody.mockResolvedValue(
+    body({
+      untranslated: 0,
+      pending: {
+        version_id: WAITING,
+        number: 2,
+        reason: "overwrites_human",
+        in_units: true,
+      },
+      units: [
+        unit("0/text", "Projekt od 120 zł", {
+          text: "Entwurf ab 120 zł",
+          origin: "ai",
+          translated: true,
+          current_text: "Projekt ab 120 zł",
+        }),
+        unit("0/title", "Oferta", {
+          text: "Angebot",
+          origin: "human",
+          translated: true,
+          current_text: "Angebot",
+        }),
+        // A place the source did not have when the language's own version
+        // was written.
+        unit("0/extra", "Zadzwoń do nas", {
+          text: "Rufen Sie uns an",
+          origin: "ai",
+          translated: true,
+        }),
+      ],
+    }),
+  );
+  api.getLocaleBodyVersion.mockResolvedValue({
+    version: { number: 2 },
+    blocks: [],
+  });
+  api.listLocaleBodyVersions.mockResolvedValue({
+    items: [
+      {
+        id: WAITING,
+        number: 2,
+        origin: "translation_pending",
+        created_at: "2026-10-03T10:00:00Z",
+      },
+      {
+        id: "019ff20d-a000-7000-8000-0000000000bb",
+        number: 1,
+        origin: "save",
+        created_at: "2026-10-01T10:00:00Z",
+      },
+    ],
+  });
+  show();
+
+  expect(
+    await screen.findByText(
+      "Tłumaczenie czeka na Twoją decyzję: nadpisałoby Twoje poprawki. Poniżej jego tekst. Zmienione fragmenty (2) są oznaczone i pokazują obecny tekst. Poprawisz go po akceptacji.",
+    ),
+  ).not.toBeNull();
+  // The waiting words are read, not written; what they replace is beside.
+  const field = screen.getByLabelText("Treść");
+  expect(field).toHaveValue("Entwurf ab 120 zł");
+  expect(field).toHaveAttribute("readonly");
+  expect(screen.getByText("Projekt ab 120 zł")).not.toBeNull();
+  expect(screen.getAllByText("Zmienione")).toHaveLength(1);
+  expect(screen.getAllByText("Nowe")).toHaveLength(1);
+  expect(screen.getAllByText("Obecnie:")).toHaveLength(1);
+  expect(screen.getByRole("button", { name: /^Zapisz/ })).toBeDisabled();
+
+  // A long page: only what the decision changes.
+  fireEvent.click(
+    screen.getByRole("button", { name: "Pokaż tylko zmienione" }),
+  );
+  expect(screen.queryByLabelText("Nagłówek")).toBeNull();
+  expect(screen.getByLabelText("Treść")).not.toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Pokaż wszystkie fragmenty" }),
+  );
+  expect(screen.getByLabelText("Nagłówek")).toHaveValue("Angebot");
+
+  // The preview is of what waits, and says so.
+  fireEvent.click(screen.getByRole("button", { name: "Podgląd" }));
+  await waitFor(() =>
+    expect(api.getLocaleBodyVersion).toHaveBeenCalledWith(
+      PAGE.id,
+      "de",
+      WAITING,
+    ),
+  );
+  const preview = await screen.findByRole("dialog");
+  expect(preview.textContent).toContain("Wersja 2 — czeka na Twoją decyzję");
+  fireEvent.click(within(preview).getByRole("button", { name: "Zamknij" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+  // Nothing is restored beside a version that waits.
+  fireEvent.click(screen.getByRole("button", { name: "Więcej" }));
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Historia wersji" }),
+  );
+  const history = await screen.findByRole("dialog");
+  expect(await within(history).findByText("Wersja 1")).not.toBeNull();
+  expect(history.textContent).toContain(
+    "Wcześniejszą wersję przywrócisz po decyzji o tłumaczeniu, które czeka.",
+  );
+  expect(
+    within(history).queryByRole("button", { name: "Przywróć" }),
+  ).toBeNull();
 });
 
 test("an order that ended is history: asking again quotes anew", async () => {

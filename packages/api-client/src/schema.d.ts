@@ -6560,7 +6560,7 @@ export interface paths {
         };
         /**
          * Read a page body in another language
-         * @description Every text unit of the source version this language follows, with this language's text, who wrote it and what is still untranslated (ADR-070). A language whose first version waits for acceptance is read with that version's text (`pending.in_units`).
+         * @description Every text unit of the source version this language follows, with this language's text, who wrote it and what is still untranslated (ADR-070). While a version waits for acceptance the units carry that version's text (`pending.in_units`), each beside what the language says now (`current_text`).
          */
         get: operations["sites_page_locale_body_retrieve"];
         /**
@@ -11246,7 +11246,7 @@ export interface components {
             number: number;
             /** @description Why it waits: the translation engine's review reason (e.g. `review_mode`, `legal_document`, `overwrites_human`, `qa_flagged`). */
             reason: string;
-            /** @description The units carry this waiting version's text and follow its source: the language has no version of its own yet. Accept or reject it first — a save now starts the language's own body without this text. */
+            /** @description The units carry this waiting version's text and follow its source, as the panel's read gives them. Accept or reject it first — a save writes over the language's own body, without this text. */
             in_units: boolean;
         };
         LocaleBodyRebase: {
@@ -11285,6 +11285,8 @@ export interface components {
             translated: boolean;
             /** @description A person's text for this unit's earlier source wording, kept when the source changed; for review, never published as the translation. */
             suggestion: string | null;
+            /** @description While the units carry a waiting version (`pending.in_units`): what the language's own version says here now, so a unit whose `text` differs is one the decision changes. Null where the language has nothing for it, and outside that read. */
+            current_text: string | null;
             data_class: components["schemas"]["DataClassEnum"];
             /** @description The source holds an owner's [Uzupełnij: …] slot; the language version waits until the owner fills the source. */
             placeholder: boolean;

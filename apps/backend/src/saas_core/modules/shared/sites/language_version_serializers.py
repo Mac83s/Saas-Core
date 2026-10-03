@@ -46,6 +46,12 @@ class LocaleBodyUnitSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="A person's text for this unit's earlier source wording, kept when the "
         "source changed; for review, never published as the translation.",
     )
+    current_text = serializers.CharField(
+        allow_null=True,
+        help_text="While the units carry a waiting version (`pending.in_units`): what the "
+        "language's own version says here now, so a unit whose `text` differs is one the "
+        "decision changes. Null where the language has nothing for it, and outside that read.",
+    )
     data_class = serializers.ChoiceField(choices=[DATA_PUBLIC, DATA_PUBLIC_PERSONAL])
     placeholder = serializers.BooleanField(
         help_text="The source holds an owner's [Uzupełnij: …] slot; the language version "
@@ -69,9 +75,9 @@ class LocaleBodyPendingSerializer(serializers.Serializer[dict[str, Any]]):
         "`legal_document`, `overwrites_human`, `qa_flagged`).",
     )
     in_units = serializers.BooleanField(
-        help_text="The units carry this waiting version's text and follow its source: the "
-        "language has no version of its own yet. Accept or reject it first — a save now "
-        "starts the language's own body without this text."
+        help_text="The units carry this waiting version's text and follow its source, as "
+        "the panel's read gives them. Accept or reject it first — a save writes over the "
+        "language's own body, without this text."
     )
 
 

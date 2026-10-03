@@ -82,6 +82,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { useShown } from "#lib/use-shown";
+
 import {
   blockOptions,
   registry,
@@ -237,14 +239,20 @@ export function PageLanguageEditor({
   const [preview, setPreview] = useState<{
     number: number;
     blocks: unknown[];
+    waiting: boolean;
   } | null>(null);
+  const shownPreview = useShown(preview);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<LocaleBodyVersionList["items"]>();
   const [restoring, setRestoring] = useState<{
     id: string;
     number: number;
   } | null>(null);
+  const shownRestoring = useShown(restoring);
   const [rebase, setRebase] = useState<{ untranslated: number } | null>(null);
+  const shownRebase = useShown(rebase);
+  // While a version waits: only the fragments it changes.
+  const [onlyChanged, setOnlyChanged] = useState(false);
   const receipt = useRef<MutationReceipt | undefined>(undefined);
   // A decision on this language version waiting for its confirmation;
   // `blocked` is why it cannot be published yet.
@@ -253,6 +261,7 @@ export function PageLanguageEditor({
     | { kind: "blocked"; reason: string }
     | null
   >(null);
+  const shownDecision = useShown(decision);
   const [deciding, setDeciding] = useState(false);
   // Automatic translation: whether it can be ordered here, the dialog, and
   // the order being followed — it runs on the server whatever this screen
@@ -393,12 +402,15 @@ export function PageLanguageEditor({
   }
 
   async function openPreview() {
-    // The language's own version, or the first one while it waits.
-    const versionId =
-      body?.version_id ?? (waiting ? body?.pending?.version_id : null);
+    // What the fields show: the version that waits, else the language's own.
+    const versionId = waiting ? body?.pending?.version_id : body?.version_id;
     if (!versionId) return;
     const shown = await getLocaleBodyVersion(page.id, locale, versionId);
-    setPreview({ number: shown.version.number, blocks: shown.blocks });
+    setPreview({
+      number: shown.version.number,
+      blocks: shown.blocks,
+      waiting,
+    });
   }
 
   async function openHistory() {
@@ -531,9 +543,31 @@ export function PageLanguageEditor({
     }
   }
 
+  // A version waits for a decision: the fields carry its text to read, and
+  // it is accepted or rejected before anything is written — or ordered again.
+  const waiting = body?.pending?.in_units === true;
+  // Beside a version of the language's own, the fragments the decision
+  // changes: their waiting text is not what the language says now.
+  const changedKeys = useMemo(
+    () =>
+      new Set(
+        body?.pending?.in_units && body.version !== null
+          ? body.units
+              .filter(
+                (unit) =>
+                  editable(unit) && unit.text !== (unit.current_text ?? null),
+              )
+              .map((unit) => unit.key)
+          : [],
+      ),
+    [body],
+  );
+  const filtered = onlyChanged && changedKeys.size > 0;
+
   const sections = useMemo(() => {
     const groups = new Map<number, LocaleBodyUnit[]>();
     for (const unit of body?.units ?? []) {
+      if (filtered && !changedKeys.has(unit.key)) continue;
       const position = Number(unit.key.split("/", 1)[0]);
       groups.set(position, [...(groups.get(position) ?? []), unit]);
     }
@@ -550,12 +584,8 @@ export function PageLanguageEditor({
           ),
         ] as const,
     );
-  }, [body]);
+  }, [body, changedKeys, filtered]);
 
-  // The language's first version waits for a decision: the fields carry its
-  // text to read, and it is accepted or rejected before anything is written
-  // — or ordered again.
-  const waiting = body?.pending?.in_units === true;
   const untouched =
     body !== undefined &&
     body.version === null &&
@@ -715,17 +745,39 @@ export function PageLanguageEditor({
     );
     if (body.pending) {
       const reason = body.pending.reason || "other";
+      const compared = waiting && body.version !== null;
       lines.push({
         tone: "warning",
-        text: t(waiting ? "banner.pendingShown" : "banner.pending", {
-          reason: t.has(`banner.reasons.${reason}`)
-            ? t(`banner.reasons.${reason}`)
-            : t("banner.reasons.other"),
-        }),
+        text: t(
+          compared
+            ? "banner.pendingCompared"
+            : waiting
+              ? "banner.pendingShown"
+              : "banner.pending",
+          {
+            reason: t.has(`banner.reasons.${reason}`)
+              ? t(`banner.reasons.${reason}`)
+              : t("banner.reasons.other"),
+            count: changedKeys.size,
+          },
+        ),
         action: (
           <>
             {act("accept", t("actions.accept"))}
             {act("reject", t("actions.reject"))}
+            {/* A long page with two changed fragments: only those. */}
+            {changedKeys.size > 0 &&
+              changedKeys.size < body.units.filter(editable).length && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  aria-pressed={filtered}
+                  onClick={() => setOnlyChanged(!filtered)}
+                >
+                  {t(filtered ? "banner.showAll" : "banner.onlyChanged")}
+                </Button>
+              )}
           </>
         ),
       });
@@ -834,6 +886,7 @@ export function PageLanguageEditor({
     const label = labelOf(unit, blockType, order);
     const error = errors[unit.key];
     const value = values[unit.key] ?? "";
+    const present = unit.current_text ?? null;
     const setValue = (next: string) =>
       setValues((current) => ({ ...current, [unit.key]: next }));
     const source =
@@ -915,6 +968,11 @@ export function PageLanguageEditor({
         <div className="min-w-0 space-y-2">
           {field}
           <div className="flex flex-wrap items-center gap-2">
+            {changedKeys.has(unit.key) && (
+              <Badge variant="warning">
+                {t(present === null ? "unit.added" : "unit.changed")}
+              </Badge>
+            )}
             {editable(unit) && (
               <Badge variant="neutral">{statusOf(unit)}</Badge>
             )}
@@ -945,6 +1003,19 @@ export function PageLanguageEditor({
               </span>
             )}
           </div>
+          {/* What the decision replaces, to read beside what waits. */}
+          {changedKeys.has(unit.key) && present !== null && (
+            <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {t("unit.present")}
+              </span>{" "}
+              {unit.kind === "inline" ? (
+                <TokenText text={present} marks={marks[unit.key] ?? []} />
+              ) : (
+                present
+              )}
+            </p>
+          )}
           {error && (
             <FieldError id={`${id}-error`}>
               {t.has(`unitErrors.${error}`)
@@ -1099,18 +1170,21 @@ export function PageLanguageEditor({
             {t("previewTitle", { language: languageName })}
           </DialogTitle>
           <DialogDescription>
-            {t("versionNamed", { number: preview?.number ?? 0 })}
+            {shownPreview &&
+              t(shownPreview.waiting ? "versionWaiting" : "versionNamed", {
+                number: shownPreview.number,
+              })}
           </DialogDescription>
-          {preview && (
+          {shownPreview && (
             <div lang={locale} data-testid="language-preview">
               {renderDraftPreview(
                 {
                   kind: "draft-preview",
-                  versionId: `${page.id}-${locale}-${preview.number}`,
+                  versionId: `${page.id}-${locale}-${shownPreview.number}`,
                   appearance,
                   pagePresentation: null,
                   blocks: (
-                    preview.blocks as Parameters<typeof toSiteBlock>[0][]
+                    shownPreview.blocks as Parameters<typeof toSiteBlock>[0][]
                   ).map(toSiteBlock),
                   designTokens,
                 },
@@ -1136,6 +1210,13 @@ export function PageLanguageEditor({
           {versions && versions.length === 0 && (
             <p className="text-sm text-muted-foreground">{t("historyEmpty")}</p>
           )}
+          {/* What waits is decided first: accepting it would lay it over
+              a version restored now. */}
+          {waiting && (
+            <p className="text-sm text-muted-foreground">
+              {t("historyWaiting")}
+            </p>
+          )}
           <ul className="divide-y">
             {(versions ?? []).map((version) => (
               <li
@@ -1156,7 +1237,7 @@ export function PageLanguageEditor({
                     )}
                   </span>
                 </span>
-                {version.number !== body?.version && (
+                {version.number !== body?.version && !waiting && (
                   <Button
                     type="button"
                     size="sm"
@@ -1180,10 +1261,10 @@ export function PageLanguageEditor({
       >
         <DialogContent closeLabel={common("close")}>
           <DialogTitle>
-            {t("restoreTitle", { number: restoring?.number ?? 0 })}
+            {t("restoreTitle", { number: shownRestoring?.number ?? 0 })}
           </DialogTitle>
           <DialogDescription>
-            {t("restoreText", { number: restoring?.number ?? 0 })}
+            {t("restoreText", { number: shownRestoring?.number ?? 0 })}
           </DialogDescription>
           <div className="flex justify-end gap-2">
             <Button
@@ -1230,12 +1311,12 @@ export function PageLanguageEditor({
         onOpenChange={(next) => !next && !deciding && setDecision(null)}
       >
         <DialogContent closeLabel={common("close")}>
-          {decision?.kind === "blocked" ? (
+          {shownDecision?.kind === "blocked" ? (
             <>
               <DialogTitle>{t("decision.publishBlockedTitle")}</DialogTitle>
               <DialogDescription>
-                {decision.reason.charAt(0).toUpperCase() +
-                  decision.reason.slice(1)}
+                {shownDecision.reason.charAt(0).toUpperCase() +
+                  shownDecision.reason.slice(1)}
                 .
               </DialogDescription>
               <div className="flex justify-end">
@@ -1244,15 +1325,17 @@ export function PageLanguageEditor({
                 </Button>
               </div>
             </>
-          ) : decision ? (
+          ) : shownDecision ? (
             <>
               <DialogTitle>
-                {t(`decision.${decision.kind}Title`, {
+                {t(`decision.${shownDecision.kind}Title`, {
                   language: languageName,
                 })}
               </DialogTitle>
               <DialogDescription>
-                {t(`decision.${decision.kind}Text`, { language: languageName })}
+                {t(`decision.${shownDecision.kind}Text`, {
+                  language: languageName,
+                })}
               </DialogDescription>
               <div className="flex justify-end gap-2">
                 <Button
@@ -1266,14 +1349,15 @@ export function PageLanguageEditor({
                 <Button
                   type="button"
                   variant={
-                    decision.kind === "reject" || decision.kind === "withdraw"
+                    shownDecision.kind === "reject" ||
+                    shownDecision.kind === "withdraw"
                       ? "destructive"
                       : "default"
                   }
-                  disabled={deciding}
+                  disabled={deciding || decision === null}
                   onClick={() => void confirmDecision()}
                 >
-                  {t(`actions.${decision.kind}`)}
+                  {t(`actions.${shownDecision.kind}`)}
                 </Button>
               </div>
             </>
@@ -1288,7 +1372,7 @@ export function PageLanguageEditor({
         <DialogContent closeLabel={common("close")}>
           <DialogTitle>{t("rebase.title")}</DialogTitle>
           <DialogDescription>
-            {t("rebase.text", { count: rebase?.untranslated ?? 0 })}
+            {t("rebase.text", { count: shownRebase?.untranslated ?? 0 })}
           </DialogDescription>
           <div className="flex justify-end gap-2">
             <Button

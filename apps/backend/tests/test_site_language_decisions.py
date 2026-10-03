@@ -29,7 +29,7 @@ from saas_core.modules.shared.sites.models import (
 )
 from saas_core.modules.shared.sites.services import PersonRequired
 from test_site_language_publication import _translate_all
-from test_site_language_versions_api import _draft, _hero, _page, _send, _url
+from test_site_language_versions_api import _draft, _hero, _page, _send, _translate, _url
 from test_sites_api import (
     create_site,
     publish_site_request,
@@ -162,12 +162,80 @@ def test_a_first_version_that_waits_is_read_before_the_decision():
         own = get_locale_body(page_id=UUID(offer), locale="en")
     assert (own.waiting, {state.text for state in own.units}) == (False, {None})
 
-    # A language with a version of its own keeps it in the fields: what waits
-    # beside it is named, not laid over the person's text.
-    PageTranslation.all_objects.filter(pk=row.pk).update(body_current=row.body_pending_id)
-    beside = client.get(_url(offer)).json()
-    assert beside["pending"]["in_units"] is False
-    assert beside["version_id"] == str(row.body_pending_id)
+    # Nothing of the language's own to set the waiting words against.
+    assert {unit["current_text"] for unit in waiting["units"]} == {None}
+
+
+def test_a_version_that_waits_beside_the_languages_own_is_read_with_what_it_changes():
+    """A language that already has a version: the waiting text could only be
+    accepted or rejected unseen (03.10). The panel reads the waiting version,
+    each unit beside what the language says now, and the language's own
+    version stays what writes stand on."""
+    client, organization, _site_id, _home, offer, _host = _published_site("decide-read-beside")
+    own = PageTranslation.all_objects.get(page_id=offer, locale="en").body_current
+    reworded = _translate(client, offer, {"0/title": "Our offer"}, "reword")
+    assert reworded.status_code in (200, 201), reworded.data
+    row = PageTranslation.all_objects.get(page_id=offer, locale="en")
+    PageTranslation.all_objects.filter(pk=row.pk).update(
+        body_current=own, body_pending=row.body_current_id, pending_reason="overwrites_human"
+    )
+
+    waiting = client.get(_url(offer)).json()
+
+    assert waiting["pending"]["in_units"] is True
+    assert (waiting["version_id"], waiting["version"]) == (str(own.id), own.number)
+    assert {
+        unit["key"]: (unit["current_text"], unit["text"])
+        for unit in waiting["units"]
+        if unit["text"] != unit["current_text"]
+    } == {"0/title": ("EN Oferta", "Our offer")}
+    assert {unit["key"]: unit["current_text"] for unit in waiting["units"]}["0/text"] == (
+        "EN Projekt od 120 zł"
+    )
+    membership = Membership.objects.get(organization=organization)
+    with activate_tenant_context(context_from_membership(membership)):
+        written = get_locale_body(page_id=UUID(offer), locale="en")
+    assert (written.waiting, written.version) == (False, own)
+    assert {state.unit.key: state.text for state in written.units}["0/title"] == "EN Oferta"
+
+
+def test_a_waiting_version_on_a_newer_source_finds_the_languages_words_where_they_moved():
+    """The waiting version follows the source it was written for. When that is
+    newer than the one the language's own version follows, a unit's present
+    text is found by its source words, not by a key that now names another
+    place; a place the source did not have before has nothing to compare."""
+    client, _organization, _site_id, _home, offer, _host = _published_site("decide-read-moved")
+    own = PageTranslation.all_objects.get(page_id=offer, locale="en").body_current
+    _draft(
+        client,
+        offer,
+        1,
+        [_hero("Nowość", "Zapowiedź"), _hero("Oferta", "Projekt od 120 zł")],
+        "offer-v2",
+    )
+    before = client.get(_url(offer)).json()
+    moved = _post(
+        client,
+        _url(offer, tail="rebase/"),
+        {"expected_body_version": before["body_version"]},
+        "rebase",
+    )
+    assert moved.status_code == 201, moved.data
+    row = PageTranslation.all_objects.get(page_id=offer, locale="en")
+    PageTranslation.all_objects.filter(pk=row.pk).update(
+        body_current=own, body_pending=row.body_current_id, pending_reason="review_mode"
+    )
+
+    waiting = client.get(_url(offer)).json()
+
+    assert waiting["source_version_id"] == str(moved.data["source_version_id"])
+    assert waiting["block_types"] == ["core.hero", "core.hero"]
+    assert {unit["key"]: (unit["current_text"], unit["text"]) for unit in waiting["units"]} == {
+        "0/title": (None, None),
+        "0/text": (None, None),
+        "1/title": ("EN Oferta", "EN Oferta"),
+        "1/text": ("EN Projekt od 120 zł", "EN Projekt od 120 zł"),
+    }
 
 
 def test_rejecting_drops_the_waiting_version_and_publishes_nothing():
