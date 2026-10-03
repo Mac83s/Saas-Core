@@ -4,6 +4,7 @@ import uuid
 from datetime import timedelta
 
 import pytest
+from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, IntegrityError, connection, transaction
@@ -38,6 +39,10 @@ ASSISTANT_FEATURE_KEYS = {
     "assistant.site_generation.enabled",
     "assistant.voice.enabled",
 }
+#: Published to every plan by `shared.assistant` 0004, where it is composed (A3).
+ASSISTANT_PUBLISHED = (
+    {"assistant.text.enabled"} if apps.is_installed("saas_core.modules.shared.assistant") else set()
+)
 FEATURE_KEYS = {
     "seo.audit.enabled",
     "seo.gsc.enabled",
@@ -145,16 +150,19 @@ def test_template_limits_walk_back_to_the_previous_versions_and_forward_again() 
     assert profile.current_version.quotas["sites.templates.max"] == 3
 
 
-def test_assistant_features_are_known_and_in_no_plan() -> None:
+def test_assistant_features_are_known_and_only_the_published_one_is_in_plans() -> None:
     """Known, so a decision answers feature_disabled and an operator override can
-    name them; in no plan version, current or past, so no customer has them and
-    the plan catalogue offers nothing new. No assistant quota: credits meter it."""
+    name them. The text chat is in every plan where `shared.assistant` is
+    composed (its migration 0004; answer 23 b); the others are in no plan
+    version, current or past. No assistant quota: credits meter it."""
     seeded = Feature.objects.filter(key__in=ASSISTANT_FEATURE_KEYS)
     assert {(feature.key, feature.module, feature.is_active) for feature in seeded} == {
         (key, "shared.assistant", True) for key in ASSISTANT_FEATURE_KEYS
     }
     granted = {key for version in PlanVersion.objects.all() for key in version.feature_keys}
-    assert not granted & ASSISTANT_FEATURE_KEYS
+    assert granted & ASSISTANT_FEATURE_KEYS == ASSISTANT_PUBLISHED
+    current = [plan.current_version.feature_keys for plan in Plan.objects.all()]
+    assert all(set(keys) >= ASSISTANT_PUBLISHED for keys in current)
     assert not QuotaDefinition.objects.filter(key__startswith="assistant.").exists()
 
 
@@ -164,6 +172,10 @@ def test_assistant_features_walk_back_and_forward_without_touching_plans() -> No
     `withdraw_feature`); walking forward switches them on again."""
     before = ("billing", "0025_site_templates_quota")
     after = ("billing", "0026_assistant_features")
+    if ASSISTANT_PUBLISHED:
+        # The assistant's own publication depends on 0026 and does move plans:
+        # taken back first, so what is walked here is billing 0026 alone.
+        MigrationExecutor(connection).migrate([("assistant", "0003_grant_role_permissions")])
     EntitlementGrant.all_objects.create(
         organization=organization(slug="assistant-pilot"),
         source=GrantSource.OVERRIDE,

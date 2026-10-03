@@ -20,6 +20,7 @@
     "shared.profiles",
     "shared.notifications",
     "shared.translation",
+    "shared.assistant",
     "shared.booking",
     "shared.seo",
     "shared.farms",
@@ -31,5 +32,8 @@
   "features": {
     "customDomains": true,
     "publicBooking": true
+  },
+  "ai": {
+    "sendableDataClasses": ["public", "public_personal", "personal"]
   }
 }

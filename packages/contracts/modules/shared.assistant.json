@@ -1,0 +1,49 @@
+{
+  "id": "shared.assistant",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": [
+    "core.identity",
+    "core.organizations",
+    "shared.billing",
+    "shared.model-port"
+  ],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.assistant",
+    "urlPrefix": "/api/v1/assistant",
+    "permissions": ["assistant.use"],
+    "roleGrants": {
+      "staff": ["assistant.use"],
+      "manager": ["assistant.use"],
+      "admin": ["assistant.use"],
+      "owner": ["assistant.use"]
+    },
+    "entitlements": [
+      "assistant.text.enabled",
+      "assistant.site_generation.enabled",
+      "assistant.voice.enabled"
+    ],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": [],
+    "beatSchedule": {
+      "assistant-heartbeat": {
+        "task": "saas_core.modules.shared.assistant.tasks.assistant_heartbeat",
+        "schedule": 60
+      },
+      "assistant-reconcile": {
+        "task": "saas_core.modules.shared.assistant.tasks.reconcile_assistant_turns",
+        "schedule": 60
+      },
+      "assistant-purge": {
+        "task": "saas_core.modules.shared.assistant.tasks.purge_assistant_conversations",
+        "schedule": 86400
+      }
+    }
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}

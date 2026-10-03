@@ -4,6 +4,342 @@ info:
   version: 1.0.0
   description: Wersjonowane API modularnej platformy SaaS Core.
 paths:
+  /api/v1/assistant/conversations/:
+    get:
+      operationId: assistant_conversation_list
+      description: The signed-in person's own conversations in this company, newest
+        first. Nobody else's are ever listed.
+      summary: The person's conversations with the assistant
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          default: 20
+        description: How many of the newest to return.
+      tags:
+      - assistant
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantConversationList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: assistant_conversation_create
+      description: Opens an empty conversation of the signed-in person. Refused with
+        503 `assistant_unavailable` while the chat is closed (see the offer), 403
+        `assistant_not_in_plan` without the plan feature and 429 above the limit of
+        new conversations per address. A repeated Idempotency-Key answers the first
+        result again.
+      summary: Start a conversation with the assistant
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantConversationStart'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssistantConversationStart'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssistantConversationStart'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantConversationSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/assistant/conversations/{conversation_id}/:
+    get:
+      operationId: assistant_conversation_retrieve
+      description: 'The conversation''s turns in order: the person''s message, what
+        the assistant wrote, each step it took with its status — only `done` means
+        it happened — and, for a turn in `awaiting_consent`, the consent groups to
+        show. Read it again until the last turn is `done`, `failed` or `awaiting_consent`.'
+      summary: A conversation with everything the assistant wrote and did
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - assistant
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantConversation'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/assistant/conversations/{conversation_id}/turns/:
+    post:
+      operationId: assistant_turn_create
+      description: 'Takes the person''s message and queues the assistant''s turn;
+        the answer arrives in the conversation. One turn at a time: 409 `assistant_turn_in_progress`
+        while the previous one runs or waits for consent. A turn holds the credits
+        of one message and spends them only when it is answered. A repeated Idempotency-Key
+        answers the first result again.'
+      summary: Send the assistant a message
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantTurnInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssistantTurnInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssistantTurnInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantTurnAccepted'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/assistant/conversations/{conversation_id}/turns/{turn_id}/consents/:
+    post:
+      operationId: assistant_turn_consent_create
+      description: Runs the groups of the plan the person agreed to — each with the
+        token its click minted — or, with `declined`, closes the plan with nothing
+        run. The assistant then reports from the steps' results. A group without a
+        token does not run; a stale or foreign token refuses its group. 409 `assistant_consent_not_awaited`
+        when the turn waits for nothing.
+      summary: Answer the plan a turn waits with
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: turn_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantConsentAnswer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssistantConsentAnswer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssistantConsentAnswer'
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantTurnAccepted'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'A plan runs once: its steps answer from their receipts on
+          a repeat, and a second answer to a turn that no longer waits is 409.'
+  /api/v1/assistant/offer/:
+    get:
+      operationId: assistant_offer_retrieve
+      description: 'Whether a message would be taken now and why not: the model port''s
+        state, a worker for the `ai` queue, the deployment''s daily ceiling and the
+        company''s plan; and what one answered message costs in credits.'
+      summary: Whether the assistant can be talked to now
+      tags:
+      - assistant
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantOffer'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/auth/csrf/:
     get:
       operationId: api_v1_auth_csrf_retrieve
@@ -20597,6 +20933,271 @@ components:
             $ref: '#/components/schemas/Appointment'
       required:
       - items
+    AssistantConsentAnswer:
+      type: object
+      properties:
+        consents:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 2000
+          description: Consent group id → the token its click minted. A group without
+            a token does not run.
+        declined:
+          type: boolean
+          default: false
+          description: 'True: the person declined the whole plan; nothing runs.'
+    AssistantConsentGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          description: What the consent token is handed back under.
+        digest:
+          type: string
+          description: Read the plan and mint the token at `/api/v1/organizations/current/command-consents/{digest}/`.
+        steps:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - digest
+      - id
+      - steps
+    AssistantConversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        language:
+          $ref: '#/components/schemas/LocaleEnum'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        turns:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantTurn'
+      required:
+      - created_at
+      - id
+      - language
+      - title
+      - turns
+      - updated_at
+    AssistantConversationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantConversationSummary'
+      required:
+      - items
+    AssistantConversationStart:
+      type: object
+      properties:
+        language:
+          allOf:
+          - $ref: '#/components/schemas/LocaleEnum'
+          description: |-
+            The panel's language: previews and refusals are shown in it. The assistant itself answers in the language the person writes in.
+
+            * `pl` - pl
+            * `en` - en
+      required:
+      - language
+    AssistantConversationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          description: The first message, shortened.
+        language:
+          $ref: '#/components/schemas/LocaleEnum'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - language
+      - title
+      - updated_at
+    AssistantOffer:
+      type: object
+      properties:
+        available:
+          type: boolean
+          description: 'Whether a message would be taken now. False: `reasons` say
+            why.'
+        reasons:
+          type: array
+          items:
+            type: string
+          description: 'Why the chat is closed: `model_not_selected` and the model
+            port''s other reasons, `worker_unavailable`, `daily_ceiling`, `feature_disabled`.'
+        in_plan:
+          type: boolean
+          description: Whether the company's plan has `assistant.text.enabled`.
+        credits_per_message:
+          type: integer
+          minimum: 0
+          description: Credits one answered message costs; 0 while it is not metered.
+        max_message_characters:
+          type: integer
+          minimum: 1
+      required:
+      - available
+      - credits_per_message
+      - in_plan
+      - max_message_characters
+      - reasons
+    AssistantTurn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/AssistantTurnStateEnum'
+        failure_code:
+          type: string
+          description: 'Why a failed turn failed: `conversation_budget`, `budget`,
+            `refused`, `unavailable`, `step_limit`, `authorization_revoked`, `timeout`.'
+        created_at:
+          type: string
+          format: date-time
+        text:
+          type: string
+          description: The person's message.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantTurnItem'
+        consents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantConsentGroup'
+          description: The clicks an `awaiting_consent` turn waits for; else empty.
+      required:
+      - consents
+      - created_at
+      - failure_code
+      - id
+      - items
+      - state
+      - text
+    AssistantTurnAccepted:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/AssistantTurnStateEnum'
+      required:
+      - id
+      - state
+    AssistantTurnInput:
+      type: object
+      properties:
+        text:
+          type: string
+          description: What the person wrote, at most 4000 characters.
+          maxLength: 4000
+      required:
+      - text
+    AssistantTurnItem:
+      type: object
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AssistantTurnItemKindEnum'
+          description: |-
+            `text`: what the assistant wrote. `action`: one step it took or proposed.
+
+            * `text` - text
+            * `action` - action
+        text:
+          type: string
+        step_id:
+          type: string
+          format: uuid
+        title:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          description: The step's command as a person reads it.
+        risk:
+          $ref: '#/components/schemas/RiskEnum'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AssistantTurnItemStatusEnum'
+          description: |-
+            `pending`: waits for the person's click. Only `done` means it happened.
+
+            * `pending` - pending
+            * `done` - done
+            * `refused` - refused
+            * `failed` - failed
+            * `skipped` - skipped
+            * `declined` - declined
+        code:
+          type: string
+          description: Why a step did not run, as a stable code.
+      required:
+      - kind
+    AssistantTurnItemKindEnum:
+      enum:
+      - text
+      - action
+      type: string
+      description: |-
+        * `text` - text
+        * `action` - action
+    AssistantTurnItemStatusEnum:
+      enum:
+      - pending
+      - done
+      - refused
+      - failed
+      - skipped
+      - declined
+      type: string
+      description: |-
+        * `pending` - pending
+        * `done` - done
+        * `refused` - refused
+        * `failed` - failed
+        * `skipped` - skipped
+        * `declined` - declined
+    AssistantTurnStateEnum:
+      enum:
+      - queued
+      - running
+      - awaiting_consent
+      - done
+      - failed
+      type: string
+      description: |-
+        * `queued` - Queued
+        * `running` - Running
+        * `awaiting_consent` - Awaiting consent
+        * `done` - Done
+        * `failed` - Failed
     AuditList:
       type: object
       properties:

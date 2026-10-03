@@ -52,6 +52,11 @@ DECLARED: dict[str, dict[str, tuple[int, str]]] = {
             1,
             "a task queued while acting runs acting (contract version 3, ADR-076 §6)",
         ),
+        "modules/shared/assistant/services.py::conversation_context": (
+            1,
+            "the person's own request acts through their conversation: it runs the plan "
+            "they just consented to and offers a waiting plan again (A3)",
+        ),
         "modules/shared/translation/automation.py::_automation_context": (
             1,
             "an automatic job is quoted and created as the person who consented to the "

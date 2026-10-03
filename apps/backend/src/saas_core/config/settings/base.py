@@ -905,6 +905,8 @@ SPECTACULAR_SETTINGS = {
         # A warehouse setting named `source` and a low-stock row's `location_kind`
         # must not rename the time-off source and the stock location's kind.
         "SourceEnum": "saas_core.modules.shared.booking.models.TimeOffSource",
+        # An assistant turn's state must not get a hashed name.
+        "AssistantTurnStateEnum": "saas_core.modules.shared.assistant.models.TurnState",
         "StockLocationKindEnum": "saas_core.modules.shared.inventory.models.LocationKind",
     },
 }

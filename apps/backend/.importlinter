@@ -58,3 +58,21 @@ forbidden_modules =
     saas_core.modules.shared.profiles
     saas_core.modules.shared.seo
     saas_core.modules.shared.sites
+
+[importlinter:contract:assistant-through-the-registry]
+name = Asystent sięga do modułów tylko przez rejestr poleceń (ADR-076 pkt 9, A3)
+type = forbidden
+source_modules =
+    saas_core.modules.shared.assistant
+forbidden_modules =
+    saas_core.modules.shared.booking
+    saas_core.modules.shared.farms
+    saas_core.modules.shared.image_generation
+    saas_core.modules.shared.inventory
+    saas_core.modules.shared.media
+    saas_core.modules.shared.notifications
+    saas_core.modules.shared.profiles
+    saas_core.modules.shared.seo
+    saas_core.modules.shared.sites
+    saas_core.modules.shared.translation
+    saas_core.modules.vertical

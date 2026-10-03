@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:7844498f55f8cba9ed161e6f3c598921c9633294647364a7ba3973cfc64b2eb4",
+  "profileHash": "sha256:e975ddfcea52f47e562b3ff82e7a35e46caf76a035c49176bfc36bb958e1878c",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -33,6 +33,7 @@
         "shared.image-generation",
         "shared.profiles",
         "shared.translation",
+        "shared.assistant",
         "shared.booking",
         "shared.seo",
         "shared.inventory"
@@ -464,6 +465,65 @@
           },
           "translation-review-digest": {
             "task": "saas_core.modules.shared.translation.tasks.notify_translation_reviews",
+            "schedule": 86400
+          }
+        }
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
+      }
+    },
+    {
+      "id": "shared.assistant",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.identity",
+        "core.organizations",
+        "shared.billing",
+        "shared.model-port"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.assistant",
+        "urlPrefix": "/api/v1/assistant",
+        "permissions": [
+          "assistant.use"
+        ],
+        "roleGrants": {
+          "staff": [
+            "assistant.use"
+          ],
+          "manager": [
+            "assistant.use"
+          ],
+          "admin": [
+            "assistant.use"
+          ],
+          "owner": [
+            "assistant.use"
+          ]
+        },
+        "entitlements": [
+          "assistant.text.enabled",
+          "assistant.site_generation.enabled",
+          "assistant.voice.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": [],
+        "beatSchedule": {
+          "assistant-heartbeat": {
+            "task": "saas_core.modules.shared.assistant.tasks.assistant_heartbeat",
+            "schedule": 60
+          },
+          "assistant-reconcile": {
+            "task": "saas_core.modules.shared.assistant.tasks.reconcile_assistant_turns",
+            "schedule": 60
+          },
+          "assistant-purge": {
+            "task": "saas_core.modules.shared.assistant.tasks.purge_assistant_conversations",
             "schedule": 86400
           }
         }

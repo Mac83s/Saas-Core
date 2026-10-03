@@ -4,6 +4,110 @@
  */
 
 export interface paths {
+    "/api/v1/assistant/conversations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The person's conversations with the assistant
+         * @description The signed-in person's own conversations in this company, newest first. Nobody else's are ever listed.
+         */
+        get: operations["assistant_conversation_list"];
+        put?: never;
+        /**
+         * Start a conversation with the assistant
+         * @description Opens an empty conversation of the signed-in person. Refused with 503 `assistant_unavailable` while the chat is closed (see the offer), 403 `assistant_not_in_plan` without the plan feature and 429 above the limit of new conversations per address. A repeated Idempotency-Key answers the first result again.
+         */
+        post: operations["assistant_conversation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversation_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A conversation with everything the assistant wrote and did
+         * @description The conversation's turns in order: the person's message, what the assistant wrote, each step it took with its status — only `done` means it happened — and, for a turn in `awaiting_consent`, the consent groups to show. Read it again until the last turn is `done`, `failed` or `awaiting_consent`.
+         */
+        get: operations["assistant_conversation_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversation_id}/turns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the assistant a message
+         * @description Takes the person's message and queues the assistant's turn; the answer arrives in the conversation. One turn at a time: 409 `assistant_turn_in_progress` while the previous one runs or waits for consent. A turn holds the credits of one message and spends them only when it is answered. A repeated Idempotency-Key answers the first result again.
+         */
+        post: operations["assistant_turn_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversation_id}/turns/{turn_id}/consents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the plan a turn waits with
+         * @description Runs the groups of the plan the person agreed to — each with the token its click minted — or, with `declined`, closes the plan with nothing run. The assistant then reports from the steps' results. A group without a token does not run; a stale or foreign token refuses its group. 409 `assistant_consent_not_awaited` when the turn waits for nothing.
+         */
+        post: operations["assistant_turn_consent_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/offer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the assistant can be talked to now
+         * @description Whether a message would be taken now and why not: the model port's state, a worker for the `ai` queue, the deployment's daily ceiling and the company's plan; and what one answered message costs in credits.
+         */
+        get: operations["assistant_offer_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf/": {
         parameters: {
             query?: never;
@@ -6819,6 +6923,145 @@ export interface components {
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
         };
+        AssistantConsentAnswer: {
+            /** @description Consent group id → the token its click minted. A group without a token does not run. */
+            consents?: {
+                [key: string]: string;
+            };
+            /**
+             * @description True: the person declined the whole plan; nothing runs.
+             * @default false
+             */
+            declined: boolean;
+        };
+        AssistantConsentGroup: {
+            /** @description What the consent token is handed back under. */
+            id: string;
+            /** @description Read the plan and mint the token at `/api/v1/organizations/current/command-consents/{digest}/`. */
+            digest: string;
+            steps: string[];
+        };
+        AssistantConversation: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            language: components["schemas"]["LocaleEnum"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            turns: components["schemas"]["AssistantTurn"][];
+        };
+        AssistantConversationList: {
+            items: components["schemas"]["AssistantConversationSummary"][];
+        };
+        AssistantConversationStart: {
+            /**
+             * @description The panel's language: previews and refusals are shown in it. The assistant itself answers in the language the person writes in.
+             *
+             *     * `pl` - pl
+             *     * `en` - en
+             */
+            language: components["schemas"]["LocaleEnum"];
+        };
+        AssistantConversationSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @description The first message, shortened. */
+            title: string;
+            language: components["schemas"]["LocaleEnum"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AssistantOffer: {
+            /** @description Whether a message would be taken now. False: `reasons` say why. */
+            available: boolean;
+            /** @description Why the chat is closed: `model_not_selected` and the model port's other reasons, `worker_unavailable`, `daily_ceiling`, `feature_disabled`. */
+            reasons: string[];
+            /** @description Whether the company's plan has `assistant.text.enabled`. */
+            in_plan: boolean;
+            /** @description Credits one answered message costs; 0 while it is not metered. */
+            credits_per_message: number;
+            max_message_characters: number;
+        };
+        AssistantTurn: {
+            /** Format: uuid */
+            id: string;
+            state: components["schemas"]["AssistantTurnStateEnum"];
+            /** @description Why a failed turn failed: `conversation_budget`, `budget`, `refused`, `unavailable`, `step_limit`, `authorization_revoked`, `timeout`. */
+            failure_code: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The person's message. */
+            text: string;
+            items: components["schemas"]["AssistantTurnItem"][];
+            /** @description The clicks an `awaiting_consent` turn waits for; else empty. */
+            consents: components["schemas"]["AssistantConsentGroup"][];
+        };
+        AssistantTurnAccepted: {
+            /** Format: uuid */
+            id: string;
+            state: components["schemas"]["AssistantTurnStateEnum"];
+        };
+        AssistantTurnInput: {
+            /** @description What the person wrote, at most 4000 characters. */
+            text: string;
+        };
+        AssistantTurnItem: {
+            /**
+             * @description `text`: what the assistant wrote. `action`: one step it took or proposed.
+             *
+             *     * `text` - text
+             *     * `action` - action
+             */
+            kind: components["schemas"]["AssistantTurnItemKindEnum"];
+            text?: string;
+            /** Format: uuid */
+            step_id?: string;
+            /** @description The step's command as a person reads it. */
+            title?: components["schemas"]["LocalizedText"];
+            risk?: components["schemas"]["RiskEnum"];
+            /**
+             * @description `pending`: waits for the person's click. Only `done` means it happened.
+             *
+             *     * `pending` - pending
+             *     * `done` - done
+             *     * `refused` - refused
+             *     * `failed` - failed
+             *     * `skipped` - skipped
+             *     * `declined` - declined
+             */
+            status?: components["schemas"]["AssistantTurnItemStatusEnum"];
+            /** @description Why a step did not run, as a stable code. */
+            code?: string;
+        };
+        /**
+         * @description * `text` - text
+         *     * `action` - action
+         * @enum {string}
+         */
+        AssistantTurnItemKindEnum: "text" | "action";
+        /**
+         * @description * `pending` - pending
+         *     * `done` - done
+         *     * `refused` - refused
+         *     * `failed` - failed
+         *     * `skipped` - skipped
+         *     * `declined` - declined
+         * @enum {string}
+         */
+        AssistantTurnItemStatusEnum: "pending" | "done" | "refused" | "failed" | "skipped" | "declined";
+        /**
+         * @description * `queued` - Queued
+         *     * `running` - Running
+         *     * `awaiting_consent` - Awaiting consent
+         *     * `done` - Done
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        AssistantTurnStateEnum: "queued" | "running" | "awaiting_consent" | "done" | "failed";
         AuditList: {
             items: components["schemas"]["AuditOrderSummary"][];
             /** Format: uuid */
@@ -13865,6 +14108,336 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    assistant_conversation_list: {
+        parameters: {
+            query?: {
+                /** @description How many of the newest to return. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantConversationList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_conversation_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantConversationStart"];
+                "application/x-www-form-urlencoded": components["schemas"]["AssistantConversationStart"];
+                "multipart/form-data": components["schemas"]["AssistantConversationStart"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantConversationSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_conversation_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantConversation"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_turn_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantTurnInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["AssistantTurnInput"];
+                "multipart/form-data": components["schemas"]["AssistantTurnInput"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantTurnAccepted"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_turn_consent_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AssistantConsentAnswer"];
+                "application/x-www-form-urlencoded": components["schemas"]["AssistantConsentAnswer"];
+                "multipart/form-data": components["schemas"]["AssistantConsentAnswer"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantTurnAccepted"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    assistant_offer_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantOffer"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_auth_csrf_retrieve: {
         parameters: {
             query?: never;
