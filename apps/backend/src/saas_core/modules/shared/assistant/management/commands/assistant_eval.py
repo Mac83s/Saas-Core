@@ -7,6 +7,10 @@ scenariusza, zapis jego wynikiem — więc ocena jest deterministyczna. Raport
 JSON trafia do `docs/evals/assistant/`; model wybiera właściciel na liczbach.
 
     python manage.py assistant_eval --model anthropic/claude-sonnet-5.5 --max-usd 1.2
+
+`--kind setup` puszcza scenariusze rozmowy zakładającej firmę (A3-2): ten sam
+prompt i te same trzy narzędzia co w rozmowie, profil w pamięci i syntetyczne
+konto; raport ma w nazwie `-setup`.
 """
 
 from __future__ import annotations
@@ -18,8 +22,7 @@ from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from ...evals.runner import run_eval
-from ...evals.scenarios import SCENARIOS
+from ...evals.runner import run_eval, scenario_keys
 
 
 class Command(BaseCommand):
@@ -31,21 +34,26 @@ class Command(BaseCommand):
         parser.add_argument(
             "--scenarios", default="", help="Klucze po przecinku; puste: wszystkie."
         )
+        parser.add_argument("--kind", choices=("operate", "setup"), default="operate")
         parser.add_argument("--out", default="docs/evals/assistant")
 
     def handle(self, *_args: Any, **options: Any) -> None:
         keys = [key.strip() for key in options["scenarios"].split(",") if key.strip()]
-        unknown = sorted(set(keys) - {scenario.key for scenario in SCENARIOS})
+        kind = options["kind"]
+        unknown = sorted(set(keys) - set(scenario_keys(kind)))
         if unknown:
             raise CommandError(f"Nieznane scenariusze: {', '.join(unknown)}.")
         if options["max_usd"] <= 0:
             raise CommandError("--max-usd musi być dodatni.")
-        report = run_eval(model=options["model"], max_usd=options["max_usd"], keys=keys or None)
+        report = run_eval(
+            model=options["model"], max_usd=options["max_usd"], keys=keys or None, kind=kind
+        )
         report["at"] = datetime.now(UTC).isoformat()
         directory = Path(options["out"])
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / (
             options["model"].replace("/", "_")
+            + ("-setup" if kind == "setup" else "")
             + "-"
             + datetime.now(UTC).strftime("%Y%m%d")
             + ".json"

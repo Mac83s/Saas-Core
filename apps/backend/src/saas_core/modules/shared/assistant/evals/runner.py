@@ -159,27 +159,52 @@ def assistant_tools() -> tuple[ToolSpec, ...]:
     )
 
 
-def run_eval(*, model: str, max_usd: float, keys: Sequence[str] | None = None) -> dict[str, Any]:
-    tools = assistant_tools()
+def scenario_keys(kind: str) -> list[str]:
+    return [scenario.key for scenario in _suite(kind)[0]]
+
+
+def _suite(kind: str) -> tuple[Sequence[Any], Any, tuple[ToolSpec, ...], str]:
+    """A kind of conversation's scenarios, how one is run, the tools its model
+    gets and its prompt."""
+    if kind == "setup":
+        # Here, not at the top: the setup runner shares this module's grading.
+        from ..prompts import SETUP_PROMPT_ID, SETUP_PROMPT_VERSION  # noqa: PLC0415
+        from .setup_runner import run_setup_scenario, setup_tools  # noqa: PLC0415
+        from .setup_scenarios import SETUP_SCENARIOS  # noqa: PLC0415
+
+        return (
+            SETUP_SCENARIOS,
+            run_setup_scenario,
+            setup_tools(),
+            f"{SETUP_PROMPT_ID}@{SETUP_PROMPT_VERSION}",
+        )
+    return SCENARIOS, run_scenario, assistant_tools(), f"{PROMPT_ID}@{PROMPT_VERSION}"
+
+
+def run_eval(
+    *, model: str, max_usd: float, keys: Sequence[str] | None = None, kind: str = "operate"
+) -> dict[str, Any]:
+    scenarios, run, tools, prompt = _suite(kind)
     budget = int(max_usd * 1_000_000)
     spent = 0
     results: list[ScenarioResult] = []
-    for scenario in SCENARIOS:
+    for scenario in scenarios:
         if keys and scenario.key not in keys:
             continue
         if spent >= budget:
             break
-        result = run_scenario(scenario, model=model, tools=tools)
+        result = run(scenario, model=model, tools=tools)
         spent += result.cost_usd_micros
         results.append(result)
     latencies = sorted(ms for result in results for ms in result.latencies_ms)
     return {
         "model": model,
-        "prompt": f"{PROMPT_ID}@{PROMPT_VERSION}",
+        "kind": kind,
+        "prompt": prompt,
         "tools": len(tools),
         "scenarios": len(results),
         "passed": sum(result.passed for result in results),
-        "skipped_for_budget": len([s for s in SCENARIOS if not keys or s.key in keys])
+        "skipped_for_budget": len([s for s in scenarios if not keys or s.key in keys])
         - len(results),
         "cost_usd": round(spent / 1_000_000, 4),
         "cost_per_message_usd": round(spent / 1_000_000 / max(len(results), 1), 4),

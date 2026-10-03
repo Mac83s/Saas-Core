@@ -164,19 +164,38 @@ def note(arguments: Mapping[str, Any], *, owner_words: str, key: str) -> dict[st
 
     def rewrite(document: dict[str, Any]) -> dict[str, Any]:
         proposals.clear()
-        changed = copy.deepcopy(document)
-        for index, entry in enumerate(notes):
-            if _write(changed, entry, owner_words, index):
-                proposals.append(entry["field"])
+        changed, kept = with_notes(document, notes, owner_words)
+        proposals.extend(kept)
         return changed
 
     state = rewrite_profile(rewrite=rewrite, request={"notes": notes}, idempotency_key=key)
+    return noted(notes, proposals, state.version)
+
+
+def with_notes(
+    document: Mapping[str, Any], notes: Sequence[Mapping[str, Any]], owner_words: str
+) -> tuple[dict[str, Any], list[str]]:
+    """The document with the notes written in, and the fields kept as the
+    assistant's proposal although the model named the owner as their source."""
+    changed = copy.deepcopy(dict(document))
+    proposals = [
+        entry["field"]
+        for index, entry in enumerate(notes)
+        if _write(changed, entry, owner_words, index)
+    ]
+    return changed, proposals
+
+
+def noted(
+    notes: Sequence[Mapping[str, Any]], proposals: Sequence[str], version: int
+) -> dict[str, Any]:
+    """What the model is told about its notes."""
     return {
         "noted": [entry["field"] for entry in notes],
         # Kept as the assistant's proposal: ask the person, or let them confirm
         # it in the profile beside the conversation.
-        "to_confirm": proposals,
-        "profile_version": state.version,
+        "to_confirm": list(proposals),
+        "profile_version": version,
     }
 
 
@@ -205,7 +224,7 @@ def _write(document: dict[str, Any], entry: Mapping[str, Any], owner_words: str,
         return False
     assert node is not None
     by_owner = entry["source"] == "owner"
-    typed = not _TYPED.fullmatch(field) or _typed(field, value, owner_words)
+    typed = not _TYPED.fullmatch(field) or owner_typed(field, value, owner_words)
     confirmed = by_owner and typed
     node[leaf] = {
         "value": value,
@@ -261,7 +280,7 @@ def _tidy(document: dict[str, Any]) -> None:
             del offer["inputs"]
 
 
-def _typed(field: str, value: Any, owner_words: str) -> bool:
+def owner_typed(field: str, value: Any, owner_words: str) -> bool:
     """Whether the owner wrote this value themselves, spacing, case and
     punctuation aside — a model that changes one digit does not pass."""
     if not isinstance(value, str):
@@ -282,6 +301,13 @@ def status(context: TenantContext, *, language: str, keep: bool = True) -> dict[
     """Where the setup stands, in what the model needs to ask the next thing.
     `keep=False` leaves the profile as it is (a read by the panel)."""
     profile, answer = _answer(context, keep=keep)
+    return described(profile.document, answer, language)
+
+
+def described(
+    document: Mapping[str, Any], answer: Mapping[str, list[dict[str, Any]]], language: str
+) -> dict[str, Any]:
+    """The configurator's answer as the model is shown it."""
     questions = answer["missing"]
     return {
         "questions": [_question(entry, language) for entry in questions[:MAX_QUESTIONS]],
@@ -299,7 +325,7 @@ def status(context: TenantContext, *, language: str, keep: bool = True) -> dict[
             {"field": field, "confirmed": node["confirmed"]}
             if _WITHHELD.fullmatch(field)
             else {"field": field, "value": node["value"], "confirmed": node["confirmed"]}
-            for field, node in said_values(profile.document)
+            for field, node in said_values(document)
         ],
     }
 

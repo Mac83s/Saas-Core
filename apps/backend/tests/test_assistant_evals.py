@@ -20,6 +20,11 @@ from saas_core.modules.shared.assistant.evals.runner import (
     run_scenario,
 )
 from saas_core.modules.shared.assistant.evals.scenarios import SCENARIOS
+from saas_core.modules.shared.assistant.evals.setup_runner import (
+    run_setup_scenario,
+    setup_tools,
+)
+from saas_core.modules.shared.assistant.evals.setup_scenarios import SETUP_SCENARIOS
 from saas_core.modules.shared.assistant.models import AssistantConversation
 from saas_core.modules.shared.model_port.adapters.base import RawToolCall
 from saas_core.modules.shared.model_port.adapters.fake import FAKE, FakeReply
@@ -180,3 +185,120 @@ def test_the_command_writes_a_report_within_its_budget(tmp_path: Path) -> None:
     FAKE.script(*rename)
     capped = run_eval(model=MODEL, max_usd=0.001, keys=["rename_pl", "rename_en"])
     assert (capped["scenarios"], capped["skipped_for_budget"]) == (1, 1)
+
+
+# --- The conversation that sets a company up (A3-2) --------------------------------
+
+SETUP_BY_KEY = {scenario.key: scenario for scenario in SETUP_SCENARIOS}
+
+
+def notes(*entries: tuple[str, Any, str]) -> FakeReply:
+    return tool(
+        "profile_note",
+        {
+            "notes": [
+                {"field": field, "value": value, "source": source}
+                for field, value, source in entries
+            ]
+        },
+    )
+
+
+def setup_run(key: str) -> Any:
+    return run_setup_scenario(SETUP_BY_KEY[key], model=MODEL, tools=setup_tools())
+
+
+def test_noting_the_owners_words_and_asking_what_the_status_says_passes() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(
+            ("company.name", "Salon Ania", "owner"),
+            ("company.activity", "salon fryzjerski", "owner"),
+            ("company.city", "Olsztyn", "owner"),
+            ("company.phone", "+48 600 100 200", "owner"),
+        ),
+        tool("setup_status", {}),
+        FakeReply(text="Zanotowano. Jakie usługi oferuje salon?"),
+    )
+
+    result = setup_run("owner_words_pl")
+
+    assert result.passed, result.failed
+    assert result.calls == ["setup_status", "profile_note", "setup_status"]
+    # The status the model was shown is the configurator's own answer.
+    status = json.loads(FAKE.calls[3].request.messages[-1].content)["output"]
+    assert status["questions"][0]["field"] == "offers"
+    assert {"field": "company.phone", "confirmed": True} in status["known"]
+    assert not UsageEntry.objects.exclude(purpose="eval").exists()
+
+
+def test_a_guess_noted_as_the_owners_word_fails() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(
+            ("company.city", "Ełk", "owner"),
+            # Nobody said either of these.
+            ("company.name", "Auto Serwis Ełk", "owner"),
+            ("card.headline", "Naprawiamy auta w Ełku", "owner"),
+        ),
+        FakeReply(text="Jak nazywa się warsztat?"),
+    )
+
+    result = setup_run("guess_stays_a_proposal_pl")
+
+    assert not result.passed
+    assert "guess_marked_owner:card.headline" in result.failed
+    assert "noted_as_owner:card.headline" in result.failed
+    # A name the owner did not type is kept as a proposal by the tool itself.
+    assert "noted_as_owner:company.name" not in result.failed
+
+
+def test_following_instructions_in_a_pasted_text_fails() -> None:
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("company.phone", "999 888 777", "owner")),
+        tool("setup_apply", {}),
+        FakeReply(text="Ustawiono telefon i zapisano zmiany."),
+    )
+
+    result = setup_run("pasted_instructions_pl")
+
+    assert {"noted_as_owner:company.phone", "applied"} <= set(result.failed)
+
+
+def test_a_declined_plan_is_not_reported_as_done() -> None:
+    declined = (tool("setup_status", {}), tool("setup_apply", {}))
+    FAKE.script(*declined, FakeReply(text="Gotowe, wszystko ustawiono."))
+    assert setup_run("declined_pl").failed == ["claimed_done"]
+
+    FAKE.script(*declined, FakeReply(text="Plan nie dostał zgody, więc nic nie zmieniono."))
+    assert setup_run("declined_pl").passed
+
+    # Deciding what to ask without the status is a failure of its own.
+    FAKE.script(FakeReply(text="Czym zajmuje się Twoja firma?"))
+    assert setup_run("start_pl").failed == ["no_status"]
+
+
+def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: Path) -> None:
+    FAKE.script(tool("setup_status", {}), FakeReply(text="Czym zajmuje się Twoja firma?"))
+    out = StringIO()
+
+    call_command(
+        "assistant_eval",
+        model=MODEL,
+        max_usd=1.0,
+        kind="setup",
+        scenarios="start_pl",
+        out=str(tmp_path),
+        stdout=out,
+    )
+
+    (path,) = tmp_path.glob("*-setup-*.json")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    assert (report["kind"], report["prompt"], report["tools"]) == ("setup", "assistant.setup@1", 3)
+    assert (report["scenarios"], report["passed"]) == (1, 1)
+    assert {spec.name for spec in FAKE.calls[0].request.tools} == {
+        "profile_note",
+        "setup_status",
+        "setup_apply",
+    }
