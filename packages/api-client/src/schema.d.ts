@@ -10832,6 +10832,14 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
+        SettingArea: {
+            /** @description The area, e.g. security; a group's `area` names it. */
+            key: string;
+            title: components["schemas"]["LocalizedText"];
+            description: components["schemas"]["LocalizedText"];
+            /** @description The module's own panel page; null: the generic /panel/settings/<key>. */
+            page: string | null;
+        };
         SettingEffect: {
             kind: string;
             resource: string;
@@ -10941,6 +10949,8 @@ export interface components {
             api: string | null;
         };
         SettingsSchema: {
+            /** @description The places of „Ustawienia” that hold a group, in menu order. */
+            areas: components["schemas"]["SettingArea"][];
             groups: components["schemas"]["SettingsGroupSchema"][];
         };
         Setup: {

@@ -30040,6 +30040,26 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SettingArea:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The area, e.g. security; a group's `area` names it.
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        page:
+          type:
+          - string
+          - 'null'
+          description: 'The module''s own panel page; null: the generic /panel/settings/<key>.'
+      required:
+      - description
+      - key
+      - page
+      - title
     SettingEffect:
       type: object
       properties:
@@ -30283,11 +30303,17 @@ components:
     SettingsSchema:
       type: object
       properties:
+        areas:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingArea'
+          description: The places of „Ustawienia” that hold a group, in menu order.
         groups:
           type: array
           items:
             $ref: '#/components/schemas/SettingsGroupSchema'
       required:
+      - areas
       - groups
     Setup:
       type: object
