@@ -218,6 +218,15 @@ class AssistantSetupUnsupportedSerializer(serializers.Serializer[Any]):
     detail = serializers.CharField(allow_blank=True)
 
 
+class AssistantSetupLabelsSerializer(serializers.Serializer[Any]):
+    categories = serializers.DictField(
+        child=LocalizedTextSerializer(), help_text="The directory's categories, by key."
+    )
+    presets = serializers.DictField(
+        child=LocalizedTextSerializer(), help_text="The kinds of booking, by preset id."
+    )
+
+
 class AssistantSetupSerializer(serializers.Serializer[Any]):
     version = serializers.IntegerField(
         min_value=0, help_text="The profile's saved version; a change names it."
@@ -225,6 +234,9 @@ class AssistantSetupSerializer(serializers.Serializer[Any]):
     document = serializers.DictField(
         help_text="The profile with what the account already has (places, people) added as "
         "facts of origin `account`. Those are saved with the next change."
+    )
+    labels = AssistantSetupLabelsSerializer(
+        help_text="Words for the keys a profile stores: a category, a kind of booking."
     )
     questions = AssistantSetupQuestionSerializer(many=True)
     ready = AssistantSetupStepSerializer(

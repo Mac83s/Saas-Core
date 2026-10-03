@@ -32,7 +32,7 @@ from saas_core.modules.core.organizations.api import (
 )
 from saas_core.modules.core.organizations.context import TenantContext
 
-from .configurator import READS, SETUP, configure, fold, said_values
+from .configurator import CARD_OPTIONS, PRESETS, READS, SETUP, configure, fold, said_values
 from .profile import ProfileState, read_profile, rewrite_profile
 
 PROFILE_NOTE = "profile_note"
@@ -307,7 +307,7 @@ def owner_typed(field: str, value: Any, owner_words: str) -> bool:
 def status(context: TenantContext, *, language: str, keep: bool = True) -> dict[str, Any]:
     """Where the setup stands, in what the model needs to ask the next thing.
     `keep=False` leaves the profile as it is (a read by the panel)."""
-    profile, answer = _answer(context, keep=keep)
+    profile, answer, _reads = _answer(context, keep=keep)
     return described(profile.document, answer, language)
 
 
@@ -341,10 +341,23 @@ def overview(context: TenantContext) -> dict[str, Any]:
     """The same for the panel, which shows the profile beside the conversation:
     every value with its origin, and the four lists in both languages. A read:
     the profile is left as it is."""
-    profile, answer = _answer(context, keep=False)
+    profile, answer, reads = _answer(context, keep=False)
     return {
         "version": profile.version,
         "document": profile.document,
+        # A stored category or kind of booking is a key; the panel shows words.
+        "labels": {
+            "categories": {
+                entry["key"]: entry["label"]
+                for entry in reads.get(CARD_OPTIONS, {}).get("categories", [])
+            },
+            "presets": {
+                preset["id"]: {
+                    language: words["name"] for language, words in preset["labels"].items()
+                }
+                for preset in reads.get(PRESETS, {}).get("presets", [])
+            },
+        },
         "questions": [
             {
                 "field": entry["key"],
@@ -376,7 +389,7 @@ def overview(context: TenantContext) -> dict[str, Any]:
 
 def planned(context: TenantContext) -> list[dict[str, Any]]:
     """The steps ready to run now, each with the step id the server gives it."""
-    _profile, answer = _answer(context, keep=True)
+    _profile, answer, _reads = _answer(context, keep=True)
     return [
         {
             "ref": step["ref"],
@@ -397,7 +410,7 @@ def invocations(steps: Sequence[Mapping[str, Any]]) -> list[Invocation]:
 
 def _answer(
     context: TenantContext, *, keep: bool
-) -> tuple[ProfileState, dict[str, list[dict[str, Any]]]]:
+) -> tuple[ProfileState, dict[str, list[dict[str, Any]]], dict[str, Mapping[str, Any]]]:
     """The configurator's answer for the profile and the account as they are
     now — the account read through the registry, as the person. What the
     account already has joins the profile first, and stays there with `keep`:
@@ -423,7 +436,7 @@ def _answer(
             )
         else:
             profile = ProfileState(profile.version, seeded, profile.updated_at)
-    return profile, configure(profile.document, reads, allowed)
+    return profile, configure(profile.document, reads, allowed), reads
 
 
 def _seeded(document: dict[str, Any], reads: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:

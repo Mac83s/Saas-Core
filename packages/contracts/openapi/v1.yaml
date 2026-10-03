@@ -21822,6 +21822,11 @@ components:
           additionalProperties: {}
           description: The profile with what the account already has (places, people)
             added as facts of origin `account`. Those are saved with the next change.
+        labels:
+          allOf:
+          - $ref: '#/components/schemas/AssistantSetupLabels'
+          description: 'Words for the keys a profile stores: a category, a kind of
+            booking.'
         questions:
           type: array
           items:
@@ -21841,11 +21846,28 @@ components:
             $ref: '#/components/schemas/AssistantSetupUnsupported'
       required:
       - document
+      - labels
       - questions
       - ready
       - unsupported
       - version
       - waiting
+    AssistantSetupLabels:
+      type: object
+      properties:
+        categories:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/LocalizedText'
+          description: The directory's categories, by key.
+        presets:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/LocalizedText'
+          description: The kinds of booking, by preset id.
+      required:
+      - categories
+      - presets
     AssistantSetupOffer:
       type: object
       properties:

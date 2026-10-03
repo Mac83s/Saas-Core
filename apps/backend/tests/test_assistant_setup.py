@@ -385,6 +385,7 @@ def test_the_panel_reads_where_the_setup_stands_and_saves_nothing(talk: Any) -> 
         {"key": "place_1", "name": said("Gabinet", "account")}
     ]
     assert "places" not in document(client)
+    assert overview.data["labels"]["categories"]["uroda-i-zdrowie"]["pl"] == "Uroda i zdrowie"
     assert [question["field"] for question in overview.data["questions"]][0] == "company.activity"
     assert [
         (step["ref"], step["title"]["pl"], step["risk"]) for step in overview.data["ready"]

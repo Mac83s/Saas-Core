@@ -7273,11 +7273,23 @@ export interface components {
             document: {
                 [key: string]: unknown;
             };
+            /** @description Words for the keys a profile stores: a category, a kind of booking. */
+            labels: components["schemas"]["AssistantSetupLabels"];
             questions: components["schemas"]["AssistantSetupQuestion"][];
             /** @description Steps the assistant can offer now, each needing the click. */
             ready: components["schemas"]["AssistantSetupStep"][];
             waiting: components["schemas"]["AssistantSetupWaiting"][];
             unsupported: components["schemas"]["AssistantSetupUnsupported"][];
+        };
+        AssistantSetupLabels: {
+            /** @description The directory's categories, by key. */
+            categories: {
+                [key: string]: components["schemas"]["LocalizedText"];
+            };
+            /** @description The kinds of booking, by preset id. */
+            presets: {
+                [key: string]: components["schemas"]["LocalizedText"];
+            };
         };
         AssistantSetupOffer: {
             /** @description Whether this person may set the company up: they manage its settings. */
