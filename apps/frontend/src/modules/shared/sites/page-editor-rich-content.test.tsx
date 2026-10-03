@@ -367,7 +367,7 @@ test("inserting the same chapters layout twice keeps heading anchors unique on t
         name: polishMessages.Sites.sectionLibrary.category,
       }),
     ).getByRole("button", {
-      name: polishMessages.Sites.sectionLibrary.chip.rich_text,
+      name: polishMessages.Sites.richTextBlock,
     }),
   );
   const add = within(rail).getByRole("button", {

@@ -36,7 +36,12 @@ import {
 } from "@saas-core/api-client";
 import { product } from "../../../product";
 import { sectionPreview } from "./template-media-preview";
-import { registry, editableBlocks, type BlockFormValues } from "./block-form";
+import {
+  registry,
+  editableBlocks,
+  useSectionTypeName,
+  type BlockFormValues,
+} from "./block-form";
 import { OwnSectionTemplates } from "./own-templates";
 
 /** Library order and category filter: the families interleave in this order. */
@@ -131,6 +136,7 @@ export function SectionLibraryContent({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
+  const typeName = useSectionTypeName();
   const common = useTranslations("Common");
   const id = useId();
   const locale = useLocale() === "en" ? "en" : "pl";
@@ -189,16 +195,9 @@ export function SectionLibraryContent({
   const categories = useMemo(
     () =>
       [
-        {
-          value: "",
-          label: t("allShort"),
-          title: t("allCategories"),
-          count: matching.length,
-        },
+        { value: "", count: matching.length },
         ...BLOCK_TYPES.map((name) => ({
           value: `core.${name}`,
-          label: t(`chip.${name}`),
-          title: t(name),
           count: matching.filter((item) => item.blockType === `core.${name}`)
             .length,
         })),
@@ -209,7 +208,7 @@ export function SectionLibraryContent({
           category.value === "" ||
           category.value === blockType,
       ),
-    [matching, blockType, t],
+    [matching, blockType],
   );
   const ordered = useMemo(() => {
     const groups = BLOCK_TYPES.map((type) =>
@@ -362,14 +361,16 @@ export function SectionLibraryContent({
               key={category.value || "all"}
               type="button"
               aria-pressed={blockType === category.value}
-              title={category.title}
+              title={category.value ? undefined : t("allCategories")}
               onClick={() => {
                 setBlockType(category.value);
                 setLimit(12);
                 setSelected(null);
               }}
             >
-              {category.label}
+              {/* A kind of section has one name: the outline's and the
+                  inspector's (`useSectionTypeName`). */}
+              {category.value ? typeName(category.value) : t("allShort")}
               <span aria-hidden="true">{category.count}</span>
             </button>
           ))}

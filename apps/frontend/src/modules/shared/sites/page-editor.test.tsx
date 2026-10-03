@@ -335,7 +335,7 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
 
   // The catalogue drives the picker, so a block added to the manifest is
   // offered here without the editor knowing its name.
-  const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
+  const picker = await screen.findByRole("combobox", { name: "Rodzaj sekcji" });
   picker.focus();
   fireEvent.change(picker, { target: { value: "Pytania" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
@@ -368,7 +368,7 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
 test("przestawia pozycje listy strzałkami i zapisuje nową kolejność", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
 
-  const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
+  const picker = await screen.findByRole("combobox", { name: "Rodzaj sekcji" });
   picker.focus();
   fireEvent.change(picker, { target: { value: "Pytania" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
@@ -527,7 +527,7 @@ test("a ready page's details list its sections and the way back returns to its t
 test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
 
-  const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
+  const picker = await screen.findByRole("combobox", { name: "Rodzaj sekcji" });
   picker.focus();
   fireEvent.change(picker, { target: { value: "Pytania" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
@@ -692,7 +692,7 @@ test("the page settings show what a search engine reads, again after a save", as
   fireEvent.change(screen.getByLabelText("Tytuł strony"), {
     target: { value: "Nowy tytuł" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Zapisz metadane" }));
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz adres i opis" }));
   await waitFor(() => expect(savePageTranslation).toHaveBeenCalledOnce());
   // The saved metadata is what the preview reads next.
   await waitFor(() =>
@@ -718,7 +718,7 @@ test("konflikt metadanych zachowuje lokalną wartość", async () => {
   fireEvent.change(screen.getByLabelText("Tytuł strony"), {
     target: { value: "Moja lokalna metadata" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Zapisz metadane" }));
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz adres i opis" }));
 
   expect(
     await screen.findByText(/Ktoś zapisał w międzyczasie nowsze dane/),
@@ -727,7 +727,7 @@ test("konflikt metadanych zachowuje lokalną wartość", async () => {
     (screen.getByLabelText("Tytuł strony") as HTMLInputElement).value,
   ).toBe("Moja lokalna metadata");
   expect(
-    screen.getByRole("button", { name: "Zapisz metadane" }),
+    screen.getByRole("button", { name: "Zapisz adres i opis" }),
   ).toBeDisabled();
 });
 
@@ -1143,7 +1143,7 @@ test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", asy
   fireEvent.click(screen.getByRole("button", { name: "Section library" }));
   // Editorial, quote and product families now share the first dozen cards.
   fireEvent.click(
-    await screen.findByRole("button", { name: /^Show more layouts/ }),
+    await screen.findByRole("button", { name: /^Show more templates/ }),
   );
   fireEvent.click(
     await screen.findByRole("button", { name: "Preview: Expandable FAQ" }),

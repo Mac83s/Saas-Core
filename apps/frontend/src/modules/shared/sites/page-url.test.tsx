@@ -65,7 +65,7 @@ test("zmienia adres dopiero po podaniu uzasadnienia", async () => {
   const { onChanged } = renderDialog();
   fireEvent.click(screen.getByRole("button", { name: "Zmień adres" }));
 
-  const slug = await screen.findByLabelText("Slug");
+  const slug = await screen.findByLabelText("Adres strony");
   fireEvent.change(slug, { target: { value: "nasze-uslugi" } });
   fireEvent.click(
     screen.getByRole("button", { name: "Zmień adres i zostaw przekierowanie" }),

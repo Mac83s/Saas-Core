@@ -143,7 +143,9 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
 
     /** A section from the library the canvas's "+" opened in the panel. */
     const addFromLibrary = async (name: string) => {
-      const search = library.getByRole("searchbox", { name: "Szukaj układu" });
+      const search = library.getByRole("searchbox", {
+        name: "Szukaj szablonu",
+      });
       // The "+" takes the keyboard to the library's search.
       await expect(search).toBeFocused();
       await search.fill(name);
@@ -264,14 +266,14 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       const metadata = page.getByRole("dialog", {
         name: "Język i opis strony w Google",
       });
-      await expect(metadata.getByLabel("Slug", { exact: true })).toHaveValue(
-        PAGE_SLUG,
-      );
+      await expect(
+        metadata.getByLabel("Adres strony", { exact: true }),
+      ).toHaveValue(PAGE_SLUG);
       await metadata
         .getByLabel("Tytuł strony", { exact: true })
         .fill(`${PAGE_NAME} e2e`);
       await metadata
-        .getByLabel("Opis meta", { exact: true })
+        .getByLabel("Opis w wyszukiwarce", { exact: true })
         .fill("Syntetyczna strona testu edytora wizualnego.");
       const saved = page.waitForResponse(
         (response) =>
@@ -280,7 +282,9 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
             .endsWith(`/api/v1/sites/pages/${pageId}/translations/pl/`) &&
           response.request().method() === "PUT",
       );
-      await metadata.getByRole("button", { name: "Zapisz metadane" }).click();
+      await metadata
+        .getByRole("button", { name: "Zapisz adres i opis" })
+        .click();
       expect((await saved).ok()).toBe(true);
       await metadata.getByRole("button", { name: "Zamknij" }).click();
       await expect(metadata).toBeHidden();

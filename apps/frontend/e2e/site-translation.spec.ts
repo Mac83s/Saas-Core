@@ -172,13 +172,13 @@ test.describe("A page translated by the stand-in and accepted by a person", () =
       await page.getByRole("button", { name: "Nadaj adres i tytuł" }).click();
       const address = page.getByRole("dialog", { name: /^Adres i opis/ });
       const saveAddress = address.getByRole("button", {
-        name: "Zapisz metadane",
+        name: "Zapisz adres i opis",
       });
       // The fields open once the language's metadata has arrived, so what
       // is typed stays.
       await address.getByLabel("Tytuł strony", { exact: true }).fill("Start");
       await address
-        .getByLabel("Opis meta", { exact: true })
+        .getByLabel("Opis w wyszukiwarce", { exact: true })
         .fill("Testseite der Übersetzungen.");
       await saveAddress.click();
       await expect(address).toBeHidden();

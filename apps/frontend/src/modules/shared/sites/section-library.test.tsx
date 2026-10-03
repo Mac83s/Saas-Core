@@ -14,6 +14,7 @@ import {
 } from "@saas-core/api-client";
 import en from "../../../../messages/en.json";
 import pl from "../../../../messages/pl.json";
+import { blockOption } from "./block-form";
 import { SectionLibraryContent } from "./section-library";
 
 // Core's library opens on all trades; a product may set its own
@@ -27,17 +28,42 @@ vi.mock("@saas-core/api-client", async (original) => ({
 }));
 beforeEach(() => vi.clearAllMocks());
 
-/** The library's category is a chip; its short word names it. */
+/** The library's category is a chip, named as the outline names that kind
+ *  of section. */
 function chooseCategory(type: string, locale: "pl" | "en" = "en") {
-  const library = (locale === "pl" ? pl : en).Sites.sectionLibrary;
-  const chip = type.replace(/^core\./, "") as keyof typeof library.chip;
+  const sites = (locale === "pl" ? pl : en).Sites;
+  const name = sites[blockOption(type)!.labelKey as keyof typeof sites];
   fireEvent.click(
-    within(screen.getByRole("group", { name: library.category })).getByRole(
-      "button",
-      { name: library.chip[chip] },
-    ),
+    within(
+      screen.getByRole("group", { name: sites.sectionLibrary.category }),
+    ).getByRole("button", { name: name as string }),
   );
 }
+
+test("a chip names a kind of section as the outline and the inspector do", () => {
+  render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <SectionLibraryContent compact onAdd={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  const names = within(screen.getByRole("group", { name: "Kategoria" }))
+    .getAllByRole("button")
+    .map((chip) => chip.textContent?.replace(/\d+$/, ""));
+  expect(names).toEqual([
+    "Wszystkie",
+    "Baner powitalny",
+    "Oferta",
+    "Pytania i odpowiedzi",
+    "Kontakt",
+    "Formularz kontaktowy",
+    "Social media i linki",
+    "Separator",
+    "Tekst",
+    "Cytat",
+    "Produkt",
+    "Galeria",
+  ]);
+});
 
 test.each(["pl", "en"] as const)(
   "copies a photo before inserting and reuses the retry key (%s)",
@@ -116,11 +142,10 @@ test("the category chips count what the search finds and hide the empty ones", (
     "aria-pressed",
     "true",
   );
-  const search = screen.getByRole("searchbox", { name: "Find a layout" });
+  const search = screen.getByRole("searchbox", { name: "Find a template" });
   fireEvent.change(search, { target: { value: "captioned" } });
   expect(chips().length).toBeLessThan(12);
   const gallery = within(group).getByRole("button", { name: "Gallery" });
-  expect(gallery).toHaveAttribute("title", "Photo galleries");
   const count = Number(gallery.textContent?.replace("Gallery", ""));
   expect(count).toBeGreaterThan(0);
   fireEvent.click(gallery);
@@ -142,13 +167,13 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (138 remaining)" }),
+    screen.getByRole("button", { name: "Show more templates (138 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   chooseCategory("core.faq");
   expect(screen.getAllByRole("article")).toHaveLength(12);
   expect(
-    screen.getByRole("button", { name: "Show more layouts (8 remaining)" }),
+    screen.getByRole("button", { name: "Show more templates (8 remaining)" }),
   ).toBeDefined();
 });
 
@@ -169,7 +194,7 @@ test.each(["pl", "en"] as const)(
     );
     chooseCategory("core.feature_list", locale);
     const search = screen.getByRole("searchbox", {
-      name: locale === "pl" ? "Szukaj układu" : "Find a layout",
+      name: locale === "pl" ? "Szukaj szablonu" : "Find a template",
     });
     fireEvent.change(search, {
       target: {
@@ -395,7 +420,7 @@ test("offers all twenty editorial layouts, the first twelve before 'show more'",
   chooseCategory("core.rich_text");
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (8 remaining)" }),
+    screen.getByRole("button", { name: "Show more templates (8 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(20);
 });

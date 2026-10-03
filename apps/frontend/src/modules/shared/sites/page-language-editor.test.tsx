@@ -324,9 +324,9 @@ test("the address dialog opens its fields once the language's metadata has arriv
   // Nothing can be typed that the arriving metadata would overwrite.
   const title = within(dialog).getByLabelText("Tytuł strony");
   expect(title).toBeDisabled();
-  expect(within(dialog).getByLabelText("Opis meta")).toBeDisabled();
+  expect(within(dialog).getByLabelText("Opis w wyszukiwarce")).toBeDisabled();
   expect(
-    within(dialog).getByRole("button", { name: "Zapisz metadane" }),
+    within(dialog).getByRole("button", { name: "Zapisz adres i opis" }),
   ).toBeDisabled();
 
   arrive({
@@ -348,7 +348,7 @@ test("the address dialog opens its fields once the language's metadata has arriv
   await waitFor(() => expect(title).toBeEnabled());
   expect(title).toHaveValue("Angebot");
   expect(
-    within(dialog).getByRole("button", { name: "Zapisz metadane" }),
+    within(dialog).getByRole("button", { name: "Zapisz adres i opis" }),
   ).toBeEnabled();
 });
 
