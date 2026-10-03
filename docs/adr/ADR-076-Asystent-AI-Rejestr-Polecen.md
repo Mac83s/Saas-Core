@@ -451,3 +451,18 @@ wykonanie zastępuje go pustym i tylko na czas grupy aktywuje czas z tokenu
 zgody — endpoint zgody wpisuje do tokenu świeży step-up sesji, gdy grupa go
 wymaga. Step-up z panelu nigdy więc nie odpowiada za to, co asystent robi bez
 niego.
+
+## Uzupełnienie 2026-10-03: kontrakt zadania v3 przenosi `acting` (A1b-11)
+
+Wykonanie odroczonej części pkt 6. Pierwszym producentem zadań w kontekście z
+`acting` jest polecenie `sites.page_draft.from_template@1`: szablon z
+zdjęciami kopiuje je do magazynu firmy, a przetwarzanie zdjęcia idzie do
+kolejki. `issue_tenant_task_contract` wydaje wtedy kontrakt **wersji 3** z
+`acting_via`, `acting_ref` i `acting_trigger`; zadanie otwiera kontekst tak
+samo działający w imieniu osoby (`tenant_task_context` woła `acting_context`).
+Kontekst bez `acting` dostaje dalej dokładnie wersję 2, więc zapisane kontrakty
+i workery sprzed zmiany czytają go bez zmian. Wersja 3 bez `acting`, `acting`
+w wersji 2, nieprawidłowe odniesienie i principal inny niż `membership` są
+odrzucane jak każdy zły kontrakt. `acting_opened` nigdy nie trafia do kontraktu:
+zadanie zaczyna z zamkniętymi bramkami osoby. Nowe miejsce wywołania
+`acting_context(` jest policzone w `tests/test_command_doors.py`.

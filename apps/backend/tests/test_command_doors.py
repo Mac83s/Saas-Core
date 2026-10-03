@@ -48,6 +48,10 @@ DECLARED: dict[str, dict[str, tuple[int, str]]] = {
             1,
             "deferred work re-applies the acting its producer stored on the server row",
         ),
+        "modules/core/organizations/tasks.py::tenant_task_context": (
+            1,
+            "a task queued while acting runs acting (contract version 3, ADR-076 §6)",
+        ),
         "modules/shared/translation/worker.py::job_context": (
             1,
             "a translation job acts for the person who ordered it or consented, rebuilt from "

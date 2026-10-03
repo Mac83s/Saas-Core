@@ -7,6 +7,7 @@ from uuid import UUID, uuid7
 
 import pytest
 from django.contrib.sessions.backends.base import SessionBase
+from django.core import signing
 from django.core.cache import cache
 from django.db import connection
 from django.http import HttpRequest, JsonResponse
@@ -44,6 +45,7 @@ from saas_core.modules.core.organizations.models import (
 )
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
 from saas_core.modules.core.organizations.tasks import (
+    TENANT_TASK_CONTEXT_SALT,
     InvalidTenantTaskContext,
     deferred_tenant_context,
     issue_service_task_contract,
@@ -460,19 +462,40 @@ def test_acting_refuses_a_non_membership_principal_and_nesting() -> None:
         acting_context(person, via="", ref="")
 
 
-def test_a_task_contract_never_drops_acting() -> None:
-    """The signed contract cannot carry acting yet, and a task opened from one
-    would act as the person deciding directly, past every person-only gate.
-    So it is refused until the first producer of acting work adds it."""
-    person = a_person()
+def test_a_task_contract_carries_acting_and_never_an_opened_gate() -> None:
+    """Work queued while the membership acts for its person (version 3) runs
+    acting so too: a task that dropped it would act as the person deciding
+    directly, past every person-only gate. The labels a consent opened for one
+    run are never carried — the task starts with every gate shut."""
+    membership = create_membership()
+    person = context_for(membership)
+    acting = acting_context(person, via="assistant", ref=CONVERSATION)
 
-    with (
-        activate_tenant_context(acting_context(person, via="assistant", ref=CONVERSATION)),
-        pytest.raises(ValueError, match="w imieniu osoby"),
-    ):
-        issue_tenant_task_contract(causation_id="acting:task")
+    with activate_tenant_context(acting):
+        contract = issue_tenant_task_contract(causation_id="acting:task")
     with activate_tenant_context(person):
-        assert issue_tenant_task_contract(causation_id="person:task")
+        plain = issue_tenant_task_contract(causation_id="person:task")
+
+    with tenant_task_context(contract) as context:
+        assert (context.acting_via, context.acting_ref, context.acting_opened) == (
+            "assistant",
+            CONVERSATION,
+            frozenset(),
+        )
+    with tenant_task_context(plain) as context:
+        assert context.acting_via == ""
+    assert signing.loads(plain, salt=TENANT_TASK_CONTEXT_SALT)["version"] == 2
+
+    payload = signing.loads(contract, salt=TENANT_TASK_CONTEXT_SALT)
+    for forged in (
+        {**payload, "version": 2},
+        {**payload, "acting_via": ""},
+        {**payload, "acting_ref": "conversation:not-a-uuid"},
+        {**payload, "principal_kind": "service"},
+    ):
+        signed = signing.dumps(forged, salt=TENANT_TASK_CONTEXT_SALT, compress=True)
+        with pytest.raises(InvalidTenantTaskContext), tenant_task_context(signed):
+            pass
 
 
 def test_deferred_context_reapplies_acting_and_refuses_an_inactive_membership() -> None:

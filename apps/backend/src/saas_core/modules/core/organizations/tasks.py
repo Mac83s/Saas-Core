@@ -53,19 +53,29 @@ class TenantTaskContract:
     principal_kind: str = "membership"
     role_key: str = ""
     permissions: tuple[str, ...] = ()
+    #: Version 3: the membership acted for its person (ADR-076 §6), and the
+    #: task acts so too — never as the person deciding directly. The labels a
+    #: consent opened (`acting_opened`) are never carried: a task starts with
+    #: every person-only gate shut.
+    acting_via: str = ""
+    acting_ref: str = ""
+    acting_trigger: str = ""
+
+
+_ACTING_FIELDS = ("acting_via", "acting_ref", "acting_trigger")
 
 
 def issue_tenant_task_contract(*, causation_id: str) -> str:
     context = require_tenant_context()
     if not causation_id or len(causation_id) > 160:
         raise ValueError("causation_id musi mieć od 1 do 160 znaków.")
-    if context.acting_via:
-        # This contract cannot carry acting (ADR-076 §6), and a task opened
-        # without it would act as the person deciding directly, past the
-        # person-only gates. The first producer of such work adds it here.
-        raise ValueError("Kontrakt zadania nie przenosi działania w imieniu osoby.")
+    acting = (
+        {field: getattr(context, field) for field in _ACTING_FIELDS}
+        if context.acting_via
+        else {}
+    )
     contract = TenantTaskContract(
-        version=2,
+        version=3 if acting else 2,
         organization_id=str(context.organization_id),
         membership_id=str(context.membership_id),
         actor_id=str(context.actor_id),
@@ -74,8 +84,15 @@ def issue_tenant_task_contract(*, causation_id: str) -> str:
         principal_kind=context.principal_kind,
         role_key=context.role_key,
         permissions=tuple(sorted(context.permissions)),
+        **acting,
     )
-    return signing.dumps(asdict(contract), salt=TENANT_TASK_CONTEXT_SALT, compress=True)
+    payload = asdict(contract)
+    if not acting:
+        # A contract without acting stays exactly version 2, so workers and
+        # stored contracts from before version 3 read it unchanged.
+        for field in _ACTING_FIELDS:
+            payload.pop(field)
+    return signing.dumps(payload, salt=TENANT_TASK_CONTEXT_SALT, compress=True)
 
 
 def issue_service_task_contract(
@@ -155,6 +172,18 @@ def tenant_task_context(
                 )
 
             context = context_from_membership(membership)
+            if contract.acting_via:
+                try:
+                    context = acting_context(
+                        context,
+                        via=contract.acting_via,
+                        ref=contract.acting_ref,
+                        trigger=contract.acting_trigger,
+                    )
+                except ValueError as error:
+                    raise InvalidTenantTaskContext(
+                        "Tenant task context ma nieprawidłowe działanie w imieniu osoby."
+                    ) from error
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)
                 yield context
@@ -247,7 +276,12 @@ def _load_contract(signed_contract: str, *, expires: bool = True) -> TenantTaskC
         if not isinstance(payload, dict):
             raise ValueError
         contract = TenantTaskContract(**_contract_fields(payload))
-        if contract.version not in {1, 2}:
+        if contract.version not in {1, 2, 3}:
+            raise ValueError
+        # Version 3 and only version 3 says the membership acted for its person.
+        if (contract.version == 3) != bool(contract.acting_via):
+            raise ValueError
+        if contract.acting_via and contract.principal_kind != "membership":
             raise ValueError
         UUID(contract.organization_id)
         UUID(contract.membership_id)
@@ -274,7 +308,12 @@ def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
         "causation_id",
     }
     extra = {"principal_kind", "role_key", "permissions"}
-    if set(payload) not in {frozenset(base), frozenset(base | extra)}:
+    acting = set(_ACTING_FIELDS)
+    if set(payload) not in {
+        frozenset(base),
+        frozenset(base | extra),
+        frozenset(base | extra | acting),
+    }:
         raise ValueError
     values = {field: payload[field] for field in base}
     if extra <= set(payload):
@@ -282,6 +321,10 @@ def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(values["permissions"], (list, tuple)):
             raise ValueError
         values["permissions"] = tuple(values["permissions"])
+    if acting <= set(payload):
+        values.update({field: payload[field] for field in acting})
+        if not all(isinstance(values[field], str) for field in acting):
+            raise ValueError
     return values
 
 
