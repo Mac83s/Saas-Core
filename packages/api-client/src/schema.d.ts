@@ -2255,6 +2255,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/farms/follow-ups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the controls due on the keeper's animals
+         * @description Health entries that still stand and name a `follow_up_on` day — e.g. a control after a treatment — soonest first, with their animal and farm. A company's entry carries one only when published under the health consent. `from`/`to` are days, both included. At most 500.
+         */
+        get: operations["farms_follow_up_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/health/{entry_id}/photos/{media_id}/": {
         parameters: {
             query?: never;
@@ -2314,6 +2334,26 @@ export interface paths {
         };
         /** @description The species catalogue; inactive ones are listed so a client can say "soon". */
         get: operations["farms_species"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/visits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the companies' visits to all of the keeper's farms
+         * @description Planned, done and cancelled visits of the companies the keeper shares a farm with, soonest first. A visit's day is the day it happened, or while it is ahead the day somebody is coming; `from`/`to` are local days, both included. A planned visit shows only while its company may still move it — an active share with the schedule consent; what happened stays as history (ADR-052 pt 8–9). At most 500 visits.
+         */
+        get: operations["farms_register_visit_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6044,6 +6084,11 @@ export interface components {
             withdrawal_milk_until: string | null;
             /** Format: date-time */
             withdrawal_meat_until: string | null;
+            /**
+             * Format: date
+             * @description When the author wants to see the animal again.
+             */
+            follow_up_on: string | null;
             /** Format: date-time */
             published_at: string;
             revision: number;
@@ -7595,6 +7640,24 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        /** @description A company's visit to one of the keeper's farms, in a list over them all. */
+        FarmRegisterVisit: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            /** Format: date-time */
+            scheduled_for: string | null;
+            /** Format: date */
+            occurred_on: string | null;
+            company_name: string;
+            summary: string;
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            farm_id: string;
+            farm_name: string;
+        };
         FarmShare: {
             /** Format: uuid */
             id: string;
@@ -7655,6 +7718,32 @@ export interface components {
             details: {
                 [key: string]: unknown;
             };
+        };
+        /** @description An animal somebody wants to see again, from the entry that says so. */
+        FollowUp: {
+            /** Format: uuid */
+            entry_id: string;
+            /**
+             * Format: date
+             * @description The day of the control.
+             */
+            follow_up_on: string;
+            /**
+             * Format: date
+             * @description The day of the entry that asks for it.
+             */
+            occurred_on: string;
+            summary: string;
+            /** @description Empty for the keeper's own. */
+            author_organization_name: string;
+            /** Format: uuid */
+            animal_id: string;
+            national_id: string;
+            working_number: string;
+            animal_name: string;
+            /** Format: uuid */
+            farm_id: string;
+            farm_name: string;
         };
         GenericMessage: {
             detail: string;
@@ -18401,6 +18490,54 @@ export interface operations {
             };
         };
     };
+    farms_follow_up_list: {
+        parameters: {
+            query?: {
+                /** @description First day. */
+                from?: string;
+                /** @description Last day, included. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUp"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     farms_health_photo: {
         parameters: {
             query?: never;
@@ -18558,6 +18695,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FarmSpecies"][];
+                };
+            };
+        };
+    };
+    farms_register_visit_list: {
+        parameters: {
+            query?: {
+                /** @description First local day. */
+                from?: string;
+                /** @description Only these. */
+                status?: "canceled" | "done" | "planned";
+                /** @description Last local day, included. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmRegisterVisit"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
