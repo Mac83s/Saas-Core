@@ -533,3 +533,30 @@ wejścia API i poleceń.
   klientów jest domyślnie wyłączone; firma może je włączyć na 12, 24 albo 36
   miesięcy od ostatniej wizyty, z podglądem „dotyczy N osób” przed zapisem
   (D1–D2 planu). Do tego czasu anonimizacja jest wyłącznie ręczna.
+
+## Uzupełnienie 2026-10-03 (3): R4 — obszary, strona ogólna, wyszukiwarka (zmienia pkt 13)
+
+- **Obszar jest deklaracją modułu** (`SettingArea`, `register_setting_area`):
+  klucz będący adresem, tytuł i opis pl/en, kolejność i opcjonalna własna strona.
+  Grupa, której obszaru nikt nie zadeklarował, zatrzymuje start (`organizations.E102`).
+  Rdzeń deklaruje „Dane firmy” i „Bezpieczeństwo”, rezerwacje „Usługi i grafik” i
+  „Rezerwacje”, rozliczenia „Plan i płatności”, tłumaczenia „Języki”, powiadomienia
+  „E-maile do klientów” — tekst firmy do klientów ma własny obszar, bo pisze do
+  klientów także firma bez kalendarza.
+- **Schemat podaje `areas`** (obszary z co najmniej jedną grupą firmy, w kolejności
+  menu). Obszar bez strony rysuje `/panel/settings/<obszar>`, a menu pokazuje go
+  temu, kto może zmienić którąś z jego grup. Wymóg 2FA przeniósł się więc z „Danych
+  firmy” na własną stronę „Bezpieczeństwo”, a „E-maile do klientów” z „Rezerwacji”
+  na swoją.
+- **Wyszukiwarka** czyta ten sam schemat: obszary, grupy i klucze (etykieta, pomoc),
+  bez polskich liter i w dowolnej kolejności słów; ustawienie grupy rysowanej z
+  deklaracji prowadzi do pola (`#setting-<grupa>-<pole>`), grupa encji — do swojej
+  strony. Nowe ustawienie modułu albo produktu jest więc w menu i w wyszukiwarce bez
+  kodu frontu.
+- Pod każdym formularzem grupy „Historia zmian” prowadzi do historii z filtrem
+  `?group=`.
+- Poza R4 zostają: „Ustawienia › Firma” z metadanych (dane podstawowe mają własny
+  formularz grupy encji), sekcja ustawień w oknie usługi i strony grup produktu —
+  ta ostatnia działa już przez stronę ogólną, gdy produkt zadeklaruje obszar bez
+  strony.
+

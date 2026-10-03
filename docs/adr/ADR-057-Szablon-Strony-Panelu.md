@@ -101,6 +101,22 @@ zawijały się w dwa rzędy.
    pokazuje paska ani nagłówków kolumn — tylko pusty stan i wyjście z niego dla
    tych, którzy mogą coś dodać; pozostali dowiadują się, kto dodaje (UX-021).
 
+9. **Ustawienia to jedno miejsce z obszarami** (uzupełnienie pkt 5, odpowiedź
+   właściciela 33a, 2026-10-03; ADR-078 R4). Wszystko, co firma ustawia —
+   progi, czasy, przełączniki, teksty do klienta — stoi pod „Ustawieniami”;
+   listy danych (usługi, dni zamknięte, sezony, gospodarstwa, magazyn) zostają
+   w swoich modułach i ich stronach. Obszar to wpis rejestru ustawień
+   (`SettingArea`: klucz, tytuł i opis pl/en, kolejność, opcjonalnie własna
+   strona modułu), a `GET …/settings/schema/` podaje obszary razem z grupami.
+   Obszar bez własnej strony rysuje strona ogólna `/panel/settings/<obszar>` z
+   deklaracji jego grup, a w menu „Ustawień” staje zaraz po „Danych firmy” z
+   nazwą z API — wpis w `PANEL_SECTIONS` mają tylko strony pisane ręcznie.
+   Każda strona Ustawień ma w nagłówku „Szukaj w ustawieniach”: jedno pole,
+   które z tego samego schematu znajduje obszar, grupę albo pojedyncze
+   ustawienie i prowadzi do jego pola. Pod formularzem grupy „Historia zmian”
+   otwiera historię przefiltrowaną do tej grupy. Kolejność i nazwy ręcznych
+   wpisów menu ustala U1 planu UX/UI.
+
 ## Konsekwencje
 
 - Kalendarz dostał widok **Lista**: miesiąc kursora jako `DataTable` (termin,
