@@ -10360,7 +10360,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["InventoryAlertsSettingsChangeResetEnum"][];
             /**
-             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. A new company starts with the product's value (daily where the profile says so); an older one has it off until it switches it on.
              *
              *     * `off` - off
              *     * `daily` - daily
@@ -10417,7 +10417,7 @@ export interface components {
         };
         InventoryAlertsSettingsValues: {
             /**
-             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. A new company starts with the product's value (daily where the profile says so); an older one has it off until it switches it on.
              *
              *     * `off` - off
              *     * `daily` - daily
@@ -12132,7 +12132,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["InventoryAlertsSettingsChangeResetEnum"][];
             /**
-             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. A new company starts with the product's value (daily where the profile says so); an older one has it off until it switches it on.
              *
              *     * `off` - off
              *     * `daily` - daily

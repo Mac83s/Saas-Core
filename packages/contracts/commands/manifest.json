@@ -1804,7 +1804,7 @@
             ]
           },
           "low_stock": {
-            "description": "Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on. Null keeps it as it is.",
+            "description": "Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. A new company starts with the product's value (daily where the profile says so); an older one has it off until it switches it on. Null keeps it as it is.",
             "enum": [
               "off",
               "daily",

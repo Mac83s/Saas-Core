@@ -27,6 +27,9 @@
   "billing": {
     "planKeys": ["profile", "starter", "pro"]
   },
+  "settingsDefaults": {
+    "inventory.alerts.low_stock": "daily"
+  },
   "features": {
     "customDomains": true,
     "publicBooking": true,

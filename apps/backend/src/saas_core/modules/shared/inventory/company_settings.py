@@ -78,6 +78,9 @@ ALERTS = SettingGroup(
             type="enum",
             default="off",
             scopes=("organization",),
+            # A product's "daily" is where a new company starts (owner's answer
+            # 61a); one older than it keeps "off" until it switches it on.
+            inheritance="copy_at_creation",
             values=(
                 ("off", {"pl": "Nie wysyłaj", "en": "Don't send"}),
                 ("daily", {"pl": "Codziennie", "en": "Daily"}),
@@ -91,7 +94,8 @@ ALERTS = SettingGroup(
             },
             model_description="Whether the company gets a daily notice (in the panel and by "
             "e-mail) listing the items whose available stock is at or below their minimum. "
-            "Off by default: nothing is sent until the company switches it on.",
+            "A new company starts with the product's value (daily where the profile says "
+            "so); an older one has it off until it switches it on.",
         ),
         SettingSpec(
             key=PLACES,

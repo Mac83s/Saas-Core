@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
@@ -21,6 +22,8 @@ from saas_core.modules.core.organizations.models import (
     RoleScope,
 )
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
+from saas_core.modules.core.organizations.settings_service import Resolved, resolve
+from saas_core.modules.shared.inventory.company_settings import LOW_STOCK
 from test_inventory import (
     core_catalog,  # noqa: F401 — core's own catalogue, not a product's
     item,
@@ -29,6 +32,7 @@ from test_inventory import (
     receive_lots,
     tenant,
 )
+from test_organization_api import PASSWORD, csrf_value, login
 
 pytestmark = [
     pytest.mark.django_db(transaction=True),
@@ -281,6 +285,42 @@ def short_company(slug: str) -> Membership:
 
 # 3 October 2026, 08:30 in Warsaw (CEST, UTC+2).
 MORNING = datetime(2026, 10, 3, 6, 30, tzinfo=UTC)
+
+
+def test_a_new_company_starts_with_the_daily_notice_and_an_older_one_keeps_it_off(
+    settings: Any,  # noqa: F811 — pytest's fixture, not django.conf's object
+) -> None:
+    """Owner's answer 61a: the product's "daily" becomes a new company's own
+    value at its creation and is never read live."""
+    older = membership("alert-starsza")
+    user = older.user
+    user.set_password(PASSWORD)
+    user.save()
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).status_code == 200
+    settings.SETTINGS_DEFAULTS = {LOW_STOCK: "daily"}
+
+    created = client.post(
+        "/api/v1/organizations/",
+        {
+            "name": "Nowa firma",
+            "slug": "alert-nowsza",
+            "organization_type": settings.DEFAULT_ORGANIZATION_TYPE,
+            "workspace_kind": "business",
+            "default_locale": "pl",
+            "timezone": "Europe/Warsaw",
+            "currency": "PLN",
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert created.status_code == 201
+    newer = Membership.objects.get(organization__slug="alert-nowsza", user=user)
+
+    with tenant(older):
+        assert resolve(LOW_STOCK) == Resolved("off", "code")
+    with tenant(newer):
+        assert resolve(LOW_STOCK) == Resolved("daily", "organization")
 
 
 def test_nothing_is_sent_until_the_company_switches_the_notice_on() -> None:
