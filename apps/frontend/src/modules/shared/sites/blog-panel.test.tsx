@@ -34,6 +34,11 @@ const {
   createEntryTranslation,
   getPublicLocales,
   updateContentEntryMetadata,
+  getTranslationOffer,
+  getCustomerCredits,
+  quoteTranslation,
+  orderTranslation,
+  getTranslationJob,
 } = vi.hoisted(() => ({
   createContentCollection: vi.fn(),
   createContentEntry: vi.fn(),
@@ -53,6 +58,11 @@ const {
   createEntryTranslation: vi.fn(),
   getPublicLocales: vi.fn(),
   updateContentEntryMetadata: vi.fn(),
+  getTranslationOffer: vi.fn(),
+  getCustomerCredits: vi.fn(),
+  quoteTranslation: vi.fn(),
+  orderTranslation: vi.fn(),
+  getTranslationJob: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
@@ -75,6 +85,11 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   createEntryTranslation,
   getPublicLocales,
   updateContentEntryMetadata,
+  getTranslationOffer,
+  getCustomerCredits,
+  quoteTranslation,
+  orderTranslation,
+  getTranslationJob,
 }));
 
 const siteId = "019ff20d-a000-7000-8000-000000000010";
@@ -130,6 +145,8 @@ beforeEach(() => {
   listContentEntries.mockResolvedValue({ items: [entry], next_cursor: null });
   listEntryTranslations.mockResolvedValue([entry]);
   getPublicLocales.mockResolvedValue(companyLanguages(["pl", "en"]));
+  // No translation engine composed, unless a test says otherwise.
+  getTranslationOffer.mockRejectedValue(new Error("not found"));
   createEntryTranslation.mockResolvedValue({
     ...entry,
     id: "translated",
@@ -506,6 +523,95 @@ test("names every language as itself, in the list and among an article's version
   // German is German, not "the other language".
   expect(await within(versions).findByText("Deutsch")).not.toBeNull();
   expect(within(versions).queryByText("Angielski")).toBeNull();
+});
+
+test("translates an article into the missing languages and lists them when the order ends", async () => {
+  const german = { ...entry, id: "german", locale: "de", title: "Erster Beitrag" };
+  getPublicLocales.mockResolvedValue(companyLanguages(["pl", "en", "de"]));
+  getTranslationOffer.mockResolvedValue({
+    available: true,
+    reasons: [],
+    billing: { mode: "credits" },
+  });
+  getCustomerCredits.mockResolvedValue({ balance: { available: 9 } });
+  quoteTranslation.mockResolvedValue({
+    digest: "d".repeat(64),
+    characters: 800,
+    units: 6,
+    credits: 2,
+    lines: ["en", "de"].map((locale) => ({
+      object_id: entryId,
+      locale,
+      proposals: 0,
+      outcome: "draft",
+      reason: null,
+      excluded: null,
+    })),
+  });
+  orderTranslation.mockResolvedValue({ id: "job-1", state: "queued" });
+  getTranslationJob.mockResolvedValue({ id: "job-1", state: "succeeded" });
+  listEntryTranslations
+    .mockResolvedValueOnce([entry])
+    .mockResolvedValue([entry, german]);
+  renderPanel();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  expect(
+    await screen.findByText(
+      "Automatyczne tłumaczenie utworzy wersje w brakujących językach: English, Deutsch. Koszt zobaczysz przed zleceniem.",
+    ),
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Przetłumacz (AI)" }));
+  expect(
+    await screen.findByText(/Do przetłumaczenia: 800 znaków, języków: 2\./),
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Przetłumacz" }));
+
+  await waitFor(() =>
+    expect(orderTranslation).toHaveBeenCalledWith(
+      ["en", "de"].map((locale) => ({
+        source_key: "sites.entry",
+        object_id: entryId,
+        locale,
+        basis: "published",
+      })),
+      expect.anything(),
+      expect.any(String),
+      "propose",
+    ),
+  );
+  // The order ended: its versions are in the card and the list is read again.
+  expect(await screen.findByText("Tłumaczenie gotowe.")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Zamknij" }));
+  const versions = await screen.findByRole("table", {
+    name: "Wersje językowe tego wpisu",
+  });
+  expect(await within(versions).findByText("Erster Beitrag")).not.toBeNull();
+  await waitFor(() => expect(listContentEntries).toHaveBeenCalledTimes(2));
+});
+
+test("a machine's version is not translated onward, and no engine offers nothing", async () => {
+  getPublicLocales.mockResolvedValue(companyLanguages(["pl", "en", "de"]));
+  getTranslationOffer.mockResolvedValue({
+    available: true,
+    reasons: [],
+    billing: { mode: "credits" },
+  });
+  listContentEntries.mockResolvedValue({
+    items: [{ ...entry, translation_of: "019ff20d-a000-7000-8000-000000000099" }],
+    next_cursor: null,
+  });
+  renderPanel();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  // The manual way stays whole.
+  expect(await screen.findByLabelText("Język wersji")).not.toBeNull();
+  await waitFor(() => expect(getTranslationOffer).toHaveBeenCalled());
+  expect(screen.queryByRole("button", { name: "Przetłumacz (AI)" })).toBeNull();
 });
 
 test("a company writing in one language has no language column", async () => {

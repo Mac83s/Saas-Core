@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PlusIcon } from "lucide-react";
+import { LanguagesIcon, PlusIcon } from "lucide-react";
 
 import {
   createEntryTranslation,
@@ -32,6 +32,15 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { nativeName, useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import {
+  TranslateDialog,
+  TranslationUnavailable,
+} from "../translation/translate-dialog";
+import {
+  translationJobFinished,
+  useTranslationJob,
+  useTranslationOffer,
+} from "../translation/use-translation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
 import { slugFromTitle } from "./slug";
@@ -41,7 +50,8 @@ export function EntryTranslations({
   onCreated,
 }: {
   entry: ContentEntry;
-  onCreated: (translation: ContentEntry) => void;
+  /** A version appeared, written here or by an automatic translation. */
+  onCreated: () => void;
 }) {
   const t = useTranslations("Sites");
   const labels = useDataTableLabels();
@@ -56,6 +66,18 @@ export function EntryTranslations({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const receipt = useRef<MutationReceipt | undefined>(undefined);
+  // Automatic translation into the languages still missing: the order runs
+  // on the server, and the list reloads when it ends.
+  const offer = useTranslationOffer();
+  const [translating, setTranslating] = useState(false);
+  const [jobId, setJobId] = useState<string>();
+  const job = useTranslationJob(jobId);
+  const jobDone = translationJobFinished(job);
+  useEffect(() => {
+    if (jobDone) onCreated();
+    // `onCreated` is the same for the card's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobDone]);
 
   useEffect(() => {
     let mounted = true;
@@ -72,7 +94,8 @@ export function EntryTranslations({
     return () => {
       mounted = false;
     };
-  }, [entry.id, t]);
+    // Again when an order ends: it wrote the versions listed here.
+  }, [entry.id, t, jobDone]);
 
   // Derived rather than stored: until the operator types their own address it
   // simply *is* the title's, so there is no state to keep in step and no
@@ -105,7 +128,7 @@ export function EntryTranslations({
         setTitle("");
         setSlug("");
         setSlugEdited(false);
-        onCreated(created);
+        onCreated();
       })
       .catch((error: unknown) => {
         setProblem(sitesErrorMessage(error, t));
@@ -167,6 +190,66 @@ export function EntryTranslations({
           labels={labels}
           loading={!loaded}
         />
+
+        {/* A machine's version is translated from its original, not onward. */}
+        {missing.length > 0 && !entry.translation_of && (
+          <div className="space-y-2">
+            {offer.state === "available" &&
+              (jobId !== undefined && !jobDone ? (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {t("entryTranslating")}
+                </p>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      // An order that ended is history: quote anew.
+                      if (jobDone) setJobId(undefined);
+                      setTranslating(true);
+                    }}
+                  >
+                    <LanguagesIcon aria-hidden="true" />
+                    {t("languageMode.actions.translate")}
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    {t("entryTranslateHint", {
+                      languages: missing.map((item) => item.name).join(", "),
+                    })}
+                  </p>
+                </>
+              ))}
+            {offer.state === "unavailable" && (
+              <TranslationUnavailable reasons={offer.reasons} />
+            )}
+          </div>
+        )}
+        {offer.state === "available" && (
+          <TranslateDialog
+            open={translating}
+            onOpenChange={setTranslating}
+            targets={missing.map((item) => ({
+              source_key: "sites.entry",
+              object_id: entry.id,
+              locale: item.code,
+              basis: "published" as const,
+            }))}
+            languageName={(code) =>
+              companyLocaleOptions.find((item) => item.code === code)?.name ??
+              nativeName(code)
+            }
+            reasonText={(reason) =>
+              t.has(`languageMode.banner.reasons.${reason}`)
+                ? t(`languageMode.banner.reasons.${reason}`)
+                : t("languageMode.banner.reasons.other")
+            }
+            allowWorking
+            offer={offer.offer}
+            job={job}
+            onOrdered={(started) => setJobId(started.id)}
+          />
+        )}
 
         {missing.length > 0 && (
           <form

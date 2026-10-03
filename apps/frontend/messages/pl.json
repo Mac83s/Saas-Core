@@ -1556,6 +1556,8 @@
     "entryTranslationExists": "Ten artykuł ma już wersję w tym języku.",
     "entryTranslationTitle": "Tytuł wersji językowej",
     "entryTranslationSlug": "Adres wersji językowej",
+    "entryTranslateHint": "Automatyczne tłumaczenie utworzy wersje w brakujących językach: {languages}. Koszt zobaczysz przed zleceniem.",
+    "entryTranslating": "Tłumaczenie wpisu trwa… Nowe wersje pojawią się na tej liście.",
     "entryTranslationLocale": "Język wersji",
     "pageTypeLabel": "Rodzaj podstrony",
     "pageTypeHint": "Nie zmienia wyglądu strony. Mówi narzędziom SEO, czym ta podstrona jest, żeby nie optymalizowały kontaktu jak landingu.",

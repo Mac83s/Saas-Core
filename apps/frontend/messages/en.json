@@ -1556,6 +1556,8 @@
     "entryTranslationExists": "This article already has a version in that language.",
     "entryTranslationTitle": "Language version title",
     "entryTranslationSlug": "Language version address",
+    "entryTranslateHint": "Automatic translation creates versions in the missing languages: {languages}. You see the cost before ordering.",
+    "entryTranslating": "The article is being translated… The new versions will appear in this list.",
     "entryTranslationLocale": "Version language",
     "pageTypeLabel": "Page kind",
     "pageTypeHint": "Changes nothing about how the page looks. It tells SEO tooling what this page is, so a contact page is not optimised like a landing page.",
