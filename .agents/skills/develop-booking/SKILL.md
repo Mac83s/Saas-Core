@@ -194,6 +194,17 @@ A service made switched off is a `draft` until somebody switches it on, and
 undo of commands that make drafts). Every other service is switched off, never
 removed.
 
+The price list is `prices.py` (ADR-072 §6): a `PriceRule` prices an offer, a
+group or a unit — the base price without dates, a season's with them, a
+weekend's or a peak's with weekdays and hours — and `price_for` picks the one
+that applies (the unit's over its group's over the offer's, a season's over the
+base, the narrower over the wider, the later start). Amounts are whole minor
+units, read gross or net by the company's `pricing.entry.amounts`; the tax is
+a code (`VatCode`), because exempt is not 0%. A rule's currency is always
+`Organization.currency`, and a company with prices cannot change its currency
+(`register_currency_use`, `currency_in_use`). A `ParticipantCategory` is never
+deleted, only switched off: frozen quotes name it.
+
 ## Done means
 
 ```
