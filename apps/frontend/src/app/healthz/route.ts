@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { deployment } from "../../generated/deployment";
+import { RECHECK_AFTER_MS } from "./recheck";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +14,16 @@ export const dynamic = "force-dynamic";
  * 404, which reads as a broken feature rather than a mismatched deploy. The
  * profile hash is what makes the two comparable.
  *
- * A definite mismatch is permanent — it is a build mistake and will not heal —
- * so it is remembered and the container stays unhealthy. Not being able to ask
- * is different: a backend that is down or still starting says nothing about
- * this bundle, and failing liveness for it would only turn one outage into two.
+ * A mismatch is asked again after `RECHECK_AFTER_MS`, not remembered for good:
+ * during one rebuild of both images the new bundle can start while the old
+ * backend still answers, and it must turn healthy once the new backend is up.
+ * A mismatch that lasts stays reported, with when it was first seen. Not being
+ * able to ask is different: a backend that is down or still starting says
+ * nothing about this bundle — it neither fails liveness on its own nor clears
+ * a mismatch already seen.
  */
-let mismatch: string | null = null;
+let mismatch: { backend: string; since: number; checkedAt: number } | null =
+  null;
 
 async function backendProfileHash(): Promise<string | null> {
   const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
@@ -40,10 +45,19 @@ async function backendProfileHash(): Promise<string | null> {
 }
 
 export async function GET() {
-  if (mismatch === null) {
+  const now = Date.now();
+  if (mismatch === null || now - mismatch.checkedAt >= RECHECK_AFTER_MS) {
     const backendHash = await backendProfileHash();
-    if (backendHash !== null && backendHash !== deployment.profileHash) {
-      mismatch = backendHash;
+    if (backendHash === null) {
+      if (mismatch !== null) mismatch = { ...mismatch, checkedAt: now };
+    } else if (backendHash !== deployment.profileHash) {
+      mismatch = {
+        backend: backendHash,
+        since: mismatch?.since ?? now,
+        checkedAt: now,
+      };
+    } else {
+      mismatch = null;
     }
   }
 
@@ -53,7 +67,8 @@ export async function GET() {
         status: "profile_mismatch",
         detail:
           "Obraz frontendu i backendu pochodzą z różnych drzew: " +
-          `frontend ${deployment.profileHash}, backend ${mismatch}.`,
+          `frontend ${deployment.profileHash}, backend ${mismatch.backend}.`,
+        since: new Date(mismatch.since).toISOString(),
       },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );

@@ -60,7 +60,10 @@ Trzy warunki, wszystkie sprawdzalne przed wdrożeniem, nie po awarii:
    sprzed release'u musi umieć czytać schemat po nim.
 3. **Obrazy cofają się parami.** Backend i frontend tego samego profilu mają
    ten sam `profileHash`; cofnięcie jednego bez drugiego kończy się 503 na
-   `/healthz` frontendu, a nie cichym menu prowadzącym w 404.
+   `/healthz` frontendu, a nie cichym menu prowadzącym w 404. Frontend pyta o
+   niezgodność ponownie co 15 s: przy przebudowie obu obrazów nowy frontend,
+   który wstał, gdy odpowiadał jeszcze stary backend, wraca do zdrowia sam, a
+   niezgodność trwała zostaje zgłaszana z chwilą pierwszego wykrycia (`since`).
 
 „Odwracalna" nie znaczy „nieszkodliwa": cofnięcie migracji danych przywraca
 kształt wierszy, a nie wiersze, które zniknęły. Znaczy tyle, że schemat da się
