@@ -325,6 +325,8 @@ def test_a_lost_phone_is_reset_on_the_server_with_a_reason(
         if getattr(record, "security_event", None) == "identity.operator_mfa_reset"
     ]
     assert event.reason == "zgubiony telefon"
+    audit = AccountAuditEvent.objects.get(event_type=AccountAuditEventType.MFA_RESET)
+    assert (audit.subject_user, audit.actor_user, audit.reason) == (user, None, "zgubiony telefon")
     assert not UserSession.objects.filter(user=user, revoked_at__isnull=True).exists()
     assert client.get(ME_URL).status_code == 403
     assert not MfaRecoveryCode.objects.exists()

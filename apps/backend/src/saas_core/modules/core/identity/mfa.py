@@ -162,14 +162,18 @@ def reset_operator_mfa(*, user: User, reason: str) -> None:
     """Takes an operator's second factor away, so the server administrator can
     set a new one after a lost phone (`enroll_operator_mfa --reset`, never the
     web): the method and its recovery codes go, every session of the account
-    ends and the account is told by e-mail. The reason goes to the security
-    log."""
+    ends and the account is told by e-mail. The reason goes to the account's
+    audit row and to the security log."""
     with transaction.atomic():
         deleted, _ = UserMfaMethod.objects.filter(user=user).delete()
         if not deleted:
             raise MfaEnrollmentMissing
         UserSession.objects.filter(user=user, revoked_at__isnull=True).update(
             revoked_at=timezone.now()
+        )
+        # Done from the server shell: nobody signed in is the actor.
+        AccountAuditEvent.objects.create(
+            event_type=AccountAuditEventType.MFA_RESET, subject_user=user, reason=reason
         )
         _notify(user, "operator_reset")
     cache.delete_many([_failures_key(user), _lock_key(user)])

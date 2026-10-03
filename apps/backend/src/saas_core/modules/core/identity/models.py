@@ -270,6 +270,7 @@ class AccountAuditEventType(models.TextChoices):
     EMAIL_VERIFIED = "email_verified", "Potwierdzono adres e-mail"
     PASSWORD_RESET = "password_reset", "Zmieniono hasło przez reset"
     MFA_ENABLED = "mfa_enabled", "Włączono MFA"
+    MFA_RESET = "mfa_reset", "Zresetowano MFA operatora"
     SESSION_REVOKED = "session_revoked", "Unieważniono sesję"
     PROFILE_UPDATED = "profile_updated", "Zmieniono dane osobowe"
 
@@ -288,6 +289,8 @@ class AccountAuditEvent(models.Model):
         blank=True,
     )
     correlation_id = models.UUIDField(null=True, blank=True)
+    #: Why, where a person had to say so (an operator's MFA reset).
+    reason = models.TextField(blank=True, default="")
     occurred_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
