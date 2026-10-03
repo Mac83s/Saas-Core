@@ -5629,3 +5629,155 @@ export async function orderTranslation(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+export type AssistantOffer = components["schemas"]["AssistantOffer"];
+export type AssistantConversationSummary =
+  components["schemas"]["AssistantConversationSummary"];
+export type AssistantConversation =
+  components["schemas"]["AssistantConversation"];
+export type AssistantTurn = components["schemas"]["AssistantTurn"];
+export type AssistantTurnItem = components["schemas"]["AssistantTurnItem"];
+export type AssistantConsentGroup =
+  components["schemas"]["AssistantConsentGroup"];
+export type CommandConsent = components["schemas"]["CommandConsent"];
+export type CommandConsentCall = components["schemas"]["CommandConsentCall"];
+
+/** Whether the assistant takes a message now, and why not. */
+export async function getAssistantOffer(): Promise<AssistantOffer> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/assistant/offer/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The signed-in person's own conversations, newest first. */
+export async function listAssistantConversations(
+  limit = 20,
+): Promise<AssistantConversationSummary[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/assistant/conversations/",
+    {
+      params: { query: { limit } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function startAssistantConversation(
+  language: "pl" | "en",
+  idempotencyKey: string,
+): Promise<AssistantConversationSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/assistant/conversations/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { language },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The conversation with every turn: read again until the last one settles. */
+export async function getAssistantConversation(
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<AssistantConversation> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/assistant/conversations/{conversation_id}/",
+    {
+      params: { path: { conversation_id: conversationId } },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Queues the assistant's turn; its answer arrives in the conversation. */
+export async function sendAssistantMessage(
+  conversationId: string,
+  text: string,
+  idempotencyKey: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.POST(
+    "/api/v1/assistant/conversations/{conversation_id}/turns/",
+    {
+      params: {
+        path: { conversation_id: conversationId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { text },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/**
+ * Answers the plan a turn waits with: the tokens of the groups the person
+ * agreed to (group id → token), or `declined` for the whole plan.
+ */
+export async function answerAssistantConsent(
+  conversationId: string,
+  turnId: string,
+  answer: { consents?: Record<string, string>; declined?: boolean },
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.POST(
+    "/api/v1/assistant/conversations/{conversation_id}/turns/{turn_id}/consents/",
+    {
+      params: { path: { conversation_id: conversationId, turn_id: turnId } },
+      body: {
+        consents: answer.consents ?? {},
+        declined: answer.declined ?? false,
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/** The plan a person is asked to agree to, exactly as the server previewed it. */
+export async function getCommandConsent(
+  digest: string,
+): Promise<CommandConsent> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/command-consents/{digest}/",
+    {
+      params: { path: { digest } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The person's click: mints the short-lived token that lets the plan run. */
+export async function grantCommandConsent(digest: string): Promise<string> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/organizations/current/command-consents/{digest}/",
+    {
+      params: { path: { digest } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.consent_token;
+}

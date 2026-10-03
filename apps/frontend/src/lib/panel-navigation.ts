@@ -9,6 +9,7 @@ import {
   PawPrintIcon,
   ServerCogIcon,
   SettingsIcon,
+  SparklesIcon,
   UsersIcon,
   WarehouseIcon,
 } from "lucide-react";
@@ -354,6 +355,17 @@ const WORK: PanelNavItem[] = [
     group: "work",
     module: "shared.farms",
     permission: "farms.read",
+  },
+  {
+    // Last on purpose: a phone's bottom bar is the first three entries
+    // (UX-083). Shown by module and permission; the plan is the page's
+    // PlanGate, like SEO and Wiadomości (UX-045).
+    href: "/panel/assistant",
+    icon: SparklesIcon,
+    labelKey: "assistant",
+    group: "work",
+    module: "shared.assistant",
+    permission: "assistant.use",
   },
 ];
 
