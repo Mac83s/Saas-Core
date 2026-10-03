@@ -383,6 +383,25 @@ export type StayPlan = components["schemas"]["StayPlan"];
 export type UnitBlock = components["schemas"]["UnitBlock"];
 /** One person for one visit: free, or why not (ADR-058 §9). */
 export type CrewCandidate = components["schemas"]["Candidate"];
+/** The price list (ADR-072 §6): a price of an offer, a group or a unit. */
+export type BookingPrice = components["schemas"]["PriceRule"];
+export type BookingPriceInput = components["schemas"]["PriceRuleInput"];
+export type BookingPriceUpdate =
+  components["schemas"]["PatchedPriceRuleUpdate"];
+export type BookingPriceList = components["schemas"]["PriceRuleList"];
+export type ParticipantCategory = components["schemas"]["ParticipantCategory"];
+export type ParticipantCategoryInput =
+  components["schemas"]["ParticipantCategoryInput"];
+export type ParticipantCategoryUpdate =
+  components["schemas"]["PatchedParticipantCategoryUpdate"];
+/** What an offer adds to its price, or the deposit it holds. */
+export type BookingExtra = components["schemas"]["Extra"];
+export type BookingExtraInput = components["schemas"]["ExtraInput"];
+export type BookingExtraUpdate = components["schemas"]["PatchedExtraUpdate"];
+/** A booking's price as the company reads it: lines with net, tax and gross. */
+export type BookingQuote = components["schemas"]["BookingQuote"];
+export type BookingQuoteLine = components["schemas"]["BookingQuoteLine"];
+export type BookingQuoteInput = components["schemas"]["BookingQuoteInput"];
 export type CrewInput = components["schemas"]["CrewInput"];
 export type CrewMember = components["schemas"]["CrewMember"];
 
@@ -2980,6 +2999,216 @@ export async function copyBookingRulesToNextYear(
   return data.count;
 }
 
+/** Every price of the company, and how its amounts are read (gross or net). */
+export async function listBookingPrices(): Promise<BookingPriceList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/prices/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createBookingPrice(
+  input: BookingPriceInput,
+  idempotencyKey: string,
+): Promise<BookingPrice> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/prices/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBookingPrice(
+  priceId: string,
+  input: BookingPriceUpdate,
+  idempotencyKey: string,
+): Promise<BookingPrice> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/prices/{price_id}/",
+    {
+      params: {
+        path: { price_id: priceId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function deleteBookingPrice(
+  priceId: string,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/setup/prices/{price_id}/",
+    {
+      params: {
+        path: { price_id: priceId },
+        query: { expected_version: expectedVersion },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/** Every season's price starting in `year` again a year later; answers how many. */
+export async function copyBookingPricesToNextYear(
+  year: number,
+  idempotencyKey: string,
+): Promise<number> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/prices/copy-year/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { year },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.count;
+}
+
+/** Who comes when it changes the price: a child, a senior, a dog. */
+export async function listParticipantCategories(): Promise<
+  ParticipantCategory[]
+> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/participant-categories/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createParticipantCategory(
+  input: ParticipantCategoryInput,
+  idempotencyKey: string,
+): Promise<ParticipantCategory> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/participant-categories/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateParticipantCategory(
+  categoryId: string,
+  input: ParticipantCategoryUpdate,
+  idempotencyKey: string,
+): Promise<ParticipantCategory> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/participant-categories/{category_id}/",
+    {
+      params: {
+        path: { category_id: categoryId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The offers' extras and security deposits, switched-off ones included. */
+export async function listBookingExtras(): Promise<BookingExtra[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/extras/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createBookingExtra(
+  input: BookingExtraInput,
+  idempotencyKey: string,
+): Promise<BookingExtra> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/extras/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBookingExtra(
+  extraId: string,
+  input: BookingExtraUpdate,
+  idempotencyKey: string,
+): Promise<BookingExtra> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/extras/{extra_id}/",
+    {
+      params: {
+        path: { extra_id: extraId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What a booking would cost; nothing is saved (ADR-072 §7). With
+ *  `price_only` the price list answers for a time that cannot be booked. */
+export async function getBookingQuote(
+  input: BookingQuoteInput,
+): Promise<BookingQuote> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/quote/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function createSetupGroup(
   input: GroupSetupInput,
   idempotencyKey: string,
@@ -3226,7 +3455,7 @@ export async function createStay(
 /** A stay moves by its dates; the unit may change within its group. */
 export async function moveStay(
   appointmentId: string,
-  input: { start_date: string; end_date: string },
+  input: { start_date: string; end_date: string; quote_digest?: string },
   idempotencyKey: string,
 ): Promise<BookingAppointment> {
   const csrfToken = await getCsrfToken();

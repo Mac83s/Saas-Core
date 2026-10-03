@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CreditCardIcon, PencilIcon, PlusIcon } from "lucide-react";
+import {
+  BanknoteIcon,
+  CreditCardIcon,
+  PencilIcon,
+  PlusIcon,
+} from "lucide-react";
 
 import {
   ApiProblemError,
@@ -50,6 +55,8 @@ import {
 } from "./item-translations-sheet";
 import { SeasonsSection } from "./seasons-section";
 import { problemText } from "./people/person-dialogs";
+import { OfferPricesDialog } from "./prices/offer-prices-dialog";
+import { usePriceBook, usePriceWords } from "./prices/price-book";
 import {
   ItemDialog,
   ServiceDialog,
@@ -72,7 +79,10 @@ export function BookingSettings({
   canManageBilling,
   canUseInventory = false,
   organizationId,
+  timezone = "UTC",
 }: {
+  /** The company's zone: a price is asked about for its local day and hour. */
+  timezone?: string;
   /** Chooses the service templates offered (ADR-050). */
   organizationType?: string;
   /** The owner is sent to the plan when booking is not in it. */
@@ -98,6 +108,17 @@ export function BookingSettings({
   /** The item whose „Tłumaczenia” are open (TL12d). */
   const [translating, setTranslating] = useState<TranslatedItem>();
   const translations = useTranslations("Translations");
+  // The price list (ADR-072 §6): read once, shared by the offers' column,
+  // each offer's „Cennik” and the stays' prices under „Sezony”.
+  const prices = usePriceBook();
+  const priceList = useTranslations("PriceList");
+  const priceWords = usePriceWords({
+    services: setup?.services ?? [],
+    groups: setup?.groups ?? [],
+    resources: setup?.resources ?? [],
+  });
+  /** The offer whose „Cennik” is open. */
+  const [pricing, setPricing] = useState<string>();
 
   const load = useCallback(async () => {
     try {
@@ -226,6 +247,7 @@ export function BookingSettings({
   );
 
   const services = setup?.services ?? [];
+  const priced = services.find((service) => service.id === pricing);
   const usedBy = (field: "location_ids" | "resource_ids", id: string) =>
     services.filter((service) => service.active && service[field].includes(id))
       .length;
@@ -314,6 +336,31 @@ export function BookingSettings({
         ),
     },
     {
+      id: "price",
+      header: t("colPrice"),
+      enableSorting: false,
+      cell: ({ row: { original: service } }) => {
+        // The offer's own prices as they were entered; what a booking costs
+        // is the quote's to say, not this column's.
+        const own = (prices.book?.prices ?? []).filter(
+          (rule) => rule.service_id === service.id && rule.active,
+        );
+        const base = own.find(
+          (rule) =>
+            !rule.starts_on && !rule.weekdays.length && !rule.local_from,
+        );
+        return (
+          <span className={dim(service)}>
+            {base
+              ? priceWords.amount(base)
+              : own.length
+                ? priceList("offerPrices", { count: own.length })
+                : priceList("noPrice")}
+          </span>
+        );
+      },
+    },
+    {
       id: "public",
       header: t("colPublic"),
       enableSorting: false,
@@ -338,6 +385,15 @@ export function BookingSettings({
               main: true,
               onSelect: (trigger) =>
                 open({ kind: "service", service }, trigger ?? null),
+            },
+            {
+              label: t("priceListAction"),
+              icon: <BanknoteIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: (trigger) => {
+                setReturnTo(trigger ?? null);
+                setPricing(service.id);
+              },
             },
             {
               label: translations("action"),
@@ -704,8 +760,11 @@ export function BookingSettings({
       {/* Seasons act on stays: only a company with an offer booked by dates. */}
       {setup?.services.some((service) => service.time_model === "range") ? (
         <SeasonsSection
+          book={prices.book}
           groups={setup.groups}
+          onPricesChanged={prices.reload}
           resources={setup.resources}
+          zone={timezone}
           services={setup.services.filter(
             (service) => service.time_model === "range",
           )}
@@ -750,6 +809,18 @@ export function BookingSettings({
         </DialogContent>
       </Dialog>
 
+      {setup && prices.book && priced ? (
+        <OfferPricesDialog
+          book={prices.book}
+          finalFocus={returnTo}
+          onChanged={prices.reload}
+          onOpenChange={(value) => (value ? undefined : setPricing(undefined))}
+          onSetupChanged={load}
+          service={priced}
+          setup={setup}
+          zone={timezone}
+        />
+      ) : null}
       {setup && editing?.kind === "service" ? (
         <ServiceDialog
           canUseInventory={canUseInventory}

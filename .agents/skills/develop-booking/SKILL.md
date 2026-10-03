@@ -223,6 +223,17 @@ A customer reads a quote through `quote.customer_quote`: gross, in their
 language, without the company's net, tax and ids — the public form and the
 customer's own link never serialize the full snapshot.
 
+The panel of the price list is `apps/frontend/src/modules/shared/booking/prices/`
+(phase 3e): each offer's „Cennik” and the stays' prices under „Sezony”. It
+shows amounts as they were entered and asks the server for every price a
+booking would have — `PanelQuote` draws a quote, nothing adds one up. The
+preview „Jaka cena obowiązuje dnia…” asks `POST /booking/quote/` with
+`price_only`, which answers for a time that cannot be booked (a taken unit, a
+season's rule, an offer still switched off); a booking never sends it. Which
+price won is the line's `price_rule_id`. „Za osobę za noc” is a price per time
+unit of 0 with nobody included: `quote` then leaves out the line of 0 and names
+the people by the offer, not as further people (`_per_person_only`).
+
 ## Done means
 
 ```

@@ -44,6 +44,8 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { PanelSection } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { problemText } from "./people/person-dialogs";
+import type { PriceBook } from "./prices/price-book";
+import { PriceList } from "./prices/price-list";
 
 const asDay = (value: string) => new Date(`${value}T12:00:00`);
 /** 0 = Monday … 6 = Sunday, as the API counts them; 2024-01-01 was a Monday. */
@@ -65,18 +67,27 @@ const scopeOf = (rule: BookingRule): Scope | "" =>
  * Sezony i zasady (ADR-072 §5): what a stay may be in a stretch of dates —
  * shortest and longest, arrival and departure days, how far ahead, or closed.
  * A unit's season goes before its group's, a group's before the offer's.
+ * Under the rules, what the stays cost in those dates (§6, phase 3e).
  */
 export function SeasonsSection({
+  book,
   groups,
+  onPricesChanged,
   resources,
   services,
+  zone = "UTC",
 }: {
+  /** The company's price list; absent until it is read. */
+  book?: PriceBook;
   groups: GroupSetup[];
+  onPricesChanged?: () => Promise<void> | void;
   resources: ResourceSetup[];
+  zone?: string;
   /** The offers booked by dates (`range`); a season acts on stays only. */
   services: ServiceSetup[];
 }) {
   const t = useTranslations("ServicesSetup");
+  const prices = useTranslations("PriceList");
   const format = useFormatter();
   const labels = useDataTableLabels();
   const [items, setItems] = useState<BookingRule[]>();
@@ -262,77 +273,92 @@ export function SeasonsSection({
   ];
 
   return (
-    <PanelSection
-      actions={
-        <div className="flex flex-wrap gap-2">
-          {latestYear ? (
-            <Button onClick={() => void copy()} variant="outline">
-              <CopyIcon aria-hidden="true" />
-              {t("copySeasons", { from: latestYear, to: latestYear + 1 })}
+    <>
+      <PanelSection
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {latestYear ? (
+              <Button onClick={() => void copy()} variant="outline">
+                <CopyIcon aria-hidden="true" />
+                {t("copySeasons", { from: latestYear, to: latestYear + 1 })}
+              </Button>
+            ) : null}
+            <Button
+              onClick={(event) => {
+                setReturnTo(event.currentTarget);
+                setEditing({});
+              }}
+              variant="outline"
+            >
+              <PlusIcon aria-hidden="true" />
+              {t("addSeason")}
             </Button>
-          ) : null}
-          <Button
-            onClick={(event) => {
-              setReturnTo(event.currentTarget);
-              setEditing({});
-            }}
-            variant="outline"
-          >
-            <PlusIcon aria-hidden="true" />
-            {t("addSeason")}
-          </Button>
-        </div>
-      }
-      description={t("seasonsHint")}
-      title={t("seasonsTitle")}
-    >
-      <p className="text-sm text-success-foreground empty:hidden" role="status">
-        {notice}
-      </p>
-      {problem ? (
-        <p className="text-sm text-destructive" role="alert">
-          {problem}
+          </div>
+        }
+        description={t("seasonsHint")}
+        title={t("seasonsTitle")}
+      >
+        <p
+          className="text-sm text-success-foreground empty:hidden"
+          role="status"
+        >
+          {notice}
         </p>
-      ) : null}
-      <DataTable
-        caption={t("seasonsCaption")}
-        columns={columns}
-        data={items ?? []}
-        getRowId={(item) => item.id}
-        labels={{ ...labels, empty: t("noSeasons") }}
-        loading={!items}
-      />
-      {editing ? (
-        <SeasonDialog
-          finalFocus={returnTo}
-          groups={groups.filter(
-            (group) => group.active || group.id === editing.item?.group_id,
-          )}
-          item={editing.item}
-          onOpenChange={(open) => {
-            if (!open) {
+        {problem ? (
+          <p className="text-sm text-destructive" role="alert">
+            {problem}
+          </p>
+        ) : null}
+        <DataTable
+          caption={t("seasonsCaption")}
+          columns={columns}
+          data={items ?? []}
+          getRowId={(item) => item.id}
+          labels={{ ...labels, empty: t("noSeasons") }}
+          loading={!items}
+        />
+        {editing ? (
+          <SeasonDialog
+            finalFocus={returnTo}
+            groups={groups.filter(
+              (group) => group.active || group.id === editing.item?.group_id,
+            )}
+            item={editing.item}
+            onOpenChange={(open) => {
+              if (!open) {
+                setEditing(undefined);
+                void load();
+              }
+            }}
+            onSaved={(saved, created) => {
               setEditing(undefined);
+              setNotice(
+                t(created ? "seasonAdded" : "seasonSaved", {
+                  name: title(saved),
+                }),
+              );
               void load();
-            }
-          }}
-          onSaved={(saved, created) => {
-            setEditing(undefined);
-            setNotice(
-              t(created ? "seasonAdded" : "seasonSaved", {
-                name: title(saved),
-              }),
-            );
-            void load();
-          }}
-          resources={resources.filter(
-            (unit) => unit.active || unit.id === editing.item?.resource_id,
-          )}
-          services={services.filter(
-            (offer) => offer.active || offer.id === editing.item?.service_id,
-          )}
+            }}
+            resources={resources.filter(
+              (unit) => unit.active || unit.id === editing.item?.resource_id,
+            )}
+            services={services.filter(
+              (offer) => offer.active || offer.id === editing.item?.service_id,
+            )}
+          />
+        ) : null}
+      </PanelSection>
+      {book ? (
+        <PriceList
+          book={book}
+          description={prices("stayPricesHint")}
+          onChanged={() => onPricesChanged?.()}
+          setup={{ services, groups, resources }}
+          title={prices("stayPricesTitle")}
+          zone={zone}
         />
       ) : null}
-    </PanelSection>
+    </>
   );
 }
 

@@ -27,7 +27,10 @@ const api = vi.hoisted(() => ({
   deleteBookingClosure: vi.fn(),
   getBookingSetup: vi.fn(),
   listBookingClosures: vi.fn(),
+  listBookingExtras: vi.fn(),
+  listBookingPrices: vi.fn(),
   listBookingRules: vi.fn(),
+  listParticipantCategories: vi.fn(),
   listInventoryBalances: vi.fn(),
   listInventoryItems: vi.fn(),
   updateSetupGroup: vi.fn(),
@@ -203,6 +206,10 @@ beforeEach(() => {
   api.getBookingSetup.mockResolvedValue(SETUP);
   api.listBookingClosures.mockResolvedValue([]);
   api.listBookingRules.mockResolvedValue([]);
+  // No price list yet: every offer says so.
+  api.listBookingPrices.mockResolvedValue({ items: [], amounts: "gross" });
+  api.listParticipantCategories.mockResolvedValue([]);
+  api.listBookingExtras.mockResolvedValue([]);
   api.createSetupService.mockImplementation(async (input) =>
     service({ ...input, id: "new" }),
   );
@@ -255,6 +262,64 @@ test("usługi, miejsca i zasoby w listach, z tym, co trzeba poprawić", async ()
     screen.getByRole("link", { name: "Otwórz listę pracowników" }),
   ).toHaveAttribute("href", "/panel/team");
   expect((await axe.run(container, noContrast)).violations).toEqual([]);
+});
+
+test("usługa pokazuje swoją cenę, a „Cennik” otwiera jej ceny, dopłaty i podgląd", async () => {
+  api.listBookingPrices.mockResolvedValue({
+    items: [
+      {
+        id: "price",
+        name: "",
+        service_id: HERD,
+        group_id: null,
+        resource_id: null,
+        starts_on: null,
+        ends_on: null,
+        weekdays: [],
+        local_from: null,
+        local_to: null,
+        basis: "per_booking",
+        amount_minor: 15000,
+        currency: "PLN",
+        vat_code: "23",
+        included_people: null,
+        extra_person_amount_minor: null,
+        extra_person_per_time_unit: false,
+        category_prices: [],
+        length_discounts: [],
+        active: true,
+        version: 1,
+      },
+    ],
+    amounts: "gross",
+  });
+  renderSettings();
+  const services = await screen.findByRole("table", { name: "Usługi firmy" });
+  const herd = within(services)
+    .getByText("Korekcja stada 60–150 krów")
+    .closest("tr")!;
+  expect(
+    await within(herd).findByText(/150,00\szł za rezerwację/),
+  ).toBeInTheDocument();
+  const old = within(services).getByText("Wizyta interwencyjna").closest("tr")!;
+  expect(within(old).getByText("Bez ceny")).toBeInTheDocument();
+
+  fireEvent.click(within(herd).getByRole("button", { name: "Cennik" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Cennik: Korekcja stada 60–150 krów",
+  });
+  expect(
+    within(within(dialog).getByRole("table", { name: "Ceny" })).getByText(
+      "Cena podstawowa",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).getByRole("region", { name: "Jaka cena obowiązuje dnia…" }),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).getByRole("table", { name: "Dopłaty i kaucja" }),
+  ).toBeInTheDocument();
+  expect((await axe.run(dialog, noContrast)).violations).toEqual([]);
 });
 
 test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", async () => {

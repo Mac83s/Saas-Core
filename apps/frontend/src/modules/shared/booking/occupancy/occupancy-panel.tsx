@@ -24,6 +24,7 @@ import { ConfirmDialog, problemText } from "../people/person-dialogs";
 import { CalendarNav } from "../calendar-nav";
 import { BlockUnitDialog, NewStayDialog } from "./stay-dialogs";
 import { addDays, formatDay, wallClock, zonedInstant } from "../calendar-time";
+import { formatMoney } from "../prices/money";
 
 const BOOKING_MANAGE = "booking.appointment.manage";
 const BOOKING_READ = "booking.appointment.read";
@@ -264,7 +265,7 @@ function useHeldText(zone: string) {
     item.kind === "visit"
       ? formatVisit(item.starts_at, item.ends_at, locale, zone)
       : formatDateRange(item.starts_at, item.ends_at, locale, zone);
-  return (item: OccupancyHeld) =>
+  const held = (item: OccupancyHeld) =>
     item.kind === "block"
       ? item.title
         ? t("heldBlock", { title: item.title, when: when(item) })
@@ -275,7 +276,18 @@ function useHeldText(zone: string) {
             title: item.title,
             when: when(item),
           });
+  // What the booking comes to, from its frozen quote (ADR-072 §7).
+  return (item: OccupancyHeld) => {
+    const price = heldPrice(item, locale);
+    return price ? t("heldPriced", { held: held(item), price }) : held(item);
+  };
 }
+
+/** A booking's price as the server froze it; nothing for one without. */
+const heldPrice = (item: OccupancyHeld, locale: string) =>
+  item.gross_minor !== null && item.currency
+    ? formatMoney(item.gross_minor, item.currency, locale)
+    : "";
 
 /** Somebody else's booking has no id of its own here (UX-023). */
 const heldKey = (item: OccupancyHeld) =>
@@ -419,7 +431,11 @@ function Grid({
                               style={place}
                               title={label}
                             >
-                              <span className="truncate">{item.title}</span>
+                              <span className="truncate">
+                                {[item.title, heldPrice(item, locale)]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
                             </Link>
                           ) : item.block_id && onBlock ? (
                             <button

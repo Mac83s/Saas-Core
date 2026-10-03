@@ -37,6 +37,7 @@ export default async function ServicesSettingsPage() {
           })}
           organizationId={organization.id}
           organizationType={organization.organization_type}
+          timezone={organization.timezone}
         />
       ) : (
         <SettingsNotice icon={LockIcon} title={t("noAccessTitle")}>

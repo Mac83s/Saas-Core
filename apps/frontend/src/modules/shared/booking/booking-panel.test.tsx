@@ -29,6 +29,7 @@ const api = vi.hoisted(() => ({
   createBookingAppointment: vi.fn(),
   createPublicBookingAppointment: vi.fn(),
   getBookingCatalog: vi.fn(),
+  getBookingQuote: vi.fn(),
   getBookingSlots: vi.fn(),
   getCrewCandidates: vi.fn(),
   getPeopleDay: vi.fn(),
@@ -38,7 +39,10 @@ const api = vi.hoisted(() => ({
   getPublicBookingTimes: vi.fn(),
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
+  listBookingExtras: vi.fn(),
   listBookingPlaces: vi.fn(),
+  listBookingPrices: vi.fn(),
+  listParticipantCategories: vi.fn(),
   listPeople: vi.fn(),
   listRegisterVisits: vi.fn(),
   listTeams: vi.fn(),
@@ -251,6 +255,11 @@ beforeEach(() => {
     timezone: "Europe/Warsaw",
     items: [],
   });
+  // No price list: the form asks about nobody and shows no price.
+  api.listBookingPrices.mockResolvedValue({ items: [], amounts: "gross" });
+  api.listParticipantCategories.mockResolvedValue([]);
+  api.listBookingExtras.mockResolvedValue([]);
+  api.getBookingQuote.mockResolvedValue(visitQuote([], 0, "0".repeat(64)));
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
   // A service without a price: the form shows none.
   api.getPublicBookingQuote.mockResolvedValue(null);
@@ -269,6 +278,41 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+/** A visit's price as the office reads it: lines, the total and its digest. */
+const visitQuote = (
+  lines: [name: string, quantity: number, unit: number][],
+  gross: number,
+  digest: string,
+) => ({
+  currency: "PLN",
+  amounts: "gross",
+  lines: lines.map(([name, quantity, unit]) => ({
+    kind: "price",
+    name,
+    customer_name: name,
+    quantity,
+    unit_amount_minor: unit,
+    net_minor: Math.round((quantity * unit) / 1.23),
+    vat_minor: quantity * unit - Math.round((quantity * unit) / 1.23),
+    gross_minor: quantity * unit,
+    vat_code: "23",
+    time_units: null,
+    people: null,
+    category_id: null,
+    price_rule_id: "rule",
+    percent: null,
+    extra_id: null,
+  })),
+  participants: [],
+  extras: [],
+  security_deposit_minor: 0,
+  payment_policy: "on_site",
+  net_minor: Math.round(gross / 1.23),
+  vat_minor: gross - Math.round(gross / 1.23),
+  gross_minor: gross,
+  digest,
 });
 
 function renderCalendar(
@@ -1244,6 +1288,165 @@ test("a new appointment takes a free time and says when one is taken", async () 
   });
   // A retry of the same form keeps its idempotency key.
   expect(key).toBe(api.createBookingAppointment.mock.calls[0][1]);
+});
+
+test("a new visit shows the price for who comes, books at it and says when it changed (ADR-072 §7)", async () => {
+  const offer = catalog.services[0].id;
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T09:00:00Z",
+        ends_at: "2026-08-20T09:30:00Z",
+        staff_id: BEA,
+        resource_id: null,
+      },
+    ],
+  });
+  // A price per person: the form asks who comes. The amounts are the quote's.
+  api.listBookingPrices.mockResolvedValue({
+    items: [
+      {
+        id: "rule",
+        service_id: offer,
+        active: true,
+        basis: "per_person",
+        included_people: null,
+        category_prices: [],
+      },
+    ],
+    amounts: "gross",
+  });
+  api.listParticipantCategories.mockResolvedValue([
+    { id: "child", name: "Child", counts_towards_capacity: true, active: true },
+  ]);
+  api.listBookingExtras.mockResolvedValue([
+    {
+      id: "recording",
+      service_id: offer,
+      name: "Recording",
+      kind: "charge",
+      basis: "per_booking",
+      amount_minor: 3000,
+      currency: "PLN",
+      vat_code: "23",
+      mandatory: false,
+      max_quantity: 1,
+      active: true,
+    },
+  ]);
+  api.getBookingQuote.mockImplementation(
+    async (input: {
+      participants?: { count: number }[];
+      extras?: unknown[];
+    }) => {
+      const people = input.participants?.[0]?.count ?? 1;
+      const extras = input.extras?.length ? 3000 : 0;
+      return visitQuote(
+        [["Consultation", people, 15000]],
+        people * 15000 + extras,
+        `${people}${extras}`.padEnd(64, "a"),
+      );
+    },
+  );
+  api.createBookingAppointment
+    .mockRejectedValueOnce(
+      new ApiProblemError({
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        code: "quote_changed",
+        detail: {
+          message: "Cena zmieniła się od chwili, gdy ją pokazaliśmy.",
+          quote: visitQuote(
+            [["Consultation", 2, 17000]],
+            37000,
+            "c".repeat(64),
+          ),
+        } as unknown as string,
+        correlation_id: null,
+      }),
+    )
+    .mockResolvedValueOnce({ ...appointment, customer_name: "Ewa Zielińska" });
+  renderCalendar();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "New appointment" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  fireEvent.change(within(dialog).getByLabelText("Service"), {
+    target: { value: offer },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "11:00" },
+  });
+  const total = async (amount: RegExp) =>
+    waitFor(() =>
+      expect(
+        within(within(dialog).getByRole("region", { name: "Price" })).getByText(
+          "Total, gross",
+        ).nextSibling,
+      ).toHaveTextContent(amount),
+    );
+  await total(/PLN\s150\.00/);
+  expect(api.getBookingQuote).toHaveBeenLastCalledWith({
+    service_id: offer,
+    starts_at: "2026-08-20T09:00:00Z",
+    participants: [{ category_id: null, count: 1 }],
+  });
+  fireEvent.change(within(dialog).getByLabelText("People"), {
+    target: { value: "2" },
+  });
+  fireEvent.click(within(dialog).getByLabelText(/Recording — PLN\s30\.00/));
+  await total(/PLN\s330\.00/);
+  expect(within(dialog).getByText("Payment on site.")).not.toBeNull();
+  expect((await axe.run(dialog)).violations).toHaveLength(0);
+
+  fireEvent.change(within(dialog).getByLabelText("Full name"), {
+    target: { value: "Ewa Zielińska" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Phone"), {
+    target: { value: "+48 600 100 200" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Save appointment" }),
+  );
+  // „Cena się zmieniła”: the new amounts are shown, nothing is booked yet.
+  expect(
+    await within(dialog).findByText(/The price has changed\./),
+  ).not.toBeNull();
+  await total(/PLN\s370\.00/);
+  expect(api.createBookingAppointment.mock.calls[0][0]).toMatchObject({
+    participants: [{ category_id: null, count: 2 }],
+    extras: [{ extra_id: "recording", quantity: 1 }],
+    quote_digest: "23000".padEnd(64, "a"),
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Save appointment" }),
+  );
+  expect(
+    await screen.findByText(/Appointment added: Ewa Zielińska/),
+  ).not.toBeNull();
+  // The second save books at the price now shown.
+  expect(api.createBookingAppointment.mock.calls[1][0]).toMatchObject({
+    quote_digest: "c".repeat(64),
+  });
+});
+
+test("a booked visit shows the price it was frozen at", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    {
+      ...appointment,
+      quote: visitQuote([["Consultation", 1, 15000]], 15000, "d".repeat(64)),
+    },
+  ]);
+  renderCalendar();
+  fireEvent.click(await screen.findByText("Jan Kowalski"));
+  const price = await screen.findByRole("region", { name: "Price" });
+  expect(within(price).getByText("Total, gross").nextSibling).toHaveTextContent(
+    /PLN\s150\.00/,
+  );
 });
 
 test("a chosen staff member books with the resource that goes with them", async () => {

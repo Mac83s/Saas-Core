@@ -8,12 +8,16 @@ import {
   addUnitBlock,
   createStay,
   getBookingSetup,
+  listBookingExtras,
+  listParticipantCategories,
   moveStay,
   previewStay,
   previewStayMove,
   type BookingAppointment,
+  type BookingExtra,
   type BookingSetup,
   type OccupancyUnit,
+  type ParticipantCategory,
   type StayPlan,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
@@ -27,13 +31,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@saas-core/ui/components/dialog";
-import { Field, FieldLabel } from "@saas-core/ui/components/field";
+import {
+  Field,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { formatDateRange } from "#lib/dates";
 import { addDays, zonedInstant } from "../calendar-time";
+import { changedQuote, isPriced, PanelQuote } from "../prices/panel-quote";
+import {
+  ExtrasPicker,
+  extrasOf,
+  ONE_PERSON,
+  participantsOf,
+  PartyFields,
+  type Party,
+} from "../prices/party";
 
 /** The server's own words for a refused stay: a season's rule, a taken unit. */
 function refusal(error: unknown, fallback: string): string {
@@ -79,9 +97,17 @@ export function NewStayDialog({
   zone: string;
 }) {
   const t = useTranslations("Occupancy");
+  const prices = useTranslations("PriceList");
   const common = useTranslations("Common");
   const planText = usePlanText(zone);
   const [setup, setSetup] = useState<BookingSetup>();
+  // Who comes and what they add: the price and a unit's capacity count them.
+  const [categories, setCategories] = useState<ParticipantCategory[]>([]);
+  const [extras, setExtras] = useState<BookingExtra[]>([]);
+  const [party, setParty] = useState<Party>(ONE_PERSON);
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  /** The price is another one than the form showed when it was sent. */
+  const [changed, setChanged] = useState(false);
   const [serviceId, setServiceId] = useState("");
   const [target, setTarget] = useState("");
   const [startDate, setStartDate] = useState(preset?.day ?? "");
@@ -110,9 +136,30 @@ export function NewStayDialog({
         offer?.resource_ids.includes(unit.id)),
   );
   const byDays = offer?.range_unit === "day";
+  const options = extras.filter(
+    (extra) =>
+      extra.service_id === serviceId &&
+      extra.active &&
+      extra.kind === "charge" &&
+      !extra.mandatory,
+  );
+  const chosen = extrasOf(
+    Object.fromEntries(
+      options.map((extra) => [extra.id, picked[extra.id] ?? 0]),
+    ),
+  );
+  const participants = participantsOf(party);
+  const asked = JSON.stringify([participants, chosen]);
 
   useEffect(() => {
     if (!open || setup) return;
+    // A price list that cannot be read asks about nobody and offers nothing.
+    void listParticipantCategories()
+      .then((found) => setCategories(found.filter((item) => item.active)))
+      .catch(() => undefined);
+    void listBookingExtras()
+      .then(setExtras)
+      .catch(() => undefined);
     void getBookingSetup().then((loaded) => {
       setSetup(loaded);
       const first = loaded.services.find(
@@ -153,11 +200,14 @@ export function NewStayDialog({
         email: email.trim(),
       },
       customer_notes: notes.trim(),
+      participants,
+      ...(chosen.length ? { extras: chosen } : {}),
     };
   };
 
   // The dates are checked as soon as both are there: the season's rules, a
-  // closed day and a taken unit say so before the guest's details.
+  // closed day and a taken unit say so before the guest's details — and the
+  // price of the stay for the people who come.
   useEffect(() => {
     if (!serviceId || !target || !startDate || !endDate) return;
     let live = true;
@@ -165,6 +215,7 @@ export function NewStayDialog({
       .then((found) => {
         if (!live) return;
         setPlan(found);
+        setChanged(false);
         setPlanProblem(undefined);
       })
       .catch((error: unknown) => {
@@ -177,7 +228,7 @@ export function NewStayDialog({
     };
     // `input` reads the same state the dependencies list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceId, target, startDate, endDate]);
+  }, [serviceId, target, startDate, endDate, asked]);
 
   async function book() {
     if (!name.trim()) {
@@ -187,9 +238,26 @@ export function NewStayDialog({
     setBusy(true);
     setProblem(undefined);
     try {
-      onBooked(await createStay(input(), idempotencyKey));
+      onBooked(
+        await createStay(
+          {
+            ...input(),
+            // The price shown: another one by now is asked about, not booked.
+            ...(isPriced(plan?.quote)
+              ? { quote_digest: plan?.quote?.digest }
+              : {}),
+          },
+          idempotencyKey,
+        ),
+      );
     } catch (error) {
-      setProblem(refusal(error, t("bookFailed")));
+      const quote = changedQuote(error);
+      if (quote && plan) {
+        // „Cena się zmieniła”: the new amounts, and the next „Zarezerwuj”
+        // books at them.
+        setPlan({ ...plan, quote });
+        setChanged(true);
+      } else setProblem(refusal(error, t("bookFailed")));
     } finally {
       setBusy(false);
     }
@@ -290,6 +358,33 @@ export function NewStayDialog({
               >
                 {planProblem ?? (plan ? planText(plan) : "")}
               </p>
+              <FieldSet>
+                <FieldLegend variant="label">
+                  {prices("partyLegend")}
+                </FieldLegend>
+                <PartyFields
+                  categories={categories}
+                  idPrefix="stay-party"
+                  onChange={setParty}
+                  value={party}
+                />
+              </FieldSet>
+              {options.length ? (
+                <FieldSet>
+                  <FieldLegend variant="label">
+                    {prices("extrasLegend")}
+                  </FieldLegend>
+                  <ExtrasPicker
+                    extras={options}
+                    idPrefix="stay-extra"
+                    onChange={setPicked}
+                    value={picked}
+                  />
+                </FieldSet>
+              ) : null}
+              {plan?.quote && isPriced(plan.quote) ? (
+                <PanelQuote changed={changed} quote={plan.quote} />
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field className="sm:col-span-2">
                   <FieldLabel htmlFor="stay-guest">{t("guest")}</FieldLabel>
@@ -515,6 +610,7 @@ export function MoveStayDialog({
   const [plan, setPlan] = useState<StayPlan>();
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [changed, setChanged] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
 
   useEffect(() => {
@@ -527,6 +623,7 @@ export function MoveStayDialog({
       .then((found) => {
         if (!live) return;
         setPlan(found);
+        setChanged(false);
         setProblem(undefined);
       })
       .catch((error: unknown) => {
@@ -544,13 +641,24 @@ export function MoveStayDialog({
     try {
       const moved = await moveStay(
         appointment.id,
-        { start_date: startDate, end_date: endDate },
+        {
+          start_date: startDate,
+          end_date: endDate,
+          // The stay is priced again for the new dates: the price shown.
+          ...(isPriced(plan?.quote)
+            ? { quote_digest: plan?.quote?.digest }
+            : {}),
+        },
         idempotencyKey,
       );
       setOpen(false);
       onDone(moved);
     } catch (error) {
-      setProblem(refusal(error, t("moveFailed")));
+      const quote = changedQuote(error);
+      if (quote && plan) {
+        setPlan({ ...plan, quote });
+        setChanged(true);
+      } else setProblem(refusal(error, t("moveFailed")));
     } finally {
       setBusy(false);
     }
@@ -617,6 +725,9 @@ export function MoveStayDialog({
           >
             {problem ?? (plan ? planText(plan) : "")}
           </p>
+          {plan?.quote && isPriced(plan.quote) ? (
+            <PanelQuote changed={changed} quote={plan.quote} />
+          ) : null}
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>
               {common("cancel")}

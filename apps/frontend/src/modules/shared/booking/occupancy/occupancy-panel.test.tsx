@@ -9,7 +9,10 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import type { OrganizationSummary } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  type OrganizationSummary,
+} from "@saas-core/api-client";
 
 import englishMessages from "../../../../../messages/en.json";
 import polishMessages from "../../../../../messages/pl.json";
@@ -20,6 +23,8 @@ const api = vi.hoisted(() => ({
   createStay: vi.fn(),
   getBookingOccupancy: vi.fn(),
   getBookingSetup: vi.fn(),
+  listBookingExtras: vi.fn(),
+  listParticipantCategories: vi.fn(),
   previewStay: vi.fn(),
   removeUnitBlock: vi.fn(),
 }));
@@ -85,6 +90,8 @@ const OCCUPANCY = {
       block_id: null,
       title: "Rodzina Nowaków",
       status: "confirmed",
+      gross_minor: null,
+      currency: null,
     },
     {
       unit_id: TWO,
@@ -95,6 +102,8 @@ const OCCUPANCY = {
       block_id: "b-1",
       title: "Malowanie",
       status: "",
+      gross_minor: null,
+      currency: null,
     },
   ],
   closures: [
@@ -126,6 +135,9 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-09-24T08:30:00Z"));
   api.getBookingOccupancy.mockResolvedValue(OCCUPANCY);
+  // No price list: nobody but the people is asked about, nothing is offered.
+  api.listParticipantCategories.mockResolvedValue([]);
+  api.listBookingExtras.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -308,6 +320,213 @@ test("nowy pobyt: termin sprawdzony od razu, potem gość i rezerwacja", async (
   expect(
     await screen.findByText("Zarezerwowano pobyt: Anna Las."),
   ).toBeInTheDocument();
+});
+
+const STAY_SETUP = {
+  services: [
+    {
+      id: "stay",
+      name: "Pobyt w domku",
+      time_model: "range",
+      range_unit: "night",
+      active: true,
+      group_ids: [COTTAGES],
+      resource_ids: [],
+    },
+  ],
+  groups: [{ id: COTTAGES, name: "Domki", active: true }],
+  resources: [{ id: ONE, name: "Domek 1", group_id: COTTAGES, active: true }],
+  locations: [],
+  staff: [],
+  appointment_kinds: [],
+};
+const stayQuote = (nightly: number, digest: string) => ({
+  currency: "PLN",
+  amounts: "gross",
+  lines: [
+    {
+      kind: "price",
+      name: "Pobyt w domku",
+      customer_name: "Pobyt w domku",
+      quantity: 2,
+      unit_amount_minor: nightly,
+      net_minor: Math.round((2 * nightly) / 1.08),
+      vat_minor: 2 * nightly - Math.round((2 * nightly) / 1.08),
+      gross_minor: 2 * nightly,
+      vat_code: "8",
+      time_units: 2,
+      people: null,
+      category_id: null,
+      price_rule_id: "rule",
+      percent: null,
+      extra_id: null,
+    },
+  ],
+  participants: [],
+  extras: [],
+  security_deposit_minor: 50000,
+  payment_policy: "on_site",
+  net_minor: Math.round((2 * nightly) / 1.08),
+  vat_minor: 2 * nightly - Math.round((2 * nightly) / 1.08),
+  gross_minor: 2 * nightly,
+  digest,
+});
+
+test("pobyt z ceną: kto przyjeżdża i dodatki idą do wyceny, a zmienioną cenę widać przed zapisem", async () => {
+  api.getBookingSetup.mockResolvedValue(STAY_SETUP);
+  api.listParticipantCategories.mockResolvedValue([
+    { id: "dog", name: "Pies", counts_towards_capacity: false, active: true },
+    { id: "old", name: "Senior", counts_towards_capacity: true, active: false },
+  ]);
+  api.listBookingExtras.mockResolvedValue([
+    {
+      id: "linen",
+      service_id: "stay",
+      name: "Pościel",
+      kind: "charge",
+      basis: "per_person",
+      amount_minor: 2500,
+      currency: "PLN",
+      vat_code: "23",
+      mandatory: false,
+      max_quantity: 1,
+      active: true,
+    },
+    // Mandatory ones and the deposit are the server's to add, not a choice.
+    {
+      id: "cleaning",
+      service_id: "stay",
+      name: "Sprzątanie",
+      kind: "charge",
+      basis: "per_booking",
+      amount_minor: 10000,
+      currency: "PLN",
+      vat_code: "23",
+      mandatory: true,
+      max_quantity: 1,
+      active: true,
+    },
+  ]);
+  const plan = (quote: object) => ({
+    resource_id: ONE,
+    resource_name: "Domek 1",
+    starts_at: "2026-10-02T14:00:00Z",
+    ends_at: "2026-10-04T09:00:00Z",
+    length: 2,
+    range_unit: "night",
+    quote,
+  });
+  api.previewStay.mockResolvedValue(plan(stayQuote(30000, "a".repeat(64))));
+  api.createStay
+    .mockRejectedValueOnce(
+      new ApiProblemError({
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        code: "quote_changed",
+        detail: {
+          message: "Cena zmieniła się od chwili, gdy ją pokazaliśmy.",
+          quote: stayQuote(35000, "b".repeat(64)),
+        } as unknown as string,
+        correlation_id: null,
+      }),
+    )
+    .mockResolvedValueOnce({ customer_name: "Anna Las" });
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: "Nowy pobyt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowy pobyt" });
+  await waitFor(() =>
+    expect(within(dialog).getByLabelText("Gdzie")).toHaveValue(
+      `group:${COTTAGES}`,
+    ),
+  );
+  // Only what the company still offers is asked about.
+  expect(within(dialog).queryByLabelText("Senior")).toBeNull();
+  expect(within(dialog).queryByLabelText(/Sprzątanie/)).toBeNull();
+  fireEvent.change(within(dialog).getByLabelText("Przyjazd"), {
+    target: { value: "2026-10-02" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Wyjazd"), {
+    target: { value: "2026-10-04" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Osoby"), {
+    target: { value: "3" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Pies"), {
+    target: { value: "1" },
+  });
+  fireEvent.click(
+    within(dialog).getByLabelText(/Pościel — 25,00\szł za osobę/),
+  );
+  await waitFor(() =>
+    expect(api.previewStay).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        participants: [
+          { category_id: null, count: 3 },
+          { category_id: "dog", count: 1 },
+        ],
+        extras: [{ extra_id: "linen", quantity: 1 }],
+      }),
+    ),
+  );
+  const price = await within(dialog).findByRole("region", { name: "Cena" });
+  expect(within(price).getByText("Razem brutto").nextSibling).toHaveTextContent(
+    /600,00\szł/,
+  );
+  // The deposit is beside the total, never in it.
+  expect(
+    within(price).getByText(/Kaucja zwrotna: 500,00\szł \(poza sumą\)/),
+  ).toBeInTheDocument();
+  fireEvent.change(
+    within(dialog).getByLabelText("Gość (imię i nazwisko albo nazwa)"),
+    { target: { value: "Anna Las" } },
+  );
+  expect((await axe.run(dialog)).violations).toEqual([]);
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zarezerwuj" }));
+  // „Cena się zmieniła”: the new amounts, nothing booked yet.
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Cena się zmieniła.",
+  );
+  expect(api.createStay.mock.calls[0][0]).toMatchObject({
+    quote_digest: "a".repeat(64),
+  });
+  expect(
+    within(within(dialog).getByRole("region", { name: "Cena" })).getByText(
+      "Razem brutto",
+    ).nextSibling,
+  ).toHaveTextContent(/700,00\szł/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() => expect(api.createStay).toHaveBeenCalledTimes(2));
+  // The second try books at the price now shown, under the same key.
+  expect(api.createStay.mock.calls[1][0]).toMatchObject({
+    quote_digest: "b".repeat(64),
+  });
+  expect(api.createStay.mock.calls[1][1]).toBe(api.createStay.mock.calls[0][1]);
+  expect(
+    await screen.findByText("Zarezerwowano pobyt: Anna Las."),
+  ).toBeInTheDocument();
+});
+
+test("pobyt z ceną mówi na siatce i na karcie, ile wynosi", async () => {
+  api.getBookingOccupancy.mockResolvedValue({
+    ...OCCUPANCY,
+    held: [
+      { ...OCCUPANCY.held[0], gross_minor: 90000, currency: "PLN" },
+      OCCUPANCY.held[1],
+    ],
+  });
+  renderPanel();
+  const grid = await screen.findByRole("group", { name: "Domek 1" });
+  const bar = within(grid).getByRole("link", {
+    name: /Rodzina Nowaków, pobyt .* · 900,00\szł/,
+  });
+  expect(bar).toHaveTextContent(/Rodzina Nowaków · 900,00\szł/);
+  // The phone's card says the same; a block has no price.
+  expect(
+    screen.getAllByText(/Rodzina Nowaków, pobyt .* · 900,00\szł/).length,
+  ).toBeGreaterThan(0);
+  expect(screen.queryByText(/Malowanie.*zł/)).toBeNull();
 });
 
 test("blokada: dodanie na całe dni i zdjęcie po potwierdzeniu", async () => {

@@ -35,6 +35,7 @@ import {
   completeBookingAppointment,
   markBookingAppointmentNoShow,
   createBookingAppointment,
+  getBookingQuote,
   getBookingSlots,
   listBookingPlaces,
   rescheduleBookingAppointment,
@@ -44,6 +45,7 @@ import {
   type BookingAppointmentInput,
   type BookingCatalog,
   type BookingPlaceSuggestion,
+  type BookingQuote,
   type BookingSlotList,
   type StaffTeam,
 } from "@saas-core/api-client";
@@ -105,6 +107,16 @@ import {
   type MaterialDraft,
 } from "./materials-editor";
 import { MoveStayDialog } from "./occupancy/stay-dialogs";
+import { changedQuote, isPriced, PanelQuote } from "./prices/panel-quote";
+import {
+  ExtrasPicker,
+  extrasOf,
+  ONE_PERSON,
+  participantsOf,
+  PartyFields,
+  type Party,
+} from "./prices/party";
+import { usePriceBook } from "./prices/price-book";
 import { visitName, visitPerson } from "./visit-name";
 
 type Slot = BookingSlotList["items"][number];
@@ -749,6 +761,17 @@ function NewAppointmentForm({
     catalog.staff.some((item) => item.id === chosenStaff) ? [chosenStaff] : [],
   );
   const [fromTeam, setFromTeam] = useState("");
+  const prices = useTranslations("PriceList");
+  const pricing = usePriceBook();
+  const [party, setParty] = useState<Party>(ONE_PERSON);
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  const [priced, setPriced] = useState<{
+    key: string;
+    quote?: BookingQuote;
+    refused?: string;
+    /** Another price than the form showed when it was sent (409). */
+    changed?: boolean;
+  }>();
   const schema = useMemo(
     () =>
       z
@@ -832,6 +855,71 @@ function NewAppointmentForm({
       .map((slot) => slot.staff_id),
   );
   const checked = Boolean(time && search.slots);
+  // The price of what is chosen now (ADR-072 §7): the server's quote for the
+  // service, the time, the people and the extras. The price list only says
+  // what to ask about; no price shown never stops a booking.
+  const startsAt = time
+    ? findSlot(slots, date, time, zone)?.starts_at
+    : undefined;
+  const offerExtras = (pricing.book?.extras ?? []).filter(
+    (extra) =>
+      extra.service_id === serviceId && extra.active && extra.kind === "charge",
+  );
+  const peopleMatter =
+    (pricing.book?.prices ?? []).some(
+      (rule) =>
+        rule.service_id === serviceId &&
+        rule.active &&
+        (rule.basis === "per_person" ||
+          rule.included_people !== null ||
+          rule.category_prices.length > 0),
+    ) || offerExtras.some((extra) => extra.basis === "per_person");
+  const options = offerExtras.filter((extra) => !extra.mandatory);
+  const participants = peopleMatter ? participantsOf(party) : undefined;
+  const extras = extrasOf(
+    Object.fromEntries(
+      options.map((extra) => [extra.id, picked[extra.id] ?? 0]),
+    ),
+  );
+  const quoteKey =
+    serviceId && startsAt
+      ? JSON.stringify([
+          serviceId,
+          startsAt,
+          participants,
+          extras,
+          customerLocale,
+        ])
+      : "";
+  const quote = priced?.key === quoteKey ? priced : undefined;
+  useEffect(() => {
+    if (!quoteKey || !startsAt) return;
+    let live = true;
+    getBookingQuote({
+      service_id: serviceId,
+      starts_at: startsAt,
+      ...(participants ? { participants } : {}),
+      ...(extras.length ? { extras } : {}),
+      ...(customerLocale ? { locale: customerLocale } : {}),
+    })
+      .then((found) => {
+        if (live) setPriced({ key: quoteKey, quote: found });
+      })
+      .catch((error: unknown) => {
+        // What the price list refuses, in its own words; the booking would
+        // be refused the same.
+        const refused =
+          error instanceof ApiProblemError && error.problem.status === 400
+            ? error.problem.errors?.[0]?.message
+            : undefined;
+        if (live) setPriced({ key: quoteKey, refused });
+      });
+    return () => {
+      live = false;
+    };
+    // The key says everything that is asked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteKey]);
   const errors = form.formState.errors;
   // A refused field is never hidden behind the summary.
   const summed =
@@ -936,6 +1024,10 @@ function NewAppointmentForm({
       ...(edited && takesMaterials
         ? { materials: materialsInput(edited) }
         : {}),
+      ...(participants ? { participants } : {}),
+      ...(extras.length ? { extras } : {}),
+      // The price shown: another one by now is asked about, not booked.
+      ...(isPriced(quote?.quote) ? { quote_digest: quote?.quote?.digest } : {}),
     };
     const checked = section?.check(sectionValue, input) ?? {};
     setSectionErrors(checked);
@@ -950,6 +1042,12 @@ function NewAppointmentForm({
           : await createBookingAppointment(input, idempotencyKey),
       );
     } catch (error) {
+      // „Cena się zmieniła”: the new amounts, and the next save books at them.
+      const fresh = changedQuote(error);
+      if (fresh) {
+        setPriced({ key: quoteKey, quote: fresh, changed: true });
+        return;
+      }
       if (
         error instanceof ApiProblemError &&
         error.problem.code === "slot_unavailable"
@@ -1182,6 +1280,48 @@ function NewAppointmentForm({
           service={chosen}
           value={sectionValue}
         />
+      ) : null}
+      {peopleMatter ||
+      options.length ||
+      isPriced(quote?.quote) ||
+      quote?.refused ? (
+        <FieldSet>
+          <FieldLegend>{prices("quoteTitle")}</FieldLegend>
+          {peopleMatter ? (
+            <FieldSet>
+              <FieldLegend variant="label">{prices("partyLegend")}</FieldLegend>
+              <PartyFields
+                categories={(pricing.book?.categories ?? []).filter(
+                  (category) => category.active,
+                )}
+                idPrefix="appointment-party"
+                onChange={setParty}
+                value={party}
+              />
+            </FieldSet>
+          ) : null}
+          {options.length ? (
+            <FieldSet>
+              <FieldLegend variant="label">
+                {prices("extrasLegend")}
+              </FieldLegend>
+              <ExtrasPicker
+                extras={options}
+                idPrefix="appointment-extra"
+                onChange={setPicked}
+                value={picked}
+              />
+            </FieldSet>
+          ) : null}
+          {quote?.quote && isPriced(quote.quote) ? (
+            <PanelQuote changed={quote.changed} quote={quote.quote} />
+          ) : null}
+          {quote?.refused ? (
+            <p className="text-sm text-destructive" role="alert">
+              {quote.refused}
+            </p>
+          ) : null}
+        </FieldSet>
       ) : null}
       <FieldSet>
         <FieldLegend>{t("customer")}</FieldLegend>
@@ -1584,6 +1724,10 @@ function AppointmentDetails({
           </>
         ) : null}
       </dl>
+      {/* What the booking costs, as it was frozen when it was made (§7). */}
+      {appointment.quote && isPriced(appointment.quote) ? (
+        <PanelQuote quote={appointment.quote} />
+      ) : null}
       <VisitPlaceSection
         appointment={appointment}
         catalog={catalog}

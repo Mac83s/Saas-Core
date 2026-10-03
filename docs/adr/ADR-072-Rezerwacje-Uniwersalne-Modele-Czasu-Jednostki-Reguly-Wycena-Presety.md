@@ -512,3 +512,43 @@ Ustalenia, których §6–§7 nie rozstrzygały, przyjęte przy budowie cennika
   ceny, a sezon to cena. Zanim pojawią się promocje (kody, sklep), cennik musi
   mieć historię cen — najniższa cena z 30 dni przed obniżką (dyrektywa
   Omnibus); dziś zmiany `PriceRule` są tylko w audycie.
+
+## Uzupełnienie 2026-10-03: panel cen (faza 3e)
+
+Ustalenia przyjęte przy budowie panelu cennika (`apps/frontend/src/modules/shared/booking/prices/`).
+
+- **Gdzie firma ustawia ceny.** Każda oferta ma swój „Cennik” na liście usług:
+  ceny (podstawowa, sezonu, weekendu albo szczytu), dopłaty z kaucją i sposób
+  płatności; każda pozycja zapisuje się osobno. Ceny ofert rezerwowanych na
+  daty — także ceny grup i jednostek — są dodatkowo pod „Sezony i zasady”,
+  obok zasad tych samych terminów. Kolumna „Cena” na liście usług pokazuje
+  cenę podstawową tak, jak ją wpisano; ile kosztuje rezerwacja, mówi wyłącznie
+  wycena.
+- **Podgląd „Jaka cena obowiązuje dnia…” pyta wycenę o sam cennik.**
+  `POST /booking/quote/` z `price_only` odpowiada także dla terminu, którego
+  nie da się zarezerwować: jednostka może być zajęta, zasada sezonu złamana,
+  a oferta jeszcze wyłączona (szkic). Bez tego firma nie sprawdziłaby ceny na
+  przyszłe lato ani ceny oferty przed jej włączeniem. Odmowy cennika zostają
+  (`price_missing`, `unit_capacity_exceeded`). Rezerwacja wycenia się bez tej
+  flagi. Która cena wygrała, mówi `price_rule_id` każdej pozycji — panel
+  niczego nie liczy, nie zna kolejności cen i nie opisuje jej słowami, więc
+  zmiana tej kolejności (odpowiedź 75b: cena z datą przed ceną podstawową,
+  zakres rozstrzyga między cenami tego samego rodzaju — osobny przyrost) nie
+  wymaga zmiany panelu.
+- **„Za osobę za noc” to osobny wybór w panelu**, zapisany jako cena za
+  jednostkę czasu z kwotą 0, zerem osób w cenie i dopłatą za każdą osobę za
+  każdą jednostkę czasu. Wycena takiej ceny nie ma pozycji 0 zł ani „dodatkowej
+  osoby”: osoby są ceną i idą pod nazwą oferty (`kind` = `price`), kategoria
+  zachowuje swoją kwotę i nazwę. Gdy nikt nie płaci, pozycja 0 zł zostaje —
+  oferta ma cenę, tyle że zerową.
+- **Wycena w panelu.** „Nowa wizyta”, „Nowy pobyt” i zmiana dat pobytu
+  pokazują wycenę serwera (pozycje, netto, VAT, brutto, kaucja obok sumy,
+  sposób płatności) i wysyłają jej skrót; 409 `quote_changed` pokazuje „Cena
+  się zmieniła” z nowymi kwotami, a kolejny zapis idzie już po nich. O osoby
+  formularz wizyty pyta tylko wtedy, gdy cennik oferty od nich zależy (cena za
+  osobę, osoby w cenie, kategorie, dopłata za osobę). Ceny przekreślonej nie
+  ma nigdzie: rabat za długość to pozycja wyceny.
+- **Cena na siatce obłożenia.** `GET /booking/occupancy/` podaje przy
+  rezerwacji `gross_minor` i `currency` z zamrożonej wyceny — bez dodatkowego
+  zapytania; blokada, rezerwacja bez ceny i cudza rezerwacja (UX-023) ich nie
+  mają.
