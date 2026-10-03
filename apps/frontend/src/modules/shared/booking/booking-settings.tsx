@@ -42,6 +42,7 @@ import {
   organizationType as organizationTypeInfo,
   typeText,
 } from "#lib/organization-types";
+import { CatalogTranslations } from "./catalog-translations";
 import { ClosuresSection } from "./closures-section";
 import {
   ItemTranslationsSheet,
@@ -70,6 +71,7 @@ export function BookingSettings({
   organizationType,
   canManageBilling,
   canUseInventory = false,
+  organizationId,
 }: {
   /** Chooses the service templates offered (ADR-050). */
   organizationType?: string;
@@ -77,6 +79,8 @@ export function BookingSettings({
   canManageBilling: boolean;
   /** Services can carry products from the warehouse (ADR-055). */
   canUseInventory?: boolean;
+  /** The catalogue's translation object (TL12e); absent, no catalogue line. */
+  organizationId?: string;
 }) {
   const t = useTranslations("ServicesSetup");
   const common = useTranslations("Common");
@@ -564,6 +568,9 @@ export function BookingSettings({
           {t("peopleLink")}
         </Link>
       </p>
+      {organizationId && setup ? (
+        <CatalogTranslations organizationId={organizationId} />
+      ) : null}
       <p className="text-sm text-success-foreground empty:hidden" role="status">
         {notice}
       </p>

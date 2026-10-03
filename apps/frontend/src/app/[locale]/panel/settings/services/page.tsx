@@ -35,6 +35,7 @@ export default async function ServicesSettingsPage() {
             module: "shared.inventory",
             permission: "inventory.use",
           })}
+          organizationId={organization.id}
           organizationType={organization.organization_type}
         />
       ) : (

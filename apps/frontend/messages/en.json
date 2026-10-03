@@ -4280,6 +4280,7 @@
     "action": "Translations",
     "itemTitle": "Translations: {name}",
     "itemDescription": "The name in the company's other languages. Customers see it on the booking form in their language.",
+    "catalogHint": "Names of services, places, resources, groups and teams in the company's other languages: “Translations” in each item's “…” menu.",
     "cardTitle": "Other languages",
     "cardDescription": "The business card in the company's other languages. Whatever you leave untranslated, the catalogue shows in the card's own language.",
     "noOtherLanguages": "The company has one language for now.",

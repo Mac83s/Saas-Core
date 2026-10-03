@@ -4280,6 +4280,7 @@
     "action": "Tłumaczenia",
     "itemTitle": "Tłumaczenia: {name}",
     "itemDescription": "Nazwa w pozostałych językach firmy. Klienci widzą ją w formularzu rezerwacji w swoim języku.",
+    "catalogHint": "Nazwy usług, miejsc, zasobów, grup i zespołów w innych językach firmy poprawisz w „Tłumaczenia” w menu „…” przy pozycji.",
     "cardTitle": "Inne języki",
     "cardDescription": "Wizytówka w pozostałych językach firmy. Czego nie przetłumaczysz, katalog pokaże w języku, w którym wizytówka jest napisana.",
     "noOtherLanguages": "Firma ma na razie jeden język.",
