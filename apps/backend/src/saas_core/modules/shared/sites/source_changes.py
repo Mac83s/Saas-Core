@@ -14,6 +14,7 @@ from saas_core.content_protocol.registry import notify_source_changed
 
 PAGE_SOURCE_KEY = "sites.page"
 ENTRY_SOURCE_KEY = "sites.entry"
+SITE_TEXTS_SOURCE_KEY = "sites.site_texts"
 
 
 def change_cause(context: Any) -> str:
@@ -53,6 +54,32 @@ def notify_page_deleted(*, context: Any, page_id: UUID) -> None:
         change="deleted",
         cause=change_cause(context),
     )
+
+
+def notify_site_texts_published(
+    *,
+    context: Any,
+    site_id: UUID,
+    previous: Mapping[str, Any] | None,
+    snapshot: Mapping[str, Any],
+) -> None:
+    """The tagline or the footer visitors read changed with this publication;
+    a reordered footer is no change — its texts stay what they were."""
+    from .site_texts import appearance_texts
+
+    def texts(value: Mapping[str, Any] | None) -> list[tuple[str, str]]:
+        return sorted(
+            (text.key, text.text) for text in appearance_texts((value or {}).get("appearance"))
+        )
+
+    if texts(previous) != texts(snapshot):
+        notify_source_changed(
+            context=context,
+            source_key=SITE_TEXTS_SOURCE_KEY,
+            object_ids=[site_id],
+            change="changed",
+            cause=change_cause(context),
+        )
 
 
 def notify_entry_published(

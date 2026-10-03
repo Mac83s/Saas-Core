@@ -12684,6 +12684,189 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/texts/{locale}/:
+    get:
+      operationId: sites_site_texts_retrieve
+      description: The tagline, the footer and its link labels, collection and tag
+        names as the published site shows them, each with this language's translation
+        (ADR-070 pkt 15).
+      summary: Read a site's own texts in another language
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTexts'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_site_texts_save
+      description: Writes the named texts as a person's translation; they go out with
+        the site's next publication or with `…/publish/`. 400 names an unknown key
+        or a too long text as `texts.<key>`; 409 `site_texts_version_conflict` when
+        another save came first.
+      summary: Translate a site's own texts
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteTextsSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteTextsSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteTextsSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTexts'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Guarded by the version: a repeat answers 409 and changes
+          nothing.'
+  /api/v1/sites/{site_id}/texts/{locale}/publish/:
+    post:
+      operationId: sites_site_texts_publish
+      description: A derived publication of what is already public with this language's
+        site texts as they are now — no draft goes with it. A person's decision (person_required).
+      summary: Publish a site's texts in one language
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTextsPublication'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/translations/:
     get:
       operationId: sites_translation_overview
@@ -27683,6 +27866,13 @@ components:
           - object
           - 'null'
           additionalProperties: {}
+        appearance_lang:
+          type: object
+          additionalProperties:
+            type: string
+          description: Appearance texts still in another language than the page, by
+            path (`header.tagline`, `footer.text`, `footer.links.<i>.label`) → that
+            language, so the page marks them with `lang` (ADR-070 pkt 15).
         page_presentation:
           type:
           - object
@@ -28510,6 +28700,20 @@ components:
       required:
       - name
       - permissions
+    RoleEnum:
+      enum:
+      - tagline
+      - footer
+      - footer_link
+      - collection
+      - tag
+      type: string
+      description: |-
+        * `tagline` - tagline
+        * `footer` - footer
+        * `footer_link` - footer_link
+        * `collection` - collection
+        * `tag` - tag
     RoleSummary:
       type: object
       properties:
@@ -30295,6 +30499,115 @@ components:
       required:
       - blocks
       - expected_version
+    SiteTextItem:
+      type: object
+      properties:
+        key:
+          type: string
+          description: 'Where the text stands: `header/tagline`, `footer/text`, `footer/link/<address
+            hash>`, `collection/<id>` or `tag/<id>` — not its position, so a reordered
+            footer keeps its keys.'
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        source_text:
+          type: string
+          description: The text in the site's language.
+        text:
+          type: string
+          description: This language's translation; empty where there is none.
+        origin:
+          type: string
+          description: 'Who wrote the translation: human, ai, integration or copy.'
+        state:
+          allOf:
+          - $ref: '#/components/schemas/SiteTextItemStateEnum'
+          description: |-
+            `stale`: translated from an earlier wording of this text; visitors read the source text instead, unless a person or an integration wrote the translation.
+
+            * `fresh` - fresh
+            * `stale` - stale
+            * `unverified` - unverified
+            * `missing` - missing
+        pending_text:
+          type: string
+          description: A translation waiting for a person's decision.
+        pending_reason:
+          type: string
+      required:
+      - key
+      - origin
+      - pending_reason
+      - pending_text
+      - role
+      - source_text
+      - state
+      - text
+    SiteTextItemStateEnum:
+      enum:
+      - fresh
+      - stale
+      - unverified
+      - missing
+      type: string
+      description: |-
+        * `fresh` - fresh
+        * `stale` - stale
+        * `unverified` - unverified
+        * `missing` - missing
+    SiteTexts:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        version:
+          type: string
+          description: Send it back with a save; another save in between answers 409
+            `site_texts_version_conflict`.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteTextItem'
+      required:
+      - items
+      - locale
+      - site_id
+      - version
+    SiteTextsPublication:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        publication_id:
+          type: string
+          format: uuid
+          description: The publication visitors now read; the current one when nothing
+            changed.
+      required:
+      - locale
+      - publication_id
+      - site_id
+    SiteTextsSave:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          maxLength: 32
+        texts:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 300
+          description: Translations by key; an empty one removes the translation,
+            so visitors read the source text again.
+      required:
+      - expected_version
+      - texts
     SkippedEnum:
       enum:
       - metadata_incomplete

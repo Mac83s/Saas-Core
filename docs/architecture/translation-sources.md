@@ -399,6 +399,15 @@ rodzeństwa, które zlecenie zapisało `live`, z datą oryginału; rodzeństwa w
 osobę zlecenie nie publikuje. Gdy osoba publikuje wpis źródłowy, rodzeństwo, którego każdy
 fragment wciąż ma tłumaczenie po skrócie (bloki tylko przestawione), idzie za nim bez
 modelu i wychodzi ponownie, jeśli było publiczne; reszta czeka na zlecenie.
+Teksty witryny (`sites.site_texts`: hasło, stopka i etykiety jej linków, nazwy kolekcji
+i tagów) — pochodna publikacja `translation_job` z mapą `site_texts` języka odświeżoną
+tylko dla kluczy, które zlecenie zapisało; `publish_site` bierze wszystkie
+zaakceptowane wiersze `SiteTextTranslation`. Wiersz szuka się po skrócie tekstu
+źródłowego, a klucz fragmentu to miejsce tekstu (`footer/link/<skrót adresu>`), więc
+przestawiona stopka zachowuje tłumaczenia, a przeredagowany tekst czyta się jako
+nieaktualny. Publicznie strona w innym języku pokazuje aktualne tłumaczenie albo tekst
+osoby lub integracji sprzed przeredagowania (do jej decyzji); poza tym tekst źródłowy,
+oznaczony w ładunku (`appearance_lang`) i w HTML (`lang`).
 Rekord na żywo jest publiczny po commicie zapisu (wizytówka odświeża przy tym katalog),
 więc `publish` nic nie robi. Linki wewnętrzne lokalizuje przy odczycie ładunek
 publiczny modułu (ADR-070 pkt 15) — adapter ich nie przepisuje.
@@ -426,7 +435,8 @@ na żywo przyjmuje akceptację jako `write` z wyzwalaczem `acceptance` i tymi sa
 warunkami osoby. Poprawki przed akceptacją mają pochodzenie `human`. `revert` przywraca
 stan sprzed zlecenia (strony: pochodna publikacja `translation_revert`; wpisy: szkic i
 publikacja rodzeństwa sprzed zlecenia, a rodzeństwo opublikowane pierwszy raz przez
-zlecenie wraca do szkicu; rekord na żywo: poprzedni tekst i pochodzenie) z audytem.
+zlecenie wraca do szkicu; teksty witryny: tekst sprzed zlecenia w każdym wierszu, który
+zapisało; rekord na żywo: poprzedni tekst i pochodzenie) z audytem.
 Wersja zapisana przez zlecenie jako bieżąca pamięta, co zastąpiła (`replaces`), więc
 cofnięcie nie wraca do wersji oczekującej, którą osoba odrzuciła; wersja oczekująca ma
 pochodzenie `translation_pending`, a jej akceptacja jest decyzją osoby, której `revert`

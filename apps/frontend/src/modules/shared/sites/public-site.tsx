@@ -161,6 +161,9 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       appearance: page.appearance
         ? parseSiteAppearance(page.appearance)
         : undefined,
+      // The tagline and footer texts still in the site's language (ADR-070
+      // pkt 15) carry their own `lang`.
+      appearanceLang: page.appearance_lang,
       // Null for entries, blog indexes and tag pages: they have no own look.
       pagePresentation: (page.page_presentation ??
         null) as PagePresentationV1 | null,

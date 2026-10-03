@@ -1,10 +1,11 @@
 import { createElement as h, type ReactNode } from "react";
 import type { SiteAppearance } from "./appearance";
-import type { NavigationLink } from "./types";
+import type { AppearanceLang, NavigationLink } from "./types";
 
 export function renderSiteHeader(
   appearance: SiteAppearance,
   navigation?: ReactNode,
+  lang?: AppearanceLang,
 ) {
   if (appearance.header.layout === "none") return navigation ?? null;
   const { layout, brand, tagline } = appearance.header;
@@ -15,18 +16,23 @@ export function renderSiteHeader(
       "div",
       { className: "site-header__brand" },
       h("a", { href: "/" }, brand),
-      tagline ? h("p", null, tagline) : null,
+      tagline ? h("p", { lang: lang?.["header.tagline"] }, tagline) : null,
     ),
     navigation,
   );
 }
-export function renderSiteFooter(appearance: SiteAppearance) {
+/** `lang` names the texts still in the site's language on a page in another
+ *  one, so a screen reader and a search engine read them as that language. */
+export function renderSiteFooter(
+  appearance: SiteAppearance,
+  lang?: AppearanceLang,
+) {
   const { layout, text, links } = appearance.footer;
   if (layout === "none") return null;
   return h(
     "footer",
     { className: `site-footer site-footer--${layout}` },
-    text ? h("p", null, text) : null,
+    text ? h("p", { lang: lang?.["footer.text"] }, text) : null,
     links.length
       ? h(
           "ul",
@@ -39,6 +45,7 @@ export function renderSiteFooter(appearance: SiteAppearance) {
                 "a",
                 {
                   href: link.href,
+                  lang: lang?.[`footer.links.${i}.label`],
                   rel: link.href.startsWith("https://")
                     ? "noreferrer"
                     : undefined,

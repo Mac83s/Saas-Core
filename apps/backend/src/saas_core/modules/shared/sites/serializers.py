@@ -148,6 +148,13 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     social_description = serializers.CharField()
     design_tokens = serializers.DictField()
     appearance = serializers.DictField(allow_null=True, required=False)
+    appearance_lang = serializers.DictField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Appearance texts still in another language than the page, by path "
+        "(`header.tagline`, `footer.text`, `footer.links.<i>.label`) → that language, so the "
+        "page marks them with `lang` (ADR-070 pkt 15).",
+    )
     page_presentation = serializers.DictField(allow_null=True, required=False)
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)

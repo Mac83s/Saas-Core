@@ -940,6 +940,83 @@ class EntryTranslationWrite(TenantScopedModel):
         ]
 
 
+class SiteTextTranslation(TenantScopedModel):
+    """A site-wide text in another language (ADR-070 pkt 15): the tagline, the
+    footer and its link labels, collection and tag names (`site_texts`).
+
+    Keyed by the hash of the source text, not by where it stands, so a
+    reordered footer keeps its translations and one label used twice is
+    translated once. `anchor` is the place the text was last seen (the unit
+    key): a reworded text finds its old translation there, which reads as
+    stale. `text` is accepted and goes out with the next publication;
+    `pending_text` waits for a person.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
+    locale = models.CharField(max_length=10)
+    source_hash = models.CharField(max_length=64)
+    source_text = models.TextField()
+    anchor = models.CharField(max_length=160)
+    text = models.TextField(blank=True, default="")
+    provenance = models.JSONField(null=True, blank=True)
+    #: The translation job that wrote `text`, and what was there before it,
+    #: so undoing the job puts that back.
+    origin_ref = models.CharField(max_length=160, blank=True, default="")
+    previous_text = models.TextField(blank=True, default="")
+    previous_provenance = models.JSONField(null=True, blank=True)
+    pending_text = models.TextField(blank=True, default="")
+    pending_provenance = models.JSONField(null=True, blank=True)
+    pending_reason = models.CharField(max_length=40, blank=True, default="")
+    pending_ref = models.CharField(max_length=160, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "locale", "source_hash"],
+                name="sites_sitetext_hash_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="sites_sitetext_locale_format_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "site", "locale", "anchor"],
+                name="sites_sitetext_anchor_idx",
+            ),
+        ]
+
+
+class SiteTextWrite(TenantScopedModel):
+    """The receipt of one translation write of a site's texts in one language,
+    like `PageTranslationWrite` for pages."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
+    locale = models.CharField(max_length=10)
+    idempotency_key = models.CharField(max_length=64)
+    request_hash = models.CharField(max_length=64)
+    job_ref = models.CharField(max_length=160, blank=True, default="")
+    outcomes = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "locale", "idempotency_key"],
+                name="sites_sitetextwrite_idem_uq",
+            ),
+        ]
+
+
 class PageLocaleVersion(TenantScopedModel):
     """One version of a page body in another language (ADR-070).
 

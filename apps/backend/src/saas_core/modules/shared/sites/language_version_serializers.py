@@ -201,3 +201,60 @@ class LocaleBatchResultSerializer(serializers.Serializer[dict[str, Any]]):
     digest = serializers.CharField(
         allow_null=True, help_text="Present on a preview: send it back to accept this list."
     )
+
+
+SITE_TEXT_ROLES = ["tagline", "footer", "footer_link", "collection", "tag"]
+SITE_TEXT_STATES = ["fresh", "stale", "unverified", "missing"]
+
+
+class SiteTextItemSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField(
+        help_text="Where the text stands: `header/tagline`, `footer/text`, "
+        "`footer/link/<address hash>`, `collection/<id>` or `tag/<id>` — not its position, "
+        "so a reordered footer keeps its keys."
+    )
+    role = serializers.ChoiceField(choices=SITE_TEXT_ROLES)
+    source_text = serializers.CharField(help_text="The text in the site's language.")
+    text = serializers.CharField(
+        allow_blank=True, help_text="This language's translation; empty where there is none."
+    )
+    origin = serializers.CharField(
+        allow_blank=True, help_text="Who wrote the translation: human, ai, integration or copy."
+    )
+    state = serializers.ChoiceField(
+        choices=SITE_TEXT_STATES,
+        help_text="`stale`: translated from an earlier wording of this text; visitors read "
+        "the source text instead, unless a person or an integration wrote the translation.",
+    )
+    pending_text = serializers.CharField(
+        allow_blank=True, help_text="A translation waiting for a person's decision."
+    )
+    pending_reason = serializers.CharField(allow_blank=True)
+
+
+class SiteTextsSerializer(serializers.Serializer[dict[str, Any]]):
+    site_id = serializers.UUIDField()
+    locale = serializers.CharField()
+    version = serializers.CharField(
+        help_text="Send it back with a save; another save in between answers 409 "
+        "`site_texts_version_conflict`."
+    )
+    items = SiteTextItemSerializer(many=True)
+
+
+class SiteTextsSaveSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.CharField(max_length=32)
+    texts = serializers.DictField(
+        child=serializers.CharField(allow_blank=True, trim_whitespace=True, max_length=300),
+        allow_empty=False,
+        help_text="Translations by key; an empty one removes the translation, so visitors "
+        "read the source text again.",
+    )
+
+
+class SiteTextsPublicationSerializer(serializers.Serializer[dict[str, Any]]):
+    site_id = serializers.UUIDField()
+    locale = serializers.CharField()
+    publication_id = serializers.UUIDField(
+        help_text="The publication visitors now read; the current one when nothing changed."
+    )

@@ -4281,6 +4281,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/texts/{locale}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a site's own texts in another language
+         * @description The tagline, the footer and its link labels, collection and tag names as the published site shows them, each with this language's translation (ADR-070 pkt 15).
+         */
+        get: operations["sites_site_texts_retrieve"];
+        /**
+         * Translate a site's own texts
+         * @description Writes the named texts as a person's translation; they go out with the site's next publication or with `…/publish/`. 400 names an unknown key or a too long text as `texts.<key>`; 409 `site_texts_version_conflict` when another save came first.
+         */
+        put: operations["sites_site_texts_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/texts/{locale}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a site's texts in one language
+         * @description A derived publication of what is already public with this language's site texts as they are now — no draft goes with it. A person's decision (person_required).
+         */
+        post: operations["sites_site_texts_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/translations/": {
         parameters: {
             query?: never;
@@ -9849,6 +9893,10 @@ export interface components {
             appearance?: {
                 [key: string]: unknown;
             } | null;
+            /** @description Appearance texts still in another language than the page, by path (`header.tagline`, `footer.text`, `footer.links.<i>.label`) → that language, so the page marks them with `lang` (ADR-070 pkt 15). */
+            appearance_lang?: {
+                [key: string]: string;
+            };
             page_presentation?: {
                 [key: string]: unknown;
             } | null;
@@ -10222,6 +10270,15 @@ export interface components {
             name: string;
             permissions: string[];
         };
+        /**
+         * @description * `tagline` - tagline
+         *     * `footer` - footer
+         *     * `footer_link` - footer_link
+         *     * `collection` - collection
+         *     * `tag` - tag
+         * @enum {string}
+         */
+        RoleEnum: "tagline" | "footer" | "footer_link" | "collection" | "tag";
         RoleSummary: {
             key: string;
             name: string;
@@ -10936,6 +10993,62 @@ export interface components {
             /** Format: uuid */
             source_page_id?: string | null;
             expected_version: number;
+        };
+        SiteTextItem: {
+            /** @description Where the text stands: `header/tagline`, `footer/text`, `footer/link/<address hash>`, `collection/<id>` or `tag/<id>` — not its position, so a reordered footer keeps its keys. */
+            key: string;
+            role: components["schemas"]["RoleEnum"];
+            /** @description The text in the site's language. */
+            source_text: string;
+            /** @description This language's translation; empty where there is none. */
+            text: string;
+            /** @description Who wrote the translation: human, ai, integration or copy. */
+            origin: string;
+            /**
+             * @description `stale`: translated from an earlier wording of this text; visitors read the source text instead, unless a person or an integration wrote the translation.
+             *
+             *     * `fresh` - fresh
+             *     * `stale` - stale
+             *     * `unverified` - unverified
+             *     * `missing` - missing
+             */
+            state: components["schemas"]["SiteTextItemStateEnum"];
+            /** @description A translation waiting for a person's decision. */
+            pending_text: string;
+            pending_reason: string;
+        };
+        /**
+         * @description * `fresh` - fresh
+         *     * `stale` - stale
+         *     * `unverified` - unverified
+         *     * `missing` - missing
+         * @enum {string}
+         */
+        SiteTextItemStateEnum: "fresh" | "stale" | "unverified" | "missing";
+        SiteTexts: {
+            /** Format: uuid */
+            site_id: string;
+            locale: string;
+            /** @description Send it back with a save; another save in between answers 409 `site_texts_version_conflict`. */
+            version: string;
+            items: components["schemas"]["SiteTextItem"][];
+        };
+        SiteTextsPublication: {
+            /** Format: uuid */
+            site_id: string;
+            locale: string;
+            /**
+             * Format: uuid
+             * @description The publication visitors now read; the current one when nothing changed.
+             */
+            publication_id: string;
+        };
+        SiteTextsSave: {
+            expected_version: string;
+            /** @description Translations by key; an empty one removes the translation, so visitors read the source text again. */
+            texts: {
+                [key: string]: string;
+            };
         };
         /**
          * @description * `metadata_incomplete` - metadata_incomplete
@@ -24711,6 +24824,177 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_site_texts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTexts"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_site_texts_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteTextsSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["SiteTextsSave"];
+                "multipart/form-data": components["schemas"]["SiteTextsSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTexts"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_site_texts_publish: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                locale: string;
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTextsPublication"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

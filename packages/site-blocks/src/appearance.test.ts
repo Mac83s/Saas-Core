@@ -89,6 +89,25 @@ describe("site appearance contract and chrome", () => {
       expect(html).toContain('href="/about/"');
     },
   );
+  it("marks texts still in the site's language with their own lang", () => {
+    const header = renderToStaticMarkup(
+      renderSiteHeader(
+        { ...appearance, header: { ...appearance.header, layout: "classic" } },
+        null,
+        { "header.tagline": "pl" },
+      ),
+    );
+    const footer = renderToStaticMarkup(
+      renderSiteFooter(
+        { ...appearance, footer: { ...appearance.footer, layout: "simple" } },
+        { "footer.links.0.label": "pl" },
+      ),
+    );
+
+    expect(header).toMatch(/<p lang="pl">/);
+    expect(footer).toMatch(/<a href="\/about\/" lang="pl">/);
+    expect(footer).not.toMatch(/<p lang=/);
+  });
   it("keeps the full menu accessible beyond the four primary tabs", () => {
     const links = Array.from({ length: 6 }, (_, i) => ({
       page_id: String(i),

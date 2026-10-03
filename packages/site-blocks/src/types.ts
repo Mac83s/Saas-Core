@@ -584,9 +584,14 @@ export interface PaginationLabels {
   readonly position: (page: number, pages: number) => string;
 }
 
+/** Appearance texts still in another language than the page, by path
+ *  (`header.tagline`, `footer.text`, `footer.links.<i>.label`) → that language. */
+export type AppearanceLang = Readonly<Record<string, string>>;
+
 export interface PublishedPageDocument {
   readonly locale?: "pl" | "en";
   readonly appearance?: SiteAppearance | null;
+  readonly appearanceLang?: AppearanceLang;
   readonly pagePresentation?: PagePresentationV1 | PagePresentationV2 | null;
   readonly kind: "publication";
   readonly publicationId: string;

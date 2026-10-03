@@ -35,6 +35,9 @@ from .language_version_serializers import (
     LocaleBodySerializer,
     LocaleBodyVersionListSerializer,
     LocaleBodyVersionPreviewSerializer,
+    SiteTextsPublicationSerializer,
+    SiteTextsSaveSerializer,
+    SiteTextsSerializer,
     TranslationOverviewQuerySerializer,
     TranslationOverviewSerializer,
 )
@@ -50,6 +53,7 @@ from .language_versions import (
     site_translation_overview,
 )
 from .models import PageLocaleVersion
+from .site_texts import SiteTexts, list_site_texts, publish_site_texts, save_site_texts
 from .views import IDEMPOTENCY_PARAMETER
 
 PROBLEMS = {
@@ -549,3 +553,90 @@ def _batch(request: Request, site_id: UUID, *, preview: bool) -> Response:
             else None
         ),
     })
+
+
+def _site_texts(texts: SiteTexts) -> dict[str, Any]:
+    return {
+        "site_id": str(texts.site.id),
+        "locale": texts.locale,
+        "version": texts.version,
+        "items": [
+            {
+                "key": item.key,
+                "role": item.role,
+                "source_text": item.source_text,
+                "text": item.text,
+                "origin": item.origin,
+                "state": item.state if item.state != "copied" else "missing",
+                "pending_text": item.pending_text,
+                "pending_reason": item.pending_reason,
+            }
+            for item in texts.items
+        ],
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteTextsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_site_texts_retrieve",
+        summary="Read a site's own texts in another language",
+        description="The tagline, the footer and its link labels, collection and tag names as "
+        "the published site shows them, each with this language's translation (ADR-070 pkt 15).",
+        tags=["sites"],
+        responses={200: SiteTextsSerializer, **PROBLEMS},
+    )
+    def get(self, _request: Request, site_id: UUID, locale: str) -> Response:
+        return Response(_site_texts(list_site_texts(site_id=site_id, locale=locale)))
+
+    @extend_schema(
+        operation_id="sites_site_texts_save",
+        summary="Translate a site's own texts",
+        description="Writes the named texts as a person's translation; they go out with the "
+        "site's next publication or with `…/publish/`. 400 names an unknown key or a too long "
+        "text as `texts.<key>`; 409 `site_texts_version_conflict` when another save came first.",
+        tags=["sites"],
+        request=SiteTextsSaveSerializer,
+        responses={200: SiteTextsSerializer, **PROBLEMS},
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Guarded by the version: a repeat answers 409 and changes "
+                "nothing.",
+            }
+        },
+    )
+    def put(self, request: Request, site_id: UUID, locale: str) -> Response:
+        serializer = SiteTextsSaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        texts = save_site_texts(site_id=site_id, locale=locale, **serializer.validated_data)
+        return Response(_site_texts(texts))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteTextsPublishView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_site_texts_publish",
+        summary="Publish a site's texts in one language",
+        description="A derived publication of what is already public with this language's "
+        "site texts as they are now — no draft goes with it. A person's decision "
+        "(person_required).",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=None,
+        responses={200: SiteTextsPublicationSerializer, **PROBLEMS},
+    )
+    def post(self, request: Request, site_id: UUID, locale: str) -> Response:
+        publication = publish_site_texts(
+            site_id=site_id,
+            locale=locale,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response({
+            "site_id": str(site_id),
+            "locale": locale,
+            "publication_id": str(publication.id),
+        })

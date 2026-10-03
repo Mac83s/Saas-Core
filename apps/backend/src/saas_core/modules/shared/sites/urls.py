@@ -38,6 +38,8 @@ from .language_version_views import (
     PageLocaleWithdrawView,
     SiteLocaleBatchAcceptPreviewView,
     SiteLocaleBatchAcceptView,
+    SiteTextsPublishView,
+    SiteTextsView,
     SiteTranslationOverviewView,
 )
 from .measurement_views import SiteMetricsView
@@ -371,6 +373,16 @@ urlpatterns = [
         "pages/<uuid:page_id>/translations/<str:locale>/body/withdraw/preview/",
         PageLocaleWithdrawPreviewView.as_view(),
         name="page-locale-withdraw-preview",
+    ),
+    path(
+        "<uuid:site_id>/texts/<str:locale>/",
+        SiteTextsView.as_view(),
+        name="site-texts",
+    ),
+    path(
+        "<uuid:site_id>/texts/<str:locale>/publish/",
+        SiteTextsPublishView.as_view(),
+        name="site-texts-publish",
     ),
     path(
         "<uuid:site_id>/translations/accept/",

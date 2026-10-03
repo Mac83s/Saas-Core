@@ -2270,13 +2270,16 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         pk=site.id,
         organization_id=context.organization_id,
     ).update(current_publication=publication, updated_at=published_at)
-    from .source_changes import notify_pages_published
+    from .source_changes import notify_pages_published, notify_site_texts_published
     from .tls import invalidate_site_tls_decisions
 
     transaction.on_commit(lambda: invalidate_site_tls_decisions(site_id=site.id))
     # The engine plans translations of what visitors now read (ADR-069 pkt 5).
     notify_pages_published(
         context=context, previous=current, snapshot=snapshot, default_locale=site.default_locale
+    )
+    notify_site_texts_published(
+        context=context, site_id=site.id, previous=current, snapshot=snapshot
     )
 
     active_correlation_id = correlation_id.get()
@@ -2822,8 +2825,10 @@ def _publication_snapshot(
     navigation: list[dict[str, Any]],
 ) -> dict[str, Any]:
     from .appearance import appearance_snapshot
+    from .site_texts import snapshot_site_texts
 
     appearance = appearance_snapshot(site)
+    site_texts = snapshot_site_texts(site, appearance)
     localization_by_page = {page.page.id: page for page in localization.pages}
 
     def locales(page: Page) -> list[dict[str, Any]]:
@@ -2914,6 +2919,9 @@ def _publication_snapshot(
         "live_locales": languages.live_locales,
         # What did not go out, and why — the publication goes on without it.
         "skipped_locales": languages.skipped,
+        # The site's own texts in its other languages, as visitors read them
+        # (ADR-070 pkt 15); absent while there are none.
+        **({"site_texts": site_texts} if site_texts else {}),
     }
 
 

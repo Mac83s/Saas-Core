@@ -245,10 +245,20 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
     )
     blocks = selected_locale.get("blocks", page.page["blocks"])
     appearance = publication_snapshot.get("appearance")
+    appearance_lang: dict[str, str] = {}
     if (
         isinstance(page.publication, Publication)
         and page.locale != publication_snapshot.get("default_locale")
     ):
+        from .site_texts import localize_appearance
+
+        # The tagline and footer in the reader's language, or the source text
+        # marked as such until it is translated (ADR-070 pkt 15).
+        appearance, appearance_lang = localize_appearance(
+            appearance,
+            (publication_snapshot.get("site_texts") or {}).get(page.locale) or {},
+            str(publication_snapshot.get("default_locale") or ""),
+        )
         links = _link_targets(publication_snapshot, page.locale)
         blocks, appearance = localized_links(blocks, links), localized_links(appearance, links)
     canonical_origin = f"{settings.PUBLIC_SITE_SCHEME}://{page.canonical_hostname}"
@@ -274,6 +284,7 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
         ),
         "appearance": appearance,
+        "appearance_lang": appearance_lang,
         # Only site pages carry one; entries, indexes and archives inherit.
         "page_presentation": page.page.get("page_presentation"),
         # The language's own body (ADR-070); the source language uses the

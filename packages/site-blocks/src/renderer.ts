@@ -16,6 +16,7 @@ import {
 import { aiBadgeImageRenderer } from "./ai-badge";
 import { InvalidDesignTokensError } from "./errors";
 import type {
+  AppearanceLang,
   BlockRegistry,
   BlockImageRenderer,
   PublishedFormRenderer,
@@ -188,6 +189,7 @@ function renderDocument(
   formRenderer?: PublishedFormRenderer,
   options?: BlockRenderOptions,
   pagePresentation?: PagePresentationV1 | PagePresentationV2 | null,
+  appearanceLang?: AppearanceLang,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -202,7 +204,7 @@ function renderDocument(
         .filter(Boolean)
         .join(" "),
     },
-    appearance ? renderSiteHeader(appearance, menu) : menu,
+    appearance ? renderSiteHeader(appearance, menu, appearanceLang) : menu,
     createElement(
       contentElement,
       null,
@@ -218,7 +220,7 @@ function renderDocument(
       ),
       renderPagination(pagination, paginationLabels),
     ),
-    appearance ? renderSiteFooter(appearance) : null,
+    appearance ? renderSiteFooter(appearance, appearanceLang) : null,
   );
   return appearance
     ? createElement(
@@ -304,5 +306,6 @@ export function renderPublishedPage(
     formRenderer,
     { preview: false, locale: document.locale ?? "pl" },
     document.pagePresentation,
+    document.appearanceLang,
   );
 }
