@@ -25293,6 +25293,22 @@ components:
           - integer
           - 'null'
           description: Number of the current body version; null before the first.
+        version_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The current body version, for its read-only preview.
+        pending:
+          oneOf:
+          - $ref: '#/components/schemas/LocaleBodyPending'
+          - type: 'null'
+          description: A translation waiting for a person's decision (accept or reject),
+            or null.
+        withdrawn:
+          type: boolean
+          description: A person took this language version off the site; it stays
+            off until somebody publishes it again.
         untranslated:
           type: integer
           description: Units still without a translation.
@@ -25305,11 +25321,14 @@ components:
       - locale
       - outdated
       - page_id
+      - pending
       - source_version
       - source_version_id
       - units
       - untranslated
       - version
+      - version_id
+      - withdrawn
     LocaleBodyCopy:
       type: object
       properties:
@@ -25322,6 +25341,22 @@ components:
       required:
       - expected_body_version
       - source_version_id
+    LocaleBodyPending:
+      type: object
+      properties:
+        version_id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        reason:
+          type: string
+          description: 'Why it waits: the translation engine''s review reason (e.g.
+            `review_mode`, `legal_document`, `overwrites_human`, `qa_flagged`).'
+      required:
+      - number
+      - reason
+      - version_id
     LocaleBodyRebase:
       type: object
       properties:

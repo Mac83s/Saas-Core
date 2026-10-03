@@ -226,6 +226,27 @@ export type PageTranslationSaveInput =
   components["schemas"]["PageTranslationSave"];
 export type SiteLocalizationReport =
   components["schemas"]["SiteLocalizationReport"];
+// A page's body in another language (ADR-070, TL8/TL9c) and the decisions on
+// it, edited in the editor's language mode (TL15).
+export type LocaleBody = components["schemas"]["LocaleBody"];
+export type LocaleBodyUnit = components["schemas"]["LocaleBodyUnit"];
+export type LocaleBodySaveInput = components["schemas"]["LocaleBodySave"];
+export type LocaleBodyVersionList =
+  components["schemas"]["LocaleBodyVersionList"];
+export type LocaleBodyVersionPreview =
+  components["schemas"]["LocaleBodyVersionPreview"];
+export type LanguageDecision = components["schemas"]["LanguageDecision"];
+export type LocaleBatchItem = components["schemas"]["LocaleBatchItem"];
+export type LocaleBatchAcceptInput = components["schemas"]["LocaleBatchAccept"];
+export type LocaleBatchResult = components["schemas"]["LocaleBatchResult"];
+export type TranslationOverview = components["schemas"]["TranslationOverview"];
+export type TranslationOverviewQuery = NonNullable<
+  paths["/api/v1/sites/{site_id}/translations/"]["get"]["parameters"]["query"]
+>;
+export type SiteTexts = components["schemas"]["SiteTexts"];
+export type SiteTextsSaveInput = components["schemas"]["SiteTextsSave"];
+export type SiteTextsPublication =
+  components["schemas"]["SiteTextsPublication"];
 export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
 export type SiteNavigation = components["schemas"]["SiteNavigation"];
@@ -1726,6 +1747,448 @@ export async function savePageTranslation(
         path: { locale, page_id: pageId },
       },
       body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The page's text in `locale`, unit by unit beside the source (TL15). */
+export async function getLocaleBody(
+  pageId: string,
+  locale: string,
+): Promise<LocaleBody> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/",
+    {
+      params: { path: { page_id: pageId, locale } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Saves the units named; the others keep their text. 409 when somebody
+ *  saved this language meanwhile (`locale_body_version_conflict`). */
+export async function saveLocaleBody(
+  pageId: string,
+  locale: string,
+  input: LocaleBodySaveInput,
+  idempotencyKey: string,
+): Promise<LocaleBody> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What saving would do, saving nothing (`x-dry-run`). */
+export async function previewLocaleBody(
+  pageId: string,
+  locale: string,
+  input: LocaleBodySaveInput,
+): Promise<LocaleBody> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/preview/",
+    {
+      params: { path: { page_id: pageId, locale } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listLocaleBodyVersions(
+  pageId: string,
+  locale: string,
+): Promise<LocaleBodyVersionList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/",
+    {
+      params: { path: { page_id: pageId, locale } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** One version of this language as blocks, for its read-only preview. */
+export async function getLocaleBodyVersion(
+  pageId: string,
+  locale: string,
+  versionId: string,
+): Promise<LocaleBodyVersionPreview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/{version_id}/",
+    {
+      params: { path: { page_id: pageId, locale, version_id: versionId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function restoreLocaleBodyVersion(
+  pageId: string,
+  locale: string,
+  versionId: string,
+  expectedBodyVersion: number,
+  idempotencyKey: string,
+): Promise<LocaleBody> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/versions/{version_id}/restore/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale, version_id: versionId },
+      },
+      body: { expected_body_version: expectedBodyVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The source's text copied in as this language's starting point. */
+export async function copySourceIntoLocaleBody(
+  pageId: string,
+  locale: string,
+  input: { source_version_id: string; expected_body_version: number },
+  idempotencyKey: string,
+): Promise<LocaleBody> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/copy/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Moves this language onto the source's current version, keeping what
+ *  still matches. */
+export async function rebaseLocaleBody(
+  pageId: string,
+  locale: string,
+  expectedBodyVersion: number,
+  idempotencyKey: string,
+): Promise<LocaleBody> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      body: { expected_body_version: expectedBodyVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What moving onto the current source would keep and drop (`x-dry-run`). */
+export async function previewRebaseLocaleBody(
+  pageId: string,
+  locale: string,
+  expectedBodyVersion: number,
+): Promise<LocaleBody> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/rebase/preview/",
+    {
+      params: {
+        path: { page_id: pageId, locale },
+      },
+      body: { expected_body_version: expectedBodyVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Accepts the translation waiting for a decision and publishes it. */
+export async function acceptLocaleBody(
+  pageId: string,
+  locale: string,
+  expectedBodyVersion: number,
+  idempotencyKey: string,
+): Promise<LanguageDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/accept/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      body: { expected_body_version: expectedBodyVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Drops the translation waiting for a decision; nothing is published. */
+export async function rejectLocaleBody(
+  pageId: string,
+  locale: string,
+  expectedBodyVersion: number,
+  idempotencyKey: string,
+): Promise<LanguageDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/reject/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      body: { expected_body_version: expectedBodyVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Publishes this language version alone. */
+export async function publishLocaleBody(
+  pageId: string,
+  locale: string,
+  idempotencyKey: string,
+): Promise<LanguageDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/publish/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Whether this language version would go out, and if not why. */
+export async function previewPublishLocaleBody(
+  pageId: string,
+  locale: string,
+): Promise<LanguageDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/publish/preview/",
+    {
+      params: {
+        path: { page_id: pageId, locale },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Takes this language version off the site; its address answers 308 to
+ *  the source until somebody publishes it again. */
+export async function withdrawLocaleBody(
+  pageId: string,
+  locale: string,
+  idempotencyKey: string,
+): Promise<LanguageDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/withdraw/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, locale },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What taking this language off would do. */
+export async function previewWithdrawLocaleBody(
+  pageId: string,
+  locale: string,
+): Promise<LanguageDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/body/withdraw/preview/",
+    {
+      params: {
+        path: { page_id: pageId, locale },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Every page or article of a site against every other language. */
+export async function getSiteTranslationOverview(
+  siteId: string,
+  query: TranslationOverviewQuery = {},
+): Promise<TranslationOverview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/translations/",
+    {
+      params: { path: { site_id: siteId }, query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What accepting these waiting translations would publish, and the
+ *  `digest` the acceptance must send back (`x-dry-run`). */
+export async function previewAcceptSiteTranslations(
+  siteId: string,
+  input: LocaleBatchAcceptInput,
+): Promise<LocaleBatchResult> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/translations/accept/preview/",
+    {
+      params: { path: { site_id: siteId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Accepts waiting translations in one publication, against the previewed
+ *  list (`locale_batch_stale` when it changed). */
+export async function acceptSiteTranslations(
+  siteId: string,
+  input: LocaleBatchAcceptInput,
+  idempotencyKey: string,
+): Promise<LocaleBatchResult> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/translations/accept/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The site's own texts (tagline, footer, blog and tag names) in `locale`. */
+export async function getSiteTexts(
+  siteId: string,
+  locale: string,
+): Promise<SiteTexts> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/texts/{locale}/",
+    {
+      params: { path: { site_id: siteId, locale } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function saveSiteTexts(
+  siteId: string,
+  locale: string,
+  input: SiteTextsSaveInput,
+): Promise<SiteTexts> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/{site_id}/texts/{locale}/",
+    {
+      params: { path: { site_id: siteId, locale } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function publishSiteTexts(
+  siteId: string,
+  locale: string,
+  idempotencyKey: string,
+): Promise<SiteTextsPublication> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/texts/{locale}/publish/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId, locale },
+      },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

@@ -8795,6 +8795,15 @@ export interface components {
             body_version: number;
             /** @description Number of the current body version; null before the first. */
             version: number | null;
+            /**
+             * Format: uuid
+             * @description The current body version, for its read-only preview.
+             */
+            version_id: string | null;
+            /** @description A translation waiting for a person's decision (accept or reject), or null. */
+            pending: components["schemas"]["LocaleBodyPending"] | null;
+            /** @description A person took this language version off the site; it stays off until somebody publishes it again. */
+            withdrawn: boolean;
             /** @description Units still without a translation. */
             untranslated: number;
             units: components["schemas"]["LocaleBodyUnit"][];
@@ -8803,6 +8812,13 @@ export interface components {
             /** Format: uuid */
             source_version_id: string;
             expected_body_version: number;
+        };
+        LocaleBodyPending: {
+            /** Format: uuid */
+            version_id: string;
+            number: number;
+            /** @description Why it waits: the translation engine's review reason (e.g. `review_mode`, `legal_document`, `overwrites_human`, `qa_flagged`). */
+            reason: string;
         };
         LocaleBodyRebase: {
             expected_body_version: number;
