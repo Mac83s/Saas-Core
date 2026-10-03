@@ -121,7 +121,7 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | zadania cykliczne | `backend.beatSchedule` (`{nazwa: {task, schedule}}`; tylko własne taski) |
 | źródło tłumaczeń AI | `register_translation_source` w `AppConfig.ready`, `notify_source_changed` w serwisach i test kontraktu (`translation-sources.md`) |
 | zadanie modelu AI | `register_task` z `model_port/api.py` w `AppConfig.ready` (`model-port.md`) |
-| menu, zakładki „Ustawień” (`settingsSections`), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
+| menu, zakładki „Ustawień” (`settingsSections`), dolny pasek na telefonie (`mobileTabs`: adresy pozycji menu; bez pola — trzy pierwsze pozycje pracy), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
 

@@ -528,6 +528,28 @@ export function panelNavigation(access: PanelAccess): {
   };
 }
 
+/** How many entries the phone's bottom bar holds beside „Więcej”. */
+const MOBILE_TABS = 3;
+
+/**
+ * The phone's bottom bar (UX-083): what the product names
+ * (`ProductExtension.mobileTabs`) and the person may open, filled up from the
+ * work menu — the first three work entries when the product names none.
+ */
+export function mobileTabs(access: PanelAccess): PanelNavEntry[] {
+  const { work, company } = panelNavigation(access);
+  const menu = [...work, ...company];
+  const known = [...WORK, ...COMPANY, SETTINGS, ...(product.navigation ?? [])];
+  const named = (product.mobileTabs ?? []).flatMap((href) => {
+    // By the entry's own address: the menu may open a section on its first
+    // page the person can see, which is another address.
+    const item = known.find((one) => one.href === href);
+    const entry = item && menu.find((one) => one.labelKey === item.labelKey);
+    return entry ? [entry] : [];
+  });
+  return [...new Set([...named, ...work])].slice(0, MOBILE_TABS);
+}
+
 function withCount(access: PanelAccess, tab: PanelSectionTab): PanelSectionTab {
   const waiting = access.booking?.waiting;
   const tabNamed = named(access, tab);

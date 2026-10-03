@@ -51,6 +51,14 @@ export type ProductExtension = {
   /** Panel entries, appended to their group after core's own. */
   navigation?: ProductNavigationItem[];
   primaryAction?: ProductPrimaryAction;
+  /**
+   * The phone's bottom bar (UX-083): the menu addresses of the entries this
+   * product's people reach for most, in order — core's own (`/panel/sites`)
+   * or the product's (`navigation`). An entry the person may not open is left
+   * out and the bar is filled from the work menu, so without this field it is
+   * the first three work entries.
+   */
+  mobileTabs?: readonly string[];
   /** Tabs of "Ustawienia", appended after core's own (Company … Advanced). */
   settingsSections?: ProductSettingsSection[];
   /** Merged into core messages namespace by namespace. */

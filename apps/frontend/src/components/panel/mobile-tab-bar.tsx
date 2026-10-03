@@ -6,25 +6,26 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "#i18n/navigation";
 import {
   ariaCurrent,
-  panelNavigation,
+  mobileTabs,
   type PanelAccess,
 } from "#lib/panel-navigation";
 import { useSidebar } from "@saas-core/ui/components/sidebar";
 import { cn } from "@saas-core/ui/lib/utils";
 
 const item =
-  "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.6875rem] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
+  "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-center text-[0.6875rem] leading-tight focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
 /**
- * Phone and tablet: daily work under the thumb (design 1a, 390 px). The first
- * three work entries stay here; everything else is behind "More", which opens
- * the full menu.
+ * Phone and tablet: daily work under the thumb (design 1a, 390 px). Three
+ * entries stay here — the ones the product names, else the first three work
+ * entries (UX-083); everything else is behind "More", which opens the full
+ * menu.
  */
 export function MobileTabBar({ access }: { access: PanelAccess }) {
   const t = useTranslations("DashboardNav");
   const pathname = usePathname();
   const { mobileOpen, setMobileOpen } = useSidebar();
-  const tabs = panelNavigation(access).work.slice(0, 3);
+  const tabs = mobileTabs(access);
 
   return (
     <nav
