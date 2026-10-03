@@ -8806,6 +8806,8 @@ export interface components {
             withdrawn: boolean;
             /** @description Units still without a translation. */
             untranslated: number;
+            /** @description The source's sections in order; a unit key starts with the position. */
+            block_types: string[];
             units: components["schemas"]["LocaleBodyUnit"][];
         };
         LocaleBodyCopy: {

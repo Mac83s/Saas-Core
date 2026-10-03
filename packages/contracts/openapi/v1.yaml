@@ -25312,11 +25312,18 @@ components:
         untranslated:
           type: integer
           description: Units still without a translation.
+        block_types:
+          type: array
+          items:
+            type: string
+          description: The source's sections in order; a unit key starts with the
+            position.
         units:
           type: array
           items:
             $ref: '#/components/schemas/LocaleBodyUnit'
       required:
+      - block_types
       - body_version
       - locale
       - outdated
