@@ -327,3 +327,39 @@ test("who only reads sees the versions and no way to write", async () => {
   expect(open.className).toContain("border-border");
   expect(open.className).not.toContain("border-transparent");
 });
+
+test("a draft the assistant wrote says so until a person saves it", async () => {
+  api.readCustomerDocument.mockResolvedValue({
+    document: privacy({
+      draft: {
+        text: "Administratorem danych jest Studio.",
+        locale: "pl",
+        origin_ref: "conversation:0199-abc",
+      },
+    }),
+    options,
+  });
+  // Saved by a person: the draft is theirs, and the note goes.
+  api.saveCustomerDocumentDraft.mockResolvedValue(
+    privacy({
+      version: 6,
+      draft: {
+        text: "Administratorem danych jest Studio Anna.",
+        locale: "pl",
+        origin_ref: "",
+      },
+    }),
+  );
+  wrap(<CustomerDocumentPanel canManage kind="privacy_policy" />);
+
+  const draft = await screen.findByRole("region", { name: "Szkic" });
+  expect(within(draft).getByRole("note").textContent).toBe(
+    "Ten szkic napisał asystent AI. Przeczytaj go uważnie, zanim zatwierdzisz — po Twoim zapisie staje się Twoim szkicem.",
+  );
+  fireEvent.change(within(draft).getByLabelText("Treść"), {
+    target: { value: "Administratorem danych jest Studio Anna." },
+  });
+  fireEvent.click(within(draft).getByRole("button", { name: "Zapisz szkic" }));
+  await screen.findByText("Szkic zapisany.");
+  expect(within(draft).queryByRole("note")).toBeNull();
+});

@@ -424,7 +424,8 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | **4a** | `shared.customers` jako moduł: `Customer` przechodzi stanem modelu (tabela `booking_customer` zostaje), `customers.api` (`Customer`, `CUSTOMER_MODEL`, `match_or_create`, `strip_customer`, `register_customer_anonymizer`), booking rejestruje swoje czyszczenie wizyt; strażnik `deployment-check` (§2); profile `business`, `agro`, `vps-dev`; nota dla produktów | customers 0001, booking 0029 (sam stan) | brak |
 | **4b** | Dokumenty firmy i dziennik zgód (§9): rodzaje, szkic, wersja i wiersze tekstu tylko do dopisywania, zatwierdzenie przez osobę ze step-upem, publiczny adres dokumentu, dwa czytniki dla innych modułów; `customers.read`, `customers.manage`, `/api/v1/customers` | customers 0002 (tabele), 0003 (RLS, strażnik relacji, tylko do dopisywania), 0004 (uprawnienia ról) | Ustawienia › „Dokumenty dla klientów”; publiczna strona dokumentu |
 | **4c** | Rezerwacja zapisuje zgody: formularz publiczny pokazuje regulamin rezerwacji i politykę prywatności obowiązujące w języku klienta, rezerwacja dopisuje wpisy dziennika (`source` `booking.appointment`), zgoda marketingowa osobno | — | formularz publiczny |
-| **4d** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; polecenia asystenta dla dokumentów (odczyt i zapis szkicu z identyfikatorem przebiegu) z evalami | — | Tłumaczenia |
+| **4d-1** | Polecenia asystenta dla dokumentów: `customers.documents.read@1` (odczyt) i `customers.document.draft.save@1` (zapis szkicu z identyfikatorem rozmowy), z evalami; panel mówi, że szkic napisał asystent | — | Ustawienia › „Dokumenty dla klientów” (szkic) |
+| **4d-2** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; akceptacja tłumaczenia przez osobę ze step-upem w centrum tłumaczeń | do rozstrzygnięcia (niżej) | Tłumaczenia |
 | **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał i token pochodzenia; `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0002, billing (wersje planów) | Zamówienia (lista, szczegół) |
 | **4f** | Wpłaty ręczne i przelew z terminem (§4–§5): `Payment`, `LedgerEntry`, rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, oznaczenie wpłaty przez firmę, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | wpłata w zamówieniu, oferta |
 | **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
@@ -530,3 +531,46 @@ Rozstrzygnięcia plastra 4c (2026-10-04, decyzje techniczne z powodem):
   przyjdzie razem z treścią zgody od prawnika i z miejscem, w którym firma
   zobaczy, kto się zgodził — zgoda, której firma nie może odczytać, niczemu nie
   służy, a jej słowa to ryzyko prawne, nie decyzja techniczna.
+
+Rozstrzygnięcia plastra 4d (2026-10-04, decyzje techniczne z powodem):
+
+- **4d idzie w dwóch częściach.** Polecenia asystenta (4d-1) nie zależą od
+  źródła tłumaczeń: wołają serwisy panelu, które są w `main` od 4b. Źródło
+  (4d-2) wymaga zmian poza `shared.customers` — niżej — więc nie blokuje
+  poleceń.
+- **Asystent pisze szkic, nie wersję (4d-1).** `customers.document.draft.save`
+  ma klasę `draft` bez modyfikatora `legal_document`: zapis szkicu w panelu nie
+  wymaga step-upu, a rejestr nie dokłada kontroli, której ścieżka panelu nie ma
+  (ADR-076 pkt 2). Zatwierdzenie nie ma polecenia w ogóle — zostaje osobie w
+  panelu. Szkic niesie `origin_ref` rozmowy; panel mówi wtedy „Ten szkic
+  napisał asystent AI”, dopóki osoba nie zapisze szkicu sama (jej zapis czyści
+  `origin_ref`). Odczyt nie oddaje nazwisk zatwierdzających — wynik idzie do
+  modelu, a te dane nie są mu potrzebne. Podgląd zapisu (`documents.plan_draft`)
+  sprawdza to samo co zapis i niczego nie pisze.
+- **Co 4d-2 musi rozstrzygnąć, zanim powstanie adapter** (odczyt protokołu i
+  zestawu kontraktu z 04.10):
+  1. *Każdy obiekt tego źródła jest dokumentem prawnym*, więc żaden wynik nie
+     wychodzi sam (`decide_publication`, reguła 3). Zestaw kontraktu
+     (`saas_core/testing/translation_sources.py`) zakłada obiekty nieprawne —
+     scenariusze startują od `translate(...) == [("live", None)]` — i potrzebuje
+     zdolności w rodzaju `legal_only`, przy której zestaw gra też osobę
+     akceptującą wynik. To zmiana protokołu (§11 i §12 dokumentu protokołu).
+  2. *Gdzie czeka wynik.* §9 mówi „wersjonowane, zapis `pending` i `live`” —
+     wtedy adapter sam trzyma oczekujący tekst i potrzebna jest tabela
+     (migracja `customers`). Bez migracji da się to zrobić jako rekord na żywo:
+     wynik trzyma kolejka przeglądu silnika, a akceptacja to `write` z
+     wyzwalaczem `acceptance`, który przez bramkę osoby i step-up dopisuje
+     wiersz (`documents.add_text`). Druga droga jest krótsza i zgodna z tym, że
+     wiersz tekstu jest publiczny od razu; wymaga poprawienia zdania w §9.
+  3. *Czym jest fragment.* 4b zapisuje pochodzenie dla całego tekstu
+     (`UNIT_KIND = "text"`), czyli jeden fragment na dokument. Jeden fragment
+     idzie do modelu jednym wywołaniem ponad limit 6 000 znaków („a single unit
+     over the limits goes alone”), a nowa wersja tłumaczy się od zera. Akapity
+     jako fragmenty dają pamięć tłumaczeń między wersjami i mieszczą się w
+     wywołaniach, ale wymagają pochodzenia per akapit w wierszu i reguły dla
+     ręcznego tłumaczenia o innej liczbie akapitów.
+  4. *Akceptacja na ekranie.* Akceptacja tłumaczenia dokumentu wymaga kodu z
+     aplikacji (403 `step_up_required` z adaptera), więc centrum tłumaczeń musi
+     umieć o niego zapytać — tak jak okno zatwierdzenia wersji w 4b.
+  Do tego czasu ręczna ścieżka z 4b jest kompletna: osoba dopisuje tekst w
+  kolejnym języku tą samą bramką co wersję.

@@ -45,12 +45,20 @@ class CommandEval:
 def all_evals() -> dict[str, CommandEval]:
     from django.conf import settings  # noqa: PLC0415
 
-    from . import booking, company_settings, organization, profiles, sites  # noqa: PLC0415
+    from . import (  # noqa: PLC0415
+        booking,
+        company_settings,
+        customers,
+        organization,
+        profiles,
+        sites,
+    )
 
     evals = {
         **organization.EVALS,
         **booking.EVALS,
         **company_settings.EVALS,
+        **customers.EVALS,
         **profiles.EVALS,
         **sites.EVALS,
     }

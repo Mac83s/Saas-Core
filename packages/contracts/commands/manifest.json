@@ -2746,6 +2746,356 @@
       "version_field": "expected_version"
     },
     {
+      "command": "customers.document.draft.save@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "Which document the draft belongs to.",
+            "enum": [
+              "booking_terms",
+              "shop_terms",
+              "privacy_policy",
+              "cancellation_policy"
+            ],
+            "type": "string"
+          },
+          "locale": {
+            "description": "The language the draft is written in: two lowercase letters, one of the company's languages from customers.documents.read.",
+            "type": "string"
+          },
+          "text": {
+            "description": "The whole draft: plain paragraphs separated by empty lines. An empty string removes the draft.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "locale"
+        ],
+        "type": "object"
+      },
+      "model_description": "Writes the draft of one of the company's documents for its customers — booking_terms (the terms of booking), shop_terms (the shop's terms), privacy_policy (the privacy policy), cancellation_policy (the cancellation policy) — replacing the draft it has; an empty text removes the draft. The text is plain paragraphs separated by empty lines, no markup, at most 100000 characters, written in one of the company's languages (`locale`). A draft binds nobody: customers keep reading the version in force. Only a person can approve the draft as a version, in the panel, with a code from their authenticator app — never say a document is in force after saving a draft. A legal text you draft is a starting point the company should have checked.",
+      "modifiers": [],
+      "module": "shared.customers",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "default_locale": {
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "properties": {
+                "draft": {
+                  "properties": {
+                    "locale": {
+                      "type": "string"
+                    },
+                    "origin_ref": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "in_force": {
+                  "properties": {
+                    "effective_from": {
+                      "type": "string"
+                    },
+                    "locales": {
+                      "type": "array"
+                    },
+                    "number": {
+                      "type": "integer"
+                    },
+                    "source_locale": {
+                      "type": "string"
+                    },
+                    "texts": {
+                      "items": {
+                        "properties": {
+                          "locale": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "public_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "upcoming": {
+                  "properties": {
+                    "effective_from": {
+                      "type": "string"
+                    },
+                    "locales": {
+                      "type": "array"
+                    },
+                    "number": {
+                      "type": "integer"
+                    },
+                    "source_locale": {
+                      "type": "string"
+                    },
+                    "texts": {
+                      "items": {
+                        "properties": {
+                          "locale": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "version": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "locales": {
+            "type": "array"
+          },
+          "text_max": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "customers.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A draft of terms or a policy; it binds nobody, a person approves a version.",
+        "pl": "Szkic regulaminu albo polityki; nikogo nie wiąże, wersję zatwierdza osoba."
+      },
+      "title": {
+        "en": "Save a draft of a document",
+        "pl": "Zapisz szkic dokumentu dla klientów"
+      },
+      "tool_name": "customers_document_draft_save_v1",
+      "undo": "command:customers.document.draft.save@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "customers.documents.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "One document with its texts, or null for all of them without texts.",
+            "enum": [
+              "booking_terms",
+              "shop_terms",
+              "privacy_policy",
+              "cancellation_policy",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "model_description": "Returns the company's documents for its customers — booking_terms (the terms of booking), shop_terms (the shop's terms), privacy_policy (the privacy policy), cancellation_policy (the cancellation policy). For each: its lock (`version`), the draft somebody is still writing (text, language and the conversation that wrote it, if any), the version in force today and the one waiting for its day (number, the language it was approved in, the day it applies from, the languages it has a text in), and the public address. With `kind` null every document comes without texts; with a kind, that one document comes with the current text of each language. Also the company's languages and the longest text allowed. A customer who reads a language the version has no text in gets no document. Use it before writing a draft.",
+      "modifiers": [],
+      "module": "shared.customers",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "default_locale": {
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "properties": {
+                "draft": {
+                  "properties": {
+                    "locale": {
+                      "type": "string"
+                    },
+                    "origin_ref": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "in_force": {
+                  "properties": {
+                    "effective_from": {
+                      "type": "string"
+                    },
+                    "locales": {
+                      "type": "array"
+                    },
+                    "number": {
+                      "type": "integer"
+                    },
+                    "source_locale": {
+                      "type": "string"
+                    },
+                    "texts": {
+                      "items": {
+                        "properties": {
+                          "locale": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "public_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "upcoming": {
+                  "properties": {
+                    "effective_from": {
+                      "type": "string"
+                    },
+                    "locales": {
+                      "type": "array"
+                    },
+                    "number": {
+                      "type": "integer"
+                    },
+                    "source_locale": {
+                      "type": "string"
+                    },
+                    "texts": {
+                      "items": {
+                        "properties": {
+                          "locale": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "version": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "locales": {
+            "type": "array"
+          },
+          "text_max": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "customers.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The company's terms and policies: the draft, the version in force and the languages it has a text in.",
+        "pl": "Regulaminy i polityki firmy: szkic, wersja obowiązująca i języki, w których ma tekst."
+      },
+      "title": {
+        "en": "Read the documents for customers",
+        "pl": "Odczytaj dokumenty dla klientów"
+      },
+      "tool_name": "customers_documents_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
       "command": "inventory.settings_alerts.read@1",
       "entitlement": "inventory.enabled",
       "exposure": [

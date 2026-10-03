@@ -295,6 +295,58 @@ def read_document(kind: str) -> dict[str, Any]:
 # --- what the panel writes ------------------------------------------------
 
 
+def _draft_input(text: str, locale: str, organization: Organization) -> tuple[str, str]:
+    """The draft as it is stored — checked as a text in one of the company's
+    languages — or two empty strings: an empty text clears the draft, and a
+    draft that is gone has no language."""
+    text = text.replace("\r\n", "\n").strip()
+    if not text:
+        return "", ""
+    text = _checked_text(text)
+    assert_content_locale(locale, organization=organization)
+    return text, locale
+
+
+@dataclass(frozen=True, slots=True)
+class DraftPlan:
+    """What saving a draft would do, read and written nowhere."""
+
+    #: Empty before the document's first write.
+    document_id: str
+    #: The lock the save will name (`expected_version`).
+    version: int
+    #: As it would be stored; empty removes the draft.
+    text: str
+    locale: str
+    #: The length of the draft it replaces; 0 when there is none.
+    replaces: int
+    #: False when the draft is already exactly this: the save writes nothing.
+    changes: bool
+    #: The number of the version customers read today, if any.
+    in_force: int | None
+
+
+def plan_draft(kind: str, *, text: str, locale: str) -> DraftPlan:
+    """The preview of `save_draft`: the same checks, the same refusals, and
+    nothing written or locked — what a command shows before the click."""
+    context = authorize(CUSTOMERS_MANAGE)
+    organization = _organization(context.organization_id)
+    document = _document(organization.id, _kind(kind))
+    text, locale = _draft_input(text, locale, organization)
+    in_force = _in_force(document, organization.local_today()) if document else None
+    return DraftPlan(
+        document_id=str(document.id) if document else "",
+        version=document.version if document else 0,
+        text=text,
+        locale=locale,
+        replaces=len(document.draft_text) if document else 0,
+        changes=(document.draft_text, document.draft_locale) != (text, locale)
+        if document
+        else bool(text),
+        in_force=in_force.number if in_force else None,
+    )
+
+
 @transaction.atomic
 def save_draft(
     kind: str,
@@ -310,15 +362,11 @@ def save_draft(
     organization = _organization(context.organization_id)
     document = _document(organization.id, _kind(kind), lock=True)
     _check_version(document, expected_version)
-    text = text.replace("\r\n", "\n").strip()
-    if text:
-        text = _checked_text(text)
-        assert_content_locale(locale, organization=organization)
+    text, locale = _draft_input(text, locale, organization)
     if document is None:
         if not text:
             return _payload(organization, kind, None, with_texts=True)
         document = CustomerDocument.all_objects.create(organization=organization, kind=kind)
-    locale = locale if text else ""
     if (document.draft_text, document.draft_locale) != (text, locale):
         document.draft_text = text
         document.draft_locale = locale

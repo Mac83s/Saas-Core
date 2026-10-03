@@ -5786,6 +5786,7 @@
     "noAccess": "Dokumenty dla klientów widzą osoby, które zarządzają firmą.",
     "draftTitle": "Szkic",
     "draftHelp": "Pisz i poprawiaj do woli. Klienci zobaczą treść dopiero po zatwierdzeniu.",
+    "draftFromAssistant": "Ten szkic napisał asystent AI. Przeczytaj go uważnie, zanim zatwierdzisz — po Twoim zapisie staje się Twoim szkicem.",
     "draftLanguage": "Język szkicu",
     "draftText": "Treść",
     "draftTextHelp": "Zwykły tekst. Akapity oddziel pustą linią.",

@@ -5786,6 +5786,7 @@
     "noAccess": "Documents for customers are for the people who run the company.",
     "draftTitle": "Draft",
     "draftHelp": "Write and correct as much as you like. Customers see the text only once it is approved.",
+    "draftFromAssistant": "The AI assistant wrote this draft. Read it carefully before you approve it — once you save it, it is your draft.",
     "draftLanguage": "The draft's language",
     "draftText": "Text",
     "draftTextHelp": "Plain text. Separate paragraphs with an empty line.",
