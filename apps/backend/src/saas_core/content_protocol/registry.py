@@ -158,6 +158,11 @@ def unregister_source_change_listener(listener: Callable[[SourceChangeNotice], N
         _listeners.remove(listener)
 
 
+def source_change_listeners() -> tuple[Callable[[SourceChangeNotice], None], ...]:
+    """For test helpers only: who hears a notice now (the engine, once installed)."""
+    return tuple(_listeners)
+
+
 def notify_source_changed(
     *,
     context: ContentContext,

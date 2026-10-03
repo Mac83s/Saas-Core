@@ -32,6 +32,7 @@ from saas_core.testing.translation_sources import (
     FakeDraftSource,
     FakeLiveRecordSource,
     captured_source_changes,
+    only_test_listeners,
     registered_translation_source,
 )
 
@@ -267,7 +268,7 @@ def test_a_change_notice_never_fails_the_save(caplog: pytest.LogCaptureFixture) 
         organization_id=uuid4(), membership_id=uuid4(), actor_id=uuid4(), permissions=frozenset()
     )
     object_id = uuid4()
-    with registered_translation_source(FakeDraftSource("testing.notices")):
+    with registered_translation_source(FakeDraftSource("testing.notices")), only_test_listeners():
         # Without a listener nothing happens at all.
         registry.notify_source_changed(
             context=context, source_key="testing.notices", object_ids=[object_id], cause="user"

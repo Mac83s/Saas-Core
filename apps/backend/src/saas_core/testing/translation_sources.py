@@ -135,6 +135,22 @@ def captured_source_changes() -> Iterator[list[SourceChangeNotice]]:
         registry.unregister_source_change_listener(listener)
 
 
+@contextmanager
+def only_test_listeners() -> Iterator[None]:
+    """Only the listeners the test registers hear notices: the engine's own
+    (TL21, installed with the translation module) is set aside meanwhile."""
+    installed = registry.source_change_listeners()
+    for listener in installed:
+        registry.unregister_source_change_listener(listener)
+    try:
+        yield
+    finally:
+        for listener in registry.source_change_listeners():
+            registry.unregister_source_change_listener(listener)
+        for listener in installed:
+            registry.register_source_change_listener(listener)
+
+
 def error_code(error: BaseException) -> str | None:
     """The code a module's refusal carries (a DRF exception or a plain one)."""
     code = getattr(error, "code", None) or getattr(getattr(error, "detail", None), "code", None)
