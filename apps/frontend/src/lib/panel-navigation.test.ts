@@ -62,7 +62,7 @@ describe("sekcje menu", () => {
     ).toBeNull();
   });
 
-  it("SEO jest zakładką Strony, a jej menu świeci się na obu", () => {
+  it("SEO jest jedną zakładką Strony, a Search Console stroną pod nią (47a)", () => {
     const tabs = sectionTabs("/panel/seo/search-console", OWNER);
     expect(tabs?.map((tab) => tab.href)).toEqual([
       "/panel/sites",
@@ -72,12 +72,9 @@ describe("sekcje menu", () => {
       "/panel/sites/address",
       "/panel/sites/integrations",
       "/panel/seo",
-      "/panel/seo/search-console",
     ]);
-    // The deepest page is the current one, not its parent that also matches.
-    expect(currentPage("/panel/seo/search-console", tabs!)).toBe(
-      "/panel/seo/search-console",
-    );
+    // Search Console is a view of „Widoczność w Google”, not a tab beside it.
+    expect(currentPage("/panel/seo/search-console", tabs!)).toBe("/panel/seo");
 
     const website = panelNavigation(OWNER).company.find(
       (item) => item.href === "/panel/sites",

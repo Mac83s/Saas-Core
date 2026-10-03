@@ -14,7 +14,10 @@ import pl from "../../../../messages/pl.json";
 import en from "../../../../messages/en.json";
 import { SeoGscPanel } from "./gsc-panel";
 
-vi.mock("#i18n/navigation", () => ({ Link: "a" }));
+vi.mock("#i18n/navigation", () => ({
+  Link: "a",
+  usePathname: () => "/panel/seo/search-console",
+}));
 const api = vi.hoisted(() => ({
   listSites: vi.fn(),
   getSeoGscProperties: vi.fn(),
@@ -143,6 +146,29 @@ test.each(["pl", "en"] as const)(
     expect((await axe.run(container)).violations).toEqual([]);
   },
 );
+test("one website needs no choosing: its connection and the steps show at once (UX-046, 47a)", async () => {
+  api.listSites.mockResolvedValue({
+    items: [{ id: siteId, name: "Example" }],
+    next_cursor: null,
+  });
+  view("pl");
+  expect(
+    await screen.findByText("Konto Google jest połączone."),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Strona internetowa")).not.toBeInTheDocument();
+  expect(api.getSeoGscProperties).toHaveBeenCalledWith(siteId);
+  expect(
+    screen.getByText(/Połącz konto Google, na którym strona/),
+  ).toBeInTheDocument();
+  // Audits and Search Console are tabs of one entry.
+  const tabs = screen.getByRole("navigation", { name: "Widoczność w Google" });
+  expect(
+    within(tabs)
+      .getByRole("link", { name: "Search Console" })
+      .getAttribute("aria-current"),
+  ).toBe("page");
+});
+
 test("disconnect requires explicit organization confirmation and exact current connection", async () => {
   view();
   await choose();

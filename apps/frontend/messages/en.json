@@ -67,7 +67,10 @@
       "medium": "Medium",
       "low": "Low",
       "info": "Information"
-    }
+    },
+    "tabs": "Google visibility",
+    "tabAudit": "Website audit",
+    "tabSearchConsole": "Search Console"
   },
   "Common": {
     "close": "Close",
@@ -3280,7 +3283,11 @@
     "page": "Page",
     "clicks": "Clicks",
     "impressions": "Impressions",
-    "position": "Position"
+    "position": "Position",
+    "step1": "Connect the Google account where the website is added to Search Console.",
+    "step2": "Choose it from the list of Google properties and allow reading its data for 30 days.",
+    "step3": "Fetch the data: queries, clicks, impressions and positions in search.",
+    "noSites": "Create a website first — Search Console connects to its address."
   },
   "Marketing": {
     "nav": {

@@ -56,6 +56,7 @@ import {
 } from "@saas-core/ui/components/combobox";
 import { PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { SeoTabs } from "./seo-tabs";
 
 // What `readSeoGscMetrics` asks the API for; the table pages the same way.
 const METRICS_PAGE_SIZE = 25;
@@ -66,9 +67,10 @@ type MetricRow = GscMetrics["results"][number];
 
 export function SeoGscPanel() {
   const t = useTranslations("SeoGsc");
+  const seo = useTranslations("SeoAudits");
   const nav = useTranslations("DashboardNav");
-  const [sites, setSites] = useState<SiteSummary[]>([]);
-  const [siteId, setSiteId] = useState("");
+  const [sites, setSites] = useState<SiteSummary[]>();
+  const [chosen, setChosen] = useState("");
   const [problem, setProblem] = useState(false);
   useEffect(() => {
     let active = true;
@@ -83,49 +85,65 @@ export function SeoGscPanel() {
       active = false;
     };
   }, []);
+  // One website needs no choosing: its connection shows at once (UX-046).
+  const siteId = sites?.length === 1 ? sites[0].id : chosen;
+  const setSiteId = setChosen;
   return (
     <PanelPage
       description={t("description")}
       eyebrow={nav("website")}
-      title={t("title")}
+      title={seo("title")}
     >
+      <SeoTabs />
       {problem ? <p role="alert">{t("unavailable")}</p> : null}
-      <Field>
-        <FieldLabel htmlFor="gsc-site">{t("site")}</FieldLabel>
-        {sites.length <= 20 ? (
-          <NativeSelect
-            id="gsc-site"
-            value={siteId}
-            onChange={(event) => setSiteId(event.target.value)}
-          >
-            <option value="">{t("chooseSite")}</option>
-            {sites.map((site) => (
-              <option key={site.id} value={site.id}>
-                {site.name}
-              </option>
-            ))}
-          </NativeSelect>
-        ) : (
-          <Combobox
-            items={sites}
-            value={sites.find((site) => site.id === siteId) ?? null}
-            onValueChange={(site) => setSiteId(site?.id ?? "")}
-            itemToStringLabel={(site) => site.name}
-          >
-            <ComboboxInput id="gsc-site" placeholder={t("chooseSite")} />
-            <ComboboxContent>
-              <ComboboxEmpty>{t("empty")}</ComboboxEmpty>
-              <ComboboxList>
-                {(site: SiteSummary) => (
-                  <ComboboxItem key={site.id} value={site}>
-                    {site.name}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
-        )}
-      </Field>
+      {/* The steps the description promises, in the content: a phone hides
+          the description (UX-005). */}
+      <ol className="max-w-3xl list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>{t("step1")}</li>
+        <li>{t("step2")}</li>
+        <li>{t("step3")}</li>
+      </ol>
+      {sites && !sites.length ? (
+        <p className="text-sm text-muted-foreground">{t("noSites")}</p>
+      ) : null}
+      {sites && sites.length > 1 ? (
+        <Field className="max-w-sm">
+          <FieldLabel htmlFor="gsc-site">{t("site")}</FieldLabel>
+          {sites.length <= 20 ? (
+            <NativeSelect
+              id="gsc-site"
+              value={siteId}
+              onChange={(event) => setSiteId(event.target.value)}
+            >
+              <option value="">{t("chooseSite")}</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.name}
+                </option>
+              ))}
+            </NativeSelect>
+          ) : (
+            <Combobox
+              items={sites}
+              value={sites.find((site) => site.id === siteId) ?? null}
+              onValueChange={(site) => setSiteId(site?.id ?? "")}
+              itemToStringLabel={(site) => site.name}
+            >
+              <ComboboxInput id="gsc-site" placeholder={t("chooseSite")} />
+              <ComboboxContent>
+                <ComboboxEmpty>{t("empty")}</ComboboxEmpty>
+                <ComboboxList>
+                  {(site: SiteSummary) => (
+                    <ComboboxItem key={site.id} value={site}>
+                      {site.name}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          )}
+        </Field>
+      ) : null}
       {siteId ? <SiteGsc key={siteId} siteId={siteId} /> : null}
     </PanelPage>
   );

@@ -203,15 +203,11 @@ export const PANEL_SECTIONS = {
       labelKey: "siteIntegrations",
       module: "shared.sites",
     },
+    // Audits and Search Console are one entry with tabs of its own (47a);
+    // /panel/seo/search-console lights it up as a page under it.
     {
       href: "/panel/seo",
       labelKey: "seo",
-      module: "shared.seo",
-      permission: "seo.audit.read",
-    },
-    {
-      href: "/panel/seo/search-console",
-      labelKey: "searchConsole",
       module: "shared.seo",
       permission: "seo.audit.read",
     },

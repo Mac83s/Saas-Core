@@ -67,7 +67,10 @@
       "medium": "Średnia",
       "low": "Niska",
       "info": "Informacja"
-    }
+    },
+    "tabs": "Widoczność w Google",
+    "tabAudit": "Audyt strony",
+    "tabSearchConsole": "Search Console"
   },
   "Common": {
     "close": "Zamknij",
@@ -3280,7 +3283,11 @@
     "page": "Strona",
     "clicks": "Kliknięcia",
     "impressions": "Wyświetlenia",
-    "position": "Pozycja"
+    "position": "Pozycja",
+    "step1": "Połącz konto Google, na którym strona jest dodana do Search Console.",
+    "step2": "Wybierz ją z listy usług Google i zezwól na odczyt jej danych przez 30 dni.",
+    "step3": "Pobierz dane: frazy, kliknięcia, wyświetlenia i pozycje w wyszukiwarce.",
+    "noSites": "Najpierw załóż stronę internetową — Search Console łączy się z jej adresem."
   },
   "Marketing": {
     "nav": {

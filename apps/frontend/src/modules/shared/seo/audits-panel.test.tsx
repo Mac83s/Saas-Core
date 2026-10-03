@@ -15,7 +15,10 @@ import pl from "../../../../messages/pl.json";
 import en from "../../../../messages/en.json";
 import { SeoAuditsPanel } from "./audits-panel";
 
-vi.mock("#i18n/navigation", () => ({ Link: "a" }));
+vi.mock("#i18n/navigation", () => ({
+  Link: "a",
+  usePathname: () => "/panel/seo",
+}));
 
 const api = vi.hoisted(() => ({
   getSeoAuditOffer: vi.fn(),

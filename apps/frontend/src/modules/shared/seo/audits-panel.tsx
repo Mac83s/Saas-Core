@@ -35,6 +35,7 @@ import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { PlanGate } from "#components/panel/plan-gate";
+import { SeoTabs } from "./seo-tabs";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   Combobox,
@@ -371,6 +372,7 @@ export function SeoAuditsPanel({
       eyebrow={nav("website")}
       title={t("title")}
     >
+      <SeoTabs />
       {problem ? (
         <p role="alert" className="text-destructive">
           {problem}
