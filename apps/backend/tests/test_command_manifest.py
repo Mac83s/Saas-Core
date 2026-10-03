@@ -24,6 +24,7 @@ from saas_core.modules.core.organizations.command_registry import (
     CommandSpec,
     register_command,
     registered_commands,
+    retitle_command,
 )
 from saas_core.modules.core.organizations.management.commands.command_manifest import (
     CORE_MANIFEST,
@@ -71,6 +72,7 @@ def spec(**changes: Any) -> CommandSpec:
 def registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(command_registry, "_commands", {})
     monkeypatch.setattr(command_registry, "_tools", {})
+    monkeypatch.setattr(command_registry, "_unretitled", {})
 
 
 @pytest.mark.usefixtures("registry")
@@ -103,6 +105,27 @@ def test_a_products_vertical_commands_have_a_file_of_their_own(
     assert json.loads(documents[CORE_MANIFEST])["commands"] == []
     commands = json.loads(documents[PRODUCT_MANIFEST])["commands"]
     assert [entry["command"] for entry in commands] == ["organization.rename@1"]
+
+
+@pytest.mark.usefixtures("registry")
+def test_a_products_words_for_a_core_command_go_to_its_own_file() -> None:
+    """ADR-078 relabel: the core file a product receives keeps core's words,
+    so `commands:check` holds in the product too; its words sit beside it."""
+    register_command(spec())
+    received = manifests()[CORE_MANIFEST]
+    words = {
+        "title": {"pl": "Zmień nazwę gabinetu", "en": "Rename the practice"},
+        "summary": {"pl": "Nazwa gabinetu.", "en": "Practice name."},
+        "model_description": "Renames the practice.",
+    }
+
+    retitle_command("organization.rename@1", **words)
+    documents = manifests()
+
+    assert documents[CORE_MANIFEST] == received
+    product = json.loads(documents[PRODUCT_MANIFEST])
+    assert product["commands"] == []
+    assert product["relabeled"] == [{"command": "organization.rename@1", **words}]
 
 
 def test_announced_commands_are_names_classes_and_owners_never_also_registered() -> None:

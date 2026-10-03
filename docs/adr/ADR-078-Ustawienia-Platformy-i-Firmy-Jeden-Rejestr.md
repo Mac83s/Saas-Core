@@ -611,9 +611,10 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
    historia, wyszukiwarka i polecenia asystenta — `retitle_command` zmienia im tylko
    teksty (tytuł, opis, opis dla modelu). Słowa rdzenia zostają pod
    `unrelabeled_group`, a `relabeled_group_keys` mówi, które grupy produkt zmienił:
-   `manifest.json` zostaje w słowach rdzenia, a różnice trafiają do
-   `manifest.product.json` (generator — development-1b). Sformułowania manifestu
-   asystenta są więc per produkt.
+   `manifest.json` zostaje w słowach rdzenia (`declared_command` — polecenie tak,
+   jak zadeklarował je moduł), a słowa produktu trafiają do `manifest.product.json`
+   pod klucz `relabeled` (polecenie, tytuł, opis, opis dla modelu). Sformułowania
+   manifestu asystenta są więc per produkt.
 3. **Poziom typu** (`organization_type="farm"`) to nakładka czytana tylko dla
    organizacji tego typu: schemat ustawień i opis zmian w podglądzie polecenia.
    Rejestr, polecenia i manifest zostają przy słowach produktu. Historia zmian w

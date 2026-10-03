@@ -174,6 +174,13 @@ def retitle_command(
     _commands[key] = retitled
 
 
+def declared_command(key: str) -> CommandSpec:
+    """The command as its module declared it: core's words even after a
+    product retitled it. The core manifest is written from these, so the file
+    a product receives from Saas-Core stays byte for byte the same (ADR-049)."""
+    return _unretitled.get(key) or command(key)
+
+
 def registered_commands() -> tuple[CommandSpec, ...]:
     return tuple(_commands[key] for key in sorted(_commands))
 

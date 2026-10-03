@@ -37,6 +37,7 @@ def empty_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(command_registry, "_commands", {})
     monkeypatch.setattr(command_registry, "_tools", {})
     monkeypatch.setattr(command_registry, "_unretitled", {})
+    monkeypatch.setattr(command_registry, "_unretitled", {})
 
 
 def _run(arguments: Any, invocation: Any) -> dict[str, str]:

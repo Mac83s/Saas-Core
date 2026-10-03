@@ -5,7 +5,9 @@ The manifest is the commands as a model, an MCP client and a reviewer see them
 time — the assistant takes its tools from the registry in memory — so it is a
 contract under review, not configuration: `pnpm api:check` fails when the code
 and the file disagree. A product's vertical commands go to their own file, so
-a product never edits the one it receives from Saas-Core (ADR-049).
+a product never edits the one it receives from Saas-Core (ADR-049); so do its
+words for core's commands (`relabel_settings`, ADR-078): the core file keeps
+core's words and the product's file lists them under `relabeled`.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from saas_core.modules.core.organizations.command_registry import (
     CommandSpec,
+    declared_command,
     registered_commands,
 )
 
@@ -30,12 +33,23 @@ PRODUCT_MANIFEST = "manifest.product.json"
 def manifests() -> dict[str, str]:
     core: list[dict[str, Any]] = []
     product: list[dict[str, Any]] = []
+    relabeled: list[dict[str, Any]] = []
     for spec in registered_commands():
-        vertical = settings.MODULE_CATALOG[spec.module].layer == "vertical"
-        (product if vertical else core).append(describe(spec))
+        if settings.MODULE_CATALOG[spec.module].layer == "vertical":
+            product.append(describe(spec))
+            continue
+        declared = declared_command(spec.key)
+        core.append(describe(declared))
+        if declared != spec:
+            relabeled.append({
+                "command": spec.key,
+                "title": dict(spec.title),
+                "summary": dict(spec.summary),
+                "model_description": spec.model_description,
+            })
     documents = {CORE_MANIFEST: _render(core)}
-    if product:
-        documents[PRODUCT_MANIFEST] = _render(product)
+    if product or relabeled:
+        documents[PRODUCT_MANIFEST] = _render(product, relabeled)
     return documents
 
 
@@ -65,8 +79,10 @@ def describe(spec: CommandSpec) -> dict[str, Any]:
     }
 
 
-def _render(commands: list[dict[str, Any]]) -> str:
-    document = {"version": MANIFEST_VERSION, "commands": commands}
+def _render(commands: list[dict[str, Any]], relabeled: list[dict[str, Any]] | None = None) -> str:
+    document: dict[str, Any] = {"version": MANIFEST_VERSION, "commands": commands}
+    if relabeled:
+        document["relabeled"] = relabeled
     return json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
