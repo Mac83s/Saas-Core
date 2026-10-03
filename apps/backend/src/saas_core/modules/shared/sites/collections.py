@@ -708,6 +708,9 @@ def publish_entry(
             ).order_by("slug")
         ],
         "version": entry.current_draft.number,
+        # When the text last changed, not when it was last published: a
+        # sitemap's `lastmod` (TL14).
+        "changed_at": entry.current_draft.created_at.isoformat(),
         "blocks": entry.current_draft.blocks,
         # Read by the public media endpoint: an asset is fetchable by a visitor
         # only while something published names it.

@@ -2861,6 +2861,13 @@ def _publication_snapshot(
                 "social_title": locale.social_title,
                 "social_description": locale.social_description,
                 "fallback_fields": list(locale.fallback_fields),
+                # When this language's text last changed, as the other
+                # languages carry theirs: a sitemap's `lastmod` (TL14).
+                **(
+                    {"changed_at": page.current_draft.created_at.isoformat()}
+                    if page.current_draft is not None
+                    else {}
+                ),
             }
             for locale in localization_by_page[page.id].locales
             if locale.locale == site.default_locale and locale.complete

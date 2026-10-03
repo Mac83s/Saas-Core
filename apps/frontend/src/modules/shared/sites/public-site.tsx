@@ -134,7 +134,27 @@ function notFoundOf(body: string): PublicSiteResult {
   }
 }
 
+/** What `article` carries for an entry (`null` on every other page). */
+interface PublishedArticle {
+  readonly author_name?: string;
+  readonly published_at?: string | null;
+  readonly updated_at?: string;
+  readonly tags?: readonly { readonly name?: string }[];
+}
+
 export function publicSiteMetadata(page: PublicSitePage): Metadata {
+  const article = page.article as PublishedArticle | null;
+  const image = page.social.image;
+  const images = image ? [{ url: image.url, alt: image.alt }] : undefined;
+  const shared = {
+    title: page.social_title || page.title,
+    description: page.social_description || page.description,
+    url: page.canonical_url,
+    siteName: page.social.site_name || undefined,
+    locale: page.social.locale,
+    alternateLocale: page.social.alternate_locales,
+    images,
+  };
   return {
     title: page.title,
     description: page.description,
@@ -149,10 +169,24 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
         "application/atom+xml": [{ url: page.feeds.atom, title: page.title }],
       },
     },
-    openGraph: {
-      title: page.social_title || page.title,
-      description: page.social_description || page.description,
-      url: page.canonical_url,
+    // Where a link to the page is shared: its language and the other ones it
+    // is in, the site's name, its first picture, and for an article who wrote
+    // it and when (TL14).
+    openGraph: article
+      ? {
+          ...shared,
+          type: "article",
+          publishedTime: article.published_at ?? undefined,
+          modifiedTime: article.updated_at,
+          authors: article.author_name ? [article.author_name] : undefined,
+          tags: (article.tags ?? []).flatMap((tag) => (tag.name ? [tag.name] : [])),
+        }
+      : { ...shared, type: "website" },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: shared.title,
+      description: shared.description,
+      images,
     },
     // In the document, not only by staying out of the sitemap: a crawler
     // that follows a link never reads the sitemap.

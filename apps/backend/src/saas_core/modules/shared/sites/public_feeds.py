@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 from xml.sax.saxutils import escape
 
@@ -19,6 +20,7 @@ from .publication_routing import (
     index_languages,
     index_page_path,
     language_home,
+    parse_moment,
     published_entries,
     serving_locales,
     tag_archive_path,
@@ -190,83 +192,146 @@ def render_site_atom(*, host: str, locale: str | None = None) -> HttpResponse:
     return HttpResponse(document, content_type="application/atom+xml; charset=utf-8")
 
 
+@dataclass(frozen=True, slots=True)
+class _Location:
+    """One address in the sitemap, with its language versions (TL14)."""
+
+    path: str
+    changed: datetime | None = None
+    #: Every language's version of this page, itself included, by locale —
+    #: only versions that are public, so never a withheld or a switched-off one.
+    versions: dict[str, str] = field(default_factory=dict)
+
+
+def _latest(items: list[dict[str, Any]]) -> datetime | None:
+    stamps = [item["changed_at"] for item in items if item.get("changed_at") is not None]
+    return max(stamps) if stamps else None
+
+
 def render_site_sitemap(*, host: str) -> HttpResponse:
     """Published pages, collection indexes and entries, in one urlset.
 
     A crawler that only follows links never reaches an article the menu does
     not point at, which is every article on a blog older than its front page.
+    Each address names its versions in the other languages, with one x-default
+    for the cluster, and `lastmod` is when that language's text last changed
+    (ADR-071 pkt 15).
     """
     domain, origin, available = _resolve_site(host)
-    locations: list[str] = []
+    site_locale = str(domain.site.default_locale)
+    locations: list[_Location] = []
     publication = domain.site.current_publication
     if publication is not None:
         for raw_page in visible_snapshot(publication, available)["pages"]:
             if raw_page.get("noindex"):
                 continue
+            # Built by the visible snapshot from the versions visitors get:
+            # never one withheld after its source changed a fact, nor one in a
+            # language the company switched off (TL10c).
+            versions = {str(code): str(path) for code, path in raw_page["hreflang"].items()}
             for raw_locale in raw_page.get("locales", []):
                 if isinstance(raw_locale, dict) and raw_locale.get("path"):
-                    locations.append(origin + str(raw_locale["path"]))
+                    locations.append(
+                        _Location(
+                            str(raw_locale["path"]),
+                            parse_moment(raw_locale.get("changed_at")),
+                            versions,
+                        )
+                    )
     entries = published_entries(
         organization_id=domain.organization_id, site_id=domain.site_id, available=available
     )
-    site_locale = domain.site.default_locale
+    page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
     for collection in ContentCollection.all_objects.filter(
         organization_id=domain.organization_id, site_id=domain.site_id
     ):
         grouped = entries_by_locale(entries, str(collection.id))
+        languages = index_languages(site_locale, grouped)
+        firsts = {
+            locale: collection_index_path(
+                default_locale=site_locale, locale=locale, base_path=collection.base_path
+            )
+            for locale in languages
+        }
         # Each language's index where it answers (TL14), with every page of
         # it, not just the first. An article that has scrolled off page one is
         # otherwise reachable by no link a crawler follows, which on a blog is
-        # most of the archive.
-        for locale in index_languages(site_locale, grouped):
+        # most of the archive. Only the first pages are one page in several
+        # languages; page three lists different articles in each.
+        for locale in languages:
             listed = grouped.get(locale, [])
-            first = collection_index_path(
-                default_locale=site_locale, locale=locale, base_path=collection.base_path
-            )
-            locations.append(origin + first)
-            pages = max(1, -(-len(listed) // settings.SITES_ENTRY_INDEX_PAGE_SIZE))
+            first = firsts[locale]
+            locations.append(_Location(first, _latest(listed[:page_size]), firsts))
+            pages = max(1, -(-len(listed) // page_size))
             for number in range(2, pages + 1):
-                locations.append(origin + index_page_path(first, locale, number))
-            # One address per subject that has enough articles to be worth
-            # indexing. Below that the archive exists for readers but asks not
-            # to be indexed, so listing it would contradict the page itself.
-            counts: dict[str, int] = {}
-            for item in listed:
+                window = listed[(number - 1) * page_size : number * page_size]
+                locations.append(
+                    _Location(index_page_path(first, locale, number), _latest(window))
+                )
+        # One address per subject that has enough articles to be worth
+        # indexing. Below that the archive exists for readers but asks not to
+        # be indexed, so listing it — or naming it as another's version —
+        # would contradict the page itself.
+        topics: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        for locale in languages:
+            for item in grouped.get(locale, []):
                 for tag in item["tags"]:
                     slug = str(tag.get("slug", ""))
                     if slug:
-                        counts[slug] = counts.get(slug, 0) + 1
-            for slug, count in sorted(counts.items()):
-                if count >= TAG_INDEX_THRESHOLD:
-                    locations.append(origin + tag_archive_path(index_path=first, slug=slug))
+                        topics.setdefault(slug, {}).setdefault(locale, []).append(item)
+        for slug, by_locale in sorted(topics.items()):
+            indexed = {
+                locale: tag_archive_path(index_path=firsts[locale], slug=slug)
+                for locale, items in by_locale.items()
+                if len(items) >= TAG_INDEX_THRESHOLD
+            }
+            for locale, path in sorted(indexed.items()):
+                locations.append(_Location(path, _latest(by_locale[locale]), indexed))
+    # Each language of an article is its own entry; the group makes them one
+    # article to a search engine.
+    articles: dict[str, dict[str, str]] = {}
     for entry in entries:
-        locations.append(origin + entry["path"])
-    last_changed = {
-        origin + entry["path"]: entry["updated_at"]
-        for entry in entries
-        if entry["updated_at"] is not None
-    }
+        articles.setdefault(entry["translation_group"], {})[entry["locale"]] = entry["path"]
+    for entry in entries:
+        locations.append(
+            _Location(entry["path"], entry["changed_at"], articles[entry["translation_group"]])
+        )
 
     seen: set[str] = set()
     urls = []
     for location in locations:
-        if location in seen:
+        if location.path in seen:
             continue
-        seen.add(location)
-        changed = last_changed.get(location)
-        stamp = (
-            "<lastmod>" + escape(changed.date().isoformat()) + "</lastmod>"
-            if changed is not None
-            else ""
-        )
-        urls.append("<url><loc>" + escape(location) + "</loc>" + stamp + "</url>")
+        seen.add(location.path)
+        parts = ["<loc>" + escape(origin + location.path) + "</loc>"]
+        if location.changed is not None:
+            parts.append("<lastmod>" + escape(location.changed.date().isoformat()) + "</lastmod>")
+        parts.extend(_alternates(origin, location.versions, site_locale))
+        urls.append("<url>" + "".join(parts) + "</url>")
     document = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        + "".join(urls)
-        + "</urlset>"
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+        ' xmlns:xhtml="http://www.w3.org/1999/xhtml">' + "".join(urls) + "</urlset>"
     )
     return HttpResponse(document, content_type="application/xml; charset=utf-8")
+
+
+def _alternates(origin: str, versions: dict[str, str], site_locale: str) -> list[str]:
+    """The `xhtml:link` of a page in several languages: each version, itself
+    included, and one x-default for the whole cluster — the site's language
+    when it has one, otherwise the first code, as for an article."""
+    if len(versions) < 2:
+        return []
+    ordered = sorted(versions, key=lambda code: (code != site_locale, code))
+    default = versions.get(site_locale) or versions[min(versions)]
+    return [
+        '<xhtml:link rel="alternate" hreflang="'
+        + escape(code)
+        + '" href="'
+        + escape(origin + path)
+        + '"/>'
+        for code, path in [*((code, versions[code]) for code in ordered), ("x-default", default)]
+    ]
 
 
 def render_site_robots(*, host: str) -> HttpResponse:

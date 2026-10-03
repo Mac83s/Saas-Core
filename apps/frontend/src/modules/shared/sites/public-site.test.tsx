@@ -68,6 +68,12 @@ const page: PublicSitePage = {
     rss: "https://clinic.example.test/rss.xml",
     atom: "https://clinic.example.test/atom.xml",
   },
+  social: {
+    site_name: "Klinika",
+    locale: "pl_PL",
+    alternate_locales: ["en_US"],
+    image: null,
+  },
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -305,4 +311,50 @@ test("links its own language's feeds and marks a menu name still in the site's l
   expect(menu.querySelector('a[href="/en/blog/"]')?.getAttribute("lang")).toBe(
     "pl",
   );
+});
+
+test("a shared link says the page's language, the site and, for an article, who wrote it and when", () => {
+  const website = publicSiteMetadata(page);
+  expect(website.openGraph).toMatchObject({
+    type: "website",
+    siteName: "Klinika",
+    locale: "pl_PL",
+    alternateLocale: ["en_US"],
+  });
+  expect(website.twitter).toMatchObject({ card: "summary" });
+
+  const article = publicSiteMetadata({
+    ...page,
+    locale: "en",
+    social: {
+      site_name: "Klinika",
+      locale: "en_US",
+      alternate_locales: ["pl_PL"],
+      image: {
+        url: "https://clinic.example.test/media/019ff20d-a000-7000-8000-000000000050",
+        alt: "The waiting room",
+      },
+    },
+    article: {
+      author_name: "Anna Nowak",
+      published_at: "2026-10-01T08:00:00+00:00",
+      updated_at: "2026-10-02T08:00:00+00:00",
+      tags: [{ slug: "porady", name: "Tips" }],
+    },
+  });
+  expect(article.openGraph).toMatchObject({
+    type: "article",
+    locale: "en_US",
+    publishedTime: "2026-10-01T08:00:00+00:00",
+    modifiedTime: "2026-10-02T08:00:00+00:00",
+    authors: ["Anna Nowak"],
+    tags: ["Tips"],
+    images: [
+      {
+        url: "https://clinic.example.test/media/019ff20d-a000-7000-8000-000000000050",
+        alt: "The waiting room",
+      },
+    ],
+  });
+  expect(article.twitter).toMatchObject({ card: "summary_large_image" });
 });

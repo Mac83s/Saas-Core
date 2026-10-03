@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from django.conf import settings
@@ -242,7 +243,7 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
     selected_locale = page.page["selected_locale"]
     # Entries, indexes and archives have no look, menu or texts of their own:
     # they wear the site's, from its current publication (TL14).
-    default_locale, site_snapshot = _site_of(page)
+    site_name, default_locale, site_snapshot = _site_of(page)
     blocks = selected_locale.get("blocks", page.page["blocks"])
     appearance = site_snapshot.get("appearance")
     appearance_lang: dict[str, str] = {}
@@ -313,13 +314,22 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # Present only where they mean something: an index has pages, an
         # article has an author and dates, a plain page has neither.
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
-        "article": page.page.get("article"),
+        "article": _localized_article(page, site_snapshot, default_locale),
         "ai_media_ids": _ai_media_ids(page),
         # Pages that ask not to be indexed (thin tag archives, entries marked
         # by their author) say so in the document itself; a sitemap that
         # leaves them out is not enough for a crawler that arrives by link.
         "noindex": bool(page.page.get("noindex", False)),
         "language_links": language_links(page, site_snapshot),
+        # What a link to this page shows where it is shared (TL14).
+        "social": {
+            "site_name": site_name,
+            "locale": _og_locale(page.locale),
+            "alternate_locales": [
+                _og_locale(code) for code in hreflang if code != page.locale
+            ],
+            "image": _social_image(page, blocks, canonical_origin),
+        },
         # The feeds of the language being read, and only those (TL14).
         "feeds": {
             name: f"{canonical_origin}{feed_path(default_locale, page.locale, file)}"
@@ -379,22 +389,84 @@ def not_found_hint(*, host: str, path: str) -> dict[str, str] | None:
     return {"locale": locale, "home_path": language_home(default, locale)}
 
 
-def _site_of(page: PublicPage) -> tuple[str, dict[str, Any]]:
-    """The site's language and its current publication as visitors get it."""
-    if isinstance(page.publication, Publication):
-        snapshot = visible_snapshot(page.publication, page.available)
-        return str(snapshot.get("default_locale") or page.locale), snapshot
+def _site_of(page: PublicPage) -> tuple[str, str, dict[str, Any]]:
+    """The site's name, its language and its current publication as visitors
+    get it."""
     site = (
         Site.all_objects.select_related("current_publication")
         .defer("current_publication__snapshot")
         .filter(pk=page.site_id, organization_id=page.organization_id)
         .first()
     )
+    if isinstance(page.publication, Publication):
+        snapshot = visible_snapshot(page.publication, page.available)
+        default_locale = str(snapshot.get("default_locale") or page.locale)
+        return (site.name if site is not None else ""), default_locale, snapshot
     if site is None:
-        return page.locale, {}
+        return "", page.locale, {}
     publication = site.current_publication
     snapshot = visible_snapshot(publication, page.available) if publication is not None else {}
-    return site.default_locale, snapshot
+    return site.name, site.default_locale, snapshot
+
+
+def _og_locale(code: str) -> str:
+    entry = settings.LOCALE_REGISTRY.get(code)
+    return entry.og_locale if entry is not None else code
+
+
+def _social_image(
+    page: PublicPage, blocks: list[dict[str, Any]], origin: str
+) -> dict[str, str] | None:
+    """The page's first published picture, with its description in the page's
+    language, for a link shared elsewhere; none when the page has no picture."""
+    published = set(
+        page.page["selected_locale"].get("media_asset_ids")
+        or page.page.get("media_asset_ids")
+        or []
+    )
+
+    def first(value: Any) -> dict[str, str] | None:
+        if isinstance(value, dict):
+            asset_id = value.get("asset_id")
+            if isinstance(asset_id, str) and asset_id in published:
+                return {"url": f"{origin}/media/{asset_id}", "alt": str(value.get("alt") or "")}
+            values: Any = value.values()
+        elif isinstance(value, list):
+            values = value
+        else:
+            return None
+        return next((found for item in values if (found := first(item)) is not None), None)
+
+    return first(blocks)
+
+
+def _localized_article(
+    page: PublicPage, site_snapshot: dict[str, Any], default_locale: str
+) -> dict[str, Any] | None:
+    """An article's facts, its tags named in the article's language where the
+    site's texts translate them (TL11c)."""
+    article = page.page.get("article")
+    texts = (site_snapshot.get("site_texts") or {}).get(page.locale) or {}
+    if article is None or page.locale == default_locale or not article.get("tags") or not texts:
+        return article
+    # sites_contenttag forces RLS: the tenant the host named goes first. The
+    # site's texts name a tag by its id, the article by its slug.
+    with transaction.atomic():
+        set_local_organization_id(page.organization_id)
+        ids = dict(
+            ContentTag.all_objects.filter(
+                organization_id=page.organization_id,
+                site_id=page.site_id,
+                slug__in=[tag["slug"] for tag in article["tags"]],
+            ).values_list("slug", "id")
+        )
+    return {
+        **article,
+        "tags": [
+            {**tag, "name": texts.get(f"tag/{ids.get(tag['slug'])}") or tag.get("name")}
+            for tag in article["tags"]
+        ],
+    }
 
 
 def language_home(default_locale: str, locale: str) -> str:
@@ -710,6 +782,9 @@ def published_entries(
             # any edit to a draft would move that without changing what a
             # reader sees.
             "updated_at": publication.created_at,
+            # When its text changed, which a publication of the same text does
+            # not move (TL14); older snapshots fall back to the publication.
+            "changed_at": parse_moment(snapshot.get("changed_at")) or publication.created_at,
         })
     # A missing timestamp sorts last rather than crashing the comparison: an
     # entry published before the column existed is still published.
@@ -738,6 +813,13 @@ def collections_with_entries(*, organization_id: Any, site_id: Any, locale: str)
         .values_list("collection_id", flat=True)
         .distinct()
     )
+
+
+def parse_moment(value: Any) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        return None
 
 
 def entries_by_locale(

@@ -141,6 +141,23 @@ class PublicNavigationLinkSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class PublicSocialImageSerializer(serializers.Serializer[dict[str, Any]]):
+    url = serializers.URLField()
+    alt = serializers.CharField(allow_blank=True, help_text="In the page's language.")
+
+
+class PublicSocialSerializer(serializers.Serializer[dict[str, Any]]):
+    site_name = serializers.CharField(allow_blank=True)
+    locale = serializers.CharField(help_text="`og:locale` of the page's language, e.g. `de_DE`.")
+    alternate_locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="`og:locale:alternate`: the page's other public language versions.",
+    )
+    image = PublicSocialImageSerializer(
+        allow_null=True, help_text="The page's first published picture, or null."
+    )
+
+
 class PublicFeedLinksSerializer(serializers.Serializer[dict[str, Any]]):
     rss = serializers.URLField(help_text="RSS 2.0 of the articles in the page's language.")
     atom = serializers.URLField(help_text="Atom of the articles in the page's language.")
@@ -188,6 +205,7 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
     feeds = PublicFeedLinksSerializer()
+    social = PublicSocialSerializer()
     breadcrumbs = serializers.ListField(child=serializers.DictField())
     pagination = serializers.DictField(allow_null=True)
     article = serializers.DictField(allow_null=True)
