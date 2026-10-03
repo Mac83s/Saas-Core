@@ -13,8 +13,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.organizations.context import current_tenant_context
 
 from . import services
+from .permissions import INVENTORY_MANAGE
 from .serializers import (
     InventoryAdjustInputSerializer,
     InventoryBalanceSerializer,
@@ -39,6 +41,12 @@ ERRORS = {
     409: ProblemDetailsSerializer,
 }
 TAGS = ["inventory"]
+
+
+def _costs() -> dict[str, bool]:
+    """Purchase prices for whoever runs the warehouse only (answer 43a)."""
+    context = current_tenant_context()
+    return {"costs": context is not None and INVENTORY_MANAGE in context.permissions}
 
 
 def _valid(serializer_class: Any, request: Request, *, partial: bool = False) -> dict[str, Any]:
@@ -234,7 +242,7 @@ class InventoryItemListView(APIView):
             category=request.query_params.get("category", ""),
             search=request.query_params.get("q", ""),
         )
-        return Response(InventoryItemSerializer(items, many=True).data)
+        return Response(InventoryItemSerializer(items, many=True, context=_costs()).data)
 
     @extend_schema(
         request=InventoryItemInputSerializer,
@@ -246,7 +254,7 @@ class InventoryItemListView(APIView):
         item = services.create_item(
             request=_http(request), data=_valid(InventoryItemInputSerializer, request)
         )
-        return Response(InventoryItemSerializer(item).data, status=201)
+        return Response(InventoryItemSerializer(item, context=_costs()).data, status=201)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -265,7 +273,7 @@ class InventoryItemDetailView(APIView):
             item_id=item_id,
             data=_valid(InventoryItemInputSerializer, request, partial=True),
         )
-        return Response(InventoryItemSerializer(item).data)
+        return Response(InventoryItemSerializer(item, context=_costs()).data)
 
 
 class InventoryBalanceView(APIView):
@@ -333,7 +341,7 @@ class InventoryMovementView(APIView):
         rows = services.movements(
             item_id=_uuid(request, "item_id"), location_id=_uuid(request, "location_id")
         )[:200]
-        return Response(InventoryMovementSerializer(rows, many=True).data)
+        return Response(InventoryMovementSerializer(rows, many=True, context=_costs()).data)
 
 
 @method_decorator(csrf_protect, name="dispatch")

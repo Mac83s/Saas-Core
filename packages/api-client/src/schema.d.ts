@@ -7918,7 +7918,7 @@ export interface components {
             unit: components["schemas"]["UnitEnum"];
             /** Format: decimal */
             minimum_quantity: string;
-            readonly average_cost_minor: number;
+            readonly average_cost_minor: number | null;
             sale_price_net_minor?: number | null;
             vat_rate: components["schemas"]["VatRateEnum"];
             readonly currency: string;
@@ -7976,7 +7976,7 @@ export interface components {
             kind: components["schemas"]["StockDocumentKindEnum"];
             /** Format: decimal */
             quantity: string;
-            unit_cost_minor: number;
+            unit_cost_minor: number | null;
             /** Format: date-time */
             created_at: string;
         };

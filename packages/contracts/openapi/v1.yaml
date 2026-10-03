@@ -23025,7 +23025,9 @@ components:
           format: decimal
           pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         average_cost_minor:
-          type: integer
+          type:
+          - integer
+          - 'null'
           readOnly: true
         sale_price_net_minor:
           type:
@@ -23174,7 +23176,9 @@ components:
           format: decimal
           pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         unit_cost_minor:
-          type: integer
+          type:
+          - integer
+          - 'null'
         created_at:
           type: string
           format: date-time

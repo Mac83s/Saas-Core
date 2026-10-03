@@ -182,14 +182,20 @@ export function ItemsTab({
       meta: { numeric: true },
       cell: ({ row: { original: item } }) => amount(item.minimum_quantity),
     },
-    {
-      id: "cost",
-      accessorKey: "average_cost_minor",
-      header: t("averageCost"),
-      meta: { numeric: true },
-      cell: ({ row: { original: item } }) =>
-        money(item.average_cost_minor, item.currency),
-    },
+    // What the company paid is for whoever runs the warehouse (answer 43a);
+    // the API sends nothing to anybody else.
+    ...(canManage
+      ? [
+          {
+            id: "cost",
+            accessorKey: "average_cost_minor",
+            header: t("averageCost"),
+            meta: { numeric: true },
+            cell: ({ row: { original: item } }) =>
+              money(item.average_cost_minor ?? 0, item.currency),
+          } satisfies ColumnDef<InventoryItem, unknown>,
+        ]
+      : []),
     {
       id: "price",
       accessorFn: (item) => item.sale_price_net_minor ?? -1,

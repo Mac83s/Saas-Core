@@ -63,7 +63,9 @@ class InventoryItemSerializer(serializers.Serializer[Any]):
     unit = serializers.ChoiceField(choices=ItemUnit.choices)
     minimum_quantity = _quantity()
     #: Średnia ważona cena zakupu w groszach; rozchód wycenia się po niej.
-    average_cost_minor = serializers.IntegerField(read_only=True)
+    #: `null` dla kogoś bez `inventory.manage`: ceny zakupu zna tylko ten, kto
+    #: prowadzi magazyn (odpowiedź Macieja 43a, UX-024).
+    average_cost_minor = serializers.IntegerField(read_only=True, allow_null=True)
     sale_price_net_minor = serializers.IntegerField(allow_null=True, required=False)
     vat_rate = serializers.ChoiceField(choices=VatRate.choices)
     currency = serializers.CharField(read_only=True)
@@ -73,6 +75,12 @@ class InventoryItemSerializer(serializers.Serializer[Any]):
     tracks_lots = serializers.BooleanField()
     active = serializers.BooleanField()
     notes = serializers.CharField(allow_blank=True)
+
+    def to_representation(self, instance: Any) -> dict[str, Any]:
+        data = super().to_representation(instance)
+        if not self.context.get("costs", False):
+            data["average_cost_minor"] = None
+        return data
 
 
 class InventoryItemInputSerializer(serializers.Serializer[Any]):
@@ -166,8 +174,15 @@ class InventoryMovementSerializer(serializers.Serializer[Any]):
     document_number = serializers.CharField(source="document.number")
     kind = serializers.ChoiceField(choices=DocumentKind.choices)
     quantity = _quantity()
-    unit_cost_minor = serializers.IntegerField()
+    #: `null` for whoever does not run the warehouse (answer 43a).
+    unit_cost_minor = serializers.IntegerField(allow_null=True)
     created_at = serializers.DateTimeField()
+
+    def to_representation(self, instance: Any) -> dict[str, Any]:
+        data = super().to_representation(instance)
+        if not self.context.get("costs", False):
+            data["unit_cost_minor"] = None
+        return data
 
 
 class MovedLotSerializer(serializers.Serializer[Any]):

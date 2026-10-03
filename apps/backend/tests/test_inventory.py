@@ -238,6 +238,50 @@ def test_a_receipt_sets_the_price_the_next_one_averages_and_is_numbered() -> Non
         assert (first.number, second.number) == (f"PZ/{year}/0001", f"PZ/{year}/0002")
 
 
+def test_purchase_prices_are_for_whoever_runs_the_warehouse() -> None:
+    """Answer 43a: a trimmer or a doctor sees the catalogue and their own
+    movements, never what the company paid (UX-024)."""
+    from saas_core.modules.shared.inventory.serializers import (  # noqa: PLC0415
+        InventoryItemSerializer,
+        InventoryMovementSerializer,
+    )
+    from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
+        list_items,
+        movements,
+        receive,
+    )
+    from saas_core.modules.shared.inventory.views import _costs  # noqa: PLC0415
+
+    owner = membership("magazyn-ceny-zakupu")
+    staff_role, _ = Role.objects.get_or_create(
+        key="staff",
+        organization=None,
+        organization_type="",
+        defaults={
+            "name": "Staff",
+            "scope": RoleScope.SYSTEM,
+            "permissions": list(SYSTEM_ROLE_PERMISSIONS["staff"]),
+            "is_immutable": True,
+        },
+    )
+    worker = User.objects.create_user(email="magazyn-ceny-pracownik@example.test")
+    worker.status = UserStatus.ACTIVE
+    worker.save()
+    staff = Membership.objects.create(organization=owner.organization, user=worker, role=staff_role)
+    with tenant(owner) as request:
+        block = item(request)
+        receive(request=request, item_id=block.id, quantity=Decimal(10), unit_cost_minor=250)
+        assert _costs() == {"costs": True}
+        (shown,) = InventoryItemSerializer(list_items(), many=True, context=_costs()).data
+        assert shown["average_cost_minor"] == 250
+    with tenant(staff):
+        assert _costs() == {"costs": False}
+        (shown,) = InventoryItemSerializer(list_items(), many=True, context=_costs()).data
+        assert shown["average_cost_minor"] is None
+        for row in InventoryMovementSerializer(movements(), many=True, context=_costs()).data:
+            assert row["unit_cost_minor"] is None
+
+
 def test_what_goes_to_a_person_leaves_the_warehouse_and_comes_back() -> None:
     from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
         give_back,
