@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .herd_sync import list_farm_visits, push_herd, read_entry_photo
+from .herd_sync import list_farm_visits, list_register_visits, push_herd, read_entry_photo
 from .serializers import (
     AnimalHealthCorrectionInputSerializer,
     AnimalHealthEntrySerializer,
@@ -30,12 +30,14 @@ from .serializers import (
     FarmActivationRedeemSerializer,
     FarmHerdPushSerializer,
     FarmInputSerializer,
+    FarmRegisterVisitSerializer,
     FarmSerializer,
     FarmShareScheduleSerializer,
     FarmShareSerializer,
     FarmTakeoverSerializer,
     FarmUpdateSerializer,
     FarmVisitEntrySerializer,
+    FollowUpSerializer,
     SpeciesListSerializer,
 )
 from .services import (
@@ -45,6 +47,7 @@ from .services import (
     get_farm,
     list_animals,
     list_farms,
+    list_follow_ups,
     list_health_entries,
     record_health_entry,
     update_animal,
@@ -436,3 +439,74 @@ class FarmShareScheduleView(APIView):
             allowed=serializer.validated_data["can_publish_schedule"],
         )
         return Response(FarmShareSerializer(share).data)
+
+
+def _day(request: Request, name: str) -> date | None:
+    raw = request.query_params.get(name, "")
+    if not raw:
+        return None
+    try:
+        day = parse_date(raw)
+    except ValueError:
+        day = None
+    if day is None:
+        raise ValidationError({name: "Podaj datę (RRRR-MM-DD)."})
+    return day
+
+
+class RegisterVisitListView(APIView):
+    """The companies' visits to all of the keeper's farms (UX-078)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="farms_register_visit_list",
+        summary="List the companies' visits to all of the keeper's farms",
+        description="Planned, done and cancelled visits of the companies the keeper shares a "
+        "farm with, soonest first. A visit's day is the day it happened, or while it is "
+        "ahead the day somebody is coming; `from`/`to` are local days, both included. A "
+        "planned visit shows only while its company may still move it — an active share "
+        "with the schedule consent; what happened stays as history (ADR-052 pt 8–9). At "
+        "most 500 visits.",
+        parameters=[
+            OpenApiParameter("from", OpenApiTypes.DATE, description="First local day."),
+            OpenApiParameter("to", OpenApiTypes.DATE, description="Last local day, included."),
+            OpenApiParameter(
+                "status", str, enum=["planned", "done", "canceled"], description="Only these."
+            ),
+        ],
+        responses={200: FarmRegisterVisitSerializer(many=True), **ERRORS},
+        tags=["farms"],
+    )
+    def get(self, request: Request) -> Response:
+        status = request.query_params.get("status") or None
+        if status not in (None, "planned", "done", "canceled"):
+            raise ValidationError({"status": "planned, done albo canceled."})
+        visits = list_register_visits(
+            starts_on=_day(request, "from"), ends_on=_day(request, "to"), status=status
+        )
+        return Response(FarmRegisterVisitSerializer(visits, many=True).data)
+
+
+class FollowUpListView(APIView):
+    """The keeper's animals somebody wants to see again (UX-078)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="farms_follow_up_list",
+        summary="List the controls due on the keeper's animals",
+        description="Health entries that still stand and name a `follow_up_on` day — e.g. a "
+        "control after a treatment — soonest first, with their animal and farm. A company's "
+        "entry carries one only when published under the health consent. `from`/`to` are "
+        "days, both included. At most 500.",
+        parameters=[
+            OpenApiParameter("from", OpenApiTypes.DATE, description="First day."),
+            OpenApiParameter("to", OpenApiTypes.DATE, description="Last day, included."),
+        ],
+        responses={200: FollowUpSerializer(many=True), **ERRORS},
+        tags=["farms"],
+    )
+    def get(self, request: Request) -> Response:
+        entries = list_follow_ups(starts_on=_day(request, "from"), ends_on=_day(request, "to"))
+        return Response(FollowUpSerializer(entries, many=True).data)

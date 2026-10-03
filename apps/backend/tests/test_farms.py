@@ -1676,7 +1676,9 @@ def test_the_keeper_turns_the_schedule_consent_on_and_the_audit_hears_it() -> No
     assert [entry.metadata for entry in entries] == [{"can_publish_schedule": True}]
     assert entries.first() is not None and entries.first().target_id == farm.id
 
-    # Wyłączenie zamyka drogę nowym wizytom, a historii nie rusza.
+    # Wyłączenie zamyka drogę nowym wizytom. Zaplanowanej firma już nie
+    # przestawi, więc znika z listy jak po cofnięciu udziału — wiersz zostaje
+    # (ADR-052, uzupełnienie 2026-10-03); historia wizyt odbytych stoi dalej.
     with tenant(farmer) as request:
         assert (
             set_share_schedule(
@@ -1686,7 +1688,7 @@ def test_the_keeper_turns_the_schedule_consent_on_and_the_audit_hears_it() -> No
         )
         # Drugie wyłączenie to ten sam stan, więc audyt nie dostaje drugiej linii.
         set_share_schedule(request=request, share_id=share.id, allowed=False)
-        assert len(list_farm_visits(farm.id)) == 1
+        assert list_farm_visits(farm.id) == []
     assert (
         OrganizationAuditEntry.objects.filter(
             organization_id=farmer.organization_id,

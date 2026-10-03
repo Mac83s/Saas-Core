@@ -25,13 +25,14 @@ import hashlib
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import DatabaseError, transaction
-from django.db.models import Max, Q
+from django.db.models import Exists, F, Max, OuterRef, Q
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
@@ -45,6 +46,7 @@ from saas_core.modules.core.organizations.context import (
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
+    Organization,
     OrganizationAuditAction,
 )
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
@@ -276,6 +278,7 @@ _CONTENT = (
     "photos",
     "withdrawal_milk_until",
     "withdrawal_meat_until",
+    "follow_up_on",
 )
 
 #: The keeper's inbox learns about a correction of what a company published.
@@ -353,6 +356,7 @@ def publish_health_entry(
     photos: list[str] | None = None,
     withdrawal_milk_until: datetime | None = None,
     withdrawal_meat_until: datetime | None = None,
+    follow_up_on: date | None = None,
     correction: str = "",
     corrected_by: str = "",
     require_current: bool = False,
@@ -393,6 +397,7 @@ def publish_health_entry(
                 "photos": list(photos or []),
                 "withdrawal_milk_until": withdrawal_milk_until,
                 "withdrawal_meat_until": withdrawal_meat_until,
+                "follow_up_on": follow_up_on,
             },
             correction=correction or None,
             corrected_by=corrected_by,
@@ -442,6 +447,7 @@ def record_own_health_entry(
     details: dict[str, Any] | None = None,
     withdrawal_milk_until: datetime | None = None,
     withdrawal_meat_until: datetime | None = None,
+    follow_up_on: date | None = None,
     correction: str = "",
     corrected_by: str = "",
 ) -> AnimalHealthEntry | None:
@@ -453,8 +459,6 @@ def record_own_health_entry(
     next revision. On a shared card the register's copy of a revision is not
     shown a second time (`list_health_entries`).
     """
-    from saas_core.modules.core.organizations.models import Organization  # noqa: PLC0415
-
     organization = Organization.objects.get(pk=animal.organization_id)
     entry, _ = _write_revision(
         organization_id=animal.organization_id,
@@ -472,6 +476,7 @@ def record_own_health_entry(
             "photos": [],
             "withdrawal_milk_until": withdrawal_milk_until,
             "withdrawal_meat_until": withdrawal_meat_until,
+            "follow_up_on": follow_up_on,
         },
         correction=correction or None,
         corrected_by=corrected_by,
@@ -658,27 +663,74 @@ def publish_farm_visit(
         return entry
 
 
-def list_farm_visits(farm_id: UUID, *, limit: int = PAGE_LIMIT) -> list[FarmVisitEntry]:
-    """What the keeper sees about one farm of their own register.
+def _visible_visits(organization_id: UUID) -> Q:
+    """The visits a keeper sees, one rule for every list of them.
 
-    A visit still marked planned by a company whose share is gone is hidden, not
-    deleted: after a revocation the door is shut, so that company can never move
-    the row off `planned`, and a visit that will never happen would otherwise
-    sit in the future for ever. What already happened — done, cancelled — stays,
-    because that is history and history does not depend on today's consent
-    (ADR-052 pt 8 and 9).
+    A visit still marked planned by a company that may no longer move it is
+    hidden, not deleted: after a revocation — or once the keeper takes back the
+    schedule consent — the door is shut, so that company can never move the row
+    off `planned`, and a visit that will never happen would otherwise sit in the
+    future for ever. What already happened — done, cancelled — stays, because
+    that is history and history does not depend on today's consent (ADR-052 pt
+    8 and 9). Asked in the query, before any page is cut: filtering a page
+    already sliced to a limit hands back fewer rows while more were waiting.
     """
-    context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
-    # Which companies may still show a future date here. Asked before the page
-    # is cut, not after: filtering a page already sliced to `limit` hands back
-    # fewer rows than asked for while more were waiting behind them.
-    allowed = FarmShare.objects.filter(
-        registry_organization_id=context.organization_id,
-        registry_farm_id=farm_id,
+    may_move = FarmShare.objects.filter(
+        registry_organization_id=organization_id,
+        registry_farm_id=OuterRef("farm_id"),
+        company_organization_id=OuterRef("company_organization_id"),
         status=ShareStatus.ACTIVE,
-    ).values_list("company_organization_id", flat=True)
+        can_publish_schedule=True,
+    )
+    return ~Q(status=VisitStatus.PLANNED) | Q(Exists(may_move))
+
+
+def list_farm_visits(farm_id: UUID, *, limit: int = PAGE_LIMIT) -> list[FarmVisitEntry]:
+    """What the keeper sees about one farm of their own register."""
+    context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
     return list(
         FarmVisitEntry.all_objects.filter(
             organization_id=context.organization_id, farm_id=farm_id
-        ).filter(~Q(status=VisitStatus.PLANNED) | Q(company_organization_id__in=allowed))[:limit]
+        ).filter(_visible_visits(context.organization_id))[:limit]
+    )
+
+
+def list_register_visits(
+    *,
+    starts_on: date | None = None,
+    ends_on: date | None = None,
+    status: str | None = None,
+    limit: int = PAGE_LIMIT,
+) -> list[FarmVisitEntry]:
+    """The companies' visits to all of the keeper's farms (UX-078): their
+    „Dziś” and calendar. A visit's day is the day it happened, or while it is
+    ahead the day somebody is coming; `starts_on`/`ends_on` are local days,
+    both included. Soonest first."""
+    context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
+    zone = ZoneInfo(Organization.objects.get(pk=context.organization_id).timezone)
+    rows = FarmVisitEntry.all_objects.filter(organization_id=context.organization_id).filter(
+        _visible_visits(context.organization_id)
+    )
+    if status:
+        rows = rows.filter(status=status)
+    if starts_on is not None:
+        rows = rows.filter(
+            Q(occurred_on__gte=starts_on)
+            | Q(
+                occurred_on__isnull=True,
+                scheduled_for__gte=datetime.combine(starts_on, time(), zone),
+            )
+        )
+    if ends_on is not None:
+        rows = rows.filter(
+            Q(occurred_on__lte=ends_on)
+            | Q(
+                occurred_on__isnull=True,
+                scheduled_for__lt=datetime.combine(ends_on + timedelta(days=1), time(), zone),
+            )
+        )
+    return list(
+        rows.select_related("farm").order_by(
+            F("scheduled_for").asc(nulls_last=True), "occurred_on", "id"
+        )[:limit]
     )

@@ -170,6 +170,11 @@ class AnimalHealthEntry(TenantScopedModel):
     #: runs — computed from the entries, not a flag somebody has to clear.
     withdrawal_milk_until = models.DateTimeField(null=True, blank=True)
     withdrawal_meat_until = models.DateTimeField(null=True, blank=True)
+    #: When the author wants to see the animal again (a control after a
+    #: treatment). The same date the entry's own text already gave the keeper
+    #: under the health consent, now one the keeper's „Dziś” can sort by
+    #: (ADR-052, addendum 2026-10-03).
+    follow_up_on = models.DateField(null=True, blank=True)
     published_at = models.DateTimeField(auto_now=True)
     #: An entry is never rewritten once written (decision of 28.09): a correction
     #: is the next revision of the same (source, reference), pointing at the one

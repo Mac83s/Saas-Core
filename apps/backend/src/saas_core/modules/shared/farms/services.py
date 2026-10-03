@@ -272,6 +272,28 @@ def with_withdrawal(query: QuerySet[Animal]) -> QuerySet[Animal]:
     )
 
 
+def list_follow_ups(
+    *, starts_on: date | None = None, ends_on: date | None = None
+) -> list[AnimalHealthEntry]:
+    """The keeper's animals somebody wants to see again (UX-078): entries that
+    still stand and name a `follow_up_on` day — a control after a treatment —
+    soonest first, with their animal and farm. Only what a company published
+    under the health consent can carry one, and the keeper's own entries."""
+    context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
+    query = AnimalHealthEntry.all_objects.filter(
+        organization_id=context.organization_id,
+        retracted_at__isnull=True,
+        follow_up_on__isnull=False,
+    )
+    if starts_on is not None:
+        query = query.filter(follow_up_on__gte=starts_on)
+    if ends_on is not None:
+        query = query.filter(follow_up_on__lte=ends_on)
+    return list(
+        query.select_related("animal", "animal__farm").order_by("follow_up_on", "id")[:PAGE_LIMIT]
+    )
+
+
 def list_health_entries(
     *,
     animal_id: UUID,
@@ -471,6 +493,8 @@ def correct_health_entry(
             "photos": list(entry.photos),
             "withdrawal_milk_until": None if withdraw else entry.withdrawal_milk_until,
             "withdrawal_meat_until": None if withdraw else entry.withdrawal_meat_until,
+            # A withdrawn entry asks for no control either.
+            "follow_up_on": None if withdraw else entry.follow_up_on,
             # A private note stays private in every revision.
             "private": entry.private,
         },

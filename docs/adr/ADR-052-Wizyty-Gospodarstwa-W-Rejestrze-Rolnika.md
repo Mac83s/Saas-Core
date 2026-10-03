@@ -151,3 +151,26 @@ Rozważaliśmy trzy tańsze drogi i każda odpada na tym samym pytaniu:
 Rozszerza ADR-051 (rejestr, udziały, publikacja wpisów zdrowotnych).
 Zależy od ADR-050 (typy organizacji) i ADR-039/ADR-041 (RLS, nazwane drzwi).
 Nie zmienia ADR-049: wertykał nadal wiesza szczegóły na `Appointment`.
+
+## Uzupełnienie 2026-10-03 — „Dziś” rolnika (UX-078)
+
+Konto gospodarstwa dostaje własny ekran startowy z wizytami firm, kontrolami i
+raportami. Trzy rozstrzygnięcia (koordynator, w granicach tej decyzji; Maciej
+może je zmienić):
+
+1. **Kontrole jako data, nie tekst.** `AnimalHealthEntry.follow_up_on` — dzień,
+   w którym autor wpisu chce zobaczyć zwierzę znowu (kontrola po leczeniu).
+   Wypełnia go wertykał przy `publish_health_entry` (HoofCare z
+   `control_due_on`), a rolnik czyta listę `GET /api/v1/farms/follow-ups/`.
+   Nic nowego nie przekracza granicy: ta sama data jechała już w tekście wpisu
+   pod `can_publish_health`; bez tej zgody wpisu nie ma, więc i daty (test).
+   Korekta bez kontroli ją zdejmuje — liczy się tylko wpis, który stoi. To
+   zmienia akapit „Czego ta decyzja nie obejmuje” w części o kontrolach: rejestr
+   ich nie liczy, ale przechowuje datę, którą podał autor.
+2. **Wycofanie zgody na grafik działa jak cofnięcie udziału (rozszerza pkt 9).**
+   Bez `can_publish_schedule` firma nie przestawi już statusu wizyty, więc
+   `planned` takiej firmy znika z list (wiersz zostaje); `done` i `canceled`
+   stoją jako historia. Jedna reguła dla listy jednego gospodarstwa i nowej
+   listy wszystkich (`GET /api/v1/farms/visits/?from&to&status`).
+3. **PDF raportu zostaje po stronie firmy (pkt 6 bez zmian).** „Dziś” rolnika
+   otwiera raport z `details.sections` i mówi, że PDF przyszedł e-mailem.

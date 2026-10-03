@@ -123,6 +123,9 @@ class AnimalHealthEntrySerializer(serializers.Serializer[Any]):
     details = serializers.DictField()
     withdrawal_milk_until = serializers.DateTimeField(allow_null=True)
     withdrawal_meat_until = serializers.DateTimeField(allow_null=True)
+    follow_up_on = serializers.DateField(
+        allow_null=True, help_text="When the author wants to see the animal again."
+    )
     published_at = serializers.DateTimeField()
     #: Corrections (decision of 28.09): the entry this revision replaces, why and
     #: by whom; a replaced entry stays in the history with `retracted_at`.
@@ -216,6 +219,29 @@ class FarmVisitEntrySerializer(serializers.Serializer[Any]):
     summary = serializers.CharField()
     #: Raport w kształcie rozwiązanym przez wertykał (ADR-052 pkt 7).
     details = serializers.DictField()
+
+
+class FarmRegisterVisitSerializer(FarmVisitEntrySerializer):
+    """A company's visit to one of the keeper's farms, in a list over them all."""
+
+    farm_id = serializers.UUIDField()
+    farm_name = serializers.CharField(source="farm.name")
+
+
+class FollowUpSerializer(serializers.Serializer[Any]):
+    """An animal somebody wants to see again, from the entry that says so."""
+
+    entry_id = serializers.UUIDField(source="id")
+    follow_up_on = serializers.DateField(help_text="The day of the control.")
+    occurred_on = serializers.DateField(help_text="The day of the entry that asks for it.")
+    summary = serializers.CharField()
+    author_organization_name = serializers.CharField(help_text="Empty for the keeper's own.")
+    animal_id = serializers.UUIDField()
+    national_id = serializers.CharField(source="animal.national_id")
+    working_number = serializers.CharField(source="animal.working_number")
+    animal_name = serializers.CharField(source="animal.name")
+    farm_id = serializers.UUIDField(source="animal.farm_id")
+    farm_name = serializers.CharField(source="animal.farm.name")
 
 
 class FarmTakeoverSerializer(serializers.Serializer[Any]):
