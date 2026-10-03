@@ -2654,7 +2654,7 @@ export async function previewStayMove(
 /** The company keeps a unit for itself (a renovation, own use). */
 export async function addUnitBlock(
   resourceId: string,
-  input: { starts_at: string; ends_at: string; reason?: string },
+  input: { starts_at: string; ends_at: string; reason: string },
   idempotencyKey: string,
 ): Promise<UnitBlock> {
   const csrfToken = await getCsrfToken();
