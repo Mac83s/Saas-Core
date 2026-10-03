@@ -408,9 +408,10 @@ test("importuje szablon do wersjonowanego draftu przez API", async () => {
   renderEditor("pl", polishMessages, onChanged, true);
 
   // An empty page offers templates instead of a bare "no sections" message.
-  const templateButton = await screen.findByRole("button", {
-    name: `Użyj szablonu ${firstTemplate.labels.pl.name}`,
+  await screen.findByRole("img", {
+    name: `Miniatura szablonu ${firstTemplate.labels.pl.name}`,
   });
+  const templateButton = templateUseButton(firstTemplate.labels.pl.name);
   const emptyCanvas = screen.getByTestId("live-canvas");
   fireEvent.click(templateButton);
 
@@ -434,7 +435,7 @@ test.each([
     locale: "pl" as const,
     messages: polishMessages,
     thumbnail: `Miniatura szablonu ${firstTemplate.labels.pl.name}`,
-    previewButton: "Zobacz podgląd",
+    previewButton: "Podgląd",
     previewTitle: `Podgląd szablonu ${firstTemplate.labels.pl.name}`,
   },
   {
@@ -459,9 +460,9 @@ test.each([
       offeredTemplates.length,
     );
 
-    const trigger = screen.getAllByRole("button", {
-      name: previewButton,
-    })[0];
+    // The gallery's tile opens the template's details, with its preview.
+    fireEvent.click(within(templateGrid!).getAllByRole("button")[0]!);
+    const trigger = screen.getByRole("button", { name: previewButton });
     trigger.focus();
     fireEvent.click(trigger);
 
@@ -480,6 +481,46 @@ test.each([
   // slow under a full test run on the dev VPS.
   45_000,
 );
+
+test("a ready page's details list its sections and the way back returns to its tile", async () => {
+  getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  const name = firstTemplate.labels.pl.name;
+  const studio = polishMessages.Sites.studio;
+  await screen.findByRole("img", { name: `Miniatura szablonu ${name}` });
+  const tile = () =>
+    screen.getByRole("button", {
+      name: (accessible) => accessible.startsWith(name),
+    });
+  fireEvent.click(tile());
+  expect(
+    screen.getByRole("button", { name: studio.allTemplates }),
+  ).toHaveFocus();
+  expect(screen.getByRole("heading", { name })).toBeDefined();
+  const count = firstTemplate.blocks.length;
+  const sections = screen.getByRole("list", {
+    name: new RegExp(`^Zawiera ${count} sekcj`),
+  });
+  expect(within(sections).getAllByRole("listitem")).toHaveLength(count);
+  expect(
+    screen.getByRole("button", { name: `Użyj szablonu ${name}` }),
+  ).toBeDefined();
+  const rail = screen.getByRole("complementary", {
+    name: studio.pageNavigation,
+  });
+  expect(
+    (await axe.run(rail, { rules: { "color-contrast": { enabled: false } } }))
+      .violations,
+  ).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: studio.allTemplates }));
+  await waitFor(() => expect(tile()).toHaveFocus());
+  expect(importPageTemplate).not.toHaveBeenCalled();
+});
 
 test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
@@ -789,6 +830,20 @@ test("edytor PL nie ma automatycznie wykrywalnych naruszeń axe", async () => {
   });
   expect(result.violations).toEqual([]);
 });
+
+/** A ready page opens from its tile; "use" is in its details. */
+function templateUseButton(name: string, locale: "pl" | "en" = "pl") {
+  const use =
+    locale === "pl" ? `Użyj szablonu ${name}` : `Use the ${name} template`;
+  const shown = screen.queryByRole("button", { name: use });
+  if (shown) return shown;
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: (accessible) => accessible.startsWith(name),
+    }),
+  );
+  return screen.getByRole("button", { name: use });
+}
 
 /** „Więcej” holds the page's settings, files and history (UX-039). */
 async function fromMore(item: string, more = "Więcej") {
@@ -1626,8 +1681,8 @@ test.each([
     expect(templates).toHaveAttribute("aria-pressed", "true");
     expect(within(rail).queryByRole("searchbox")).toBeNull();
     expect(
-      within(rail).getAllByRole("button", {
-        name: locale === "pl" ? /^Użyj szablonu / : /^Use /,
+      within(rail).getAllByRole("img", {
+        name: locale === "pl" ? /^Miniatura szablonu / : /^Thumbnail of the /,
       }),
     ).toHaveLength(offeredTemplates.length);
     fireEvent.click(design);
@@ -1673,12 +1728,10 @@ test.each([
     fireEvent.click(
       screen.getByRole("button", { name: messages.Sites.studio.pageTemplates }),
     );
-    const useTemplate = screen.getByRole("button", {
-      name:
-        locale === "pl"
-          ? `Użyj szablonu ${firstTemplate.labels.pl.name}`
-          : `Use the ${firstTemplate.labels.en.name} template`,
-    });
+    const useTemplate = templateUseButton(
+      firstTemplate.labels[locale].name,
+      locale,
+    );
     fireEvent.click(useTemplate);
     const confirmation = screen.getByRole("dialog", {
       name: messages.Sites.templateSwap.title.replace(
@@ -1798,11 +1851,7 @@ test("the page's sections without a place are added or left out as chosen, or th
         name: polishMessages.Sites.studio.pageTemplates,
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: `Użyj szablonu ${firstTemplate.labels.pl.name}`,
-      }),
-    );
+    fireEvent.click(templateUseButton(firstTemplate.labels.pl.name));
     return screen.getByRole("dialog");
   };
 

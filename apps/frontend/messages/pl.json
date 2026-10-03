@@ -1882,6 +1882,9 @@
       "insertAtStart": "na początku strony",
       "insertAfterNumber": "po sekcji {number}",
       "blankHint": "Potrzebujesz czegoś innego?",
+      "allTemplates": "Wszystkie szablony",
+      "templateSections": "{count, plural, one {Zawiera # sekcję} few {Zawiera # sekcje} many {Zawiera # sekcji} other {Zawiera # sekcji}}",
+      "useTemplate": "Użyj szablonu",
       "validationError": "Uzupełnij zaznaczone pola w ustawieniach sekcji.",
       "placeholders": {
         "summary": "{count, plural, one {Na tej stronie zostało # miejsce do uzupełnienia.} few {Na tej stronie zostały # miejsca do uzupełnienia.} many {Na tej stronie zostało # miejsc do uzupełnienia.} other {Na tej stronie zostało # miejsca do uzupełnienia.}}",
