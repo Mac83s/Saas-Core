@@ -1,5 +1,6 @@
 import axe from "axe-core";
 import {
+  configure,
   fireEvent,
   render,
   screen,
@@ -13,6 +14,10 @@ import { ApiProblemError, type AssistantSetup } from "@saas-core/api-client";
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { SetupProfile } from "./setup-profile";
+
+// A row's menu opens through a portal: beside another gate and a rebuild the
+// default second is not always enough, and a different test fails each time.
+configure({ asyncUtilTimeout: 5000 });
 
 const api = vi.hoisted(() => ({
   getAssistantSetup: vi.fn(),
@@ -379,7 +384,7 @@ test("the notes say in words what is known, from whom, and what is still open", 
     "Asystent zaproponuje to w rozmowie. Nic się nie zmieni bez Twojej zgody.",
     "W kolejnym kroku: usługa „Strzyżenie damskie”. Najpierw: miejsce „Salon na Mazurskiej”, osoba „Ania”.",
     "Usługę „Koloryzacja” włączasz samodzielnie w panelu.",
-    "Ceny usługi „Strzyżenie damskie” nie da się jeszcze zapisać w panelu — zostaje w notatkach.",
+    "Ceny usługi „Strzyżenie damskie” asystent jeszcze nie zapisuje — wpiszesz ją w cenniku usługi: Ustawienia › Usługi i grafik.",
     "Miasta „Olsztyn” nie ma na liście miast katalogu firm. Wybierz najbliższe z listy w Wizytówce.",
     "Język niemiecki nie jest jeszcze dostępny.",
   ]) {

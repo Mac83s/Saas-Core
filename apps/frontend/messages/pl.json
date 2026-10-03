@@ -4993,7 +4993,7 @@
     "unsupported_preset_not_ready": "Usługa {name}: ten rodzaj rezerwacji nie jest jeszcze dostępny.",
     "unsupported_preset_unknown": "Usługa {name}: nie ma takiego rodzaju rezerwacji.",
     "unsupported_presets_unavailable": "Usługi {name} asystent jeszcze nie ustawia. Dodasz ją w panelu: Ustawienia › Usługi i grafik.",
-    "unsupported_price_list": "Ceny usługi {name} nie da się jeszcze zapisać w panelu — zostaje w notatkach.",
+    "unsupported_price_list": "Ceny usługi {name} asystent jeszcze nie zapisuje — wpiszesz ją w cenniku usługi: Ustawienia › Usługi i grafik.",
     "unsupported_city_not_in_catalog": "Miasta „{detail}” nie ma na liście miast katalogu firm. Wybierz najbliższe z listy w Wizytówce.",
     "unsupported_category_unknown": "Wybranej kategorii nie ma w katalogu firm.",
     "unsupported_language_not_offered": "Język {detail} nie jest jeszcze dostępny.",

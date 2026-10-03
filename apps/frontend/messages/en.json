@@ -4993,7 +4993,7 @@
     "unsupported_preset_not_ready": "The service {name}: this kind of booking is not available yet.",
     "unsupported_preset_unknown": "The service {name}: there is no such kind of booking.",
     "unsupported_presets_unavailable": "The assistant does not set up the service {name} yet. Add it in the panel: Settings › Services and schedule.",
-    "unsupported_price_list": "The price of the service {name} cannot be stored in the panel yet — it stays in the notes.",
+    "unsupported_price_list": "The assistant does not save the price of the service {name} yet — enter it in the service's price list: Settings › Services & schedule.",
     "unsupported_city_not_in_catalog": "The city “{detail}” is not in the company directory's list of cities. Choose the nearest one from the list in Business card.",
     "unsupported_category_unknown": "The chosen category is not in the company directory.",
     "unsupported_language_not_offered": "This language is not available yet: {detail}.",
