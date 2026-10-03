@@ -849,6 +849,7 @@ class _FakeSource:
             legal_document=obj.legal,
             locale_live=locale in self.live_locales,
             actor_may_publish=context.has_permission(FAKE_PUBLISH),
+            target_public=locale in obj.public_locales,
         )
 
     def store(

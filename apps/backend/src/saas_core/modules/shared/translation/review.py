@@ -33,6 +33,7 @@ from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 
+from .demand import SOURCE_WITHDRAWN
 from .models import (
     JOB_TERMINAL,
     ItemState,
@@ -179,8 +180,28 @@ def _apply(
     for row in rows:
         by_source[row.source_key].append(row)
     outcomes: dict[UUID, list[dict[str, Any]]] = {}
-    for source_key, group in by_source.items():
+    for source_key, everything in by_source.items():
         source = translation_source(source_key)
+        group = [row for row in everything if row.reason != SOURCE_WITHDRAWN]
+        withdrawals = [row for row in everything if row.reason == SOURCE_WITHDRAWN]
+        if withdrawals and action == "accept":
+            # Accepting means taking the translation down too; one that is no
+            # longer public answers a conflict and the item just closes.
+            taken = source.review(
+                context=context,
+                action="withdraw",
+                items=[
+                    ReviewItem(object_id=row.object_id, locale=row.locale, expected_version=None)
+                    for row in withdrawals
+                ],
+                idempotency_key=f"review:withdraw:{withdrawals[0].id}",
+            )
+            for row in withdrawals:
+                outcomes[row.id] = _summaries(
+                    o for o in taken if o.object_id == row.object_id and o.locale == row.locale
+                )
+        if not group:
+            continue
         if source.staging == "live_record":
             if action == "discard":
                 continue

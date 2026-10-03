@@ -588,9 +588,13 @@ Języki zlecenia automatu to włączone języki firmy, w których `read(...).fac
 — dodanie języka zostaje decyzją osoby. Zablokowany popyt ma `reason` i `check_at`
 (limit miesiąca: do następnego miesiąca; reszta: godzina) i daje jedno powiadomienie
 `translation.automation_paused` na powód i okres. Części automatu płacą pełne tysiące,
-resztę znaków trzyma `TranslationSettings.auto_carry_characters`. Pozycja „wycofaj
-tłumaczenia” z pkt 3 czeka na pierwsze źródło z `translations_publish_separately`
-(dziś żadne go nie ma; strony zdejmują wersje językowe razem z podstroną).
+resztę znaków trzyma `TranslationSettings.auto_carry_characters`. Pozycja z pkt 3 ma
+powód `source_withdrawn`: otwiera się po `withdrawn` w źródle z
+`translations_publish_separately` (pierwsze: `sites.entry`) dla każdego języka, w którym
+`read(...).facts.target_public`, czytanym jako osoba, która wycofała oryginał;
+akceptacja to `review(action="withdraw")`, odrzucenie zostawia tłumaczenie, a inne
+otwarte pozycje tej pary przestają obowiązywać. Strony (`sites.page`) zdejmują wersje
+językowe razem z podstroną, więc pozycji nie dostają.
 
 ### 8.4. Pętle i zgubione zgłoszenia
 

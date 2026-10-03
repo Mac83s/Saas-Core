@@ -501,6 +501,9 @@ def _read(context: ContentContext, entry: ContentEntry, locale: str, basis: Basi
             legal_document=False,
             locale_live=_locale_live(site, locale),
             actor_may_publish=context.has_permission(SITE_PUBLISH),
+            # Also when the original is withdrawn: the engine then asks a
+            # person whether to take this one down (§8.3 pkt 3).
+            target_public=sibling is not None and sibling.current_publication_id is not None,
         ),
         excluded=excluded,
     )

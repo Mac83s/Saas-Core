@@ -18,6 +18,7 @@ from uuid import UUID
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from rest_framework.exceptions import APIException
 
 from saas_core.content_protocol.registry import (
     SourceChangeNotice,
@@ -26,15 +27,23 @@ from saas_core.content_protocol.registry import (
 )
 from saas_core.content_protocol.sources import ContentContext, TranslationSource
 from saas_core.modules.core.organizations.command_registry import organization_modules
-from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    activate_tenant_context,
+    current_tenant_context,
+    set_local_organization_id,
+)
+from saas_core.modules.core.organizations.models import Organization
 
-from .models import TranslationDemand, TranslationSettings
+from .models import ReviewState, TranslationDemand, TranslationReviewItem, TranslationSettings
 from .services import settings_state
 from .settings_spec import AUTO_CHANGES
 
 logger = logging.getLogger(__name__)
 
 MODULE_ID = "shared.translation"
+#: A review item: the original was withdrawn, its translation is still public.
+SOURCE_WITHDRAWN = "source_withdrawn"
 #: How long a change waits for the next one before its job starts.
 DEMAND_WAIT = timedelta(minutes=5)
 #: However often the object changes, its job starts this long after the first.
@@ -42,8 +51,11 @@ DEMAND_MAX_WAIT = timedelta(minutes=30)
 
 
 def on_source_change(notice: SourceChangeNotice) -> None:
-    """The registry's listener: the write waits for the commit (§8.2.3)."""
-    transaction.on_commit(lambda: record_demand(notice), robust=True)
+    """The registry's listener: the write waits for the commit (§8.2.3). The
+    context of whoever changed the source goes along: a withdrawal reads the
+    translations still public as that person."""
+    context = current_tenant_context()
+    transaction.on_commit(lambda: record_demand(notice, context), robust=True)
 
 
 def _cause(notice: SourceChangeNotice) -> str:
@@ -66,7 +78,7 @@ def automation_on(organization_id: UUID, source_key: str) -> bool:
     return bool(settings_state(organization_id)["values"][AUTO_CHANGES.key]["effective"])
 
 
-def record_demand(notice: SourceChangeNotice) -> None:
+def record_demand(notice: SourceChangeNotice, context: TenantContext | None = None) -> None:
     with transaction.atomic():
         set_local_organization_id(notice.organization_id)
         rows = TranslationDemand.all_objects.filter(
@@ -77,6 +89,8 @@ def record_demand(notice: SourceChangeNotice) -> None:
         if notice.change != "changed":
             # A withdrawn or deleted object has nothing left to translate.
             rows.delete()
+            if notice.change == "withdrawn" and context is not None:
+                _open_withdrawals(notice, context)
             return
         if not automation_on(notice.organization_id, notice.source_key):
             return
@@ -182,3 +196,43 @@ def _changed_public(
         cursor = page.next_cursor
         if cursor is None:
             return found
+
+
+def _open_withdrawals(notice: SourceChangeNotice, context: TenantContext) -> None:
+    """The original is down, its translations published on their own are not:
+    one review item per language still public asks a person whether to take it
+    down too (§8.3 pkt 3). Whatever else waited for that pair is moot."""
+    try:
+        source = translation_source(notice.source_key)
+    except LookupError:
+        return
+    if not source.translations_publish_separately:
+        return
+    organization = Organization.objects.get(pk=notice.organization_id)
+    with activate_tenant_context(context):
+        for object_id in notice.object_ids:
+            for locale in organization.public_locales or ():
+                try:
+                    read = source.read(
+                        context=context, object_id=object_id, locale=locale, basis="published"
+                    )
+                except (APIException, LookupError):
+                    continue
+                if not read.facts.target_public:
+                    continue
+                pair = {
+                    "organization_id": notice.organization_id,
+                    "source_key": notice.source_key,
+                    "object_id": object_id,
+                    "locale": locale,
+                }
+                TranslationReviewItem.all_objects.filter(**pair, state=ReviewState.OPEN).update(
+                    state=ReviewState.SUPERSEDED, texts={}, updated_at=timezone.now()
+                )
+                TranslationReviewItem.all_objects.create(
+                    **pair,
+                    basis="published",
+                    basis_version=read.basis_version,
+                    target_version=read.target_version or "",
+                    reason=SOURCE_WITHDRAWN,
+                )

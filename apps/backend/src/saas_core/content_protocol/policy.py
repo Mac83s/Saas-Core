@@ -62,6 +62,9 @@ class PublicationFacts:
     object_published_in_job: bool = False
     # Other objects this job made public.
     published_in_job: int = 0
+    # The translation in this language has its own public surface now — read
+    # by the engine when the original is withdrawn (translations_publish_separately).
+    target_public: bool = False
 
 
 @dataclass(frozen=True, slots=True)
