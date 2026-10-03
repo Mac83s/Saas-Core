@@ -10289,6 +10289,18 @@ export interface components {
             team_ids: string[];
             person_ids: string[];
         };
+        PublicFeedLinks: {
+            /**
+             * Format: uri
+             * @description RSS 2.0 of the articles in the page's language.
+             */
+            rss: string;
+            /**
+             * Format: uri
+             * @description Atom of the articles in the page's language.
+             */
+            atom: string;
+        };
         PublicLanguageLink: {
             locale: string;
             /** @description The language's name in itself, e.g. Deutsch. */
@@ -10358,6 +10370,8 @@ export interface components {
             parent_page_id: string | null;
             title: string;
             path: string;
+            /** @description The language of `title` when it is not the page's: a collection name not yet translated (TL14). */
+            lang?: string;
         };
         PublicOnline: {
             paused: boolean;
@@ -10449,6 +10463,7 @@ export interface components {
                 [key: string]: unknown;
             }[];
             navigation: components["schemas"]["PublicNavigationLink"][];
+            feeds: components["schemas"]["PublicFeedLinks"];
             breadcrumbs: {
                 [key: string]: unknown;
             }[];

@@ -28852,6 +28852,20 @@ components:
       - public_slug
       - staff_choice
       - team_ids
+    PublicFeedLinks:
+      type: object
+      properties:
+        rss:
+          type: string
+          format: uri
+          description: RSS 2.0 of the articles in the page's language.
+        atom:
+          type: string
+          format: uri
+          description: Atom of the articles in the page's language.
+      required:
+      - atom
+      - rss
     PublicLanguageLink:
       type: object
       properties:
@@ -29029,6 +29043,10 @@ components:
           type: string
         path:
           type: string
+        lang:
+          type: string
+          description: 'The language of `title` when it is not the page''s: a collection
+            name not yet translated (TL14).'
       required:
       - page_id
       - parent_page_id
@@ -29207,6 +29225,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicNavigationLink'
+        feeds:
+          $ref: '#/components/schemas/PublicFeedLinks'
         breadcrumbs:
           type: array
           items:
@@ -29244,6 +29264,7 @@ components:
       - canonical_url
       - description
       - design_tokens
+      - feeds
       - hreflang
       - language_links
       - locale
