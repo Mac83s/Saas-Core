@@ -334,7 +334,7 @@ export function DataTable<TData, TValue>({
   const pin = cn(
     "md:sticky md:left-0 md:z-10 md:bg-background",
     edges.start &&
-      "md:shadow-[8px_0_8px_-8px_color-mix(in_oklab,var(--foreground)_30%,transparent)]",
+      "md:shadow-[6px_0_8px_-4px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
   );
   // A list with nothing in it and nothing narrowing it shows no search, no
   // filters and no column names over nothing — only its empty state and the
@@ -373,7 +373,7 @@ export function DataTable<TData, TValue>({
           className="max-md:block"
           containerClassName={cn(
             edges.end &&
-              "md:shadow-[inset_-16px_0_12px_-12px_color-mix(in_oklab,var(--foreground)_30%,transparent)]",
+              "md:shadow-[inset_-14px_0_10px_-8px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
           )}
           containerRef={frame}
           role="table"
