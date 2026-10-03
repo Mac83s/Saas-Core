@@ -21,7 +21,9 @@ from rest_framework.exceptions import ValidationError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.operators import operator_level
 
-from .models import PlatformSettingEntry
+from .context import set_local_organization_id
+from .models import Organization, OrganizationSetting, PlatformSettingEntry
+from .pre_tenant import PRE_TENANT_DB
 from .settings_registry import SettingSpec, check_value, setting_spec
 
 _VERSION_KEY = "organizations:platform-settings:version"
@@ -128,6 +130,28 @@ def change_platform_setting(
     # Every process reads the next version's map once the change commits.
     transaction.on_commit(_bump)
     return entry
+
+
+def companies_following(key: str) -> int | None:
+    """How many companies have no value of their own for a company key, so a
+    change of the platform's reaches them at once; None for a key companies do
+    not set. A number only: like the billing sweeps (ADR-039), the door lists
+    the companies and each one's rows are read inside its own tenant."""
+    spec = platform_spec(key)
+    if "organization" not in spec.scopes:
+        return None
+    # ADR-041: the operator has no tenant; the list of companies is the read.
+    identifiers = Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True)
+    following = 0
+    for organization_id in identifiers:
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            own = OrganizationSetting.objects.filter(
+                organization_id=organization_id, key=key, value__isnull=False
+            )
+            if not own.exists():
+                following += 1
+    return following
 
 
 def platform_history(key: str, *, limit: int = 50) -> list[PlatformSettingEntry]:

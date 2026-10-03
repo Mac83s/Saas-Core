@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from django.conf import settings
@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from .mfa import begin_totp_enrollment, confirm_totp_enrollment
 from .middleware import MANAGED_SESSION_KEY
 from .models import User, UserSession
+from .operators import operator_level
 from .password_reset import (
     GENERIC_PASSWORD_RESET_MESSAGE,
     confirm_password_reset,
@@ -377,7 +378,7 @@ class SessionRevokeView(ProtectedIdentityView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-def _user_summary(user: User) -> dict[str, str]:
+def _user_summary(user: User) -> dict[str, Any]:
     return {
         "id": str(user.id),
         "email": user.email,
@@ -386,6 +387,8 @@ def _user_summary(user: User) -> dict[str, str]:
         "status": user.status,
         "locale": user.locale,
         "timezone": user.timezone,
+        # Whether the „Platforma" panel is for this account (S-T7).
+        "operator_level": operator_level(user),
     }
 
 

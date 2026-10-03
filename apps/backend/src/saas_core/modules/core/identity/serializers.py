@@ -123,6 +123,11 @@ class UserSummarySerializer(serializers.Serializer[dict[str, Any]]):
     status = serializers.CharField()
     locale = serializers.CharField()
     timezone = serializers.CharField()
+    operator_level = serializers.IntegerField(
+        required=False,
+        help_text="0: not a platform operator; 1: an operator (staff with 2FA); 2: a platform "
+        "administrator. The „Platforma” panel is for 1 and 2.",
+    )
 
 
 class UserUpdateSerializer(serializers.Serializer[dict[str, Any]]):

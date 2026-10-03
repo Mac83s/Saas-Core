@@ -51,6 +51,11 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         2,
         "przełącznik organizacji: do jakich firm należy to konto i czy może wybrać wskazaną firmę",
     ),
+    "modules/core/organizations/platform_settings.py": (
+        1,
+        "podgląd zmiany wartości platformy: lista firm, w których potem — każda we "
+        "własnym tenancie — liczy się, czy mają własną wartość klucza; operator nie ma tenanta",
+    ),
     "modules/core/organizations/lifecycle.py": (
         1,
         "zaproszenie odnalezione po tokenie przez kogoś, kto nie jest jeszcze członkiem",
@@ -90,8 +95,7 @@ def _door_usage() -> dict[str, int]:
         uses = [
             line
             for line in path.read_text(encoding="utf-8").splitlines()
-            if "PRE_TENANT_DB" in line
-            and not line.lstrip().startswith(("from ", "import ", "#"))
+            if "PRE_TENANT_DB" in line and not line.lstrip().startswith(("from ", "import ", "#"))
         ]
         if uses:
             found[relative] = len(uses)

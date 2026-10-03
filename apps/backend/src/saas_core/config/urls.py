@@ -41,6 +41,8 @@ def _organization_routes() -> list[Route]:
             "api/v1/invitations/",
             include("saas_core.modules.core.organizations.invitation_urls"),
         ),
+        # The „Platforma" panel: operators only (platform settings plan, phase 2).
+        path("api/v1/platform/", include("saas_core.modules.core.organizations.platform_views")),
     ]
 
 
