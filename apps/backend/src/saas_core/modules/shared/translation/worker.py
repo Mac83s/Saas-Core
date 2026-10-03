@@ -65,11 +65,12 @@ from .models import (
     TranslationJobItem,
     TranslationJobPart,
     TranslationReviewItem,
+    TranslationSettings,
 )
 from .permissions import TRANSLATION_REQUEST
 from .prompts import PROMPT_VERSION, answered, build_request
 from .quality import check_hard, check_soft
-from .quotes import billed_units
+from .quotes import UNIT_CHARACTERS, billed_units
 from .segments import MAX_CALL_ITEMS, Call, plan_calls
 
 logger = logging.getLogger(__name__)
@@ -106,14 +107,15 @@ class _Work:
 # --- Contexts ---------------------------------------------------------------------
 
 
-def job_context(job: TranslationJob) -> TenantContext | None:
-    """The ordering person's membership, still active and still allowed, acting
-    through this job — or None, and the job stops (`authorization_revoked`)."""
+def person_context(
+    organization_id: UUID, membership_id: UUID, *permissions: str
+) -> TenantContext | None:
+    """A person's membership, still active and holding every permission — or None."""
     membership = (
         Membership.objects.select_related("role", "user", "organization")
         .filter(
-            pk=job.membership_id,
-            organization_id=job.organization_id,
+            pk=membership_id,
+            organization_id=organization_id,
             status=MembershipStatus.ACTIVE,
             user__status=UserStatus.ACTIVE,
             organization__status__in=WORKING_ORGANIZATION_STATUSES,
@@ -123,7 +125,16 @@ def job_context(job: TranslationJob) -> TenantContext | None:
     if membership is None:
         return None
     context = context_from_membership(membership)
-    if not context.has_permission(TRANSLATION_REQUEST):
+    if not all(context.has_permission(permission) for permission in permissions):
+        return None
+    return context
+
+
+def job_context(job: TranslationJob) -> TenantContext | None:
+    """The ordering person's membership, still active and still allowed, acting
+    through this job — or None, and the job stops (`authorization_revoked`)."""
+    context = person_context(job.organization_id, job.membership_id, TRANSLATION_REQUEST)
+    if context is None:
         return None
     return acting_context(
         context, via="ai_translation", ref=f"translation_job:{job.id}", trigger=job.cause
@@ -659,7 +670,10 @@ def finish_parts(organization_id: UUID, job_id: UUID) -> None:
 
 def _settle(job: TranslationJob, part: TranslationJobPart) -> None:
     delivered = sum(part.items.values_list("delivered_characters", flat=True))
-    units = min(billed_units(delivered), part.units)
+    if job.trigger == "automatic" and job.billing == "credits":
+        units = _automatic_units(job, part, delivered)
+    else:
+        units = min(billed_units(delivered), part.units)
     if part.reservation_key:
         with activate_tenant_context(_settlement_context(job)):
             reservation = settle_credits(part.reservation_key, units)
@@ -670,6 +684,25 @@ def _settle(job: TranslationJob, part: TranslationJobPart) -> None:
     part.state = PartState.SETTLED
     part.save()
     publish_scopes(job, part)
+
+
+def _automatic_units(job: TranslationJob, part: TranslationJobPart, delivered: int) -> int:
+    """Automatic jobs pay whole thousands of what the company's automation
+    delivered and carry the rest (ADR-069 pkt 23). The part's hold,
+    `ceil(quoted / 1000)`, always covers `floor((carry + delivered) / 1000)`
+    while the carry stays under a thousand."""
+    row = (
+        TranslationSettings.all_objects.select_for_update()
+        .filter(organization_id=job.organization_id)
+        .first()
+    )
+    carried = row.auto_carry_characters if row is not None else 0
+    total = carried + delivered
+    units = min(total // UNIT_CHARACTERS, part.units)
+    if row is not None:
+        row.auto_carry_characters = total - units * UNIT_CHARACTERS
+        row.save(update_fields=["auto_carry_characters", "updated_at"])
+    return units
 
 
 def publish_scopes(job: TranslationJob, part: TranslationJobPart) -> None:

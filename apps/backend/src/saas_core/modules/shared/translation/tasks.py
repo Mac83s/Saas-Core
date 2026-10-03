@@ -53,6 +53,16 @@ def reconcile_translation_jobs() -> int:
     return count
 
 
+# Like the reconcile tick: on the `ai` queue, where the jobs run.
+@shared_task(queue="ai", expires=120)  # type: ignore[untyped-decorator]
+def run_translation_demand() -> int:
+    """Due demand of each company becomes at most one automatic job (TL21)."""
+    cache.set(WORKER_SEEN, 1, WORKER_SEEN_TTL)
+    from .automation import run_due_demand
+
+    return run_due_demand()
+
+
 @shared_task  # type: ignore[untyped-decorator]
 def notify_translation_reviews() -> int:
     """Once a day: results waiting for a decision, to whoever may decide."""

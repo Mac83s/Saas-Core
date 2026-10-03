@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:d225a7daee358cd80e1ff8697246a8e131cea08256d169f93c68c5d121202faf",
+  "profileHash": "sha256:ac91c18c47a163587aacbb51fe02a761d530f9f132cfed9320ea0f91c620f87f",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -451,6 +451,10 @@
         "beatSchedule": {
           "translation-reconcile": {
             "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_jobs",
+            "schedule": 60
+          },
+          "translation-demand": {
+            "task": "saas_core.modules.shared.translation.tasks.run_translation_demand",
             "schedule": 60
           },
           "translation-review-digest": {

@@ -168,9 +168,12 @@ def build_job_quote(
     *,
     protected: str,
     include_unverified: bool,
+    automatic: bool = False,
 ) -> tuple[Quote, list[tuple[TargetRequest, Selection]]]:
     policy = ENGINE_POLICY.policy(organization_id=organization.id)
-    trigger = Trigger(kind="click", job_ref=None, cause=_cause(context))
+    trigger = Trigger(
+        kind="automatic" if automatic else "click", job_ref=None, cause=_cause(context)
+    )
     busy = set(
         TranslationJobItem.all_objects.filter(
             organization=organization, state__in=list(ITEM_ACTIVE)
@@ -319,14 +322,18 @@ def _create_job(
     quote: Quote,
     protected: str,
     include_unverified: bool,
+    *,
+    automatic: bool = False,
+    job_id: UUID | None = None,
 ) -> TranslationJob:
     now = timezone.now()
     platform = is_platform_workspace(organization)
     job = TranslationJob.all_objects.create(
+        **({"id": job_id} if job_id is not None else {}),
         organization=organization,
         membership_id=context.membership_id,
         created_by_id=context.actor_id,
-        trigger="click",
+        trigger="automatic" if automatic else "click",
         cause=_cause(context),
         billing="platform_budget" if platform else "credits",
         protected=protected,
@@ -380,6 +387,7 @@ def _create_job(
             "credits": quote.credits,
             "digest": quote.digest,
             "billing": job.billing,
+            "trigger": job.trigger,
         },
     )
     return job

@@ -85,6 +85,9 @@ class TranslationSettings(TenantScopedModel):
     auto_consent_membership_id = models.UUIDField(null=True, blank=True)
     auto_consent_at = models.DateTimeField(null=True, blank=True)
     auto_monthly_limit = models.PositiveIntegerField(null=True, blank=True)
+    # Delivered characters of automatic jobs not yet billed: they pay whole
+    # thousands and carry the rest to the next part, month after month (ADR-069 pkt 23).
+    auto_carry_characters = models.PositiveIntegerField(default=0)
     # The one-off confirmation that content goes to OpenRouter and model
     # providers outside the EEA (ADR-069 pkt 6).
     processing_ack_membership_id = models.UUIDField(null=True, blank=True)
