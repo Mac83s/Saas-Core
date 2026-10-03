@@ -1,5 +1,10 @@
 from django.urls import path
 
+from .translation_views import (
+    ItemTranslationListView,
+    ItemTranslationPreviewView,
+    ItemTranslationView,
+)
 from .views import (
     AppointmentCancelView,
     AppointmentCandidatesView,
@@ -129,6 +134,21 @@ urlpatterns = [
     path("schedule/", BookingScheduleView.as_view(), name="schedule"),
     path("setup/", BookingSetupView.as_view(), name="setup"),
     path("setup/options/", BookingSetupOptionsView.as_view(), name="setup-options"),
+    path(
+        "setup/translations/<str:kind>/<uuid:item_id>/",
+        ItemTranslationListView.as_view(),
+        name="setup-item-translations",
+    ),
+    path(
+        "setup/translations/<str:kind>/<uuid:item_id>/<slug:locale>/",
+        ItemTranslationView.as_view(),
+        name="setup-item-translation",
+    ),
+    path(
+        "setup/translations/<str:kind>/<uuid:item_id>/<slug:locale>/preview/",
+        ItemTranslationPreviewView.as_view(),
+        name="setup-item-translation-preview",
+    ),
     path("setup/services/", SetupServiceListView.as_view(), name="setup-services"),
     path(
         "setup/services/preview/",

@@ -872,6 +872,101 @@ class ReminderRoute(models.Model):
         return str(self.appointment_id)
 
 
+class ItemTranslation(TenantScopedModel):
+    """A booking item said in another language (ADR-069; plan TL12b).
+
+    One row per item and language, `texts` by field (`name`, and `description`
+    where the item has one) with each text's provenance (`content_protocol`).
+    The item keeps its own text: the company's language. Without the
+    translation engine the rows are simply what people wrote; nothing reads
+    them but the item's own API and the public form.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    locale = models.CharField(max_length=10)
+    texts = models.JSONField(default=dict, blank=True)
+    provenance = models.JSONField(default=dict, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
+
+class ServiceTranslation(ItemTranslation):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "service", "locale"], name="booking_service_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_service_tr_locale_ck"
+            ),
+        ]
+
+
+class LocationTranslation(ItemTranslation):
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "location", "locale"], name="booking_location_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="booking_location_tr_locale_ck",
+            ),
+        ]
+
+
+class ResourceTranslation(ItemTranslation):
+    resource = models.ForeignKey(Resource, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "resource", "locale"], name="booking_resource_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="booking_resource_tr_locale_ck",
+            ),
+        ]
+
+
+class ResourceGroupTranslation(ItemTranslation):
+    group = models.ForeignKey(ResourceGroup, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "group", "locale"], name="booking_group_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_group_tr_locale_ck"
+            ),
+        ]
+
+
+class StaffTeamTranslation(ItemTranslation):
+    team = models.ForeignKey(StaffTeam, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "team", "locale"], name="booking_team_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_team_tr_locale_ck"
+            ),
+        ]
+
+
 def validate_same_tenant(instance: Any, *related_names: str) -> None:
     for name in related_names:
         related = getattr(instance, name, None)

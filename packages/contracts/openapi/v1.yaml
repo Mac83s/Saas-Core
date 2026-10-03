@@ -1818,8 +1818,20 @@ paths:
           description: ''
   /api/v1/booking/public/{public_slug}/:
     get:
-      operationId: api_v1_booking_public_retrieve
+      operationId: public_booking_catalog
+      description: The places, services and units a visitor can book, and the teams
+        and people the form lets them choose. With `locale` (a language of the company)
+        names come in that language where the company translated them, otherwise in
+        its own; `locale` in the answer is the language asked for when the company
+        has it.
+      summary: What a company's booking form offers
       parameters:
+      - in: query
+        name: locale
+        schema:
+          type: string
+        description: A language code, e.g. de; one the company does not have is answered
+          in its own.
       - in: path
         name: public_slug
         schema:
@@ -1836,6 +1848,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicCatalog'
           description: ''
+      x-quality-exempt:
+        error-400: An unknown language is answered in the company's own.
   /api/v1/booking/public/{public_slug}/appointments/:
     post:
       operationId: api_v1_booking_public_appointments_create
@@ -4295,6 +4309,219 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ServiceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/translations/{kind}/{item_id}/:
+    get:
+      operationId: booking_item_translations_list
+      description: 'A service''s, a place''s, a unit''s, a group''s or a team''s name
+        (and description) in every other language of the company: the item''s own
+        text, the translation, its state against the current text and who wrote it,
+        with the version to send with a change.'
+      summary: A booking item's translations, language by language
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: kind
+        schema:
+          type: string
+          enum:
+          - group
+          - location
+          - resource
+          - service
+          - team
+        description: service, location, resource (a unit), group (of units) or team.
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemTranslationList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/translations/{kind}/{item_id}/{locale}/:
+    put:
+      operationId: booking_item_translation_update
+      description: A person's name (and description) of a service, place, unit, group
+        or team in a language of the company, at the version they saw. Only the fields
+        sent change; the history keeps it. A repeated Idempotency-Key answers the
+        first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+      summary: Write a booking item in another language
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: kind
+        schema:
+          type: string
+          enum:
+          - group
+          - location
+          - resource
+          - service
+          - team
+        description: service, location, resource (a unit), group (of units) or team.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemTranslationInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ItemTranslationInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ItemTranslationInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemTranslation'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/translations/{kind}/{item_id}/{locale}/preview/:
+    post:
+      operationId: booking_item_translation_preview
+      description: 'Validates a change as `booking_item_translation_update` would.
+        Nothing is saved: the answer is the language as the write would leave it,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a booking item's translation without saving it
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: kind
+        schema:
+          type: string
+          enum:
+          - group
+          - location
+          - resource
+          - service
+          - team
+        description: service, location, resource (a unit), group (of units) or team.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemTranslationInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ItemTranslationInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ItemTranslationInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemTranslation'
           description: ''
         '400':
           content:
@@ -23595,6 +23822,94 @@ components:
       - id
       - role
       - status
+    ItemTranslation:
+      type: object
+      properties:
+        locale:
+          type: string
+        version:
+          type: integer
+          description: 0 for a language the item does not have yet.
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemTranslationUnit'
+      required:
+      - locale
+      - units
+      - version
+    ItemTranslationInput:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The language's version this change was made on; 0 for a language
+            the item does not have yet. Another version is 409 `booking_version_conflict`.
+        texts:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 2000
+          description: 'By field: `name`, and `description` for a unit or a group.
+            An empty text removes the translation; an absent field stays as it is.'
+      required:
+      - expected_version
+      - texts
+    ItemTranslationList:
+      type: object
+      properties:
+        kind:
+          type: string
+        item_id:
+          type: string
+          format: uuid
+        source_locale:
+          type: string
+          description: The language the item is written in.
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemTranslation'
+          description: Every other language of the company, translated or not.
+      required:
+      - item_id
+      - kind
+      - languages
+      - source_locale
+    ItemTranslationUnit:
+      type: object
+      properties:
+        key:
+          type: string
+          description: 'The field: name or description.'
+        source_text:
+          type: string
+          description: The item's own text.
+        text:
+          type: string
+          description: 'The translation; empty: none.'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusC4dEnum'
+          description: |-
+            Against the item's current text (translation-sources.md §4).
+
+            * `fresh` - fresh
+            * `stale` - stale
+            * `missing` - missing
+            * `blocked` - blocked
+            * `copied` - copied
+            * `unverified` - unverified
+        origin:
+          type: string
+          description: 'Who wrote it: human, ai, integration…; empty: nobody.'
+      required:
+      - key
+      - origin
+      - source_text
+      - status
+      - text
     Job:
       type: object
       properties:
@@ -27463,7 +27778,7 @@ components:
           description: 'The translation; empty: none.'
         status:
           allOf:
-          - $ref: '#/components/schemas/ProfileTranslationUnitStatusEnum'
+          - $ref: '#/components/schemas/StatusC4dEnum'
           description: |-
             Against the current source text (translation-sources.md §4).
 
@@ -27482,22 +27797,6 @@ components:
       - source_text
       - status
       - text
-    ProfileTranslationUnitStatusEnum:
-      enum:
-      - fresh
-      - stale
-      - missing
-      - blocked
-      - copied
-      - unverified
-      type: string
-      description: |-
-        * `fresh` - fresh
-        * `stale` - stale
-        * `missing` - missing
-        * `blocked` - blocked
-        * `copied` - copied
-        * `unverified` - unverified
     ProfileUpdate:
       type: object
       properties:
@@ -27750,7 +28049,12 @@ components:
             type: string
           description: 'The company''s languages: a booking page in another one is
             not offered (ADR-071 pkt 21).'
+        locale:
+          type: string
+          description: 'The language the names are in: the one asked for when the
+            company has it, otherwise the company''s own (TL12b).'
       required:
+      - locale
       - locales
       - locations
       - online
@@ -31124,6 +31428,22 @@ components:
         * `sold` - Sprzedane
         * `culled` - Wybrakowane
         * `dead` - Padłe
+    StatusC4dEnum:
+      enum:
+      - fresh
+      - stale
+      - missing
+      - blocked
+      - copied
+      - unverified
+      type: string
+      description: |-
+        * `fresh` - fresh
+        * `stale` - stale
+        * `missing` - missing
+        * `blocked` - blocked
+        * `copied` - copied
+        * `unverified` - unverified
     StatusC60Enum:
       enum:
       - mfa_required

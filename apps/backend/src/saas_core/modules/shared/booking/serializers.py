@@ -1017,6 +1017,10 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="The company's languages: a booking page in another one is not "
         "offered (ADR-071 pkt 21).",
     )
+    locale = serializers.CharField(
+        help_text="The language the names are in: the one asked for when the company has "
+        "it, otherwise the company's own (TL12b)."
+    )
 
 
 class PersonSerializer(serializers.Serializer[dict[str, Any]]):

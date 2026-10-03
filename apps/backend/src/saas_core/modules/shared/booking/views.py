@@ -31,6 +31,7 @@ from .company_settings import online_paused
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
+from .item_translations import localized_texts, source_locale, translatable
 from .models import (
     Appointment,
     BookingClosure,
@@ -41,6 +42,7 @@ from .models import (
     ResourceGroup,
     SelfServiceRoute,
     Service,
+    StaffTeam,
     TimeModel,
 )
 from .occupancy import MAX_DAYS as MAX_OCCUPANCY_DAYS
@@ -978,6 +980,23 @@ class CustomerAnonymizeView(AppointmentCancelView):
         return Response({"id": customer.id, "anonymized_at": customer.anonymized_at})
 
 
+def _localize(payload: dict[str, Any], value: dict[str, list[Any]], locale: str) -> None:
+    """Names of the public catalogue in the visitor's language, where the
+    company translated them (TL12b)."""
+    for key, kind in (
+        ("locations", "location"),
+        ("services", "service"),
+        ("resources", "resource"),
+    ):
+        names = localized_texts(translatable(kind), value[key], locale)
+        for item in payload.get(key, []):
+            text = names.get(item["id"], {})
+            if "name" in text:
+                item["name"] = text["name"]
+            if "description" in text and "description" in item:
+                item["description"] = text["description"]
+
+
 def _route(public_slug: str) -> PublicBookingRoute:
     if not settings.PUBLIC_BOOKING_ENABLED:
         raise NotFound("Kalendarz nie istnieje.")
@@ -992,9 +1011,32 @@ class PublicBookingCatalogView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [BookingThrottle]
 
-    @extend_schema(tags=["public-booking"], responses={200: PublicCatalogSerializer})
+    @extend_schema(
+        operation_id="public_booking_catalog",
+        summary="What a company's booking form offers",
+        description="The places, services and units a visitor can book, and the teams and "
+        "people the form lets them choose. With `locale` (a language of the company) names "
+        "come in that language where the company translated them, otherwise in its own; "
+        "`locale` in the answer is the language asked for when the company has it.",
+        tags=["public-booking"],
+        parameters=[
+            OpenApiParameter(
+                "locale",
+                str,
+                OpenApiParameter.QUERY,
+                description="A language code, e.g. de; one the company does not have is "
+                "answered in its own.",
+            )
+        ],
+        responses={200: PublicCatalogSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "error-400": "An unknown language is answered in the company's own.",
+            }
+        },
+    )
     def get(self, request: Request, public_slug: str) -> Response:
-        del request
+        asked = request.query_params.get("locale") or None
         route = _route(public_slug)
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.read", BOOKING_ENABLED)
@@ -1009,20 +1051,38 @@ class PublicBookingCatalogView(APIView):
             }
             payload = _catalog_payload(value, public=True)
             choices = public_choices(org, [x for x in value["services"] if x.active])
+            organization = Organization.objects.get(pk=org)
+            locale = (
+                asked
+                if asked in organization_content_locales(organization)
+                and asked != source_locale(organization)
+                else None
+            )
+            if locale is not None:
+                _localize(payload, value, locale)
             paused, resume_on = online_paused(_zone().key)
             kinds = {x.id: x.public_staff_choice for x in value["services"]}
             for item in payload["services"]:
                 teams, people = choices.services.get(item["id"], ([], []))
                 item.update(staff_choice=kinds[item["id"]], team_ids=teams, person_ids=people)
+            team_names = dict(choices.teams)
+            if locale is not None:
+                names = localized_texts(
+                    translatable("team"),
+                    StaffTeam.all_objects.filter(organization_id=org, pk__in=list(team_names)),
+                    locale,
+                )
+                team_names = {
+                    key: names.get(key, {}).get("name", name) for key, name in team_names.items()
+                }
             return Response({
                 **payload,
-                "teams": [{"id": key, "name": name} for key, name in choices.teams],
+                "locale": locale or source_locale(organization),
+                "teams": [{"id": key, "name": name} for key, name in team_names.items()],
                 "people": [{"id": key, "name": name} for key, name in choices.people],
                 "timezone": _zone().key,
                 "online": {"paused": paused, "resume_on": resume_on},
-                "locales": list(
-                    organization_content_locales(Organization.objects.get(pk=org))
-                ),
+                "locales": list(organization_content_locales(organization)),
             })
 
 

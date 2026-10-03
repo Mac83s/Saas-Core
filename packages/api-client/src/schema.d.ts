@@ -754,7 +754,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["api_v1_booking_public_retrieve"];
+        /**
+         * What a company's booking form offers
+         * @description The places, services and units a visitor can book, and the teams and people the form lets them choose. With `locale` (a language of the company) names come in that language where the company translated them, otherwise in its own; `locale` in the answer is the language asked for when the company has it.
+         */
+        get: operations["public_booking_catalog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1588,6 +1592,66 @@ export interface paths {
          * @description Validates a new service as `booking_setup_service_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
          */
         post: operations["booking_setup_service_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/translations/{kind}/{item_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A booking item's translations, language by language
+         * @description A service's, a place's, a unit's, a group's or a team's name (and description) in every other language of the company: the item's own text, the translation, its state against the current text and who wrote it, with the version to send with a change.
+         */
+        get: operations["booking_item_translations_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/translations/{kind}/{item_id}/{locale}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write a booking item in another language
+         * @description A person's name (and description) of a service, place, unit, group or team in a language of the company, at the version they saw. Only the fields sent change; the history keeps it. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        put: operations["booking_item_translation_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/translations/{kind}/{item_id}/{locale}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a booking item's translation without saving it
+         * @description Validates a change as `booking_item_translation_update` would. Nothing is saved: the answer is the language as the write would leave it, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_item_translation_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8118,6 +8182,50 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        ItemTranslation: {
+            locale: string;
+            /** @description 0 for a language the item does not have yet. */
+            version: number;
+            units: components["schemas"]["ItemTranslationUnit"][];
+        };
+        ItemTranslationInput: {
+            /** @description The language's version this change was made on; 0 for a language the item does not have yet. Another version is 409 `booking_version_conflict`. */
+            expected_version: number;
+            /** @description By field: `name`, and `description` for a unit or a group. An empty text removes the translation; an absent field stays as it is. */
+            texts: {
+                [key: string]: string;
+            };
+        };
+        ItemTranslationList: {
+            kind: string;
+            /** Format: uuid */
+            item_id: string;
+            /** @description The language the item is written in. */
+            source_locale: string;
+            /** @description Every other language of the company, translated or not. */
+            languages: components["schemas"]["ItemTranslation"][];
+        };
+        ItemTranslationUnit: {
+            /** @description The field: name or description. */
+            key: string;
+            /** @description The item's own text. */
+            source_text: string;
+            /** @description The translation; empty: none. */
+            text: string;
+            /**
+             * @description Against the item's current text (translation-sources.md §4).
+             *
+             *     * `fresh` - fresh
+             *     * `stale` - stale
+             *     * `missing` - missing
+             *     * `blocked` - blocked
+             *     * `copied` - copied
+             *     * `unverified` - unverified
+             */
+            status: components["schemas"]["StatusC4dEnum"];
+            /** @description Who wrote it: human, ai, integration…; empty: nobody. */
+            origin: string;
+        };
         Job: {
             /** Format: uuid */
             id: string;
@@ -9741,20 +9849,10 @@ export interface components {
              *     * `copied` - copied
              *     * `unverified` - unverified
              */
-            status: components["schemas"]["ProfileTranslationUnitStatusEnum"];
+            status: components["schemas"]["StatusC4dEnum"];
             /** @description Who wrote it: human, ai, integration…; empty: nobody. */
             origin: string;
         };
-        /**
-         * @description * `fresh` - fresh
-         *     * `stale` - stale
-         *     * `missing` - missing
-         *     * `blocked` - blocked
-         *     * `copied` - copied
-         *     * `unverified` - unverified
-         * @enum {string}
-         */
-        ProfileTranslationUnitStatusEnum: "fresh" | "stale" | "missing" | "blocked" | "copied" | "unverified";
         ProfileUpdate: {
             display_name?: string;
             headline?: string;
@@ -9865,6 +9963,8 @@ export interface components {
             online: components["schemas"]["PublicOnline"];
             /** @description The company's languages: a booking page in another one is not offered (ADR-071 pkt 21). */
             locales: string[];
+            /** @description The language the names are in: the one asked for when the company has it, otherwise the company's own (TL12b). */
+            locale: string;
         };
         PublicChoiceService: {
             /** Format: uuid */
@@ -11296,6 +11396,16 @@ export interface components {
          * @enum {string}
          */
         Status891Enum: "active" | "sold" | "culled" | "dead";
+        /**
+         * @description * `fresh` - fresh
+         *     * `stale` - stale
+         *     * `missing` - missing
+         *     * `blocked` - blocked
+         *     * `copied` - copied
+         *     * `unverified` - unverified
+         * @enum {string}
+         */
+        StatusC4dEnum: "fresh" | "stale" | "missing" | "blocked" | "copied" | "unverified";
         /**
          * @description * `mfa_required` - mfa_required
          * @enum {string}
@@ -13834,9 +13944,12 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_public_retrieve: {
+    public_booking_catalog: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A language code, e.g. de; one the company does not have is answered in its own. */
+                locale?: string;
+            };
             header?: never;
             path: {
                 public_slug: string;
@@ -16196,6 +16309,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_item_translations_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+                /** @description service, location, resource (a unit), group (of units) or team. */
+                kind: "group" | "location" | "resource" | "service" | "team";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTranslationList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_item_translation_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                item_id: string;
+                /** @description service, location, resource (a unit), group (of units) or team. */
+                kind: "group" | "location" | "resource" | "service" | "team";
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemTranslationInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ItemTranslationInput"];
+                "multipart/form-data": components["schemas"]["ItemTranslationInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTranslation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_item_translation_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+                /** @description service, location, resource (a unit), group (of units) or team. */
+                kind: "group" | "location" | "resource" | "service" | "team";
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemTranslationInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ItemTranslationInput"];
+                "multipart/form-data": components["schemas"]["ItemTranslationInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTranslation"];
                 };
             };
             400: {

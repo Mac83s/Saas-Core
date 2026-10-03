@@ -28,7 +28,6 @@
     "GET /api/v1/booking/overview/": {"fingerprint": "577741aaefd1acc7", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/booking/performance/": {"fingerprint": "fd90eb41c8e18282", "violations": ["operation-id", "summary"]},
     "GET /api/v1/booking/places/": {"fingerprint": "58ca5b0189ee4714", "violations": ["operation-id"]},
-    "GET /api/v1/booking/public/{public_slug}/": {"fingerprint": "e96015e5a4fc12b4", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/booking/public/{public_slug}/days/": {"fingerprint": "dd7ba1f155608bfd", "violations": ["operation-id", "summary", "description", "error-400"]},
     "GET /api/v1/booking/public/{public_slug}/slots/": {"fingerprint": "b8c1651d558bc4b9", "violations": ["operation-id", "summary", "error-400"]},
     "GET /api/v1/booking/public/{public_slug}/times/": {"fingerprint": "7b7eaa6f601f9a34", "violations": ["operation-id", "summary", "error-400"]},
