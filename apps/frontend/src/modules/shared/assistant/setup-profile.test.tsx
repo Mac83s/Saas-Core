@@ -301,10 +301,23 @@ function button(name: string) {
   return screen.getByRole("button", { name });
 }
 
+/** Opens a row's „…” and answers the item of its menu. Beside another gate
+ * a click can reach the „…” before its menu is ready and is lost for good:
+ * click until the menu says it is open, then wait for its items. */
+async function opened(more: string, item: string) {
+  await waitFor(() => {
+    const trigger = button(more);
+    if (trigger.getAttribute("aria-expanded") !== "true") {
+      fireEvent.click(trigger);
+    }
+    expect(screen.getByRole("menuitem", { name: item })).toBeInTheDocument();
+  });
+  return screen.getByRole("menuitem", { name: item });
+}
+
 /** Picks an action behind a row's „…”. */
 async function choose(more: string, item: string) {
-  fireEvent.click(button(more));
-  fireEvent.click(await screen.findByRole("menuitem", { name: item }));
+  fireEvent.click(await opened(more, item));
 }
 
 beforeEach(() => {
@@ -518,18 +531,12 @@ test("a fact of the account is shown but not changed here; the owner's own value
 
   expect(button("Usuń: miejsce „Salon na Mazurskiej”")).toBeEnabled();
   // Text is corrected or removed; a price only removed.
-  fireEvent.click(button("Więcej: Adres — Salon na Mazurskiej"));
-  expect(
-    await screen.findByRole("menuitem", { name: "Popraw" }),
-  ).toBeInTheDocument();
+  await opened("Więcej: Adres — Salon na Mazurskiej", "Popraw");
   expect(screen.getByRole("menuitem", { name: "Usuń" })).toBeInTheDocument();
   fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 
-  fireEvent.click(button("Więcej: Cena — Strzyżenie damskie"));
-  expect(
-    await screen.findByRole("menuitem", { name: "Usuń" }),
-  ).toBeInTheDocument();
+  await opened("Więcej: Cena — Strzyżenie damskie", "Usuń");
   expect(screen.queryByRole("menuitem", { name: "Popraw" })).toBeNull();
 });
 
