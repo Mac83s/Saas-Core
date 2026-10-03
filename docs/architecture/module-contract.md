@@ -121,6 +121,8 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | zadania cykliczne | `backend.beatSchedule` (`{nazwa: {task, schedule}}`; tylko własne taski) |
 | źródło tłumaczeń AI | `register_translation_source` w `AppConfig.ready`, `notify_source_changed` w serwisach i test kontraktu (`translation-sources.md`) |
 | zadanie modelu AI | `register_task` z `model_port/api.py` w `AppConfig.ready` (`model-port.md`) |
+| źródło zużycia w raportach magazynu | `register_usage_source` z `inventory/api.py` w `AppConfig.ready` (ADR-055, uzupełnienie 03.10) |
+| okres bezpłatny konta danego typu organizacji | `register_free_period` z `billing/api.py` w `AppConfig.ready`: karta planu podaje `free_until` (deklaracja, bez egzekwowania) |
 | menu, zakładki „Ustawień” (`settingsSections`), dolny pasek na telefonie (`mobileTabs`: adresy pozycji menu; bez pola — trzy pierwsze pozycje pracy), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |

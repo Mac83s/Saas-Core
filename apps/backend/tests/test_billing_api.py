@@ -451,6 +451,49 @@ def test_owner_sees_customer_billing_overview_and_deployment_plan_catalog() -> N
     assert plans["starter"]["checkout_available"] is True
 
 
+def test_the_overview_says_until_when_a_products_free_account_is_free(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A product declares a free period for a kind of organization (HoofCare's
+    farm, 46a); the plan card reads the date from here. Under a plan that
+    costs nothing only, and never for a kind without a declared period."""
+    from datetime import date  # noqa: PLC0415
+
+    from saas_core.modules.shared.billing import plan_offer  # noqa: PLC0415
+    from saas_core.modules.shared.billing.models import EntitlementSnapshot  # noqa: PLC0415
+
+    client, organization = billing_client(role_key="owner", slug="billing-free-period")
+    Organization.objects.filter(pk=organization.pk).update(
+        created_at=datetime(2026, 8, 31, 9, 0, tzinfo=UTC), timezone="Europe/Warsaw"
+    )
+    free = Plan.objects.create(key="free-of-type", name="Bezpłatny", is_active=True)
+    version = PlanVersion.objects.create(
+        plan=free, version=1, unit_amount_minor=0, feature_keys=[], quotas={}, trial_days=0
+    )
+    snapshot = EntitlementSnapshot.all_objects.create(
+        organization=organization,
+        plan_version=version,
+        subscription_state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+        features={},
+        quotas={},
+        sources={},
+    )
+    assert client.get("/api/v1/billing/overview/").data["free_until"] is None
+
+    monkeypatch.setattr(plan_offer, "_free_months", {})
+    plan_offer.register_free_period(organization.organization_type, months=6)
+    # 31 August plus six months is the last day of February, not 3 March.
+    assert client.get("/api/v1/billing/overview/").data["free_until"] == date(2027, 2, 28)
+
+    # A plan that costs something is not the free account.
+    snapshot.plan_version = Plan.objects.get(key="starter").current_version
+    snapshot.save(update_fields=["plan_version"])
+    assert client.get("/api/v1/billing/overview/").data["free_until"] is None
+    with pytest.raises(ValueError):
+        plan_offer.register_free_period("farm", months=0)
+
+
 def test_customer_billing_overview_requires_billing_permission() -> None:
     client, _ = billing_client(role_key="viewer", slug="billing-overview-viewer")
 

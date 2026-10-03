@@ -82,6 +82,13 @@ class CustomerBillingOverviewSerializer(serializers.Serializer[dict[str, Any]]):
     has_active_subscription = serializers.BooleanField()
     billing_details = BillingDetailsStateSerializer()
     subscription = CustomerSubscriptionSerializer(allow_null=True)
+    free_until = serializers.DateField(
+        allow_null=True,
+        help_text="The last day the account is free, for a kind of organization whose "
+        "product declares a free period from the account's creation and while it is on a "
+        "plan that costs nothing; null otherwise. A statement for the plan card — nothing "
+        "ends when the day passes.",
+    )
     plans = CustomerPlanSerializer(many=True)
 
 

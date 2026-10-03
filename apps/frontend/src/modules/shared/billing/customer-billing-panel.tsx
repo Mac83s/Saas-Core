@@ -544,6 +544,17 @@ function CurrentPlan({
     });
   }
 
+  // An account its product gives free for a time (a farm, 46a): until when,
+  // and that the next step will be announced — never „bez terminu”.
+  const freeUntil = overview.free_until;
+  const freeEnded =
+    freeUntil !== null && new Date(`${freeUntil}T23:59:59`).getTime() < now;
+  if (freeUntil)
+    facts.push({
+      label: t(freeEnded ? "freePeriodEnded" : "freeUntil"),
+      value: day(freeUntil),
+    });
+
   // One message, the most urgent: access, then money, then dates.
   const notice =
     attention?.kind === "limited" ? (
@@ -625,6 +636,9 @@ function CurrentPlan({
                   <Fact key={fact.label} {...fact} />
                 ))}
               </dl>
+            ) : null}
+            {freeUntil ? (
+              <p className="text-sm text-muted-foreground">{t("freeAfter")}</p>
             ) : null}
             {notice}
           </CardContent>

@@ -19,7 +19,6 @@
     "GET /api/v1/auth/me/": {"fingerprint": "d95b7b0f85669b53", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/auth/sessions/": {"fingerprint": "53eed62bb20c30d7", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/billing/credits/": {"fingerprint": "549df681d74ebc3e", "violations": ["summary", "description"]},
-    "GET /api/v1/billing/overview/": {"fingerprint": "5ac3e3e615a2cb12", "violations": ["summary", "description"]},
     "GET /api/v1/billing/plans/": {"fingerprint": "e4bc0c21d00238c0", "violations": ["summary", "error-400"]},
     "GET /api/v1/billing/support/entitlements/": {"fingerprint": "3ba0d7adec139ff4", "violations": ["summary", "description"]},
     "GET /api/v1/booking/appointments/": {"fingerprint": "b7a97716c817ecbe", "violations": ["operation-id", "summary", "description"]},

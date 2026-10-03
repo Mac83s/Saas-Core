@@ -1196,6 +1196,12 @@ paths:
   /api/v1/billing/overview/:
     get:
       operationId: billing_overview_retrieve
+      description: 'What the plan page shows: the current plan and its state (trial,
+        period end), the plans this kind of organization may choose with their prices,
+        features and limits, the invoice details and what is missing in them, whether
+        the person may change billing, and `free_until` — the last free day of an
+        account whose product gives it a free period. For whoever may manage billing.'
+      summary: Read the company's plan and billing state
       tags:
       - billing
       security:
@@ -24459,6 +24465,15 @@ components:
           oneOf:
           - $ref: '#/components/schemas/CustomerSubscription'
           - type: 'null'
+        free_until:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: The last day the account is free, for a kind of organization
+            whose product declares a free period from the account's creation and while
+            it is on a plan that costs nothing; null otherwise. A statement for the
+            plan card — nothing ends when the day passes.
         plans:
           type: array
           items:
@@ -24466,6 +24481,7 @@ components:
       required:
       - billing_details
       - can_manage
+      - free_until
       - has_active_subscription
       - payment_mode
       - plans

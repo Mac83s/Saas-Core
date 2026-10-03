@@ -468,6 +468,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Read the company's plan and billing state
+         * @description What the plan page shows: the current plan and its state (trial, period end), the plans this kind of organization may choose with their prices, features and limits, the invoice details and what is missing in them, whether the person may change billing, and `free_until` — the last free day of an account whose product gives it a free period. For whoever may manage billing.
+         */
         get: operations["billing_overview_retrieve"];
         put?: never;
         post?: never;
@@ -8404,6 +8408,11 @@ export interface components {
             has_active_subscription: boolean;
             billing_details: components["schemas"]["BillingDetailsState"];
             subscription: components["schemas"]["CustomerSubscription"] | null;
+            /**
+             * Format: date
+             * @description The last day the account is free, for a kind of organization whose product declares a free period from the account's creation and while it is on a plan that costs nothing; null otherwise. A statement for the plan card — nothing ends when the day passes.
+             */
+            free_until: string | null;
             plans: components["schemas"]["CustomerPlan"][];
         };
         CustomerCreditsOverview: {

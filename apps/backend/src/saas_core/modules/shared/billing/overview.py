@@ -6,7 +6,7 @@ from uuid import UUID
 from django.conf import settings
 
 from saas_core.modules.core.organizations.authorization import authorize
-from saas_core.modules.core.organizations.models import BillingProfile
+from saas_core.modules.core.organizations.models import BillingProfile, Organization
 from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
 
 from .billing_settings import may_manage_billing
@@ -17,7 +17,7 @@ from .models import (
     StripePriceMapping,
     SubscriptionState,
 )
-from .plan_offer import plan_keys_for_organization, plan_keys_for_type
+from .plan_offer import free_until, plan_keys_for_organization, plan_keys_for_type
 from .services import missing_billing_details, reusable_customer_id
 
 
@@ -124,6 +124,14 @@ def customer_billing_overview() -> dict[str, Any]:
         if snapshot is not None
         else None
     )
+    # Until when the account is free: only under a plan that costs nothing,
+    # for a type whose product declared a free period (HoofCare's farm, 46a).
+    on_free_plan = (
+        subscription is None
+        and snapshot is not None
+        and snapshot.plan_version is not None
+        and snapshot.plan_version.unit_amount_minor == 0
+    )
 
     return {
         "can_manage": may_manage_billing(context),
@@ -148,6 +156,11 @@ def customer_billing_overview() -> dict[str, Any]:
             and bool(profile and reusable_customer_id(profile))
         ),
         "subscription": _subscription_payload(subscription, snapshot),
+        "free_until": (
+            free_until(Organization.objects.get(pk=context.organization_id))
+            if on_free_plan
+            else None
+        ),
         "plans": [
             _plan_payload(
                 plan,

@@ -195,6 +195,12 @@ class BillingOverviewView(APIView):
 
     @extend_schema(
         operation_id="billing_overview_retrieve",
+        summary="Read the company's plan and billing state",
+        description="What the plan page shows: the current plan and its state (trial, "
+        "period end), the plans this kind of organization may choose with their prices, "
+        "features and limits, the invoice details and what is missing in them, whether "
+        "the person may change billing, and `free_until` — the last free day of an "
+        "account whose product gives it a free period. For whoever may manage billing.",
         tags=["billing"],
         responses={
             200: CustomerBillingOverviewSerializer,

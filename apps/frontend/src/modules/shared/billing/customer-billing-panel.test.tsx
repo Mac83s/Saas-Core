@@ -70,6 +70,7 @@ const overview: CustomerBillingOverview = {
   payment_mode: "simulated",
   portal_available: false,
   has_active_subscription: false,
+  free_until: null,
   billing_details: {
     customer_kind: "company",
     legal_name: "Firma testowa",
@@ -443,6 +444,29 @@ test("plan nadany bez płatności jest planem firmy: bez „wybieram” na nim i
     }),
   ).not.toBeNull();
   expect(screen.queryByText("Najczęściej wybierany")).toBeNull();
+});
+
+test("konto bezpłatne na czas: karta planu mówi, do kiedy i co dalej (UX-081)", async () => {
+  getCustomerBillingOverview.mockResolvedValue({
+    ...subscribed({ plan_key: "pro", current_period_end: null }),
+    payment_mode: "stripe",
+    has_active_subscription: false,
+    free_until: "2027-03-26",
+    plans: overview.plans.map((plan) => ({
+      ...plan,
+      is_current: plan.key === "pro",
+    })),
+  });
+
+  renderPanel();
+
+  expect(await screen.findByText("Konto bezpłatne do")).not.toBeNull();
+  expect(screen.getByText("26 mar 2027")).not.toBeNull();
+  expect(
+    screen.getByText(
+      "Przed tym terminem napiszemy, jaki plan będzie dostępny dalej.",
+    ),
+  ).not.toBeNull();
 });
 
 test("po zakończonym planie znów pozwala wybrać każdy plan, także poprzedni", async () => {

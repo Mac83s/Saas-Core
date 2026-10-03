@@ -13,6 +13,7 @@ from .credits import (
     unit_cost,
 )
 from .decisions import FeatureOperation, decide_feature, decide_quota
+from .plan_offer import register_free_period
 from .quotas import (
     QuotaExceeded,
     QuotaReservationConflict,
@@ -55,4 +56,5 @@ __all__ = [
     "unit_cost",
     "settle_credits",
     "billing_organization_ids",
+    "register_free_period",
 ]
