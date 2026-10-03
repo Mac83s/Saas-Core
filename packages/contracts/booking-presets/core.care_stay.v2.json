@@ -1,0 +1,63 @@
+{
+  "id": "core.care_stay",
+  "version": 2,
+  "readiness": "ready",
+  "onlineBooking": "soon",
+  "labels": {
+    "pl": {
+      "name": "Pobyt z opieką",
+      "description": "Hotel dla zwierząt, przechowalnia, parking: miejsce z puli na doby. Kogo lub co przyjmujecie, zespół zapisuje w uwagach rezerwacji. Rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce."
+    },
+    "en": {
+      "name": "Boarding and storage",
+      "description": "Pet hotel, storage, parking: a place from a pool by the day. Who or what is left in your care goes into the booking's notes. The team books in the panel; booking through the site is coming soon."
+    }
+  },
+  "timeModel": "range",
+  "range": {
+    "unit": "day",
+    "startTime": "09:00",
+    "endTime": "18:00"
+  },
+  "booked": {
+    "subject": "unit_group",
+    "staff": "none"
+  },
+  "quantity": "one",
+  "participants": {
+    "mode": "none"
+  },
+  "confirmation": "instant",
+  "place": "business",
+  "price": {
+    "basis": "per_time_unit"
+  },
+  "payment": {
+    "policy": "on_site"
+  },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "unit": "Miejsce",
+      "units": "Miejsca",
+      "booking": "Pobyt",
+      "bookings": "Pobyty",
+      "participant": "Klient",
+      "participants": "Klienci",
+      "timeUnit": "doba",
+      "timeUnits": "doby"
+    },
+    "en": {
+      "unit": "Place",
+      "units": "Places",
+      "booking": "Stay",
+      "bookings": "Stays",
+      "participant": "Customer",
+      "participants": "Customers",
+      "timeUnit": "day",
+      "timeUnits": "days"
+    }
+  }
+}

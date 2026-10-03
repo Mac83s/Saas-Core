@@ -828,6 +828,12 @@ class PresetSerializer(serializers.Serializer[dict[str, Any]]):
     catalog_category = serializers.CharField(
         allow_null=True, help_text="A suggested category of the public catalogue."
     )
+    online_booking = serializers.ChoiceField(
+        choices=("ready", "soon"),
+        help_text="Whether customers book it through the company's site. `soon`: the company "
+        "sets the offer and its prices and the team books in the panel; an offer made from "
+        "the preset starts hidden from online booking („rezerwacja przez stronę — wkrótce”).",
+    )
 
 
 class PresetListSerializer(serializers.Serializer[dict[str, Any]]):

@@ -31818,6 +31818,14 @@ components:
       - mode
       - operation_key
       - unit_characters
+    OnlineBookingEnum:
+      enum:
+      - ready
+      - soon
+      type: string
+      description: |-
+        * `ready` - ready
+        * `soon` - soon
     OperationStatus:
       type: object
       properties:
@@ -35225,12 +35233,21 @@ components:
           - string
           - 'null'
           description: A suggested category of the public catalogue.
+        online_booking:
+          allOf:
+          - $ref: '#/components/schemas/OnlineBookingEnum'
+          description: |-
+            Whether customers book it through the company's site. `soon`: the company sets the offer and its prices and the team books in the panel; an offer made from the preset starts hidden from online booking („rezerwacja przez stronę — wkrótce”).
+
+            * `ready` - ready
+            * `soon` - soon
       required:
       - booked_staff
       - booked_subject
       - catalog_category
       - id
       - labels
+      - online_booking
       - place
       - readiness
       - required_inputs

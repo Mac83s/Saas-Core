@@ -10,10 +10,17 @@ from collections.abc import Iterator
 
 import pytest
 
-from command_evals.booking import _first, _preset_fields, _service_fields, _week
+from command_evals.booking import (
+    _first,
+    _person_fields,
+    _preset_fields,
+    _service_fields,
+    _week,
+)
 from saas_core.modules.core.organizations import command_executor
 from saas_core.modules.core.organizations.command_executor import execute_plan, preview_plan
 from saas_core.modules.core.organizations.context import activate_tenant_context
+from saas_core.modules.core.organizations.models import Invitation, Membership
 from saas_core.modules.shared.booking.models import Location, Service, StaffMember
 from test_command_evals import assistant, clicked, invocation, owner
 
@@ -146,3 +153,78 @@ def test_a_preset_the_assistant_applies_is_a_draft_that_names_its_conversation()
         "preset_version": 1,
     }
     assert (created.active, created.draft, created.origin_ref) == (False, True, acting.acting_ref)
+
+
+def test_a_person_is_added_without_an_account_and_an_invitation_takes_its_own_click() -> None:
+    person = owner("staff-add", "booking.staff.add@1")
+    acting = assistant(person)
+    plain = [invocation("booking.staff.add@1", _person_fields(name="Marta"))]
+    invited = [
+        invocation(
+            "booking.staff.add@1",
+            _person_fields(name="Ewa", invitation={"email": "ewa@example.test", "role": "staff"}),
+        )
+    ]
+    with activate_tenant_context(acting):
+        (quiet,) = preview_plan(plain).groups
+        (loud,) = preview_plan(invited).groups
+    # In the calendar at once: a change to working configuration. An e-mail
+    # to somebody else and an account for them: a click of its own.
+    assert (quiet.risk, loud.risk) == ("apply", "publish")
+    (effect,) = loud.calls[0].preview.effects
+    assert "ewa@example.test" in effect.summary["pl"] and "staff" in effect.summary["pl"]
+    # A preview leaves nothing: no entry and no invitation to send.
+    assert not StaffMember.all_objects.filter(display_name__in=["Marta", "Ewa"]).exists()
+    assert not Invitation.objects.filter(organization_id=person.organization_id).exists()
+
+    tokens = {**clicked(person, acting, plain), **clicked(person, acting, invited)}
+    with activate_tenant_context(acting):
+        (added,) = execute_plan(plain, tokens)
+        (sent,) = execute_plan(invited, tokens)
+
+    assert added.status == "done", added
+    marta = StaffMember.all_objects.get(pk=added.output["staff_id"])
+    assert added.output == {
+        "staff_id": str(marta.id),
+        "name": "Marta",
+        "takes_visits": False,
+        "invited": False,
+    }
+    assert sent.status == "done", sent
+    assert (sent.output["name"], sent.output["invited"]) == ("Ewa", True)
+    invitation = Invitation.objects.get(organization_id=person.organization_id)
+    assert (invitation.email, invitation.role.key) == ("ewa@example.test", "staff")
+    # The person the assistant acted for is who invited.
+    assert invitation.invited_by_id == Membership.objects.get(pk=person.membership_id).user_id
+
+
+def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -> None:
+    person = owner("preset-stay", "booking.preset.apply@1")
+    acting = assistant(person)
+    plan = [
+        invocation(
+            "booking.preset.apply@1",
+            _preset_fields(preset_id="core.lodging", name="Domek nad wodą"),
+        )
+    ]
+    with activate_tenant_context(acting):
+        (group,) = preview_plan(plan).groups
+    # Said before the click: what the assistant does not make, and that the
+    # site's form comes later (owner decision 67a).
+    (effect,) = group.calls[0].preview.effects
+    assert "Jednostki i ceny dodasz w panelu." in effect.summary["pl"]
+    assert "rezerwacja przez stronę — wkrótce" in effect.summary["pl"]
+    assert "booking through the site is coming soon" in effect.summary["en"]
+
+    tokens = clicked(person, acting, plan)
+    with activate_tenant_context(acting):
+        (result,) = execute_plan(plan, tokens)
+        (read,) = execute_plan([invocation("booking.setup.read@1", {})])
+
+    assert result.status == "done", result
+    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 2)
+    stay = next(item for item in read.output["services"] if item["name"] == "Domek nad wodą")
+    # A stay's check-in and check-out are read as the week's hours are written.
+    assert (stay["time_model"], stay["range_unit"]) == ("range", "night")
+    assert (stay["range_start_local"], stay["range_end_local"]) == ("16:00", "11:00")
+    assert (stay["online"], stay["active"], stay["draft"]) == (False, False, True)

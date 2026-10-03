@@ -28,17 +28,21 @@ from saas_core.modules.shared.assistant.configurator import (
 CONTRACTS = Path(settings.BASE_DIR).parent.parent / "packages" / "contracts"
 EXAMPLES = ("hairdresser", "plumber", "cottages", "kayak-rental")
 
-#: The registry as it was when the golden outputs were written: a place can be
-#: added, a person cannot, and no command applies a preset.
+#: The registry the golden outputs are written against: a place and a person
+#: can be added, an offer starts from its preset. A test of what happens
+#: without a command takes it out.
 COMMANDS = frozenset({
     "organization.update@1",
     "organization.public_locales.update@1",
     "profiles.organization.update@1",
     "booking.location.save@1",
+    "booking.staff.add@1",
+    "booking.preset.apply@1",
     "booking.offer.create@1",
     "booking.offer.update@1",
     "booking.staff.hours.set@1",
 })
+PERSON_FIELDS = ("name", "phone", "service_ids", "hours", "invitation")
 CARD_FIELDS = (
     "display_name",
     "headline",
@@ -82,7 +86,7 @@ def _preset(
     required_inputs: tuple[str, ...] = (),
     catalog_category: str | None = None,
 ) -> dict[str, Any]:
-    """An entry of `booking.preset.list@1`, in the shape agreed for it."""
+    """An entry of `booking.preset.list@1`, in its shape."""
     return {
         "id": preset_id,
         "version": 1,
@@ -97,6 +101,8 @@ def _preset(
         "place": place,
         "required_inputs": list(required_inputs),
         "catalog_category": catalog_category,
+        # Only a visit at the company's place is booked through the site.
+        "online_booking": readiness if (time_model, place) == ("slot", "business") else "soon",
     }
 
 
@@ -227,28 +233,3 @@ def catalog_from_contract() -> dict[str, Any]:
             for city in manifest["cities"]
         ],
     }
-
-
-def presets_from_contract() -> dict[str, Any]:
-    """The real preset catalogue in the shape of `booking.preset.list@1`, for
-    as long as that command is only announced (`commands/planned.json`)."""
-    root = CONTRACTS / "booking-presets"
-    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-    presets = []
-    for entry in manifest["presets"]:
-        preset = json.loads(
-            (root / entry["versions"][str(entry["latestVersion"])]).read_text(encoding="utf-8")
-        )
-        presets.append({
-            "id": preset["id"],
-            "version": preset["version"],
-            "readiness": preset["readiness"],
-            "labels": preset["labels"],
-            "time_model": preset["timeModel"],
-            "booked_subject": preset["booked"]["subject"],
-            "booked_staff": preset["booked"]["staff"],
-            "place": preset["place"],
-            "required_inputs": preset.get("requiredInputs", []),
-            "catalog_category": preset.get("catalogCategory"),
-        })
-    return {"presets": presets}

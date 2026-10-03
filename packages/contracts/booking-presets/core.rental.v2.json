@@ -1,0 +1,64 @@
+{
+  "id": "core.rental",
+  "version": 2,
+  "readiness": "ready",
+  "onlineBooking": "soon",
+  "labels": {
+    "pl": {
+      "name": "Wypożyczalnia",
+      "description": "Auta, przyczepy, rowery, kajaki, łodzie, sprzęt budowlany i eventowy, stroje: sztuka z puli na doby, odbiór i zwrot, kaucja. Jedna rezerwacja to jedna sztuka; wpisuje ją zespół w panelu, rezerwacja przez stronę — wkrótce."
+    },
+    "en": {
+      "name": "Rental",
+      "description": "Cars, trailers, bikes, kayaks, boats, equipment, costumes: an item from a pool by the day, pickup and return, a security deposit. One booking is one item; the team books in the panel, booking through the site is coming soon."
+    }
+  },
+  "timeModel": "range",
+  "range": {
+    "unit": "day",
+    "startTime": "09:00",
+    "endTime": "18:00"
+  },
+  "booked": {
+    "subject": "unit_group",
+    "staff": "none"
+  },
+  "quantity": "one",
+  "participants": {
+    "mode": "none"
+  },
+  "confirmation": "instant",
+  "place": "pickup_return",
+  "price": {
+    "basis": "per_time_unit"
+  },
+  "payment": {
+    "policy": "on_site",
+    "securityDeposit": true
+  },
+  "fields": [],
+  "extras": [],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "unit": "Sztuka",
+      "units": "Sztuki",
+      "booking": "Wypożyczenie",
+      "bookings": "Wypożyczenia",
+      "participant": "Klient",
+      "participants": "Klienci",
+      "timeUnit": "doba",
+      "timeUnits": "doby"
+    },
+    "en": {
+      "unit": "Item",
+      "units": "Items",
+      "booking": "Rental",
+      "bookings": "Rentals",
+      "participant": "Customer",
+      "participants": "Customers",
+      "timeUnit": "day",
+      "timeUnits": "days"
+    }
+  }
+}

@@ -1,5 +1,5 @@
-"""The assistant's commands for services, places and working hours (ADR-076 §1,
-A1b-12, A2).
+"""The assistant's commands for services, places, people and working hours
+(ADR-076 §1, A1b-12, A2).
 
 Thin adapters over the setup services the panel's Ustawienia › Usługi i grafik
 calls (ADR-072 §11): the same validation, the same preview — the write run in a
@@ -7,12 +7,15 @@ savepoint that is rolled back — the same receipt per key and the same version
 check. A service the assistant creates is always switched off: switching it on
 makes it bookable by the public, which is the person's own step. A place is
 added the way the panel adds one — switched on and shown in online booking —
-so adding one takes the click of a change to working configuration.
+so adding one takes the click of a change to working configuration. So does a
+person, who is in the team's calendar at once; an invitation to the panel is
+an e-mail to somebody else and an account, and takes a click of its own.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import time
 from typing import Any, cast
 from uuid import UUID
 
@@ -20,10 +23,11 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
 
-from .models import AvailabilityRule, Location, Service, StaffChoice
+from .models import AvailabilityRule, Location, Service, StaffChoice, TimeModel
 from .offer_settings import SLOT_STEPS
 from .presets import apply_preset, list_presets
 from .serializers import (
+    PersonCreateSerializer,
     PersonHoursInputSerializer,
     PlaceInputSerializer,
     PlaceUpdateSerializer,
@@ -33,7 +37,7 @@ from .serializers import (
 )
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
 from .setup import list_setup, save_location, save_service
-from .staff import person_detail, set_person_hours
+from .staff import add_person, person_detail, set_person_hours
 from .views import _place_payload, _preset_payload, _resource_payload, _service_setup_payload
 
 #: What the assistant may set on a service; `active`, `online` and `materials`
@@ -166,6 +170,9 @@ def _jsonable(value: Any) -> Any:
         return [_jsonable(item) for item in value]
     if isinstance(value, UUID):
         return str(value)
+    if isinstance(value, time):
+        # A stay's check-in and check-out, as the week's hours are written.
+        return value.isoformat("minutes")
     return value
 
 
@@ -643,6 +650,142 @@ STAFF_HOURS_SET = CommandSpec(
 )
 
 
+# booking.staff.add@1
+
+#: What the assistant may say of a new person. Linking an existing member's
+#: account, copying somebody's week and teams stay the panel's.
+_PERSON_FIELDS = ("name", "phone", "service_ids", "hours", "invitation")
+
+
+def _new_person(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    serializer = PersonCreateSerializer(data=_given(arguments, _PERSON_FIELDS))
+    serializer.is_valid(raise_exception=True)
+    return {field: serializer.validated_data.get(field) for field in _PERSON_FIELDS}
+
+
+def _preview_person(arguments: Mapping[str, Any], call: Any) -> Preview:
+    data = _new_person(arguments)
+    # The whole write in a savepoint that is rolled back: the invitation's
+    # e-mail is queued on commit, so none leaves here (ADR-072 §11).
+    add_person(**data, preview=True)
+    name, invitation = data["name"], data["invitation"]
+    pl, en = f"Nowa osoba w zespole: „{name}”", f"New person in the team: “{name}”"
+    if invitation:
+        # The person agrees to an e-mail to this address and to this role.
+        pl += f" — z zaproszeniem do panelu na adres {invitation['email']}"
+        pl += f" (rola: {invitation['role']})"
+        en += f" — with an invitation to the panel sent to {invitation['email']}"
+        en += f" (role: {invitation['role']})"
+    else:
+        pl, en = f"{pl} — bez konta w panelu", f"{en} — without a panel account"
+    # No id before the save, as with a new service.
+    return Preview(
+        effects=(_effect("created", "booking.staff", "", pl, en),),
+        observed_versions={},
+        # An e-mail to somebody else and an account for them: its own click.
+        escalate_to="publish" if invitation else None,
+    )
+
+
+def _add_person(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    data = _new_person(arguments)
+    person = add_person(**data, idempotency_key=call.idempotency_key).value
+    return {
+        "staff_id": str(person.id),
+        "name": person.display_name,
+        "takes_visits": bool(data["service_ids"]),
+        "invited": person.invitation_id is not None,
+    }
+
+
+STAFF_ADD = CommandSpec(
+    name="booking.staff.add",
+    version=1,
+    module="shared.booking",
+    title={"pl": "Dodaj osobę do zespołu", "en": "Add a person to the team"},
+    summary={
+        "pl": "Nowa osoba w kalendarzu firmy, z kontem w panelu albo bez.",
+        "en": "A new person in the company's calendar, with a panel account or without.",
+    },
+    model_description=(
+        "Adds a person to the company's team: someone who does services and has a working "
+        "week. Only the name is required; pass null for everything the person did not say. "
+        "service_ids are the services they do (ids from booking.setup.read). hours gives "
+        "the same hours on chosen weekdays at one place; for a week that differs by day, "
+        "pass null and use booking.staff.hours.set afterwards. invitation sends an e-mail "
+        "inviting them to the panel with a role — pass it only when the person asked for an "
+        "account for them and gave the address themselves; null adds the person without an "
+        "account, which is enough for them to be booked. Use booking.setup.read first: a "
+        "person who is already listed there must not be added again. It cannot remove or "
+        "rename a person; that is done in the panel."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": list(_PERSON_FIELDS),
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The person's name as the team sees it, up to 160 characters.",
+            },
+            "phone": _nullable("string", "Their phone number, up to 40 characters."),
+            "service_ids": {**_IDS, "description": "The services they do; null means none yet."},
+            "hours": {
+                "type": ["object", "null"],
+                "description": "The same working hours on the chosen weekdays; null means "
+                "no hours yet.",
+                "additionalProperties": False,
+                "required": ["weekdays", "local_start", "local_end", "location_id"],
+                "properties": {
+                    "weekdays": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "0 is Monday, 6 Sunday.",
+                    },
+                    "local_start": {"type": "string", "description": "Start, HH:MM."},
+                    "local_end": {"type": "string", "description": "End, HH:MM."},
+                    "location_id": _nullable(
+                        "string", "The place they work at; null takes the company's only place."
+                    ),
+                },
+            },
+            "invitation": {
+                "type": ["object", "null"],
+                "description": "An invitation to the panel by e-mail; null means no account.",
+                "additionalProperties": False,
+                "required": ["email", "role"],
+                "properties": {
+                    "email": {"type": "string", "description": "Where the invitation goes."},
+                    "role": {
+                        "type": "string",
+                        "description": "The key of the role they get, e.g. `staff`; the "
+                        "company's rules decide which roles this person may hand out.",
+                    },
+                },
+            },
+        },
+    },
+    output_schema={
+        "type": "object",
+        "x-data-class": "public",
+        "properties": {
+            "staff_id": {"type": "string"},
+            # A person by name, as the company's booking page names them.
+            "name": {"type": "string", "x-data-class": "public_personal"},
+            "takes_visits": {"type": "boolean"},
+            "invited": {"type": "boolean"},
+        },
+    },
+    permission=BOOKING_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    risk="apply",
+    run=_add_person,
+    undo="none:a person is not removed; their work is ended in the panel (Zespół)",
+    preview=_preview_person,
+    no_version_reason="A new person has no version yet.",
+)
+
+
 # booking.preset.list@1
 
 
@@ -663,10 +806,13 @@ PRESET_LIST = CommandSpec(
         "Returns the booking presets this company may start an offer from, in the order "
         "the company sees them, each in its latest version: id, readiness, names and "
         "descriptions in pl and en, the time model (slot, range or session), what a "
-        "booking takes, whether a person does it, where it happens, and the inputs the "
-        "preset needs from the company. Only a preset with readiness `ready` can be "
+        "booking takes, whether a person does it, where it happens, the inputs the "
+        "preset needs from the company, and whether customers can book it through the "
+        "company's site (online_booking). Only a preset with readiness `ready` can be "
         "applied; one marked `soon` is announced and cannot be used yet — say so instead "
-        "of substituting another. This list is the only source of preset ids."
+        "of substituting another. A ready preset with online_booking `soon` makes an offer "
+        "the company's team books in the panel; tell the person that booking through the "
+        "site is coming soon for it. This list is the only source of preset ids."
     ),
     input_schema={
         "type": "object",
@@ -702,8 +848,16 @@ def _from_preset(arguments: Mapping[str, Any]) -> dict[str, Any]:
 
 def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
     data = _from_preset(arguments)
-    apply_preset(**data, preview=True)
+    service = apply_preset(**data, preview=True).value.service
     name = data["name"]
+    # What the offer still needs from the person, said before they agree.
+    pl, en = "", ""
+    if service.time_model == TimeModel.RANGE:
+        pl += " Jednostki i ceny dodasz w panelu."
+        en += " You add its units and prices in the panel."
+    if not service.online:
+        pl += " Rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce."
+        en += " The team books it in the panel; booking through the site is coming soon."
     # No id before the save, as for booking.offer.create@1.
     return Preview(
         effects=(
@@ -711,8 +865,8 @@ def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
                 "created",
                 "booking.service",
                 "",
-                f"Nowa usługa „{name}” ze wzorca — wyłączona, dopóki jej nie włączysz",
-                f"New service “{name}” from a preset — switched off until you switch it on",
+                f"Nowa usługa „{name}” ze wzorca — wyłączona, dopóki jej nie włączysz.{pl}",
+                f"New service “{name}” from a preset — switched off until you switch it on.{en}",
             ),
         ),
         observed_versions={},
@@ -747,8 +901,9 @@ PRESET_APPLY = CommandSpec(
         "takes. Take the preset id from booking.preset.list; only a preset with readiness "
         "`ready` applies — `preset_not_ready` and `preset_unknown` come back on the field "
         "preset_id, and then say so instead of trying another preset. It creates the "
-        "service only, always switched off: no place, person, price or working hours are "
-        "made. Pass staff_ids and location_ids only for people and places that exist "
+        "service only, always switched off: no place, person, unit, price or working hours "
+        "are made — a stay's or a rental's units and every price the person adds in the "
+        "panel. Pass staff_ids and location_ids only for people and places that exist "
         "(ids from booking.setup.read); null leaves the service without them, none is "
         "picked for you. Pass null for version to take the latest. Tell the person to "
         "switch the service on in the panel when it is complete."
@@ -797,6 +952,7 @@ def register_booking_commands() -> None:
         OFFER_UPDATE,
         LOCATION_SAVE,
         STAFF_HOURS_SET,
+        STAFF_ADD,
         PRESET_LIST,
         PRESET_APPLY,
     ):

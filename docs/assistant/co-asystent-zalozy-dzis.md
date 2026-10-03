@@ -16,19 +16,18 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 
 | Firma | Ustawi od razu | Zapyta | Czeka | Produkt jeszcze nie umie |
 | --- | --- | --- | --- | --- |
-| Fryzjer — Salon Fryzjerski Ania | 2 | 4 | 4 | 1 |
-| Hydraulik — Hydraulik Kowalski | 1 | 1 | 1 | 2 |
-| Domki letniskowe — Domki nad Jeziorem | 2 | 1 | 0 | 2 |
-| Wypożyczalnia kajaków — Kajaki Krutynia | 2 | 2 | 0 | 1 |
+| Fryzjer — Salon Fryzjerski Ania | 4 | 4 | 2 | 1 |
+| Hydraulik — Hydraulik Kowalski | 2 | 4 | 0 | 1 |
+| Domki letniskowe — Domki nad Jeziorem | 2 | 2 | 0 | 1 |
+| Wypożyczalnia kajaków — Kajaki Krutynia | 2 | 2 | 1 | 1 |
 
 ## Czego dziś brakuje w produkcie
 
-- polecenie `booking.staff.add@1` — plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)
-- rodzaj rezerwacji „Nocleg” jest w przygotowaniu — silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
-- rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu — silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
-- rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu — odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji); wcześniejsza, okrojona wersja w fazie 3 — decyzja właściciela w toku (pytanie 68)
-- ceny usług: produkt ich nie przechowuje — plan rezerwacji, faza 3 (cennik i wycena)
-- miasto „Mikołajki” jest poza słownikiem miast katalogu firm
+- rodzaj rezerwacji „Nocleg”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
+- rodzaj rezerwacji „Wypożyczalnia”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
+- rodzaj rezerwacji „Usługa u klienta”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
+- jednostki pobytów i wynajmu (domki, kajaki): asystent ich nie zakłada — dodaje je właściciel w panelu, w Ustawieniach › Usługi i grafik
+- ceny usług: cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
 
 ## Fryzjer — Salon Fryzjerski Ania, Olsztyn
 
@@ -38,6 +37,8 @@ Właściciel powiedział: „fryzjer damski i męski”.
 
 - wizytówkę firmy: nazwa, telefon, adres, miasto
 - miejsce „Salon na Mazurskiej”
+- osoba „Ania” — bez konta w panelu
+- osoba „Ola” — bez konta w panelu
 
 **Zapyta**
 
@@ -48,14 +49,12 @@ Właściciel powiedział: „fryzjer damski i męski”.
 
 **Czeka**
 
-- osoba „Ania” — produkt nie ma polecenia `booking.staff.add@1`; odblokuje: plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)
-- osoba „Ola” — produkt nie ma polecenia `booking.staff.add@1`; odblokuje: plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)
 - usługa „Strzyżenie damskie” — w następnej rundzie, gdy będą: miejsce „Salon na Mazurskiej”, osoba „Ania”, osoba „Ola”
 - godziny pracy: Ania — w następnej rundzie, gdy będą: osoba „Ania”, miejsce „Salon na Mazurskiej”
 
 **Produkt jeszcze nie umie**
 
-- cena „Strzyżenie damskie” (90,00 PLN) — produkt nie przechowuje cen; odblokuje: plan rezerwacji, faza 3 (cennik i wycena)
+- cena „Strzyżenie damskie” (90,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
 
 ## Hydraulik — Hydraulik Kowalski, Mrągowo
 
@@ -64,19 +63,22 @@ Właściciel powiedział: „hydraulik: awarie, instalacje wodne i kanalizacyjne
 **Ustawi od razu**
 
 - wizytówkę firmy: nazwa, telefon, miasto
+- osoba „Jan Kowalski” — bez konta w panelu
 
 **Zapyta**
 
+- „Montaż instalacji”: czas trwania
+- skąd firma wyjeżdża do klientów (miejsce, w którym zespół ma godziny pracy)
+- w jakich godzinach pracuje Jan Kowalski
 - kategoria w katalogu firm — asystent podpowie „Usługi dla domu”
 
 **Czeka**
 
-- osoba „Jan Kowalski” — produkt nie ma polecenia `booking.staff.add@1`; odblokuje: plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)
+- nic
 
 **Produkt jeszcze nie umie**
 
-- „Usuwanie awarii” — rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji); wcześniejsza, okrojona wersja w fazie 3 — decyzja właściciela w toku (pytanie 68)
-- „Montaż instalacji” — rodzaj rezerwacji „Usługa u klienta” jest w przygotowaniu; odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji); wcześniejsza, okrojona wersja w fazie 3 — decyzja właściciela w toku (pytanie 68)
+- cena „Usuwanie awarii” (200,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
 
 ## Domki letniskowe — Domki nad Jeziorem, Mikołajki
 
@@ -85,10 +87,11 @@ Właściciel powiedział: „domki letniskowe nad jeziorem”.
 **Ustawi od razu**
 
 - języki firmy: pl, en
-- wizytówkę firmy: nazwa, opis, e-mail
+- wizytówkę firmy: nazwa, opis, e-mail, miasto
 
 **Zapyta**
 
+- gdzie firma przyjmuje
 - kategoria w katalogu firm — asystent podpowie „Turystyka i noclegi”
 
 **Czeka**
@@ -97,8 +100,7 @@ Właściciel powiedział: „domki letniskowe nad jeziorem”.
 
 **Produkt jeszcze nie umie**
 
-- miasto „Mikołajki” — nie ma go w słowniku miast katalogu firm, więc wizytówka nie trafi do katalogu; odblokuje: dopisanie miasta do słownika (ADR-053 §7, słownik rośnie z zasięgiem sprzedaży)
-- „Domek 6-osobowy” — rodzaj rezerwacji „Nocleg” jest w przygotowaniu; silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
+- cena „Domek 6-osobowy” (450,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
 
 ## Wypożyczalnia kajaków — Kajaki Krutynia, Mrągowo
 
@@ -116,15 +118,15 @@ Właściciel powiedział: „wypożyczalnia kajaków na Krutyni”.
 
 **Czeka**
 
-- nic
+- usługa „Kajak dwuosobowy” — w następnej rundzie, gdy będą: miejsce „Przystań”
 
 **Produkt jeszcze nie umie**
 
-- „Kajak dwuosobowy” — rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu; silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
+- cena „Kajak dwuosobowy” (60,00 PLN) — cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta (plan asystenta)
 
 ## Skąd te dane
 
 - konto: odczyty przez rejestr poleceń (`organization.read`, `organization.public_locales.read`, `profiles.organization.read`, `profiles.catalog_options.read`, `booking.setup.read`) dla firmy typu `business` bez wizytówki, miejsc, osób i usług;
-- rodzaje rezerwacji: kontrakt `packages/contracts/booking-presets/`, dopóki polecenie `booking.preset.list@1` jest tylko zapowiedziane;
+- rodzaje rezerwacji: polecenie `booking.preset.list@1`, czyli kontrakt `packages/contracts/booking-presets/` w najnowszych wersjach;
 - języki: oferuje je profil wdrożenia (testy liczą na profilu z polskim i angielskim, Business ma też niemiecki), więc przykład używa pary pl + en;
 - reguły konfiguratora mają osobne testy na zamrożonych katalogach — ten plik pokazuje stan produktu, nie reguły.

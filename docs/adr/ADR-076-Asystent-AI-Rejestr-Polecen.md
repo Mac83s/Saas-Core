@@ -546,7 +546,11 @@ Kontrakt wykonawczy: `docs/architecture/assistant-profile.md`.
    `booking.location.save@1` (`apply`: nowe miejsce jest od razu włączone i widoczne
    w rezerwacji online, jak w panelu; adres nie trafia do słów zgody).
    `booking.preset.list@1`, `booking.preset.apply@1` i `booking.staff.add@1` są
-   zapowiedziane w `commands/planned.json` (plan rezerwacji, faza 3).
+   zapowiedziane w `commands/planned.json` (plan rezerwacji, faza 3). — Od
+   03.10 wszystkie trzy są w rejestrze. `booking.staff.add@1` dodaje osobę bez
+   konta w klasie `apply`; z zaproszeniem do panelu podgląd podnosi klasę do
+   `publish` (pkt 2: osobne kliknięcie), bo to e-mail do osoby trzeciej i konto
+   z rolą, a słowa zgody podają adres i rolę.
 6. **Lista typów firm i szablonów usług przechodzi z A2 do A6.** Asystent nie zakłada
    organizacji i nie zmienia jej typu, a szablony usług zastępują presety (ADR-072
    §10); listę typów potrzebuje dopiero zakładanie firmy przez asystenta jako ścieżka

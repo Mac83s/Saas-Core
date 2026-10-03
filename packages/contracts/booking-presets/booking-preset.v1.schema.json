@@ -29,6 +29,10 @@
       "description": "ready: rdzeń tej wersji przyjmuje rezerwacje tego presetu; dopiero taki preset musi nieść słownictwo, pola, dopłaty i uczestników. soon: firma widzi preset z etykietą „wkrótce” i może zapisać się na listę zainteresowanych (odpowiedź 14 a+b); niesie z planu nazwę, opis, model czasu i wartości z tabeli presetów, a reszta to propozycje agenta (ADR-072 §10). Zmiana na ready to nowa wersja presetu, wydana z kodem, który go obsługuje.",
       "enum": ["ready", "soon"]
     },
+    "onlineBooking": {
+      "description": "Czy klient rezerwuje ten rodzaj sam, przez stronę firmy. ready: formularz publiczny przyjmuje takie rezerwacje. soon: firma ustawia ofertę i ceny, a rezerwacje wpisuje zespół w panelu — preset mówi to wprost w opisie („rezerwacja przez stronę — wkrótce”, decyzja właściciela 67a), a oferta powstaje jako niewidoczna w rezerwacji online. Brak pola w presecie ready: ready. Preset soon pola nie niesie.",
+      "enum": ["ready", "soon"]
+    },
     "labels": { "$ref": "#/$defs/presetLabels" },
     "timeModel": {
       "description": "slot: termin z siatki wolnych startów; range: okres od–do; session: miejsca w wystąpieniu wydarzenia.",
@@ -36,6 +40,7 @@
     },
     "range": { "$ref": "#/$defs/range" },
     "session": { "$ref": "#/$defs/session" },
+    "buffers": { "$ref": "#/$defs/buffers" },
     "booked": { "$ref": "#/$defs/booked" },
     "quantity": {
       "description": "one: jedna osoba albo jednostka; units: N sztuk z grupy; seats: N miejsc w wystąpieniu.",
@@ -104,9 +109,18 @@
       }
     },
     {
+      "if": { "properties": { "readiness": { "const": "soon" } } },
+      "then": { "properties": { "onlineBooking": false } }
+    },
+    {
       "if": { "properties": { "timeModel": { "const": "range" } } },
       "then": { "required": ["range"], "properties": { "range": {} } },
       "else": { "properties": { "range": false } }
+    },
+    {
+      "if": { "properties": { "timeModel": { "const": "slot" } } },
+      "then": { "properties": { "buffers": {} } },
+      "else": { "properties": { "buffers": false } }
     },
     {
       "if": { "properties": { "timeModel": { "const": "session" } } },
@@ -251,6 +265,16 @@
         "minLength": { "type": "integer", "minimum": 1, "maximum": 1000 },
         "maxLength": { "type": "integer", "minimum": 1, "maximum": 1000 },
         "multiple": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "buffers": {
+      "description": "Czas blokowany w kalendarzu przed terminem i po nim (dojazd, przygotowanie), w minutach; klient go nie widzi. Tylko dla terminów (slot). Wartość jest podpowiedzią: firma zmienia ją w ofercie.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "beforeMinutes": { "type": "integer", "minimum": 0, "maximum": 1440 },
+        "afterMinutes": { "type": "integer", "minimum": 0, "maximum": 1440 }
       }
     },
     "session": {

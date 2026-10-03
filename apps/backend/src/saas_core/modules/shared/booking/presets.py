@@ -10,12 +10,18 @@ Applying one is a copy, not a reference: `apply_preset` makes an inactive
 offer that remembers where it came from and is the company's own from then on.
 Only a `ready` preset applies, and a ready one uses nothing the engine cannot
 do (the contract's test keeps that), so the copy needs no checks of its own.
+
+Ready does not always mean bookable through the site (owner decision 67a): a
+preset whose `online_booking` is `soon` — a stay, a rental, a visit at the
+customer's — makes an offer the team books in the panel, hidden from the
+public form until a later version of the preset says otherwise.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, NoReturn
@@ -28,7 +34,7 @@ from rest_framework.exceptions import ErrorDetail, ValidationError
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .item_translations import source_locale
-from .models import Service
+from .models import PaymentPolicy, Service
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
 from .setup import Saved, ServiceSetup, _manage, _saved_service, _write_service, setup_write
 
@@ -51,6 +57,9 @@ class Preset:
     place: str
     required_inputs: tuple[str, ...]
     catalog_category: str | None
+    #: Whether a customer books it through the site: `ready`, or `soon` — the
+    #: team books in the panel (`soon` too for a preset that is not ready).
+    online_booking: str
     #: The whole file, for `apply_preset`.
     raw: dict[str, Any]
 
@@ -99,6 +108,7 @@ def _preset(raw: dict[str, Any]) -> Preset:
         place=raw["place"],
         required_inputs=tuple(raw.get("requiredInputs", ())),
         catalog_category=raw.get("catalogCategory"),
+        online_booking=raw.get("onlineBooking", raw["readiness"]),
         raw=raw,
     )
 
@@ -136,6 +146,10 @@ def _refuse(message: str, code: str) -> NoReturn:
     raise ValidationError({"preset_id": [ErrorDetail(message, code=code)]})
 
 
+def _local(value: str | None) -> time | None:
+    return time.fromisoformat(value) if value else None
+
+
 def apply_preset(
     *,
     preset_id: str,
@@ -151,18 +165,32 @@ def apply_preset(
     it came from (ADR-072 §10) — a setup write like `save_service` (§11).
 
     Only the offer is made. Nobody and no place are picked for the company:
-    without `staff_ids` and `location_ids` it has none yet. The preset's words
-    become the offer's own, in the company's first language; prices are never
-    in a preset. `setup.discard_draft` takes it back while it is a draft.
+    without `staff_ids` and `location_ids` it has none yet, and a stay's units
+    and every price are the company's own to add. The preset's words become
+    the offer's own, in the company's first language; with them come what the
+    preset says of time — a period's unit and its check-in and check-out, the
+    travel time kept before a visit — and of paying on the spot.
+    `setup.discard_draft` takes it back while it is a draft.
     """
     context, organization = _manage()
     preset = find_preset(preset_id, version)
     words = preset.raw.get("vocabulary", {})
+    period, buffers = preset.raw.get("range", {}), preset.raw.get("buffers", {})
+    policy = preset.raw.get("payment", {}).get("policy")
     values: dict[str, Any] = {
         "name": name,
         "time_model": preset.time_model,
+        "range_unit": period.get("unit", ""),
+        "range_start_local": _local(period.get("startTime")),
+        "range_end_local": _local(period.get("endTime")),
         "duration_minutes": duration_minutes,
+        "buffer_before_minutes": buffers.get("beforeMinutes", 0),
+        "buffer_after_minutes": buffers.get("afterMinutes", 0),
         "staff_count": 0 if preset.booked_staff == "none" else 1,
+        # What orders will bring (a transfer, a prepayment) is not an offer's yet.
+        "payment_policy": policy if policy in PaymentPolicy.values else PaymentPolicy.NONE,
+        # „Rezerwacja przez stronę — wkrótce”: the team books it in the panel.
+        "online": preset.online_booking == READY,
         "active": False,
         "preset_id": preset.id,
         "preset_version": preset.version,

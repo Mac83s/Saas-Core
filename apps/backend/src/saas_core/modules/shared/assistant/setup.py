@@ -151,7 +151,7 @@ _WHY_UNSUPPORTED = {
     "presets_unavailable": "The assistant cannot set services up yet. The person can add "
     "this service in the panel, under Ustawienia › Usługi i grafik; it stays in the notes "
     "about the company.",
-    "price_list": "A price cannot be saved in the panel yet. It stays in the notes about "
+    "price_list": "The assistant cannot save a price yet. It stays in the notes about "
     "the company.",
     "city_not_in_catalog": "This town is not on the company directory's list of towns, so "
     "the company's card cannot name it yet.",

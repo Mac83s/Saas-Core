@@ -446,7 +446,7 @@ def _offers(
             run.cannot(path, "preset_not_ready", preset_id)
             continue
         if "price" in offer:
-            # Nothing holds a price yet; the offer itself can still be set up.
+            # No command writes a price yet; the offer itself can still be set up.
             run.cannot(f"{path}.price", "price_list")
         slot = preset["time_model"] == "slot"
         for field in ("name", *(("duration_minutes",) if slot else ())):
@@ -456,8 +456,20 @@ def _offers(
         for key in preset["required_inputs"]:
             if key not in inputs:
                 run.ask(f"{path}.inputs.{key}", "preset_requires")
-        where = _linked(run, offer, "places", places, preset["place"] == "business")
-        who = _linked(run, offer, "people", people, preset["booked_staff"] == "required")
+        # A visit by the clock is booked in a person's hours, and hours are
+        # kept at a place — also when the work is done at the customer's:
+        # the place is then where the company sets out from.
+        where = _linked(
+            run,
+            offer,
+            "places",
+            places,
+            slot or preset["place"] == "business",
+            "offer_needs_base" if preset["place"] == "customer" else "offer_needs_place",
+        )
+        who = _linked(
+            run, offer, "people", people, preset["booked_staff"] == "required", "offer_needs_person"
+        )
         working |= set(who or ())
         name = _confirmed(offer.get("name"))
         duration = _confirmed(offer.get("duration_minutes"))
@@ -476,12 +488,12 @@ def _linked(
     field: str,
     ids: dict[str, str | None],
     needed: bool,
+    reason: str,
 ) -> list[str] | None:
     """The keys of the offer's places (or people) that can be planned with;
     None while that is still to be asked or confirmed."""
     listed = run.profile.get(field, [])
     path = f"offers.{offer['key']}.{field}"
-    reason = "offer_needs_place" if field == "places" else "offer_needs_person"
     if field in offer:
         keys = _confirmed(offer[field])
         if keys is None or any(key not in ids for key in keys):

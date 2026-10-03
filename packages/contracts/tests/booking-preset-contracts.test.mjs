@@ -70,13 +70,24 @@ const CATALOGUE = [
 // marked "ready" may use nothing else. The phase that teaches the engine more
 // widens this list in the same change as the preset versions it makes ready.
 const ENGINE = {
-  timeModel: ["slot"],
-  subject: ["staff"],
+  timeModel: ["slot", "range"],
+  // A period by the night or by the day; hours come later
+  // (`range_unit_not_ready`), so „Wynajem przestrzeni na godziny” stays "soon".
+  rangeUnit: ["night", "day"],
+  subject: ["staff", "unit", "unit_group"],
+  // One person's visit or one unit's stay per booking; N units at once and
+  // counted seats are not booked yet.
   quantity: ["one"],
-  participants: ["none"],
+  participants: ["none", "count", "categories"],
   confirmation: ["instant"],
-  place: ["business"],
+  place: ["business", "customer", "pickup_return"],
+  // Paying before the stay comes with orders (ADR-073, phase 4).
+  paymentPolicy: ["none", "on_site"],
 };
+// What the public booking form takes today: a visit by the clock at the
+// company's place. Every other ready preset says "soon" for booking through
+// the site (owner decision 67a): the team books it in the panel.
+const ONLINE = { timeModel: "slot", place: "business" };
 
 const PREPAID = ["transfer", "deposit", "full"];
 
@@ -290,11 +301,15 @@ test("payment and cancellation defaults are consistent", async () => {
   }
   // Owner decision 28a: in Nocleg the switch "Progi zwrotu obejmują też
   // dopłatę" is off, so the thresholds cover the deposit and the balance
-  // comes back in full.
-  const lodging = offered(presets).find(
-    ({ preset }) => preset.id === "core.lodging",
+  // comes back in full. The version that runs before orders exist carries no
+  // thresholds at all; whichever version does, keeps the switch off.
+  const lodging = presets.filter(
+    ({ preset }) =>
+      preset.id === "core.lodging" && preset.cancellation !== undefined,
   );
-  assert.equal(lodging.preset.cancellation.appliesTo, "deposit");
+  assert.ok(lodging.length > 0);
+  for (const item of lodging)
+    assert.equal(item.preset.cancellation.appliesTo, "deposit", where(item));
 });
 
 test("a ready preset uses only what this core's booking engine runs", async () => {
@@ -312,12 +327,78 @@ test("a ready preset uses only what this core's booking engine runs", async () =
     );
     assert.ok(ENGINE.confirmation.includes(preset.confirmation), where(item));
     assert.ok(ENGINE.place.includes(preset.place), where(item));
-    // Prices, payments, custom fields and extras arrive with phases 3-5.
-    for (const key of ["price", "payment", "cancellation"])
-      assert.equal(preset[key], undefined, `${where(item)}: ${key}`);
+    if (preset.timeModel === "range") {
+      assert.ok(ENGINE.rangeUnit.includes(preset.range.unit), where(item));
+      // A stay takes a unit and nobody's time (ADR-072 §2).
+      assert.equal(preset.booked.staff, "none", where(item));
+      assert.notEqual(preset.booked.subject, "staff", where(item));
+      // Season rules are the company's own dated rows, never a preset's.
+      assert.equal(preset.range.rules, undefined, where(item));
+    } else {
+      assert.equal(preset.booked.subject, "staff", where(item));
+    }
+    // The price list, extras and the security deposit are here (phase 3);
+    // prepayments and refund thresholds come with orders (phase 4), custom
+    // fields with the public form (phase 5), portal calendars with phase 6.
+    assert.ok(
+      ENGINE.paymentPolicy.includes(preset.payment?.policy ?? "none"),
+      `${where(item)}: payment policy`,
+    );
+    assert.equal(
+      preset.cancellation,
+      undefined,
+      `${where(item)}: cancellation`,
+    );
     assert.deepEqual(preset.fields, [], where(item));
-    assert.deepEqual(preset.extras, [], where(item));
+    assert.equal(preset.calendarSync, false, where(item));
+    // Nothing asks the company for inputs no command can save yet.
+    assert.equal(preset.requiredInputs, undefined, where(item));
+    if ((preset.onlineBooking ?? "ready") === "ready") {
+      assert.equal(preset.timeModel, ONLINE.timeModel, where(item));
+      assert.equal(preset.place, ONLINE.place, where(item));
+    } else {
+      // Said plainly where the company reads it, in both languages.
+      assert.match(
+        preset.labels.pl.description,
+        /rezerwacja przez stronę.* — wkrótce/,
+        where(item),
+      );
+      assert.match(
+        preset.labels.en.description,
+        /booking through the site/,
+        where(item),
+      );
+    }
   }
+});
+
+test("what the engine runs today is ready, the rest is announced", async () => {
+  const { presets } = await loadPresets();
+  const readiness = Object.fromEntries(
+    offered(presets).map(({ preset }) => [
+      preset.id,
+      `${preset.readiness} v${preset.version}`,
+    ]),
+  );
+
+  // Owner decisions 67a and 68a (03.10.2026): stays, rentals and care stays
+  // are ready once the price list is there, and the service at the
+  // customer's in a reduced version — without waiting for the public form.
+  assert.deepEqual(readiness, {
+    "core.specialist_visit": "ready v1",
+    "core.online_visit": "soon v1",
+    "core.service_at_customer": "ready v2",
+    "core.hourly_space": "soon v1",
+    "core.table_or_group": "soon v1",
+    "core.lodging": "ready v2",
+    "core.rental": "ready v2",
+    "core.care_stay": "ready v2",
+    "core.exclusive_date": "soon v1",
+    "core.group_class": "soon v1",
+    "core.ticketed_event": "soon v1",
+    "core.course": "soon v1",
+    "core.pickup_window": "soon v1",
+  });
 });
 
 test("suggested page templates and catalogue categories exist", async () => {
@@ -449,6 +530,40 @@ test("the schema refuses what a preset may not say", async () => {
     refused(visit, (preset) => {
       preset.availability = preset.readiness;
       delete preset.readiness;
+    }),
+  );
+  // Travel time is kept before a visit by the clock; a period has none.
+  assert.ok(
+    !refused(visit, (preset) => {
+      preset.buffers = { beforeMinutes: 30 };
+    }),
+    JSON.stringify(validate.errors),
+  );
+  assert.ok(
+    refused(lodging, (preset) => {
+      preset.buffers = { beforeMinutes: 30 };
+    }),
+  );
+  assert.ok(
+    refused(visit, (preset) => {
+      preset.buffers = {};
+    }),
+  );
+  // Booking through the site is said of a preset that runs, in two words.
+  assert.ok(
+    !refused(visit, (preset) => {
+      preset.onlineBooking = "soon";
+    }),
+    JSON.stringify(validate.errors),
+  );
+  assert.ok(
+    refused(lodging, (preset) => {
+      preset.onlineBooking = "soon";
+    }),
+  );
+  assert.ok(
+    refused(visit, (preset) => {
+      preset.onlineBooking = "panel";
     }),
   );
   // Required inputs are keys the assistant's configurator reads, not prose.

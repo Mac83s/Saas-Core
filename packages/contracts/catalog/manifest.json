@@ -129,6 +129,125 @@
       "lng": 20.1822
     },
     {
+      "slug": "mikolajki",
+      "name": "Mikołajki",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.8021,
+      "lng": 21.5712
+    },
+    {
+      "slug": "ruciane-nida",
+      "name": "Ruciane-Nida",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.6417,
+      "lng": 21.5394
+    },
+    {
+      "slug": "ryn",
+      "name": "Ryn",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.9369,
+      "lng": 21.5458
+    },
+    {
+      "slug": "orzysz",
+      "name": "Orzysz",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.8083,
+      "lng": 21.9472
+    },
+    {
+      "slug": "biala-piska",
+      "name": "Biała Piska",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.6111,
+      "lng": 22.0633
+    },
+    {
+      "slug": "olsztynek",
+      "name": "Olsztynek",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.5839,
+      "lng": 20.285
+    },
+    {
+      "slug": "morag",
+      "name": "Morąg",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.9153,
+      "lng": 19.9264
+    },
+    {
+      "slug": "lubawa",
+      "name": "Lubawa",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.5028,
+      "lng": 19.7486
+    },
+    {
+      "slug": "nowe-miasto-lubawskie",
+      "name": "Nowe Miasto Lubawskie",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.4208,
+      "lng": 19.5936
+    },
+    {
+      "slug": "biskupiec",
+      "name": "Biskupiec",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.8647,
+      "lng": 20.9569
+    },
+    {
+      "slug": "reszel",
+      "name": "Reszel",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.0503,
+      "lng": 21.1456
+    },
+    {
+      "slug": "dobre-miasto",
+      "name": "Dobre Miasto",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.9869,
+      "lng": 20.3975
+    },
+    {
+      "slug": "frombork",
+      "name": "Frombork",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.3572,
+      "lng": 19.6806
+    },
+    {
+      "slug": "tolkmicko",
+      "name": "Tolkmicko",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.3203,
+      "lng": 19.5269
+    },
+    {
+      "slug": "pasym",
+      "name": "Pasym",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.6519,
+      "lng": 20.7917
+    },
+    {
+      "slug": "barczewo",
+      "name": "Barczewo",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.8306,
+      "lng": 20.6914
+    },
+    {
+      "slug": "lidzbark",
+      "name": "Lidzbark",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.2625,
+      "lng": 19.8256
+    },
+    {
       "slug": "warszawa",
       "name": "Warszawa",
       "voivodeship": "mazowieckie",

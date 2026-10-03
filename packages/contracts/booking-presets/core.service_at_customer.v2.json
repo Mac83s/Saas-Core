@@ -1,0 +1,63 @@
+{
+  "id": "core.service_at_customer",
+  "version": 2,
+  "readiness": "ready",
+  "onlineBooking": "soon",
+  "labels": {
+    "pl": {
+      "name": "Usługa u klienta",
+      "description": "Hydraulik, elektryk, sprzątanie, ogrodnik, korekcja racic: wizyta pod adresem klienta, z czasem na dojazd przed wizytą. Wizyty wpisuje zespół w panelu; rezerwacja przez stronę, okno przyjazdu i obszar dojazdu — wkrótce."
+    },
+    "en": {
+      "name": "Service at the customer's place",
+      "description": "Plumber, electrician, cleaning, gardener, hoof trimming: a visit at the customer's address, with travel time kept before it. The team books in the panel; booking through the site, an arrival window and a service area come later."
+    }
+  },
+  "timeModel": "slot",
+  "buffers": {
+    "beforeMinutes": 30
+  },
+  "booked": {
+    "subject": "staff",
+    "staff": "required"
+  },
+  "quantity": "one",
+  "participants": {
+    "mode": "none"
+  },
+  "confirmation": "instant",
+  "place": "customer",
+  "price": {
+    "basis": "per_booking"
+  },
+  "payment": {
+    "policy": "on_site"
+  },
+  "fields": [],
+  "extras": [
+    {
+      "key": "travel",
+      "basis": "per_booking",
+      "mandatory": false,
+      "labels": {
+        "pl": "Dojazd",
+        "en": "Travel"
+      }
+    }
+  ],
+  "calendarSync": false,
+  "vocabulary": {
+    "pl": {
+      "booking": "Zlecenie",
+      "bookings": "Zlecenia",
+      "participant": "Klient",
+      "participants": "Klienci"
+    },
+    "en": {
+      "booking": "Job",
+      "bookings": "Jobs",
+      "participant": "Customer",
+      "participants": "Customers"
+    }
+  }
+}

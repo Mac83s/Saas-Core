@@ -190,7 +190,14 @@ Presets are data, read by `presets.py` from the image's copy of
 check `booking.E010`); `GET /booking/presets/` is the only list a caller
 chooses from. `presets.apply_preset` is a setup write that copies a `ready`
 preset into a switched-off offer with its origin (`preset_id`,
-`preset_version`, `origin_ref`) and picks nobody and no place for the company.
+`preset_version`, `origin_ref`) and picks nobody and no place for the company;
+a stay's units and every price stay the company's own to add. Ready means the
+engine runs it, not that customers book it themselves: a preset whose
+`online_booking` is `soon` (a stay, a rental, a visit at the customer's — owner
+decision 67a) makes an offer hidden from the public form, which the team books
+in the panel, and says so in its description. A ready version uses only what
+the engine does today — the contract test's `ENGINE` list — so a phase that
+teaches the engine more publishes new preset versions in the same change.
 A service made switched off is a `draft` until somebody switches it on, and
 **only a draft without bookings is ever deleted** (`setup.discard_draft`, the
 undo of commands that make drafts). Every other service is switched off, never

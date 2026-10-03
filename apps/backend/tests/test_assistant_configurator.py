@@ -22,12 +22,13 @@ from assistant_setup import (
     COMMANDS,
     CONTRACTS,
     EXAMPLES,
+    PERSON_FIELDS,
+    PRESET_LIST,
     PRESET_OPTIONS,
     SERVICE_FIELDS,
     catalog_from_contract,
     example,
     new_company,
-    presets_from_contract,
 )
 from assistant_setup.report import render
 from saas_core.modules.core.organizations import command_executor
@@ -87,6 +88,34 @@ def card(**given: Any) -> dict[str, Any]:
     return step("card", "profiles.organization.update@1", {**dict.fromkeys(CARD_FIELDS), **given})
 
 
+def person(key: str, name: str) -> dict[str, Any]:
+    return step(
+        f"person:{key}", "booking.staff.add@1", {**dict.fromkeys(PERSON_FIELDS), "name": name}
+    )
+
+
+def from_preset(key: str, preset_id: str, name: str, **given: Any) -> dict[str, Any]:
+    arguments = {
+        "preset_id": preset_id,
+        "version": None,
+        "name": name,
+        "duration_minutes": None,
+        "staff_ids": None,
+        "location_ids": None,
+    }
+    return step(f"offer:{key}", "booking.preset.apply@1", {**arguments, **given})
+
+
+def with_ready(*preset_ids: str) -> dict[str, Any]:
+    """The frozen list of kinds with some of the announced ones made ready."""
+    return {
+        "presets": [
+            {**preset, "readiness": "ready"} if preset["id"] in preset_ids else preset
+            for preset in PRESET_LIST["presets"]
+        ]
+    }
+
+
 @pytest.mark.parametrize("name", EXAMPLES)
 def test_the_examples_are_profiles(name: str) -> None:
     validate_profile(example(name))
@@ -129,19 +158,31 @@ def test_the_hairdresser_gets_a_place_now_and_the_rest_in_rounds() -> None:
                     "address": "ul. Mazurska 4, Olsztyn",
                 },
             ),
+            person("ania", "Ania"),
+            person("ola", "Ola"),
         ],
         "blocked": [
-            no_command("person:ania", "booking.staff.add@1"),
-            no_command("person:ola", "booking.staff.add@1"),
             # A plan's arguments are fixed before it runs: the service needs
             # the ids of the place and the people, so it is the next round's.
             waits(
-                "offer:cut", "booking.offer.create@1", "place:salon", "person:ania", "person:ola"
+                "offer:cut", "booking.preset.apply@1", "place:salon", "person:ania", "person:ola"
             ),
             waits("hours:ania", "booking.staff.hours.set@1", "person:ania", "place:salon"),
         ],
         "unsupported": [cannot("offers.cut.price", "price_list")],
     }
+
+
+def test_a_step_without_its_command_is_reported_never_planned() -> None:
+    commands = COMMANDS - {"booking.staff.add@1"}
+
+    answer = configure(example("hairdresser"), new_company("Salon Ania"), commands)
+
+    assert [entry["ref"] for entry in answer["plan"]] == ["organization", "card", "place:salon"]
+    assert answer["blocked"][:2] == [
+        no_command("person:ania", "booking.staff.add@1"),
+        no_command("person:ola", "booking.staff.add@1"),
+    ]
 
 
 def test_the_plumber_waits_for_visits_at_the_customers() -> None:
@@ -157,13 +198,61 @@ def test_the_plumber_waits_for_visits_at_the_customers() -> None:
                 contact_phone="+48 601 200 300",
                 city_slug="mragowo",
             ),
+            person("jan", "Jan Kowalski"),
         ],
-        "blocked": [no_command("person:jan", "booking.staff.add@1")],
+        "blocked": [],
         "unsupported": [
             cannot("offers.repair", "preset_not_ready", "core.service_at_customer"),
             cannot("offers.install", "preset_not_ready", "core.service_at_customer"),
         ],
     }
+
+
+def test_work_at_the_customers_still_needs_a_place_to_set_out_from() -> None:
+    """A visit by the clock is booked in a person's hours, and hours are kept
+    at a place — the plumber is asked for his base, not where he receives."""
+    reads = new_company("Hydraulik Kowalski")
+    reads[PRESETS] = with_ready("core.service_at_customer")
+
+    answer = configure(example("plumber"), reads, COMMANDS)
+
+    assert [entry["key"] for entry in answer["missing"]] == [
+        "offers.install.duration_minutes",
+        "places",
+        "people.jan.hours",
+        "company.category",
+    ]
+    assert ask("places", "offer_needs_base") in answer["missing"]
+    assert [entry["ref"] for entry in answer["plan"]] == ["card", "person:jan"]
+    # Nothing of the offers runs before the base is there.
+    assert answer["blocked"] == []
+    assert answer["unsupported"] == [cannot("offers.repair.price", "price_list")]
+
+    # The base named and added, the person added: the offer starts from its preset.
+    profile = example("plumber")
+    profile["places"] = [
+        {"key": "base", "name": {"value": "Baza Mrągowo", "origin": "owner", "confirmed": True}}
+    ]
+    reads[SETUP] = {
+        "services": [],
+        "locations": [
+            {"id": "L1", "name": "Baza Mrągowo", "address": "", "active": True, "online": True}
+        ],
+        "resources": [],
+        "staff": [{"id": "S1", "name": "Jan Kowalski", "hours_version": 1, "hours": []}],
+    }
+    answer = configure(profile, reads, COMMANDS)
+    assert (
+        from_preset(
+            "repair",
+            "core.service_at_customer",
+            "Usuwanie awarii",
+            duration_minutes=60,
+            staff_ids=["S1"],
+            location_ids=["L1"],
+        )
+        in answer["plan"]
+    )
 
 
 def test_the_cottages_get_a_card_and_a_language_and_wait_for_stays() -> None:
@@ -223,6 +312,37 @@ def test_the_kayak_rental_gets_its_base_and_is_asked_what_transport_is() -> None
     }
 
 
+def test_a_stay_or_a_rental_starts_from_its_preset_without_a_duration() -> None:
+    reads = new_company("Kajaki Krutynia")
+    reads[PRESETS] = with_ready("core.rental")
+
+    answer = configure(example("kayak-rental"), reads, COMMANDS)
+
+    # The offer waits for the only place there is, and takes nobody's time.
+    assert answer["blocked"] == [waits("offer:kayak", "booking.preset.apply@1", "place:base")]
+    assert answer["unsupported"] == [cannot("offers.kayak.price", "price_list")]
+
+    reads[SETUP] = {
+        "services": [],
+        "locations": [
+            {
+                "id": "L1",
+                "name": "Przystań",
+                "address": "ul. Nadbrzeżna 2, Mrągowo",
+                "active": True,
+                "online": True,
+            }
+        ],
+        "resources": [],
+        "staff": [],
+    }
+    answer = configure(example("kayak-rental"), reads, COMMANDS)
+    assert (
+        from_preset("kayak", "core.rental", "Kajak dwuosobowy", location_ids=["L1"])
+        in answer["plan"]
+    )
+
+
 # --- Round after round -------------------------------------------------------------
 
 WEEK = [
@@ -260,33 +380,29 @@ def test_run_again_after_a_round_it_answers_the_next_one() -> None:
 
     assert answer["blocked"] == []
     assert answer["plan"][-2:] == [
-        step(
-            "offer:cut",
-            "booking.offer.create@1",
-            {
-                **dict.fromkeys(SERVICE_FIELDS),
-                "name": "Strzyżenie damskie",
-                "duration_minutes": 45,
-                "staff_ids": ["S1", "S2"],
-                "location_ids": ["L1"],
-            },
+        from_preset(
+            "cut",
+            "core.specialist_visit",
+            "Strzyżenie damskie",
+            duration_minutes=45,
+            staff_ids=["S1", "S2"],
+            location_ids=["L1"],
         ),
         step("hours:ania", "booking.staff.hours.set@1", {"staff_id": "S1", "rules": WEEK}),
     ]
 
 
-def test_an_offer_goes_through_its_preset_once_the_product_has_the_command() -> None:
-    commands = COMMANDS | {"booking.preset.apply@1"}
+def test_without_the_preset_command_a_visit_by_the_clock_is_a_plain_service() -> None:
+    commands = COMMANDS - {"booking.preset.apply@1"}
 
     answer = configure(example("hairdresser"), _after_the_first_round(), commands)
 
     assert (
         step(
             "offer:cut",
-            "booking.preset.apply@1",
+            "booking.offer.create@1",
             {
-                "preset_id": "core.specialist_visit",
-                "version": None,
+                **dict.fromkeys(SERVICE_FIELDS),
                 "name": "Strzyżenie damskie",
                 "duration_minutes": 45,
                 "staff_ids": ["S1", "S2"],
@@ -390,7 +506,12 @@ def test_without_the_list_of_kinds_places_are_set_up_and_offers_wait() -> None:
 
     answer = configure(example("hairdresser"), reads, COMMANDS)
 
-    assert [entry["ref"] for entry in answer["plan"]] == ["card", "place:salon"]
+    assert [entry["ref"] for entry in answer["plan"]] == [
+        "card",
+        "place:salon",
+        "person:ania",
+        "person:ola",
+    ]
     assert answer["unsupported"] == [
         cannot("offers.cut", "presets_unavailable"),
         cannot("offers.colour", "presets_unavailable"),
@@ -509,19 +630,26 @@ def test_the_contract_file_is_the_schema() -> None:
 REPORT_FILE = CONTRACTS.parent.parent / "docs" / "assistant" / "co-asystent-zalozy-dzis.md"
 #: What stands between the four examples and a finished setup, today. Every
 #: line is somebody's work in progress: when it lands, this is where it shows.
-TODAY = {
-    "commands_missing": ["booking.staff.add@1"],
-    "presets_not_ready": ["core.lodging", "core.rental", "core.service_at_customer"],
-    "no_price_list": ["hairdresser:offers.cut.price"],
-    "cities_not_in_catalog": ["Mikołajki"],
+TODAY: dict[str, list[str]] = {
+    # Every command the configurator plans with is registered.
+    "commands_missing": [],
+    # Stays, rentals and the visit at the customer's are ready (owner
+    # decisions 67a and 68a); none of the four examples needs an announced kind.
+    "presets_not_ready": [],
+    # The price list is in the product; no command of the assistant writes to it.
+    "no_price_list": [
+        "cottages:offers.cottage.price",
+        "hairdresser:offers.cut.price",
+        "kayak-rental:offers.kayak.price",
+        "plumber:offers.repair.price",
+    ],
+    "cities_not_in_catalog": [],
 }
 MOVED = (
     "The product moved, and this is the one test bound to the real contract. In one commit: "
-    "(1) bring TODAY above in line with what is true now; (2) for a command that left "
-    "`commands_missing`, drop its stand-in — booking.preset.list@1 is then read through the "
-    "registry instead of `presets_from_contract`, booking.staff.add@1 and "
-    "booking.preset.apply@1 join `assistant_setup.COMMANDS` and the golden answers; "
-    "(3) write the report again: ASSISTANT_CONTRACT_WRITE=1 uv run pytest "
+    "(1) bring TODAY above in line with what is true now; (2) a command the configurator "
+    "plans with joins `assistant_setup.COMMANDS` and the golden answers once it is "
+    "registered; (3) write the report again: ASSISTANT_CONTRACT_WRITE=1 uv run pytest "
     "tests/test_assistant_configurator.py."
 )
 
@@ -557,8 +685,6 @@ def test_what_the_product_can_do_today(monkeypatch: pytest.MonkeyPatch) -> None:
         results = execute_plan([invocation(key, {}) for key in keys])
     assert [result.status for result in results] == ["done"] * len(keys), results
     reads = {key: result.output for key, result in zip(keys, results, strict=True)}
-    if PRESETS not in registered:
-        reads[PRESETS] = presets_from_contract()
 
     answers: dict[str, Any] = {}
     for name in EXAMPLES:

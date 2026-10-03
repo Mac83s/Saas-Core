@@ -487,7 +487,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, price or working hours are made. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
+      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, unit, price or working hours are made — a stay's or a rental's units and every price the person adds in the panel. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": null,
@@ -546,7 +546,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the booking presets this company may start an offer from, in the order the company sees them, each in its latest version: id, readiness, names and descriptions in pl and en, the time model (slot, range or session), what a booking takes, whether a person does it, where it happens, and the inputs the preset needs from the company. Only a preset with readiness `ready` can be applied; one marked `soon` is announced and cannot be used yet — say so instead of substituting another. This list is the only source of preset ids.",
+      "model_description": "Returns the booking presets this company may start an offer from, in the order the company sees them, each in its latest version: id, readiness, names and descriptions in pl and en, the time model (slot, range or session), what a booking takes, whether a person does it, where it happens, the inputs the preset needs from the company, and whether customers can book it through the company's site (online_booking). Only a preset with readiness `ready` can be applied; one marked `soon` is announced and cannot be used yet — say so instead of substituting another. A ready preset with online_booking `soon` makes an offer the company's team books in the panel; tell the person that booking through the site is coming soon for it. This list is the only source of preset ids.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -1584,6 +1584,148 @@
       },
       "tool_name": "booking_setup_read_v1",
       "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.staff.add@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "hours": {
+            "additionalProperties": false,
+            "description": "The same working hours on the chosen weekdays; null means no hours yet.",
+            "properties": {
+              "local_end": {
+                "description": "End, HH:MM.",
+                "type": "string"
+              },
+              "local_start": {
+                "description": "Start, HH:MM.",
+                "type": "string"
+              },
+              "location_id": {
+                "description": "The place they work at; null takes the company's only place.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "weekdays": {
+                "description": "0 is Monday, 6 Sunday.",
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "weekdays",
+              "local_start",
+              "local_end",
+              "location_id"
+            ],
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "invitation": {
+            "additionalProperties": false,
+            "description": "An invitation to the panel by e-mail; null means no account.",
+            "properties": {
+              "email": {
+                "description": "Where the invitation goes.",
+                "type": "string"
+              },
+              "role": {
+                "description": "The key of the role they get, e.g. `staff`; the company's rules decide which roles this person may hand out.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "email",
+              "role"
+            ],
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The person's name as the team sees it, up to 160 characters.",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Their phone number, up to 40 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_ids": {
+            "description": "The services they do; null means none yet.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "phone",
+          "service_ids",
+          "hours",
+          "invitation"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds a person to the company's team: someone who does services and has a working week. Only the name is required; pass null for everything the person did not say. service_ids are the services they do (ids from booking.setup.read). hours gives the same hours on chosen weekdays at one place; for a week that differs by day, pass null and use booking.staff.hours.set afterwards. invitation sends an e-mail inviting them to the panel with a role — pass it only when the person asked for an account for them and gave the address themselves; null adds the person without an account, which is enough for them to be booked. Use booking.setup.read first: a person who is already listed there must not be added again. It cannot remove or rename a person; that is done in the panel.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": "A new person has no version yet.",
+      "output_schema": {
+        "properties": {
+          "invited": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "x-data-class": "public_personal"
+          },
+          "staff_id": {
+            "type": "string"
+          },
+          "takes_visits": {
+            "type": "boolean"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "A new person in the company's calendar, with a panel account or without.",
+        "pl": "Nowa osoba w kalendarzu firmy, z kontem w panelu albo bez."
+      },
+      "title": {
+        "en": "Add a person to the team",
+        "pl": "Dodaj osobę do zespołu"
+      },
+      "tool_name": "booking_staff_add_v1",
+      "undo": "none:a person is not removed; their work is ended in the panel (Zespół)",
       "version_field": null
     },
     {

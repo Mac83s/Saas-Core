@@ -90,6 +90,11 @@ def _state(context: TenantContext) -> dict[str, Any]:
                 "hours_version", flat=True
             )
         ),
+        "people": sorted(
+            StaffMember.all_objects.filter(organization_id=organization_id).values_list(
+                "display_name", flat=True
+            )
+        ),
     }
 
 
@@ -119,6 +124,11 @@ def _preset_fields(**given: Any) -> dict[str, Any]:
         "location_ids",
     ))
     return {"preset_id": "core.specialist_visit", **fields, **given}
+
+
+def _person_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys(("phone", "service_ids", "hours", "invitation"))
+    return {**fields, **given}
 
 
 def _week(context: TenantContext, start: str, end: str) -> dict[str, Any]:
@@ -211,6 +221,24 @@ EVALS = {
         prepare=_company,
         preview_rolls_back=ROLLED_BACK,
     ),
+    "booking.staff.add@1": CommandEval(
+        arguments=lambda context: _person_fields(
+            name="Marta",
+            hours={
+                "weekdays": [1, 2],
+                "local_start": "09:00",
+                "local_end": "15:00",
+                "location_id": str(_first(Location, context).id),
+            },
+        ),
+        # Refused by the panel's own serializer: a person has a name.
+        wrong_arguments=_person_fields(name=""),
+        wrong_field="name",
+        stale="nie dotyczy: nowa osoba nie ma jeszcze wersji",
+        state=_state,
+        prepare=_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
     "booking.preset.list@1": CommandEval(
         arguments=lambda _context: {},
         wrong_arguments={"presets": True},
@@ -226,7 +254,7 @@ EVALS = {
             location_ids=[str(_first(Location, context).id)],
         ),
         # Refused by the service, not the schema: the preset is announced, not ready.
-        wrong_arguments=_preset_fields(preset_id="core.lodging", name="Domek"),
+        wrong_arguments=_preset_fields(preset_id="core.hourly_space", name="Kort"),
         wrong_field="preset_id",
         stale="nie dotyczy: nowa usługa nie ma jeszcze wersji",
         state=_state,

@@ -4962,6 +4962,8 @@
     "ask_preset_requires": "The service {name} still needs the field “{field}”.",
     "ask_offer_needs_place": "Where does the service {name} take place?",
     "ask_offer_needs_place_any": "Where does the company receive its customers?",
+    "ask_offer_needs_base": "Where do you set out from to customers for the service {name}?",
+    "ask_offer_needs_base_any": "Where does the company set out from to its customers?",
     "ask_offer_needs_person": "Who does the service {name}?",
     "ask_offer_needs_person_any": "Who does the services?",
     "ask_person_needs_hours": "Which hours does {person} work?",

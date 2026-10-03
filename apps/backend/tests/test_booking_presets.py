@@ -76,10 +76,24 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
         "business",
     )
     assert visit.labels["pl"]["name"] == "Wizyta u specjalisty"
+    # A visit at the company's place is booked through the site; a stay is ready
+    # for the panel, and says that the site comes later (owner decision 67a).
+    assert visit.online_booking == "ready"
     lodging = next(item for item in listed if item.id == "core.lodging")
-    assert lodging.readiness == "soon"
-    assert lodging.required_inputs == ("season_dates", "min_length", "photos")
+    assert (lodging.version, lodging.readiness, lodging.online_booking) == (2, "ready", "soon")
+    assert "rezerwacja przez stronę — wkrótce" in lodging.labels["pl"]["description"]
+    assert lodging.required_inputs == ()
     assert lodging.catalog_category == "turystyka-i-noclegi"
+    assert {item.id: item.version for item in listed if item.readiness == "ready"} == {
+        "core.specialist_visit": 1,
+        "core.service_at_customer": 2,
+        "core.lodging": 2,
+        "core.rental": 2,
+        "core.care_stay": 2,
+    }
+    # Hours are not booked yet: the preset is announced, and so not online either.
+    hourly = next(item for item in listed if item.id == "core.hourly_space")
+    assert (hourly.readiness, hourly.online_booking) == ("soon", "soon")
 
 
 def test_the_list_is_for_whoever_sets_services_up() -> None:
@@ -113,6 +127,7 @@ def test_the_list_is_for_whoever_sets_services_up() -> None:
         "place": "business",
         "required_inputs": [],
         "catalog_category": None,
+        "online_booking": "ready",
     }
 
     worker = authenticated_client(member_of(owner, "wzorce-pracownik@example.test", "staff"))
@@ -132,7 +147,10 @@ def test_a_named_preset_is_found_or_refused_with_a_code_on_its_field() -> None:
     assert find_preset("core.specialist_visit", 1).id == "core.specialist_visit"
     assert _refused("core.nie_ma", None) == (["preset_id"], ["preset_unknown"])
     assert _refused("core.specialist_visit", 7) == (["preset_id"], ["preset_unknown"])
-    assert _refused("core.lodging", None) == (["preset_id"], ["preset_not_ready"])
+    assert _refused("core.hourly_space", None) == (["preset_id"], ["preset_not_ready"])
+    # A version that was only announced stays so, whatever came after it.
+    assert find_preset("core.lodging", None).version == 2
+    assert _refused("core.lodging", 1) == (["preset_id"], ["preset_not_ready"])
 
 
 def test_a_deploy_fails_when_the_presets_did_not_reach_the_image(tmp_path: Path) -> None:
@@ -192,11 +210,59 @@ def test_the_words_come_in_the_companys_first_language() -> None:
     assert saved.value.service.vocabulary["booking"] == "Appointment"
 
 
+@pytest.mark.parametrize(
+    ("preset_id", "unit", "start", "end", "policy"),
+    [
+        ("core.lodging", "night", time(16), time(11), "on_site"),
+        ("core.rental", "day", time(9), time(18), "on_site"),
+        ("core.care_stay", "day", time(9), time(18), "on_site"),
+    ],
+)
+def test_a_stay_preset_makes_an_offer_the_team_books_in_the_panel(
+    preset_id: str, unit: str, start: time, end: time, policy: str
+) -> None:
+    owner = membership(f"wzorce-{unit}-{preset_id.rpartition('.')[2].replace('_', '-')}")
+    with tenant(owner):
+        saved = apply_preset(preset_id=preset_id, name="Oferta", idempotency_key="okres-1")
+    service = saved.value.service
+    assert (service.time_model, service.range_unit) == ("range", unit)
+    assert (service.range_start_local, service.range_end_local) == (start, end)
+    # A stay takes a unit and nobody's time; the company adds its units itself.
+    assert (service.duration_minutes, service.staff_count) == (None, 0)
+    assert (saved.value.resource_ids, saved.value.group_ids) == ([], [])
+    # „Rezerwacja przez stronę — wkrótce”: hidden from the public form.
+    assert (service.active, service.draft, service.online) == (False, True, False)
+    assert (service.payment_policy, service.preset_version) == (policy, 2)
+    assert service.vocabulary["timeUnit"] in ("noc", "doba")
+    # Prices and units are never a preset's.
+    assert not PriceRule.all_objects.filter(organization=owner.organization).exists()
+    assert not Extra.all_objects.filter(organization=owner.organization).exists()
+
+
+def test_a_visit_at_the_customers_keeps_travel_time_before_it() -> None:
+    owner = membership("wzorce-u-klienta")
+    with tenant(owner):
+        saved = apply_preset(
+            preset_id="core.service_at_customer",
+            name="Usuwanie awarii",
+            duration_minutes=60,
+            idempotency_key="u-klienta-1",
+        )
+        visit = apply_preset(**VISIT, idempotency_key="u-klienta-2").value.service
+    service = saved.value.service
+    assert (service.time_model, service.duration_minutes, service.staff_count) == ("slot", 60, 1)
+    # Travel is a buffer the company changes in the offer (owner decision 68a).
+    assert (service.buffer_before_minutes, service.buffer_after_minutes) == (30, 0)
+    assert (service.online, service.payment_policy) == (False, "on_site")
+    # A visit at the company's place is as before: no buffers, in online booking.
+    assert (visit.buffer_before_minutes, visit.online, visit.payment_policy) == (0, True, "none")
+
+
 def test_what_a_preset_cannot_start_is_refused_on_its_field() -> None:
     owner = membership("wzorce-odmowa")
     with tenant(owner):
         for data, field, code in (
-            ({**VISIT, "preset_id": "core.lodging"}, "preset_id", "preset_not_ready"),
+            ({**VISIT, "preset_id": "core.hourly_space"}, "preset_id", "preset_not_ready"),
             ({**VISIT, "preset_id": "core.nie_ma"}, "preset_id", "preset_unknown"),
             ({**VISIT, "duration_minutes": None}, "duration_minutes", "required"),
         ):

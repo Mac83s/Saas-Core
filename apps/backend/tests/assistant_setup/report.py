@@ -19,26 +19,17 @@ TITLES = {
 }
 #: What makes a kind of booking ready, from the bookings plan (memex
 #: `saas-core-rezerwacje-uniwersalne-i-sprzedaz`: the „faza” column of its
-#: preset catalogue and the owner's open questions 67 and 68). The engine for
-#: stays and rentals exists; when their presets count as ready is undecided.
-_RANGE = (
-    "silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku "
-    "(plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — "
-    "decyzja właściciela w toku (pytanie 67)"
-)
+#: preset catalogue). Stays, rentals, care stays and the visit at the
+#: customer's are ready since the owner's decisions 67a and 68a (03.10.2026),
+#: so only the kinds still announced are named here.
 _LATER = "odblokuje: plan rezerwacji, faza 13 (pozostałe rodzaje rezerwacji)"
 _EVENTS = "odblokuje: plan rezerwacji, faza 8 (wydarzenia i zajęcia)"
 PRESET_UNBLOCKS = {
-    "core.specialist_visit": "odblokuje: plan rezerwacji, faza 3 (cennik i wycena)",
     "core.online_visit": _LATER,
-    "core.service_at_customer": f"{_LATER}; wcześniejsza, okrojona wersja w fazie 3 — "
-    "decyzja właściciela w toku (pytanie 68)",
-    "core.hourly_space": _RANGE,
+    "core.hourly_space": "silnik pobytów i wynajmu liczy dziś noce i doby; odblokuje: "
+    "rezerwacje na godziny w silniku okresu (plan rezerwacji, faza 2 — część godzinowa)",
     "core.table_or_group": _LATER,
-    "core.lodging": _RANGE,
-    "core.rental": _RANGE,
-    "core.care_stay": _RANGE,
-    "core.exclusive_date": _RANGE,
+    "core.exclusive_date": _LATER,
     "core.group_class": _EVENTS,
     "core.ticketed_event": _EVENTS,
     "core.course": _EVENTS,
@@ -49,6 +40,13 @@ COMMAND_PHASE = {
     "booking.preset.apply@1": "plan rezerwacji, faza 3 (zastosowanie rodzaju rezerwacji)",
     "booking.preset.list@1": "plan rezerwacji, faza 3 (odczyt rodzajów rezerwacji)",
 }
+#: Why a price the owner named is not saved: the price list is in the product
+#: (bookings plan, phase 3), no command of the assistant writes to it yet.
+_NO_PRICE_COMMAND = (
+    "cennik jest w produkcie, ale asystent nie ma jeszcze polecenia, które zapisuje cenę — "
+    "cenę wpisuje właściciel w cenniku; odblokuje: polecenie cennika dla asystenta "
+    "(plan asystenta)"
+)
 CARD_LABELS = {
     "display_name": "nazwa",
     "headline": "jedno zdanie o firmie",
@@ -97,6 +95,17 @@ def render(
     missing_commands: list[str],
 ) -> str:
     labels = {preset["id"]: preset["labels"]["pl"]["name"] for preset in presets["presets"]}
+    #: The kinds the examples use that are ready for the panel only.
+    panel_only = {
+        preset["id"]
+        for preset in presets["presets"]
+        if preset["readiness"] == "ready" and preset["online_booking"] == "soon"
+    } & {
+        offer["preset"]["value"]
+        for profile, _answer in answers.values()
+        for offer in profile.get("offers", [])
+        if "preset" in offer
+    }
     lines = [
         "# Co asystent założy dziś — cztery przykładowe firmy",
         "",
@@ -139,7 +148,15 @@ def render(
                 if entry["code"] == "preset_not_ready"
             })
         ),
-        "- ceny usług: produkt ich nie przechowuje — plan rezerwacji, faza 3 (cennik i wycena)",
+        *(
+            f"- rodzaj rezerwacji „{labels[preset]}”: firma ustawia ofertę i ceny, rezerwacje "
+            "wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, "
+            "faza 5: formularz publiczny)"
+            for preset in sorted(panel_only)
+        ),
+        "- jednostki pobytów i wynajmu (domki, kajaki): asystent ich nie zakłada — dodaje je "
+        "właściciel w panelu, w Ustawieniach › Usługi i grafik",
+        f"- ceny usług: {_NO_PRICE_COMMAND}",
         *(
             f"- miasto „{entry['detail']}” jest poza słownikiem miast katalogu firm"
             for _profile, answer in answers.values()
@@ -173,8 +190,8 @@ def render(
         "`organization.public_locales.read`, `profiles.organization.read`, "
         "`profiles.catalog_options.read`, `booking.setup.read`) dla firmy typu `business` "
         "bez wizytówki, miejsc, osób i usług;",
-        "- rodzaje rezerwacji: kontrakt `packages/contracts/booking-presets/`, dopóki "
-        "polecenie `booking.preset.list@1` jest tylko zapowiedziane;",
+        "- rodzaje rezerwacji: polecenie `booking.preset.list@1`, czyli kontrakt "
+        "`packages/contracts/booking-presets/` w najnowszych wersjach;",
         "- języki: oferuje je profil wdrożenia (testy liczą na profilu z polskim i "
         "angielskim, Business ma też niemiecki), więc przykład używa pary pl + en;",
         "- reguły konfiguratora mają osobne testy na zamrożonych katalogach — ten plik "
@@ -227,6 +244,8 @@ def _step(profile: Mapping[str, Any], entry: Mapping[str, Any]) -> str:
         return f"wizytówkę firmy: {', '.join(fields)}"
     if kind == "offer" and "service_id" not in arguments:
         return f"{_thing(profile, entry['ref'])} — wyłączona, włącza ją właściciel w panelu"
+    if kind == "person":
+        return f"{_thing(profile, entry['ref'])} — bez konta w panelu"
     return _thing(profile, entry["ref"])
 
 
@@ -255,6 +274,8 @@ def _question(
         "offer_needs_kind": f"jakim rodzajem rezerwacji jest {name} (wybór z listy)",
         "preset_requires": f"{whose}{FIELD_LABELS.get(field, field)}",
         "offer_needs_place": f"w którym miejscu jest {name}" if name else "gdzie firma przyjmuje",
+        "offer_needs_base": "skąd firma wyjeżdża do klientów (miejsce, w którym zespół ma "
+        "godziny pracy)",
         "offer_needs_person": f"kto wykonuje {name}" if name else "kto wykonuje usługi",
         "person_needs_hours": f"w jakich godzinach pracuje {name.strip('„”')}",
         "place_needs_name": "jak nazywa się miejsce",
@@ -298,9 +319,7 @@ def _unsupported(
         price = _entry(profile, parts[0], parts[1])["price"]["value"]
         return (
             f"cena {name} "
-            f"({price['amount'].replace('.', ',')} {price['currency']}) — "
-            "produkt nie przechowuje cen; "
-            "odblokuje: plan rezerwacji, faza 3 (cennik i wycena)"
+            f"({price['amount'].replace('.', ',')} {price['currency']}) — {_NO_PRICE_COMMAND}"
         )
     return {
         "city_not_in_catalog": f"miasto „{detail}” — nie ma go w słowniku miast katalogu firm, "

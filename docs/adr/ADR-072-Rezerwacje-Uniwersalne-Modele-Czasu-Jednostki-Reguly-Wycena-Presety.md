@@ -576,3 +576,44 @@ Zmienia punkt „Która cena obowiązuje” uzupełnienia o cenniku i wycenie.
   dawał w sezonie cenę spoza sezonu. Odrzucone: trzy rodzaje (sezon, dni
   tygodnia, pora dnia) z zasięgiem na końcu — własna cena weekendowa domku
   przegrywałaby wtedy z ceną sezonu oferty, czego decyzja nie mówi.
+
+## Uzupełnienie 2026-10-03: presety gotowe bez formularza publicznego (decyzje 67a i 68a)
+
+Doprecyzowuje §10 („`ready` — rdzeń tej wersji przyjmuje takie rezerwacje”).
+Decyzje podjął 03.10 koordynator w imieniu właściciela.
+
+- **67a: gotowość nie czeka na formularz publiczny.** „Nocleg”, „Wypożyczalnia”
+  i „Pobyt z opieką” są `ready` jako wersja 2: firma ustawia ofertę i ceny, a
+  rezerwacje wpisuje zespół w panelu. Preset mówi to wprost: opis kończy się
+  słowami „rezerwacja przez stronę — wkrótce”, a pole `onlineBooking` (`ready` |
+  `soon`; API i polecenie asystenta: `online_booking`) pozwala to odczytać bez
+  czytania opisu. Oferta z takiego presetu powstaje jako niewidoczna w
+  rezerwacji online (`Service.online = false`).
+- **Wersja `ready` niesie tylko to, co silnik umie dziś.** Okres na noce albo
+  doby, jedna jednostka na rezerwację (także dobrana z grupy), bez osoby;
+  cennik, dopłaty i kaucja z fazy 3; płatność `on_site`. Do kolejnych wersji
+  zostają: zadatek, przelew i progi zwrotu (faza 4, zamówienia), pola własne i
+  formularz publiczny (faza 5), kalendarze portali (faza 6), N sztuk w jednej
+  rezerwacji. Wersja 1 zostaje w manifeście bez zmian: niesie wartości z planu
+  (13a, 28a), do których wróci wersja z fazy 4. `requiredInputs` wersja 2 nie
+  niesie — żadne polecenie nie zapisze jeszcze dat sezonów ani zdjęć, a pytanie
+  bez miejsca na odpowiedź zatrzymywałoby założenie oferty.
+- **„Wynajem przestrzeni na godziny” zostaje `soon`.** Decyzja 67a go wymienia,
+  ale silnik okresu z fazy 2 liczy noce i doby, a `hour` odrzuca
+  (`range_unit_not_ready`): rezerwacja na godziny potrzebuje godziny początku
+  i końca w API pobytów, siatki startów i godzin otwarcia jednostki (pytanie
+  otwarte w „Konsekwencjach”). Preset `ready`, którego zastosowanie kończy się
+  odmową, byłby nieprawdą wobec firmy; staje się gotowy z tą częścią silnika.
+- **68a: „Usługa u klienta” w wersji okrojonej (wersja 2).** Termin (`slot`) z
+  osobą, wykonywany pod adresem klienta: adres zespół wpisuje w wizycie jako
+  jej miejsce (ADR-066), a dojazd to przerwa przed wizytą — nowe, opcjonalne
+  pole presetu `buffers` (domyślnie 30 minut przed), które zastosowanie
+  kopiuje do oferty i które firma zmienia w ofercie. Okno przyjazdu i obszar
+  dojazdu zostają w fazie 13. Osoba ma godziny pracy w miejscu, więc także
+  taka oferta potrzebuje miejsca firmy — bazy, z której zespół wyjeżdża;
+  konfigurator asystenta pyta o nią osobnym pytaniem (`offer_needs_base`).
+- **Zastosowanie kopiuje więcej niż słowa.** Poza słownictwem oferta dostaje z
+  presetu jednostkę okresu z godzinami początku i końca, przerwy, płatność na
+  miejscu (polityki spoza tego, co oferta umie, są pomijane) i widoczność w
+  rezerwacji online. Jednostek, cen, dopłat i kategorii uczestników nadal nie
+  zakłada: preset je tylko podpowiada.

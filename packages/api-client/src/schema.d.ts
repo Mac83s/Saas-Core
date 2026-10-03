@@ -11438,6 +11438,12 @@ export interface components {
             /** @description Null while the price is not set (operation_unpriced). */
             credits_per_unit: number | null;
         };
+        /**
+         * @description * `ready` - ready
+         *     * `soon` - soon
+         * @enum {string}
+         */
+        OnlineBookingEnum: "ready" | "soon";
         OperationStatus: {
             idempotency_key: string;
             found: boolean;
@@ -12960,6 +12966,13 @@ export interface components {
             required_inputs: string[];
             /** @description A suggested category of the public catalogue. */
             catalog_category: string | null;
+            /**
+             * @description Whether customers book it through the company's site. `soon`: the company sets the offer and its prices and the team books in the panel; an offer made from the preset starts hidden from online booking („rezerwacja przez stronę — wkrótce”).
+             *
+             *     * `ready` - ready
+             *     * `soon` - soon
+             */
+            online_booking: components["schemas"]["OnlineBookingEnum"];
         };
         PresetLabels: {
             pl: components["schemas"]["PresetText"];

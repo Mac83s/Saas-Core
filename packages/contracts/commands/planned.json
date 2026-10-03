@@ -13,12 +13,6 @@
       "risk": "publish",
       "modifiers": [],
       "owner": "plan wielojęzyczności, TL9c"
-    },
-    {
-      "command": "booking.staff.add@1",
-      "risk": "apply",
-      "modifiers": [],
-      "owner": "plan rezerwacji, faza 3 (serwis z podglądem i pokwitowaniem); deklaracja: plan asystenta, A2"
     }
   ]
 }

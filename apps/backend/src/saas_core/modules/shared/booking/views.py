@@ -2172,6 +2172,7 @@ def _preset_payload(item: Preset) -> dict[str, Any]:
         "place": item.place,
         "required_inputs": list(item.required_inputs),
         "catalog_category": item.catalog_category,
+        "online_booking": item.online_booking,
     }
 
 
