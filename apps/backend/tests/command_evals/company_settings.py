@@ -96,8 +96,20 @@ EVALS = {
         prepare=_booking_plan,
     ),
     "booking.settings_online.update@1": CommandEval(
-        arguments=lambda _context: {"paused": True, "resume_on": None, "reset": None},
-        wrong_arguments={"paused": "tak", "resume_on": None, "reset": None},
+        arguments=lambda _context: {
+            "paused": True,
+            "resume_on": None,
+            "horizon_days": None,
+            "contact": None,
+            "reset": None,
+        },
+        wrong_arguments={
+            "paused": "tak",
+            "resume_on": None,
+            "horizon_days": None,
+            "contact": None,
+            "reset": None,
+        },
         wrong_field="paused",
         stale=_stale("booking.online.paused"),
         state=_values,
@@ -139,6 +151,39 @@ EVALS.update({
         wrong_arguments={"note": "Zapisy na www.studio.test", "reset": None},
         wrong_field="note",
         stale=_stale("notifications.customer_mail.note"),
+        state=_values,
+    ),
+})
+
+EVALS.update({
+    "booking.settings_notices.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"office": True},
+        wrong_field="office",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_booking_plan,
+    ),
+    "booking.settings_notices.update@1": CommandEval(
+        arguments=lambda _context: {"office": True, "reset": None},
+        wrong_arguments={"office": "tak", "reset": None},
+        wrong_field="office",
+        stale=_stale("booking.notices.office"),
+        state=_values,
+        prepare=_booking_plan,
+    ),
+    "sites.settings_inquiries.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"recipients": "editors"},
+        wrong_field="recipients",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+    ),
+    "sites.settings_inquiries.update@1": CommandEval(
+        arguments=lambda _context: {"recipients": "editors", "reset": None},
+        wrong_arguments={"recipients": "everyone", "reset": None},
+        wrong_field="recipients",
+        stale=_stale("sites.inquiries.recipients"),
         state=_values,
     ),
 })
