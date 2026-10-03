@@ -10,11 +10,11 @@ from collections.abc import Iterator
 
 import pytest
 
-from command_evals.booking import _first, _service_fields
+from command_evals.booking import _first, _service_fields, _week
 from saas_core.modules.core.organizations import command_executor
 from saas_core.modules.core.organizations.command_executor import execute_plan, preview_plan
 from saas_core.modules.core.organizations.context import activate_tenant_context
-from saas_core.modules.shared.booking.models import Location, Service
+from saas_core.modules.shared.booking.models import Location, Service, StaffMember
 from test_command_evals import assistant, clicked, invocation, owner
 
 pytestmark = pytest.mark.django_db
@@ -92,3 +92,32 @@ def test_a_place_is_added_as_the_panel_adds_one_and_changed_by_its_id() -> None:
     assert changed.status == "done", changed
     place = Location.all_objects.get(pk=added.output["location_id"])
     assert (place.name, place.address, place.version) == ("Salon na Mazurskiej", "", 2)
+
+
+def test_a_week_read_and_sent_back_changes_nothing() -> None:
+    """The read gives a person's week in the shape the hours command takes, so
+    a configurator can tell a week that is already set from one to set (A2)."""
+    person = owner("week-read", "booking.staff.hours.set@1")
+    acting = assistant(person)
+    with activate_tenant_context(acting):
+        (read,) = execute_plan([invocation("booking.setup.read@1", {})])
+    (staff,) = read.output["staff"]
+    place = str(_first(Location, person).id)
+    assert staff["hours"] == [
+        {"weekday": 0, "local_start": "08:00", "local_end": "12:00", "location_id": place}
+    ]
+
+    same = [
+        invocation("booking.staff.hours.set@1", {"staff_id": staff["id"], "rules": staff["hours"]})
+    ]
+    with activate_tenant_context(acting):
+        (group,) = preview_plan(same).groups
+    assert "(bez zmian)" in group.calls[0].preview.effects[0].summary["pl"]
+
+    other = [invocation("booking.staff.hours.set@1", _week(person, "09:00", "17:00"))]
+    with activate_tenant_context(acting):
+        (done,) = execute_plan(other, clicked(person, acting, other))
+        (read,) = execute_plan([invocation("booking.setup.read@1", {})])
+    assert done.status == "done", done
+    assert read.output["staff"][0]["hours"] == _week(person, "09:00", "17:00")["rules"]
+    assert StaffMember.all_objects.get(pk=staff["id"]).hours_version == done.output["hours_version"]

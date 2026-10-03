@@ -1227,7 +1227,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns every service (with who does it, where and with which resource), place, resource and current person of the company, switched-off ones included, each with its id and version. Use it before creating or changing a service or someone's working hours, to know the ids. It does not return bookings.",
+      "model_description": "Returns every service (with who does it, where and with which resource), place, resource and current person of the company, switched-off ones included, each with its id and version; a person comes with their working week (hours), in the shape booking.staff.hours.set takes. Use it before creating or changing a service or someone's working hours, to know the ids. It does not return bookings.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",

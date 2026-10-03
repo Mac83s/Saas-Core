@@ -20,7 +20,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
 
-from .models import Location, Service, StaffChoice
+from .models import AvailabilityRule, Location, Service, StaffChoice
 from .offer_settings import SLOT_STEPS
 from .serializers import (
     PersonHoursInputSerializer,
@@ -119,6 +119,7 @@ def _changed(changes: Mapping[str, Any]) -> str:
 
 def _read_setup(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
     value = list_setup()
+    weeks = _weeks(call.context.organization_id, [item.id for item in value.staff])
     return cast(
         dict[str, Any],
         _jsonable({
@@ -126,11 +127,33 @@ def _read_setup(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
             "locations": [_place_payload(item) for item in value.locations],
             "resources": [_resource_payload(item) for item in value.resources],
             "staff": [
-                {"id": item.id, "name": item.display_name, "hours_version": item.hours_version}
+                {
+                    "id": item.id,
+                    "name": item.display_name,
+                    "hours_version": item.hours_version,
+                    "hours": weeks.get(item.id, []),
+                }
                 for item in value.staff
             ],
         }),
     )
+
+
+def _weeks(organization_id: UUID, staff_ids: list[UUID]) -> dict[UUID, list[dict[str, Any]]]:
+    """Each person's week as `booking.staff.hours.set` takes it and as its
+    "no change" compares it (`staff._week`): a week read here and sent back
+    changes nothing."""
+    weeks: dict[UUID, list[dict[str, Any]]] = {}
+    for rule in AvailabilityRule.all_objects.filter(
+        organization_id=organization_id, staff_id__in=staff_ids, active=True
+    ).order_by("weekday", "local_start", "id"):
+        weeks.setdefault(rule.staff_id, []).append({
+            "weekday": rule.weekday,
+            "local_start": rule.local_start.isoformat("minutes"),
+            "local_end": rule.local_end.isoformat("minutes"),
+            "location_id": str(rule.location_id),
+        })
+    return weeks
 
 
 def _jsonable(value: Any) -> Any:
@@ -414,8 +437,9 @@ SETUP_READ = CommandSpec(
     model_description=(
         "Returns every service (with who does it, where and with which resource), place, "
         "resource and current person of the company, switched-off ones included, each "
-        "with its id and version. Use it before creating or changing a service or "
-        "someone's working hours, to know the ids. It does not return bookings."
+        "with its id and version; a person comes with their working week (hours), in the "
+        "shape booking.staff.hours.set takes. Use it before creating or changing a service "
+        "or someone's working hours, to know the ids. It does not return bookings."
     ),
     input_schema={
         "type": "object",
@@ -430,7 +454,8 @@ SETUP_READ = CommandSpec(
             "services": {"type": "array"},
             "locations": {"type": "array"},
             "resources": {"type": "array"},
-            # The company's people by name, as its booking page names them.
+            # The company's people by name, as its booking page names them,
+            # each with the week they work.
             "staff": {"type": "array", "x-data-class": "public_personal"},
         },
     },
