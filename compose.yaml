@@ -27,6 +27,10 @@ x-backend-environment: &backend-environment
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_app_password
   POSTGRES_PORT: "5432"
   POSTGRES_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
+  # The operator's pause for the nightly removal of personal data: `false`
+  # and `docker compose up -d worker` stop it, without a release. A plain
+  # `restart` keeps the old value — the container has to be made again.
+  PRIVACY_RETENTION_SCHEDULE_ENABLED: ${PRIVACY_RETENTION_SCHEDULE_ENABLED:-true}
   # Served over http here: the cookies' Secure flag and HSTS follow this scheme,
   # so it is said, not left to the https default. compose.vps.yaml says https.
   PUBLIC_SITE_SCHEME: ${PUBLIC_SITE_SCHEME:-http}

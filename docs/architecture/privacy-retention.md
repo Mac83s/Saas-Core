@@ -5,9 +5,11 @@ czy i po jakim czasie system usuwa dane osobowe jej klientów i osób, które do
 napisały. Usunięcia nie da się cofnąć, więc dokument mówi dokładnie, co znika, co
 zostaje i dlaczego.
 
-**Zadanie w harmonogramie nie jest włączone.** Usuwa wyłącznie komenda
-`manage.py privacy_retention --run`, uruchamiana ręcznie, dopóki koordynator nie
-odbierze dowodu z działającego stosu (niżej „Dowód”).
+**Zadanie w harmonogramie jest włączone od 03.10.2026**, po odbiorze dowodu z
+działającego stosu (niżej „Dowód”): przebieg uruchamia się raz na dobę, w nocy.
+Operator wstrzymuje go zmienną `PRIVACY_RETENTION_SCHEDULE_ENABLED=false` (niżej
+„Harmonogram”); komenda `manage.py privacy_retention --run` zostaje do uruchomień
+ręcznych.
 
 ## Ustawienia
 
@@ -89,6 +91,21 @@ Obszar „Prywatność i dane” (`/panel/settings/privacy`), oba domyślnie `of
 
 `--dry-run` liczy to samo i niczego nie zmienia; pokazuje też, co jeszcze czeka na
 koniec okresu ochronnego.
+
+### Harmonogram
+
+Zadanie `privacy-retention-run` (`core/organizations/tasks.py`,
+`run_privacy_retention`) uruchamia ten sam przebieg co noc o 02:30 UTC. Godzina jest
+z zegara, a nie „co 24 godziny”: licznik harmonogramu zaczyna od nowa przy każdym
+wdrożeniu, więc przy codziennych wdrożeniach odstęp nigdy by nie minął.
+
+**Wyłącznik operatora:** `PRIVACY_RETENTION_SCHEDULE_ENABLED=false` w `.env` stosu i
+ponowne utworzenie kontenera workera (`docker compose up -d worker`; sam `restart`
+nie wczyta zmienionego `.env`). Zadanie czyta przełącznik przy każdym uruchomieniu i
+kończy się bez usuwania (wpis w logu `privacy_retention_schedule_paused`); wpis
+harmonogramu zostaje, więc powrót to `true` i ten sam krok. Usunięcia nie da się
+cofnąć, dlatego wstrzymanie nie wymaga wdrożenia. Komenda uruchamiana ręcznie
+przełącznika nie czyta.
 
 ## D1 — klient rezerwacji: wszystkie przechowywane kopie
 
@@ -190,14 +207,17 @@ Otwarte dla tego, kto zbuduje usuwanie konta użytkownika:
   działającym stosie pod prawdziwą rolą bazy (firma A włączona, B wyłączona, B
   nietknięta, klienci A po terminie zanonimizowani, pozostali nietknięci, kopie w
   powiadomieniach usunięte) jest pierwszym włączonym przebiegiem lokalnie — przed
-  włączeniem harmonogramu.
+  włączeniem harmonogramu. Zrobiony 03.10.2026 na `:8080` ręcznym `--run` (firmy A
+  i B, przebieg czekający na blokadę biura w dwóch sesjach psql, powrót klienta jako
+  nowy rekord) i odebrany przez koordynatora; dopiero po nim wszedł wpis harmonogramu.
+- `test_privacy_retention.py`: wpis harmonogramu jest zarejestrowany, a przy
+  wyłączniku operatora zadanie niczego nie usuwa.
 
 ## Czego jeszcze nie ma
 
-- zadanie w harmonogramie (czeka na odbiór dowodu);
 - reguła dla gospodarstw i minimum dla gabinetów (`settingsDefaults` profilu i dolna
   granica z profilu) — po decyzji właściciela produktu i odpowiedzi z listy prawnej;
 - reguły modułów ustawiane przez platformę (rozmowy asystenta, wersje profilu) nie
   są jeszcze zarejestrowane: rejestracja je przyjmuje (`platform_days(<klucz>)`, bez
-  okresu ochronnego — test z regułą próbną), a moduły przejdą pod nią, gdy
-  harmonogram będzie włączony; do tego czasu zostają przy własnych zadaniach.
+  okresu ochronnego — test z regułą próbną); harmonogram już działa, więc moduły
+  mogą pod nią przejść, a do tego czasu zostają przy własnych zadaniach.

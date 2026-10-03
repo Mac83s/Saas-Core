@@ -268,7 +268,9 @@ def test_core_only_schedules_no_work_for_modules_it_does_not_have() -> None:
 
     schedule = select_by_module(base._MODULE_BEAT_SCHEDULE, core_only, frozenset(CATALOG))
 
-    assert schedule == {}
+    # Only the core's own job: the nightly retention run, which finds no sweep
+    # registered where neither bookings nor sites are composed.
+    assert set(schedule) == {"privacy-retention-run"}
 
 
 def test_the_running_deployment_schedules_only_its_own_modules() -> None:

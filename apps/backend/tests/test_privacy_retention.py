@@ -16,6 +16,8 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from celery import current_app
+from celery.schedules import crontab
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -42,6 +44,7 @@ from saas_core.modules.core.organizations.settings_service import (
     read_group,
     setting,
 )
+from saas_core.modules.core.organizations.tasks import run_privacy_retention
 from saas_core.modules.shared.booking import retention as booking_retention
 from saas_core.modules.shared.booking.models import Appointment, Customer, SelfServiceRoute
 from saas_core.modules.shared.booking.retention import customers_due, erase_customers
@@ -686,3 +689,29 @@ def test_a_platform_rule_below_one_day_is_no_rule(
     assert dry_run() == []
     assert run() == retention.RunResult(removed=(), failed=())
     assert asked == []
+
+
+def test_the_run_is_scheduled_once_a_night(settings: Any) -> None:
+    entry = settings.CELERY_BEAT_SCHEDULE["privacy-retention-run"]
+
+    assert entry["task"] == run_privacy_retention.name
+    assert entry["task"] in current_app.tasks
+    # By the clock: an interval would start over with every release.
+    assert entry["schedule"] == crontab(hour=2, minute=30)
+
+
+def test_the_operators_switch_stops_the_scheduled_run_and_not_the_command(settings: Any) -> None:
+    owner = membership("retencja-noc")
+    old = customer(owner, catalog(owner), "dawny", ended=25)
+    switch_on(owner)
+
+    settings.PRIVACY_RETENTION_SCHEDULE_ENABLED = False
+    assert run_privacy_retention() == 0
+    assert read_customer(owner, old).anonymized_at is None
+    out = StringIO()
+    call_command("privacy_retention", "--dry-run", stdout=out)
+    assert out.getvalue().splitlines()[0].endswith("\t1")
+
+    settings.PRIVACY_RETENTION_SCHEDULE_ENABLED = True
+    assert run_privacy_retention() == 1
+    assert read_customer(owner, old).anonymized_at is not None

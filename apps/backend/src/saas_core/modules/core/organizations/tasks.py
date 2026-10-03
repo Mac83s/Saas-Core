@@ -33,6 +33,7 @@ from .models import (
     MembershipStatus,
     Organization,
 )
+from .retention import run as run_retention
 
 TENANT_TASK_CONTEXT_SALT = "saas-core.tenant-task-context.v1"
 logger = logging.getLogger("saas_core.security")
@@ -419,3 +420,16 @@ def send_organization_invitation(
             "organization_invitation_context_rejected",
             extra={"security_event": "organization.invitation_context_rejected"},
         )
+
+
+@shared_task(name="saas_core.modules.core.organizations.tasks.run_privacy_retention")  # type: ignore[untyped-decorator]
+def run_privacy_retention() -> int:
+    """The nightly removal of personal data the companies' own settings ask
+    for (D1–D2). The operator's switch is read here, not where the schedule is
+    built: a worker started with it off removes nothing, whatever the scheduler
+    still enqueues. Failures are logged company by company by the
+    run itself."""
+    if not settings.PRIVACY_RETENTION_SCHEDULE_ENABLED:
+        logger.warning("privacy_retention_schedule_paused")
+        return 0
+    return sum(done.count for done in run_retention().removed)

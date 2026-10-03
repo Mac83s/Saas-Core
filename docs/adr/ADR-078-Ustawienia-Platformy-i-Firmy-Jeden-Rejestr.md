@@ -793,8 +793,10 @@ firmy istnieje w języku treści albo wcale.
   rejestruje wyjątek (`register_retention_exclusion`).
 - **Przebieg** idzie firma po firmie, każda we własnej transakcji i tenancie, z
   ustawieniem czytanym w tej transakcji; błąd jednej firmy nie zatrzymuje pozostałych;
-  wpis w historii firmy niesie tylko liczby. Harmonogram jest wyłączony do odbioru
-  dowodu na działającym stosie; usuwa komenda `privacy_retention --run`.
+  wpis w historii firmy niesie tylko liczby. Po odbiorze dowodu na działającym stosie
+  (03.10.2026) przebieg uruchamia się co noc z harmonogramu; operator wstrzymuje go
+  zmienną `PRIVACY_RETENTION_SCHEDULE_ENABLED=false`, a komenda
+  `privacy_retention --run` zostaje do uruchomień ręcznych.
 - **„Dane klientów” oferuje profil** (`features.customerRetention`), nie moduł: w
   profilu, w którym wizyta wisi na innym rekordzie tej samej osoby (karta
   gospodarstwa), anonimizacja klienta nie usuwałaby osoby.

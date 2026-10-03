@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
 
 from saas_core.config.composition import (
@@ -203,6 +204,12 @@ PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))
 #: the same person (a farm's card): stripping the customer alone would leave
 #: them named there.
 CUSTOMER_RETENTION_OFFERED = bool(_deployment_features.get("customerRetention", False))
+#: The operator's pause for the nightly removal run. The run cannot be undone,
+#: so it can be stopped from the environment without a release: the task reads
+#: this each time, the schedule entry stays. The command run by hand ignores it.
+PRIVACY_RETENTION_SCHEDULE_ENABLED = os.environ.get(
+    "PRIVACY_RETENTION_SCHEDULE_ENABLED", "true"
+).strip().lower() in {"1", "true", "yes"}
 if not SITES_PLATFORM_DOMAIN:
     raise ImproperlyConfigured("Profil deploymentu wymaga platformDomain")
 DOMAIN_DNS_CNAME_TARGET = (
@@ -726,6 +733,16 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 #: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
 #: against tables that are not there, once a minute, forever.
 _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
+    "core.organizations": {
+        # Once a night, 02:30 UTC: what the companies' own retention settings
+        # ask for (D1–D2). By the clock, not every 24 hours — the scheduler's
+        # timer starts over with each release, and a daily release would push
+        # an interval ahead of itself for ever.
+        "privacy-retention-run": {
+            "task": "saas_core.modules.core.organizations.tasks.run_privacy_retention",
+            "schedule": crontab(hour=2, minute=30),
+        }
+    },
     "shared.inventory": {
         # Hourly: each company hears once a day, from the hour of its own day it
         # chose (`inventory.alerts.hour`); off unless it switched the notice on.
