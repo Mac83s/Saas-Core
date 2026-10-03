@@ -54,18 +54,22 @@ function comparableTitle(value: string): string {
 }
 
 /** Whether the article's own sections already say its title: a hero is the
- *  page's `h1`, and a title typed as the first heading of the text stays as
- *  its author wrote it. The page never says the title twice. */
+ *  page's `h1`, and a title typed as the first heading of the text — the
+ *  section's own title, else the first heading in it — stays as its author
+ *  wrote it. The page never says the title twice. */
 export function articleShowsItsTitle(
   blocks: readonly SiteBlock[],
   title: string,
 ): boolean {
   if (blocks.some((block) => block.block_type === "core.hero")) return true;
   const text = blocks.find((block) => block.block_type === "core.rich_text");
-  const heading = text ? richTextHeadings(text)[0] : undefined;
+  const heading =
+    typeof text?.data.title === "string"
+      ? text.data.title
+      : text && richTextHeadings(text)[0]?.text;
   return (
-    heading !== undefined &&
-    comparableTitle(heading.text) === comparableTitle(title)
+    typeof heading === "string" &&
+    comparableTitle(heading) === comparableTitle(title)
   );
 }
 

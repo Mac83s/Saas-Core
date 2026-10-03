@@ -134,6 +134,15 @@ describe("article header", () => {
     expect(
       articleShowsItsTitle(withHeading("Pielęgnacja"), "Dalej"),
     ).toBe(false);
+    // The section's own title is its first heading, before any in the text.
+    const titled = (title: string): SiteBlock[] => [
+      {
+        ...withHeading("Pielęgnacja")[0]!,
+        data: { ...withHeading("Pielęgnacja")[0]!.data, title },
+      },
+    ];
+    expect(header(titled("Jak dbać o włosy zimą"))).not.toContain("<h1>");
+    expect(articleShowsItsTitle(titled("Porady"), "Pielęgnacja")).toBe(false);
     // Only the first text section is the opening.
     expect(
       articleShowsItsTitle(
