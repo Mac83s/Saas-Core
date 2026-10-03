@@ -132,6 +132,7 @@ test.each([
     locale: "pl",
     messages: polishMessages,
     marker: "Uzupełnij",
+    short: "3 miejsca do uzupełnienia",
     three: "Na tej stronie zostały 3 miejsca do uzupełnienia.",
     two: "Na tej stronie zostały 2 miejsca do uzupełnienia.",
     firstSection: "1. O nas 2 miejsca do uzupełnienia",
@@ -143,6 +144,7 @@ test.each([
     locale: "en",
     messages: englishMessages,
     marker: "Fill in",
+    short: "3 places to fill in",
     three: "This page still has 3 places to fill in.",
     two: "This page still has 2 places to fill in.",
     firstSection: "1. O nas 2 places to fill in",
@@ -158,10 +160,15 @@ test.each([
     const { container } = renderEditor(locale, messages, onChanged);
     const studio = messages.Sites.studio;
 
-    // Above the forms as well as the canvas; polite, never an alert.
+    // Above the forms as well as the canvas: one line, polite, never an
+    // alert. The rest opens when asked for.
     fireEvent.click(await screen.findByRole("button", { name: studio.forms }));
-    expect(await screen.findByText(three)).toHaveAttribute("role", "status");
+    const summary = await screen.findByText(three);
+    expect(summary).not.toBeVisible();
+    expect(screen.getByText(names.short)).toHaveAttribute("role", "status");
     expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: studio.banner.more }));
+    expect(summary).toBeVisible();
     const sections = screen.getByRole("list", {
       name: studio.placeholders.sections,
     });
@@ -218,7 +225,7 @@ test.each([
     fireEvent.change(text(), {
       target: { value: "Odpowiadamy w ciągu doby." },
     });
-    expect(await screen.findByText(two)).toHaveAttribute("role", "status");
+    expect(await screen.findByText(two)).toBeVisible();
     expect(
       screen.queryByRole("button", { name: names.secondSection }),
     ).toBeNull();
@@ -283,11 +290,26 @@ test("more than three sections to finish fold into a list that opens on demand",
     ),
   );
   renderEditor("pl", polishMessages);
+  // Any width reads one line and opens the rest; anyone may close it
+  // (UX-039).
+  const summary = await screen.findByText(
+    "Na tej stronie zostały 4 miejsca do uzupełnienia.",
+  );
+  expect(summary).not.toBeVisible();
+  expect(screen.getByText("4 miejsca do uzupełnienia")).toBeVisible();
+  const more = screen.getByRole("button", { name: "Pokaż" });
+  expect(more).toHaveAttribute("aria-expanded", "false");
   expect(
-    await screen.findByText(
-      "Na tej stronie zostały 4 miejsca do uzupełnienia.",
-    ),
-  ).toHaveAttribute("role", "status");
+    screen.queryByRole("list", {
+      name: polishMessages.Sites.studio.placeholders.sections,
+    }),
+  ).toBeNull();
+  fireEvent.click(more);
+  expect(screen.getByRole("button", { name: "Zwiń" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  expect(summary).toBeVisible();
   const list = screen.getByRole("list", {
     name: polishMessages.Sites.studio.placeholders.sections,
   });
@@ -295,16 +317,6 @@ test("more than three sections to finish fold into a list that opens on demand",
   expect(folded).not.toBeNull();
   expect(folded!.querySelector("summary")).toHaveTextContent("Pokaż 4 sekcje");
   expect(within(list).getAllByRole("button")).toHaveLength(4);
-
-  // A phone reads one line and opens the rest; anyone may close it (UX-039).
-  const more = screen.getByRole("button", { name: "Pokaż" });
-  expect(more).toHaveAttribute("aria-expanded", "false");
-  expect(screen.getByText("4 miejsca do uzupełnienia")).toBeInTheDocument();
-  fireEvent.click(more);
-  expect(screen.getByRole("button", { name: "Zwiń" })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
   fireEvent.click(screen.getByRole("button", { name: "Zamknij komunikat" }));
   expect(
     screen.queryByText("Na tej stronie zostały 4 miejsca do uzupełnienia."),
@@ -348,16 +360,26 @@ test.each([
       "{values}",
       "kontakt@example.com, +48 000 000 000",
     );
-    expect(await screen.findByText(samples)).toHaveAttribute("role", "status");
+    // The sample contact and the dead link share the banner's one line
+    // (guidance only: a status, nothing about template leftovers is an alert).
+    expect(await screen.findByText(samples)).not.toBeVisible();
+    expect(
+      screen.getByText(
+        `${leftovers.samplesShort} · ${locale === "pl" ? "1 link donikąd" : "1 link to nowhere"}`,
+      ),
+    ).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.Sites.studio.banner.more }),
+    );
+    expect(screen.getByText(samples)).toBeVisible();
     expect(
       screen.getByText(
         locale === "pl"
           ? "Link prowadzi do miejsca, którego nie ma na tej stronie: #kontakt."
           : "A link leads to a place this page does not have: #kontakt.",
       ),
-    ).toHaveAttribute("role", "status");
-    // Guidance only: nothing about template leftovers is an alert.
-    expect(screen.queryByRole("alert")).toBeNull();
+    ).toBeVisible();
     const dead = screen.getByRole("list", {
       name: leftovers.deadAnchorsSections,
     });

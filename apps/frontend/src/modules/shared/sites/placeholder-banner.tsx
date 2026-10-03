@@ -9,7 +9,6 @@ import {
   unfilledPlaceholders,
 } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
-import { cn } from "@saas-core/ui/lib/utils";
 
 import { blockOptions, type BlockFormValues } from "./block-form";
 import { outlineTitle, UnfilledBadge } from "./section-canvas";
@@ -47,8 +46,9 @@ export function PlaceholderBanner({
 }) {
   const t = useTranslations("Sites");
   const detailsId = useId();
-  // A phone shows one line until asked; anyone may close it for now — it
-  // comes back with the next opening of the page (UX-039).
+  // One line under the top bar until asked, at any width: what is left, in
+  // short. Anyone may close it for now — it comes back with the next opening
+  // of the page (UX-039).
   const [expanded, setExpanded] = useState(false);
   const [closed, setClosed] = useState(false);
   const total = counts.reduce((sum, count) => sum + count, 0);
@@ -104,31 +104,42 @@ export function PlaceholderBanner({
   const where = (found: readonly { blockIndex: number }[]) =>
     unique(found.map((item) => String(item.blockIndex))).map(Number);
   return (
-    <div className="flex shrink-0 flex-wrap items-start gap-x-2 gap-y-3 border-b border-warning-foreground/30 bg-warning px-4 py-3 text-sm text-warning-foreground">
-      <p className="min-w-0 flex-1 self-center font-medium sm:hidden">
-        {short}
-      </p>
-      <Button
-        aria-controls={detailsId}
-        aria-expanded={expanded}
-        className="sm:hidden"
-        onClick={() => setExpanded(!expanded)}
-        size="sm"
-        type="button"
-        variant="ghost"
-      >
-        {expanded ? t("studio.banner.less") : t("studio.banner.more")}
-      </Button>
+    <div className="shrink-0 border-b border-warning-foreground/30 bg-warning text-sm text-warning-foreground">
+      <div className="flex items-center gap-1 py-1 pr-2 pl-4">
+        <p role="status" className="min-w-0 flex-1 font-medium">
+          {short}
+        </p>
+        <Button
+          aria-controls={detailsId}
+          aria-expanded={expanded}
+          className="pointer-fine:h-7"
+          onClick={() => setExpanded(!expanded)}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {expanded ? t("studio.banner.less") : t("studio.banner.more")}
+        </Button>
+        <Button
+          aria-label={t("studio.banner.close")}
+          className="pointer-fine:size-7"
+          onClick={() => setClosed(true)}
+          size="icon-sm"
+          title={t("studio.banner.close")}
+          type="button"
+          variant="ghost"
+        >
+          <XIcon aria-hidden="true" />
+        </Button>
+      </div>
       <div
-        className={cn(
-          "min-w-0 space-y-3 max-sm:order-last max-sm:basis-full sm:flex-1",
-          !expanded && "max-sm:hidden",
-        )}
+        className="min-w-0 space-y-3 px-4 pt-1 pb-3"
+        hidden={!expanded}
         id={detailsId}
       >
         {total ? (
           <div>
-            <p role="status" className="font-medium">
+            <p className="font-medium">
               {t("studio.placeholders.summary", { count: total })}
             </p>
             <p>{t("studio.placeholders.hint", { count: total })}</p>
@@ -148,7 +159,7 @@ export function PlaceholderBanner({
         ) : null}
         {samples.length ? (
           <div>
-            <p role="status" className="font-medium">
+            <p className="font-medium">
               {t("studio.leftovers.samples", {
                 values: unique(samples.map((sample) => sample.text)).join(", "),
               })}
@@ -175,7 +186,7 @@ export function PlaceholderBanner({
         ) : null}
         {deadAnchors.length ? (
           <div>
-            <p role="status" className="font-medium">
+            <p className="font-medium">
               {t("studio.leftovers.deadAnchors", {
                 count: deadAnchors.length,
                 anchors: unique(deadAnchors.map((link) => link.href)).join(
@@ -200,16 +211,6 @@ export function PlaceholderBanner({
           </div>
         ) : null}
       </div>
-      <Button
-        aria-label={t("studio.banner.close")}
-        onClick={() => setClosed(true)}
-        size="icon"
-        title={t("studio.banner.close")}
-        type="button"
-        variant="ghost"
-      >
-        <XIcon aria-hidden="true" />
-      </Button>
     </div>
   );
 }
