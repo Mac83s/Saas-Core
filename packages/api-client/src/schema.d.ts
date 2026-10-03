@@ -141,6 +141,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @description Starts TOTP setup for the signed-in person. There is no setup before
+         *     sign-in: a staff account's first factor is set on the server
+         *     (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command.
+         */
         post: operations["api_v1_auth_mfa_totp_setup_create"];
         delete?: never;
         options?: never;
@@ -239,7 +244,7 @@ export interface paths {
         put?: never;
         /**
          * Confirm the second factor once more
-         * @description A code from the authenticator app — never a password or a recovery code — marks the session as stepped up for STEP_UP_MAX_AGE seconds. Accepting legal documents and changing billing ask for it, in the panel and for the assistant (owner answers 30a, 31b). An account without two-factor sign-in gets 403 step_up_mfa_setup_required; five wrong codes end the session (403 step_up_locked).
+         * @description A code from the authenticator app — never a password or a recovery code — marks the session as stepped up for STEP_UP_MAX_AGE seconds. Accepting legal documents and changing billing ask for it, in the panel and for the assistant (owner answers 30a, 31b). An account without two-factor sign-in gets 403 step_up_mfa_setup_required. Wrong codes count per account together with sign-in: the one that reaches the limit ends the session (403 step_up_locked); an account already locked gets 429 mfa_locked.
          */
         post: operations["identity_step_up_create"];
         delete?: never;

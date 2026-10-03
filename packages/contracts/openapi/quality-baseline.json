@@ -144,7 +144,7 @@
     "POST /api/v1/auth/login/mfa/": {"fingerprint": "ee61b75f4ebb9e2d", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
     "POST /api/v1/auth/logout/": {"fingerprint": "c579c79afc9742fe", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
     "POST /api/v1/auth/mfa/totp/confirm/": {"fingerprint": "d2dbbb6845709359", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
-    "POST /api/v1/auth/mfa/totp/setup/": {"fingerprint": "b883841ee572bb12", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
+    "POST /api/v1/auth/mfa/totp/setup/": {"fingerprint": "b883841ee572bb12", "violations": ["operation-id", "summary", "idempotency-key"]},
     "POST /api/v1/auth/password-resets/": {"fingerprint": "79b0b5c621a897d7", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
     "POST /api/v1/auth/password-resets/confirm/": {"fingerprint": "00217989e4eac416", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
     "POST /api/v1/auth/register/": {"fingerprint": "60e6239d6ec6c0dc", "violations": ["operation-id", "summary", "description", "idempotency-key"]},
