@@ -20,6 +20,7 @@ import {
   sendAssistantMessage,
   startAssistantConversation,
   type AssistantConversation,
+  type AssistantConversationKind,
   type AssistantOffer,
   type AssistantTurn,
   type AssistantTurnItem,
@@ -31,6 +32,7 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 import { PanelPage } from "#components/panel/panel-page";
 import { PlanGate } from "#components/panel/plan-gate";
 import { ConsentDialog } from "./consent-dialog";
+import { SetupProfile } from "./setup-profile";
 
 type Locale = "pl" | "en";
 
@@ -59,6 +61,9 @@ const STATUS_TONE = {
  * and proposes, and a change runs only after the person's click in the
  * consent dialog. A message is answered later, so the conversation is read
  * again until its last turn settles.
+ *
+ * A `setup` conversation sets the company up: it is free, and the company
+ * profile the assistant notes into is shown under it.
  */
 export function AssistantPanel({
   canManageBilling = false,
@@ -75,15 +80,25 @@ export function AssistantPanel({
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [consentOpen, setConsentOpen] = useState(false);
+  // Counts the reads that found the last turn settled: the profile beside a
+  // setup conversation is read again with each.
+  const [settled, setSettled] = useState(0);
   const end = useRef<HTMLDivElement>(null);
   const asked = useRef<string>(undefined);
 
   const last = conversation?.turns.at(-1);
   const working = last ? WORKING.has(last.state) : false;
   const waiting = last?.state === "awaiting_consent" ? last : undefined;
+  // A conversation without a turn is the empty state, whatever its kind.
+  const shown = last ? conversation : undefined;
+  const setup = shown?.kind === "setup";
 
   const refresh = useCallback(async (id: string, signal?: AbortSignal) => {
-    setConversation(await getAssistantConversation(id, signal));
+    const next = await getAssistantConversation(id, signal);
+    setConversation(next);
+    if (!WORKING.has(next.turns.at(-1)?.state ?? "")) {
+      setSettled((count) => count + 1);
+    }
   }, []);
 
   useEffect(() => {
@@ -130,18 +145,27 @@ export function AssistantPanel({
     end.current?.scrollIntoView?.({ block: "end" });
   }, [conversation]);
 
-  async function send(event?: FormEvent) {
-    event?.preventDefault();
-    const message = text.trim();
+  /**
+   * Sends a message to the conversation shown; with none shown it goes to a
+   * new one of `kind`. An empty conversation of the other kind is left behind:
+   * the free setup message must not land in a conversation that costs credits.
+   */
+  async function deliver(
+    message: string,
+    kind: AssistantConversationKind,
+    typed: boolean,
+  ) {
     if (!message || sending || working || waiting) return;
     setSending(true);
     setProblem(undefined);
     try {
+      const open =
+        shown ?? (conversation?.kind === kind ? conversation : undefined);
       const current =
-        conversation ??
-        (await startAssistantConversation(locale, crypto.randomUUID()));
+        open ??
+        (await startAssistantConversation(locale, crypto.randomUUID(), kind));
       await sendAssistantMessage(current.id, message, crypto.randomUUID());
-      setText("");
+      if (typed) setText("");
       await refresh(current.id);
     } catch (error) {
       setProblem(sendProblem(error, t));
@@ -151,6 +175,11 @@ export function AssistantPanel({
     } finally {
       setSending(false);
     }
+  }
+
+  async function send(event?: FormEvent) {
+    event?.preventDefault();
+    await deliver(text.trim(), "operate", true);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -170,11 +199,14 @@ export function AssistantPanel({
 
   const closed = offer ? !offer.available : false;
   const outsidePlan = offer ? !offer.in_plan : false;
+  const setupSpent = offer
+    ? offer.setup.turns_left <= 0 || offer.setup.turns_left_today <= 0
+    : false;
 
   return (
     <PanelPage
       actions={
-        conversation?.turns.length && !working && !waiting ? (
+        shown && !working && !waiting ? (
           <Button
             onClick={() => {
               setConversation(undefined);
@@ -207,9 +239,37 @@ export function AssistantPanel({
         </PlanGate>
       ) : (
         <div className="space-y-6">
+          {setup ? (
+            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant="info">{t("setupBadge")}</Badge>
+              <span>{t("setupFree")}</span>
+            </p>
+          ) : null}
+          {!shown && offer?.setup.allowed ? (
+            <section className="space-y-3 rounded-lg border p-4">
+              <h2 className="font-medium">{t("setupCardTitle")}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t("setupCardText")}
+              </p>
+              <Button
+                disabled={closed || sending || setupSpent}
+                onClick={() =>
+                  void deliver(t("setupFirstMessage"), "setup", false)
+                }
+                type="button"
+              >
+                {t("setupStart")}
+              </Button>
+              {setupSpent ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("setupSpent")}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
           <div aria-live="polite" className="space-y-6" role="log">
-            {conversation?.turns.length ? (
-              conversation.turns.map((turn) => (
+            {shown ? (
+              shown.turns.map((turn) => (
                 <Turn
                   key={turn.id}
                   locale={locale}
@@ -234,6 +294,9 @@ export function AssistantPanel({
             </p>
           ) : null}
           <div ref={end} />
+          {shown && setup ? (
+            <SetupProfile conversationId={shown.id} revision={settled} />
+          ) : null}
           <form
             className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] space-y-2 border-t bg-background pt-3 pb-2 lg:bottom-0"
             onSubmit={(event) => void send(event)}
@@ -278,7 +341,9 @@ export function AssistantPanel({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              {t("notice", { credits: offer?.credits_per_message ?? 0 })}
+              {setup
+                ? t("noticeSetup")
+                : t("notice", { credits: offer?.credits_per_message ?? 0 })}
               <span className="hidden lg:inline"> {t("enterHint")}</span>
             </p>
           </form>
@@ -379,6 +444,8 @@ function sendProblem(
     if (code === "assistant_turn_in_progress") return t("inProgress");
     if (code === "credits_exhausted") return t("noCredits");
     if (code === "assistant_unavailable") return t("closed");
+    if (code === "assistant_setup_budget") return t("setupBudget");
+    if (code === "assistant_setup_daily_budget") return t("setupDailyBudget");
   }
   return t("sendError");
 }
