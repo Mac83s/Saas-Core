@@ -22,11 +22,13 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.identity.step_up import require_step_up
 
 from .platform_settings import (
+    PlatformValue,
     change_platform_setting,
     companies_following,
     platform_history,
     platform_spec,
     read_platform_setting,
+    value_after,
 )
 from .serializers import LocalizedTextSerializer, SettingOptionSerializer
 from .settings_registry import (
@@ -114,8 +116,8 @@ class PlatformHistorySerializer(serializers.Serializer[dict[str, Any]]):
     items = PlatformHistoryItemSerializer(many=True)
 
 
-def _value_payload(key: str) -> dict[str, Any]:
-    current = read_platform_setting(key)
+def _value_payload(key: str, current: PlatformValue | None = None) -> dict[str, Any]:
+    current = current or read_platform_setting(key)
     return {
         "key": key,
         "value": current.value,
@@ -206,10 +208,10 @@ class PlatformSettingView(APIView):
         # A code is asked only of someone the key's level lets in at all.
         if spec.operator_level >= 2 and operator_level(user) >= spec.operator_level:
             require_step_up(user_id=user.pk, reason="platform")
-        change_platform_setting(
+        entry = change_platform_setting(
             key, data.validated_data["value"], operator=user, reason=data.validated_data["reason"]
         )
-        return Response(_value_payload(key))
+        return Response(_value_payload(key, value_after(entry)))
 
 
 class PlatformSettingPreviewView(APIView):

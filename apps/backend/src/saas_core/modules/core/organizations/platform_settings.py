@@ -89,17 +89,31 @@ def platform_setting(key: str) -> Any:
 
 
 def read_platform_setting(key: str) -> PlatformValue:
-    from django.conf import settings  # noqa: PLC0415
-
     spec = platform_spec(key)
     chosen = platform_overrides().get(key)
     if chosen is not None:
         return PlatformValue(key, chosen, "platform", spec.operator_level)
+    return _below_the_operator(spec)
+
+
+def value_after(entry: PlatformSettingEntry) -> PlatformValue:
+    """The value in force once `entry` commits — for the answer to the change
+    itself: a request runs in a transaction, so the cached map still holds the
+    value from before until the request ends."""
+    spec = platform_spec(entry.key)
+    if entry.value is not None:
+        return PlatformValue(entry.key, entry.value, "platform", spec.operator_level)
+    return _below_the_operator(spec)
+
+
+def _below_the_operator(spec: SettingSpec) -> PlatformValue:
+    from django.conf import settings  # noqa: PLC0415
+
     if spec.platform_env is not None and getattr(settings, spec.platform_env, None) is not None:
         return PlatformValue(
-            key, getattr(settings, spec.platform_env), "deployment", spec.operator_level
+            spec.key, getattr(settings, spec.platform_env), "deployment", spec.operator_level
         )
-    return PlatformValue(key, spec.default, "code", spec.operator_level)
+    return PlatformValue(spec.key, spec.default, "code", spec.operator_level)
 
 
 @transaction.atomic

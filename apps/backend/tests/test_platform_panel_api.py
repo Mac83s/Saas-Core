@@ -98,6 +98,9 @@ def test_a_level_1_operator_changes_a_level_1_key_with_a_reason(
     django_capture_on_commit_callbacks: Any,
 ) -> None:
     operator, _secret = operator_after_enrolment()
+    # The list fills the cached map: the answer to the change must not read
+    # it, because the map moves only when the request's transaction commits.
+    assert _keys(operator.get(URL))[NOTE]["value"] == ""
     assert _post(operator, f"{URL}{NOTE}/", {"value": "Hej", "reason": ""}).status_code == 400
     with django_capture_on_commit_callbacks(execute=True):
         changed = _post(operator, f"{URL}{NOTE}/", {"value": "Hej", "reason": "Na próbę"})
