@@ -149,6 +149,8 @@ def accept_locale_versions(
     targets.sort(key=lambda target: str(target[0].id) != home)
     decisions: list[LanguageDecision] = []
     for page, translation in targets:
+        # The person accepts this version: its entry says so (ADR-071 pkt 17).
+        translation.body_accepted_id = translation.body_pending_id
         entry, skipped = _entry_for(site, page, translation, snapshot, translation.body_pending)
         if entry is not None:
             snapshot = with_language_entry(
@@ -166,6 +168,7 @@ def accept_locale_versions(
     for page, translation in targets:
         PageTranslation.all_objects.filter(pk=translation.id).update(
             body_current=translation.body_pending_id,
+            body_accepted=translation.body_pending_id,
             body_pending=None,
             pending_reason="",
             withdrawn_at=None,
@@ -234,6 +237,8 @@ def publish_locale_version(
     page, translation = _target(context, page_id=page_id, locale=locale, lock=not preview)
     site = page.site
     snapshot = _current_snapshot(site)
+    # A person publishing this one version stands behind its text.
+    translation.body_accepted_id = translation.body_current_id
     entry, skipped = _entry_for(site, page, translation, snapshot, translation.body_current)
     if preview or entry is None:
         return LanguageDecision(page, translation, None, skipped)
@@ -247,7 +252,7 @@ def publish_locale_version(
         f"publish:{key}",
     )
     PageTranslation.all_objects.filter(pk=translation.id).update(
-        withdrawn_at=None, updated_at=timezone.now()
+        withdrawn_at=None, body_accepted=translation.body_current_id, updated_at=timezone.now()
     )
     _lock_slug(translation)
     _audit(context, LOCALE_PUBLISHED, page, translation, publication)

@@ -552,6 +552,17 @@ class PageTranslation(TenantScopedModel):
     )
     body_version = models.PositiveBigIntegerField(default=0)
     pending_reason = models.CharField(max_length=40, blank=True, default="")
+    # The body version a person stands behind: they accepted a waiting
+    # translation, or published this language version themselves. Versions
+    # are append-only, so the mark lives here. AI text in a current version
+    # that is not this one is what the visible notice marks (ADR-071 pkt 17).
+    body_accepted = models.ForeignKey(
+        "PageLocaleVersion",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
     # Set when a person takes the language version off the site (ADR-070
     # pkt 12); publications leave it out until somebody publishes it again.
     withdrawn_at = models.DateTimeField(null=True, blank=True)
@@ -1596,6 +1607,15 @@ class ContentEntry(TenantScopedModel):
         blank=True,
     )
     pending_reason = models.CharField(max_length=40, blank=True, default="")
+    # As `PageTranslation.body_accepted`: the version of a translated article
+    # a person stands behind.
+    accepted_version = models.ForeignKey(
+        "ContentEntryVersion",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
     # Distinct from the publication timestamp: an article can be backdated, and
     # the index orders by this rather than by when the button was pressed.
     published_at = models.DateTimeField(null=True, blank=True)

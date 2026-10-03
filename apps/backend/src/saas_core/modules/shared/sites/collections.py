@@ -637,6 +637,7 @@ def publish_entry(
     entry_id: UUID,
     idempotency_key: str,
     published_at: Any = None,
+    person_decision: bool = False,
 ) -> tuple[ContentEntryPublication, bool]:
     """Publishes one article.
 
@@ -681,6 +682,18 @@ def publish_entry(
     assert_real_media_slots(
         organization_id=context.organization_id, blocks=entry.current_draft.blocks
     )
+    if (
+        person_decision
+        and context.principal_kind == "membership"
+        and not context.acting_via
+        and entry.current_draft.units is not None
+        and entry.accepted_version_id != entry.current_draft.id
+    ):
+        # A person publishing this translation themselves stands behind its
+        # text (ADR-071 pkt 17); a job, a schedule or the source's follow-up
+        # publication does not make it so.
+        entry.accepted_version = entry.current_draft
+        ContentEntry.all_objects.filter(pk=entry.id).update(accepted_version=entry.current_draft)
     snapshot = {
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),
@@ -718,7 +731,12 @@ def publish_entry(
         # Who wrote a translation's text, for the marker on machine text
         # (ADR-071 pkt 17); an article written as itself has none.
         **(
-            {"origin": translation_origin(entry.current_draft.units.values())}
+            {
+                "origin": translation_origin(
+                    entry.current_draft.units.values(),
+                    accepted=entry.accepted_version_id == entry.current_draft.id,
+                )
+            }
             if entry.current_draft.units is not None
             else {}
         ),

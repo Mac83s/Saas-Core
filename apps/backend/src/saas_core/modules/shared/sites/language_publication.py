@@ -199,7 +199,7 @@ def fresh_entry(
         "source_version_id": str(source.id),
         "content_hash": body.content_hash,
         "changed_at": body.created_at.isoformat(),
-        "origin": _origin(body.units.values()),
+        "origin": _origin(body.units.values(), accepted=row.body_accepted_id == body.id),
         "withheld": False,
     }, None
 
@@ -227,15 +227,20 @@ def _translated(unit: TextUnit, entry: Any) -> bool:
     return entry.get("provenance", {}).get("origin") not in UNTRANSLATED_ORIGINS
 
 
-def _origin(entries: Iterable[Any]) -> dict[str, Any]:
-    """Who wrote the version, for the machine marker on AI text (ADR-071 pkt 17)."""
+def _origin(entries: Iterable[Any], *, accepted: bool = False) -> dict[str, Any]:
+    """Who wrote the version, for the machine marker on AI text (ADR-071 pkt 17).
+
+    `origin` says whether there is AI text — the machine mark, always.
+    `reviewed` says a person stands behind it: no AI text at all, or a person
+    accepted this version (`accepted`); only what is not reviewed gets the
+    visible notice."""
     origins = {
         str(entry.get("provenance", {}).get("origin", ""))
         for entry in entries
         if isinstance(entry, dict) and "text" in entry
     } - {""}
     kind = next(iter(origins)) if len(origins) == 1 else ("mixed" if origins else "human")
-    return {"origin": kind, "reviewed": "ai" not in origins}
+    return {"origin": kind, "reviewed": accepted or "ai" not in origins}
 
 
 def _carried(

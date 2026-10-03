@@ -456,6 +456,32 @@ def test_a_person_accepts_a_waiting_translation_and_it_goes_out():
     assert [(o.state, o.reason) for o in accepted] == [("live", None)]
     assert driver.public_texts(article, "de") == ["[de] Alfa"]
     assert driver.sibling(article, "de").title == "[de] Wpis testowy"
+    # AI text a person accepted: machine-written and reviewed (ADR-071 pkt 17).
+    assert driver.sibling(article, "de").current_publication.snapshot["origin"] == {
+        "origin": "ai",
+        "reviewed": True,
+    }
+
+
+def test_a_job_s_article_is_unreviewed_until_a_person_publishes_it_themselves():
+    driver = SitesEntryDriver()
+    article = driver.create(["Alfa"])
+    driver.publish(article)
+    _job(driver, article)
+    sibling = driver.sibling(article, "de")
+    assert sibling.current_publication.snapshot["origin"] == {"origin": "ai", "reviewed": False}
+
+    # The service asked without a person's decision (a schedule, a follow-up).
+    driver.publish(sibling.id)
+    again = driver.sibling(article, "de")
+    assert again.current_publication.snapshot["origin"]["reviewed"] is False
+
+    with _as(driver.publisher):
+        publish_entry(entry_id=sibling.id, idempotency_key=_key(), person_decision=True)
+    assert driver.sibling(article, "de").current_publication.snapshot["origin"] == {
+        "origin": "ai",
+        "reviewed": True,
+    }
 
 
 def test_discarding_a_waiting_translation_keeps_nothing_of_it():

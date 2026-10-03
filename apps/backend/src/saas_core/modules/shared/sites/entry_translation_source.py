@@ -36,6 +36,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
+from django.db.models import F
 from django.utils import timezone
 
 from saas_core.content_protocol import registry
@@ -955,10 +956,16 @@ def _decide(
     if source is None or waiting.source_version_id != source.version.id:
         # Translated from text visitors no longer read: the next job's.
         return outcome("conflict", CONFLICT_SOURCE_CHANGED)
+    # The person's decision on this text, whether or not it can go out yet.
     ContentEntry.all_objects.filter(pk=sibling.pk).update(
-        current_draft=waiting, pending_version=None, pending_reason="", version=sibling.version + 1
+        current_draft=waiting,
+        accepted_version=waiting,
+        pending_version=None,
+        pending_reason="",
+        version=sibling.version + 1,
     )
     sibling.current_draft = waiting
+    sibling.accepted_version = waiting
     sibling.version += 1
     _apply_meta(
         sibling,
@@ -1081,6 +1088,11 @@ def follow_source(context: ContentContext, source: ContentEntry) -> None:
             )
         except LocaleUnitsInvalid:
             continue
+        if sibling.accepted_version_id == draft.id:
+            # The same text in a new order is still the text a person accepted.
+            ContentEntry.all_objects.filter(pk=sibling.id).update(
+                accepted_version_id=F("current_draft_id")
+            )
         if sibling.state == ContentEntryState.PUBLISHED:
             publish_entry(
                 entry_id=sibling.id,

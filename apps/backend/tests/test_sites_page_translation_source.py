@@ -412,6 +412,57 @@ def test_a_person_accepts_a_waiting_translation_with_its_title():
     assert driver.public_texts(home, "de") == ["[de] Witamy"]
     row = PageTranslation.all_objects.get(page_id=home, locale="de")
     assert row.title == "[de] Strona testowa"
+    # AI text a person accepted: still marked as machine-written, and
+    # reviewed — so it carries no visible notice (ADR-071 pkt 17).
+    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": True}
+    assert row.body_accepted_id == row.body_current_id
+
+
+def _origin_of(driver: SitesPageDriver, page_id: UUID, locale: str = "de") -> dict[str, Any]:
+    from saas_core.modules.shared.sites.models import Site
+
+    snapshot = Site.all_objects.get(pk=driver.site_id).current_publication.snapshot
+    page = next(item for item in snapshot["pages"] if item["page_id"] == str(page_id))
+    return next(entry for entry in page["locales"] if entry["locale"] == locale)["origin"]
+
+
+def test_ai_text_is_reviewed_only_once_a_person_decides_on_that_version():
+    from saas_core.modules.shared.sites.language_decisions import publish_locale_version
+    from saas_core.modules.shared.sites.language_versions import (
+        get_locale_body,
+        save_locale_body,
+    )
+
+    contract, driver = TestSitesPageSource(), SitesPageDriver()
+    home = driver.create(["Witamy", "Zapraszamy"])
+    driver.publish(home)
+    _job(contract, driver, home)
+
+    # Published by the job: nobody stands behind it yet.
+    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": False}
+    # The whole site published again by a person is not a decision on this text.
+    driver.publish(home)
+    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": False}
+
+    with _as(driver.publisher):
+        publish_locale_version(page_id=home, locale="de", idempotency_key=_key())
+    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": True}
+
+    # Their own correction of the version they accepted keeps it reviewed,
+    # through the next publication of the site as well.
+    with _as(driver.publisher):
+        body = get_locale_body(page_id=home, locale="de")
+        key = body.units[0].unit.key
+        save_locale_body(
+            page_id=home,
+            locale="de",
+            source_version_id=body.source_version.id,
+            expected_body_version=body.translation.body_version,
+            units={key: "Willkommen bei uns"},
+            idempotency_key=_key(),
+        )
+    driver.publish(home)
+    assert _origin_of(driver, home) == {"origin": "mixed", "reviewed": True}
 
 
 def test_pages_are_listed_home_first_with_their_public_state():

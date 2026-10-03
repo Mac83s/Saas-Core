@@ -302,6 +302,10 @@ class ContentEntryPublicationView(APIView):
         publication, created = publish_entry(
             entry_id=entry_id,
             idempotency_key=request.headers.get("Idempotency-Key", ""),
+            # Asked for by name: a person's publication of a translation is
+            # their acceptance of it; an integration's is not (the service
+            # checks who asks).
+            person_decision=True,
         )
         return Response(
             _publication_payload(publication),

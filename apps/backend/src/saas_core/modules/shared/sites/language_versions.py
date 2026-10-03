@@ -330,7 +330,12 @@ def restore_locale_body_version(
         idempotency_key=key,
         request_hash=request_hash,
     )
-    _advance(translation, version, expected_body_version)
+    _advance(
+        translation,
+        version,
+        expected_body_version,
+        accepted=translation.body_accepted_id == old.id,
+    )
     record_audit(
         organization=page.site.organization,
         action=LOCALE_BODY_RESTORED,
@@ -401,7 +406,13 @@ def rebase_locale_body(
         idempotency_key=key,
         request_hash=request_hash,
     )
-    _advance(translation, version, expected_body_version)
+    # What is carried was accepted; what changed starts untranslated.
+    _advance(
+        translation,
+        version,
+        expected_body_version,
+        accepted=translation.body_accepted_id == body.version.id,
+    )
     rebased = _body(page, translation)
     record_audit(
         organization=page.site.organization,
@@ -663,7 +674,19 @@ def _write(
         idempotency_key=key,
         request_hash=request_hash,
     )
-    _advance(translation, version, expected_body_version)
+    # A person editing a version they accepted still stands behind it; text
+    # written for them (an assistant, an integration) starts unaccepted.
+    _advance(
+        translation,
+        version,
+        expected_body_version,
+        accepted=(
+            body.version is not None
+            and translation.body_accepted_id == body.version.id
+            and not context.acting_via
+            and context.principal_kind == "membership"
+        ),
+    )
     saved = _body(page, translation)
     record_audit(
         organization=page.site.organization,
@@ -772,8 +795,14 @@ def _create_version(
 
 
 def _advance(
-    translation: PageTranslation, version: PageLocaleVersion, expected_body_version: int
+    translation: PageTranslation,
+    version: PageLocaleVersion,
+    expected_body_version: int,
+    *,
+    accepted: bool = False,
 ) -> None:
+    """`accepted`: the new version is still what a person stands behind — their
+    own edit, restore or move of a version they accepted (ADR-071 pkt 17)."""
     updated = PageTranslation.all_objects.filter(
         pk=translation.id,
         organization_id=translation.organization_id,
@@ -782,11 +811,14 @@ def _advance(
         body_current=version,
         body_version=expected_body_version + 1,
         updated_at=timezone.now(),
+        **({"body_accepted": version} if accepted else {}),
     )
     if updated != 1:
         raise LocaleBodyVersionConflict
     translation.body_current = version
     translation.body_version = expected_body_version + 1
+    if accepted:
+        translation.body_accepted = version
 
 
 def _version(page: Page, translation: PageTranslation, version_id: UUID) -> PageLocaleVersion:
