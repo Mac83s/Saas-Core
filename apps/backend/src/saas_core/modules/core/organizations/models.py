@@ -575,6 +575,7 @@ class OrganizationAuditAction(models.TextChoices):
     )
     BOOKING_APPOINTMENT_CANCELED = "booking.appointment.canceled", "Anulowano rezerwację"
     BOOKING_APPOINTMENT_COMPLETED = "booking.appointment.completed", "Zakończono wizytę"
+    BOOKING_APPOINTMENT_NO_SHOW = "booking.appointment.no_show", "Oznaczono nieobecność klienta"
     BOOKING_APPOINTMENT_MATERIALS_CHANGED = (
         "booking.appointment.materials_changed",
         "Zmieniono produkty wizyty",

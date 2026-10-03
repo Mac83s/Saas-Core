@@ -2705,6 +2705,30 @@ export async function completeBookingAppointment(
   return data;
 }
 
+/**
+ * The customer did not come (UX-031): a confirmed visit that has begun closes
+ * as `no_show`. Before its start: 409 `visit_not_started_yet`.
+ */
+export async function markBookingAppointmentNoShow(
+  appointmentId: string,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/no-show/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 /** Products one visit takes; the stock reservation follows them. */
 export async function setBookingAppointmentMaterials(
   appointmentId: string,

@@ -11,6 +11,7 @@ from saas_core.config.composition import (
     CompositionError,
     appointment_kinds_for,
     beat_schedule_for,
+    completed_explicitly_kinds_for,
     compose,
     django_apps_for,
     load_catalog,
@@ -792,6 +793,12 @@ try:
     #: the trimmer's own stock). Booking offers no products for them and does
     #: not settle any at completion, or the same material would go twice.
     APPOINTMENT_KINDS_OWN_MATERIALS = own_material_kinds_for(ACTIVE_MODULES, _module_catalog)
+    #: Visits their module closes itself (HoofCare: when the field work ends).
+    #: Their time passing is not their taking place, so only a completed one
+    #: counts as done (UX-031).
+    APPOINTMENT_KINDS_COMPLETED_EXPLICITLY = completed_explicitly_kinds_for(
+        ACTIVE_MODULES, _module_catalog
+    )
 except CompositionError as error:
     raise ImproperlyConfigured(str(error)) from error
 

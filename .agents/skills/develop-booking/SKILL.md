@@ -66,6 +66,16 @@ are both harder than they look.
   Products mark visits with `register_appointment_flags`. The customer's phone
   and e-mail in a visit's payload are for `booking.appointment.manage` and the
   people on the visit only (`visible_contacts`); everybody else gets null.
+- **"The visit has passed" is one rule (UX-031), in `passing.py`**: confirmed
+  and `ends_at <= now`, derived, never stored. The payload says it as `passed`;
+  the panel uses `hasPassed`/`shownStatus` from `appointment-dialogs.tsx`, and
+  counting uses `took_place_q`. Do not compare `ends_at` with now anywhere else:
+  five rules for one visit is what UX-031 removed. A passed visit is not ahead
+  („Najbliższe”), and a vacancy on it is nobody's work (no Wakat, no queue). It
+  took place by default (3A), unless its kind is in the module's
+  `appointmentKindsCompletedExplicitly` (`closes_explicitly`; `""` names the
+  plain service). The customer who did not come is `mark_no_show` — from the
+  visit's start, no undo; it counts as `no_shows`, never as done.
 
 ## Conflicts
 

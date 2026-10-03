@@ -43,7 +43,9 @@ import {
   CrewBadges,
   crewNames,
   FlagBadges,
+  hasPassed,
   NewAppointmentDialog,
+  shownStatus,
   StatusBadge,
   STATUSES,
   statusLabel,
@@ -518,10 +520,10 @@ export function BookingPanel({
     },
     {
       id: "status",
-      accessorFn: (item) => statusLabel(t, item.status),
+      accessorFn: (item) => statusLabel(t, shownStatus(item)),
       header: t("statusColumn"),
       cell: ({ row: { original: item } }) => (
-        <StatusBadge status={item.status} />
+        <StatusBadge status={shownStatus(item)} />
       ),
     },
     {
@@ -620,7 +622,10 @@ export function BookingPanel({
             services={catalog?.services ?? []}
             teams={teams}
             vacancies={dayItems.filter(
-              (item) => item.status === "confirmed" && item.needs_assignment,
+              (item) =>
+                item.status === "confirmed" &&
+                item.needs_assignment &&
+                !hasPassed(item),
             )}
             zone={zone}
           />
@@ -920,7 +925,12 @@ export function BookingPanel({
                 showBoard && view === "day" && "hidden",
               )}
             >
-              {STATUSES.map((status) => (
+              {STATUSES.filter(
+                // Only a product that closes its visits itself has these.
+                (status) =>
+                  status !== "unclosed" ||
+                  appointments?.some((item) => item.closes_explicitly),
+              ).map((status) => (
                 <li key={status}>
                   <StatusBadge status={status} />
                 </li>
@@ -1137,7 +1147,7 @@ function AppointmentCard({
       className={cn(
         "flex min-h-11 w-full flex-col items-start gap-1 rounded-lg border border-l-4 bg-background p-2.5 text-left text-sm transition-colors hover:bg-muted",
         wide && "sm:flex-row sm:items-center sm:gap-4",
-        statusStyle(appointment.status).border,
+        statusStyle(shownStatus(appointment)).border,
         focusRing,
       )}
       onClick={(event) => onOpen(appointment, event.currentTarget)}
@@ -1184,7 +1194,7 @@ function AppointmentCard({
         ) : null}
       </span>{" "}
       <span className="flex flex-wrap gap-1">
-        <StatusBadge status={appointment.status} />{" "}
+        <StatusBadge status={shownStatus(appointment)} />{" "}
         <CrewBadges appointment={appointment} short={!wide} />{" "}
         <FlagBadges flags={appointment.flags} />
       </span>
@@ -1204,7 +1214,8 @@ function MonthAppointment({
 }) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
-  const { icon: Icon, border } = statusStyle(appointment.status);
+  const shown = shownStatus(appointment);
+  const { icon: Icon, border } = statusStyle(shown);
   return (
     <button
       className={cn(
@@ -1237,7 +1248,7 @@ function MonthAppointment({
       />
       <span className="sr-only">
         {`, ${[
-          statusLabel(t, appointment.status),
+          statusLabel(t, shown),
           appointment.service_name,
           crewNames(appointment, t),
         ]

@@ -114,6 +114,14 @@
           },
           "uniqueItems": true
         },
+        "appointmentKindsCompletedExplicitly": {
+          "description": "Of this module's appointmentKinds, those that took place only once completed (the module closes them, e.g. when field work ends): a visit of such a kind whose time passed without completion is not counted as done (UX-031). \"\" names the plain service without a kind, for a product whose every visit is closed that way.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
         "middleware": {
           "description": "Middleware classes of this module, mounted after the tenant middleware only where the module is composed (ADR-049). Must live in the module's own app.",
           "type": "array",

@@ -19,6 +19,9 @@ CREATED = "created"
 RESCHEDULED = "rescheduled"
 CANCELED = "canceled"
 COMPLETED = "completed"
+#: The customer did not come (UX-031); an observer that does not know a change
+#: ignores it.
+NO_SHOW = "no_show"
 
 
 @dataclass(frozen=True, slots=True)

@@ -16,6 +16,8 @@ import { Link } from "#i18n/navigation";
 import {
   CrewBadges,
   FlagBadges,
+  hasPassed,
+  shownStatus,
   statusLabel,
   statusStyle,
   VisitPlace,
@@ -398,8 +400,11 @@ function VisitBlock({
 }) {
   const t = useTranslations("DayBoard");
   const calendar = useTranslations("Calendar");
-  const { className } = statusStyle(item.status);
+  const shown = shownStatus(item);
+  const { className } = statusStyle(shown);
   const when = `${time(item.starts_at)}–${time(item.ends_at)}`;
+  // On a visit that has passed nobody chose anybody any more (UX-031).
+  const auto = item.auto_assigned && !hasPassed(item);
   return (
     <button
       aria-label={[
@@ -407,9 +412,9 @@ function VisitBlock({
         visitName(item),
         item.place,
         item.service_name,
-        statusLabel(calendar, item.status),
+        statusLabel(calendar, shown),
         lead ? t("leads") : "",
-        item.auto_assigned ? calendar("auto") : "",
+        auto ? calendar("auto") : "",
       ]
         .filter(Boolean)
         .join(", ")}
@@ -433,7 +438,7 @@ function VisitBlock({
           </span>
         ) : null}
         <span className="truncate">{visitName(item)}</span>
-        {item.auto_assigned && !item.needs_assignment ? (
+        {auto && !item.needs_assignment ? (
           <span className="shrink-0 rounded-sm bg-background/60 px-1">
             {calendar("autoShort")}
           </span>
@@ -455,7 +460,7 @@ function Legend() {
       aria-label={t("legend")}
       className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-xs text-muted-foreground"
     >
-      {(["confirmed", "completed"] as const).map((status) => (
+      {(["confirmed", "passed", "completed"] as const).map((status) => (
         <li className="flex items-center gap-1.5" key={status}>
           <span className={cn(swatch, statusStyle(status).className)} />
           {statusLabel(calendar, status)}
@@ -578,7 +583,7 @@ function Agenda({
                 className={cn(
                   card,
                   "border-l-4 hover:bg-muted",
-                  statusStyle(item.status).border,
+                  statusStyle(shownStatus(item)).border,
                   focusRing,
                 )}
                 onClick={(event) => onOpen(item, event.currentTarget)}

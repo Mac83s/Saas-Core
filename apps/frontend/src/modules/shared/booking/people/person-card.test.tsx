@@ -205,6 +205,21 @@ beforeEach(() => {
   api.listPeople.mockResolvedValue([]);
   api.listBookingAppointments.mockResolvedValue([
     {
+      // Earlier today and nobody closed it: no longer ahead (UX-031).
+      id: "visit-0",
+      starts_at: "2026-09-24T06:00:00Z",
+      ends_at: "2026-09-24T07:00:00Z",
+      timezone: "Europe/Warsaw",
+      service_name: "Korekcja stada",
+      status: "confirmed",
+      customer_name: "Gospodarstwo Rano",
+      staff_id: "s-marcin",
+      staff_name: "Marcin Kowalski",
+      staff_membership_id: "marcin",
+      location_name: "Baza",
+      resource_name: null,
+    },
+    {
       id: "visit-1",
       starts_at: "2026-09-28T05:00:00Z",
       ends_at: "2026-09-28T10:00:00Z",
@@ -321,6 +336,7 @@ test("karta: dane, dziś, grafik i najbliższe wizyty z drogą do kalendarza", a
     screen.getByRole("link", { name: "Wszystkie w kalendarzu" }),
   ).toHaveAttribute("href", "/panel/calendar?view=list&staff=s-marcin");
   expect(screen.getByText("Gospodarstwo Kaczmarków")).toBeInTheDocument();
+  expect(screen.queryByText("Gospodarstwo Rano")).not.toBeInTheDocument();
   // Two weeks ahead, only this person's visits.
   expect(api.listBookingAppointments).toHaveBeenCalledWith({
     staffId: "s-marcin",

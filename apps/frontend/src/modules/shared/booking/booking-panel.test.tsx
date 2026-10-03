@@ -40,6 +40,7 @@ const api = vi.hoisted(() => ({
   listBookingPlaces: vi.fn(),
   listPeople: vi.fn(),
   listTeams: vi.fn(),
+  markBookingAppointmentNoShow: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
   rescheduleSelfServiceBooking: vi.fn(),
   setBookingAppointmentPlace: vi.fn(),
@@ -169,6 +170,8 @@ const appointment = {
   timezone: "Europe/Warsaw",
   service_name: "Consultation",
   status: "confirmed",
+  passed: false,
+  closes_explicitly: false,
   customer_name: "Jan Kowalski",
   title: "",
   staff_id: ALEX,
@@ -295,10 +298,15 @@ test.each([
   expect(
     screen.queryByRole("button", { name: messages.ServicesSetup.addService }),
   ).toBeNull();
-  // Every status is spelled out in the legend, not only coloured.
+  // Every status is spelled out in the legend, not only coloured — „not
+  // finished” only where a product closes its visits itself.
   const legend = screen.getByRole("list", { name: messages.Calendar.legend });
-  for (const label of Object.values(messages.Calendar.status))
-    expect(within(legend).getByText(label)).not.toBeNull();
+  for (const [status, label] of Object.entries(messages.Calendar.status))
+    if (status !== "unclosed")
+      expect(within(legend).getByText(label)).not.toBeNull();
+  expect(
+    within(legend).queryByText(messages.Calendar.status.unclosed),
+  ).toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 
@@ -480,6 +488,10 @@ test("an appointment opens its details and is canceled only after confirmation",
   expect(within(details).getByText("Centrum")).not.toBeNull();
   expect(within(details).getByText("Room")).not.toBeNull();
   expect((await axe.run(details)).violations).toHaveLength(0);
+  // Before its start nobody can say the customer did not come (UX-031).
+  expect(
+    within(details).queryByRole("button", { name: "Mark as no-show" }),
+  ).toBeNull();
 
   fireEvent.click(
     within(details).getByRole("button", { name: "Cancel appointment" }),
@@ -518,6 +530,59 @@ test("an appointment opens its details and is canceled only after confirmation",
   await waitFor(() =>
     expect(api.listBookingAppointments).toHaveBeenCalledTimes(4),
   );
+});
+
+test("a visit whose time is over shows apart, with no vacancy, and a no-show is asked first", async () => {
+  // This morning, for two, one of them missing — and nobody closed it.
+  const over = {
+    ...appointment,
+    starts_at: "2026-08-19T07:00:00Z",
+    ends_at: "2026-08-19T07:30:00Z",
+    passed: true,
+    staff_required: 2,
+    needs_assignment: true,
+  };
+  api.listBookingAppointments.mockResolvedValue([over]);
+  api.markBookingAppointmentNoShow.mockResolvedValue({
+    ...over,
+    status: "no_show",
+    passed: false,
+    needs_assignment: false,
+  });
+  renderCalendar();
+  const card = await screen.findByRole("button", { name: /Jan Kowalski/ });
+  expect(within(card).getByText("Took place · to settle")).not.toBeNull();
+  expect(within(card).queryByText("Vacancy")).toBeNull();
+
+  fireEvent.click(card);
+  const details = await screen.findByRole("dialog", { name: "Jan Kowalski" });
+  expect(within(details).queryByText(/Vacancy/)).toBeNull();
+  expect(
+    within(details).getByRole("button", { name: "Complete the visit" }),
+  ).not.toBeNull();
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Mark as no-show" }),
+  );
+  const confirm = await screen.findByRole("dialog", {
+    name: "Mark the customer as a no-show?",
+  });
+  expect(api.markBookingAppointmentNoShow).not.toHaveBeenCalled();
+  expect((await axe.run(confirm)).violations).toHaveLength(0);
+  // The reload after the change brings the visit as the server keeps it now.
+  api.listBookingAppointments.mockResolvedValue([
+    { ...over, status: "no_show", passed: false, needs_assignment: false },
+  ]);
+  fireEvent.click(
+    within(confirm).getByRole("button", { name: "Yes, mark as no-show" }),
+  );
+  expect(
+    await within(details).findByText("Marked as a no-show."),
+  ).not.toBeNull();
+  expect(api.markBookingAppointmentNoShow).toHaveBeenCalledWith(
+    over.id,
+    expect.stringMatching(/^[0-9a-f-]{36}$/),
+  );
+  expect(within(details).getByText("No-show")).not.toBeNull();
 });
 
 test("a visit's products can change until it is completed, which takes them off the shelf", async () => {

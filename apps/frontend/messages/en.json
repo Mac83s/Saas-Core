@@ -202,6 +202,7 @@
       "booking_appointment_rescheduled": "Appointment rescheduled",
       "booking_appointment_canceled": "Appointment canceled",
       "booking_appointment_completed": "Appointment completed",
+      "booking_appointment_no_show": "Marked a customer no-show",
       "booking_appointment_materials_changed": "Visit products changed",
       "booking_customer_anonymized": "Customer anonymized",
       "profile_created": "Business card created",
@@ -2338,7 +2339,9 @@
       "confirmed": "Confirmed",
       "completed": "Completed",
       "canceled": "Canceled",
-      "no_show": "No-show"
+      "no_show": "No-show",
+      "passed": "Took place · to settle",
+      "unclosed": "Not finished"
     },
     "noAppointments": "No appointments",
     "noAppointmentsDay": "No appointments on this day.",
@@ -2422,6 +2425,13 @@
     "complete": "Complete the visit",
     "completed": "Visit completed. Its products left the warehouse.",
     "completeError": "The visit could not be completed.",
+    "noShow": "Mark as no-show",
+    "noShowTitle": "Mark the customer as a no-show?",
+    "noShowText": "The visit closes as not having taken place: it leaves the queue, the people and the resource are free from now, and reserved products go back to the warehouse. It does not count as done. This cannot be undone.",
+    "noShowConfirm": "Yes, mark as no-show",
+    "noShowDone": "Marked as a no-show.",
+    "noShowError": "The no-show could not be recorded.",
+    "noShowTooEarly": "The visit has not started yet — a no-show can be marked from its start.",
     "materialsSaved": "Visit products saved.",
     "view_list": "List",
     "previous_list": "Previous month",
@@ -2527,6 +2537,7 @@
         "visits_done": "Visits done",
         "hours": "Hours on visits",
         "canceled": "Canceled",
+        "no_shows": "Customer no-shows",
         "chosen_by_customer": "Customer chose this person"
       },
       "inventory": {
@@ -2589,7 +2600,7 @@
     "how": {
       "visits": {
         "term": "Visits done",
-        "text": "Visits the person was on whose time has passed and which were not canceled — marked done or not. A visit closed with “Complete the visit” counts at once."
+        "text": "Visits the person was on whose time has passed and which nobody canceled or marked as a no-show — marked done or not. A visit closed with “Complete the visit” counts at once. Visits a product's module closes itself (e.g. after field work) count only once completed."
       },
       "hours": {
         "term": "Hours",

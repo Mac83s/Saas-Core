@@ -45,6 +45,9 @@ class ModuleDescriptor:
     #: Of those kinds, the ones whose materials the module accounts for itself;
     #: booking stays out of their stock (ADR-055).
     own_material_kinds: tuple[str, ...] = ()
+    #: Of those kinds, the ones that took place only once completed; a visit
+    #: whose time passed without it is not counted as done (UX-031).
+    completed_explicitly_kinds: tuple[str, ...] = ()
     #: Middleware and scheduled work of a module core does not name, so a
     #: product's vertical mounts them without editing `base.py` (ADR-049).
     middleware: tuple[str, ...] = ()
@@ -69,6 +72,9 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
             },
             appointment_kinds=dict(raw["backend"].get("appointmentKinds") or {}),
             own_material_kinds=tuple(raw["backend"].get("appointmentKindsWithOwnMaterials") or ()),
+            completed_explicitly_kinds=tuple(
+                raw["backend"].get("appointmentKindsCompletedExplicitly") or ()
+            ),
             middleware=tuple(raw["backend"].get("middleware") or ()),
             beat_schedule={
                 name: dict(entry)
@@ -80,6 +86,14 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
         if stray := set(descriptor.own_material_kinds) - set(descriptor.appointment_kinds or {}):
             raise CompositionError(
                 f"{descriptor.id}: własne materiały dla nieznanego typu wizyty "
+                f"{', '.join(sorted(stray))}"
+            )
+        # "" is the plain service, which no module declares.
+        if stray := set(descriptor.completed_explicitly_kinds) - {""} - set(
+            descriptor.appointment_kinds or {}
+        ):
+            raise CompositionError(
+                f"{descriptor.id}: jawne zakończenie dla nieznanego typu wizyty "
                 f"{', '.join(sorted(stray))}"
             )
         descriptors[descriptor.id] = descriptor
@@ -388,6 +402,16 @@ def own_material_kinds_for(
     """Visit kinds whose materials their module accounts for itself (ADR-055)."""
     return frozenset(
         kind for module_id in modules for kind in catalog[module_id].own_material_kinds
+    )
+
+
+def completed_explicitly_kinds_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> frozenset[str]:
+    """Visit kinds that took place only once completed (UX-031)."""
+    return frozenset(
+        kind for module_id in modules for kind in catalog[module_id].completed_explicitly_kinds
     )
 
 

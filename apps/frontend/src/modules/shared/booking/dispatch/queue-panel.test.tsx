@@ -52,6 +52,8 @@ const picked = {
   timezone: "Europe/Warsaw",
   service_name: "Korekcja stada",
   status: "confirmed",
+  passed: false,
+  closes_explicitly: false,
   customer_name: "Gospodarstwo Kaczmarków",
   title: "",
   staff_id: MARCIN,

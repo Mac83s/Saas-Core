@@ -13,7 +13,7 @@ import { cn } from "@saas-core/ui/lib/utils";
 import { PanelSection } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
-import { StatusBadge } from "../appointment-dialogs";
+import { shownStatus, StatusBadge } from "../appointment-dialogs";
 import { addDays, dateFormat, wallClock } from "../calendar-time";
 import { visitName } from "../visit-name";
 
@@ -167,7 +167,7 @@ function Day({
                       .join(" · ")}
                   </span>
                 </span>
-                <StatusBadge status={visit.status} />
+                <StatusBadge status={shownStatus(visit)} />
               </Link>
             </li>
           ))}

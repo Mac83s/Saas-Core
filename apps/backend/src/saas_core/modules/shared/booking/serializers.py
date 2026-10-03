@@ -206,7 +206,21 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     ends_at = serializers.DateTimeField()
     timezone = serializers.CharField()
     service_name = serializers.CharField()
-    status = serializers.CharField()
+    status = serializers.CharField(
+        help_text=("`confirmed`, `completed`, `canceled` or `no_show` (the customer did not come).")
+    )
+    passed = serializers.BooleanField(
+        help_text=(
+            "Confirmed and its planned end is behind us: nobody closed it with complete or "
+            "no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work."
+        )
+    )
+    closes_explicitly = serializers.BooleanField(
+        help_text=(
+            "Its module closes visits of this kind itself (e.g. when field work ends): a passed "
+            "one is not finished rather than done, and only a completed one counts as done."
+        )
+    )
     customer_name = serializers.CharField()
     title = serializers.CharField(
         allow_blank=True,

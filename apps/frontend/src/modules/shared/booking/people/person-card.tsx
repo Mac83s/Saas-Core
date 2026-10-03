@@ -40,7 +40,7 @@ import { allows, type PanelAccess } from "#lib/panel-navigation";
 import { ChangeRoleDialog } from "../../../core/organizations/role-dialog";
 import { managesTeam } from "../../../core/organizations/role-groups";
 import { useRoleLabel } from "../../../core/organizations/role-labels";
-import { StatusBadge } from "../appointment-dialogs";
+import { hasPassed, shownStatus, StatusBadge } from "../appointment-dialogs";
 import { addDays, formatWhen, wallClock } from "../calendar-time";
 import { useTodayText } from "./people-panel";
 import {
@@ -203,7 +203,10 @@ export function PersonCard({
         catalog,
         day,
         people: others ?? [],
-        upcoming: (upcoming ?? []).filter((item) => item.status !== "canceled"),
+        // Still ahead, from now on (UX-031): neither closed nor passed.
+        upcoming: (upcoming ?? []).filter(
+          (item) => item.status === "confirmed" && !hasPassed(item, now),
+        ),
         members,
         teams: teams ?? [],
         booking: Boolean(detail || mine || catalog),
@@ -218,6 +221,7 @@ export function PersonCard({
     canInvite,
     canRead,
     me,
+    now,
     personId,
     today,
     userId,
@@ -424,7 +428,7 @@ export function PersonCard({
       header: t("colStatus"),
       enableSorting: false,
       cell: ({ row: { original: item } }) => (
-        <StatusBadge status={item.status} />
+        <StatusBadge status={shownStatus(item)} />
       ),
     },
   ];

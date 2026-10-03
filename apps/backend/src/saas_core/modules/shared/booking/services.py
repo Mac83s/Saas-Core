@@ -71,6 +71,7 @@ from .observers import (
     CANCELED,
     COMPLETED,
     CREATED,
+    NO_SHOW,
     RESCHEDULED,
     AppointmentChange,
     notify_appointment_change,
@@ -97,6 +98,12 @@ class SlotUnavailable(APIException):
     status_code = 409
     default_detail = "Wybrany termin nie jest już dostępny."
     default_code = "slot_unavailable"
+
+
+class VisitNotStartedYet(APIException):
+    status_code = 409
+    default_detail = "Wizyta jeszcze się nie zaczęła — nieobecność oznacza się od jej początku."
+    default_code = "visit_not_started_yet"
 
 
 class BookingIdempotencyConflict(APIException):
@@ -1193,15 +1200,10 @@ def complete_appointment(
         appointment.save(update_fields=["status", "updated_at"])
         # The booking's own after-buffer, not the catalogue's today: none for a
         # walk-in, which is booked without buffers.
-        until = (ended_at or timezone.now()) + (appointment.occupied_until - appointment.ends_at)
-        for model in (AppointmentStaffAllocation, AppointmentResourceAllocation):
-            for allocation in model.all_objects.filter(
-                appointment=appointment, active=True, occupied_range__endswith__gt=until
-            ):
-                start = allocation.occupied_range.lower
-                # Ended before it began: an empty range, which overlaps nothing.
-                allocation.occupied_range = (start, max(start, until))
-                allocation.save(update_fields=["occupied_range"])
+        _free_from(
+            appointment,
+            (ended_at or timezone.now()) + (appointment.occupied_until - appointment.ends_at),
+        )
         SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(
             revoked_at=timezone.now()
         )
@@ -1244,6 +1246,102 @@ def complete_appointment(
         organization_id=context.organization_id,
         appointment=appointment,
         action="complete",
+        principal_ref=principal_ref,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+    )
+    return appointment
+
+
+def _free_from(appointment: Appointment, until: datetime) -> None:
+    """The people and the resource held on a closed visit are free from
+    `until`. A trim only shortens, so it cannot collide with anybody; the
+    planned times stay as booked."""
+    for model in (AppointmentStaffAllocation, AppointmentResourceAllocation):
+        for allocation in model.all_objects.filter(
+            appointment=appointment, active=True, occupied_range__endswith__gt=until
+        ):
+            start = allocation.occupied_range.lower
+            # Ended before it began: an empty range, which overlaps nothing.
+            allocation.occupied_range = (start, max(start, until))
+            allocation.save(update_fields=["occupied_range"])
+
+
+@transaction.atomic
+def mark_no_show(*, appointment_id: UUID, idempotency_key: str, principal_ref: str) -> Appointment:
+    """The customer did not come (UX-031, W3): the visit closes without having
+    taken place, so it counts neither as done nor as waiting for anybody.
+
+    Only a confirmed visit that has begun — before its start nobody can tell.
+    It leaves the assignment queue, the people and the resource are free from
+    now, the customer's self-service link stops working, and products reserved
+    for it go back to stock instead of being used up. There is no undo: a
+    mistaken no-show stays in the history with who marked it.
+    """
+    context = require_tenant_context()
+    appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
+    if not appointment:
+        raise NotFound("Rezerwacja nie istnieje.")
+    request_hash = _hash({"no_show": True})
+    existing = BookingMutation.all_objects.filter(
+        action="no_show", principal_ref=principal_ref, idempotency_key=idempotency_key
+    ).first()
+    if existing:
+        if existing.request_hash != request_hash:
+            raise BookingIdempotencyConflict
+        return appointment
+    if appointment.status != AppointmentStatus.NO_SHOW:
+        if appointment.status != AppointmentStatus.CONFIRMED:
+            raise AppointmentNotChangeable
+        now = timezone.now()
+        if appointment.starts_at > now:
+            raise VisitNotStartedYet
+        appointment.status = AppointmentStatus.NO_SHOW
+        appointment.needs_assignment = appointment.auto_assigned = False
+        appointment.queue_reason, appointment.queued_at = "", None
+        appointment.save(
+            update_fields=[
+                "status",
+                "needs_assignment",
+                "auto_assigned",
+                "queue_reason",
+                "queued_at",
+                "updated_at",
+            ]
+        )
+        _free_from(appointment, now)
+        SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(revoked_at=now)
+        AppointmentStatusHistory.all_objects.create(
+            organization_id=context.organization_id,
+            appointment=appointment,
+            from_status=AppointmentStatus.CONFIRMED,
+            to_status=AppointmentStatus.NO_SHOW,
+            actor_kind=context.principal_kind,
+        )
+        stock.release(context.organization_id, appointment.id)
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action="booking.appointment.no_show",
+            actor=User.objects.filter(pk=context.actor_id).first(),
+            target_type="appointment",
+            target_id=appointment.id,
+        )
+        _announce(
+            AppointmentChange(
+                change=NO_SHOW,
+                organization_id=context.organization_id,
+                appointment_id=appointment.id,
+                previous_starts_at=appointment.starts_at,
+                starts_at=appointment.starts_at,
+                previous_status=AppointmentStatus.CONFIRMED,
+                status=AppointmentStatus.NO_SHOW,
+                timezone=appointment.timezone,
+            )
+        )
+    BookingMutation.all_objects.create(
+        organization_id=context.organization_id,
+        appointment=appointment,
+        action="no_show",
         principal_ref=principal_ref,
         idempotency_key=idempotency_key,
         request_hash=request_hash,

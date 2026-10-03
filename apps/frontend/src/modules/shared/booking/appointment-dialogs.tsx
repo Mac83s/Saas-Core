@@ -16,8 +16,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   CalendarCheckIcon,
+  CalendarClockIcon,
   CheckCircle2Icon,
   CircleIcon,
+  ClockAlertIcon,
   MapPinIcon,
   NavigationIcon,
   PhoneIcon,
@@ -31,6 +33,7 @@ import {
   ApiProblemError,
   cancelBookingAppointment,
   completeBookingAppointment,
+  markBookingAppointmentNoShow,
   createBookingAppointment,
   getBookingSlots,
   listBookingPlaces,
@@ -133,9 +136,44 @@ const STATUS_STYLES: Record<
     border: "border-l-muted-foreground",
     icon: XCircleIcon,
   },
+  // UX-031: not statuses, the way a confirmed visit whose time is over shows.
+  passed: {
+    className: "bg-secondary text-secondary-foreground",
+    border: "border-l-success-foreground",
+    icon: CalendarClockIcon,
+  },
+  unclosed: {
+    className: "bg-secondary text-secondary-foreground",
+    border: "border-l-warning-foreground",
+    icon: ClockAlertIcon,
+  },
 };
 
 export const STATUSES = Object.keys(STATUS_STYLES);
+
+type Timed = { status: string; ends_at: string; closes_explicitly?: boolean };
+
+/**
+ * UX-031, the one rule (backend `passing.has_passed`): a confirmed visit whose
+ * planned end is behind us has passed. Nobody closed it yet, so it is no longer
+ * ahead and a vacancy on it is nobody's work.
+ */
+export function hasPassed(item: Timed, now: Date = new Date()): boolean {
+  return (
+    item.status === "confirmed" &&
+    new Date(item.ends_at).getTime() <= now.getTime()
+  );
+}
+
+/**
+ * What a visit is shown as: its status, or for a passed one `passed` („took
+ * place, to settle”) — `unclosed` when its module closes it itself, so the
+ * time being over does not mean the work was done.
+ */
+export function shownStatus(item: Timed, now?: Date): string {
+  if (!hasPassed(item, now)) return item.status;
+  return item.closes_explicitly ? "unclosed" : "passed";
+}
 
 export function statusStyle(status: string) {
   return (
@@ -347,6 +385,8 @@ function problemText(error: unknown, t: Translate, fallback: string) {
       return t("idempotencyConflict");
     case "appointment_not_changeable":
       return t("notChangeable");
+    case "visit_not_started_yet":
+      return t("noShowTooEarly");
     case "entitlement_required":
       return t("notInPlan");
     case "organization_permission_denied":
@@ -1338,7 +1378,10 @@ export function crewNames(appointment: BookingAppointment, t: Translate) {
     : (crew[0]?.name ?? "");
 }
 
-/** „Wakat” and „Dobrano automatycznie”: only a planned visit is either. */
+/**
+ * „Wakat” and „Dobrano automatycznie”: only a visit still ahead is either — on
+ * one that has passed, nobody is to be found any more (UX-031).
+ */
 export function CrewBadges({
   appointment,
   short = false,
@@ -1348,7 +1391,7 @@ export function CrewBadges({
   short?: boolean;
 }) {
   const t = useTranslations("Calendar");
-  if (appointment.status !== "confirmed") return null;
+  if (appointment.status !== "confirmed" || hasPassed(appointment)) return null;
   if (appointment.needs_assignment) {
     const missing = Math.max(
       appointment.staff_required - appointment.crew.length,
@@ -1448,7 +1491,7 @@ function AppointmentDetails({
       <dl className="grid grid-cols-[auto_1fr] items-center gap-x-6 gap-y-2 text-sm">
         <dt className="text-muted-foreground">{t("statusLabel")}</dt>
         <dd className="flex flex-wrap gap-2">
-          <StatusBadge status={appointment.status} />
+          <StatusBadge status={shownStatus(appointment)} />
           <CrewBadges appointment={appointment} />
           <FlagBadges flags={appointment.flags} />
         </dd>
@@ -1562,6 +1605,18 @@ function AppointmentDetails({
               onChanged(updated);
             }}
           />
+          {/* Before the start nobody can tell (UX-031). */}
+          {new Date(appointment.starts_at) <= new Date() ? (
+            <NoShowDialog
+              appointment={appointment}
+              onDone={(updated) => {
+                setNotice(t("noShowDone"));
+                onChanged(updated);
+              }}
+              returnFocus={title}
+              when={when}
+            />
+          ) : null}
           <RescheduleDialog
             appointment={appointment}
             catalog={catalog}
@@ -1890,6 +1945,93 @@ function CompleteButton({
         </p>
       ) : null}
     </>
+  );
+}
+
+/**
+ * The customer did not come (UX-031): the visit closes without having taken
+ * place. Asked first, because there is no undo.
+ */
+function NoShowDialog({
+  appointment,
+  onDone,
+  returnFocus,
+  when,
+}: {
+  appointment: BookingAppointment;
+  onDone: (appointment: BookingAppointment) => void;
+  /** The closed visit loses this button, so focus needs another home. */
+  returnFocus: RefObject<HTMLElement | null>;
+  when: string;
+}) {
+  const t = useTranslations("Calendar");
+  const common = useTranslations("Common");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string>();
+  const [result, setResult] = useState<BookingAppointment>();
+  const idempotencyKey = useRef("");
+
+  async function confirm() {
+    setBusy(true);
+    setProblem(undefined);
+    try {
+      setResult(
+        await markBookingAppointmentNoShow(
+          appointment.id,
+          idempotencyKey.current,
+        ),
+      );
+      setOpen(false);
+    } catch (error) {
+      setProblem(problemText(error, t, "noShowError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      onOpenChange={(next) => {
+        if (next) idempotencyKey.current = crypto.randomUUID();
+        setProblem(undefined);
+        setOpen(next);
+      }}
+      // Report only once the dialog is gone: the report removes its trigger.
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen && result) onDone(result);
+      }}
+      open={open}
+    >
+      <DialogTrigger render={<Button type="button" variant="outline" />}>
+        {t("noShow")}
+      </DialogTrigger>
+      <DialogContent
+        closeLabel={common("close")}
+        finalFocus={() => (result ? returnFocus.current : true)}
+      >
+        <DialogHeader>
+          <DialogTitle>{t("noShowTitle")}</DialogTitle>
+          <DialogDescription>
+            {visitName(appointment)} · {when}
+          </DialogDescription>
+        </DialogHeader>
+        <p className="text-sm">{t("noShowText")}</p>
+        {problem ? (
+          <p className="text-sm text-destructive" role="alert">
+            {problem}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            {t("keep")}
+          </DialogClose>
+          <Button disabled={busy} onClick={() => void confirm()} type="button">
+            {t("noShowConfirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -43,6 +43,7 @@ from .models import (
     Service,
     TimeModel,
 )
+from .passing import closes_explicitly, has_passed
 from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
 from .public import public_choices, public_people, shown_to_customer
@@ -152,6 +153,7 @@ from .services import (
     create_catalog_item,
     list_appointments,
     list_catalog,
+    mark_no_show,
     reschedule_appointment,
     set_appointment_materials,
     set_appointment_place,
@@ -324,6 +326,8 @@ def _appointment_payload(
         "timezone": value.timezone,
         "service_name": value.service_name,
         "status": value.status,
+        "passed": has_passed(value),
+        "closes_explicitly": closes_explicitly(value.service.appointment_kind),
         "customer_name": value.customer.display_name,
         # A module's name for the visit (a herd visit's farm), shown before
         # the customer's; empty when no module knows one.
@@ -802,6 +806,37 @@ class AppointmentCompleteView(APIView):
         return Response(
             _appointment_payload(
                 complete_appointment(
+                    appointment_id=appointment_id,
+                    idempotency_key=_idem(request),
+                    principal_ref=str(context.actor_id),
+                )
+            )
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentNoShowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_appointment_no_show",
+        summary="Mark that the customer did not come",
+        description="Closes a confirmed visit that has begun as `no_show` (UX-031): it leaves "
+        "the assignment queue, counts neither as done nor as canceled, the people and the "
+        "resource are free from now, the customer's self-service link stops working and "
+        "products reserved for it return to stock. Before its start it is 409 "
+        "`visit_not_started_yet`; a visit that is not confirmed (completed, canceled) is 409 "
+        "`appointment_not_changeable`. There is no undo." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=None,
+        responses={200: AppointmentSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        return Response(
+            _appointment_payload(
+                mark_no_show(
                     appointment_id=appointment_id,
                     idempotency_key=_idem(request),
                     principal_ref=str(context.actor_id),

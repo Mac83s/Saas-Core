@@ -7,6 +7,7 @@ from .views import (
     AppointmentCrewView,
     AppointmentListCreateView,
     AppointmentMaterialsView,
+    AppointmentNoShowView,
     AppointmentPlaceView,
     AppointmentRescheduleView,
     BookingCatalogView,
@@ -264,6 +265,11 @@ urlpatterns = [
         "appointments/<uuid:appointment_id>/complete/",
         AppointmentCompleteView.as_view(),
         name="complete",
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/no-show/",
+        AppointmentNoShowView.as_view(),
+        name="no-show",
     ),
     path(
         "appointments/<uuid:appointment_id>/materials/",

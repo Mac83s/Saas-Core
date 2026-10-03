@@ -396,13 +396,22 @@ const assertGrantsAreOwnPermissions = (descriptor) => {
 // ADR-049: middleware and scheduled tasks a module declares must be its own
 // code, so a descriptor cannot mount somebody else's.
 /** The same rule the backend enforces at boot (composition.load_catalog). */
-const assertOwnMaterialKindsAreOwn = (descriptor) => {
+const assertKindListsNameOwnKinds = (descriptor) => {
   const kinds = Object.keys(descriptor.backend.appointmentKinds ?? {});
   for (const kind of descriptor.backend.appointmentKindsWithOwnMaterials ??
     []) {
     if (!kinds.includes(kind)) {
       throw new Error(
         `Moduł ${descriptor.id}: własne materiały dla nieznanego typu wizyty ${kind}`,
+      );
+    }
+  }
+  for (const kind of descriptor.backend.appointmentKindsCompletedExplicitly ??
+    []) {
+    // "" is the plain service, which no module declares.
+    if (kind !== "" && !kinds.includes(kind)) {
+      throw new Error(
+        `Moduł ${descriptor.id}: jawne zakończenie dla nieznanego typu wizyty ${kind}`,
       );
     }
   }
@@ -522,7 +531,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     assertDeclaredTablesBelongToModule(descriptor);
     assertGrantsAreOwnPermissions(descriptor);
     assertDeclaredCodeIsOwn(descriptor);
-    assertOwnMaterialKindsAreOwn(descriptor);
+    assertKindListsNameOwnKinds(descriptor);
     descriptorsById.set(descriptor.id, descriptor);
   }
   for (const type of profile.organizationTypes ?? []) {

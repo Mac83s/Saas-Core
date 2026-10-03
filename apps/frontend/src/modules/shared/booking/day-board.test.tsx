@@ -85,6 +85,8 @@ const visit = {
   timezone: "Europe/Warsaw",
   service_name: "Consultation",
   status: "confirmed",
+  passed: false,
+  closes_explicitly: false,
   customer_name: "Jan Kowalski",
   title: "",
   staff_id: ALEX,

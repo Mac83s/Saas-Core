@@ -44,6 +44,7 @@ from .models import (
     StaffTeamMember,
     TimeOff,
 )
+from .passing import took_place_q
 from .staff import _management, _own, _read
 
 #: Somebody else's results and history (owner's answer 3, 24.09).
@@ -327,25 +328,23 @@ def team_performance(
 
 # --- the calendar's own facts --------------------------------------------------------
 
-_DONE = (AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED)
-
-
 def _now() -> datetime:
     """When a visit counts as past; a test moves it."""
     return timezone.now()
 
 
 def _done(subject: StaffSubject, span: Period) -> list[AppointmentStaffAllocation]:
-    """Visits the person was on that took place: time passed, not canceled (3A).
-    A visit ended with „Zakończ” took place at once, before its planned end.
+    """Visits the person was on that took place (`passing`, UX-031): time
+    passed, neither canceled nor a no-show (3A), unless their module closes
+    them itself. A visit ended with „Zakończ” took place at once, before its
+    planned end.
 
     The person is on a visit while their time is held on it; a lead taken off a
     visit that waits for somebody else holds none (ADR-058 §2).
     """
     return list(
         AppointmentStaffAllocation.all_objects.filter(
-            Q(appointment__ends_at__lte=_now(), appointment__status__in=_DONE)
-            | Q(appointment__status=AppointmentStatus.COMPLETED),
+            took_place_q(_now(), "appointment__"),
             organization_id=subject.organization_id,
             staff_id=subject.staff_id,
             active=True,
@@ -365,9 +364,13 @@ def _lead(allocation: AppointmentStaffAllocation) -> bool:
 def _minutes(allocation: AppointmentStaffAllocation) -> int:
     """The visit's own time the person held: buffers out, cut at the real end."""
     appointment = allocation.appointment
+    held = allocation.occupied_range
+    # Closed before it began („Zakończ” on a visit still ahead): nothing held.
+    if held.isempty:
+        return 0
     after = appointment.occupied_until - appointment.ends_at
-    start = max(allocation.occupied_range.lower, appointment.starts_at)
-    end = min(allocation.occupied_range.upper - after, appointment.ends_at)
+    start = max(held.lower, appointment.starts_at)
+    end = min(held.upper - after, appointment.ends_at)
     return max(int((end - start).total_seconds() // 60), 0)
 
 
@@ -379,12 +382,9 @@ def _calendar_metrics(subject: StaffSubject, span: Period) -> list[Metric]:
         starts_at__gte=span.starts,
         starts_at__lt=span.ends,
     )
-    canceled = (
-        in_period.filter(status=AppointmentStatus.CANCELED)
-        .filter(Q(staff_id=subject.staff_id) | Q(staff_allocations__staff_id=subject.staff_id))
-        .distinct()
-        .count()
-    )
+    theirs = Q(staff_id=subject.staff_id) | Q(staff_allocations__staff_id=subject.staff_id)
+    canceled = in_period.filter(theirs, status=AppointmentStatus.CANCELED).distinct().count()
+    no_shows = in_period.filter(theirs, status=AppointmentStatus.NO_SHOW).distinct().count()
     chosen = (
         in_period.filter(requested_staff_id=subject.staff_id)
         .exclude(status=AppointmentStatus.CANCELED)
@@ -394,6 +394,7 @@ def _calendar_metrics(subject: StaffSubject, span: Period) -> list[Metric]:
         Metric("visits_done", len(done), parts={"lead": lead, "crew": len(done) - lead}),
         Metric("hours", sum(_minutes(allocation) for allocation in done), unit="minutes"),
         Metric("canceled", canceled),
+        Metric("no_shows", no_shows),
         Metric("chosen_by_customer", chosen),
     ]
 

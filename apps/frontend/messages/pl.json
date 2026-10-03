@@ -202,6 +202,7 @@
       "booking_appointment_rescheduled": "Zmieniono termin rezerwacji",
       "booking_appointment_canceled": "Odwołano rezerwację",
       "booking_appointment_completed": "Zakończono wizytę",
+      "booking_appointment_no_show": "Oznaczono nieobecność klienta",
       "booking_appointment_materials_changed": "Zmieniono produkty wizyty",
       "booking_customer_anonymized": "Zanonimizowano klienta",
       "profile_created": "Utworzono wizytówkę",
@@ -2338,7 +2339,9 @@
       "confirmed": "Potwierdzona",
       "completed": "Zakończona",
       "canceled": "Odwołana",
-      "no_show": "Nieobecność"
+      "no_show": "Nieobecność",
+      "passed": "Odbyta · do rozliczenia",
+      "unclosed": "Niezakończona"
     },
     "noAppointments": "Brak wizyt",
     "noAppointmentsDay": "Brak wizyt tego dnia.",
@@ -2422,6 +2425,13 @@
     "complete": "Zakończ wizytę",
     "completed": "Wizyta zakończona. Produkty zeszły z magazynu.",
     "completeError": "Nie udało się zakończyć wizyty.",
+    "noShow": "Oznacz nieobecność",
+    "noShowTitle": "Oznaczyć nieobecność klienta?",
+    "noShowText": "Wizyta zamknie się jako nieodbyta: zniknie z kolejki, osoby i zasób będą wolne od teraz, a zarezerwowane produkty wrócą do magazynu. Nie liczy się do odbytych. Tego nie da się cofnąć.",
+    "noShowConfirm": "Tak, oznacz nieobecność",
+    "noShowDone": "Oznaczono nieobecność klienta.",
+    "noShowError": "Nie udało się oznaczyć nieobecności.",
+    "noShowTooEarly": "Wizyta jeszcze się nie zaczęła — nieobecność oznacza się od jej początku.",
     "materialsSaved": "Zapisano produkty wizyty.",
     "view_list": "Lista",
     "previous_list": "Poprzedni miesiąc",
@@ -2527,6 +2537,7 @@
         "visits_done": "Odbyte wizyty",
         "hours": "Godziny na wizytach",
         "canceled": "Odwołane",
+        "no_shows": "Nieobecności klientów",
         "chosen_by_customer": "Klient wybrał tę osobę"
       },
       "inventory": {
@@ -2589,7 +2600,7 @@
     "how": {
       "visits": {
         "term": "Odbyte wizyty",
-        "text": "Wizyty z udziałem osoby, których czas minął i których nie odwołano — także bez „Zakończ”. Wizyta zakończona przyciskiem „Zakończ” liczy się od razu."
+        "text": "Wizyty z udziałem osoby, których czas minął i których nikt nie odwołał ani nie oznaczył jako nieobecność — także bez „Zakończ”. Wizyta zakończona przyciskiem „Zakończ” liczy się od razu. Wizyty, które moduł produktu zamyka sam (np. po pracy w terenie), liczą się dopiero po zakończeniu."
       },
       "hours": {
         "term": "Godziny",

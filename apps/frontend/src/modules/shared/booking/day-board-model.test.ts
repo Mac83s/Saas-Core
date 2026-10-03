@@ -28,6 +28,8 @@ const visit = (
   timezone: ZONE,
   service_name: "Consultation",
   status: "confirmed",
+  passed: false,
+  closes_explicitly: false,
   customer_name: "Jan",
   title: "",
   staff_id: "alex",
