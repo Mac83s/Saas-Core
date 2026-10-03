@@ -523,6 +523,35 @@ test("names every language as itself, in the list and among an article's version
   // German is German, not "the other language".
   expect(await within(versions).findByText("Deutsch")).not.toBeNull();
   expect(within(versions).queryByText("Angielski")).toBeNull();
+  // A person's version carries no machine marks.
+  expect(within(versions).queryByText("Tłumaczenie AI")).toBeNull();
+});
+
+test("a machine's version says so and says when it waits for a person", async () => {
+  listEntryTranslations.mockResolvedValue([
+    entry,
+    {
+      ...entry,
+      id: "machine",
+      locale: "en",
+      title: "First post",
+      translation_of: entryId,
+      pending_reason: "review_mode",
+    },
+  ]);
+  renderPanel();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  const versions = await screen.findByRole("table", {
+    name: "Wersje językowe tego wpisu",
+  });
+  const row = within(
+    (await within(versions).findByText("First post")).closest("tr")!,
+  );
+  expect(row.getByText("Tłumaczenie AI")).not.toBeNull();
+  expect(row.getByText("Czeka na akceptację")).not.toBeNull();
 });
 
 test("translates an article into the missing languages and lists them when the order ends", async () => {

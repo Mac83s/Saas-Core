@@ -74,6 +74,13 @@ const TONE: Record<LanguageState, "success" | "warning" | "neutral"> = {
   incomplete: "warning",
 };
 
+/** A language version's state as a badge — the same words and colours
+ *  wherever a version is listed (the switch, an article's versions). */
+export function TranslationStatusBadge({ state }: { state: LanguageState }) {
+  const t = useTranslations("Sites.languageMode");
+  return <Badge variant={TONE[state]}>{t(`states.${state}`)}</Badge>;
+}
+
 /** Which language of the page the editor shows (TL15). A Select: a company
  *  has two to five languages, each with its state beside its name. */
 export function LanguageSwitch({
@@ -124,9 +131,7 @@ export function LanguageSwitch({
           {options.map((option) => (
             <SelectItem key={option.locale} value={option.locale}>
               <span>{option.name}</span>
-              <Badge variant={TONE[option.state]}>
-                {t(`states.${option.state}`)}
-              </Badge>
+              <TranslationStatusBadge state={option.state} />
             </SelectItem>
           ))}
         </SelectContent>

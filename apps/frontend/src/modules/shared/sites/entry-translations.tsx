@@ -42,6 +42,7 @@ import {
   useTranslationOffer,
 } from "../translation/use-translation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { TranslationStatusBadge } from "./language-switch";
 import { sitesErrorMessage } from "./problem";
 import { slugFromTitle } from "./slug";
 
@@ -163,9 +164,16 @@ export function EntryTranslations({
       accessorFn: stateLabel,
       header: t("lists.state"),
       cell: ({ row: { original: item } }) => (
-        <Badge variant={item.state === "published" ? "default" : "secondary"}>
-          {stateLabel(item)}
-        </Badge>
+        <span className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={item.state === "published" ? "default" : "secondary"}>
+            {stateLabel(item)}
+          </Badge>
+          {/* A machine's version says so, and says when it waits for a person. */}
+          {item.translation_of && (
+            <Badge variant="outline">{t("entryMachineVersion")}</Badge>
+          )}
+          {item.pending_reason && <TranslationStatusBadge state="pending" />}
+        </span>
       ),
     },
   ];

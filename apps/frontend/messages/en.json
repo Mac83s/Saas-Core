@@ -1556,6 +1556,7 @@
     "entryTranslationExists": "This article already has a version in that language.",
     "entryTranslationTitle": "Language version title",
     "entryTranslationSlug": "Language version address",
+    "entryMachineVersion": "AI translation",
     "entryTranslateHint": "Automatic translation creates versions in the missing languages: {languages}. You see the cost before ordering.",
     "entryTranslating": "The article is being translated… The new versions will appear in this list.",
     "entryTranslationLocale": "Version language",

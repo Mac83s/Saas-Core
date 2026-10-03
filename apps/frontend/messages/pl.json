@@ -1556,6 +1556,7 @@
     "entryTranslationExists": "Ten artykuł ma już wersję w tym języku.",
     "entryTranslationTitle": "Tytuł wersji językowej",
     "entryTranslationSlug": "Adres wersji językowej",
+    "entryMachineVersion": "Tłumaczenie AI",
     "entryTranslateHint": "Automatyczne tłumaczenie utworzy wersje w brakujących językach: {languages}. Koszt zobaczysz przed zleceniem.",
     "entryTranslating": "Tłumaczenie wpisu trwa… Nowe wersje pojawią się na tej liście.",
     "entryTranslationLocale": "Język wersji",
