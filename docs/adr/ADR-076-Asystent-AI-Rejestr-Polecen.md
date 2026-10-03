@@ -738,8 +738,12 @@ rezerwacji, które podawało też rodzaje jeszcze niedostępne.
    - **Zgoda.** Klasa `irreversible`: osobna grupa, jedno kliknięcie tylko na ten
      krok, ze słowami serwera (ile cen, dopłat i sezonów ginie; jednostki zostają) i
      etykietą „Nie da się cofnąć”. To samo mówią notatki obok rozmowy („…— tego nie da
-     się cofnąć”, a przy usuwaniu oferty z notatek — co dalej stanie się w koncie) i
-     model (reguła promptu). Odmowa zostawia szkic i resztę planu bez zmian.
+     się cofnąć”, a przy usuwaniu oferty z notatek — co dalej stanie się w koncie).
+     Model ma to powiedzieć sam (reguła promptu), ale **w pomiarze tego nie robi**:
+     eval `undo_pl` na Sonnet 5.5 i przejście w przeglądarce 04.10 pokazują plan
+     zaproponowany bez słowa asystenta o nieodwracalności
+     (`docs/evals/assistant/README.md`). Dziś mówi to więc serwer i notatki, nie model
+     — reguła do poprawy. Odmowa zostawia szkic i resztę planu bez zmian.
    - **Odrzucone:** usuwanie każdego szkicu, którego notatki nie nazywają — zabrałoby
      szkice założone w panelu albo w zwykłej rozmowie; ślad usuniętej oferty zapisany
      w profilu — drugi zapis tej samej prawdy, który nie obejmuje zmiany nazwy w
@@ -763,4 +767,7 @@ rezerwacji, które podawało też rodzaje jeszcze niedostępne.
    usunięcie oferty z notatek nie usuwa niczego z konta, a krok oznaczony
    `cannot_be_undone` asystent nazywa wprost, zanim zaproponuje plan. Evale: trzy
    nowe scenariusze (`season_pl`, `kind_soon_pl`, `undo_pl`); ocena czyta też słowa
-   modelu napisane obok wywołania narzędzia, bo tam pada „nie da się cofnąć”.
+   modelu napisane obok wywołania narzędzia, bo tam miało paść „nie da się cofnąć”.
+   Wynik przebiegu 04.10 na Sonnet 5.5: 17 / 20 — `undo_pl` nie przeszedł (druga
+   reguła nie zadziałała), a dwa wcześniej zaliczone scenariusze nie przeszły przez
+   formę z rodzajem; pierwsza reguła („wkrótce”) i sezony przeszły.
