@@ -110,8 +110,11 @@ SOURCE_KEY = PAGE_SOURCE_KEY
 META_TITLE = "meta/title"
 META_DESCRIPTION = "meta/description"
 META_FIELDS = {META_TITLE: "title", META_DESCRIPTION: "description"}
-#: The version origin of a translation job's text (`PageLocaleVersion.origin`).
+#: The version origin of a translation job's text (`PageLocaleVersion.origin`):
+#: made current by the job, or waiting for a person — whose acceptance is
+#: theirs, so undoing the job leaves it.
 ORIGIN_TRANSLATION_JOB = "translation_job"
+ORIGIN_TRANSLATION_PENDING = "translation_pending"
 LOCALE_TRANSLATED = "sites.page.locale_translated"
 
 GATE_REQUIRED = "required"
@@ -302,12 +305,17 @@ class PageTranslationSource:
                     ))
                 for site_id, site_items in by_site.items():
                     seen = accept_locale_versions(
-                        items=site_items, digest=None, idempotency_key="", preview=True
+                        items=site_items,
+                        digest=None,
+                        idempotency_key="",
+                        preview=True,
+                        review=True,
                     )
                     decisions = accept_locale_versions(
                         items=site_items,
                         digest=batch_digest([(d.page, d.translation) for d in seen]),
                         idempotency_key=f"{idempotency_key}:{site_id}"[:120],
+                        review=True,
                     )
                     outcomes.extend(
                         WriteOutcome(
@@ -327,6 +335,7 @@ class PageTranslationSource:
                         locale=item.locale,
                         expected_body_version=_expected(page, item),
                         idempotency_key=f"{idempotency_key}:{page.id}:{item.locale}"[:120],
+                        review=True,
                     )
                     outcomes.append(
                         WriteOutcome(
@@ -351,39 +360,29 @@ class PageTranslationSource:
 
         with _tenant(context):
             _authorize(context, "publish", ())
-            touched = (
-                PageLocaleVersion.all_objects.filter(
+            touched = PageTranslation.all_objects.select_for_update(of=("self",)).filter(
+                organization_id=context.organization_id,
+                id__in=PageLocaleVersion.all_objects.filter(
                     organization_id=context.organization_id, origin_ref=job_ref
-                )
-                .order_by("translation_id", "number")
-                .select_related("translation", "site")
+                ).values("translation_id"),
             )
-            first: dict[UUID, PageLocaleVersion] = {}
-            for version in touched:
-                first.setdefault(version.translation_id, version)
             outcomes: list[WriteOutcome] = []
-            sites: dict[UUID, Site] = {}
-            for version in first.values():
-                row = PageTranslation.all_objects.select_for_update().get(pk=version.translation_id)
-                before = (
-                    PageLocaleVersion.all_objects.filter(
-                        organization_id=row.organization_id,
-                        translation_id=row.id,
-                        number__lt=version.number,
-                    )
-                    .order_by("-number")
-                    .first()
-                )
-                changes: dict[str, Any] = {
-                    "body_version": row.body_version + 1,
-                    "updated_at": timezone.now(),
-                }
-                if row.body_current is not None and row.body_current.origin_ref == job_ref:
-                    changes["body_current"] = before
+            sites: dict[UUID, set[UUID]] = {}
+            for row in touched.select_related("body_current", "body_pending").order_by("id"):
+                changes: dict[str, Any] = {}
+                current = row.body_current
+                if made_by_job(current, job_ref):
+                    changes["body_current"] = before_job(current, job_ref)
                 if row.body_pending is not None and row.body_pending.origin_ref == job_ref:
                     changes.update(body_pending=None, pending_reason="")
-                PageTranslation.all_objects.filter(pk=row.id).update(**changes)
-                sites[version.site_id] = version.site
+                if not changes:
+                    # A person's version since, or their acceptance: theirs.
+                    continue
+                PageTranslation.all_objects.filter(pk=row.id).update(
+                    **changes, body_version=row.body_version + 1, updated_at=timezone.now()
+                )
+                if "body_current" in changes:
+                    sites.setdefault(row.site_id, set()).add(row.id)
                 outcomes.append(
                     WriteOutcome(
                         object_id=row.page_id,
@@ -394,13 +393,13 @@ class PageTranslationSource:
                         target_version=str(row.body_version + 1),
                     )
                 )
-            for site in sites.values():
+            for site_id, rows in sites.items():
                 publish_job_versions(
-                    site=site,
+                    site=Site.all_objects.get(pk=site_id),
                     job_ref=job_ref,
                     reason=PublicationReason.TRANSLATION_REVERT,
-                    idempotency_key=f"{idempotency_key}:{site.id}"[:120],
-                    reverting=True,
+                    idempotency_key=f"{idempotency_key}:{site_id}"[:120],
+                    reverting=rows,
                 )
             return tuple(outcomes)
 
@@ -596,23 +595,41 @@ def _aligned_entries(
     """Stored entries ({text, provenance}) keyed by the current units."""
     body = row.body_current if row is not None else None
     own: dict[str, Any] = dict(body.units) if body is not None else {}
-    by_source = _translated_by_source(own.values())
-    memory = translation_memory(page=page, locale=row.locale) if row is not None else {}
-    old_keys: dict[str, tuple[str, str]] = {}
-    old_types: list[str] = []
-    if body is not None:
-        old_blocks = _blocks(body.source_version)
-        old_types = [block["block_type"] for block in old_blocks]
-        old_keys = {unit.key: (unit.kind, unit.source_hash) for unit in extract_units(old_blocks)}
-    new_types = [block["block_type"] for block in _blocks(source)]
-    current_hashes = {unit.source_hash for unit in units}
-    aligned: dict[str, dict[str, Any]] = {}
+    aligned = realign(
+        [unit for unit in units if unit.key not in META_FIELDS],
+        own=own,
+        old_blocks=_blocks(body.source_version) if body is not None else [],
+        new_blocks=_blocks(source),
+        memory=translation_memory(page=page, locale=row.locale) if row is not None else {},
+    )
     for unit in units:
         if unit.key in META_FIELDS:
             entry = _meta_entry(row, unit, own.get(unit.key))
             if entry is not None:
                 aligned[unit.key] = entry
-            continue
+    return aligned
+
+
+def realign(
+    units: Sequence[Unit],
+    *,
+    own: Mapping[str, Any],
+    old_blocks: Sequence[Mapping[str, Any]],
+    new_blocks: Sequence[Mapping[str, Any]],
+    memory: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Stored entries of one language's body, written against `old_blocks`,
+    keyed by the units of `new_blocks`: by the hash of the source text first
+    (the body, then `memory`), then — for a unit reworded in place, same block
+    type and field, whose old text exists nowhere now — the old text, which
+    then reads as stale (ADR-070 pkt 4–5)."""
+    by_source = _translated_by_source(own.values())
+    old_types = [block["block_type"] for block in old_blocks]
+    old_keys = {unit.key: (unit.kind, unit.source_hash) for unit in extract_units(old_blocks)}
+    new_types = [block["block_type"] for block in new_blocks]
+    current_hashes = {unit.source_hash for unit in units}
+    aligned: dict[str, dict[str, Any]] = {}
+    for unit in units:
         hit = by_source.get(unit.source_hash) or memory.get(unit.source_hash)
         if hit is not None:
             aligned[unit.key] = hit
@@ -659,6 +676,22 @@ def _target(entry: Mapping[str, Any]) -> Target:
         text=str(entry["text"]),
         provenance=Provenance.from_dict(provenance) if isinstance(provenance, dict) else None,
     )
+
+
+def made_by_job(version: Any, job_ref: str) -> bool:
+    """A version the job itself made current — not one a person accepted."""
+    return (
+        version is not None
+        and version.origin_ref == job_ref
+        and version.origin == ORIGIN_TRANSLATION_JOB
+    )
+
+
+def before_job(version: Any, job_ref: str) -> Any:
+    """What was current before the job's first version of this text."""
+    while made_by_job(version, job_ref):
+        version = version.replaces
+    return version
 
 
 def _expected(page: Page, item: ReviewItem) -> int:
@@ -781,7 +814,16 @@ def _write_item(
         held.update(written)
         hold_reason = decision.reason or ""
     elif written:
-        version = _store(page, row, source, {**aligned, **written}, context, job_ref, receipt_key)
+        version = _store(
+            page,
+            row,
+            source,
+            {**aligned, **written},
+            context,
+            job_ref,
+            receipt_key,
+            replaces=row.body_current,
+        )
         _apply_meta(page, row, written)
         PageTranslation.all_objects.filter(pk=row.pk).update(
             body_current=version, body_version=row.body_version + 1, updated_at=timezone.now()
@@ -802,7 +844,20 @@ def _write_item(
             if row.body_pending is not None and row.body_pending.source_version_id == source.id
             else aligned
         )
-        pending = _store(page, row, source, {**base, **held}, context, job_ref, receipt_key + ":p")
+        if written and state != "pending":
+            # What just went current stays in the waiting version, or
+            # accepting it would take that back.
+            base = {**base, **written}
+        pending = _store(
+            page,
+            row,
+            source,
+            {**base, **held},
+            context,
+            job_ref,
+            receipt_key + ":p",
+            origin=ORIGIN_TRANSLATION_PENDING,
+        )
         PageTranslation.all_objects.filter(pk=row.pk).update(
             body_pending=pending,
             pending_reason=hold_reason[:40],
@@ -914,6 +969,9 @@ def _store(
     context: ContentContext,
     job_ref: str,
     key: str,
+    *,
+    origin: str = ORIGIN_TRANSLATION_JOB,
+    replaces: PageLocaleVersion | None = None,
 ) -> PageLocaleVersion:
     return _create_version(
         page=page,
@@ -922,10 +980,11 @@ def _store(
         units=entries,
         actor_id=_actor(context),
         credential_id=None,
-        origin=ORIGIN_TRANSLATION_JOB,
+        origin=origin,
         origin_ref=job_ref,
         idempotency_key=key[:120],
         request_hash=hashlib.sha256(json.dumps(entries, sort_keys=True).encode()).hexdigest(),
+        replaces=replaces,
     )
 
 

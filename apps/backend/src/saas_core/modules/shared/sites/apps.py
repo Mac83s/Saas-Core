@@ -18,14 +18,16 @@ class SitesConfig(AppConfig):
         )
 
         from .company_locales import removed_locale_redirects, site_locale_problems
+        from .entry_translation_source import register_entry_source
         from .inquiry_emails import register_inquiry_email
         from .translation_source import register_page_source
 
         register_inquiry_email()
         register_public_locales_guard(site_locale_problems)
         register_public_locales_impact(removed_locale_redirects)
-        # Pages are a translation source (ADR-069, plan TL11a).
+        # Pages and blog articles are translation sources (ADR-069, plan TL11).
         register_page_source()
+        register_entry_source()
         register(check_content_contracts, "sites")
 
         # The site's commands for the assistant (ADR-076, A1b-11).

@@ -425,3 +425,57 @@ def test_pages_are_listed_home_first_with_their_public_state():
     assert [(item.object_id, item.priority) for item in page.items] == [(home, 0), (other, 1)]
     assert all(item.scope == str(driver.site_id) for item in page.items)
     assert all(item.public for item in page.items)
+
+
+def test_reverting_a_job_never_brings_back_a_discarded_translation():
+    from saas_core.modules.shared.sites.language_decisions import reject_locale_version
+    from saas_core.testing.translation_sources import (
+        REVIEW,
+        fixed_translation,
+        translation_policy_override,
+    )
+
+    contract, driver = TestSitesPageSource(), SitesPageDriver()
+    home = driver.create(["Witamy"])
+    driver.publish(home)
+    with translation_policy_override(REVIEW):
+        contract.translate(driver, home, text=fixed_translation("Willkommen"))
+    row = PageTranslation.all_objects.get(page_id=home, locale="de")
+    with _as(driver.publisher):
+        reject_locale_version(
+            page_id=home,
+            locale="de",
+            expected_body_version=row.body_version,
+            idempotency_key=_key(),
+        )
+    _job(contract, driver, home)
+    job_ref = PageTranslation.all_objects.get(page_id=home, locale="de").body_current.origin_ref
+
+    PAGE_SOURCE.revert(
+        context=driver.acting(driver.publisher), job_ref=job_ref, idempotency_key=f"revert:{_key()}"
+    )
+
+    assert PageTranslation.all_objects.get(page_id=home, locale="de").body_current is None
+    assert driver.public_texts(home, "de") is None
+
+
+def test_accepting_a_proposal_keeps_what_the_same_job_published():
+    contract, driver = TestSitesPageSource(), SitesPageDriver()
+    home = driver.create(["Alfa", "Beta"])
+    driver.publish(home)
+    _job(contract, driver, home)
+    driver.write_as_person(home, "de", 1, "Beta poprawiona")
+    driver.edit(home, 0, "Alfa nowa")
+    driver.edit(home, 1, "Beta nowa")
+    driver.publish(home)
+    result = _job(contract, driver, home)
+    assert result.decisions == [("live", None), ("pending", "overwrites_human")]
+
+    PAGE_SOURCE.review(
+        context=driver.publisher,
+        action="accept",
+        items=[ReviewItem(object_id=home, locale="de", expected_version=None)],
+        idempotency_key=f"review:{_key()}",
+    )
+
+    assert driver.public_texts(home, "de") == ["[de] Alfa nowa", "[de] Beta nowa"]

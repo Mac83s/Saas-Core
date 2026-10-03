@@ -33,6 +33,7 @@ const {
   listEntryTranslations,
   createEntryTranslation,
   getPublicLocales,
+  updateContentEntryMetadata,
 } = vi.hoisted(() => ({
   createContentCollection: vi.fn(),
   createContentEntry: vi.fn(),
@@ -51,6 +52,7 @@ const {
   listEntryTranslations: vi.fn(),
   createEntryTranslation: vi.fn(),
   getPublicLocales: vi.fn(),
+  updateContentEntryMetadata: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
@@ -72,6 +74,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listEntryTranslations,
   createEntryTranslation,
   getPublicLocales,
+  updateContentEntryMetadata,
 }));
 
 const siteId = "019ff20d-a000-7000-8000-000000000010";
@@ -108,6 +111,8 @@ const entry = {
   scheduled_publish_at: null,
   schedule_error: "",
   tags: [],
+  translation_of: null,
+  pending_reason: "",
 };
 
 function renderPanel() {
@@ -448,7 +453,11 @@ test("adds a language version and keeps it a separate publication", async () => 
 });
 
 function companyLanguages(codes: string[]) {
-  const names: Record<string, string> = { pl: "Polski", en: "English", de: "Deutsch" };
+  const names: Record<string, string> = {
+    pl: "Polski",
+    en: "English",
+    de: "Deutsch",
+  };
   return {
     public_locales: codes,
     version: 1,
@@ -470,7 +479,9 @@ test("offers exactly the company's languages for an entry and its versions", asy
   const picker = screen.getByLabelText("Język");
   await waitFor(() =>
     expect(
-      within(picker).getAllByRole("option").map((option) => option.textContent),
+      within(picker)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
     ).toEqual(["Polski", "Deutsch"]),
   );
   fireEvent.click(
@@ -479,7 +490,9 @@ test("offers exactly the company's languages for an entry and its versions", asy
   const versions = await screen.findByLabelText("Język wersji");
   await waitFor(() =>
     expect(
-      within(versions).getAllByRole("option").map((option) => option.textContent),
+      within(versions)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
     ).toEqual(["Deutsch"]),
   );
 });
@@ -547,6 +560,61 @@ test("zapisuje tematy wpisane po przecinku", async () => {
   await waitFor(() => expect(setContentEntryTags).toHaveBeenCalledOnce());
   // Trimmed, and empty pieces dropped: a trailing comma is a typo, not a tag.
   expect(setContentEntryTags.mock.calls[0]?.[1]).toEqual(["Porady", "Dieta"]);
+});
+
+test("zmienia tytuł, zajawkę i autora wpisu", async () => {
+  updateContentEntryMetadata.mockResolvedValue({
+    ...entry,
+    title: "Nowy tytuł",
+    excerpt: "Krótko o wpisie",
+  });
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
+
+  const form = await screen.findByRole("form", {
+    name: "Tytuł, zajawka i autor",
+  });
+  fireEvent.change(within(form).getByLabelText("Tytuł"), {
+    target: { value: "Nowy tytuł" },
+  });
+  fireEvent.change(within(form).getByLabelText("Zajawka"), {
+    target: { value: "Krótko o wpisie" },
+  });
+  fireEvent.click(
+    within(form).getByRole("button", { name: "Zapisz dane wpisu" }),
+  );
+
+  await waitFor(() =>
+    expect(updateContentEntryMetadata).toHaveBeenCalledOnce(),
+  );
+  expect(updateContentEntryMetadata.mock.calls[0]).toEqual([
+    entryId,
+    {
+      title: "Nowy tytuł",
+      excerpt: "Krótko o wpisie",
+      author_name: "",
+      noindex: false,
+    },
+  ]);
+  expect(listContentEntries).toHaveBeenCalledTimes(2);
+});
+
+test("nie zapisuje wpisu bez tytułu", async () => {
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
+
+  const form = await screen.findByRole("form", {
+    name: "Tytuł, zajawka i autor",
+  });
+  fireEvent.change(within(form).getByLabelText("Tytuł"), {
+    target: { value: "   " },
+  });
+  fireEvent.click(
+    within(form).getByRole("button", { name: "Zapisz dane wpisu" }),
+  );
+
+  expect(await within(form).findByText("Wpisz tytuł.")).toBeTruthy();
+  expect(updateContentEntryMetadata).not.toHaveBeenCalled();
 });
 
 test("publikuje ponownie wpis, ktorego tresc zmienila sie po publikacji", async () => {

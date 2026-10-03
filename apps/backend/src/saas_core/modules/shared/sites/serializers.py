@@ -230,6 +230,35 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     scheduled_publish_at = serializers.DateTimeField(allow_null=True)
     schedule_error = serializers.CharField(allow_blank=True)
     tags = ContentTagSerializer(many=True)
+    translation_of = serializers.UUIDField(
+        allow_null=True,
+        help_text="The entry a translation job translated this one from; null for a person's.",
+    )
+    pending_reason = serializers.CharField(
+        allow_blank=True,
+        help_text="Why a translation of this entry waits for a person; empty when none waits.",
+    )
+
+
+class ContentEntryMetadataSerializer(serializers.Serializer[dict[str, Any]]):
+    """Each field is optional: one left out keeps its value."""
+
+    title = serializers.CharField(
+        max_length=200, required=False, help_text="The article's title; never empty."
+    )
+    excerpt = serializers.CharField(
+        max_length=400,
+        required=False,
+        allow_blank=True,
+        help_text="The summary under the title in the index and in search results.",
+    )
+    author_name = serializers.CharField(
+        max_length=120, required=False, allow_blank=True, help_text="Who wrote it, as printed."
+    )
+    noindex = serializers.BooleanField(
+        required=False,
+        help_text="The article asks search engines not to index it (robots noindex,follow).",
+    )
 
 
 class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):

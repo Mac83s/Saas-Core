@@ -394,6 +394,11 @@ tekstu źródłowego ani `Page.version`, nie zgłasza zmiany (§8.4) i nie publi
 Wyniki `live` źródła wersjonowanego wychodzą jedną publikacją na zakres i partię
 (ADR-069 pkt 21): strony — pochodna publikacja `translation_job` opublikowanej migawki
 z wersjami związanymi z opublikowanym źródłem (ADR-070 pkt 11), nigdy `publish_site`.
+Wpisy bloga (`sites.entry`, osobna publikacja języka) — `publish_entry` każdego
+rodzeństwa, które zlecenie zapisało `live`, z datą oryginału; rodzeństwa wycofanego przez
+osobę zlecenie nie publikuje. Gdy osoba publikuje wpis źródłowy, rodzeństwo, którego każdy
+fragment wciąż ma tłumaczenie po skrócie (bloki tylko przestawione), idzie za nim bez
+modelu i wychodzi ponownie, jeśli było publiczne; reszta czeka na zlecenie.
 Rekord na żywo jest publiczny po commicie zapisu (wizytówka odświeża przy tym katalog),
 więc `publish` nic nie robi. Linki wewnętrzne lokalizuje przy odczycie ładunek
 publiczny modułu (ADR-070 pkt 15) — adapter ich nie przepisuje.
@@ -411,15 +416,21 @@ psuje kompletności, ale wersja stron, której źródło zmieniło fakt, jest ws
 ### 6.6. `review` i `revert`
 
 Akceptacja, odrzucenie i zdjęcie tłumaczeń to decyzje osoby z prawem publikacji źródła
-(ADR-070 pkt 12): `review` idzie przez `assert_person_required`, więc kontekst zlecenia
+(ADR-070 pkt 12): `review` idzie przez `assert_person_required` z jedną etykietą dla
+każdego źródła („Decyzja o tłumaczeniu AI”, ta sama co w przeglądzie), więc kontekst zlecenia
 (`acting_via="ai_translation"`) dostaje `person_required` (pusta lista dozwolonych,
 ADR-069 pkt 15), a asystent przechodzi tylko według tabeli A1a i z tokenem zgody
 (ADR-076). Jedno wywołanie obejmuje wiele pozycji jednego zakresu i daje jedną
 publikację — tak działa akceptacja zbiorcza i zatwierdzenie `mass_publication`. Rekord
 na żywo przyjmuje akceptację jako `write` z wyzwalaczem `acceptance` i tymi samymi
 warunkami osoby. Poprawki przed akceptacją mają pochodzenie `human`. `revert` przywraca
-stan sprzed zlecenia (strony: pochodna publikacja `translation_revert`; rekord na żywo:
-poprzedni tekst i pochodzenie) z audytem.
+stan sprzed zlecenia (strony: pochodna publikacja `translation_revert`; wpisy: szkic i
+publikacja rodzeństwa sprzed zlecenia, a rodzeństwo opublikowane pierwszy raz przez
+zlecenie wraca do szkicu; rekord na żywo: poprzedni tekst i pochodzenie) z audytem.
+Wersja zapisana przez zlecenie jako bieżąca pamięta, co zastąpiła (`replaces`), więc
+cofnięcie nie wraca do wersji oczekującej, którą osoba odrzuciła; wersja oczekująca ma
+pochodzenie `translation_pending`, a jej akceptacja jest decyzją osoby, której `revert`
+nie cofa.
 
 ### 6.7. Uprawnienia i terminy chronione
 

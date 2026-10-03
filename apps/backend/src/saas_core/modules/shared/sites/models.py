@@ -915,6 +915,31 @@ class PageTranslationWrite(TenantScopedModel):
         ]
 
 
+class EntryTranslationWrite(TenantScopedModel):
+    """The receipt of one translation write of an article in one language
+    (`entry_translation_source`), like `PageTranslationWrite` for pages."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
+    entry = models.ForeignKey("ContentEntry", on_delete=models.PROTECT, related_name="+")
+    locale = models.CharField(max_length=10)
+    idempotency_key = models.CharField(max_length=64)
+    request_hash = models.CharField(max_length=64)
+    job_ref = models.CharField(max_length=160, blank=True, default="")
+    outcomes = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "entry", "locale", "idempotency_key"],
+                name="sites_entrytranslationwrite_idem_uq",
+            ),
+        ]
+
+
 class PageLocaleVersion(TenantScopedModel):
     """One version of a page body in another language (ADR-070).
 
@@ -948,6 +973,11 @@ class PageLocaleVersion(TenantScopedModel):
     # As on `PageVersion`: a save, a translation job, a restored version.
     origin = models.CharField(max_length=24, blank=True, default="")
     origin_ref = models.CharField(max_length=160, blank=True, default="")
+    #: The body a translation job's version replaced as current, so undoing
+    #: the job puts exactly that back (`translation_source`).
+    replaces = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     idempotency_key = models.CharField(max_length=120)
     request_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1474,6 +1504,21 @@ class ContentEntry(TenantScopedModel):
         null=True,
         blank=True,
     )
+    #: The entry this one translates, when a translation job made it (ADR-070
+    #: pkt 16): an AI sibling, never a source. A person's sibling has none.
+    translation_of = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    #: A translation waiting for a person (`translation_source`), outside what
+    #: the entry's own publication reads.
+    pending_version = models.ForeignKey(
+        "ContentEntryVersion",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    pending_reason = models.CharField(max_length=40, blank=True, default="")
     # Distinct from the publication timestamp: an article can be backdated, and
     # the index orders by this rather than by when the button was pressed.
     published_at = models.DateTimeField(null=True, blank=True)
@@ -1609,6 +1654,20 @@ class ContentEntryVersion(TenantScopedModel):
     number = models.PositiveBigIntegerField()
     blocks = models.JSONField(default=list)
     content_hash = models.CharField(max_length=64)
+    #: A translated version's text units with their provenance, by key of the
+    #: source's units (`localized_bodies`); None for a version a person wrote
+    #: in another shape.
+    units = models.JSONField(null=True, blank=True)
+    #: The source entry's version this one translates.
+    source_version = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    origin = models.CharField(max_length=24, blank=True, default="")
+    origin_ref = models.CharField(max_length=160, blank=True, default="")
+    #: The draft a translation job's version replaced, as on `PageLocaleVersion`.
+    replaces = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

@@ -45,10 +45,7 @@ from saas_core.modules.core.organizations.locales import (
     assert_organization_content_locale,
 )
 from saas_core.modules.core.organizations.models import Organization, WorkspaceKind
-from saas_core.modules.core.organizations.tasks import (
-    issue_service_task_contract,
-    issue_tenant_task_contract,
-)
+from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     authorize_entitled,
@@ -2559,18 +2556,7 @@ def revoke_automation_grant(*, grant_id: UUID, reason: str) -> ContentAutomation
 
 def _schedule_site_outbox_delivery(event: SiteOutboxEvent) -> None:
     OUTBOX_EVENTS.labels(event_type=event.event_type).inc()
-    context = require_tenant_context()
-    if context.acting_via:
-        # A translation job's publication: a contract cannot carry acting, and
-        # delivering the event is the organization's own work.
-        task_contract = issue_service_task_contract(
-            organization_id=context.organization_id,
-            role_key="site_outbox",
-            permissions=frozenset(),
-            causation_id=f"sites-outbox:{event.id}",
-        )
-    else:
-        task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
+    task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
 
     def enqueue_outbox() -> None:
         from .tasks import publish_site_outbox_event_task

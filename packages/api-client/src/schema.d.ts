@@ -4548,6 +4548,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/entries/{entry_id}/metadata/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an entry's title, excerpt, author or indexing
+         * @description A field left out keeps its value; visitors see the change with the entry's next publication. On a translation, a person's title or excerpt is theirs: a translation job proposes beside it rather than over it.
+         */
+        patch: operations["sites_entry_metadata_update"];
+        trace?: never;
+    };
     "/api/v1/sites/entries/{entry_id}/publication/": {
         parameters: {
             query?: never;
@@ -6942,6 +6962,13 @@ export interface components {
             scheduled_publish_at: string | null;
             schedule_error: string;
             tags: components["schemas"]["ContentTag"][];
+            /**
+             * Format: uuid
+             * @description The entry a translation job translated this one from; null for a person's.
+             */
+            translation_of: string | null;
+            /** @description Why a translation of this entry waits for a person; empty when none waits. */
+            pending_reason: string;
         };
         ContentEntryCreate: {
             slug: string;
@@ -8956,6 +8983,17 @@ export interface components {
             active?: boolean;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
+        };
+        /** @description Each field is optional: one left out keeps its value. */
+        PatchedContentEntryMetadata: {
+            /** @description The article's title; never empty. */
+            title?: string;
+            /** @description The summary under the title in the index and in search results. */
+            excerpt?: string;
+            /** @description Who wrote it, as printed. */
+            author_name?: string;
+            /** @description The article asks search engines not to index it (robots noindex,follow). */
+            noindex?: boolean;
         };
         /**
          * @description What a client may send; kept apart from the response so the generated
@@ -25465,6 +25503,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContentEntryDraft"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_metadata_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentEntryMetadata"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedContentEntryMetadata"];
+                "multipart/form-data": components["schemas"]["PatchedContentEntryMetadata"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentEntry"];
                 };
             };
             400: {

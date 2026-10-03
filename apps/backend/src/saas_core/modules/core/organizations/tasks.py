@@ -336,10 +336,6 @@ def _service_context(contract: TenantTaskContract) -> TenantContext:
         # Booking's mails to the people on a visit (ADR-058 §9): sent on the
         # organization's own account, with no permission of their own.
         "booking_notify": set(),
-        # Delivering a site's published event when the publication was made
-        # for a person by a translation job: the delivery decides nothing, so
-        # it needs no person and no acting (ADR-069 pkt 21).
-        "site_outbox": set(),
     }
     allowed = allowed_scopes.get(contract.role_key)
     if (

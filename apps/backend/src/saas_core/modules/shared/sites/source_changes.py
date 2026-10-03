@@ -1,6 +1,7 @@
-"""Telling the translation engine that a page's public text changed
-(`translation-sources.md` §8.1): from `publish_site` and from taking a page off
-the site — never from a derived publication, a rollback or a translation write.
+"""Telling the translation engine that a page's or an article's public text
+changed (`translation-sources.md` §8.1): from `publish_site`, `publish_entry`
+and from taking either off the site — never from a derived publication, a
+rollback, a translation write or a machine translation's own publication.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from uuid import UUID
 from saas_core.content_protocol.registry import notify_source_changed
 
 PAGE_SOURCE_KEY = "sites.page"
+ENTRY_SOURCE_KEY = "sites.entry"
 
 
 def change_cause(context: Any) -> str:
@@ -51,6 +53,41 @@ def notify_page_deleted(*, context: Any, page_id: UUID) -> None:
         change="deleted",
         cause=change_cause(context),
     )
+
+
+def notify_entry_published(
+    *,
+    context: Any,
+    entry_id: UUID,
+    previous: Mapping[str, Any] | None,
+    snapshot: Mapping[str, Any],
+) -> None:
+    """A source article went out with other words than visitors had."""
+    if previous is not None and _entry_text(previous) == _entry_text(snapshot):
+        return
+    notify_source_changed(
+        context=context,
+        source_key=ENTRY_SOURCE_KEY,
+        object_ids=[entry_id],
+        change="changed",
+        cause=change_cause(context),
+    )
+
+
+def notify_entry_withdrawn(*, context: Any, entry_id: UUID) -> None:
+    """Its translations are public on their own, so taking them down too is a
+    person's item to review (ADR-069 pkt 4)."""
+    notify_source_changed(
+        context=context,
+        source_key=ENTRY_SOURCE_KEY,
+        object_ids=[entry_id],
+        change="withdrawn",
+        cause=change_cause(context),
+    )
+
+
+def _entry_text(snapshot: Mapping[str, Any]) -> tuple[Any, ...]:
+    return (snapshot.get("blocks"), snapshot.get("title"), snapshot.get("excerpt"))
 
 
 def _sources(snapshot: Mapping[str, Any] | None, default_locale: str) -> dict[str, Any]:

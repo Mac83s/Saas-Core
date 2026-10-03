@@ -17,8 +17,9 @@ from uuid import UUID, uuid7
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, NotFound
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
+from saas_core.content_protocol.provenance import ORIGIN_AI, ORIGIN_HUMAN, Provenance, unit_hash
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.api import (
     ResourceReferenceRejected,
@@ -37,7 +38,9 @@ from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, validate_decoration, validate_presentation
+from .language_publication import _origin as translation_origin
 from .localization import entry_path, first_segment_reserved
+from .localized_bodies import extract_units, structure_signature
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -75,6 +78,7 @@ from .services import (
     default_automation_rel,
     emit_draft_saved_event,
 )
+from .source_changes import notify_entry_published, notify_entry_withdrawn
 
 COLLECTION_CREATED = "sites.collection.created"
 ENTRY_CREATED = "sites.entry.created"
@@ -88,6 +92,7 @@ ENTRY_SCHEDULE_CANCELLED = "sites.entry.schedule_cancelled"
 ENTRY_SCHEDULE_FAILED = "sites.entry.schedule_failed"
 ENTRY_WITHDRAWN = "sites.entry.withdrawn"
 ENTRY_TRANSLATION_CREATED = "sites.entry.translation_created"
+ENTRY_METADATA_UPDATED = "sites.entry.metadata_updated"
 COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
 COLLECTION_NAVIGATION_SET = "sites.collection.navigation_set"
 ENTRY_VERSION_REFERENCE_OWNER = "sites.content_entry_version"
@@ -476,40 +481,15 @@ def save_entry_draft(
         )
     if entry.version != expected_version:
         raise DraftVersionConflict
-    version = ContentEntryVersion.all_objects.create(
-        organization_id=context.organization_id,
-        entry=entry,
-        number=entry.version + 1,
+    version = record_entry_version(
+        context,
+        entry,
         blocks=normalized_blocks,
-        content_hash=canonical_json_hash({"blocks": normalized_blocks}),
-        created_by_id=context.actor_id,
+        media_asset_ids=media_asset_ids or [],
         idempotency_key=normalized_key,
         request_hash=request_hash,
-        created_by_credential=(
-            context.credential_id if _is_automation(context) else None
-        ),
+        **_edited_translation(context, entry, normalized_blocks),
     )
-    # Nested images (figures, galleries) are referenced even when unlisted.
-    normalized_media_ids = tuple(
-        sorted(
-            {*(UUID(str(asset_id)) for asset_id in media_asset_ids or []),
-             *block_asset_ids(normalized_blocks)},
-            key=str,
-        )
-    )
-    try:
-        record_resource_references(
-            context=context,
-            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
-            owner_type=ENTRY_VERSION_REFERENCE_OWNER,
-            owner_id=version.id,
-            resource_ids=normalized_media_ids,
-        )
-    except ResourceReferenceRejected as error:
-        raise SiteMediaReferenceUnavailable from error
-    entry.version = version.number
-    entry.current_draft = version
-    entry.save(update_fields=["version", "current_draft", "updated_at"])
     emit_draft_saved_event(
         context=context,
         event_type=ENTRY_DRAFT_SAVED_EVENT,
@@ -526,6 +506,129 @@ def save_entry_draft(
         metadata={"version": version.number},
     )
     return version, True
+
+
+def record_entry_version(
+    context: Any,
+    entry: ContentEntry,
+    *,
+    blocks: list[dict[str, Any]],
+    media_asset_ids: list[UUID],
+    idempotency_key: str,
+    request_hash: str,
+    current: bool = True,
+    units: dict[str, Any] | None = None,
+    source_version: ContentEntryVersion | None = None,
+    origin: str = "",
+    origin_ref: str = "",
+    replaces: ContentEntryVersion | None = None,
+) -> ContentEntryVersion:
+    """A new version of the entry's text, with the media it names; the draft
+    unless it is a translation waiting for a person (`current=False`).
+
+    The caller has checked the blocks, the right to write and the version.
+    """
+    version = ContentEntryVersion.all_objects.create(
+        organization_id=context.organization_id,
+        entry=entry,
+        number=entry.version + 1,
+        blocks=blocks,
+        content_hash=canonical_json_hash({"blocks": blocks}),
+        units=units,
+        source_version=source_version,
+        origin=origin,
+        origin_ref=origin_ref[:160],
+        replaces=replaces,
+        created_by_id=context.actor_id,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+        created_by_credential=(
+            context.credential_id if _is_automation(context) else None
+        ),
+    )
+    # Nested images (figures, galleries) are referenced even when unlisted.
+    normalized_media_ids = tuple(
+        sorted(
+            {*(UUID(str(asset_id)) for asset_id in media_asset_ids),
+             *block_asset_ids(blocks)},
+            key=str,
+        )
+    )
+    try:
+        record_resource_references(
+            context=context,
+            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+            owner_type=ENTRY_VERSION_REFERENCE_OWNER,
+            owner_id=version.id,
+            resource_ids=normalized_media_ids,
+        )
+    except ResourceReferenceRejected as error:
+        raise SiteMediaReferenceUnavailable from error
+    entry.version = version.number
+    fields = ["version", "updated_at"]
+    if current:
+        entry.current_draft = version
+        fields.append("current_draft")
+    entry.save(update_fields=fields)
+    return version
+
+
+def _edited_translation(
+    context: Any, entry: ContentEntry, blocks: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """A person's edit of a machine translation stays one, unit by unit, while
+    its structure is the source's: what they changed is theirs, and the next
+    job proposes beside it rather than over it (ADR-070 pkt 5). Another
+    structure is a text of their own, which no job writes into."""
+    previous = entry.current_draft
+    if (
+        entry.translation_of_id is None
+        or previous is None
+        or previous.units is None
+        or previous.source_version is None
+        or structure_signature(blocks) != structure_signature(previous.blocks)
+    ):
+        return {}
+    source_units = {unit.key: unit for unit in extract_units(previous.source_version.blocks)}
+    origin = ORIGIN_AI if context.acting_via else ORIGIN_HUMAN
+    at = timezone.now().isoformat()
+    units = dict(previous.units)
+    for unit in extract_units(blocks):
+        stored = units.get(unit.key)
+        source = source_units.get(unit.key)
+        if source is None or (isinstance(stored, dict) and stored.get("text") == unit.text):
+            continue
+        if stored is None and unit.text == source.text:
+            # Still the source's words standing in for a missing translation.
+            continue
+        units[unit.key] = {
+            "text": unit.text,
+            "provenance": Provenance(
+                origin=origin,
+                source_hash=source.source_hash,
+                written_hash=unit_hash(source.kind, unit.text),
+                model="",
+                at=at,
+            ).as_dict(),
+        }
+    return {"units": units, "source_version": previous.source_version}
+
+
+def is_translation_source(entry: ContentEntry) -> bool:
+    """Whether this entry is what its group's machine translations translate."""
+    if entry.translation_of_id is not None:
+        return False
+    group = ContentEntry.all_objects.filter(
+        organization_id=entry.organization_id, translation_group=entry.translation_group
+    )
+    return group_source(list(group), entry.site.default_locale) == entry
+
+
+def group_source(entries: list[ContentEntry], default_locale: str) -> ContentEntry | None:
+    """A person's entry, in the site's language when there is one, otherwise
+    the oldest: a machine translation is never a source (ADR-070 pkt 16)."""
+    people = [entry for entry in entries if entry.translation_of_id is None]
+    return min(people, key=lambda entry: (entry.locale != default_locale, entry.id), default=None)
 
 
 @transaction.atomic
@@ -609,7 +712,38 @@ def publish_entry(
         # Read by the public media endpoint: an asset is fetchable by a visitor
         # only while something published names it.
         "media_asset_ids": [str(asset_id) for asset_id in published_media_ids],
+        # Who wrote a translation's text, for the marker on machine text
+        # (ADR-071 pkt 17); an article written as itself has none.
+        **(
+            {"origin": translation_origin(entry.current_draft.units.values())}
+            if entry.current_draft.units is not None
+            else {}
+        ),
     }
+    previous = entry.current_publication.snapshot if entry.current_publication else None
+    publication = record_entry_publication(
+        context, entry, snapshot, normalized_key, published_at=published_at
+    )
+    if is_translation_source(entry):
+        from .entry_translation_source import follow_source
+
+        follow_source(context, entry)
+        notify_entry_published(
+            context=context, entry_id=entry.id, previous=previous, snapshot=snapshot
+        )
+    return publication, True
+
+
+def record_entry_publication(
+    context: Any,
+    entry: ContentEntry,
+    snapshot: dict[str, Any],
+    idempotency_key: str,
+    *,
+    published_at: Any = None,
+    reason: str = "",
+) -> ContentEntryPublication:
+    """The entry's next publication of `snapshot`, its audit and its event."""
     last = (
         ContentEntryPublication.all_objects.filter(
             organization_id=context.organization_id, entry_id=entry.id
@@ -624,7 +758,7 @@ def publish_entry(
         snapshot=snapshot,
         snapshot_hash=canonical_json_hash(snapshot),
         created_by_id=context.actor_id,
-        idempotency_key=normalized_key,
+        idempotency_key=idempotency_key,
     )
     entry.current_publication = publication
     entry.state = ContentEntryState.PUBLISHED
@@ -641,7 +775,7 @@ def publish_entry(
         actor=User.objects.get(pk=context.actor_id),
         target_type="content_entry",
         target_id=entry.id,
-        metadata={"sequence": publication.sequence},
+        metadata={"sequence": publication.sequence, **({"reason": reason} if reason else {})},
     )
     active_correlation_id = correlation_id.get()
     event = SiteOutboxEvent.all_objects.create(
@@ -667,7 +801,7 @@ def publish_entry(
     # After commit, so a subscriber never hears about a publication a rolled
     # back transaction took away again.
     _schedule_site_outbox_delivery(event)
-    return publication, True
+    return publication
 
 
 class TooManyTags(APIException):
@@ -1032,7 +1166,22 @@ def withdraw_entry(*, entry_id: UUID) -> ContentEntry:
     if entry is None:
         raise EntryNotFound
     _assert_entry_writable(entry, entry.collection, publishing=True)
-    entry.state = ContentEntryState.WITHDRAWN
+    take_down_entry(context, entry)
+    if is_translation_source(entry):
+        notify_entry_withdrawn(context=context, entry_id=entry.id)
+    return entry
+
+
+def take_down_entry(
+    context: Any,
+    entry: ContentEntry,
+    *,
+    reason: str = "",
+    state: str = ContentEntryState.WITHDRAWN,
+) -> None:
+    """Off the public site. Undoing a translation job's first publication of
+    an article leaves it a draft, as it was (`state`)."""
+    entry.state = state
     entry.current_publication = None
     entry.save(update_fields=["state", "current_publication", "updated_at"])
     record_audit(
@@ -1041,7 +1190,63 @@ def withdraw_entry(*, entry_id: UUID) -> ContentEntry:
         actor=User.objects.get(pk=context.actor_id),
         target_type="content_entry",
         target_id=entry.id,
-        metadata={},
+        metadata={"reason": reason} if reason else {},
+    )
+
+
+#: What `update_entry_metadata` changes, with each field's longest value.
+ENTRY_METADATA_FIELDS = {"title": 200, "excerpt": 400, "author_name": 120}
+
+
+@transaction.atomic
+def update_entry_metadata(
+    *,
+    entry_id: UUID,
+    title: str | None = None,
+    excerpt: str | None = None,
+    author_name: str | None = None,
+    noindex: bool | None = None,
+) -> ContentEntry:
+    """What an article says about itself — its title, excerpt, author and
+    whether search engines index it (ADR-070 pkt 16). A field left out keeps
+    its value; visitors see the change with the entry's next publication."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    entry = (
+        ContentEntry.all_objects.select_for_update(of=("self",))
+        .select_related("collection")
+        .filter(pk=entry_id, organization_id=context.organization_id)
+        .first()
+    )
+    if entry is None:
+        raise EntryNotFound
+    _assert_entry_writable(entry, entry.collection)
+    wanted: dict[str, Any] = {}
+    for field, value in (("title", title), ("excerpt", excerpt), ("author_name", author_name)):
+        if value is None:
+            continue
+        value = value.strip()
+        if field == "title" and not value:
+            raise ValidationError({"title": ["Tytuł wpisu nie może być pusty."]}, code="required")
+        if len(value) > ENTRY_METADATA_FIELDS[field]:
+            raise ValidationError(
+                {field: [f"Najwyżej {ENTRY_METADATA_FIELDS[field]} znaków."]}, code="max_length"
+            )
+        wanted[field] = value
+    if noindex is not None:
+        wanted["noindex"] = noindex
+    changed = {field: value for field, value in wanted.items() if getattr(entry, field) != value}
+    if not changed:
+        return entry
+    for field, value in changed.items():
+        setattr(entry, field, value)
+    entry.save(update_fields=[*changed, "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=ENTRY_METADATA_UPDATED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_entry",
+        target_id=entry.id,
+        metadata={"fields": sorted(changed)},
     )
     return entry
 
@@ -1162,6 +1367,31 @@ def create_entry_translation(
         "slug": slug,
         "title": title,
     })
+    translation = record_entry_translation(
+        context,
+        source,
+        locale=locale,
+        slug=slug,
+        title=title,
+        idempotency_key=normalized_key,
+        request_hash=request_hash,
+    )
+    return translation, True
+
+
+def record_entry_translation(
+    context: Any,
+    source: ContentEntry,
+    *,
+    locale: str,
+    slug: str,
+    title: str,
+    idempotency_key: str,
+    request_hash: str,
+    machine: bool = False,
+) -> ContentEntry:
+    """The article's entry in another language: a person's, or a translation
+    job's (`machine`), which knows the entry it translates."""
     translation = ContentEntry.all_objects.create(
         organization_id=context.organization_id,
         collection=source.collection,
@@ -1169,9 +1399,12 @@ def create_entry_translation(
         slug=slug,
         locale=locale,
         translation_group=source.translation_group,
+        translation_of=source if machine else None,
         title=title,
+        author_name=source.author_name if machine else "",
+        noindex=source.noindex if machine else False,
         created_by_id=context.actor_id,
-        idempotency_key=normalized_key,
+        idempotency_key=idempotency_key,
         request_hash=request_hash,
     )
     record_audit(
@@ -1184,9 +1417,10 @@ def create_entry_translation(
             "source_entry_id": str(source.id),
             "translation_group": str(source.translation_group),
             "locale": locale,
+            **({"machine": True} if machine else {}),
         },
     )
-    return translation, True
+    return translation
 
 
 def list_entry_translations(*, entry_id: UUID) -> list[ContentEntry]:

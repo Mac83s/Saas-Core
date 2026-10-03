@@ -238,6 +238,8 @@ export type ContentProposalDetail =
 export type PageUrlChangeInput = components["schemas"]["PageUrlChange"];
 export type ContentCollection = components["schemas"]["ContentCollection"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
+export type ContentEntryMetadataInput =
+  components["schemas"]["PatchedContentEntryMetadata"];
 export type ContentEntryDraft = components["schemas"]["ContentEntryDraft"];
 export type EntrySchedule = components["schemas"]["EntryScheduleState"];
 export type ContentTag = components["schemas"]["ContentTag"];
@@ -3440,6 +3442,25 @@ export async function setContentEntryTags(
     {
       params: { path: { entry_id: entryId } },
       body: { names },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Title, excerpt, author and indexing; a field left out keeps its value. */
+export async function updateContentEntryMetadata(
+  entryId: string,
+  body: ContentEntryMetadataInput,
+): Promise<ContentEntry> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/sites/entries/{entry_id}/metadata/",
+    {
+      params: { path: { entry_id: entryId } },
+      body,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

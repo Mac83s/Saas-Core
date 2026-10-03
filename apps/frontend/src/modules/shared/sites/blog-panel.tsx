@@ -65,6 +65,7 @@ import { useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
+import { EntryMetadata } from "./entry-metadata";
 import { EntrySchedule } from "./entry-schedule";
 import { EntryTags } from "./entry-tags";
 import { EntryTranslations } from "./entry-translations";
@@ -605,6 +606,16 @@ export function BlogPanel({ siteId }: { siteId: string }) {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {entry && (
+        <EntryMetadata
+          entry={entry}
+          key={`metadata-${entry.id}`}
+          onChanged={async () => {
+            if (collectionId) await loadEntries(collectionId);
+          }}
+        />
       )}
 
       {entry && (

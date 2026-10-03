@@ -29,6 +29,7 @@ from .collections import (
     set_collection_automation_policy,
     set_collection_navigation,
     set_entry_tags,
+    update_entry_metadata,
     withdraw_entry,
 )
 from .models import ContentCollection, ContentEntry, ContentEntryPublication
@@ -41,6 +42,7 @@ from .serializers import (
     ContentEntryDraftSaveSerializer,
     ContentEntryDraftSerializer,
     ContentEntryListSerializer,
+    ContentEntryMetadataSerializer,
     ContentEntryPublicationSerializer,
     ContentEntrySerializer,
     ContentEntryTranslationCreateSerializer,
@@ -108,6 +110,10 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
             {"slug": link.tag.slug, "name": link.tag.name}
             for link in sorted(entry.tag_links.all(), key=lambda item: item.tag.slug)
         ],
+        "translation_of": (
+            str(entry.translation_of_id) if entry.translation_of_id else None
+        ),
+        "pending_reason": entry.pending_reason,
     }
 
 
@@ -462,6 +468,41 @@ class ContentEntryTranslationView(APIView):
             _entry_payload(translation),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+class ContentEntryMetadataView(APIView):
+    """What an article says about itself apart from its text: title, excerpt,
+    author and indexing (ADR-070 pkt 16)."""
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_entry_metadata_update",
+        summary="Change an entry's title, excerpt, author or indexing",
+        description="A field left out keeps its value; visitors see the change with the "
+        "entry's next publication. On a translation, a person's title or excerpt is "
+        "theirs: a translation job proposes beside it rather than over it.",
+        tags=["sites"],
+        request=ContentEntryMetadataSerializer,
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Each field sent is set to its value: a repeat sets the "
+                "same values, changes nothing and records no history entry.",
+            }
+        },
+        responses={
+            200: ContentEntrySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request, entry_id: UUID) -> Response:
+        serializer = ContentEntryMetadataSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entry = update_entry_metadata(entry_id=entry_id, **serializer.validated_data)
+        return Response(_entry_payload(entry))
 
 
 def _schedule_payload(entry: Any) -> dict[str, Any]:

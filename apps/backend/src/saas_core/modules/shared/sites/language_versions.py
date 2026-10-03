@@ -729,6 +729,7 @@ def _create_version(
     origin_ref: str,
     idempotency_key: str,
     request_hash: str,
+    replaces: PageLocaleVersion | None = None,
 ) -> PageLocaleVersion:
     last = (
         PageLocaleVersion.all_objects.filter(
@@ -754,6 +755,7 @@ def _create_version(
         created_by_credential=credential_id,
         origin=origin,
         origin_ref=origin_ref[:160],
+        replaces=replaces,
         idempotency_key=idempotency_key,
         request_hash=request_hash,
     )

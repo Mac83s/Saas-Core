@@ -15,6 +15,7 @@ automatic job publishes its results under ADR-069, not through these doors.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -63,6 +64,11 @@ LOCALE_PUBLISHED = "sites.page.locale_published"
 LOCALE_WITHDRAWN = "sites.page.locale_withdrawn"
 
 PERSON_GATE = "Publikacja wersji językowej"
+REJECT_GATE = "Odrzucenie wersji językowej"
+#: A person's decision on a waiting translation made through the translation
+#: review (`shared.translation`): one label for every source, so the consent
+#: the review asks for covers accepting and discarding (ADR-069 pkt 28).
+REVIEW_GATE = "Decyzja o tłumaczeniu AI"
 
 
 class NothingPending(APIException):
@@ -111,14 +117,16 @@ def accept_locale_versions(
     idempotency_key: str,
     preview: bool = False,
     site_id: UUID | None = None,
+    review: bool = False,
 ) -> list[LanguageDecision]:
     """Accepts several waiting versions of one site in one derived publication.
 
     With `preview` nothing changes and the answer says what would go out; its
     digest (`batch_digest`) must come back with the real call when there is
     more than one item, so a person approves exactly the list they saw.
+    `review`: the decision is made through the translation review.
     """
-    context = _person(SITE_PUBLISH)
+    context = _person(SITE_PUBLISH, REVIEW_GATE) if review else _person(SITE_PUBLISH)
     targets = [
         _target(context, page_id=page_id, locale=locale, lock=not preview)
         for page_id, locale, _expected in items
@@ -188,10 +196,19 @@ def batch_digest(targets: list[tuple[Page, PageTranslation]]) -> str:
 
 @transaction.atomic
 def reject_locale_version(
-    *, page_id: UUID, locale: str, expected_body_version: int, idempotency_key: str
+    *,
+    page_id: UUID,
+    locale: str,
+    expected_body_version: int,
+    idempotency_key: str,
+    review: bool = False,
 ) -> LanguageDecision:
     """Drops the waiting version; the current one stays as it was."""
-    context = _person(SITE_CONTENT_EDIT, "Odrzucenie wersji językowej")
+    context = (
+        _person(SITE_CONTENT_EDIT, REVIEW_GATE)
+        if review
+        else _person(SITE_CONTENT_EDIT, REJECT_GATE)
+    )
     _idempotency_key(idempotency_key)
     page, translation = _target(context, page_id=page_id, locale=locale, lock=True)
     if translation.body_pending_id is None:
@@ -374,11 +391,17 @@ def body_metadata(translation: PageTranslation, body: Any) -> dict[str, str]:
 
 
 def publish_job_versions(
-    *, site: Site, job_ref: str, reason: str, idempotency_key: str, reverting: bool = False
+    *,
+    site: Site,
+    job_ref: str,
+    reason: str,
+    idempotency_key: str,
+    reverting: Collection[UUID] = (),
 ) -> Publication | None:
     """One derived publication of what a translation job made current on a
-    site (ADR-069 pkt 21, ADR-070 pkt 11) — or, `reverting`, of what it put
-    back. Called inside the job's context; drafts never go with it."""
+    site (ADR-069 pkt 21, ADR-070 pkt 11) — or of what undoing it put back,
+    for the language rows in `reverting`. Called inside the job's context;
+    drafts never go with it."""
     context = current_tenant_context()
     assert context is not None
     snapshot = _current_snapshot(site)
@@ -399,6 +422,8 @@ def publish_job_versions(
     rows = sorted(touched, key=lambda row: str(row.page_id) != home)
     changed: list[PageTranslation] = []
     for row in rows:
+        if reverting and row.id not in reverting:
+            continue
         if not reverting and (row.body_current is None or row.body_current.origin_ref != job_ref):
             continue
         entry, _skipped = (

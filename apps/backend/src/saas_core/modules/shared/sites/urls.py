@@ -8,6 +8,7 @@ from .collection_views import (
     ContentCollectionPolicyView,
     ContentEntryDraftView,
     ContentEntryListCreateView,
+    ContentEntryMetadataView,
     ContentEntryPublicationView,
     ContentEntryTranslationView,
     EntryScheduleView,
@@ -237,6 +238,11 @@ urlpatterns = [
         "entries/<uuid:entry_id>/draft/",
         ContentEntryDraftView.as_view(),
         name="entry-draft",
+    ),
+    path(
+        "entries/<uuid:entry_id>/metadata/",
+        ContentEntryMetadataView.as_view(),
+        name="entry-metadata",
     ),
     path(
         "entries/<uuid:entry_id>/translations/",
