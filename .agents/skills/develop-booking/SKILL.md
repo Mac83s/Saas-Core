@@ -76,6 +76,12 @@ are both harder than they look.
   `appointmentKindsCompletedExplicitly` (`closes_explicitly`; `""` names the
   plain service). The customer who did not come is `mark_no_show` — from the
   visit's start, no undo; it counts as `no_shows`, never as done.
+- **Whose visits a person sees is one rule (UX-023), in `visibility.py`.**
+  Everyone's by default; a product that declares
+  `appointmentsOfOthersPermission` (MedPlano: a doctor does not see another
+  doctor's patients) limits whoever lacks it and does not plan visits to the
+  visits they are on (`sees_others`, `own_visits_q`). Every read of visits
+  goes through it — never a second `staff__membership_id` filter of your own.
 
 ## Conflicts
 
