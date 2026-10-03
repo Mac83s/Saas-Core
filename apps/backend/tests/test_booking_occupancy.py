@@ -15,6 +15,7 @@ from saas_core.modules.shared.booking.rules import save_closure
 from saas_core.modules.shared.booking.setup import save_resource
 from saas_core.modules.shared.booking.units import add_unit_block
 from test_booking import membership, tenant
+from test_booking_prices import add
 from test_booking_stays import WARSAW, cottages, key, saturday_after, stay
 from test_team_people import bookable, member_of
 from test_tenant_context import authenticated_client
@@ -70,6 +71,11 @@ def test_the_grid_has_every_unit_with_its_stays_blocks_and_closed_days() -> None
     assert [(item["kind"], item["title"], item["status"]) for item in body["held"]] == [
         ("stay", "Gość", "confirmed"),
         ("block", "Malowanie", ""),
+    ]
+    # No price list, no price on the grid.
+    assert [(item["gross_minor"], item["currency"]) for item in body["held"]] == [
+        (None, None),
+        (None, None),
     ]
     assert body["timezone"] == "Europe/Warsaw"
     # The calendar shows „Obłożenie” to a company that books by dates.
@@ -159,7 +165,25 @@ def test_somebody_elses_stay_takes_its_unit_but_keeps_its_guest_to_itself(settin
         "block_id",
         "title",
         "status",
+        "gross_minor",
+        "currency",
     }
+    # What somebody else's guest pays is theirs too.
+    assert (item["gross_minor"], item["currency"]) == (None, None)
     # Whoever plans visits still sees them all.
     planner = authenticated_client(owner).get(url).json()["held"]
     assert planner[0]["title"] == "Gość"
+
+
+def test_a_priced_stay_says_what_it_comes_to_on_the_grid() -> None:
+    owner, setup = company("oblozenie-cena", units=1)
+    first = saturday_after(14)
+    with tenant(owner):
+        add(30000, "per_time_unit", service_id=setup["service"].id, vat_code="8")
+        stay(setup, first, first + timedelta(days=3))
+    body = (
+        authenticated_client(owner)
+        .get(f"/api/v1/booking/occupancy/?from={first}&to={first + timedelta(days=13)}")
+        .json()
+    )
+    assert [(item["gross_minor"], item["currency"]) for item in body["held"]] == [(90000, "PLN")]

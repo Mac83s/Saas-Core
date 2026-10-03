@@ -225,6 +225,12 @@ class BookingQuoteInputSerializer(serializers.Serializer[dict[str, Any]]):
         max_length=10,
         help_text="The customer's language, for `customer_name`; omitted — the company's.",
     )
+    price_only = serializers.BooleanField(
+        required=False,
+        help_text="Only what the price list says for that time, whether or not it could be "
+        "booked: the offer may still be switched off, the unit taken, a season's rule broken. "
+        "For a preview of the price list; a booking is priced without it.",
+    )
 
 
 class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1695,6 +1701,12 @@ class OccupancyHeldSerializer(serializers.Serializer[dict[str, Any]]):
     status = serializers.CharField(
         help_text="The booking's status; empty for a block and for a booking not shown."
     )
+    gross_minor = serializers.IntegerField(
+        allow_null=True,
+        help_text="What the booking comes to, tax included, from its frozen quote; null for a "
+        "block, a booking without a price and one not shown.",
+    )
+    currency = serializers.CharField(allow_null=True, help_text="Of `gross_minor`, ISO 4217.")
 
 
 class OccupancySerializer(serializers.Serializer[dict[str, Any]]):

@@ -61,7 +61,7 @@ from .models import (
     TimeModel,
     VatCode,
 )
-from .periods import plan_stay, stay_quote
+from .periods import plan_stay, stay_quote, stay_to_price
 from .prices import GROSS, NET, amounts_are_gross, price_for
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
 
@@ -292,11 +292,15 @@ def _stay_lines(
             segments.append((rule, 1))
     lines: list[QuoteLine] = []
     for index, (rule, units) in enumerate(segments):
-        lines.append(_line(PRICE, names.service, units, rule.amount_minor, rule, time_units=units))
         if first.extra_person_per_time_unit:
-            lines += _people(rule, party, names, units)
-        elif index == 0:
-            lines += _people(rule, party, names, None)
+            people = _people(rule, party, names, units)
+        else:
+            people = _people(rule, party, names, None) if index == 0 else []
+        if not _people_are_the_price(rule, people):
+            lines.append(
+                _line(PRICE, names.service, units, rule.amount_minor, rule, time_units=units)
+            )
+        lines += people
     # What is charged per time unit gets cheaper with the length of the stay:
     # the longest threshold the stay reaches (their percents grow with length).
     reached = [line for line in first.length_discounts if line["min_length"] <= len(days)]
@@ -369,18 +373,21 @@ def quote_offer(
     participants: Sequence[Mapping[str, Any]] | None = None,
     extras: Sequence[Mapping[str, Any]] | None = None,
     locale: str | None = None,
+    price_only: bool = False,
 ) -> Quote:
     """What a booking would cost, for whoever books in the panel: a visit at
     `starts_at`, or a stay from `start_date` to `end_date` on the unit a
-    booking would take. Nothing is written."""
+    booking would take. Nothing is written.
+
+    `price_only` — what the price list says for that time, whether or not it
+    could be booked: the offer may still be switched off, the unit taken, a
+    season's rule broken. The preview beside the price list asks this."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
     if starts_at is not None:
-        service = Service.all_objects.filter(
-            organization_id=context.organization_id,
-            pk=service_id,
-            active=True,
-            time_model=TimeModel.SLOT,
-        ).first()
+        visits = Service.all_objects.filter(
+            organization_id=context.organization_id, pk=service_id, time_model=TimeModel.SLOT
+        )
+        service = (visits if price_only else visits.filter(active=True)).first()
         if service is None:
             raise NotFound("Nie ma takiej usługi.")
         return quote_visit(
@@ -392,6 +399,23 @@ def quote_offer(
         )
     if start_date is None or end_date is None:
         raise _refused("starts_at", "Podaj termin wizyty albo daty pobytu.", "required")
+    if price_only:
+        offer, unit, stay = stay_to_price(
+            service_id=service_id,
+            start_date=start_date,
+            end_date=end_date,
+            resource_id=resource_id,
+            group_id=group_id,
+            people=people_counted(context.organization_id, participants),
+        )
+        return quote_stay(
+            service=offer,
+            unit=unit,
+            days=stay.days(offer.range_unit),
+            participants=participants,
+            extras=extras,
+            locale=locale,
+        )
     plan = plan_stay(
         service_id=service_id,
         start_date=start_date,
@@ -517,10 +541,10 @@ def assert_shown(quote: Quote, digest: str) -> None:
 def _once(rule: PriceRule, party: Sequence[_Party], names: _Names) -> list[QuoteLine]:
     """A price charged once: per booking, per group or per person."""
     if rule.basis != PriceBasis.PER_PERSON:
-        return [
-            _line(PRICE, names.service, 1, rule.amount_minor, rule),
-            *_people(rule, party, names, None),
-        ]
+        people = _people(rule, party, names, None)
+        if _people_are_the_price(rule, people):
+            return people
+        return [_line(PRICE, names.service, 1, rule.amount_minor, rule), *people]
     own = _own_amounts(rule)
     lines = []
     standard = sum(
@@ -548,11 +572,25 @@ def _once(rule: PriceRule, party: Sequence[_Party], names: _Names) -> list[Quote
     return lines
 
 
+def _per_person_only(rule: PriceRule) -> bool:
+    """„Za osobę za noc” (phase 3e): nothing for the unit itself and nobody in
+    the price, so each person pays the further person's amount."""
+    return rule.amount_minor == 0 and rule.included_people == 0
+
+
+def _people_are_the_price(rule: PriceRule, people: Sequence[QuoteLine]) -> bool:
+    """Whether the people's lines stand for the price, with no line of 0 above
+    them. Nobody charged keeps the line: the offer is priced, at nothing."""
+    return _per_person_only(rule) and bool(people)
+
+
 def _people(
     rule: PriceRule, party: Sequence[_Party], names: _Names, units: int | None
 ) -> list[QuoteLine]:
     """What the people add to the rule's amount — per `units` time units when
-    given, otherwise once."""
+    given, otherwise once. Under a price that charges only people they are the
+    price itself: the line goes by the offer's name, not as "a further person".
+    """
     own = _own_amounts(rule)
     extra = rule.extra_person_amount_minor or 0
     # Who counts, with what each would pay when not included, dearest first.
@@ -580,12 +618,15 @@ def _people(
         if not group.counts and group.category is not None and own.get(group.category.id):
             charged.append((own[group.category.id], group, group.count))
     times = units or 1
+    kind, word = (
+        (PRICE, names.service)
+        if _per_person_only(rule)
+        else (EXTRA_PERSON, names.word(EXTRA_PERSON))
+    )
     return [
         _line(
-            CATEGORY if group.category is not None else EXTRA_PERSON,
-            names.category(group.category)
-            if group.category is not None
-            else names.word(EXTRA_PERSON),
+            CATEGORY if group.category is not None else kind,
+            names.category(group.category) if group.category is not None else word,
             count * times,
             amount,
             rule,

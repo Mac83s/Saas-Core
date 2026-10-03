@@ -2818,7 +2818,9 @@ paths:
         `quote_digest` and a price that changed in between answers 409 `quote_changed`.
         An offer without a price list answers no lines. Refusals name the field: `price_missing`,
         `unit_capacity_exceeded`, `participants_required`, and what a stay''s rules
-        refuse.'
+        refuse. With `price_only` the answer is what the price list says for that
+        time whether or not it could be booked — for a preview of the price list.
+        Each line names the price it came from (`price_rule_id`).'
       summary: Work out what a booking would cost
       tags:
       - booking
@@ -24720,6 +24722,12 @@ components:
           description: The customer's language, for `customer_name`; omitted — the
             company's.
           maxLength: 10
+        price_only:
+          type: boolean
+          description: 'Only what the price list says for that time, whether or not
+            it could be booked: the offer may still be switched off, the unit taken,
+            a season''s rule broken. For a preview of the price list; a booking is
+            priced without it.'
       required:
       - service_id
     BookingQuoteLine:
@@ -31698,10 +31706,23 @@ components:
           type: string
           description: The booking's status; empty for a block and for a booking not
             shown.
+        gross_minor:
+          type:
+          - integer
+          - 'null'
+          description: What the booking comes to, tax included, from its frozen quote;
+            null for a block, a booking without a price and one not shown.
+        currency:
+          type:
+          - string
+          - 'null'
+          description: Of `gross_minor`, ISO 4217.
       required:
       - appointment_id
       - block_id
+      - currency
       - ends_at
+      - gross_minor
       - kind
       - starts_at
       - status

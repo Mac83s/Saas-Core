@@ -1114,7 +1114,7 @@ export interface paths {
         put?: never;
         /**
          * Work out what a booking would cost
-         * @description The price of a visit at `starts_at`, or of a stay from `start_date` to `end_date` on the unit a booking would take, for the people who come: lines with net, tax and gross, and the totals. Nothing is saved and nothing is held. A booking works the price out again and keeps it; send it the `digest` as `quote_digest` and a price that changed in between answers 409 `quote_changed`. An offer without a price list answers no lines. Refusals name the field: `price_missing`, `unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse.
+         * @description The price of a visit at `starts_at`, or of a stay from `start_date` to `end_date` on the unit a booking would take, for the people who come: lines with net, tax and gross, and the totals. Nothing is saved and nothing is held. A booking works the price out again and keeps it; send it the `digest` as `quote_digest` and a price that changed in between answers 409 `quote_changed`. An offer without a price list answers no lines. Refusals name the field: `price_missing`, `unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse. With `price_only` the answer is what the price list says for that time whether or not it could be booked — for a preview of the price list. Each line names the price it came from (`price_rule_id`).
          */
         post: operations["booking_quote"];
         delete?: never;
@@ -8377,6 +8377,8 @@ export interface components {
             extras?: components["schemas"]["ExtraPick"][];
             /** @description The customer's language, for `customer_name`; omitted — the company's. */
             locale?: string;
+            /** @description Only what the price list says for that time, whether or not it could be booked: the offer may still be switched off, the unit taken, a season's rule broken. For a preview of the price list; a booking is priced without it. */
+            price_only?: boolean;
         };
         BookingQuoteLine: {
             /**
@@ -11387,6 +11389,10 @@ export interface components {
             title: string;
             /** @description The booking's status; empty for a block and for a booking not shown. */
             status: string;
+            /** @description What the booking comes to, tax included, from its frozen quote; null for a block, a booking without a price and one not shown. */
+            gross_minor: number | null;
+            /** @description Of `gross_minor`, ISO 4217. */
+            currency: string | null;
         };
         /**
          * @description * `stay` - stay

@@ -259,6 +259,31 @@ def plan_stay(
     return StayPlan(service, ordered[0], stay, occupied_from, occupied_until, tuple(ordered[1:]))
 
 
+def stay_to_price(
+    *,
+    service_id: UUID,
+    start_date: date,
+    end_date: date,
+    resource_id: UUID | None = None,
+    group_id: UUID | None = None,
+    people: int | None = None,
+) -> tuple[Service, Resource, Stay]:
+    """The unit and the days a price is asked about, whether or not the stay
+    could be booked: a taken unit, a season's rule, a closed day and an offer
+    still switched off do not stop it. The price list's preview asks this
+    (phase 3e); a booking asks `plan_stay`. Of the units asked about, the
+    first by name that takes `people`."""
+    service, units = _offer(service_id, resource_id, group_id, switched_off=True)
+    if not units:
+        raise NotFound("Ta oferta nie ma jednostek.")
+    fitting = [
+        unit for unit in units if people is None or unit.capacity is None or unit.capacity >= people
+    ]
+    # No unit takes them all: the quote says so, with the largest one's number.
+    unit = fitting[0] if fitting else max(units, key=lambda unit: unit.capacity or 0)
+    return service, unit, stay_bounds(service, start_date, end_date, _zone())
+
+
 @transaction.atomic
 def book_stay(
     *,
@@ -811,14 +836,18 @@ def _read() -> TenantContext:
 
 
 def _offer(
-    service_id: UUID, resource_id: UUID | None, group_id: UUID | None
+    service_id: UUID,
+    resource_id: UUID | None,
+    group_id: UUID | None,
+    *,
+    switched_off: bool = False,
 ) -> tuple[Service, list[Resource]]:
     """The range offer and the units a stay of it may take: the one named, the
-    group's, or every unit and group the offer lists."""
+    group's, or every unit and group the offer lists. `switched_off` — an
+    offer nobody can book yet is found too."""
     context = require_tenant_context()
-    service = Service.all_objects.filter(
-        pk=service_id, organization_id=context.organization_id, active=True
-    ).first()
+    offers = Service.all_objects.filter(pk=service_id, organization_id=context.organization_id)
+    service = (offers if switched_off else offers.filter(active=True)).first()
     if service is None or service.time_model != TimeModel.RANGE:
         raise NotFound("Nie ma takiej oferty pobytu.")
     linked_units = set(

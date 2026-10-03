@@ -16,12 +16,13 @@ from rest_framework.exceptions import ValidationError
 from saas_core.http.exceptions import problem_errors
 from saas_core.modules.core.organizations.settings_service import change_settings, read_group
 from saas_core.modules.shared.booking.item_translations import save_item_translation
-from saas_core.modules.shared.booking.models import Appointment
+from saas_core.modules.shared.booking.models import Appointment, PriceRule
 from saas_core.modules.shared.booking.periods import move_stay, plan_stay, stay_quote
 from saas_core.modules.shared.booking.prices import delete_price, save_category, save_price
 from saas_core.modules.shared.booking.quote import Quote, QuoteChanged, quote_offer, quote_visit
+from saas_core.modules.shared.booking.rules import save_rule
 from saas_core.modules.shared.booking.services import create_appointment, reschedule_appointment
-from saas_core.modules.shared.booking.setup import save_resource
+from saas_core.modules.shared.booking.setup import save_resource, save_service
 from test_booking import catalog, membership, tenant
 from test_booking_prices import add, key, season
 from test_booking_slots import team
@@ -486,6 +487,106 @@ def test_the_quote_api_prices_and_a_booking_answers_a_changed_price() -> None:
         HTTP_X_CSRFTOKEN=csrf,
     )
     assert neither.status_code == 400
+
+
+def test_the_price_list_answers_for_a_time_that_cannot_be_booked() -> None:
+    """The preview beside the price list (phase 3e): a taken unit, a season's
+    rule and an offer still switched off refuse a booking, not a question
+    about the price — and every line names the price it came from."""
+    _, owner, client = authenticated_member(
+        email="cennik-podglad@example.test", role_key="owner", slug="cennik-podglad"
+    )
+    bookable(owner.organization)
+    setup = priced_cottages(owner)
+    offer = setup["service"]
+    csrf = csrf_value(client)
+    with tenant(owner):
+        # The only cottage is taken for the first days of July, and from the
+        # tenth a stay is a week or nothing.
+        stay(setup, day(7, 1), day(7, 5))
+        save_rule(
+            rule_id=None,
+            data={
+                "service_id": offer.id,
+                "starts_on": day(7, 10),
+                "ends_on": day(7, 31),
+                "min_length": 7,
+            },
+            idempotency_key=key(),
+        )
+        summer = PriceRule.all_objects.get(service=offer, starts_on=day(7, 1)).id
+
+    def ask(first: date, last: date, **given: Any) -> Any:
+        return client.post(
+            "/api/v1/booking/quote/",
+            {
+                "service_id": str(offer.id),
+                "group_id": str(setup["group"].id),
+                "start_date": first.isoformat(),
+                "end_date": last.isoformat(),
+                **given,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf,
+        )
+
+    assert (ask(day(7, 2), day(7, 4)).json()["code"]) == "slot_unavailable"
+    taken = ask(day(7, 2), day(7, 4), price_only=True)
+    assert taken.status_code == 200, taken.data
+    assert (taken.json()["gross_minor"], taken.json()["lines"][0]["price_rule_id"]) == (
+        100000,
+        str(summer),
+    )
+    short = ask(day(7, 12), day(7, 14))
+    assert [error["code"] for error in short.json()["errors"]] == ["rule_min_length"]
+    assert ask(day(7, 12), day(7, 14), price_only=True).json()["gross_minor"] == 100000
+    # The price list still refuses what it cannot price: more people than a
+    # cottage takes.
+    crowded = ask(day(7, 12), day(7, 14), price_only=True, participants=[{"count": 7}])
+    assert [(error["field"], error["code"]) for error in crowded.json()["errors"]] == [
+        ("participants", "unit_capacity_exceeded")
+    ]
+
+    with tenant(owner):
+        save_service(
+            service_id=offer.id,
+            data={"active": False},
+            expected_version=offer.version,
+            idempotency_key=key(),
+        )
+    assert ask(day(6, 1), day(6, 3)).status_code == 404
+    assert ask(day(6, 1), day(6, 3), price_only=True).json()["gross_minor"] == 60000
+
+
+def test_a_price_per_person_per_night_reads_as_the_price_not_as_further_people() -> None:
+    """„Za osobę za noc” (phase 3e) is a price per night of nothing with nobody
+    in it: the quote has no line of 0 and no "further person" — the people are
+    the price, under the offer's name, and a category keeps its own amount."""
+    owner = membership("wycena-osoba-noc")
+    setup = cottages(owner, units=1)
+    with tenant(owner):
+        child = category("Dziecko")
+        rule = add(
+            0,
+            "per_time_unit",
+            service_id=setup["service"].id,
+            vat_code="8",
+            included_people=0,
+            extra_person_amount_minor=8000,
+            extra_person_per_time_unit=True,
+            category_prices=[{"category_id": child.id, "amount_minor": 4000}],
+            length_discounts=[{"min_length": 3, "percent": 10}],
+        )
+        quote = of_stay(setup, day(6, 1), day(6, 4), people(2, **{str(child.id): 1}))
+    assert [
+        (line.kind, line.name, line.quantity, line.unit_amount_minor) for line in quote.lines
+    ] == [
+        ("price", "Pobyt w domku", 6, 8000),
+        ("category", "Dziecko", 3, 4000),
+        ("discount", "Rabat za długość pobytu (10%)", 1, -6000),
+    ]
+    assert {line.price_rule_id for line in quote.lines} == {rule.id}
+    assert quote.gross_minor == 54000
 
 
 def test_a_category_pays_for_every_night_when_the_price_says_so() -> None:

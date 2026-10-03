@@ -3155,7 +3155,10 @@ class BookingQuoteView(APIView):
         "works the price out again and keeps it; send it the `digest` as `quote_digest` and "
         "a price that changed in between answers 409 `quote_changed`. An offer without a "
         "price list answers no lines. Refusals name the field: `price_missing`, "
-        "`unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse.",
+        "`unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse. "
+        "With `price_only` the answer is what the price list says for that time whether or "
+        "not it could be booked — for a preview of the price list. Each line names the price "
+        "it came from (`price_rule_id`).",
         tags=["booking"],
         request=BookingQuoteInputSerializer,
         responses={200: BookingQuoteSerializer, **_SETUP_PROBLEMS},
@@ -3404,6 +3407,15 @@ def _held_title(item: Held, titles: Mapping[UUID, str]) -> str:
     return titles.get(item.appointment.id) or item.appointment.customer.display_name
 
 
+def _held_price(item: Held) -> dict[str, Any]:
+    """What a booking shown comes to, from its frozen quote; nothing for a
+    block, a booking without a price and somebody else's."""
+    quote = item.appointment.quote if item.appointment is not None and not item.hidden else None
+    if not quote or not quote.get("lines"):
+        return {"gross_minor": None, "currency": None}
+    return {"gross_minor": quote["gross_minor"], "currency": quote["currency"]}
+
+
 class BookingOccupancyView(APIView):
     """Obłożenie: units against days (ADR-072 phase 2d)."""
 
@@ -3473,6 +3485,7 @@ class BookingOccupancyView(APIView):
                     "status": (
                         item.appointment.status if item.appointment and not item.hidden else ""
                     ),
+                    **_held_price(item),
                 }
                 for item in value.held
             ],
