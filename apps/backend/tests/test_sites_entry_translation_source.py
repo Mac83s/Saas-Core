@@ -371,7 +371,11 @@ def test_a_job_makes_the_article_in_the_language_with_its_title_tags_and_date():
     assert [link.tag.slug for link in sibling.tag_links.all()] == ["porady"]
     assert sibling.state == ContentEntryState.PUBLISHED
     assert sibling.published_at == source.published_at
-    assert sibling.current_publication.snapshot["origin"] == {"origin": "ai", "reviewed": False}
+    assert sibling.current_publication.snapshot["origin"] == {
+        "origin": "ai",
+        "machine": True,
+        "reviewed": False,
+    }
     assert driver.public_texts(article, "de") == ["[de] Jak dbać o kopyta"]
 
 
@@ -459,6 +463,7 @@ def test_a_person_accepts_a_waiting_translation_and_it_goes_out():
     # AI text a person accepted: machine-written and reviewed (ADR-071 pkt 17).
     assert driver.sibling(article, "de").current_publication.snapshot["origin"] == {
         "origin": "ai",
+        "machine": True,
         "reviewed": True,
     }
 
@@ -469,7 +474,11 @@ def test_a_job_s_article_is_unreviewed_until_a_person_publishes_it_themselves():
     driver.publish(article)
     _job(driver, article)
     sibling = driver.sibling(article, "de")
-    assert sibling.current_publication.snapshot["origin"] == {"origin": "ai", "reviewed": False}
+    assert sibling.current_publication.snapshot["origin"] == {
+        "origin": "ai",
+        "machine": True,
+        "reviewed": False,
+    }
 
     # The service asked without a person's decision (a schedule, a follow-up).
     driver.publish(sibling.id)
@@ -480,6 +489,7 @@ def test_a_job_s_article_is_unreviewed_until_a_person_publishes_it_themselves():
         publish_entry(entry_id=sibling.id, idempotency_key=_key(), person_decision=True)
     assert driver.sibling(article, "de").current_publication.snapshot["origin"] == {
         "origin": "ai",
+        "machine": True,
         "reviewed": True,
     }
 

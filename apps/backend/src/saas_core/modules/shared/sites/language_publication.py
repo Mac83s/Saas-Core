@@ -230,17 +230,20 @@ def _translated(unit: TextUnit, entry: Any) -> bool:
 def _origin(entries: Iterable[Any], *, accepted: bool = False) -> dict[str, Any]:
     """Who wrote the version, for the machine marker on AI text (ADR-071 pkt 17).
 
-    `origin` says whether there is AI text — the machine mark, always.
-    `reviewed` says a person stands behind it: no AI text at all, or a person
-    accepted this version (`accepted`); only what is not reviewed gets the
-    visible notice."""
+    `machine` says whether there is AI text — the machine mark, always.
+    `origin` names who wrote it, and "mixed" is also a person's text beside
+    copied source text, so it alone does not say "machine" (snapshots older
+    than the key have only it). `reviewed` says a person stands behind it: no
+    AI text at all, or a person accepted this version (`accepted`); only what
+    is not reviewed gets the visible notice."""
     origins = {
         str(entry.get("provenance", {}).get("origin", ""))
         for entry in entries
         if isinstance(entry, dict) and "text" in entry
     } - {""}
     kind = next(iter(origins)) if len(origins) == 1 else ("mixed" if origins else "human")
-    return {"origin": kind, "reviewed": accepted or "ai" not in origins}
+    machine = "ai" in origins
+    return {"origin": kind, "machine": machine, "reviewed": accepted or not machine}
 
 
 def _carried(

@@ -414,7 +414,7 @@ def test_a_person_accepts_a_waiting_translation_with_its_title():
     assert row.title == "[de] Strona testowa"
     # AI text a person accepted: still marked as machine-written, and
     # reviewed — so it carries no visible notice (ADR-071 pkt 17).
-    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": True}
+    assert _origin_of(driver, home) == {"origin": "ai", "machine": True, "reviewed": True}
     assert row.body_accepted_id == row.body_current_id
 
 
@@ -439,14 +439,14 @@ def test_ai_text_is_reviewed_only_once_a_person_decides_on_that_version():
     _job(contract, driver, home)
 
     # Published by the job: nobody stands behind it yet.
-    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": False}
+    assert _origin_of(driver, home) == {"origin": "ai", "machine": True, "reviewed": False}
     # The whole site published again by a person is not a decision on this text.
     driver.publish(home)
-    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": False}
+    assert _origin_of(driver, home) == {"origin": "ai", "machine": True, "reviewed": False}
 
     with _as(driver.publisher):
         publish_locale_version(page_id=home, locale="de", idempotency_key=_key())
-    assert _origin_of(driver, home) == {"origin": "ai", "reviewed": True}
+    assert _origin_of(driver, home) == {"origin": "ai", "machine": True, "reviewed": True}
 
     # Their own correction of the version they accepted keeps it reviewed,
     # through the next publication of the site as well.
@@ -462,7 +462,28 @@ def test_ai_text_is_reviewed_only_once_a_person_decides_on_that_version():
             idempotency_key=_key(),
         )
     driver.publish(home)
-    assert _origin_of(driver, home) == {"origin": "mixed", "reviewed": True}
+    assert _origin_of(driver, home) == {"origin": "mixed", "machine": True, "reviewed": True}
+
+
+def test_mixed_says_machine_only_when_there_is_ai_text():
+    """A person's words beside copied source text are "mixed" too; the machine
+    mark needs its own word (TL19b)."""
+    from saas_core.modules.shared.sites.language_publication import _origin
+
+    def unit(origin: str) -> dict[str, object]:
+        return {"text": "x", "provenance": {"origin": origin}}
+
+    assert _origin([unit("human"), unit("copy")]) == {
+        "origin": "mixed",
+        "machine": False,
+        "reviewed": True,
+    }
+    assert _origin([unit("human"), unit("ai")]) == {
+        "origin": "mixed",
+        "machine": True,
+        "reviewed": False,
+    }
+    assert _origin([unit("human"), unit("ai")], accepted=True)["reviewed"] is True
 
 
 def test_pages_are_listed_home_first_with_their_public_state():

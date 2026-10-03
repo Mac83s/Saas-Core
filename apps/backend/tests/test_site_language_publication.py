@@ -75,7 +75,7 @@ def test_a_complete_language_goes_out_with_its_own_body():
     assert page["blocks"][0]["data"]["title"] == "Oferta"
     english = next(item for item in page["locales"] if item["locale"] == "en")
     assert english["blocks"][0]["data"]["title"] == "EN Oferta"
-    assert english["origin"] == {"origin": "human", "reviewed": True}
+    assert english["origin"] == {"origin": "human", "machine": False, "reviewed": True}
     assert page["hreflang"] == {"pl": "/oferta/", "en": "/en/oferta-en/"}
 
     served = _get(host, "/en/oferta-en/")
