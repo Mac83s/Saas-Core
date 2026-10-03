@@ -3048,7 +3048,8 @@
     "bookingMoved": "Wizyta {service} z {before} jest teraz {when}.",
     "bookingCanceled": "Odwołano wizytę: {service}, {when}.",
     "translationJobProblem": "Tłumaczenie zakończone z brakami: przetłumaczono {written} z {count} pozycji.",
-    "translationReviewWaiting": "{count, plural, one {# tłumaczenie czeka} few {# tłumaczenia czekają} many {# tłumaczeń czeka} other {# tłumaczeń czeka}} na Twoją decyzję."
+    "translationReviewWaiting": "{count, plural, one {# tłumaczenie czeka} few {# tłumaczenia czekają} many {# tłumaczeń czeka} other {# tłumaczeń czeka}} na Twoją decyzję.",
+    "translationAutomationPaused": "Automatyczne tłumaczenie zmian wstrzymane: {reason, select, monthly_limit {wykorzystano miesięczny limit automatu} credits_exhausted {brakuje kredytów} consent_lost {osoba, która zgodziła się na automat, nie ma już do tego uprawnień} publish_denied {automat nie może publikować tych treści} other {tłumaczenie jest teraz niedostępne}}."
   },
   "Credits": {
     "eyebrow": "Abonament",

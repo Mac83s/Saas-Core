@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:96c67af68bc401d1307401c78d95f4d79bdd08fd500269409d88ed8c8f588dcc",
+  "profileHash": "sha256:8367afff265e7919d64fd401b03d5077370ecca1a6ec16fb41879b3abb688f87",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -457,6 +457,10 @@
           "translation-demand": {
             "task": "saas_core.modules.shared.translation.tasks.run_translation_demand",
             "schedule": 60
+          },
+          "translation-demand-reconcile": {
+            "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_demand",
+            "schedule": 86400
           },
           "translation-review-digest": {
             "task": "saas_core.modules.shared.translation.tasks.notify_translation_reviews",

@@ -64,6 +64,14 @@ def run_translation_demand() -> int:
 
 
 @shared_task  # type: ignore[untyped-decorator]
+def reconcile_translation_demand() -> int:
+    """Once a day: demand for changes whose notice was lost (TL21)."""
+    from .demand import reconcile_demand
+
+    return reconcile_demand()
+
+
+@shared_task  # type: ignore[untyped-decorator]
 def notify_translation_reviews() -> int:
     """Once a day: results waiting for a decision, to whoever may decide."""
     from .notify import notify_waiting_reviews

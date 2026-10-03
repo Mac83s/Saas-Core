@@ -3048,7 +3048,8 @@
     "bookingMoved": "The {service} visit from {before} is now at {when}.",
     "bookingCanceled": "A visit was called off: {service}, {when}.",
     "translationJobProblem": "A translation finished with gaps: {written} of {count} items translated.",
-    "translationReviewWaiting": "{count, plural, one {# translation waits} other {# translations wait}} for your decision."
+    "translationReviewWaiting": "{count, plural, one {# translation waits} other {# translations wait}} for your decision.",
+    "translationAutomationPaused": "Automatic translation of changes is paused: {reason, select, monthly_limit {the automation's monthly limit is used up} credits_exhausted {there are not enough credits} consent_lost {the person who consented to the automation no longer may} publish_denied {the automation may not publish this content} other {translation is unavailable right now}}."
   },
   "Credits": {
     "eyebrow": "Subscription",

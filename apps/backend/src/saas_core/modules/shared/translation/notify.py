@@ -2,9 +2,10 @@
 
 A job that ended with gaps tells the person who ordered it, in the panel and
 by e-mail; once a day the people who manage translation hear how many results
-wait for a decision. The panel words the in-app notice in the reader's
-language from the kind and its facts; no translated or source text is ever in
-a notice.
+wait for a decision; an automation that cannot run tells them once per period
+(the month for its limit, the day for anything else). The panel words the
+in-app notice in the reader's language from the kind and its facts; no
+translated or source text is ever in a notice.
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ from .permissions import TRANSLATION_MANAGE
 
 JOB_PROBLEM = "translation.job_problem"
 REVIEW_WAITING = "translation.review_waiting"
+AUTOMATION_PAUSED = "translation.automation_paused"
 NOTIFY_ROLE = "translation_notifications"
 
 
@@ -123,13 +125,7 @@ def notify_waiting_reviews() -> int:
             if not reasons:
                 continue
             organization = Organization.objects.get(pk=organization_id)
-            recipients = [
-                membership
-                for membership in Membership.objects.select_related("role", "user").filter(
-                    organization_id=organization_id, status=MembershipStatus.ACTIVE
-                )
-                if TRANSLATION_MANAGE in (membership.role.permissions or [])
-            ]
+            recipients = _managers(organization_id)
             count = sum(reasons.values())
             payload: dict[str, Any] = {"count": count, "reasons": dict(reasons)}
             key = f"translation-review:{organization_id}:{today}"
@@ -158,6 +154,49 @@ def notify_waiting_reviews() -> int:
                         causation_id=f"translation_review:{today}",
                         recipient_user=user,
                     )
+    return sent
+
+
+def _managers(organization_id: UUID) -> list[Membership]:
+    return [
+        membership
+        for membership in Membership.objects.select_related("role", "user").filter(
+            organization_id=organization_id, status=MembershipStatus.ACTIVE
+        )
+        if TRANSLATION_MANAGE in (membership.role.permissions or [])
+    ]
+
+
+def notify_automation_paused(organization_id: UUID, *, reason: str, period: str) -> int:
+    """The automation cannot run: who manages translation hears it once per
+    period and reason; the published translations stay as they are."""
+    organization = Organization.objects.get(pk=organization_id)
+    key = f"translation-paused:{organization_id}:{reason}:{period}"
+    sent = 0
+    with _as_the_organization(organization_id):
+        for membership in _managers(organization_id):
+            user = membership.user
+            sent += notify_in_app(
+                organization_id=organization_id,
+                user_id=user.id,
+                kind=AUTOMATION_PAUSED,
+                payload={"reason": reason},
+                idempotency_key=key,
+            )
+            locale = staff_locale(organization_id=organization_id, user=user)
+            queue_email(
+                recipient_email=user.email,
+                template_key=AUTOMATION_PAUSED,
+                template_version=1,
+                locale=locale,
+                template_context={
+                    "organization_name": organization.name,
+                    "panel_url": _panel(locale),
+                },
+                idempotency_key=f"{key}:{user.id}",
+                causation_id=f"translation_automation:{period}",
+                recipient_user=user,
+            )
     return sent
 
 
@@ -208,6 +247,33 @@ def register_templates() -> None:
                 ),
             },
             allowed_context=frozenset({"organization_name", "count", "panel_url"}),
+            audience=AUDIENCE_STAFF,
+        )
+    )
+    register_email_template(
+        EmailTemplate(
+            key=AUTOMATION_PAUSED,
+            version=1,
+            category="required",
+            subjects={
+                "pl": "Automatyczne tłumaczenie zmian jest wstrzymane",
+                "en": "Automatic translation of changes is paused",
+            },
+            bodies={
+                "pl": (
+                    "<p>{organization_name}: zmiany na stronie nie są teraz tłumaczone "
+                    "automatycznie. Opublikowane tłumaczenia zostają; nowe poczekają, aż "
+                    "przyczyna minie. Szczegóły są w panelu.</p>"
+                    '<p><a href="{panel_url}">Otwórz panel</a></p>'
+                ),
+                "en": (
+                    "<p>{organization_name}: changes on the site are not being translated "
+                    "automatically right now. Published translations stay; new ones wait "
+                    "until the cause is gone. The panel has the details.</p>"
+                    '<p><a href="{panel_url}">Open the panel</a></p>'
+                ),
+            },
+            allowed_context=frozenset({"organization_name", "panel_url"}),
             audience=AUDIENCE_STAFF,
         )
     )

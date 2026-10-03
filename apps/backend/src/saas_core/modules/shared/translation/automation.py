@@ -23,7 +23,7 @@ from uuid import UUID, uuid7
 from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import APIException
 
 from saas_core.content_protocol.registry import translation_source
 from saas_core.content_protocol.sources import ObjectRef, TranslationSource
@@ -46,6 +46,7 @@ from .jobs import (
     build_job_quote,
 )
 from .models import DemandState, TranslationDemand, TranslationJobPart, TranslationSettings
+from .notify import notify_automation_paused
 from .permissions import TRANSLATION_MANAGE, TRANSLATION_REQUEST
 from .services import settings_state, translation_offer
 from .settings_spec import AUTO_CHANGES, AUTO_MONTHLY_LIMIT
@@ -136,6 +137,12 @@ def start_due_demand(organization_id: UUID, now: datetime | None = None) -> UUID
         except Blocked as blocked:
             TranslationDemand.all_objects.filter(pk__in=[row.pk for row in rows]).update(
                 state=DemandState.BLOCKED, reason=blocked.reason, check_at=blocked.check_at
+            )
+            local = timezone.localtime(now)
+            notify_automation_paused(
+                organization_id,
+                reason=blocked.reason,
+                period=local.strftime("%Y-%m" if blocked.reason == MONTHLY_LIMIT else "%Y-%m-%d"),
             )
             return None
     if job_id is not None:
@@ -258,7 +265,8 @@ def _targets(
             continue
         try:
             source.authorize(context=context, action="publish", object_ids=list(demand))
-        except (PermissionDenied, NotFound) as error:
+        except APIException as error:
+            # No right, no plan for it, or nothing there: a person has to act.
             raise Blocked(PUBLISH_DENIED, timezone.now() + BLOCKED_RETRY) from error
         planned: set[UUID] = set()
         for ref in _public_refs(source, context, set(demand)):

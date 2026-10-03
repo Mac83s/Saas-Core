@@ -194,6 +194,8 @@ function headline(
       return t("translationJobProblem", values);
     case "translation.review_waiting":
       return t("translationReviewWaiting", values);
+    case "translation.automation_paused":
+      return t("translationAutomationPaused", values);
     default:
       return t("unknown");
   }

@@ -19,7 +19,12 @@ from uuid import UUID
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from saas_core.content_protocol.registry import SourceChangeNotice, translation_source
+from saas_core.content_protocol.registry import (
+    SourceChangeNotice,
+    translation_source,
+    translation_sources,
+)
+from saas_core.content_protocol.sources import ContentContext, TranslationSource
 from saas_core.modules.core.organizations.command_registry import organization_modules
 from saas_core.modules.core.organizations.context import set_local_organization_id
 
@@ -102,3 +107,78 @@ def _touch(notice: SourceChangeNotice, object_id: UUID, now: datetime) -> None:
             row = TranslationDemand.all_objects.select_for_update().get(**lookup)
     row.due_at = min(now + DEMAND_WAIT, row.first_at + DEMAND_MAX_WAIT)
     row.save(update_fields=["due_at", "updated_at"])
+
+
+#: How far back the daily repair looks: a day and an hour, so a tick that ran
+#: late still overlaps the one before.
+RECONCILE_WINDOW = timedelta(hours=25)
+
+
+def reconcile_demand(now: datetime | None = None) -> int:
+    """Once a day: a change whose notice was lost — the process died between
+    the commit and the callback — gets its demand the same way (§8.4). Objects
+    whose translations are fresh cost a quote and are dropped by the run."""
+    from saas_core.modules.shared.billing.api import billing_organization_ids  # noqa: PLC0415
+
+    from .worker import person_context  # noqa: PLC0415 — the worker imports the jobs
+
+    now = now or timezone.now()
+    recorded = 0
+    for organization_id in billing_organization_ids():
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            row = TranslationSettings.all_objects.filter(organization_id=organization_id).first()
+            if row is None or row.auto_consent_membership_id is None:
+                continue
+            context = person_context(organization_id, row.auto_consent_membership_id)
+            if context is None:
+                continue
+            for source in translation_sources():
+                if not automation_on(organization_id, source.key):
+                    continue
+                try:
+                    with transaction.atomic():
+                        recorded += _repair(organization_id, source, context, now)
+                except Exception as error:
+                    # One source refusing (a plan, a right) never stops the others.
+                    logger.warning(
+                        "translation_demand_reconcile_skipped",
+                        extra={
+                            "organization_id": str(organization_id),
+                            "source_key": source.key,
+                            "error": type(error).__name__,
+                        },
+                    )
+    return recorded
+
+
+def _repair(
+    organization_id: UUID, source: TranslationSource, context: ContentContext, now: datetime
+) -> int:
+    changed = _changed_public(source, context, now - RECONCILE_WINDOW)
+    if changed:
+        record_demand(
+            SourceChangeNotice(
+                organization_id=organization_id,
+                source_key=source.key,
+                object_ids=tuple(changed),
+                change="changed",
+                cause="schedule",
+                actor_id=None,
+                at=now,
+            )
+        )
+    return len(changed)
+
+
+def _changed_public(
+    source: TranslationSource, context: ContentContext, since: datetime
+) -> list[UUID]:
+    found: list[UUID] = []
+    cursor: str | None = None
+    while True:
+        page = source.list_objects(context=context, cursor=cursor, limit=200, changed_since=since)
+        found.extend(ref.object_id for ref in page.items if ref.public)
+        cursor = page.next_cursor
+        if cursor is None:
+            return found

@@ -9,13 +9,22 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import timedelta
+from typing import Any
 from uuid import UUID
 
 import pytest
+from django.conf import settings
+from django.test import override_settings
 from django.utils import timezone
 
+from saas_core.modules.core.organizations.context import activate_tenant_context
 from saas_core.modules.core.organizations.models import Membership, OrganizationAuditEntry
-from saas_core.modules.shared.billing.models import CreditLedgerEntry, CreditLedgerKind
+from saas_core.modules.shared.billing.models import (
+    CreditLedgerEntry,
+    CreditLedgerKind,
+    EntitlementSnapshot,
+)
+from saas_core.modules.shared.notifications.models import AppNotification, NotificationMessage
 from saas_core.modules.shared.translation.automation import (
     CONSENT_LOST,
     CREDITS_EXHAUSTED,
@@ -23,13 +32,14 @@ from saas_core.modules.shared.translation.automation import (
     _next_month,
     start_due_demand,
 )
-from saas_core.modules.shared.translation.demand import DEMAND_WAIT
+from saas_core.modules.shared.translation.demand import DEMAND_WAIT, reconcile_demand
 from saas_core.modules.shared.translation.models import (
     JobState,
     TranslationDemand,
     TranslationJob,
     TranslationSettings,
 )
+from saas_core.modules.shared.translation.notify import AUTOMATION_PAUSED
 from saas_core.modules.shared.translation.services import change_settings
 from saas_core.testing.translation_sources import FakeSourceDriver
 from test_booking import tenant
@@ -200,3 +210,81 @@ def test_a_pair_already_in_a_job_waits_for_it(source: JobSource) -> None:
     row.refresh_from_db()
     assert row.state == "waiting" and row.due_at >= before + DEMAND_WAIT
     assert TranslationJob.all_objects.filter(trigger="automatic").count() == 0
+
+
+def test_a_paused_automation_tells_the_managers_once_a_period(source: JobSource) -> None:
+    owner = automated("tl21-paused", limit=1)
+    source.live_locales.add("de")
+    object_id = page(source, "Alfa")
+    due(owner, object_id)
+    start_due_demand(owner.organization_id)
+    notice = AppNotification.all_objects.get(
+        organization=owner.organization, kind=AUTOMATION_PAUSED
+    )
+    assert notice.user_id == owner.user_id and notice.payload == {"reason": MONTHLY_LIMIT}
+    assert NotificationMessage.all_objects.filter(
+        organization=owner.organization, template_key=AUTOMATION_PAUSED
+    ).exists()
+    # Tried again within the month: still one notice.
+    TranslationDemand.all_objects.filter(organization=owner.organization).update(
+        check_at=timezone.now()
+    )
+    start_due_demand(owner.organization_id)
+    assert (
+        AppNotification.all_objects.filter(
+            organization=owner.organization, kind=AUTOMATION_PAUSED
+        ).count()
+        == 1
+    )
+
+
+def test_the_daily_repair_records_a_change_whose_notice_was_lost(source: JobSource) -> None:
+    owner = automated("tl21-repair")
+    organization = owner.organization
+    organization.organization_type = settings.DEFAULT_ORGANIZATION_TYPE
+    organization.save(update_fields=["organization_type"])
+    source.module_id = "shared.sites"  # a module the company's type composes
+    object_id = page(source, "Alfa")  # published, its notice never arrived
+    assert reconcile_demand() >= 1
+    (row,) = demand(owner)
+    assert (row.object_id, row.cause) == (object_id, "schedule")
+
+
+@override_settings(SITES_SUPPORTED_LOCALES=("pl", "en", "de"))
+def test_a_published_change_on_a_real_site_goes_out_in_german_without_a_click(
+    monkeypatch: pytest.MonkeyPatch, django_capture_on_commit_callbacks: Any
+) -> None:
+    """The acceptance of TL21 on the `sites.page` source: the company consents
+    once; then publishing a Polish change gives one job after the wait, and the
+    German page follows without anyone clicking."""
+    from test_sites_page_translation_source import SitesPageDriver, TestSitesPageSource, _job
+
+    contract, driver = TestSitesPageSource(), SitesPageDriver()
+    home = driver.create(["Witamy w studiu"])
+    driver.publish(home)
+    _job(contract, driver, home)  # German is live on the site
+    organization_id = driver.publisher.organization_id
+    EntitlementSnapshot.all_objects.filter(organization_id=organization_id).update(
+        quotas={"sites.max": 1000, "credits.monthly": 100},
+        sources={
+            "sites.enabled": {"kind": "plan"},
+            "sites.max": {"kind": "plan"},
+            "credits.monthly": {"kind": "plan"},
+        },
+    )
+    with installed_source(monkeypatch), activate_tenant_context(driver.publisher):
+        change_settings(
+            changes={"translation.settings.processing_acknowledged": True, AUTO: True},
+            expected_version=0,
+            idempotency_key="tl21-site-consent",
+        )
+        driver.edit(home, 0, "Zapraszamy do studia")
+        with django_capture_on_commit_callbacks(execute=True):
+            driver.publish(home)
+        (row,) = TranslationDemand.all_objects.filter(organization_id=organization_id)
+        assert row.source_key == "sites.page" and row.object_id == home
+        assert start_due_demand(organization_id) is None  # still within the five minutes
+        job_id = start_due_demand(organization_id, row.due_at)
+        assert job_id is not None
+        assert run(TranslationJob.all_objects.get(pk=job_id)).state == JobState.SUCCEEDED
+    assert driver.public_texts(home, "de") == [german("Zapraszamy do studia")]

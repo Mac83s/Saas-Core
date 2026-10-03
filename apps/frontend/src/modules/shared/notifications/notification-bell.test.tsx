@@ -165,6 +165,7 @@ test("tłumaczenia w dzwonku: braki zlecenia i to, co czeka na decyzję", async 
         count: 4,
         reasons: { review_mode: 4 },
       }),
+      notice("translation.automation_paused", { reason: "monthly_limit" }),
     ],
   });
   renderBell();
@@ -180,5 +181,10 @@ test("tłumaczenia w dzwonku: braki zlecenia i to, co czeka na decyzję", async 
   ).not.toBeNull();
   expect(
     screen.getByText("4 tłumaczenia czekają na Twoją decyzję."),
+  ).not.toBeNull();
+  expect(
+    screen.getByText(
+      "Automatyczne tłumaczenie zmian wstrzymane: wykorzystano miesięczny limit automatu.",
+    ),
   ).not.toBeNull();
 });

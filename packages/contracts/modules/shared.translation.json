@@ -30,6 +30,10 @@
         "task": "saas_core.modules.shared.translation.tasks.run_translation_demand",
         "schedule": 60
       },
+      "translation-demand-reconcile": {
+        "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_demand",
+        "schedule": 86400
+      },
       "translation-review-digest": {
         "task": "saas_core.modules.shared.translation.tasks.notify_translation_reviews",
         "schedule": 86400

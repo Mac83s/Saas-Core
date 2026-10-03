@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:35d23abf9ebbdfc7d5f8dfd8ae2c0bf0656b72db43293fc62992b93d03e025c1",
+  "profileHash": "sha256:068d2442ccc4b252b64573c1ef7cc6eaeb348fcf0aff7f5ec5bb151331cef9e8",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -456,6 +456,10 @@
           "translation-demand": {
             "task": "saas_core.modules.shared.translation.tasks.run_translation_demand",
             "schedule": 60
+          },
+          "translation-demand-reconcile": {
+            "task": "saas_core.modules.shared.translation.tasks.reconcile_translation_demand",
+            "schedule": 86400
           },
           "translation-review-digest": {
             "task": "saas_core.modules.shared.translation.tasks.notify_translation_reviews",
