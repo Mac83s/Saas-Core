@@ -472,6 +472,53 @@ function companyLanguages(codes: string[]) {
   };
 }
 
+test("names every language as itself, in the list and among an article's versions", async () => {
+  const german = {
+    ...entry,
+    id: "german",
+    locale: "de",
+    slug: "erster-beitrag",
+    title: "Erster Beitrag",
+  };
+  getPublicLocales.mockResolvedValue(companyLanguages(["pl", "de"]));
+  listContentEntries.mockResolvedValue({
+    items: [entry, german],
+    next_cursor: null,
+  });
+  listEntryTranslations.mockResolvedValue([entry, german]);
+  renderPanel();
+
+  const list = within(
+    (await screen.findByText("Erster Beitrag")).closest("table")!,
+  );
+  await waitFor(() =>
+    expect(list.getByRole("columnheader", { name: "Język" })).not.toBeNull(),
+  );
+  expect(list.getByText("Deutsch")).not.toBeNull();
+  expect(list.getByText("Polski")).not.toBeNull();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  const versions = await screen.findByRole("table", {
+    name: "Wersje językowe tego wpisu",
+  });
+  // German is German, not "the other language".
+  expect(await within(versions).findByText("Deutsch")).not.toBeNull();
+  expect(within(versions).queryByText("Angielski")).toBeNull();
+});
+
+test("a company writing in one language has no language column", async () => {
+  getPublicLocales.mockResolvedValue(companyLanguages(["pl"]));
+  renderPanel();
+
+  const list = within(
+    (await screen.findByText("Pierwszy wpis")).closest("table")!,
+  );
+  await waitFor(() => expect(getPublicLocales).toHaveBeenCalled());
+  expect(list.queryByRole("columnheader", { name: "Język" })).toBeNull();
+});
+
 test("offers exactly the company's languages for an entry and its versions", async () => {
   getPublicLocales.mockResolvedValue(companyLanguages(["pl", "de"]));
   renderPanel();

@@ -46,8 +46,9 @@ export function companyLocales(
 }
 
 /** A language named in itself ("Deutsch"), as the registry names it, for the
- *  moment before the registry's answer comes. */
-function nativeName(code: string): string {
+ *  moment before the registry's answer comes — and for a text in a language
+ *  the company has since switched off. */
+export function nativeName(code: string): string {
   try {
     const name = new Intl.DisplayNames([code], { type: "language" }).of(code);
     if (name) return name.charAt(0).toLocaleUpperCase(code) + name.slice(1);

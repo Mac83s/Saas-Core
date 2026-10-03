@@ -67,7 +67,7 @@ import {
 } from "@saas-core/ui/components/input-group";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
-import { useCompanyLocales } from "#lib/company-locales";
+import { nativeName, useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
@@ -305,6 +305,20 @@ export function BlogPanel({
         </div>
       ),
     },
+    // Which language an article is in, once there is more than one to be in:
+    // its versions are rows of their own.
+    ...(entryLocales.length > 1 ||
+    entries.some((item) => item.locale !== entryLocales[0]?.code)
+      ? [
+          {
+            id: "locale",
+            accessorFn: (item: ContentEntry) =>
+              entryLocales.find((option) => option.code === item.locale)
+                ?.name ?? nativeName(item.locale),
+            header: t("blogEntryLocale"),
+          },
+        ]
+      : []),
     {
       id: "state",
       accessorFn: stateLabel,

@@ -30,7 +30,7 @@ import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
-import { useCompanyLocales } from "#lib/company-locales";
+import { nativeName, useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
@@ -129,7 +129,10 @@ export function EntryTranslations({
     },
     {
       id: "locale",
-      accessorFn: (item) => t(item.locale === "pl" ? "localePl" : "localeEn"),
+      // Each language named in itself, as the picker below names it.
+      accessorFn: (item) =>
+        companyLocaleOptions.find((option) => option.code === item.locale)
+          ?.name ?? nativeName(item.locale),
       header: t("blogEntryLocale"),
     },
     {

@@ -1526,8 +1526,6 @@
     "blogEdit": "Edytuj wpis {title}",
     "blogPublish": "Opublikuj wpis {title}",
     "blogWithdraw": "Wycofaj wpis {title}",
-    "localePl": "Polski",
-    "localeEn": "Angielski",
     "automationTitle": "Kto redaguje tę treść",
     "automationManualHint": "Redagujesz ręcznie. Integracja nie zapisze tu zmian.",
     "automationAutomatedHint": "Treść prowadzi integracja pozycjonująca: sama zapisuje i publikuje. Twoje zmiany zostaną odrzucone.",

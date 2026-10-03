@@ -1526,8 +1526,6 @@
     "blogEdit": "Edit entry {title}",
     "blogPublish": "Publish entry {title}",
     "blogWithdraw": "Withdraw entry {title}",
-    "localePl": "Polish",
-    "localeEn": "English",
     "automationTitle": "Who edits this content",
     "automationManualHint": "You edit it by hand. An integration cannot write here.",
     "automationAutomatedHint": "A positioning integration owns this content: it writes and publishes on its own. Your changes will be rejected.",
