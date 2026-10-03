@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .attachments import Attachment, resolve_attachment
+from .customer_mail import customer_sender, with_company_note
 from .metrics import DELIVERY_RESULTS, PROVIDER_STATUSES
 from .models import (
     DeliveryStatus,
@@ -31,7 +32,7 @@ from .security import (
     sign_webhook,
     validate_webhook_url,
 )
-from .templates import render_template
+from .templates import AUDIENCE_CUSTOMER, TEMPLATES, render_template
 
 
 class DeliveryDeferred(RuntimeError):
@@ -100,6 +101,12 @@ def deliver_email(
             locale=message.locale,
             context=message.context,
         )
+        from_email, reply_to = "", ""
+        if TEMPLATES[(message.template_key, message.template_version)].audience == (
+            AUDIENCE_CUSTOMER
+        ):
+            from_email, reply_to = customer_sender(message.organization_id)
+            html_body = with_company_note(html_body, message.organization_id)
         # Resolved in the tenant context the message was queued in, inside the
         # same transaction that read the message.
         attachments: list[Attachment] | None = []
@@ -117,6 +124,8 @@ def deliver_email(
             html_body=html_body,
             idempotency_key=message.idempotency_key,
             attachments=attachments,
+            from_email=from_email,
+            reply_to=reply_to,
         )
     except Exception:
         accepted = provider.status_for_idempotency_key(message.idempotency_key)

@@ -302,6 +302,9 @@ class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="restrict: the value in force may be stricter than the company's — the "
         "module applies its ceilings (operator, deployment) on top.",
     )
+    max_length = serializers.IntegerField(
+        allow_null=True, required=False, help_text="The longest a text may be."
+    )
 
 
 class SettingOptionsSerializer(serializers.Serializer[dict[str, Any]]):

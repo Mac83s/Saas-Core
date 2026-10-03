@@ -9979,6 +9979,152 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/organizations/current/settings/notifications.customer_mail/:
+    get:
+      operationId: organization_settings_notifications_customer_mail_retrieve
+      description: E-mails to customers go out under the company's name, and a customer's
+        reply goes to the e-mail on the company's business card, else the owner's.
+        You may add a short note of your own. The values that apply, where each comes
+        from (code, platform or the company) and the group's version token.
+      summary: 'Read the company''s settings: E-mails to customers'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsCustomerMailSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_notifications_customer_mail_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: E-mails to customers'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationsCustomerMailSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationsCustomerMailSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationsCustomerMailSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsCustomerMailSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/notifications.customer_mail/preview/:
+    post:
+      operationId: organization_settings_notifications_customer_mail_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: E-mails to
+        customers'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationsCustomerMailSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationsCustomerMailSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationsCustomerMailSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsCustomerMailSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/organizations/current/settings/organization.security/:
     get:
       operationId: organization_settings_organization_security_retrieve
@@ -23925,6 +24071,102 @@ components:
           default: true
       required:
       - page_id
+    NotificationsCustomerMailSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/NotificationsCustomerMailSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/NotificationsCustomerMailSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    NotificationsCustomerMailSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationsCustomerMailSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        note:
+          type:
+          - string
+          - 'null'
+          description: 'A short plain-text note (up to 300 characters, no links or
+            addresses) added at the end of every e-mail to the company''s customers.
+            The same for every customer: never a customer''s data. Empty: no note.'
+          maxLength: 300
+      required:
+      - expected_version
+    NotificationsCustomerMailSettingsChangeResetEnum:
+      enum:
+      - note
+      type: string
+      description: '* `note` - note'
+    NotificationsCustomerMailSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/NotificationsCustomerMailSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    NotificationsCustomerMailSettingsSources:
+      type: object
+      properties:
+        note:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - note
+    NotificationsCustomerMailSettingsValues:
+      type: object
+      properties:
+        note:
+          type: string
+          description: 'A short plain-text note (up to 300 characters, no links or
+            addresses) added at the end of every e-mail to the company''s customers.
+            The same for every customer: never a customer''s data. Empty: no note.'
+          maxLength: 300
+      required:
+      - note
     NullEnum:
       type: 'null'
     OfferAutomation:
@@ -25320,6 +25562,25 @@ components:
           pattern: ^[-a-zA-Z0-9_]+$
         status:
           $ref: '#/components/schemas/MembershipUpdateStatusEnum'
+    PatchedNotificationsCustomerMailSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationsCustomerMailSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        note:
+          type:
+          - string
+          - 'null'
+          description: 'A short plain-text note (up to 300 characters, no links or
+            addresses) added at the end of every e-mail to the company''s customers.
+            The same for every customer: never a customer''s data. Empty: no note.'
+          maxLength: 300
     PatchedOrganizationSecuritySettingsChange:
       type: object
       properties:
@@ -28518,6 +28779,11 @@ components:
 
             * `override` - override
             * `restrict` - restrict
+        max_length:
+          type:
+          - integer
+          - 'null'
+          description: The longest a text may be.
       required:
       - default
       - depends_on

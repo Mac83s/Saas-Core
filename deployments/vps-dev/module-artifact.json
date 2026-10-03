@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:e51220fa848b069e338b2de038835bd73eded64436a0d4111ac4e1a79c6efd43",
+  "profileHash": "sha256:ca7d7c51910e6faa00278938b3731ee9f4361c893f2ceaab82e16015c691e1fb",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -383,6 +383,7 @@
       "dependsOn": [
         "core.organizations",
         "shared.media",
+        "shared.notifications",
         "shared.sites"
       ],
       "backend": {

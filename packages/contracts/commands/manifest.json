@@ -829,6 +829,155 @@
       "version_field": "expected_version"
     },
     {
+      "command": "notifications.settings_customer_mail.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'E-mails to customers' (note): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. E-mails to customers go out under the company's name, and a customer's reply goes to the e-mail on the company's business card, else the owner's. You may add a short note of your own.",
+      "modifiers": [],
+      "module": "shared.notifications",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "note": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "note": {
+                "maxLength": 300,
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "E-mails to customers go out under the company's name, and a customer's reply goes to the e-mail on the company's business card, else the owner's. You may add a short note of your own.",
+        "pl": "E-maile do klientów wychodzą pod nazwą firmy, a odpowiedź klienta trafia na e-mail z wizytówki firmy albo właściciela. Możesz dopisać krótki tekst od siebie."
+      },
+      "title": {
+        "en": "Read settings: E-mails to customers",
+        "pl": "Odczytaj ustawienia: E-maile do klientów"
+      },
+      "tool_name": "notifications_settings_customer_mail_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "notifications.settings_customer_mail.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "description": "A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. Null keeps it as it is.",
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "note"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "note",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'E-mails to customers'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). E-mails to customers go out under the company's name, and a customer's reply goes to the e-mail on the company's business card, else the owner's. You may add a short note of your own.",
+      "modifiers": [],
+      "module": "shared.notifications",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "note": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "note": {
+                "maxLength": 300,
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "E-mails to customers go out under the company's name, and a customer's reply goes to the e-mail on the company's business card, else the owner's. You may add a short note of your own.",
+        "pl": "E-maile do klientów wychodzą pod nazwą firmy, a odpowiedź klienta trafia na e-mail z wizytówki firmy albo właściciela. Możesz dopisać krótki tekst od siebie."
+      },
+      "title": {
+        "en": "Change settings: E-mails to customers",
+        "pl": "Zmień ustawienia: E-maile do klientów"
+      },
+      "tool_name": "notifications_settings_customer_mail_update_v1",
+      "undo": "command:notifications.settings_customer_mail.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "organization.public_locales.read@1",
       "entitlement": null,
       "exposure": [

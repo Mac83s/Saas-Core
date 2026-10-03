@@ -44,6 +44,9 @@ DATA_CLASSES = frozenset({"public", "public_personal", "personal"})
 
 #: `organization` (core's own basic settings) or `<namespace>.<group>`.
 _GROUP_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)?$")
+#: An address of a page or a mailbox: a scheme, `www.`, or a dot followed by a
+#: lowercase domain ending (`firma.pl`, `kontakt@firma.pl`).
+_LINK = re.compile(r"(?i:https?://|www\.)|[\w-]{2,}\.[a-z]{2,}\b")
 _FIELD_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 _LOCALES = frozenset({"pl", "en"})
 
@@ -67,6 +70,10 @@ class SettingSpec:
     #: An `enum`'s values in order, each with its labels.
     values: tuple[tuple[str, Mapping[str, str]], ...] = ()
     max_length: int | None = None
+    #: A `text` that goes out to customers in the company's name: no link and
+    #: no address in it (a link from a company in a platform's mail is the
+    #: shape of phishing; answer 36a).
+    no_links: bool = False
     #: When this one matters: `<field>` (a bool of the group that is on) or
     #: `<field> == '<value>'` — e.g. `time_model == 'range'`.
     depends_on: str | None = None
@@ -233,6 +240,8 @@ def check_value(spec: SettingSpec, value: Any) -> tuple[Any, str, str] | None:
         text = value.strip()
         if spec.max_length is not None and len(text) > spec.max_length:
             return None, f"Najwyżej {spec.max_length} znaków.", "max_length"
+        if spec.no_links and _LINK.search(text):
+            return None, "Bez linków i adresów stron ani e-maili.", "links"
         return text, "", ""
     return None, "Nieznany typ ustawienia.", "invalid"
 
@@ -256,6 +265,7 @@ def schema_entry(spec: SettingSpec) -> dict[str, Any]:
         "description": spec.model_description,
         "scopes": list(spec.scopes),
         "strategy": spec.strategy,
+        "max_length": spec.max_length,
         "depends_on": f"{spec.group}.{spec.depends_on}" if spec.depends_on else None,
     }
 
@@ -332,6 +342,8 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         spec.strategy == "restrict" and spec.type not in {"enum", "int"}
     ):
         problems.append("strategia override albo restrict (restrict dla enum i int)")
+    if spec.no_links and spec.type != "text":
+        problems.append("no_links tylko dla typu text")
     product = product_value(spec)
     if product is not None:
         if not spec.product_default or "organization" not in spec.scopes:

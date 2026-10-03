@@ -27,6 +27,8 @@ class EmailProvider(Protocol):
         html_body: str,
         idempotency_key: str,
         attachments: Sequence[Attachment] = (),
+        from_email: str = "",
+        reply_to: str = "",
     ) -> ProviderMessage: ...
 
     def status_for_idempotency_key(self, idempotency_key: str) -> ProviderMessage | None: ...
@@ -45,6 +47,8 @@ class DjangoEmailProvider:
         html_body: str,
         idempotency_key: str,
         attachments: Sequence[Attachment] = (),
+        from_email: str = "",
+        reply_to: str = "",
     ) -> ProviderMessage:
         accepted = self._accepted.get(idempotency_key)
         if accepted is not None:
@@ -53,8 +57,11 @@ class DjangoEmailProvider:
         message = EmailMessage(
             subject=subject,
             body=html_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
+            # A company's mail to its customers: its name at the platform's
+            # address, a reply to the company (36a).
+            from_email=from_email or settings.DEFAULT_FROM_EMAIL,
             to=[recipient],
+            reply_to=[reply_to] if reply_to else None,
             headers={"X-Idempotency-Key": idempotency_key},
         )
         message.content_subtype = "html"

@@ -30,6 +30,13 @@ class ProfilesConfig(AppConfig):
         from .api import business_card_contact
 
         register_company_contact(business_card_contact)
+        # A customer's mail comes from the card's name and a reply goes to its
+        # e-mail (36a).
+        from saas_core.modules.shared.notifications.api import register_customer_sender
+
+        from .api import business_card_sender
+
+        register_customer_sender(business_card_sender)
 
         # The business card's commands for the assistant (ADR-076, A1b-10).
         from .command_declarations import register_profile_commands

@@ -11,6 +11,7 @@ class NotificationsConfig(AppConfig):
         from saas_core.modules.core.organizations.api import register_domain_event_handler
         from saas_core.modules.core.organizations.erasure_checks import register_erasure_rows
 
+        from .customer_mail import register_customer_mail
         from .models import ApiKeyCredentialRoute, ProviderMessageRoute
         from .services import consume_domain_event
 
@@ -21,6 +22,8 @@ class NotificationsConfig(AppConfig):
         register_erasure_rows(
             "shared.notifications.api_key_route", ApiKeyCredentialRoute, "organization_id"
         )
+        # Whom customers hear from and the company's note to them (36a, ADR-078).
+        register_customer_mail()
 
         # Every type here needs a payload allowlist in `services.py` as well:
         # an unregistered event is silently delivered nowhere, and an

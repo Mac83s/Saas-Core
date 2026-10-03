@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:69f67bee0cf81dfe8665dbb90281216af32f898c384402e9c00c94269ddfbc81",
+  "profileHash": "sha256:d225a7daee358cd80e1ff8697246a8e131cea08256d169f93c68c5d121202faf",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -383,6 +383,7 @@
       "dependsOn": [
         "core.organizations",
         "shared.media",
+        "shared.notifications",
         "shared.sites"
       ],
       "backend": {

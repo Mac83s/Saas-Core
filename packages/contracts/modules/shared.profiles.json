@@ -2,7 +2,7 @@
   "id": "shared.profiles",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "shared.media", "shared.sites"],
+  "dependsOn": ["core.organizations", "shared.media", "shared.notifications", "shared.sites"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.profiles",
     "urlPrefix": "/api/v1/profiles",

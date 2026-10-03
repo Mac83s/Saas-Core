@@ -6,6 +6,7 @@ messages with `queue_email` — never through the private models.
 """
 
 from .attachments import Attachment, register_attachment_resolver
+from .customer_mail import register_customer_sender
 from .services import notify_in_app, queue_email, staff_locale
 from .templates import (
     AUDIENCE_CUSTOMER,
@@ -25,6 +26,7 @@ __all__ = [
     "notify_in_app",
     "queue_email",
     "register_attachment_resolver",
+    "register_customer_sender",
     "register_email_template",
     "resolve_template_locale",
     "staff_locale",

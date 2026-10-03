@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:b9bed2da6000954725e077b0c0ab686075bf68dc7a05d5a30aea9665c99cd5c1",
+  "profileHash": "sha256:9b5a5c84cbe3a8e5abd30709fb51e886eb251ef302e30570fe1b30a824ff156c",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -384,6 +384,7 @@
       "dependsOn": [
         "core.organizations",
         "shared.media",
+        "shared.notifications",
         "shared.sites"
       ],
       "backend": {

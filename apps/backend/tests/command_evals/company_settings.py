@@ -1,5 +1,6 @@
-"""Evals of the settings groups' commands (ADR-078 pkt 12): booking reminders
-and the online-booking pause, built from their declarations."""
+"""Evals of the settings groups' commands (ADR-078 pkt 12): booking reminders,
+the online-booking pause, the company's 2FA requirement and its note to
+customers, built from their declarations."""
 
 from __future__ import annotations
 
@@ -107,6 +108,26 @@ EVALS.update({
         wrong_arguments={"mfa_required": "sometimes", "reset": None},
         wrong_field="mfa_required",
         stale=_stale("organization.security.mfa_required"),
+        state=_values,
+    ),
+})
+
+EVALS.update({
+    "notifications.settings_customer_mail.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"note": "Do zobaczenia"},
+        wrong_field="note",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+    ),
+    "notifications.settings_customer_mail.update@1": CommandEval(
+        arguments=lambda _context: {
+            "note": "Prosimy o przybycie 10 minut wcześniej.",
+            "reset": None,
+        },
+        wrong_arguments={"note": "Zapisy na www.studio.test", "reset": None},
+        wrong_field="note",
+        stale=_stale("notifications.customer_mail.note"),
         state=_values,
     ),
 })

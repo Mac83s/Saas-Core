@@ -3425,6 +3425,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/settings/notifications.customer_mail/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: E-mails to customers
+         * @description E-mails to customers go out under the company's name, and a customer's reply goes to the e-mail on the company's business card, else the owner's. You may add a short note of your own. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_notifications_customer_mail_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: E-mails to customers
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_notifications_customer_mail_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/notifications.customer_mail/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: E-mails to customers
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_notifications_customer_mail_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/settings/organization.security/": {
         parameters: {
             query?: never;
@@ -8332,6 +8376,50 @@ export interface components {
             /** @default true */
             visible: boolean;
         };
+        NotificationsCustomerMailSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["NotificationsCustomerMailSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["NotificationsCustomerMailSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        NotificationsCustomerMailSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["NotificationsCustomerMailSettingsChangeResetEnum"][];
+            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. */
+            note?: string | null;
+        };
+        /**
+         * @description * `note` - note
+         * @enum {string}
+         */
+        NotificationsCustomerMailSettingsChangeResetEnum: "note";
+        NotificationsCustomerMailSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["NotificationsCustomerMailSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        NotificationsCustomerMailSettingsSources: {
+            note: components["schemas"]["SettingSourceEnum"];
+        };
+        NotificationsCustomerMailSettingsValues: {
+            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. */
+            note: string;
+        };
         NullEnum: null;
         OfferAutomation: {
             /**
@@ -8902,6 +8990,14 @@ export interface components {
         PatchedMembershipUpdate: {
             role?: string;
             status?: components["schemas"]["MembershipUpdateStatusEnum"];
+        };
+        PatchedNotificationsCustomerMailSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["NotificationsCustomerMailSettingsChangeResetEnum"][];
+            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. */
+            note?: string | null;
         };
         PatchedOrganizationSecuritySettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
@@ -10235,6 +10331,8 @@ export interface components {
              *     * `restrict` - restrict
              */
             strategy: components["schemas"]["SettingStrategyEnum"];
+            /** @description The longest a text may be. */
+            max_length?: number | null;
         };
         SettingOptions: {
             keys: components["schemas"]["SettingOption"][];
@@ -21681,6 +21779,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingRemindersSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_notifications_customer_mail_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsCustomerMailSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_notifications_customer_mail_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedNotificationsCustomerMailSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedNotificationsCustomerMailSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedNotificationsCustomerMailSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsCustomerMailSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_notifications_customer_mail_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationsCustomerMailSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["NotificationsCustomerMailSettingsChange"];
+                "multipart/form-data": components["schemas"]["NotificationsCustomerMailSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsCustomerMailSettingsPreview"];
                 };
             };
             400: {

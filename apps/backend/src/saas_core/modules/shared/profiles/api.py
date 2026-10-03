@@ -47,6 +47,15 @@ def business_card_contact(organization_id: UUID) -> tuple[str, str]:
     return (profile.contact_phone, profile.contact_email) if profile else ("", "")
 
 
+def business_card_sender(organization_id: UUID) -> tuple[str, str]:
+    """The name and e-mail the company's business card shows ("" where it
+    shows none) — whom its customers' mail comes from and a reply goes to."""
+    profile = PublicProfile.all_objects.filter(
+        organization_id=organization_id, subject_kind=ProfileSubjectKind.ORGANIZATION
+    ).first()
+    return (profile.display_name, profile.contact_email) if profile else ("", "")
+
+
 def _saved(profile: PublicProfile) -> PublicProfile:
     try:
         profile.full_clean(exclude=["organization"], validate_unique=False)
