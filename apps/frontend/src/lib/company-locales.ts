@@ -9,7 +9,9 @@ export type CompanyLocale = { code: string; name: string };
  *  (ADR-071 pkt 5) — what a language picker in the panel offers, never a list
  *  written into the component. `fallback` is offered until the answer comes,
  *  and when it cannot be read. */
-export function useCompanyLocales(fallback: readonly string[]): CompanyLocale[] {
+export function useCompanyLocales(
+  fallback: readonly string[],
+): CompanyLocale[] {
   const [state, setState] = useState<PublicLocales>();
   useEffect(() => {
     let mounted = true;

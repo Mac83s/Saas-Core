@@ -25,7 +25,9 @@ vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
   ...api,
 }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 
 const offered = [
@@ -66,15 +68,18 @@ beforeEach(() => {
 test("lists the company's languages in order, with the customers' language and the protected one", async () => {
   const { container } = view();
 
-  const table = await screen.findByRole("table", { name: "Języki firmy w kolejności" });
+  const table = await screen.findByRole("table", {
+    name: "Języki firmy w kolejności",
+  });
   const rows = within(table).getAllByRole("row").slice(1);
-  expect(rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent)).toEqual([
-    "Polskipl",
-    "Englishen",
-  ]);
+  expect(
+    rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent),
+  ).toEqual(["Polskipl", "Englishen"]);
   expect(within(rows[0]!).getByText("Język klientów")).toBeTruthy();
   expect(within(rows[0]!).getByText("Język źródłowy strony")).toBeTruthy();
-  expect(screen.getByText("Plan pozwala na 1 język poza pierwszym.")).toBeTruthy();
+  expect(
+    screen.getByText("Plan pozwala na 1 język poza pierwszym."),
+  ).toBeTruthy();
   const results = await axe.run(container, {
     rules: { "color-contrast": { enabled: false } },
   });
@@ -121,14 +126,17 @@ test("shows which addresses a removal redirects before it removes the language",
     await screen.findByRole("button", { name: "Działania dla języka English" }),
   );
   fireEvent.click(await screen.findByRole("menuitem", { name: "Usuń język" }));
-  const dialog = await screen.findByRole("dialog", { name: "Usunąć język English?" });
+  const dialog = await screen.findByRole("dialog", {
+    name: "Usunąć język English?",
+  });
   const list = within(dialog).getByRole("list", {
     name: "Adresy, które zaczną przekierowywać",
   });
-  expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-    "/en/ → /",
-    "/en/contact/ → /kontakt/",
-  ]);
+  expect(
+    within(list)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent),
+  ).toEqual(["/en/ → /", "/en/contact/ → /kontakt/"]);
   fireEvent.click(within(dialog).getByRole("button", { name: "Usuń język" }));
 
   await waitFor(() =>
@@ -142,11 +150,19 @@ test("shows which addresses a removal redirects before it removes the language",
 test("speaks English too, and a site's source language has nothing to remove", async () => {
   view("en");
 
-  expect(await screen.findByRole("table", { name: "The company's languages in order" })).toBeTruthy();
+  expect(
+    await screen.findByRole("table", {
+      name: "The company's languages in order",
+    }),
+  ).toBeTruthy();
   fireEvent.click(
     await screen.findByRole("button", { name: "Actions for English" }),
   );
-  expect(await screen.findByRole("menuitem", { name: "Remove the language" })).toBeTruthy();
+  expect(
+    await screen.findByRole("menuitem", { name: "Remove the language" }),
+  ).toBeTruthy();
   // Polish is the first language and a site's source: no action is offered.
-  expect(screen.queryByRole("button", { name: "Actions for Polski" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Actions for Polski" }),
+  ).toBeNull();
 });

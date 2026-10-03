@@ -57,7 +57,10 @@ export function LanguagesPanel() {
   const [problem, setProblem] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState("");
-  const [removal, setRemoval] = useState<{ code: string; plan: PublicLocalesPlan }>();
+  const [removal, setRemoval] = useState<{
+    code: string;
+    plan: PublicLocalesPlan;
+  }>();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string>();
 
@@ -177,7 +180,12 @@ export function LanguagesPanel() {
                   label: t("makeFirst"),
                   onSelect: () =>
                     void save(
-                      [row.code, ...(state?.public_locales ?? []).filter((c) => c !== row.code)],
+                      [
+                        row.code,
+                        ...(state?.public_locales ?? []).filter(
+                          (c) => c !== row.code,
+                        ),
+                      ],
                       t("madeFirst", { language: row.name }),
                     ),
                 },
@@ -193,7 +201,10 @@ export function LanguagesPanel() {
               ]),
         ];
         return items.length ? (
-          <RowActions items={items} label={t("actionsFor", { language: row.name })} />
+          <RowActions
+            items={items}
+            label={t("actionsFor", { language: row.name })}
+          />
         ) : null;
       },
     },
@@ -251,7 +262,10 @@ export function LanguagesPanel() {
         </>
       )}
 
-      <Dialog onOpenChange={(next) => (next ? undefined : setAdding(false))} open={adding}>
+      <Dialog
+        onOpenChange={(next) => (next ? undefined : setAdding(false))}
+        open={adding}
+      >
         <DialogContent closeLabel={common("close")}>
           <DialogHeader>
             <DialogTitle>{t("add")}</DialogTitle>
@@ -290,7 +304,9 @@ export function LanguagesPanel() {
               </p>
             ) : null}
             <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>{common("cancel")}</DialogClose>
+              <DialogClose render={<Button variant="outline" />}>
+                {common("cancel")}
+              </DialogClose>
               <Button disabled={busy || !added} type="submit">
                 {t("add")}
               </Button>
@@ -306,7 +322,9 @@ export function LanguagesPanel() {
         <DialogContent closeLabel={common("close")}>
           <DialogHeader>
             <DialogTitle>
-              {t("removeTitle", { language: removal ? nameOf(removal.code) : "" })}
+              {t("removeTitle", {
+                language: removal ? nameOf(removal.code) : "",
+              })}
             </DialogTitle>
             <DialogDescription>{t("removeDescription")}</DialogDescription>
           </DialogHeader>
@@ -329,7 +347,9 @@ export function LanguagesPanel() {
             </p>
           ) : null}
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>{common("cancel")}</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>
+              {common("cancel")}
+            </DialogClose>
             <Button
               disabled={busy}
               onClick={() =>

@@ -61,7 +61,8 @@ describe("site fonts", () => {
       const css = readFileSync(new URL(name, here), "utf8");
       const stacks = [...css.matchAll(/"DM Sans",[^;]*;/g)].map((m) => m[0]);
       expect(stacks.length, name).toBeGreaterThan(0);
-      for (const stack of stacks) expect(stack, name).toMatch(/^"DM Sans", "Inter",/);
+      for (const stack of stacks)
+        expect(stack, name).toMatch(/^"DM Sans", "Inter",/);
     }
   });
 
@@ -69,7 +70,9 @@ describe("site fonts", () => {
     const sources = JSON.parse(
       readFileSync(new URL("fonts/sources.json", here), "utf8"),
     ) as { files: { file: string; sha256: string }[] };
-    const recorded = new Map(sources.files.map((item) => [item.file, item.sha256]));
+    const recorded = new Map(
+      sources.files.map((item) => [item.file, item.sha256]),
+    );
     const bundled = readdirSync(new URL("fonts/", here)).filter((name) =>
       name.endsWith(".woff2"),
     );
