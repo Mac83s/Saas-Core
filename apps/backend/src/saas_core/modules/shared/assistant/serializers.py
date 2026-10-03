@@ -170,7 +170,7 @@ class AssistantConsentAnswerSerializer(serializers.Serializer[Any]):
 
 class AssistantSetupOptionSerializer(serializers.Serializer[Any]):
     value = serializers.CharField(help_text="What the profile stores for this answer.")
-    label = LocalizedTextSerializer(help_text="The answer in words.")
+    label = LocalizedTextSerializer(help_text="The answer in words.")  # type: ignore[assignment]
 
 
 class AssistantSetupQuestionSerializer(serializers.Serializer[Any]):
