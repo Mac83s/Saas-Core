@@ -2594,7 +2594,13 @@
     "sectionInvalid": "Fill in the marked fields.",
     "flags": {},
     "zoneNote": "Times in the company’s zone: {zone}.",
-    "placeAway": "{place}"
+    "placeAway": "{place}",
+    "outsideStatus": {
+      "planned": "Planned",
+      "done": "Done",
+      "canceled": "Canceled"
+    },
+    "outsideCaption": "{label} — {month}"
   },
   "DayBoard": {
     "label": "Day board",
@@ -3522,7 +3528,8 @@
     "openAnimal": "Animal card",
     "farm": "Farm",
     "editAnimal": "Edit the animal",
-    "animalSaved": "Animal saved: {tag}."
+    "animalSaved": "Animal saved: {tag}.",
+    "calendarVisit": "Company's visit"
   },
   "FarmerToday": {
     "title": "Your farm today",

@@ -39,6 +39,7 @@ const api = vi.hoisted(() => ({
   listBookingAppointments: vi.fn(),
   listBookingPlaces: vi.fn(),
   listPeople: vi.fn(),
+  listRegisterVisits: vi.fn(),
   listTeams: vi.fn(),
   markBookingAppointmentNoShow: vi.fn(),
   moveStay: vi.fn(),
@@ -1610,6 +1611,60 @@ test("an empty calendar invites the first appointment, or the setup first", asyn
     await screen.findByText("Start with services and working hours"),
   ).not.toBeNull();
   expect(screen.queryByRole("button", { name: "New appointment" })).toBeNull();
+});
+
+test("a farm without services of its own sees the companies' visits instead of the setup (UX-078)", async () => {
+  api.getBookingCatalog.mockResolvedValue({ ...catalog, services: [] });
+  api.listBookingAppointments.mockResolvedValue([]);
+  api.listRegisterVisits.mockResolvedValue([
+    {
+      id: "visit-1",
+      status: "planned",
+      scheduled_for: "2026-08-20T05:00:00Z",
+      occurred_on: null,
+      company_name: "Korekcja Racic Test",
+      farm_id: "farm-1",
+      farm_name: "Gospodarstwo Kowalski",
+      summary: "Korekcja stada",
+      details: {},
+    },
+  ]);
+  renderCalendar({
+    access: {
+      modules: ["shared.booking", "shared.farms"],
+      permissions: [
+        "booking.appointment.read",
+        "booking.appointment.manage",
+        "farms.read",
+      ],
+      isOwner: true,
+      limited: false,
+    },
+  });
+  const card = await screen.findByRole("link", {
+    name: /Korekcja Racic Test · Gospodarstwo Kowalski/,
+  });
+  expect(card).toHaveAttribute("href", "/panel/farms/farm-1");
+  expect(within(card).getByText("Planned")).not.toBeNull();
+  expect(
+    screen.queryByText("Start with services and working hours"),
+  ).toBeNull();
+  // Nothing of its own to book, nothing of the companies' to move.
+  expect(screen.queryByRole("button", { name: "New appointment" })).toBeNull();
+  const legend = screen.getByRole("list", {
+    name: englishMessages.Calendar.legend,
+  });
+  expect(within(legend).getByText("Company's visit")).not.toBeNull();
+  expect(api.listRegisterVisits).toHaveBeenCalledWith({
+    from: expect.any(String),
+    to: expect.any(String),
+  });
+});
+
+test("a company's calendar asks no farm register it does not have", async () => {
+  renderCalendar();
+  await screen.findByText("Jan Kowalski");
+  expect(api.listRegisterVisits).not.toHaveBeenCalled();
 });
 
 test("without the manage permission the calendar is read-only", async () => {

@@ -46,12 +46,14 @@ import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   formatDateRange,
+  formatDateTime,
   formatHours,
   formatVisit,
   formatZone,
   useOtherZone,
 } from "#lib/dates";
-import type { PanelAccess } from "#lib/panel-navigation";
+import { CALENDAR_SOURCES, type OutsideEntry } from "#lib/calendar-sources";
+import { allows, type PanelAccess } from "#lib/panel-navigation";
 import {
   AppointmentDialog,
   CrewBadges,
@@ -155,6 +157,7 @@ export function BookingPanel({
   viewKey?: string;
 } = {}) {
   const t = useTranslations("Calendar");
+  const words = useTranslations();
   const locale = useLocale();
   const labels = useDataTableLabels();
   const appZone = useTimeZone();
@@ -169,6 +172,9 @@ export function BookingPanel({
   const [teams, setTeams] = useState<StaffTeam[]>([]);
   const [appointments, setAppointments] = useState<BookingAppointment[]>();
   const [hasAny, setHasAny] = useState(false);
+  // What the calendar shows but does not own, e.g. a company's visit to the
+  // keeper's farm (UX-078); read-only, changed where it lives.
+  const [outside, setOutside] = useState<OutsideEntry[]>([]);
   const [problem, setProblem] = useState<"load" | "plan" | "access">();
   const [reloads, setReloads] = useState(0);
   // The first render is the server's: the address or the week. What this
@@ -308,9 +314,22 @@ export function BookingPanel({
     showCanceled,
     zone,
   ]);
-  const canceledCount = (appointments ?? []).filter(
-    (item) => item.status === "canceled",
-  ).length;
+  const outsideByDay = useMemo(() => {
+    const byOutsideDay = new Map<string, OutsideEntry[]>();
+    for (const entry of outside) {
+      if (!showCanceled && entry.status === "canceled") continue;
+      const day =
+        entry.day ?? (entry.at ? wallClock(entry.at, zone).day : null);
+      if (!day) continue;
+      const list = byOutsideDay.get(day);
+      if (list) list.push(entry);
+      else byOutsideDay.set(day, [entry]);
+    }
+    return byOutsideDay;
+  }, [outside, showCanceled, zone]);
+  const canceledCount =
+    (appointments ?? []).filter((item) => item.status === "canceled").length +
+    outside.filter((entry) => entry.status === "canceled").length;
 
   // An appointment keeps the service name it was booked under, so the filter
   // offers those names too, not only today's catalogue.
@@ -388,6 +407,27 @@ export function BookingPanel({
       current = false;
     };
   }, [canManage, from, mine, reloads, until]);
+
+  // The sources the person's access lets through; each answers for the window.
+  const sources = CALENDAR_SOURCES.filter(
+    (source) => access && allows(access, source),
+  );
+  const sourceKeys = sources.map((source) => source.key).join(",");
+  useEffect(() => {
+    let current = true;
+    const last = addDays(until, -1);
+    Promise.all(
+      CALENDAR_SOURCES.filter((source) =>
+        sourceKeys.split(",").includes(source.key),
+      ).map((source) => source.load(from, last).catch(() => [])),
+    ).then((loaded) => {
+      if (current) setOutside(loaded.flat());
+    });
+    return () => {
+      current = false;
+    };
+  }, [from, reloads, sourceKeys, until]);
+  const outsideLabel = sources.length ? words(sources[0].labelKey) : "";
 
   // The day board's people and their day (plan: phase 4); without them the
   // day stays a list, as it is for one person or for somebody who sees only
@@ -488,8 +528,10 @@ export function BookingPanel({
     </div>
   ) : null;
 
+  // Companies' visits on a farm's calendar fill it even without services of
+  // its own: the grid shows them, the setup prompt stays out of the way.
   const emptyState =
-    !catalog || !appointments ? null : !ready && canManage ? (
+    !catalog || !appointments || outside.length ? null : !ready && canManage ? (
       <EmptyState
         action={
           <Link className={buttonVariants()} href="/panel/settings/services">
@@ -624,27 +666,74 @@ export function BookingPanel({
     : [];
   const showBoard = everyone.length >= 2;
 
+  const outsideColumns: ColumnDef<OutsideEntry, unknown>[] = [
+    {
+      id: "when",
+      header: t("when"),
+      meta: { primary: true },
+      cell: ({ row: { original: entry } }) => outsideWhen(entry, locale, zone),
+    },
+    {
+      id: "title",
+      header: outsideLabel,
+      cell: ({ row: { original: entry } }) =>
+        entry.href ? (
+          <Link
+            className="font-medium text-primary hover:underline"
+            href={entry.href}
+          >
+            {entry.title}
+          </Link>
+        ) : (
+          entry.title
+        ),
+    },
+    {
+      id: "detail",
+      header: t("details"),
+      cell: ({ row: { original: entry } }) => entry.detail || "—",
+    },
+    {
+      id: "status",
+      header: t("statusColumn"),
+      cell: ({ row: { original: entry } }) => (
+        <OutsideBadge status={entry.status} />
+      ),
+    },
+  ];
+
   const views = {
     list: () => (
-      <DataTable
-        caption={t("listCaption", { month: title })}
-        columns={listColumns}
-        data={days.flatMap((day) => byDay.get(day) ?? [])}
-        getRowId={(item) => item.id}
-        labels={{ ...labels, empty: t("noAppointmentsMonth") }}
-        searchable
-        searchText={(item) =>
-          [
-            item.title,
-            item.customer_name,
-            item.place ?? "",
-            item.service_name,
-            ...item.crew.map((person) => person.name),
-          ].join(" ")
-        }
-        activeFilters={activeFilters}
-        filters={filters}
-      />
+      <>
+        <DataTable
+          caption={t("listCaption", { month: title })}
+          columns={listColumns}
+          data={days.flatMap((day) => byDay.get(day) ?? [])}
+          getRowId={(item) => item.id}
+          labels={{ ...labels, empty: t("noAppointmentsMonth") }}
+          searchable
+          searchText={(item) =>
+            [
+              item.title,
+              item.customer_name,
+              item.place ?? "",
+              item.service_name,
+              ...item.crew.map((person) => person.name),
+            ].join(" ")
+          }
+          activeFilters={activeFilters}
+          filters={filters}
+        />
+        {outside.length ? (
+          <DataTable
+            caption={t("outsideCaption", { label: outsideLabel, month: title })}
+            columns={outsideColumns}
+            data={days.flatMap((day) => outsideByDay.get(day) ?? [])}
+            getRowId={(entry) => entry.id}
+            labels={{ ...labels, empty: t("noAppointmentsMonth") }}
+          />
+        ) : null}
+      </>
     ),
     day: () => {
       if (showBoard && boardData)
@@ -686,7 +775,8 @@ export function BookingPanel({
           />
         );
       const items = byDay.get(cursor) ?? [];
-      return items.length ? (
+      const others = outsideByDay.get(cursor) ?? [];
+      return items.length || others.length ? (
         <ol className="space-y-2">
           {items.map((item) => (
             <li key={item.id}>
@@ -696,6 +786,11 @@ export function BookingPanel({
                 wide
                 zone={zone}
               />
+            </li>
+          ))}
+          {others.map((entry) => (
+            <li key={entry.id}>
+              <OutsideCard entry={entry} wide zone={zone} />
             </li>
           ))}
         </ol>
@@ -709,6 +804,7 @@ export function BookingPanel({
       <ol className="grid gap-3 lg:grid-cols-7">
         {days.map((day) => {
           const items = byDay.get(day) ?? [];
+          const others = outsideByDay.get(day) ?? [];
           return (
             // A light ground, no frame: a card in a box in a box read as
             // clutter (UX-027, ADR-057 pkt 8).
@@ -718,13 +814,13 @@ export function BookingPanel({
             >
               <h3>
                 <DayButton
-                  count={items.length}
+                  count={items.length + others.length}
                   day={day}
                   onOpen={openDay}
                   today={today}
                 />
               </h3>
-              {items.length ? (
+              {items.length || others.length ? (
                 <ul className="space-y-2">
                   {items.map((item) => (
                     <li key={item.id}>
@@ -733,6 +829,11 @@ export function BookingPanel({
                         onOpen={openAppointment}
                         zone={zone}
                       />
+                    </li>
+                  ))}
+                  {others.map((entry) => (
+                    <li key={entry.id}>
+                      <OutsideCard entry={entry} zone={zone} />
                     </li>
                   ))}
                 </ul>
@@ -761,6 +862,7 @@ export function BookingPanel({
         <ol className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border bg-border">
           {days.map((day) => {
             const items = byDay.get(day) ?? [];
+            const others = outsideByDay.get(day) ?? [];
             return (
               <li
                 className={cn(
@@ -771,7 +873,7 @@ export function BookingPanel({
                 key={day}
               >
                 <DayButton
-                  count={items.length}
+                  count={items.length + others.length}
                   day={day}
                   month
                   onOpen={openDay}
@@ -787,8 +889,15 @@ export function BookingPanel({
                       />
                     </li>
                   ))}
+                  {others
+                    .slice(0, Math.max(0, 3 - items.length))
+                    .map((entry) => (
+                      <li key={entry.id}>
+                        <OutsideCard compact entry={entry} zone={zone} />
+                      </li>
+                    ))}
                 </ul>
-                {items.length > 3 ? (
+                {items.length + others.length > 3 ? (
                   <button
                     className={cn(
                       "hidden min-h-8 rounded-md px-1.5 text-left text-xs font-medium text-primary hover:underline sm:block pointer-coarse:min-h-11",
@@ -797,7 +906,7 @@ export function BookingPanel({
                     onClick={() => openDay(day)}
                     type="button"
                   >
-                    {t("more", { count: items.length - 3 })}
+                    {t("more", { count: items.length + others.length - 3 })}
                     <span className="sr-only">
                       {", "}
                       {formatDay(day, locale, {
@@ -1001,6 +1110,15 @@ export function BookingPanel({
               <li>
                 <Badge variant="destructive">{t("legendVacancy")}</Badge>
               </li>
+              {outside.length ? (
+                <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3 w-1 rounded-sm bg-muted-foreground"
+                  />
+                  {outsideLabel}
+                </li>
+              ) : null}
             </ul>
           </div>
         )}
@@ -1321,5 +1439,78 @@ function MonthAppointment({
           .join(", ")}`}
       </span>
     </button>
+  );
+}
+
+/** When an outside entry is: its hours when it has a moment, else its day. */
+function outsideWhen(entry: OutsideEntry, locale: string, zone: string) {
+  if (entry.at) return formatDateTime(entry.at, locale, zone);
+  return entry.day
+    ? formatDay(entry.day, locale, {
+        weekday: "short",
+        day: "numeric",
+        month: "numeric",
+      })
+    : "—";
+}
+
+const OUTSIDE_TONES = {
+  planned: "bg-info text-info-foreground",
+  done: "bg-success text-success-foreground",
+  canceled: "bg-muted text-muted-foreground",
+} as const;
+
+function OutsideBadge({ status }: { status: OutsideEntry["status"] }) {
+  const t = useTranslations("Calendar");
+  return (
+    <Badge className={OUTSIDE_TONES[status]}>
+      {t(`outsideStatus.${status}`)}
+    </Badge>
+  );
+}
+
+/**
+ * Something on the calendar the company does not own (UX-078): a link to
+ * where it lives, or plain text — never a button, nothing to move or cancel.
+ */
+function OutsideCard({
+  compact = false,
+  entry,
+  wide = false,
+  zone,
+}: {
+  compact?: boolean;
+  entry: OutsideEntry;
+  wide?: boolean;
+  zone: string;
+}) {
+  const locale = useLocale();
+  const body = (
+    <>
+      <span className="font-semibold tabular-nums">
+        {outsideWhen(entry, locale, zone)}
+      </span>{" "}
+      <span className={cn("min-w-0", compact ? "truncate" : "wrap-anywhere")}>
+        {entry.title}
+      </span>
+      {compact ? null : (
+        <span className="flex flex-wrap gap-1">
+          <OutsideBadge status={entry.status} />
+        </span>
+      )}
+    </>
+  );
+  const box = cn(
+    "flex w-full flex-col items-start gap-1 rounded-lg border border-l-4 border-l-muted-foreground bg-background text-left text-sm",
+    compact ? "min-h-8 p-1 text-xs" : "min-h-11 p-2.5",
+    wide && "sm:flex-row sm:items-center sm:gap-4",
+    entry.status === "canceled" && "text-muted-foreground line-through",
+  );
+  return entry.href ? (
+    <Link className={cn(box, "hover:bg-muted", focusRing)} href={entry.href}>
+      {body}
+    </Link>
+  ) : (
+    <div className={box}>{body}</div>
   );
 }

@@ -2594,7 +2594,13 @@
     "sectionInvalid": "Uzupełnij zaznaczone pola.",
     "flags": {},
     "zoneNote": "Godziny w strefie firmy: {zone}.",
-    "placeAway": "{place}"
+    "placeAway": "{place}",
+    "outsideStatus": {
+      "planned": "Zaplanowana",
+      "done": "Odbyta",
+      "canceled": "Odwołana"
+    },
+    "outsideCaption": "{label} — {month}"
   },
   "DayBoard": {
     "label": "Tablica dnia",
@@ -3522,7 +3528,8 @@
     "openAnimal": "Karta zwierzęcia",
     "farm": "Gospodarstwo",
     "editAnimal": "Edytuj zwierzę",
-    "animalSaved": "Zapisano zwierzę: {tag}."
+    "animalSaved": "Zapisano zwierzę: {tag}.",
+    "calendarVisit": "Wizyta firmy"
   },
   "FarmerToday": {
     "title": "Twoje gospodarstwo dziś",
