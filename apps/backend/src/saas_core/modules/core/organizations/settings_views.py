@@ -26,7 +26,14 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from .authorization import authorize
 from .permissions import ORGANIZATION_READ
 from .serializers import LocalizedTextSerializer, SettingOptionSerializer
-from .settings_registry import SOURCES, SettingGroup, SettingSpec, registered_groups, schema_entry
+from .settings_registry import (
+    SOURCES,
+    SettingGroup,
+    SettingSpec,
+    registered_areas,
+    registered_groups,
+    schema_entry,
+)
 from .settings_service import GroupState, SettingsChange, change_settings, read_group, schema
 
 PROBLEMS = {
@@ -67,7 +74,20 @@ class SettingsGroupSchemaSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class SettingAreaSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField(help_text="The area, e.g. security; a group's `area` names it.")
+    title = LocalizedTextSerializer()
+    description = LocalizedTextSerializer()
+    page = serializers.CharField(
+        allow_null=True,
+        help_text="The module's own panel page; null: the generic /panel/settings/<key>.",
+    )
+
+
 class SettingsSchemaSerializer(serializers.Serializer[dict[str, Any]]):
+    areas = SettingAreaSerializer(
+        many=True, help_text="The places of „Ustawienia” that hold a group, in menu order."
+    )
     groups = SettingsGroupSchemaSerializer(many=True)
 
 
@@ -94,7 +114,19 @@ class SettingsSchemaView(APIView):
     )
     def get(self, _request: Request) -> Response:
         context = authorize(ORGANIZATION_READ)
+        groups = schema(context)
+        held = {group.area for group, _can_change, _locked in groups}
         return Response({
+            "areas": [
+                {
+                    "key": area.key,
+                    "title": dict(area.title),
+                    "description": dict(area.description),
+                    "page": area.page,
+                }
+                for area in registered_areas()
+                if area.key in held
+            ],
             "groups": [
                 {
                     "key": group.key,
@@ -109,8 +141,8 @@ class SettingsSchemaView(APIView):
                     "api": group.api,
                     "step_up": bool(group.step_up_reason),
                 }
-                for group, can_change, locked in schema(context)
-            ]
+                for group, can_change, locked in groups
+            ],
         })
 
 

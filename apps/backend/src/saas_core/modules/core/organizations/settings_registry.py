@@ -155,6 +155,56 @@ class SettingGroup:
 
 _groups: dict[str, SettingGroup] = {}
 _keys: dict[str, SettingSpec] = {}
+_areas: dict[str, SettingArea] = {}
+_AREA_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
+
+
+@dataclass(frozen=True, slots=True)
+class SettingArea:
+    """A place in the panel's one „Ustawienia” (owner answer 33a): an entry
+    in its menu holding one or more groups. `page`: the module's own page,
+    when the area holds more than the registry draws (a form of an entity, a
+    list); None: the panel's generic page `/panel/settings/<key>` draws it."""
+
+    key: str
+    title: Mapping[str, str]
+    description: Mapping[str, str]
+    #: Where it stands among the areas, lowest first.
+    order: int
+    page: str | None = None
+
+
+def register_setting_area(area: SettingArea) -> None:
+    """Declares an area from the owner module's `AppConfig.ready`; a broken
+    one stops the start."""
+    problems = []
+    if not _AREA_PATTERN.fullmatch(area.key):
+        problems.append("klucz obszaru to małe litery, cyfry i myślniki (adres strony)")
+    if not (_localized(area.title) and _localized(area.description)):
+        problems.append("tytuł i opis obszaru wymagają tekstu pl i en")
+    if area.page is not None and not area.page.startswith("/panel/"):
+        problems.append("strona obszaru to adres panelu")
+    if area.key in _areas and _areas[area.key] != area:
+        problems.append("obszar już zadeklarowany inaczej")
+    if problems:
+        raise ImproperlyConfigured(f"Obszar ustawień {area.key}: " + "; ".join(problems))
+    _areas[area.key] = area
+
+
+def registered_areas() -> tuple[SettingArea, ...]:
+    return tuple(sorted(_areas.values(), key=lambda area: (area.order, area.key)))
+
+
+def area_problems() -> list[str]:
+    """Groups standing in an area nobody declared — checked once every module
+    has registered (`organizations.E102`)."""
+    return sorted(
+        f"{group.key}: {group.area or '(brak)'}"
+        for group in _groups.values()
+        if group.area not in _areas
+    )
+
+
 #: `name@version` → group: how the `settings` gate knows a command's group.
 _command_groups: dict[str, str] = {}
 

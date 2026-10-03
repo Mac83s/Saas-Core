@@ -23,10 +23,12 @@ from django.conf import settings
 
 from saas_core.modules.core.identity.models import UserStatus
 from saas_core.modules.core.organizations.api import (
+    SettingArea,
     SettingGroup,
     SettingSpec,
     group_commands,
     register_command,
+    register_setting_area,
     register_setting_group,
     setting,
 )
@@ -38,6 +40,20 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
 
 NOTE = "notifications.customer_mail.note"
+
+#: Its own area of „Ustawienia”, on the generic page: a company without the
+#: calendar still writes to its customers.
+CUSTOMER_EMAILS_AREA = SettingArea(
+    key="customer-emails",
+    title={"pl": "E-maile do klientów", "en": "E-mails to customers"},
+    description={
+        "pl": "Pod jaką nazwą klienci dostają e-maile, dokąd trafia ich odpowiedź i tekst "
+        "firmy na końcu każdego e-maila.",
+        "en": "The name customers' e-mails come under, where their reply goes and the "
+        "company's note at the end of each one.",
+    },
+    order=60,
+)
 
 CUSTOMER_MAIL = SettingGroup(
     key="notifications.customer_mail",
@@ -51,7 +67,7 @@ CUSTOMER_MAIL = SettingGroup(
         "a short note of your own.",
     },
     permission=SETTINGS_MANAGE,
-    area="bookings",
+    area="customer-emails",
     commands=(
         "notifications.settings_customer_mail.read@1",
         "notifications.settings_customer_mail.update@1",
@@ -89,6 +105,7 @@ def register_customer_sender(card: Callable[[UUID], tuple[str, str]]) -> None:
 
 
 def register_customer_mail() -> None:
+    register_setting_area(CUSTOMER_EMAILS_AREA)
     register_setting_group(CUSTOMER_MAIL)
     for command in group_commands(CUSTOMER_MAIL):
         register_command(command)

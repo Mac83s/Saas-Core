@@ -54,7 +54,14 @@ from .references import (
     register_resource_reference_handler,
 )
 from .settings_commands import group_commands
-from .settings_registry import SettingGroup, SettingSpec, register_setting_group, schema_entry
+from .settings_registry import (
+    SettingArea,
+    SettingGroup,
+    SettingSpec,
+    register_setting_area,
+    register_setting_group,
+    schema_entry,
+)
 from .settings_service import (
     Resolved,
     change_settings,
@@ -67,10 +74,12 @@ from .settings_service import (
 
 __all__ = [
     "Resolved",
+    "SettingArea",
     "SettingGroup",
     "SettingSpec",
     "change_settings",
     "group_commands",
+    "register_setting_area",
     "register_setting_group",
     "register_settings_feature_check",
     "resolve",

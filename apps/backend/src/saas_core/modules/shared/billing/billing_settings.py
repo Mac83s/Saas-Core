@@ -10,7 +10,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec, setting
+from saas_core.modules.core.organizations.api import (
+    SettingArea,
+    SettingGroup,
+    SettingSpec,
+    setting,
+)
 from saas_core.modules.core.organizations.authorization import (
     OrganizationPermissionDenied,
     authorize,
@@ -19,6 +24,17 @@ from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
 
 DELEGATED = "billing.access.delegated"
+
+BILLING_AREA = SettingArea(
+    key="billing",
+    title={"pl": "Plan i płatności", "en": "Plan & billing"},
+    description={
+        "pl": "Plan, płatności, dane do faktury i kto nimi zarządza.",
+        "en": "The plan, payments, invoice details and who manages them.",
+    },
+    order=70,
+    page="/panel/settings/billing",
+)
 
 ACCESS = SettingGroup(
     key="billing.access",

@@ -14,7 +14,29 @@ from .context import require_tenant_context
 from .models import Organization
 from .options import CURRENCIES, DEFAULT_CURRENCY, PANEL_LOCALES
 from .permissions import SETTINGS_MANAGE
-from .settings_registry import SettingGroup, SettingSpec, schema_entry
+from .settings_registry import SettingArea, SettingGroup, SettingSpec, schema_entry
+
+#: The company's own areas of „Ustawienia” (answer 33a): its details on their
+#: page, its security on the generic one.
+COMPANY_AREA = SettingArea(
+    key="company",
+    title={"pl": "Dane firmy", "en": "Company details"},
+    description={
+        "pl": "Nazwa, język panelu, strefa czasowa i waluta firmy.",
+        "en": "The company's name, panel language, time zone and currency.",
+    },
+    order=10,
+    page="/panel/settings/company",
+)
+SECURITY_AREA = SettingArea(
+    key="security",
+    title={"pl": "Bezpieczeństwo", "en": "Security"},
+    description={
+        "pl": "Kto w firmie musi logować się z weryfikacją dwuetapową (2FA).",
+        "en": "Who in the company must sign in with two-factor verification (2FA).",
+    },
+    order=15,
+)
 
 
 def _explicit() -> dict[str, Any]:

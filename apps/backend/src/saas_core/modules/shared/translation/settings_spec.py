@@ -17,7 +17,7 @@ import os
 from collections.abc import Mapping
 from typing import Any
 
-from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec
+from saas_core.modules.core.organizations.api import SettingArea, SettingGroup, SettingSpec
 from saas_core.modules.core.organizations.context import require_tenant_context
 
 from .permissions import TRANSLATION_MANAGE
@@ -122,6 +122,18 @@ def _explicit() -> dict[str, Any]:
         AUTO_CHANGES.field: row.auto_changes,
         AUTO_MONTHLY_LIMIT.field: row.auto_monthly_limit,
     }
+
+
+LANGUAGES_AREA = SettingArea(
+    key="languages",
+    title={"pl": "Języki", "en": "Languages"},
+    description={
+        "pl": "Języki strony i wizytówki oraz jak powstają tłumaczenia.",
+        "en": "The languages of the site and the business card, and how translations are made.",
+    },
+    order=20,
+    page="/panel/settings/languages",
+)
 
 
 SETTINGS = SettingGroup(

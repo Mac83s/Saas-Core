@@ -24,10 +24,12 @@ from rest_framework.exceptions import APIException
 
 from saas_core.modules.core.organizations.api import (
     Effect,
+    SettingArea,
     SettingGroup,
     SettingSpec,
     group_commands,
     register_command,
+    register_setting_area,
     register_setting_group,
     setting,
     settings_snapshot,
@@ -214,9 +216,34 @@ ONLINE = SettingGroup(
 )
 
 
+SERVICES_AREA = SettingArea(
+    key="services",
+    title={"pl": "Usługi i grafik", "en": "Services & schedule"},
+    description={
+        "pl": "Usługi, ich czas i ceny, grafik osób, miejsca, sezony i dni zamknięte.",
+        "en": "Services with their length and prices, people's hours, places, seasons and "
+        "closed days.",
+    },
+    order=40,
+    page="/panel/settings/services",
+)
+BOOKINGS_AREA = SettingArea(
+    key="bookings",
+    title={"pl": "Rezerwacje", "en": "Bookings"},
+    description={
+        "pl": "Przypomnienia o wizytach i rezerwacja online na stronie firmy.",
+        "en": "Visit reminders and online booking on the company's site.",
+    },
+    order=50,
+    page="/panel/settings/bookings",
+)
+
+
 def register_company_settings() -> None:
     from .offer_settings import OFFER  # noqa: PLC0415
 
+    register_setting_area(SERVICES_AREA)
+    register_setting_area(BOOKINGS_AREA)
     for group in (REMINDERS, ONLINE):
         register_setting_group(group)
         for command in group_commands(group):

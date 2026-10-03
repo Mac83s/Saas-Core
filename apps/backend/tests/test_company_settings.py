@@ -24,8 +24,11 @@ from saas_core.modules.core.organizations.models import (
 )
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
 from saas_core.modules.core.organizations.settings_registry import (
+    SettingArea,
     SettingGroup,
     SettingSpec,
+    area_problems,
+    register_setting_area,
     register_setting_group,
     schema_entry,
     settings_defaults_problems,
@@ -331,6 +334,14 @@ def test_the_api_reads_previews_and_changes_a_group_with_a_key() -> None:
 
     groups = {entry["key"]: entry for entry in schema.json()["groups"]}
     assert {REMINDERS, ONLINE} <= set(groups)
+    # The places of „Ustawienia” in menu order (33a): every group stands in one,
+    # an area without a page of its own is drawn by the generic one.
+    areas = {area["key"]: area for area in schema.json()["areas"]}
+    assert list(areas)[:2] == ["company", "security"]
+    assert {group["area"] for group in groups.values()} == set(areas)
+    assert areas["company"]["page"] == "/panel/settings/company"
+    assert areas["security"]["page"] is None
+    assert areas["customer-emails"]["title"]["pl"] == "E-maile do klientów"
     assert groups[REMINDERS]["can_change"] is True
     assert [key["key"] for key in groups[REMINDERS]["keys"]] == [
         "booking.reminders.enabled",
@@ -409,6 +420,19 @@ def test_the_schema_names_who_serves_a_group_and_how_its_value_applies() -> None
     assert groups[REMINDERS][0].api is None
     entry = schema_entry(basics.spec("currency"))
     assert (entry["strategy"], entry["scopes"]) == ("override", ["organization"])
+
+
+def test_an_area_is_an_address_with_texts_and_every_group_stands_in_one() -> None:
+    with pytest.raises(ImproperlyConfigured, match="małe litery"):
+        register_setting_area(SettingArea(key="Zła Nazwa", title=_TEXT, description=_TEXT, order=1))
+    with pytest.raises(ImproperlyConfigured, match="pl i en"):
+        register_setting_area(
+            SettingArea(key="probe-area", title={"pl": "Tylko pl"}, description=_TEXT, order=1)
+        )
+    assert area_problems() == []
+
+
+_TEXT = {"pl": "Tekst", "en": "Text"}
 
 
 def test_a_product_default_nobody_declares_fails_the_start(settings: Any) -> None:
