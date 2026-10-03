@@ -409,7 +409,14 @@
       "start_weekdays": "Arrival days",
       "starts_on": "From",
       "window_days": "Booking window (days)",
-      "address_line1": "Street and number"
+      "address_line1": "Street and number",
+      "online": "In online booking",
+      "slot_step_minutes": "Visits start every (min)",
+      "public_locales": "Company languages",
+      "processing_acknowledged": "Content processing by translation confirmed",
+      "sale_price_net_minor": "Net sale price",
+      "author_name": "Author",
+      "excerpt": "Excerpt"
     }
   },
   "Panel": {
@@ -418,7 +425,10 @@
     "signedInAs": "Signed in as {email}.",
     "logout": "Log out",
     "loggingOut": "Logging out…",
-    "language": "Interface language"
+    "language": "Interface language",
+    "notFoundTitle": "This page does not exist",
+    "notFoundBody": "The address is out of date, or this part of the panel is not available to your account.",
+    "notFoundHome": "Back to the start of the panel"
   },
   "DashboardNav": {
     "assistant": "Assistant",
@@ -3164,7 +3174,7 @@
     "loadError": "Could not load notification settings.",
     "saveError": "Could not save preferences.",
     "templatesTitle": "Message templates",
-    "templatesDescription": "The content of automatic messages, in Polish and English. Previewing sends nothing.",
+    "templatesDescription": "The content of automatic messages — in the languages listed under each name. Previewing sends nothing.",
     "previewError": "Could not prepare the preview.",
     "marketingCategory": "Marketing",
     "requiredCategory": "Required",

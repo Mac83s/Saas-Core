@@ -15,7 +15,11 @@ import polishMessages from "../../../../messages/pl.json";
 import { HistoryPanel } from "./history-panel";
 
 const { api } = vi.hoisted(() => ({
-  api: { readOrganizationHistory: vi.fn(), readCatalogDictionary: vi.fn() },
+  api: {
+    readOrganizationHistory: vi.fn(),
+    readCatalogDictionary: vi.fn(),
+    getSettingsSchema: vi.fn(),
+  },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
@@ -69,6 +73,7 @@ function view(locale: "pl" | "en" = "pl") {
 beforeEach(() => {
   vi.clearAllMocks();
   api.readCatalogDictionary.mockRejectedValue(new Error("no catalogue"));
+  api.getSettingsSchema.mockRejectedValue(new Error("no schema"));
   api.readOrganizationHistory.mockResolvedValue(
     page([
       entry({
@@ -276,4 +281,61 @@ test("a row says which object it is about, and a category by its name (UX-055)",
   expect(await screen.findByText(/→ IT i marketing$/)).toBeTruthy();
   expect(screen.getByText(/→ Olsztyn$/)).toBeTruthy();
   expect(screen.queryByText(/it-i-marketing/)).toBeNull();
+});
+
+test("a setting reads as its form calls it, a choice by its name, a price in złoty (UX-055)", async () => {
+  api.getSettingsSchema.mockResolvedValue({
+    areas: [],
+    groups: [
+      {
+        key: "translation.settings",
+        keys: [
+          {
+            key: "translation.settings.auto_changes",
+            label: {
+              pl: "Tłumacz zmiany automatycznie",
+              en: "Translate changes automatically",
+            },
+            values: null,
+          },
+          {
+            key: "translation.settings.mode",
+            label: { pl: "Publikacja tłumaczeń", en: "Publishing" },
+            values: [
+              {
+                value: "review",
+                label: { pl: "Po akceptacji", en: "After approval" },
+              },
+              { value: "auto", label: { pl: "Od razu", en: "At once" } },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  api.readOrganizationHistory.mockResolvedValue(
+    page([
+      entry({
+        action: "translation.settings_changed",
+        target_type: "translation.settings",
+        changes: {
+          auto_changes: { from: true, to: false },
+          mode: { from: "review", to: "auto" },
+        },
+      }),
+      entry({
+        action: "inventory.item.updated",
+        target_type: "inventory_item",
+        changes: { sale_price_net_minor: { from: 1250, to: 1500 } },
+      }),
+    ]),
+  );
+  view();
+  expect(
+    await screen.findByText("Tłumacz zmiany automatycznie: tak → nie"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Publikacja tłumaczeń: Po akceptacji → Od razu"),
+  ).toBeTruthy();
+  expect(screen.getByText("Cena sprzedaży netto: 12,50 → 15,00")).toBeTruthy();
 });

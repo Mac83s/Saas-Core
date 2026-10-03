@@ -410,7 +410,7 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
                 rel="noreferrer"
                 target="_blank"
               >
-                {catalog.site_url ?? catalog.path}
+                {catalog.site_url ? reachable(catalog.site_url) : catalog.path}
                 <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
               </a>
             </p>

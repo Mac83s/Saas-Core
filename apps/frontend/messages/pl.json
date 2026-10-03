@@ -409,7 +409,14 @@
       "start_weekdays": "Dni przyjazdu",
       "starts_on": "Od dnia",
       "window_days": "Okno rezerwacji (dni)",
-      "address_line1": "Ulica i numer"
+      "address_line1": "Ulica i numer",
+      "online": "W rezerwacji online",
+      "slot_step_minutes": "Wizyty zaczynają się co (min)",
+      "public_locales": "Języki firmy",
+      "processing_acknowledged": "Potwierdzenie przetwarzania treści przez tłumaczenie",
+      "sale_price_net_minor": "Cena sprzedaży netto",
+      "author_name": "Autor",
+      "excerpt": "Zajawka"
     }
   },
   "Panel": {
@@ -418,7 +425,10 @@
     "signedInAs": "Zalogowano jako {email}.",
     "logout": "Wyloguj",
     "loggingOut": "Wylogowanie…",
-    "language": "Język interfejsu"
+    "language": "Język interfejsu",
+    "notFoundTitle": "Nie ma takiej strony",
+    "notFoundBody": "Adres jest nieaktualny albo ta część panelu nie jest dostępna dla Twojego konta.",
+    "notFoundHome": "Wróć na początek panelu"
   },
   "DashboardNav": {
     "assistant": "Asystent",
@@ -3164,7 +3174,7 @@
     "loadError": "Nie udało się pobrać ustawień powiadomień.",
     "saveError": "Nie udało się zapisać preferencji.",
     "templatesTitle": "Szablony wiadomości",
-    "templatesDescription": "Treść wiadomości wysyłanych automatycznie, po polsku i angielsku. Podgląd niczego nie wysyła.",
+    "templatesDescription": "Treść wiadomości wysyłanych automatycznie — w językach wypisanych pod nazwą. Podgląd niczego nie wysyła.",
     "previewError": "Nie udało się przygotować podglądu.",
     "marketingCategory": "Marketingowa",
     "requiredCategory": "Wymagana",

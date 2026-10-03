@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import {
+  getSettingsSchema,
   readCatalogDictionary,
   readOrganizationHistory,
   type CatalogDictionary,
   type HistoryEntry,
   type HistoryPage,
+  type SettingOption,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -58,12 +60,28 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
   // A category and a town are recorded by their keys; the catalogue's
   // dictionary gives them their names (UX-055). No catalogue, no names.
   const [dictionary, setDictionary] = useState<CatalogDictionary>();
+  // A setting is recorded by its key; its form's own words name it here
+  // (UX-055), for a product's settings too.
+  const [settings, setSettings] = useState<Map<string, SettingOption>>();
 
   useEffect(() => {
     let active = true;
     readCatalogDictionary().then(
       (next) => {
         if (active) setDictionary(next);
+      },
+      () => undefined,
+    );
+    getSettingsSchema().then(
+      (schema) => {
+        if (active)
+          setSettings(
+            new Map(
+              schema.groups.flatMap((item) =>
+                item.keys.map((setting) => [setting.key, setting]),
+              ),
+            ),
+          );
       },
       () => undefined,
     );
@@ -102,13 +120,36 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
       : humanize(key);
   const actingLabel = (via: string) =>
     t.has(`acting_${via}`) ? t(`acting_${via}`) : humanize(via);
-  const fieldLabel = (key: string) =>
-    t.has(`fields.${key}`) ? t(`fields.${key}`) : humanize(key);
-  const value = (raw: unknown, field?: string): string => {
+  const language = locale === "en" ? "en" : "pl";
+  // A settings change names its group in the target and its field in the
+  // change (ADR-078 pkt 9).
+  const setting = (entry: HistoryEntry, field: string) =>
+    settings?.get(`${entry.target_type}.${field}`);
+  const fieldLabel = (entry: HistoryEntry, key: string) =>
+    setting(entry, key)?.label[language] ??
+    (t.has(`fields.${key}`) ? t(`fields.${key}`) : humanize(key));
+  const value = (
+    raw: unknown,
+    field?: string,
+    entry?: HistoryEntry,
+  ): string => {
     if (raw === null || raw === undefined || raw === "") return t("empty");
     if (typeof raw === "boolean") return raw ? t("yes") : t("no");
     if (Array.isArray(raw))
-      return raw.map((item) => value(item, field)).join(", ") || t("empty");
+      return (
+        raw.map((item) => value(item, field, entry)).join(", ") || t("empty")
+      );
+    // One of a setting's choices: what its form calls it.
+    const choice =
+      entry && field
+        ? setting(entry, field)?.values?.find((item) => item.value === raw)
+        : undefined;
+    if (choice) return choice.label[language];
+    // An amount is recorded in grosze.
+    if (typeof raw === "number" && field?.endsWith("_minor"))
+      return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+      }).format(raw / 100);
     // A text per language (`localized_text`): each language with its text.
     if (typeof raw === "object")
       return (
@@ -119,7 +160,7 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
     if (field === "category")
       return (
         dictionary?.categories.find((item) => item.key === raw)?.labels[
-          locale === "en" ? "en" : "pl"
+          language
         ] ?? String(raw)
       );
     if (field === "city_slug" || field === "city")
@@ -195,7 +236,11 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
               </>
             ) : null}
           </p>
-          <Changes entry={entry} fieldLabel={fieldLabel} value={value} />
+          <Changes
+            entry={entry}
+            fieldLabel={(field) => fieldLabel(entry, field)}
+            value={(raw, field) => value(raw, field, entry)}
+          />
         </div>
       ),
     },
