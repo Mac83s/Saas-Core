@@ -776,6 +776,13 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
             "task": "saas_core.modules.shared.notifications.tasks.recover_pending",
             "schedule": 60.0,
         },
+        # Retention is a system job per company, not a task tied to the
+        # contract of whoever sent the message (found 03.10: such messages
+        # stayed unscrubbed once their member left).
+        "notifications-scrub-expired": {
+            "task": "saas_core.modules.shared.notifications.tasks.scrub_expired",
+            "schedule": 3600.0,
+        },
     },
     "shared.media": {
         # ADR-042: an erased tenant's files are deleted after the rows commit,

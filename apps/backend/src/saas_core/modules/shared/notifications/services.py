@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
@@ -12,6 +13,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, PermissionDenied
 
@@ -256,12 +258,8 @@ def queue_email(
         tenant_context_ciphertext=encrypt_secret(message.signed_tenant_context),
         next_dispatch_at=now,
     )
-    PendingTaskRoute.objects.create(
-        kind="email_cleanup",
-        object_key=str(message.id),
-        tenant_context_ciphertext=encrypt_secret(message.signed_tenant_context),
-        next_dispatch_at=message.retention_expires_at,
-    )
+    # The scrub at `retention_expires_at` is the hourly system sweep's
+    # (`tasks.scrub_expired`), not a task bound to this person's contract.
     from .tasks import deliver_email_task
 
     transaction.on_commit(
@@ -754,10 +752,61 @@ def expire_data_export(export_id: UUID) -> DataExport:
     export = DataExport.all_objects.select_for_update().get(pk=export_id)
     if export.expires_at > timezone.now():
         raise Conflict("Eksport jeszcze nie wygasł.")
+    return _expire(export)
+
+
+def _expire(export: DataExport) -> DataExport:
     export.content = ""
     export.status = ExportStatus.EXPIRED
     export.save(update_fields=["content", "status", "updated_at"])
     return export
+
+
+def expire_due_exports(organization_id: UUID, *, limit: int = 200) -> int:
+    """Empties the company's exports past their expiry, inside the company's
+    tenant and the caller's transaction. Returns how many."""
+    due = list(
+        DataExport.all_objects.select_for_update(skip_locked=True)
+        .filter(organization_id=organization_id, expires_at__lte=timezone.now())
+        .exclude(status=ExportStatus.EXPIRED)[:limit]
+    )
+    for export in due:
+        _expire(export)
+    if due:
+        PendingTaskRoute.objects.filter(
+            kind="export_cleanup",
+            object_key__in=[str(export.id) for export in due],
+            completed_at__isnull=True,
+        ).update(completed_at=timezone.now())
+    return len(due)
+
+
+def scrub_message_now(message: NotificationMessage) -> NotificationMessage:
+    """The message without its recipient's data: the address and its digest
+    replaced by ones that name only the message, what was rendered into it
+    gone, nothing left that could open the tenant for it. The row, its
+    attempts and its ids stay — the delivery log. Safe to repeat."""
+    marker = hashlib.sha256(f"scrubbed:{message.id}".encode()).hexdigest()
+    message.recipient_email = f"redacted+{marker[:16]}@invalid.local"
+    # The digest of an address is a way back to it: it goes with the address.
+    message.recipient_hash = marker
+    message.context = {}
+    message.signed_tenant_context = ""
+    message.save(
+        update_fields=[
+            "recipient_email",
+            "recipient_hash",
+            "context",
+            "signed_tenant_context",
+            "updated_at",
+        ]
+    )
+    # A provider's status events protect the route they came through: they go
+    # first. Both are routing, with no personal data; a late event of a
+    # scrubbed message then finds no route and is dropped.
+    ProviderEventInbox.objects.filter(route__message_id=message.id).delete()
+    ProviderMessageRoute.objects.filter(message_id=message.id).delete()
+    return message
 
 
 @transaction.atomic
@@ -765,14 +814,35 @@ def scrub_notification_message(message_id: UUID) -> NotificationMessage:
     message = NotificationMessage.all_objects.select_for_update().get(pk=message_id)
     if message.retention_expires_at > timezone.now():
         raise Conflict("Retencja wiadomości jeszcze nie wygasła.")
-    message.recipient_email = f"redacted+{message.recipient_hash[:16]}@invalid.local"
-    message.context = {}
-    message.signed_tenant_context = ""
-    message.save(
-        update_fields=["recipient_email", "context", "signed_tenant_context", "updated_at"]
+    return scrub_message_now(message)
+
+
+def expired_unscrubbed(organization_id: UUID) -> QuerySet[NotificationMessage]:
+    """The company's messages past their retention that still hold their
+    recipient's data. A scrubbed message has no tenant contract left."""
+    return NotificationMessage.all_objects.filter(
+        organization_id=organization_id, retention_expires_at__lte=timezone.now()
+    ).exclude(signed_tenant_context="")
+
+
+def scrub_expired_messages(organization_id: UUID, *, limit: int = 500) -> int:
+    """Scrubs the company's messages past their retention, inside the
+    company's tenant and the caller's transaction; `limit` per call, the rest
+    the next time. Returns how many."""
+    due = list(
+        expired_unscrubbed(organization_id)
+        .select_for_update(skip_locked=True)
+        .order_by("retention_expires_at", "id")[:limit]
     )
-    ProviderMessageRoute.objects.filter(message_id=message.id).delete()
-    return message
+    for message in due:
+        scrub_message_now(message)
+    if due:
+        PendingTaskRoute.objects.filter(
+            kind="email_cleanup",
+            object_key__in=[str(message.id) for message in due],
+            completed_at__isnull=True,
+        ).update(completed_at=timezone.now())
+    return len(due)
 
 
 def _authorize_support(reason: str) -> TenantContext:

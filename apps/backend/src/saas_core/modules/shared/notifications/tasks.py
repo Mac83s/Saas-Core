@@ -11,13 +11,23 @@ from django.db.models import Count
 from django.utils import timezone
 
 from saas_core.modules.core.organizations.tasks import InvalidTenantTaskContext, tenant_task_context
+from saas_core.modules.shared.billing.tenant_scope import (
+    billing_organization_ids,
+    billing_tenant_scope,
+)
 
 from .billing_notices import deliver_billing_notices
 from .delivery import DeliveryDeferred, deliver_email, deliver_webhook, process_provider_status
 from .metrics import PENDING_TASKS
 from .models import DeliveryStatus, ExportStatus, PendingTaskRoute
 from .security import decrypt_secret
-from .services import build_data_export, expire_data_export, scrub_notification_message
+from .services import (
+    build_data_export,
+    expire_data_export,
+    expire_due_exports,
+    scrub_expired_messages,
+    scrub_notification_message,
+)
 
 logger = logging.getLogger("saas_core.security")
 
@@ -115,6 +125,12 @@ def recover_pending() -> int:
             route.next_dispatch_at = now + timedelta(minutes=5)
             route.save(update_fields=["next_dispatch_at"])
     for route in routes:
+        if route.kind in ("email_cleanup", "export_cleanup"):
+            # A route from before the hourly sweep owned retention: the sweep
+            # does the work, in the company's tenant. A person's contract that
+            # no longer opens the tenant must not keep the route retrying.
+            _complete_route(route.kind, route.object_key)
+            continue
         signed_context = decrypt_secret(route.tenant_context_ciphertext)
         if route.kind == "email":
             deliver_email_task.delay(route.object_key, signed_context)
@@ -124,11 +140,31 @@ def recover_pending() -> int:
             process_provider_status_task.delay(route.object_key, signed_context)
         elif route.kind == "export":
             build_data_export_task.delay(route.object_key, signed_context)
-        elif route.kind == "export_cleanup":
-            expire_export_task.delay(route.object_key, signed_context)
-        elif route.kind == "email_cleanup":
-            scrub_email_task.delay(route.object_key, signed_context)
     return len(routes)
+
+
+@shared_task(name="saas_core.modules.shared.notifications.tasks.scrub_expired")  # type: ignore[untyped-decorator]
+def scrub_expired() -> int:
+    """Hourly: every message past `NOTIFICATIONS_RETENTION_DAYS` loses its
+    recipient's data, and every export past its expiry its content — a system
+    job in each company's own tenant, like the billing sweeps (ADR-039).
+
+    Not the contract a message was queued with: that one is a person's, lasts
+    45 days and stops opening the tenant when its member leaves, which left
+    such messages unscrubbed for good. One company's failure is logged and the
+    next one runs."""
+    done = 0
+    for organization_id in billing_organization_ids():
+        try:
+            with billing_tenant_scope(organization_id):
+                done += scrub_expired_messages(organization_id)
+                done += expire_due_exports(organization_id)
+        except Exception:
+            logger.exception(
+                "notifications_retention_sweep_failed",
+                extra={"organization_id": str(organization_id)},
+            )
+    return done
 
 
 def _complete_route(kind: str, object_key: str) -> None:
