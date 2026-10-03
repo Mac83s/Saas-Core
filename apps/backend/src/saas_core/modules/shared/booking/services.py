@@ -877,7 +877,7 @@ def reschedule_appointment(
         queue_email(
             recipient_email=customer.email,
             template_key="booking.rescheduled",
-            template_version=1,
+            template_version=2,
             locale=customer.locale,
             template_context={
                 "organization_name": organization.name,
@@ -973,7 +973,7 @@ def cancel_appointment(
             queue_email(
                 recipient_email=customer.email,
                 template_key="booking.canceled",
-                template_version=1,
+                template_version=2,
                 locale=customer.locale,
                 template_context={
                     "organization_name": Organization.objects.get(pk=context.organization_id).name,
@@ -1481,7 +1481,7 @@ def record_new_booking(
         queue_email(
             recipient_email=email,
             template_key="booking.confirmation",
-            template_version=2,
+            template_version=3,
             locale=customer.locale,
             template_context={
                 "organization_name": organization.name,

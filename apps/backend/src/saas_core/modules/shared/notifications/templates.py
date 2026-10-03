@@ -141,6 +141,122 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
         },
         allowed_context=frozenset({"organization_name", "starts_at", "manage_url"}),
     ),
+    # TL17: the same customer mails in German too. New versions, because a
+    # published (key, version) never changes under mails already queued.
+    ("booking.confirmation", 3): EmailTemplate(
+        key="booking.confirmation",
+        audience=AUDIENCE_CUSTOMER,
+        version=3,
+        category="required",
+        subjects={
+            "pl": "Potwierdzenie rezerwacji",
+            "en": "Booking confirmation",
+            "de": "Buchungsbestätigung",
+        },
+        bodies={
+            "pl": (
+                "<p>Rezerwacja w {organization_name} została potwierdzona.</p>"
+                "<p>Termin: {starts_at}</p>"
+                '<p><a href="{manage_url}">Zmień termin lub odwołaj</a></p>'
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} is confirmed.</p><p>Time: {starts_at}</p>"
+                '<p><a href="{manage_url}">Change the time or cancel</a></p>'
+            ),
+            "de": (
+                "<p>Ihre Buchung bei {organization_name} ist bestätigt.</p>"
+                "<p>Termin: {starts_at}</p>"
+                '<p><a href="{manage_url}">Termin ändern oder absagen</a></p>'
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at", "manage_url"}),
+    ),
+    ("booking.rescheduled", 2): EmailTemplate(
+        key="booking.rescheduled",
+        audience=AUDIENCE_CUSTOMER,
+        version=2,
+        category="required",
+        subjects={
+            "pl": "Zmiana terminu rezerwacji",
+            "en": "Your booking was moved",
+            "de": "Ihr Termin wurde verschoben",
+        },
+        bodies={
+            "pl": (
+                "<p>Termin rezerwacji w {organization_name} został zmieniony.</p>"
+                "<p>Poprzedni termin: {previous_starts_at}</p>"
+                "<p>Nowy termin: {starts_at}</p>"
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} has been moved.</p>"
+                "<p>Previous time: {previous_starts_at}</p>"
+                "<p>New time: {starts_at}</p>"
+            ),
+            "de": (
+                "<p>Ihr Termin bei {organization_name} wurde verschoben.</p>"
+                "<p>Bisheriger Termin: {previous_starts_at}</p>"
+                "<p>Neuer Termin: {starts_at}</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "previous_starts_at", "starts_at"}),
+    ),
+    ("booking.canceled", 2): EmailTemplate(
+        key="booking.canceled",
+        audience=AUDIENCE_CUSTOMER,
+        version=2,
+        category="required",
+        subjects={
+            "pl": "Rezerwacja odwołana",
+            "en": "Booking canceled",
+            "de": "Buchung abgesagt",
+        },
+        bodies={
+            "pl": (
+                "<p>Rezerwacja w {organization_name} została odwołana.</p>"
+                "<p>Odwołany termin: {starts_at}</p>"
+                "<p>Aby umówić się ponownie, skontaktuj się z {organization_name}.</p>"
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} has been canceled.</p>"
+                "<p>Canceled time: {starts_at}</p>"
+                "<p>To book again, get in touch with {organization_name}.</p>"
+            ),
+            "de": (
+                "<p>Ihre Buchung bei {organization_name} wurde abgesagt.</p>"
+                "<p>Abgesagter Termin: {starts_at}</p>"
+                "<p>Für einen neuen Termin wenden Sie sich bitte an {organization_name}.</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at"}),
+    ),
+    ("booking.reminder", 3): EmailTemplate(
+        key="booking.reminder",
+        audience=AUDIENCE_CUSTOMER,
+        version=3,
+        category="required",
+        subjects={
+            "pl": "Przypomnienie o rezerwacji",
+            "en": "Booking reminder",
+            "de": "Terminerinnerung",
+        },
+        bodies={
+            "pl": (
+                "<p>Przypominamy o rezerwacji w {organization_name}.</p><p>Termin: {starts_at}</p>"
+                '<p><a href="{manage_url}">Zmień termin lub odwołaj</a></p>'
+            ),
+            "en": (
+                "<p>This is a reminder about your booking at {organization_name}.</p>"
+                "<p>Time: {starts_at}</p>"
+                '<p><a href="{manage_url}">Change the time or cancel</a></p>'
+            ),
+            "de": (
+                "<p>Wir erinnern Sie an Ihre Buchung bei {organization_name}.</p>"
+                "<p>Termin: {starts_at}</p>"
+                '<p><a href="{manage_url}">Termin ändern oder absagen</a></p>'
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at", "manage_url"}),
+    ),
     ("system.activity", 1): EmailTemplate(
         key="system.activity",
         version=1,

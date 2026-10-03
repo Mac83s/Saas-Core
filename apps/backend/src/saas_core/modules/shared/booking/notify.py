@@ -19,8 +19,6 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from django.conf import settings
-
 from saas_core.modules.core.identity.models import UserStatus
 from saas_core.modules.core.organizations.api import setting
 from saas_core.modules.core.organizations.context import (
@@ -40,6 +38,7 @@ from saas_core.modules.shared.notifications.api import (
     TEMPLATES,
     EmailTemplate,
     notify_in_app,
+    public_url,
     queue_email,
     register_email_template,
     resolve_template_locale,
@@ -122,7 +121,7 @@ def customer_person_changed(appointment: Appointment, *, previous_lead_id: UUID)
         queue_email(
             recipient_email=customer.email,
             template_key="booking.person_changed",
-            template_version=1,
+            template_version=2,
             locale=locale,
             template_context={
                 "organization_name": organization.name,
@@ -154,8 +153,7 @@ def office_told(appointment: Appointment, kind: str, *, crew: Iterable[UUID] = (
             status=MembershipStatus.ACTIVE,
             user__status=UserStatus.ACTIVE,
         )
-        if MANAGE_BOOKINGS in (membership.role.permissions or ())
-        and membership.id not in told
+        if MANAGE_BOOKINGS in (membership.role.permissions or ()) and membership.id not in told
     ]
     _send(appointment, managers, kind, key="office", template=kind)
 
@@ -246,7 +244,7 @@ def _send(
                         if previous_starts_at is not None
                         else {}
                     ),
-                    "panel_url": f"{_base(locale)}/panel/calendar?date={day.isoformat()}",
+                    "panel_url": public_url(locale, f"/panel/calendar?date={day.isoformat()}"),
                 },
                 idempotency_key=identity,
                 causation_id=f"booking:{appointment.id}",
@@ -277,12 +275,9 @@ def _locale(organization_id: UUID, user: Any) -> str:
 
 
 def manage_url(token: str, locale: str) -> str:
-    """The customer's own page for the booking: change the time or cancel."""
-    return f"{_base(locale)}/booking/{token}"
-
-
-def _base(locale: str) -> str:
-    return settings.FRONTEND_BASE_URL.rstrip("/") + ("/en" if locale == "en" else "")
+    """The customer's own page for the booking: change the time or cancel, in
+    the customer's language — any content language, not only English (TL17)."""
+    return public_url(locale, f"/booking/{token}")
 
 
 def _local(value: datetime, zone: str, locale: str) -> str:
@@ -297,11 +292,12 @@ def _template(
     bodies: dict[str, str],
     fields: set[str],
     audience: str = AUDIENCE_STAFF,
+    version: int = 1,
 ) -> None:
     register_email_template(
         EmailTemplate(
             key=key,
-            version=1,
+            version=version,
             category="required",
             subjects=subjects,
             bodies=bodies,
@@ -382,8 +378,7 @@ def register_templates() -> None:
             {"pl": "Klient odwołał wizytę", "en": "A customer called a visit off"},
             {
                 "pl": "<p>{organization_name}: klient odwołał wizytę {starts_at}.</p>",
-                "en": "<p>{organization_name}: a customer called off the visit at "
-                "{starts_at}.</p>",
+                "en": "<p>{organization_name}: a customer called off the visit at {starts_at}.</p>",
             },
         ),
     ):
@@ -408,4 +403,31 @@ def register_templates() -> None:
         },
         {"organization_name", "starts_at", "manage_url"},
         audience=AUDIENCE_CUSTOMER,
+    )
+    # TL17: and in German; v1 stays for mails queued before it.
+    _template(
+        "booking.person_changed",
+        {
+            "pl": "Zmiana osoby przy Twojej wizycie",
+            "en": "A change to your visit",
+            "de": "Eine Änderung an Ihrem Termin",
+        },
+        {
+            "pl": (
+                "<p>W Twojej wizycie w {organization_name} ({starts_at}) zmieniła się osoba, "
+                'która Cię przyjmie.</p><p><a href="{manage_url}">Zobacz swoją rezerwację</a></p>'
+            ),
+            "en": (
+                "<p>The person who will see you at {organization_name} ({starts_at}) has "
+                'changed.</p><p><a href="{manage_url}">See your booking</a></p>'
+            ),
+            "de": (
+                "<p>Bei Ihrem Termin bei {organization_name} ({starts_at}) hat sich die Person "
+                "geändert, die Sie betreut.</p>"
+                '<p><a href="{manage_url}">Ihre Buchung ansehen</a></p>'
+            ),
+        },
+        {"organization_name", "starts_at", "manage_url"},
+        audience=AUDIENCE_CUSTOMER,
+        version=2,
     )

@@ -50,7 +50,7 @@ def dispatch_booking_reminders() -> int:
                     queue_email(
                         recipient_email=appointment.customer.email,
                         template_key="booking.reminder",
-                        template_version=2,
+                        template_version=3,
                         locale=appointment.customer.locale,
                         template_context={
                             "organization_name": appointment.organization.name,

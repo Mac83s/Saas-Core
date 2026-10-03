@@ -143,3 +143,14 @@ def with_company_note(html_body: str, organization_id: UUID) -> str:
         return html_body
     lines = "<br>".join(escape(line) for line in note.splitlines())
     return f"{html_body}<p>{lines}</p>"
+
+
+#: The platform's guest pages (TL17): the default language without a prefix,
+#: every other content language under `/<code>` — the frontend's routing.
+PLATFORM_DEFAULT_LOCALE = "pl"
+
+
+def public_url(locale: str, path: str) -> str:
+    """A guest page of the platform in the customer's language, for a mail."""
+    prefix = "" if locale == PLATFORM_DEFAULT_LOCALE else f"/{locale}"
+    return settings.FRONTEND_BASE_URL.rstrip("/") + prefix + path

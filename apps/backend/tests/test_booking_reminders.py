@@ -113,7 +113,8 @@ def test_the_confirmation_and_the_reminder_carry_the_link_to_the_booking(
     [confirmation] = mails(created.appointment.id, "booking.confirmation")
     [reminder] = reminders(created.appointment.id)
     for sent in (confirmation, reminder):
-        assert sent.template_version == 2
+        # v3: the same mails with a German version (TL17c).
+        assert sent.template_version == 3
         assert sent.context["manage_url"].endswith(f"/booking/{created.token}")
 
 

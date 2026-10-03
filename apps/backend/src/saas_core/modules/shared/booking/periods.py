@@ -451,7 +451,7 @@ def move_stay(
         queue_email(
             recipient_email=customer.email,
             template_key="booking.rescheduled",
-            template_version=1,
+            template_version=2,
             locale=customer.locale,
             template_context={
                 "organization_name": organization.name,
