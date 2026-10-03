@@ -37,6 +37,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { sitesErrorMessage } from "./problem";
 
@@ -375,6 +376,15 @@ export function AutomationConnectionsPanel() {
             columns={columns}
             data={connections}
             getRowId={(connection) => connection.grant_id}
+            // What an integration is and how one gets here (UX-047).
+            emptyAction={
+              <Link
+                className="font-medium text-primary hover:underline"
+                href="/contact"
+              >
+                {t("connectionsAsk")}
+              </Link>
+            }
             labels={{
               ...labels,
               empty: t("connectionsEmpty"),

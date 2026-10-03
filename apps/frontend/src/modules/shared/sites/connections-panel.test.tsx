@@ -18,6 +18,7 @@ const { listAutomationConnections, revokeAutomationGrant } = vi.hoisted(() => ({
   revokeAutomationGrant: vi.fn(),
 }));
 
+vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   listAutomationConnections,
@@ -130,6 +131,19 @@ test("pokazuje zakres, granice i ostatnią aktywność każdego połączenia", a
   expect(screen.getByText("poradnik")).not.toBeNull();
   expect(screen.getAllByText("Brak aktywności")).toHaveLength(2);
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("bez połączeń mówi, czym jest integracja i jak ją podłączyć (UX-047)", async () => {
+  listAutomationConnections.mockResolvedValue([]);
+  renderPanel();
+  expect(
+    await screen.findByText(/Integracja to zewnętrzny program/),
+  ).not.toBeNull();
+  expect(
+    screen
+      .getByRole("link", { name: "Napisz do nas, żeby podłączyć integrację" })
+      .getAttribute("href"),
+  ).toBe("/contact");
 });
 
 test("nie proponuje odwołania grantu, który już nie działa", async () => {

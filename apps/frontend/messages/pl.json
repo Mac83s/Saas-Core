@@ -1541,7 +1541,7 @@
     "connectionsTitle": "Połączenia automatyzacji",
     "connectionsDescription": "Poświadczenia, które mogą działać w tej organizacji, ich dokładny zasięg i ostatnia aktywność. Wygasłe i odwołane dostępy pozostają na liście.",
     "connectionsLoading": "Wczytywanie połączeń…",
-    "connectionsEmpty": "Żadna automatyzacja nie ma przyznanego dostępu.",
+    "connectionsEmpty": "Integracja to zewnętrzny program — np. do tekstów pod Google — który przygotowuje zmiany na Twojej stronie. Żaden nie ma jeszcze dostępu; podłączamy go na Twoją prośbę.",
     "connectionCredential": "Poświadczenie",
     "connectionStateActive": "Aktywne",
     "connectionStateExpired": "Wygasłe",
@@ -1578,7 +1578,7 @@
     "connectionRevoking": "Natychmiastowe odwoływanie…",
     "proposalsTitle": "Propozycje czekające na decyzję",
     "proposalsDescription": "Zmiany przygotowane przez integrację czekają na Twoją decyzję. Obejrzyj porównanie i przyjmij je do szkicu albo odrzuć. Publikacja jest osobnym krokiem.",
-    "proposalsEmpty": "Żadna integracja nie czeka na decyzję.",
+    "proposalsEmpty": "Gdy integracja przygotuje zmianę strony, zobaczysz ją tutaj i zdecydujesz, czy trafi do szkicu.",
     "proposalOnPage": "Podstrona",
     "proposalOnEntry": "Wpis bloga",
     "proposalRisk_low": "Ryzyko niskie",
@@ -2339,7 +2339,9 @@
     "unfinishedSlots": "{count, plural, one {# miejsce do uzupełnienia} few {# miejsca do uzupełnienia} many {# miejsc do uzupełnienia} other {# miejsca do uzupełnienia}}",
     "unfinishedContact": "telefon albo e-mail z szablonu",
     "unfinishedShow": "Pokaż: {page}",
-    "unfinishedPublish": "Odwiedzający nie zobaczą zdań z miejscami do uzupełnienia ani przycisków z telefonem i e-mailem z szablonu — znikną ze strony. Uzupełnij je, zanim opublikujesz."
+    "unfinishedPublish": "Odwiedzający nie zobaczą zdań z miejscami do uzupełnienia ani przycisków z telefonem i e-mailem z szablonu — znikną ze strony. Uzupełnij je, zanim opublikujesz.",
+    "connectionsAsk": "Napisz do nas, żeby podłączyć integrację",
+    "blogNameExample": "np. Aktualności albo Porady"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

@@ -266,6 +266,13 @@ test("offers to create a blog when the site has none, and stays accessible", asy
   const rendered = renderPanel();
 
   expect(await screen.findByLabelText("Nazwa")).not.toBeNull();
+  // An example to follow and an address that is never empty (UX-047).
+  expect((screen.getByLabelText("Nazwa") as HTMLInputElement).placeholder).toBe(
+    "np. Aktualności albo Porady",
+  );
+  expect((screen.getByLabelText("Adres bloga") as HTMLInputElement).value).toBe(
+    "blog",
+  );
   fireEvent.change(screen.getByLabelText("Nazwa"), {
     target: { value: "Blog firmowy" },
   });

@@ -59,6 +59,12 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@saas-core/ui/components/input-group";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { useCompanyLocales } from "#lib/company-locales";
@@ -76,7 +82,14 @@ import { slugFromTitle } from "./slug";
 type CollectionValues = { name: string; base_path: string };
 type EntryValues = { title: string; slug: string; locale: string };
 
-export function BlogPanel({ siteId }: { siteId: string }) {
+export function BlogPanel({
+  siteId,
+  address,
+}: {
+  siteId: string;
+  /** The site's public address, before the blog's own part of it. */
+  address?: string | null;
+}) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
   const labels = useDataTableLabels();
@@ -106,7 +119,7 @@ export function BlogPanel({ siteId }: { siteId: string }) {
           .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidSlug")),
       }),
     ),
-    defaultValues: { name: "", base_path: "" },
+    defaultValues: { name: "", base_path: "blog" },
   });
   const entryForm = useForm<EntryValues>({
     resolver: zodResolver(
@@ -132,7 +145,8 @@ export function BlogPanel({ siteId }: { siteId: string }) {
 
   const [pathEdited, setPathEdited] = useState(false);
   const [slugEdited, setSlugEdited] = useState(false);
-  useSlugSuggestion(collectionForm, "name", "base_path", pathEdited);
+  // „blog” until a name says otherwise: the address is never empty (UX-047).
+  useSlugSuggestion(collectionForm, "name", "base_path", pathEdited, "blog");
   useSlugSuggestion(entryForm, "title", "slug", slugEdited);
 
   const loadEntries = useCallback(async (targetId: string) => {
@@ -381,6 +395,7 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   </FieldLabel>
                   <Input
                     id="collection-name"
+                    placeholder={t("blogNameExample")}
                     {...collectionForm.register("name")}
                   />
                   <FieldError>
@@ -395,11 +410,22 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   <FieldLabel htmlFor="collection-path">
                     {t("blogBasePath")}
                   </FieldLabel>
-                  <Input
-                    id="collection-path"
-                    {...collectionForm.register("base_path")}
-                    onInput={() => setPathEdited(true)}
-                  />
+                  {/* Where the part goes on the site: „studio.pl/blog/” (UX-047). */}
+                  <InputGroup>
+                    <InputGroupAddon>
+                      <InputGroupText className="max-w-48 truncate">
+                        {`${(address ?? "").replace(/^https?:\/\//, "")}/`}
+                      </InputGroupText>
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="collection-path"
+                      {...collectionForm.register("base_path")}
+                      onInput={() => setPathEdited(true)}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupText>/</InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
                   <FieldError>
                     {collectionForm.formState.errors.base_path?.message}
                   </FieldError>
@@ -672,15 +698,17 @@ function useSlugSuggestion<TValues extends FieldValues>(
   source: Path<TValues>,
   target: Path<TValues>,
   edited: boolean,
+  fallback = "",
 ): void {
   const value = useWatch({ control: form.control, name: source });
   useEffect(() => {
     if (edited) return;
-    const suggestion = slugFromTitle(typeof value === "string" ? value : "");
+    const suggestion =
+      slugFromTitle(typeof value === "string" ? value : "") || fallback;
     if (suggestion !== form.getValues(target)) {
       form.setValue(target, suggestion as PathValue<TValues, Path<TValues>>, {
         shouldValidate: false,
       });
     }
-  }, [edited, form, target, value]);
+  }, [edited, fallback, form, target, value]);
 }

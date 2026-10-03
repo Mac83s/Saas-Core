@@ -1541,7 +1541,7 @@
     "connectionsTitle": "Automation connections",
     "connectionsDescription": "Credentials that may act in this organization, their exact reach, and their latest activity. Expired and revoked access remains visible.",
     "connectionsLoading": "Loading connections…",
-    "connectionsEmpty": "No automation has been granted access.",
+    "connectionsEmpty": "An integration is an outside program — e.g. for texts written for Google — that prepares changes to your website. None has access yet; we connect one on your request.",
     "connectionCredential": "Credential",
     "connectionStateActive": "Active",
     "connectionStateExpired": "Expired",
@@ -1578,7 +1578,7 @@
     "connectionRevoking": "Revoking immediately…",
     "proposalsTitle": "Proposals waiting for a decision",
     "proposalsDescription": "Changes prepared by an integration are waiting for your decision. Review the comparison and accept them into the draft or reject them. Publication is a separate step.",
-    "proposalsEmpty": "No integration is waiting for a decision.",
+    "proposalsEmpty": "When an integration prepares a change to the website, you will see it here and decide whether it goes into the draft.",
     "proposalOnPage": "Page",
     "proposalOnEntry": "Blog entry",
     "proposalRisk_low": "Low risk",
@@ -2339,7 +2339,9 @@
     "unfinishedSlots": "{count, plural, one {# place to fill in} other {# places to fill in}}",
     "unfinishedContact": "the template's phone or e-mail",
     "unfinishedShow": "Show: {page}",
-    "unfinishedPublish": "Visitors will not see the sentences with places to fill in, nor the buttons with the template's phone and e-mail — they are left out of the page. Fill them in before you publish."
+    "unfinishedPublish": "Visitors will not see the sentences with places to fill in, nor the buttons with the template's phone and e-mail — they are left out of the page. Fill them in before you publish.",
+    "connectionsAsk": "Write to us to connect an integration",
+    "blogNameExample": "e.g. News or Tips"
   },
   "BillingSupport": {
     "navigation": "Billing & access",

@@ -788,7 +788,11 @@ export function SitesPanel({
       ) : null}
 
       {section === "blog" && selectedSiteId ? (
-        <BlogPanel key={selectedSiteId} siteId={selectedSiteId} />
+        <BlogPanel
+          address={domains.length ? publicSiteUrl(domains) : null}
+          key={selectedSiteId}
+          siteId={selectedSiteId}
+        />
       ) : null}
 
       {section === "publication" ? (

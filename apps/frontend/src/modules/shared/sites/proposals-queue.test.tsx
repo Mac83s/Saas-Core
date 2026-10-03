@@ -194,7 +194,9 @@ test("odrzuca propozycję i usuwa ją z kolejki", async () => {
   // the server's answer, not this screen's memory of it.
   await waitFor(() =>
     expect(
-      screen.getByText("Żadna integracja nie czeka na decyzję."),
+      screen.getByText(
+        "Gdy integracja przygotuje zmianę strony, zobaczysz ją tutaj i zdecydujesz, czy trafi do szkicu.",
+      ),
     ).not.toBeNull(),
   );
 });
@@ -232,7 +234,9 @@ test("przyjmuje dopiero obejrzaną zmianę z tokenem jej przeglądu", async () =
     ),
   );
   expect(
-    await screen.findByText("Żadna integracja nie czeka na decyzję."),
+    await screen.findByText(
+      "Gdy integracja przygotuje zmianę strony, zobaczysz ją tutaj i zdecydujesz, czy trafi do szkicu.",
+    ),
   ).not.toBeNull();
 });
 
