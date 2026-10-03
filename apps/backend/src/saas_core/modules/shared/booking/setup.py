@@ -95,6 +95,9 @@ _SERVICE_FIELDS = (
 _PLACE_FIELDS = ("name", "address", "active", "online")
 _RESOURCE_FIELDS = ("name", "active", "capacity", "description", "group_id", "location_id")
 _GROUP_FIELDS = ("name", "description", "active")
+#: A protective bound, not a business rule: the units one offer's pool is
+#: brought up to in one write.
+MAX_OFFER_UNITS = 1000
 # `slugify` drops what NFKD cannot fold: "Łódź" would become "odz".
 _FOLD = str.maketrans({"ł": "l", "Ł": "L"})
 
@@ -139,6 +142,18 @@ class Saved[T]:
     changes: dict[str, Any] = field(default_factory=dict)
     #: The first answer of this key again: nothing was written now.
     replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class OfferUnits:
+    """The pool a stay or a rental is booked in, after `set_offer_units`."""
+
+    service: Service
+    group: ResourceGroup
+    #: Every switched-on unit of the pool, by name.
+    units: list[Resource]
+    #: The names of the units this write added.
+    added: list[str] = field(default_factory=list)
 
 
 class _Previewed(Exception):
@@ -839,3 +854,171 @@ def _write_group(
     group.save()
     _audit(organization, context, "resource_group", group.id, changes, created=not before)
     return _saved(group, created=not before, changes=changes)
+
+
+@transaction.atomic
+def set_offer_units(
+    *,
+    service_id: UUID,
+    count: int,
+    capacity: int | None = None,
+    location_id: UUID | None = None,
+    idempotency_key: str = "",
+    expected_version: int | None = None,
+    preview: bool = False,
+) -> Saved[OfferUnits]:
+    """Brings a stay's or a rental's pool up to `count` identical units, in
+    one write: the offer's group — made under the offer's name when it has
+    none, or the company's group of that name — linked to the offer, and the
+    units it lacks, named after the group („Domki 1”, „Domki 2”).
+
+    It only ever adds. Fewer than the pool has is refused
+    (`units_cannot_be_removed`): a unit may hold bookings, so one is switched
+    off by name, never by a count. `capacity` and `location_id` describe the
+    units added; the ones already there stay as they are.
+    """
+    context, organization = _manage()
+    return setup_write(
+        context=context,
+        action="service.units",
+        target_id=service_id,
+        request={
+            "count": count,
+            "capacity": capacity,
+            "location_id": location_id,
+            "expected_version": expected_version,
+        },
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_offer_units(
+            context, organization, service_id, count, capacity, location_id, expected_version
+        ),
+        replay=lambda item_id: _replayed_units(organization, item_id),
+    )
+
+
+def _pool(group: ResourceGroup) -> list[Resource]:
+    return list(Resource.all_objects.filter(group=group, active=True).order_by("name", "id"))
+
+
+def _replayed_units(organization: Organization, service_id: UUID) -> Saved[OfferUnits]:
+    service = Service.all_objects.filter(organization=organization, pk=service_id).first()
+    link = (
+        ServiceGroup.all_objects.filter(organization=organization, service_id=service_id)
+        .select_related("group")
+        .order_by("id")
+        .first()
+    )
+    if service is None or link is None:
+        # The key's first answer was about an offer discarded since.
+        raise NotFound("Tej usługi albo jej jednostek już nie ma.")
+    return Saved(
+        OfferUnits(service, link.group, _pool(link.group)),
+        service.id,
+        service.version,
+        False,
+        {},
+        True,
+    )
+
+
+def _refuse_units(field_name: str, message: str, code: str) -> NoReturn:
+    raise ValidationError({field_name: [ErrorDetail(message, code=code)]})
+
+
+def _write_offer_units(
+    context: TenantContext,
+    organization: Organization,
+    service_id: UUID,
+    count: int,
+    capacity: int | None,
+    location_id: UUID | None,
+    expected_version: int | None,
+) -> Saved[OfferUnits]:
+    service = (
+        Service.all_objects.select_for_update()
+        .filter(organization=organization, pk=service_id)
+        .first()
+    )
+    if service is None:
+        raise NotFound("Nie ma takiej usługi.")
+    check_version(service.version, expected_version)
+    if service.time_model != TimeModel.RANGE:
+        _refuse_units(
+            "service_id",
+            "Jednostki ma usługa rezerwowana na noce albo dni.",
+            "units_need_range_offer",
+        )
+    if not 1 <= count <= MAX_OFFER_UNITS:
+        _refuse_units("count", f"Podaj liczbę od 1 do {MAX_OFFER_UNITS}.", "out_of_range")
+    if location_id is not None:
+        _own(Location, organization, [location_id], "location_id")
+    linked = list(
+        ServiceGroup.all_objects.filter(organization=organization, service=service)
+        .order_by("id")
+        .values_list("group_id", flat=True)
+    )
+    if len(linked) > 1:
+        _refuse_units(
+            "service_id",
+            "Ta usługa ma kilka grup jednostek — jednostki dodasz w panelu, we właściwej grupie.",
+            "several_unit_groups",
+        )
+    changes: dict[str, Any] = {}
+    if linked:
+        group = ResourceGroup.all_objects.select_for_update().get(pk=linked[0])
+    else:
+        # The company's group of the offer's name is the offer's pool: made
+        # again after a discarded draft, the offer finds its units.
+        found = (
+            ResourceGroup.all_objects.select_for_update()
+            .filter(organization=organization, name__iexact=service.name)
+            .first()
+        )
+        group = (
+            found
+            if found is not None
+            else _write_group(context, organization, None, {"name": service.name}, None).value
+        )
+        _relink(ServiceGroup, organization, service, "group_id", [group.id])
+        changes["groups"] = {"changed": True}
+    units = _pool(group)
+    if count < len(units):
+        _refuse_units(
+            "count",
+            f"Grupa „{group.name}” ma już {len(units)} jedn. Jednostek nie usuwam: "
+            "zbędną wyłączysz w panelu.",
+            "units_cannot_be_removed",
+        )
+    taken = {
+        name.casefold()
+        for name in Resource.all_objects.filter(group=group).values_list("name", flat=True)
+    }
+    added: list[str] = []
+    number = 0
+    while len(units) + len(added) < count:
+        number += 1
+        name = f"{group.name[:150]} {number}"
+        if name.casefold() in taken:
+            continue
+        _write_resource(
+            context,
+            organization,
+            None,
+            {"name": name, "group_id": group.id, "capacity": capacity, "location_id": location_id},
+            None,
+        )
+        added.append(name)
+    if added:
+        changes["units"] = {"from": len(units), "to": count}
+    if changes:
+        service.version += 1
+        service.save(update_fields=["version", "updated_at"])
+    _audit(organization, context, "service", service.id, changes, created=False)
+    return Saved(
+        OfferUnits(service, group, _pool(group), added),
+        service.id,
+        service.version,
+        False,
+        changes,
+    )

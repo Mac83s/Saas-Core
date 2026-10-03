@@ -1,5 +1,6 @@
 """Evals of the assistant's service, place and working-hours commands
-(`shared/booking/command_declarations.py`, ADR-072 §11)."""
+(`shared/booking/command_declarations.py`, ADR-072 §11), and of its units,
+price list and draft removal (`shared/booking/pricing_commands.py`)."""
 
 from __future__ import annotations
 
@@ -16,10 +17,20 @@ from saas_core.modules.shared.billing.models import (
 )
 from saas_core.modules.shared.booking.models import (
     AvailabilityRule,
+    Extra,
     Location,
+    ParticipantCategory,
+    PriceBasis,
+    PriceRule,
+    RangeUnit,
+    Resource,
+    ResourceGroup,
     Service,
+    ServiceGroup,
     ServiceLocation,
     StaffMember,
+    TimeModel,
+    VatCode,
 )
 
 from . import CommandEval
@@ -145,6 +156,147 @@ def _week(context: TenantContext, start: str, end: str) -> dict[str, Any]:
     }
 
 
+def _stay_company(context: TenantContext) -> None:
+    """The same company with a stay that is still a draft: one unit in its
+    pool, a base price, an extra and a participant category."""
+    _company(context)
+    organization_id = context.organization_id
+    stay = Service.all_objects.create(
+        organization_id=organization_id,
+        name="Domki",
+        public_slug="domki",
+        time_model=TimeModel.RANGE,
+        range_unit=RangeUnit.NIGHT,
+        range_start_local=time(16),
+        range_end_local=time(11),
+        duration_minutes=None,
+        staff_count=0,
+        active=False,
+        draft=True,
+    )
+    group = ResourceGroup.all_objects.create(organization_id=organization_id, name="Domki")
+    ServiceGroup.all_objects.create(organization_id=organization_id, service=stay, group=group)
+    Resource.all_objects.create(organization_id=organization_id, name="Domki 1", group=group)
+    PriceRule.all_objects.create(
+        organization_id=organization_id,
+        service=stay,
+        basis=PriceBasis.PER_TIME_UNIT,
+        amount_minor=40000,
+        currency="PLN",
+        vat_code=VatCode.REDUCED,
+    )
+    Extra.all_objects.create(
+        organization_id=organization_id,
+        service=stay,
+        name="Sprzątanie końcowe",
+        amount_minor=15000,
+        currency="PLN",
+    )
+    ParticipantCategory.all_objects.create(organization_id=organization_id, name="Dziecko")
+
+
+def _stay(context: TenantContext) -> Service:
+    return Service.all_objects.get(organization_id=context.organization_id, name="Domki")
+
+
+def _price_state(context: TenantContext) -> dict[str, Any]:
+    organization_id = context.organization_id
+    return {
+        **_state(context),
+        "units": sorted(
+            Resource.all_objects.filter(organization_id=organization_id).values_list(
+                "name", "capacity", "active"
+            )
+        ),
+        "groups": sorted(
+            ResourceGroup.all_objects.filter(organization_id=organization_id).values_list(
+                "name", flat=True
+            )
+        ),
+        "prices": sorted(
+            PriceRule.all_objects.filter(organization_id=organization_id).values_list(
+                "amount_minor", "basis", "vat_code", "active", "version"
+            )
+        ),
+        "extras": sorted(
+            Extra.all_objects.filter(organization_id=organization_id).values_list(
+                "name", "amount_minor", "kind", "active", "version"
+            )
+        ),
+        "categories": sorted(
+            ParticipantCategory.all_objects.filter(organization_id=organization_id).values_list(
+                "name", "counts_towards_capacity", "active", "version"
+            )
+        ),
+    }
+
+
+def _bump(model: type[Any]) -> Any:
+    """Moves the version the preview read."""
+
+    def stale(context: TenantContext) -> None:
+        model.all_objects.filter(organization_id=context.organization_id).update(
+            version=F("version") + 1
+        )
+
+    return stale
+
+
+def _price_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys((
+        "price_id",
+        "service_id",
+        "group_id",
+        "resource_id",
+        "name",
+        "starts_on",
+        "ends_on",
+        "weekdays",
+        "local_from",
+        "local_to",
+        "basis",
+        "amount_minor",
+        "vat_code",
+        "included_people",
+        "extra_person_amount_minor",
+        "extra_person_per_time_unit",
+        "category_prices",
+        "length_discounts",
+        "active",
+    ))
+    return {**fields, **given}
+
+
+def _extra_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys((
+        "extra_id",
+        "service_id",
+        "name",
+        "kind",
+        "basis",
+        "amount_minor",
+        "vat_code",
+        "mandatory",
+        "max_quantity",
+        "active",
+    ))
+    return {**fields, **given}
+
+
+def _quote_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys((
+        "starts_at",
+        "start_date",
+        "end_date",
+        "resource_id",
+        "group_id",
+        "participants",
+        "extras",
+        "price_only",
+    ))
+    return {**fields, **given}
+
+
 EVALS = {
     "booking.setup.read@1": CommandEval(
         arguments=lambda _context: {},
@@ -259,6 +411,118 @@ EVALS = {
         stale="nie dotyczy: nowa usługa nie ma jeszcze wersji",
         state=_state,
         prepare=_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.offer.units.set@1": CommandEval(
+        arguments=lambda context: {
+            "service_id": str(_stay(context).id),
+            "count": 3,
+            "capacity": 6,
+            "location_id": None,
+        },
+        # Refused by the service, not the schema: a unit is never removed by a count.
+        wrong_arguments=lambda context: {
+            "service_id": str(_stay(context).id),
+            "count": 1,
+            "capacity": "sześć",
+            "location_id": None,
+        },
+        wrong_field="capacity",
+        stale=lambda context: (
+            Service.all_objects.filter(pk=_stay(context).pk).update(version=F("version") + 1)
+            and None
+        ),
+        state=_price_state,
+        prepare=_stay_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.prices.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"prices": True},
+        wrong_field="prices",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_price_state,
+        prepare=_stay_company,
+    ),
+    "booking.price.save@1": CommandEval(
+        arguments=lambda context: _price_fields(
+            price_id=str(_first(PriceRule, context).id), amount_minor=45000
+        ),
+        # Refused by the panel's own serializer: a new price needs its amount.
+        wrong_arguments=lambda context: _price_fields(
+            service_id=str(_stay(context).id), basis="per_time_unit"
+        ),
+        wrong_field="amount_minor",
+        stale=_bump(PriceRule),
+        state=_price_state,
+        prepare=_stay_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.participant_category.save@1": CommandEval(
+        arguments=lambda context: {
+            "category_id": str(_first(ParticipantCategory, context).id),
+            "name": "Dziecko do 12 lat",
+            "counts_towards_capacity": None,
+            "active": None,
+        },
+        # Refused by the service: the company has this category already.
+        wrong_arguments={
+            "category_id": None,
+            "name": "dziecko",
+            "counts_towards_capacity": None,
+            "active": None,
+        },
+        wrong_field="name",
+        stale=_bump(ParticipantCategory),
+        state=_price_state,
+        prepare=_stay_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.extra.save@1": CommandEval(
+        arguments=lambda context: _extra_fields(
+            extra_id=str(_first(Extra, context).id), amount_minor=18000
+        ),
+        # Refused by the panel's own serializer: a new extra needs its amount.
+        wrong_arguments=lambda context: _extra_fields(
+            service_id=str(_stay(context).id), name="Pościel"
+        ),
+        wrong_field="amount_minor",
+        stale=_bump(Extra),
+        state=_price_state,
+        prepare=_stay_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.quote.read@1": CommandEval(
+        arguments=lambda context: {
+            "service_id": str(_stay(context).id),
+            **_quote_fields(start_date="2027-07-01", end_date="2027-07-04", price_only=True),
+        },
+        wrong_arguments=lambda context: {
+            "service_id": str(_stay(context).id),
+            **_quote_fields(start_date="2027-07-01", end_date="2027-07-04", price_only="tak"),
+        },
+        wrong_field="price_only",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_price_state,
+        prepare=_stay_company,
+    ),
+    "booking.offer.discard@1": CommandEval(
+        arguments=lambda context: {"service_id": str(_stay(context).id)},
+        # Refused by the service: this one was never a draft.
+        wrong_arguments=lambda context: {
+            "service_id": str(
+                Service.all_objects.get(
+                    organization_id=context.organization_id, name="Konsultacja"
+                ).id
+            )
+        },
+        wrong_field="service_id",
+        stale=lambda context: (
+            Service.all_objects.filter(pk=_stay(context).pk).update(version=F("version") + 1)
+            and None
+        ),
+        state=_price_state,
+        prepare=_stay_company,
         preview_rolls_back=ROLLED_BACK,
     ),
 }

@@ -1,6 +1,176 @@
 {
   "commands": [
     {
+      "command": "booking.extra.save@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "description": "False switches the extra off.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "amount_minor": {
+            "description": "The amount in minor units of the company's currency.",
+            "maximum": 100000000,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "basis": {
+            "description": "What the amount is charged for.",
+            "enum": [
+              "per_booking",
+              "per_time_unit",
+              "per_person",
+              "per_person_per_time_unit",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "extra_id": {
+            "description": "The extra to change; null adds a new one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "A charge, or a deposit held and given back.",
+            "enum": [
+              "charge",
+              "security_deposit",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mandatory": {
+            "description": "On every booking of the service; otherwise the customer picks.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "max_quantity": {
+            "description": "How many of an optional one a booking may take, 1–100.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Its name as customers see it, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The service a new extra belongs to.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vat_code": {
+            "description": "The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT). The person says it; never pick one for them.",
+            "enum": [
+              "23",
+              "8",
+              "5",
+              "0",
+              "zw",
+              "np",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "extra_id",
+          "service_id",
+          "name",
+          "kind",
+          "basis",
+          "amount_minor",
+          "vat_code",
+          "mandatory",
+          "max_quantity",
+          "active"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds an extra to one service (extra_id null, with service_id) or changes one (its extra_id from booking.prices.read). `kind` `charge` is something the customer pays — final cleaning, bed linen, a local tax: mandatory on every booking, or picked by the customer up to max_quantity; `basis` per_booking, per_person, and for a stay per_time_unit or per_person_per_time_unit. `kind` `security_deposit` is money held and given back: one amount per booking, no tax, never part of the total — give only its name and amount. `amount_minor` is whole minor units (15000 is 150.00), read gross or net like the price list. Money is never guessed: the amount and the tax code are the person's own words — when either was not said, ask, do not call. An extra is never deleted — bookings name it — only switched off with active false. Pass null for every field that stays as it is.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "extra_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "What a service adds to its price, or the deposit it holds.",
+        "pl": "Co usługa dolicza do ceny albo jaką kaucję pobiera."
+      },
+      "title": {
+        "en": "Save an extra or a deposit",
+        "pl": "Zapisz dopłatę albo kaucję"
+      },
+      "tool_name": "booking_extra_save_v1",
+      "undo": "command:booking.extra.save@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "booking.location.save@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -249,8 +419,151 @@
         "pl": "Dodaj usługę"
       },
       "tool_name": "booking_offer_create_v1",
-      "undo": "none:a service is never deleted; it stays switched off",
+      "undo": "command:booking.offer.discard@1",
       "version_field": null
+    },
+    {
+      "command": "booking.offer.discard@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "service_id": {
+            "description": "The draft service to remove.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_id"
+        ],
+        "type": "object"
+      },
+      "model_description": "Removes a service that was never switched on and has no bookings — a draft — together with its links, its own prices, extras, deposits and season rules. It is the undo of booking.preset.apply and booking.offer.create. A service that was ever switched on is refused with `not_a_draft` on service_id and one with bookings with `service_has_bookings`: such a service is only switched off, which the person does in the panel. Units and their group are not removed. This cannot be undone; use it only when the person asks to remove the draft.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": "A draft is removed whole; the consent still binds the version it saw.",
+      "output_schema": {
+        "properties": {
+          "discarded": {
+            "type": "boolean"
+          },
+          "service_id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "irreversible",
+      "summary": {
+        "en": "Removes a service nobody has switched on yet, with its prices and extras.",
+        "pl": "Usuwa usługę, której nikt jeszcze nie włączył, z jej cenami i dopłatami."
+      },
+      "title": {
+        "en": "Remove a draft service",
+        "pl": "Usuń wersję roboczą usługi"
+      },
+      "tool_name": "booking_offer_discard_v1",
+      "undo": "none:a removed draft is set up again from its preset",
+      "version_field": null
+    },
+    {
+      "command": "booking.offer.units.set@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "capacity": {
+            "description": "How many people one new unit takes; null leaves it unset.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "count": {
+            "description": "How many units the service has in all.",
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "location_id": {
+            "description": "The company's place the new units are at; null leaves it unset.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The stay or rental.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_id",
+          "count",
+          "capacity",
+          "location_id"
+        ],
+        "type": "object"
+      },
+      "model_description": "Brings a stay or a rental (a service with time model `range`) up to `count` identical units — cottages, rooms, kayaks — in one step: the service's group of units is made under the service's name when it has none, and the units it lacks are added, named after the group and numbered. `count` is how many units the service has in all, not how many to add. It only ever adds: a count below what is there is refused with `units_cannot_be_removed` on `count` — tell the person to switch the spare unit off in the panel. `capacity` (people one unit takes) and `location_id` describe the units added; null leaves them unset. A visit by the clock has no units (`units_need_range_offer`). Take the count from the person; use booking.setup.read first for the service id.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "added": {
+            "type": "array"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "How many identical units a stay or a rental has; the missing ones are added.",
+        "pl": "Ile identycznych jednostek ma pobyt albo wynajem; brakujące są dodawane."
+      },
+      "title": {
+        "en": "Set a service's units",
+        "pl": "Ustaw jednostki usługi"
+      },
+      "tool_name": "booking_offer_units_set_v1",
+      "undo": "none:a unit is never deleted, it may hold bookings; a spare one is switched off",
+      "version_field": "expected_version"
     },
     {
       "command": "booking.offer.update@1",
@@ -425,6 +738,96 @@
       "version_field": "expected_version"
     },
     {
+      "command": "booking.participant_category.save@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "description": "False switches the category off.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "category_id": {
+            "description": "The category to change; null adds a new one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counts_towards_capacity": {
+            "description": "Whether such a participant takes a place in a unit.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Its name as customers see it, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "category_id",
+          "name",
+          "counts_towards_capacity",
+          "active"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds a participant category (category_id null) or changes one (its id from booking.prices.read). A category is who comes when that changes the price — a child, a senior, a dog; a price then names its amount in category_prices. counts_towards_capacity says whether such a participant takes a place in a unit (a child does, a dog does not). A category is never deleted — bookings name it — only switched off with active false. Pass null for every field that stays as it is; a new category needs a name. It belongs to the whole company, so it shows in every booking form that asks who comes.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "category_id": {
+            "type": "string"
+          },
+          "counts_towards_capacity": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Who comes, when it changes the price: “Child”, “Senior”, “Dog”.",
+        "pl": "Kto przyjeżdża, gdy zmienia to cenę: „Dziecko”, „Senior”, „Pies”."
+      },
+      "title": {
+        "en": "Save a participant category",
+        "pl": "Zapisz kategorię uczestników"
+      },
+      "tool_name": "booking_participant_category_save_v1",
+      "undo": "command:booking.participant_category.save@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "booking.preset.apply@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -487,7 +890,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, unit, price or working hours are made — a stay's or a rental's units and every price the person adds in the panel. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
+      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, unit, price or working hours are made — a stay's or a rental's units come from booking.offer.units.set and a price from booking.price.save, once the service exists. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": null,
@@ -530,7 +933,7 @@
         "pl": "Zacznij usługę od wzorca"
       },
       "tool_name": "booking_preset_apply_v1",
-      "undo": "discard_run",
+      "undo": "command:booking.offer.discard@1",
       "version_field": null
     },
     {
@@ -546,7 +949,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the booking presets this company may start an offer from, in the order the company sees them, each in its latest version: id, readiness, names and descriptions in pl and en, the time model (slot, range or session), what a booking takes, whether a person does it, where it happens, the inputs the preset needs from the company, and whether customers can book it through the company's site (online_booking). Only a preset with readiness `ready` can be applied; one marked `soon` is announced and cannot be used yet — say so instead of substituting another. A ready preset with online_booking `soon` makes an offer the company's team books in the panel; tell the person that booking through the site is coming soon for it. This list is the only source of preset ids.",
+      "model_description": "Returns the booking presets this company may start an offer from, in the order the company sees them, each in its latest version: id, readiness, names and descriptions in pl and en, the time model (slot, range or session; a range one says in range_unit whether it counts nights or days), what a booking takes, whether a person does it, where it happens, the inputs the preset needs from the company, and whether customers can book it through the company's site (online_booking). Only a preset with readiness `ready` can be applied; one marked `soon` is announced and cannot be used yet — say so instead of substituting another. A ready preset with online_booking `soon` makes an offer the company's team books in the panel; tell the person that booking through the site is coming soon for it. This list is the only source of preset ids.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -574,6 +977,528 @@
         "pl": "Odczytaj wzorce ofert"
       },
       "tool_name": "booking_preset_list_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.price.save@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "description": "False switches the price off.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "amount_minor": {
+            "description": "The amount in minor units of the company's currency.",
+            "maximum": 100000000,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "basis": {
+            "description": "What the amount is charged for.",
+            "enum": [
+              "per_booking",
+              "per_time_unit",
+              "per_person",
+              "per_group",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category_prices": {
+            "description": "A participant category's own amount instead of a person's.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "amount_minor": {
+                  "description": "What one participant of it pays, in minor units.",
+                  "maximum": 100000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "category_id": {
+                  "description": "The category.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "category_id",
+                "amount_minor"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "ends_on": {
+            "description": "Last local day of the season, included.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "extra_person_amount_minor": {
+            "description": "What each person beyond included_people adds, in minor units.",
+            "maximum": 100000000,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "extra_person_per_time_unit": {
+            "description": "Further people pay per night or day, not once.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "group_id": {
+            "description": "The group of units it prices.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "included_people": {
+            "description": "How many people the amount covers; null — everybody who comes.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "length_discounts": {
+            "description": "For per_time_unit: the percent off from so many nights or days.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "min_length": {
+                  "description": "From this many.",
+                  "type": "integer"
+                },
+                "percent": {
+                  "description": "The percent off, 1–100.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "min_length",
+                "percent"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "local_from": {
+            "description": "With local_to: the local hours it prices, HH:MM.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "local_to": {
+            "description": "The end of those hours, HH:MM.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "A name for the company: „Sezon wysoki”, „Weekend”.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "price_id": {
+            "description": "The price to change; null adds a new one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resource_id": {
+            "description": "The unit it prices.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The service it prices.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "starts_on": {
+            "description": "First local day of the season, YYYY-MM-DD.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vat_code": {
+            "description": "The tax rate as a code: 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT). The person says it; never pick one for them.",
+            "enum": [
+              "23",
+              "8",
+              "5",
+              "0",
+              "zw",
+              "np",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "weekdays": {
+            "description": "The weekdays it prices, 0 is Monday; null — every day.",
+            "items": {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "price_id",
+          "service_id",
+          "group_id",
+          "resource_id",
+          "name",
+          "starts_on",
+          "ends_on",
+          "weekdays",
+          "local_from",
+          "local_to",
+          "basis",
+          "amount_minor",
+          "vat_code",
+          "included_people",
+          "extra_person_amount_minor",
+          "extra_person_per_time_unit",
+          "category_prices",
+          "length_discounts",
+          "active"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds a price (price_id null) or changes one (its price_id from booking.prices.read). A price belongs to exactly one of a service, a group of units or a unit. Without dates it is the base price; with starts_on and ends_on a season's; weekdays and hours narrow it to a weekend or a peak. `amount_minor` is whole minor units (45000 is 450.00) in the company's currency, read gross or net as the company's price list is (booking.prices.read says which). `basis`: per_booking; per_time_unit — a night or a day of a stay, never for a visit by the clock; per_person; per_group. With included_people give extra_person_amount_minor too (0 says further people come free). Money is never guessed: the amount and the tax code are the person's own words — when either was not said, ask, do not call. Pass null for every field that stays as it is (a new price takes its defaults); a list given replaces the list; a field cannot be cleared here — the person clears a season's dates in the panel. A price of a switched-on service is in force at once for new bookings; bookings already made keep theirs.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "price_id": {
+            "type": "string"
+          },
+          "vat_code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A price of a service, a group of units or a unit: the base one or a season's.",
+        "pl": "Cena usługi, grupy jednostek albo jednostki: podstawowa albo sezonu."
+      },
+      "title": {
+        "en": "Save a price",
+        "pl": "Zapisz cenę"
+      },
+      "tool_name": "booking_price_save_v1",
+      "undo": "command:booking.price.save@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "booking.prices.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's price list as it was entered: every price (of a service, a group of units or a unit — the base price without dates, a season's with them), every extra and deposit, every participant category, switched-off ones included, each with its id and version; `currency` and whether amounts are read `gross` or `net`. Amounts are whole minor units (grosze). Use it before changing a price, to know the ids. It is the list, not what a booking costs: never add amounts up yourself — ask booking.quote.read.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "amounts": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "extras": {
+            "type": "array"
+          },
+          "prices": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Prices, extras, deposits and participant categories, with their versions.",
+        "pl": "Ceny, dopłaty, kaucje i kategorie uczestników, z wersjami do zmian."
+      },
+      "title": {
+        "en": "Read the price list",
+        "pl": "Odczytaj cennik"
+      },
+      "tool_name": "booking_prices_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.quote.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "end_date": {
+            "description": "A stay's last day (the day of leaving), YYYY-MM-DD.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "extras": {
+            "description": "The optional extras picked; mandatory ones are always charged.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "extra_id": {
+                  "description": "The extra.",
+                  "type": "string"
+                },
+                "quantity": {
+                  "description": "How many; null — one.",
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "extra_id",
+                "quantity"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "group_id": {
+            "description": "The group of units of the stay.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "participants": {
+            "description": "Who comes; null — one standard person.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "category_id": {
+                  "description": "A participant category; null — standard people.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "count": {
+                  "description": "How many of them.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "category_id",
+                "count"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "price_only": {
+            "description": "True: what the price list says, bookable or not.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "resource_id": {
+            "description": "The unit of the stay.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The service to price.",
+            "type": "string"
+          },
+          "start_date": {
+            "description": "A stay's first day, YYYY-MM-DD.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "starts_at": {
+            "description": "A visit's start, ISO date and time with offset.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "service_id",
+          "starts_at",
+          "start_date",
+          "end_date",
+          "resource_id",
+          "group_id",
+          "participants",
+          "extras",
+          "price_only"
+        ],
+        "type": "object"
+      },
+      "model_description": "Works out what a booking would cost and writes nothing: a visit at `starts_at` (ISO date and time), or a stay from `start_date` to `end_date` (YYYY-MM-DD) in the unit or the group named, or the least busy free unit when neither is. Returns the lines with which price applied (price_rule_id), the net, tax and gross totals in minor units, and the security deposit beside them — never in them. `price_only` true answers what the price list says for that time whether or not it could be booked (the service still switched off, the unit taken, a season's rule broken) — use it to check a price just saved. A time the price list has no price for is `price_missing`; a service with no price list at all answers no lines. This is the only place a price is worked out: never add amounts up yourself.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "amounts": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "extras": {
+            "type": "array"
+          },
+          "gross_minor": {
+            "type": "integer"
+          },
+          "lines": {
+            "type": "array"
+          },
+          "net_minor": {
+            "type": "integer"
+          },
+          "participants": {
+            "type": "array"
+          },
+          "payment_policy": {
+            "type": "string"
+          },
+          "security_deposit_minor": {
+            "type": "integer"
+          },
+          "vat_minor": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "What a booking would cost — nothing is written.",
+        "pl": "Ile kosztowałaby rezerwacja — bez zapisywania czegokolwiek."
+      },
+      "title": {
+        "en": "Quote a booking",
+        "pl": "Wyceń rezerwację"
+      },
+      "tool_name": "booking_quote_read_v1",
       "undo": "none:a read changes nothing",
       "version_field": null
     },
@@ -1545,13 +2470,16 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns every service (with who does it, where and with which resource), place, resource and current person of the company, switched-off ones included, each with its id and version; a person comes with their working week (hours), in the shape booking.staff.hours.set takes. Use it before creating or changing a service or someone's working hours, to know the ids. It does not return bookings.",
+      "model_description": "Returns every service (with who does it, where, with which resource and in which groups of units), place, resource or unit, group of units and current person of the company, switched-off ones included, each with its id and version; a unit names its group (group_id), a person comes with their working week (hours), in the shape booking.staff.hours.set takes. Use it before creating or changing a service, its units or someone's working hours, to know the ids. It does not return bookings or prices (booking.prices.read).",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
       "no_version_reason": "A read checks no version.",
       "output_schema": {
         "properties": {
+          "groups": {
+            "type": "array"
+          },
           "locations": {
             "type": "array"
           },

@@ -212,7 +212,7 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
     # Said before the click: what the assistant does not make, and that the
     # site's form comes later (owner decision 67a).
     (effect,) = group.calls[0].preview.effects
-    assert "Jednostki i ceny dodasz w panelu." in effect.summary["pl"]
+    assert "Jednostki i ceny dodasz w następnym kroku albo w panelu." in effect.summary["pl"]
     assert "rezerwacja przez stronę — wkrótce" in effect.summary["pl"]
     assert "booking through the site is coming soon" in effect.summary["en"]
 

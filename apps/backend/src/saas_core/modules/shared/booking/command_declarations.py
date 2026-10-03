@@ -38,7 +38,13 @@ from .serializers import (
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
 from .setup import list_setup, save_location, save_service
 from .staff import add_person, person_detail, set_person_hours
-from .views import _place_payload, _preset_payload, _resource_payload, _service_setup_payload
+from .views import (
+    _group_payload,
+    _place_payload,
+    _preset_payload,
+    _resource_payload,
+    _service_setup_payload,
+)
 
 #: What the assistant may set on a service; `active`, `online` and `materials`
 #: stay the person's (switching on and showing online is publishing, materials
@@ -133,6 +139,7 @@ def _read_setup(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
             "services": [_service_setup_payload(item) for item in value.services],
             "locations": [_place_payload(item) for item in value.locations],
             "resources": [_resource_payload(item) for item in value.resources],
+            "groups": [_group_payload(item) for item in value.groups],
             "staff": [
                 {
                     "id": item.id,
@@ -445,11 +452,13 @@ SETUP_READ = CommandSpec(
         "en": "Services, places, resources and people, with the versions changes name.",
     },
     model_description=(
-        "Returns every service (with who does it, where and with which resource), place, "
-        "resource and current person of the company, switched-off ones included, each "
-        "with its id and version; a person comes with their working week (hours), in the "
-        "shape booking.staff.hours.set takes. Use it before creating or changing a service "
-        "or someone's working hours, to know the ids. It does not return bookings."
+        "Returns every service (with who does it, where, with which resource and in which "
+        "groups of units), place, resource or unit, group of units and current person of "
+        "the company, switched-off ones included, each with its id and version; a unit "
+        "names its group (group_id), a person comes with their working week (hours), in "
+        "the shape booking.staff.hours.set takes. Use it before creating or changing a "
+        "service, its units or someone's working hours, to know the ids. It does not "
+        "return bookings or prices (booking.prices.read)."
     ),
     input_schema={
         "type": "object",
@@ -464,6 +473,8 @@ SETUP_READ = CommandSpec(
             "services": {"type": "array"},
             "locations": {"type": "array"},
             "resources": {"type": "array"},
+            # The pools of identical units a stay or a rental is booked in.
+            "groups": {"type": "array"},
             # The company's people by name, as its booking page names them,
             # each with the week they work.
             "staff": {"type": "array", "x-data-class": "public_personal"},
@@ -505,7 +516,7 @@ OFFER_CREATE = CommandSpec(
     entitlement=BOOKING_ENABLED,
     risk="draft",
     run=_create,
-    undo="none:a service is never deleted; it stays switched off",
+    undo="command:booking.offer.discard@1",
     preview=_preview_create,
     no_version_reason="A new service has no version yet.",
 )
@@ -790,7 +801,14 @@ STAFF_ADD = CommandSpec(
 
 
 def _read_presets(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
-    return {"presets": [_preset_payload(item) for item in list_presets()]}
+    return {
+        "presets": [
+            # What a `range` preset counts — nights or days — so a price can
+            # be told to fit before the offer exists.
+            {**_preset_payload(item), "range_unit": item.raw.get("range", {}).get("unit")}
+            for item in list_presets()
+        ]
+    }
 
 
 PRESET_LIST = CommandSpec(
@@ -805,7 +823,8 @@ PRESET_LIST = CommandSpec(
     model_description=(
         "Returns the booking presets this company may start an offer from, in the order "
         "the company sees them, each in its latest version: id, readiness, names and "
-        "descriptions in pl and en, the time model (slot, range or session), what a "
+        "descriptions in pl and en, the time model (slot, range or session; a range one "
+        "says in range_unit whether it counts nights or days), what a "
         "booking takes, whether a person does it, where it happens, the inputs the "
         "preset needs from the company, and whether customers can book it through the "
         "company's site (online_booking). Only a preset with readiness `ready` can be "
@@ -853,8 +872,8 @@ def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
     # What the offer still needs from the person, said before they agree.
     pl, en = "", ""
     if service.time_model == TimeModel.RANGE:
-        pl += " Jednostki i ceny dodasz w panelu."
-        en += " You add its units and prices in the panel."
+        pl += " Jednostki i ceny dodasz w następnym kroku albo w panelu."
+        en += " Its units and prices come in the next step, or in the panel."
     if not service.online:
         pl += " Rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce."
         en += " The team books it in the panel; booking through the site is coming soon."
@@ -902,8 +921,9 @@ PRESET_APPLY = CommandSpec(
         "`ready` applies — `preset_not_ready` and `preset_unknown` come back on the field "
         "preset_id, and then say so instead of trying another preset. It creates the "
         "service only, always switched off: no place, person, unit, price or working hours "
-        "are made — a stay's or a rental's units and every price the person adds in the "
-        "panel. Pass staff_ids and location_ids only for people and places that exist "
+        "are made — a stay's or a rental's units come from booking.offer.units.set and a "
+        "price from booking.price.save, once the service exists. Pass staff_ids and "
+        "location_ids only for people and places that exist "
         "(ids from booking.setup.read); null leaves the service without them, none is "
         "picked for you. Pass null for version to take the latest. Tell the person to "
         "switch the service on in the panel when it is complete."
@@ -939,13 +959,16 @@ PRESET_APPLY = CommandSpec(
     entitlement=BOOKING_ENABLED,
     risk="draft",
     run=_apply,
-    undo="discard_run",
+    undo="command:booking.offer.discard@1",
     preview=_preview_apply,
     no_version_reason="A new service has no version yet.",
 )
 
 
 def register_booking_commands() -> None:
+    # Imported here: the price-list commands use this module's helpers.
+    from .pricing_commands import PRICING_COMMANDS  # noqa: PLC0415
+
     for spec in (
         SETUP_READ,
         OFFER_CREATE,
@@ -955,5 +978,6 @@ def register_booking_commands() -> None:
         STAFF_ADD,
         PRESET_LIST,
         PRESET_APPLY,
+        *PRICING_COMMANDS,
     ):
         register_command(spec)
