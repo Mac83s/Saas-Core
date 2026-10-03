@@ -18,12 +18,18 @@ import {
 import englishMessages from "../../../../../messages/en.json";
 import polishMessages from "../../../../../messages/pl.json";
 import { PerformancePanel } from "./performance-panel";
-import { PersonHistory, PersonResults, periodDays } from "./person-facts";
+import {
+  PersonHistory,
+  PersonResults,
+  PersonStock,
+  periodDays,
+} from "./person-facts";
 
 const api = vi.hoisted(() => ({
   getStaffFacts: vi.fn(),
   getStaffHistory: vi.fn(),
   getTeamPerformance: vi.fn(),
+  listInventoryBalances: vi.fn(),
   listTeams: vi.fn(),
 }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
@@ -284,6 +290,50 @@ test("a number stands beside the period before it; today's stock stands alone", 
   );
 });
 
+test("a group of zeros is one line, not a screen of tiles", async () => {
+  api.getStaffFacts.mockResolvedValue({
+    ...facts,
+    groups: facts.groups.map((group) =>
+      group.provider === "inventory"
+        ? {
+            ...group,
+            metrics: group.metrics.map((metric) => ({
+              ...metric,
+              value: 0,
+              previous: metric.previous === null ? null : 0,
+            })),
+          }
+        : group,
+    ),
+  });
+  renderIn(
+    <PersonResults currency="PLN" staffId={MARCIN} zone="Europe/Warsaw" />,
+  );
+  expect(await screen.findByText("Visits done")).not.toBeNull();
+  expect(
+    screen.getByText(
+      (_, element) =>
+        element?.tagName === "P" &&
+        element.textContent === "Warehouse: no activity in this period",
+    ),
+  ).not.toBeNull();
+  expect(screen.queryByText("On hand")).toBeNull();
+});
+
+test("a person's stock reads in the warehouse's units", async () => {
+  api.listInventoryBalances.mockResolvedValue([
+    {
+      item_id: "i1",
+      item_name: "Rękawiczki nitrylowe",
+      unit: "pack",
+      quantity: "2.000",
+    },
+  ]);
+  renderIn(<PersonStock holderId="u1" own={false} />, "pl");
+  expect(await screen.findByText("2 opak.")).not.toBeNull();
+  expect(screen.queryByText(/pack/)).toBeNull();
+});
+
 test("somebody else's results the API refuses show nothing, not an error", async () => {
   api.getStaffFacts.mockRejectedValue(denied());
   const { container } = renderIn(
@@ -369,8 +419,28 @@ test("performance puts everybody's numbers side by side, and nothing is not zero
   const rendered = renderIn(<PerformancePanel organization={organization} />);
   expect(await screen.findByText("Marcin Kowalski")).not.toBeNull();
   expect(screen.getAllByText("88 h").length).toBeGreaterThan(0);
-  // No account, no stock: the warehouse has nothing on Krzysztof.
+  // No account, no stock: the warehouse has nothing on Krzysztof — a dash.
   expect(screen.getAllByText("no data").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  // Each module's numbers stand under its name.
+  expect(
+    screen
+      .getByRole("columnheader", { name: "Warehouse" })
+      .getAttribute("scope"),
+  ).toBe("colgroup");
+  expect(
+    screen
+      .getByRole("columnheader", { name: "Visits from the calendar" })
+      .getAttribute("colspan"),
+  ).toBe("2");
+  // A column outside any group spans both header rows, sortable as before.
+  const person = screen.getByRole("columnheader", { name: /^Person/ });
+  expect(person.getAttribute("rowspan")).toBe("2");
+  expect(within(person).getByRole("button")).not.toBeNull();
+  // The period says its days.
+  expect(
+    screen.getByRole("option", { name: /^This month · Sep 1/ }),
+  ).not.toBeNull();
   expect(screen.getByText("How we count")).not.toBeNull();
   fireEvent.change(screen.getByLabelText("Team"), { target: { value: NORTH } });
   await waitFor(() =>

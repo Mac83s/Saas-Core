@@ -135,6 +135,7 @@ export function PersonCard({
     "edit" | "timeOff" | "role" | "public"
   >();
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
+  const [allFacts, setAllFacts] = useState(false);
   const roleLabel = useRoleLabel(data?.roles, organization?.organization_type);
   const todayText = useTodayText(zone);
 
@@ -150,7 +151,8 @@ export function PersonCard({
           ? listMemberships({ includeFormer: canInvite })
           : Promise.resolve([]),
         canRead ? listInvitations() : Promise.resolve([]),
-        optional(listRoles()),
+        // The catalog is the members' page's: without it a 403 on every visit.
+        canRead ? optional(listRoles()) : Promise.resolve(undefined),
       ]);
       let detail: PersonDetail | null = null;
       let mine: Person[] | undefined;
@@ -410,6 +412,8 @@ export function PersonCard({
       : []),
   ];
 
+  const brief = new Set([t("phone"), t("email"), t("today")]);
+
   const visitColumns: ColumnDef<BookingAppointment, unknown>[] = [
     {
       id: "when",
@@ -531,14 +535,36 @@ export function PersonCard({
         <h2 className="sr-only" id="person-facts-title">
           {me ? t("myData") : t("data")}
         </h2>
-        <dl className="grid gap-x-8 gap-y-3 rounded-xl border p-4 sm:grid-cols-2">
+        <dl
+          className="grid gap-x-8 gap-y-3 rounded-xl border p-4 sm:grid-cols-2"
+          id="person-facts"
+        >
           {facts.map(([label, value]) => (
-            <div className="min-w-0" key={label}>
+            <div
+              className={cn(
+                "min-w-0",
+                // A phone keeps how to reach them and where they are now;
+                // the rest waits under "Więcej danych" (UX-034).
+                !allFacts && !brief.has(label) && "max-sm:hidden",
+              )}
+              key={label}
+            >
               <dt className="text-sm text-muted-foreground">{label}</dt>
               <dd className="wrap-anywhere">{value}</dd>
             </div>
           ))}
         </dl>
+        {facts.some(([label]) => !brief.has(label)) ? (
+          <button
+            aria-controls="person-facts"
+            aria-expanded={allFacts}
+            className="mt-2 min-h-11 text-sm font-medium text-primary hover:underline sm:hidden"
+            onClick={() => setAllFacts(!allFacts)}
+            type="button"
+          >
+            {allFacts ? t("lessFacts") : t("moreFacts")}
+          </button>
+        ) : null}
       </section>
 
       {detail ? (

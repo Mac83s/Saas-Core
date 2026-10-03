@@ -19,6 +19,7 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from .models import (
     DocumentKind,
     InventoryBalance,
+    InventoryItem,
     InventoryMovement,
     LocationKind,
     StockLocation,
@@ -42,6 +43,12 @@ def _entitled(subject: StaffSubject) -> bool:
     except APIException:
         return False
     return True
+
+
+def _stocked(subject: StaffSubject) -> bool:
+    """The warehouse has something in its catalogue: before that, four
+    columns of „0,00 zł” say nothing (UX-036)."""
+    return InventoryItem.all_objects.filter(organization_id=subject.organization_id).exists()
 
 
 def _place(subject: StaffSubject) -> StockLocation | None:
@@ -80,7 +87,7 @@ def metrics(subject: StaffSubject, span: Period) -> list[Metric]:
     from saas_core.modules.shared.booking.facts import Metric  # noqa: PLC0415
 
     # A person without an account holds no stock; no warehouse, no group.
-    if subject.user_id is None or not _entitled(subject):
+    if subject.user_id is None or not _entitled(subject) or not _stocked(subject):
         return []
     place = _place(subject)
     totals: dict[str, Decimal] = defaultdict(Decimal)

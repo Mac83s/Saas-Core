@@ -459,8 +459,28 @@ test("moja karta: bez podglądu zespołu, własny telefon, grafik ustawia biuro"
   ).toBeInTheDocument();
   expect(screen.getByText("Moja karta")).toBeInTheDocument();
   expect(api.listPeople).toHaveBeenCalledWith({ mine: true });
-  // No team screen: no one else's data is asked for.
+  // No team screen: no one else's data is asked for — the roles neither,
+  // which would only be a 403 (UX-037).
   expect(api.listMemberships).not.toHaveBeenCalled();
+  expect(api.listRoles).not.toHaveBeenCalled();
+  // A phone keeps the phone, e-mail and now; the rest under „Więcej danych”.
+  const more = screen.getByRole("button", { name: "Więcej danych" });
+  expect(more.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    screen.getByText("Konto", { selector: "dt" }).parentElement?.className,
+  ).toContain("max-sm:hidden");
+  expect(
+    screen.getByText("E-mail", { selector: "dt" }).parentElement?.className,
+  ).not.toContain("max-sm:hidden");
+  fireEvent.click(more);
+  expect(
+    screen.getByText("Konto", { selector: "dt" }).parentElement?.className,
+  ).not.toContain("max-sm:hidden");
+  expect(
+    screen
+      .getByRole("button", { name: "Mniej danych" })
+      .getAttribute("aria-expanded"),
+  ).toBe("true");
   // Without booking.schedule.own the office sets the hours (answer 7).
   expect(screen.queryByRole("button", { name: "Nieobecność" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Edytuj" }));

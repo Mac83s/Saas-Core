@@ -198,6 +198,7 @@ def test_history_tells_assignments_absences_and_role_changes(
     "shared.inventory" not in settings.ACTIVE_MODULES, reason="magazyn tylko w profilu z nim"
 )
 def test_the_warehouse_counts_what_a_person_took_used_and_gave_back() -> None:
+    from saas_core.modules.shared.inventory.models import InventoryItem  # noqa: PLC0415
     from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
         balances,
         consume,
@@ -217,6 +218,12 @@ def test_the_warehouse_counts_what_a_person_took_used_and_gave_back() -> None:
     EntitlementSnapshot.all_objects.filter(organization_id=owner.organization_id).update(
         features={"booking.enabled": True, "inventory.enabled": True}
     )
+    today = timezone.localdate(timezone=WARSAW)
+    with tenant(owner):
+        stocked = InventoryItem.all_objects.filter(organization_id=owner.organization_id).exists()
+        before = staff_facts(first.id, today, day)
+    # An empty catalogue is no group at all, not four zeros (UX-036).
+    assert ("inventory" in [group["provider"] for group in before["groups"]]) == stocked
     request = acting(owner)
     with tenant(owner):
         # Not a product's standard item: HoofCare's catalogue already has „Klocek”.
@@ -233,7 +240,6 @@ def test_the_warehouse_counts_what_a_person_took_used_and_gave_back() -> None:
         )
         give_back(request=request, item_id=block.id, holder_id=worker.user_id, quantity=Decimal(1))
 
-    today = timezone.localdate(timezone=WARSAW)
     for member in (owner, worker):
         with tenant(member):
             result = staff_facts(first.id, today, day)

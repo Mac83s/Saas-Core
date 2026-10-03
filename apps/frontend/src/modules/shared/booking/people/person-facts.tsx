@@ -191,49 +191,62 @@ export function PersonResults({
           {facts.groups.length ? null : (
             <p className="text-sm text-muted-foreground">{t("nothing")}</p>
           )}
-          {facts.groups.map((group) => (
-            <section
-              aria-labelledby={`facts-${group.provider}`}
-              className="space-y-2"
-              key={group.provider}
-            >
-              <h3
-                className="text-sm font-semibold"
-                id={`facts-${group.provider}`}
+          {facts.groups.map((group) =>
+            group.metrics.every(
+              (metric) => !metric.value && !metric.previous,
+            ) ? (
+              // A group of zeros is one line, not a screen of tiles (UX-034).
+              <p className="text-sm text-muted-foreground" key={group.provider}>
+                <span className="font-semibold text-foreground">
+                  {words.provider(group.provider)}
+                </span>
+                {": "}
+                {t("quiet")}
+              </p>
+            ) : (
+              <section
+                aria-labelledby={`facts-${group.provider}`}
+                className="space-y-2"
+                key={group.provider}
               >
-                {words.provider(group.provider)}
-              </h3>
-              <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {group.metrics.map((metric) => (
-                  <div
-                    className="min-w-0 rounded-xl border p-3"
-                    key={metric.key}
-                  >
-                    <dt className="text-sm text-muted-foreground">
-                      {words.metric(group.provider, metric.key)}
-                    </dt>
-                    <dd className="text-2xl font-semibold tabular-nums">
-                      {value(metric.value, metric.unit)}
-                    </dd>
-                    {metric.key === "visits_done" &&
-                    group.provider === "calendar" ? (
-                      <dd className="text-xs text-muted-foreground">
-                        {t("visitParts", {
-                          lead: metric.parts.lead ?? 0,
-                          crew: metric.parts.crew ?? 0,
-                        })}
+                <h3
+                  className="text-sm font-semibold"
+                  id={`facts-${group.provider}`}
+                >
+                  {words.provider(group.provider)}
+                </h3>
+                <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {group.metrics.map((metric) => (
+                    <div
+                      className="min-w-0 rounded-xl border p-3"
+                      key={metric.key}
+                    >
+                      <dt className="text-sm text-muted-foreground">
+                        {words.metric(group.provider, metric.key)}
+                      </dt>
+                      <dd className="text-lg font-semibold tabular-nums sm:text-2xl">
+                        {value(metric.value, metric.unit)}
                       </dd>
-                    ) : null}
-                    {previous(metric) ? (
-                      <dd className="text-xs text-muted-foreground">
-                        {previous(metric)}
-                      </dd>
-                    ) : null}
-                  </div>
-                ))}
-              </dl>
-            </section>
-          ))}
+                      {metric.key === "visits_done" &&
+                      group.provider === "calendar" ? (
+                        <dd className="text-xs text-muted-foreground">
+                          {t("visitParts", {
+                            lead: metric.parts.lead ?? 0,
+                            crew: metric.parts.crew ?? 0,
+                          })}
+                        </dd>
+                      ) : null}
+                      {previous(metric) ? (
+                        <dd className="text-xs text-muted-foreground">
+                          {previous(metric)}
+                        </dd>
+                      ) : null}
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ),
+          )}
         </div>
       )}
     </PanelSection>
@@ -470,6 +483,8 @@ export function PersonStock({
   own: boolean;
 }) {
   const t = useTranslations("StaffFacts");
+  // The stock tabs' unit names: "szt.", not the API's "piece".
+  const units = useTranslations("Inventory");
   const labels = useDataTableLabels();
   const format = useFormatter();
   const [rows, setRows] = useState<InventoryBalance[]>();
@@ -501,11 +516,9 @@ export function PersonStock({
       id: "quantity",
       accessorFn: (row) => Number(row.quantity),
       header: t("stock.quantity"),
-      cell: ({ row: { original: row } }) => (
-        <span className="tabular-nums">
-          {format.number(Number(row.quantity))} {row.unit}
-        </span>
-      ),
+      cell: ({ row: { original: row } }) =>
+        `${format.number(Number(row.quantity))} ${units(`unit_${row.unit}`)}`,
+      meta: { numeric: true },
     },
   ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   ApiProblemError,
@@ -16,10 +16,12 @@ import {
   DataTableFilter,
   type ColumnDef,
 } from "@saas-core/ui/components/data-table";
+import { cn } from "@saas-core/ui/lib/utils";
 
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { formatDateRange } from "#lib/dates";
 import { TeamNames } from "../teams/team-names";
 import {
   PERIODS,
@@ -45,6 +47,7 @@ export function PerformancePanel({
   organization: OrganizationSummary | null;
 }) {
   const t = useTranslations("StaffFacts");
+  const locale = useLocale();
   const labels = useDataTableLabels();
   const words = useFactWords();
   const zone = organization?.timezone ?? "UTC";
@@ -94,7 +97,8 @@ export function PerformancePanel({
         meta: { primary: true },
         cell: ({ row: { original: row } }) => (
           <Link
-            className="font-medium text-primary hover:underline"
+            // „Anna Właścicielka” on one line; the numbers scroll, not names.
+            className="font-medium text-primary hover:underline md:whitespace-nowrap"
             href={`/panel/team/${row.staff_id}`}
           >
             {row.name}
@@ -113,24 +117,40 @@ export function PerformancePanel({
           <TeamNames ids={row.team_ids} teams={teams} />
         ),
       },
-      ...(data?.columns ?? []).flatMap((group) =>
-        group.metrics.map((metric): ColumnDef<Row, unknown> => ({
-          id: `${group.provider}.${metric.key}`,
-          accessorFn: (row) => row.groups[group.provider]?.[metric.key] ?? -1,
-          header: words.metric(group.provider, metric.key),
-          meta: { numeric: true },
-          cell: ({ row: { original: row } }) => {
-            const number = row.groups[group.provider]?.[metric.key];
-            // A person the module has nothing on — no account, no stock —
-            // is not a zero.
-            return number === undefined ? (
-              <span className="text-muted-foreground">{t("noData")}</span>
-            ) : (
-              <span className="tabular-nums">{value(number, metric.unit)}</span>
-            );
-          },
-        })),
-      ),
+      // Each module's numbers under its name: „Kalendarz”, „Magazyn” (UX-036).
+      ...(data?.columns ?? []).map((group): ColumnDef<Row, unknown> => ({
+        id: group.provider,
+        header: words.provider(group.provider),
+        meta: { className: "border-l" },
+        columns: group.metrics.map(
+          (metric, index): ColumnDef<Row, unknown> => ({
+            id: `${group.provider}.${metric.key}`,
+            accessorFn: (row) => row.groups[group.provider]?.[metric.key] ?? -1,
+            header: words.metric(group.provider, metric.key),
+            meta: {
+              numeric: true,
+              // Two lines of a header rather than a table twice as wide.
+              className: cn(
+                "md:min-w-24 md:whitespace-normal",
+                index === 0 && "md:border-l",
+              ),
+            },
+            cell: ({ row: { original: row } }) => {
+              const number = row.groups[group.provider]?.[metric.key];
+              // A person the module has nothing on — no account, no stock —
+              // is not a zero.
+              return number === undefined ? (
+                <span className="text-muted-foreground">
+                  <span aria-hidden="true">—</span>
+                  <span className="sr-only">{t("noData")}</span>
+                </span>
+              ) : (
+                value(number, metric.unit)
+              );
+            },
+          }),
+        ),
+      })),
     ],
     [data, t, teams, value, words],
   );
@@ -165,11 +185,15 @@ export function PerformancePanel({
               onChange={(event) => setPeriod(event.target.value as PeriodKey)}
               value={period}
             >
-              {PERIODS.map((key) => (
-                <option key={key} value={key}>
-                  {t(`period_${key}`)}
-                </option>
-              ))}
+              {PERIODS.map((key) => {
+                // „Ten miesiąc · 1–3 paź 2026”: which days the numbers are of.
+                const { from, to } = periodDays(key, now, zone);
+                return (
+                  <option key={key} value={key}>
+                    {t(`period_${key}`)} · {formatDateRange(from, to, locale)}
+                  </option>
+                );
+              })}
             </DataTableFilter>
           }
           activeFilters={team ? 1 : 0}

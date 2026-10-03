@@ -247,15 +247,17 @@ export function PersonSchedule({
             const ranges = week[day];
             return (
               <li
-                className="grid gap-2 p-3 sm:grid-cols-[8rem_1fr] sm:items-start"
+                // The day and its "Dodaj godziny" share a row; the hours fill
+                // the width under them on a phone (UX-035).
+                className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 p-3 sm:grid-cols-[8rem_1fr_auto] sm:items-start"
                 key={day}
               >
                 <p className="font-medium sm:pt-2">
                   {people18n(`dayLong_${day}`)}
                 </p>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="col-span-2 space-y-2 sm:col-span-1">
                   {ranges.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground sm:pt-2">
                       {t("dayOff")}
                     </p>
                   ) : null}
@@ -279,7 +281,7 @@ export function PersonSchedule({
                           })}
                         </label>
                         <Input
-                          className="w-32"
+                          className="min-w-0 flex-1 sm:w-32 sm:flex-none"
                           disabled={!canEdit}
                           id={`${id}-from`}
                           onChange={(event) =>
@@ -293,7 +295,7 @@ export function PersonSchedule({
                           {t("rangeTo", { day: people18n(`dayLong_${day}`) })}
                         </label>
                         <Input
-                          className="w-32"
+                          className="min-w-0 flex-1 sm:w-32 sm:flex-none"
                           disabled={!canEdit}
                           id={`${id}-to`}
                           onChange={(event) => set({ end: event.target.value })}
@@ -308,7 +310,8 @@ export function PersonSchedule({
                               })}
                             </label>
                             <NativeSelect
-                              className="w-44"
+                              // Its own line on a phone, after the bin.
+                              className="order-last basis-full sm:order-none sm:w-44 sm:basis-auto"
                               disabled={!canEdit}
                               id={`${id}-place`}
                               onChange={(event) =>
@@ -347,31 +350,32 @@ export function PersonSchedule({
                       </div>
                     );
                   })}
-                  {canEdit && fallbackPlace ? (
-                    <Button
-                      aria-label={t("rangeAdd", {
-                        day: people18n(`dayLong_${day}`),
-                      })}
-                      onClick={() =>
-                        change(day, [
-                          ...ranges,
-                          {
-                            start: ranges.at(-1)?.end ?? "08:00",
-                            end: "16:00",
-                            locationId:
-                              ranges.at(-1)?.locationId ?? fallbackPlace,
-                          },
-                        ])
-                      }
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <PlusIcon aria-hidden="true" />
-                      {t("rangeAddShort")}
-                    </Button>
-                  ) : null}
                 </div>
+                {canEdit && fallbackPlace ? (
+                  <Button
+                    aria-label={t("rangeAdd", {
+                      day: people18n(`dayLong_${day}`),
+                    })}
+                    className="col-start-2 row-start-1 sm:col-start-3"
+                    onClick={() =>
+                      change(day, [
+                        ...ranges,
+                        {
+                          start: ranges.at(-1)?.end ?? "08:00",
+                          end: "16:00",
+                          locationId:
+                            ranges.at(-1)?.locationId ?? fallbackPlace,
+                        },
+                      ])
+                    }
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <PlusIcon aria-hidden="true" />
+                    {t("rangeAddShort")}
+                  </Button>
+                ) : null}
               </li>
             );
           })}
