@@ -114,6 +114,29 @@ def test_accepting_changes_only_that_language_entry_and_never_drafts():
     assert row.slug_locked_at is not None
 
 
+def test_the_body_says_what_waits_for_a_decision_and_what_was_taken_off():
+    """What the editor's banner reads (TL15): the version waiting and why,
+    and whether a person took the language off the site."""
+    client, _, site_id, _home, offer, _host = _published_site("decide-body-state")
+    row = _waiting(offer)
+
+    waiting = client.get(_url(offer))
+    assert waiting.status_code == 200, waiting.data
+    assert waiting.json()["pending"] == {
+        "version_id": str(row.body_pending_id),
+        "number": row.body_pending.number,
+        "reason": "review_mode",
+    }
+    assert (waiting.json()["version_id"], waiting.json()["withdrawn"]) == (None, False)
+
+    _post(client, _url(offer, tail="accept/"), {"expected_body_version": row.body_version}, "ok")
+    accepted = client.get(_url(offer)).json()
+    assert accepted["pending"] is None
+    assert accepted["version_id"] == str(row.body_pending_id)
+    _post(client, _url(offer, tail="withdraw/"), key="off")
+    assert client.get(_url(offer)).json()["withdrawn"] is True
+
+
 def test_rejecting_drops_the_waiting_version_and_publishes_nothing():
     client, _, site_id, _home, offer, host = _published_site("decide-reject")
     row = _waiting(offer)

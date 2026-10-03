@@ -73,6 +73,20 @@ def _body(body: LocaleBody) -> dict[str, Any]:
         "outdated": body.outdated,
         "body_version": body.translation.body_version,
         "version": body.version.number if body.version is not None else None,
+        "version_id": body.version.id if body.version is not None else None,
+        # What the editor's banner says about this language beyond its text
+        # (TL15): a translation waiting for a person's decision, and a version
+        # a person took off the site.
+        "pending": (
+            {
+                "version_id": pending.id,
+                "number": pending.number,
+                "reason": body.translation.pending_reason,
+            }
+            if (pending := body.translation.body_pending) is not None
+            else None
+        ),
+        "withdrawn": body.translation.withdrawn_at is not None,
         "untranslated": body.untranslated,
         "units": [
             {

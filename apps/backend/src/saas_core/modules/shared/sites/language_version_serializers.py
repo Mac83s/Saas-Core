@@ -47,6 +47,16 @@ class LocaleBodyUnitSerializer(serializers.Serializer[dict[str, Any]]):
     required_text = serializers.BooleanField(help_text="The unit may not be left empty.")
 
 
+class LocaleBodyPendingSerializer(serializers.Serializer[dict[str, Any]]):
+    version_id = serializers.UUIDField()
+    number = serializers.IntegerField()
+    reason = serializers.CharField(
+        allow_blank=True,
+        help_text="Why it waits: the translation engine's review reason (e.g. `review_mode`, "
+        "`legal_document`, `overwrites_human`, `qa_flagged`).",
+    )
+
+
 class LocaleBodySerializer(serializers.Serializer[dict[str, Any]]):
     page_id = serializers.UUIDField()
     locale = serializers.CharField()
@@ -62,6 +72,17 @@ class LocaleBodySerializer(serializers.Serializer[dict[str, Any]]):
     )
     version = serializers.IntegerField(
         allow_null=True, help_text="Number of the current body version; null before the first."
+    )
+    version_id = serializers.UUIDField(
+        allow_null=True, help_text="The current body version, for its read-only preview."
+    )
+    pending = LocaleBodyPendingSerializer(
+        allow_null=True,
+        help_text="A translation waiting for a person's decision (accept or reject), or null.",
+    )
+    withdrawn = serializers.BooleanField(
+        help_text="A person took this language version off the site; it stays off until "
+        "somebody publishes it again."
     )
     untranslated = serializers.IntegerField(help_text="Units still without a translation.")
     units = LocaleBodyUnitSerializer(many=True)
