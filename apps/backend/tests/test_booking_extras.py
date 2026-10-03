@@ -324,3 +324,67 @@ def test_the_extras_api_and_a_booking_with_extras() -> None:
     )
     assert booked.status_code == 201, booked.data
     assert booked.json()["quote"]["digest"] == quote["digest"]
+
+
+def test_a_booking_keeps_more_than_an_extra_now_allows_and_the_digest_ignores_names() -> None:
+    owner = membership("doplaty-zamrozone")
+    setup = with_extras(owner)
+    chosen = picks((setup["bed"], 2), (setup["linen"], 1))
+    with tenant(owner):
+        booked = stay(
+            setup, day(6, 1), day(6, 4), participants=people(2), extras=chosen
+        ).appointment
+        shown = of_stay(setup, day(6, 20), day(6, 23), people(2), extras=chosen)
+        # One extra bed at most from now on, and bed linen under another name:
+        # the lines change their order, the price does not.
+        save_extra(
+            extra_id=setup["bed"].id,
+            data={"max_quantity": 1, "name": "Zestaw: dostawka"},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+        with pytest.raises(ValidationError):
+            of_stay(setup, day(6, 20), day(6, 23), people(2), extras=chosen)
+        one = picks((setup["bed"], 1), (setup["linen"], 1))
+        save_extra(
+            extra_id=setup["bed"].id,
+            data={"max_quantity": 2},
+            expected_version=2,
+            idempotency_key=key(),
+        )
+        renamed = of_stay(setup, day(6, 20), day(6, 23), people(2), extras=chosen)
+        save_extra(
+            extra_id=setup["bed"].id,
+            data={"max_quantity": 1},
+            expected_version=3,
+            idempotency_key=key(),
+        )
+        # The booking made with two keeps two when it moves.
+        moved = move_stay(
+            appointment_id=booked.id,
+            start_date=day(6, 10),
+            end_date=day(6, 13),
+            idempotency_key=key(),
+            principal_ref="test",
+        )
+    assert one != chosen
+    assert [line.name for line in shown.lines][1] == "Dostawka"
+    assert [line.name for line in renamed.lines][-1] == "Zestaw: dostawka"
+    assert renamed.digest == shown.digest
+    assert isinstance(moved, Appointment)
+    assert {pick["extra_id"]: pick["quantity"] for pick in moved.quote["extras"]} == {
+        str(setup["bed"].id): 2,
+        str(setup["linen"].id): 1,
+    }
+
+
+def test_an_amount_in_another_currency_is_never_added_up() -> None:
+    owner = membership("doplaty-waluta")
+    setup = with_extras(owner)
+    with tenant(owner):
+        Extra.all_objects.filter(pk=setup["linen"].id).update(currency="EUR")
+        with pytest.raises(ValidationError) as mixed:
+            of_stay(setup, day(6, 1), day(6, 4), people(2))
+    assert [(found["field"], found["code"]) for found in problem_errors(mixed.value)] == [
+        ("service_id", "currency_mismatch")
+    ]

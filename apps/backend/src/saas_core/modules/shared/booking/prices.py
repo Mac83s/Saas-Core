@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, time
+from itertools import pairwise
 from typing import Any
 from uuid import UUID
 
@@ -402,8 +403,21 @@ def _check_price(organization: Organization, rule: PriceRule) -> None:
         raise _refuse(
             "included_people", "Podaj, ile osób jest w cenie.", "included_people_required"
         )
-    if rule.extra_person_amount_minor is None or not timed:
-        rule.extra_person_per_time_unit = False
+    if rule.included_people is not None and rule.extra_person_amount_minor is None:
+        # Said, not guessed: without an amount a further person would come
+        # free and take a category's surcharge with them. 0 is an answer.
+        raise _refuse(
+            "extra_person_amount_minor",
+            "Podaj dopłatę za osobę ponad te w cenie (może być 0).",
+            "required",
+        )
+    if rule.extra_person_per_time_unit and not timed:
+        # Never cleared behind the owner: it also says how categories pay.
+        raise _refuse(
+            "extra_person_per_time_unit",
+            "Dopłaty za każdą noc albo dzień dotyczą ceny za jednostkę czasu.",
+            "not_for_this_basis",
+        )
     rule.category_prices = _category_prices(organization, rule.category_prices)
     if rule.length_discounts and not timed:
         raise _refuse(
@@ -435,6 +449,13 @@ def _length_discounts(given: Any) -> list[dict[str, int]]:
     )
     if len({line["min_length"] for line in lines}) != len(lines):
         raise _refuse("length_discounts", "Każdy próg długości ma jeden rabat.", "duplicate")
+    # The longest threshold reached applies, so a longer stay never gets less.
+    if any(later["percent"] <= earlier["percent"] for earlier, later in pairwise(lines)):
+        raise _refuse(
+            "length_discounts",
+            "Dłuższy pobyt musi mieć większy rabat niż krótszy.",
+            "discount_must_grow",
+        )
     return lines
 
 

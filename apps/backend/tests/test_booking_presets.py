@@ -21,8 +21,15 @@ from rest_framework.exceptions import NotFound, ValidationError
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditEntry
 from saas_core.modules.shared.booking import presets
 from saas_core.modules.shared.booking.apps import check_preset_contracts
-from saas_core.modules.shared.booking.models import BookingSetupMutation, Service, ServiceStaff
+from saas_core.modules.shared.booking.models import (
+    BookingSetupMutation,
+    Extra,
+    PriceRule,
+    Service,
+    ServiceStaff,
+)
 from saas_core.modules.shared.booking.presets import apply_preset, find_preset, list_presets
+from saas_core.modules.shared.booking.prices import save_extra, save_price
 from saas_core.modules.shared.booking.services import BookingIdempotencyConflict
 from saas_core.modules.shared.booking.setup import discard_draft, save_service
 from test_booking import membership, tenant
@@ -272,3 +279,23 @@ def test_an_offer_that_was_ever_switched_on_is_not_discarded() -> None:
     Service.all_objects.filter(pk=configured["service"].id).update(draft=True)
     with tenant(owner):
         assert _refused_discard(configured["service"].id) == ["service_has_bookings"]
+
+
+def test_a_draft_with_prices_and_extras_is_taken_back_whole() -> None:
+    owner = membership("wzorce-cofnij-ceny")
+    with tenant(owner):
+        draft = apply_preset(**VISIT, idempotency_key="szkic-ceny")
+        save_price(
+            price_id=None,
+            data={"service_id": draft.item_id, "basis": "per_booking", "amount_minor": 12000},
+            idempotency_key=str(uuid4()),
+        )
+        save_extra(
+            extra_id=None,
+            data={"service_id": draft.item_id, "name": "Dojazd", "amount_minor": 5000},
+            idempotency_key=str(uuid4()),
+        )
+        discard_draft(service_id=draft.item_id, idempotency_key="cofnij-ceny")
+    assert not Service.all_objects.filter(pk=draft.item_id).exists()
+    assert not PriceRule.all_objects.filter(organization=owner.organization).exists()
+    assert not Extra.all_objects.filter(organization=owner.organization).exists()

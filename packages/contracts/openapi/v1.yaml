@@ -33674,10 +33674,12 @@ components:
           - 'null'
           maximum: 100000000
           minimum: 0
-          description: What each person beyond `included_people` adds.
+          description: What each person beyond `included_people` adds; required with
+            it — 0 says they come free.
         extra_person_per_time_unit:
           type: boolean
-          description: The extra person pays per night or day, not once.
+          description: Further people and priced categories pay per night or day,
+            not once. Only for `per_time_unit`.
         category_prices:
           type: array
           items:
@@ -33688,8 +33690,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LengthDiscount'
-          description: 'For `per_time_unit`: the longest reached threshold''s percent
-            off the stay.'
+          description: 'For `per_time_unit`: the percent off the stay of the longest
+            threshold it reaches. A longer threshold must give a higher percent.'
           maxItems: 10
         active:
           type: boolean
@@ -35365,10 +35367,12 @@ components:
           - 'null'
           maximum: 100000000
           minimum: 0
-          description: What each person beyond `included_people` adds.
+          description: What each person beyond `included_people` adds; required with
+            it — 0 says they come free.
         extra_person_per_time_unit:
           type: boolean
-          description: The extra person pays per night or day, not once.
+          description: Further people and priced categories pay per night or day,
+            not once. Only for `per_time_unit`.
         category_prices:
           type: array
           items:
@@ -35379,8 +35383,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LengthDiscount'
-          description: 'For `per_time_unit`: the longest reached threshold''s percent
-            off the stay.'
+          description: 'For `per_time_unit`: the percent off the stay of the longest
+            threshold it reaches. A longer threshold must give a higher percent.'
           maxItems: 10
         active:
           type: boolean
@@ -35598,10 +35602,12 @@ components:
           - 'null'
           maximum: 100000000
           minimum: 0
-          description: What each person beyond `included_people` adds.
+          description: What each person beyond `included_people` adds; required with
+            it — 0 says they come free.
         extra_person_per_time_unit:
           type: boolean
-          description: The extra person pays per night or day, not once.
+          description: Further people and priced categories pay per night or day,
+            not once. Only for `per_time_unit`.
         category_prices:
           type: array
           items:
@@ -35612,8 +35618,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LengthDiscount'
-          description: 'For `per_time_unit`: the longest reached threshold''s percent
-            off the stay.'
+          description: 'For `per_time_unit`: the percent off the stay of the longest
+            threshold it reaches. A longer threshold must give a higher percent.'
           maxItems: 10
         active:
           type: boolean

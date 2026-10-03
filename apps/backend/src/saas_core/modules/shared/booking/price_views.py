@@ -128,10 +128,13 @@ class PriceRuleInputSerializer(serializers.Serializer[dict[str, Any]]):
     extra_person_amount_minor = _amount(
         required=False,
         allow_null=True,
-        help_text="What each person beyond `included_people` adds.",
+        help_text="What each person beyond `included_people` adds; required with it — 0 "
+        "says they come free.",
     )
     extra_person_per_time_unit = serializers.BooleanField(
-        required=False, help_text="The extra person pays per night or day, not once."
+        required=False,
+        help_text="Further people and priced categories pay per night or day, not once. "
+        "Only for `per_time_unit`.",
     )
     category_prices = serializers.ListField(
         child=CategoryPriceSerializer(),
@@ -143,7 +146,8 @@ class PriceRuleInputSerializer(serializers.Serializer[dict[str, Any]]):
         child=LengthDiscountSerializer(),
         required=False,
         max_length=10,
-        help_text="For `per_time_unit`: the longest reached threshold's percent off the stay.",
+        help_text="For `per_time_unit`: the percent off the stay of the longest threshold "
+        "it reaches. A longer threshold must give a higher percent.",
     )
     active = serializers.BooleanField(required=False)
 

@@ -388,11 +388,14 @@ BOOKINGS_AREA = SettingArea(
 
 
 def _price_effects(before: Mapping[str, Any], after: Mapping[str, Any]) -> tuple[Effect, ...]:
-    from .models import PriceRule  # noqa: PLC0415 — models import nothing from here
+    from .models import Extra, ExtraKind, PriceRule  # noqa: PLC0415 — nothing imports back
 
-    count = PriceRule.all_objects.filter(
-        organization_id=require_tenant_context().organization_id
-    ).count()
+    organization_id = require_tenant_context().organization_id
+    # An extra's amount is read the same way; a deposit carries no tax.
+    count = (
+        PriceRule.all_objects.filter(organization_id=organization_id).count()
+        + Extra.all_objects.filter(organization_id=organization_id, kind=ExtraKind.CHARGE).count()
+    )
     if not count:
         return ()
     gross = after["amounts"] == "gross"
@@ -402,13 +405,13 @@ def _price_effects(before: Mapping[str, Any], after: Mapping[str, Any]) -> tuple
             resource="booking.price",
             resource_id="",
             summary={
-                "pl": f"Zmieni znaczenie {count} cen w cenniku: kwoty zostają, a "
+                "pl": f"Zmieni znaczenie {count} cen i dopłat w cenniku: kwoty zostają, a "
                 + (
                     "podatek będzie wyliczany z kwoty."
                     if gross
                     else "podatek będzie do nich doliczany."
                 ),
-                "en": f"Changes what {count} prices in the price list mean: the amounts "
+                "en": f"Changes what {count} prices and extras in the price list mean: the amounts "
                 "stay, and the tax is "
                 + ("worked out from the amount." if gross else "added on top of them."),
             },

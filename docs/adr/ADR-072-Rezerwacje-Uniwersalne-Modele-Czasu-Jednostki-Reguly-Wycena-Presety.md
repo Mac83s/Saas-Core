@@ -470,3 +470,26 @@ Ustalenia, których §6–§7 nie rozstrzygały, przyjęte przy budowie cennika
   pobraną i zwracaną opisze zamówienie (ADR-073). Dopłaty się nie usuwa, tylko
   wyłącza; rezerwacja przekładana zachowuje dopłatę, którą wzięła, także gdy
   firma ją potem wyłączyła, a nowa rezerwacja wziąć jej już nie może.
+- **Po przeglądzie arytmetyki (03.10).** Ustalenia doprecyzowane po niezależnym
+  przeglądzie cennika i wyceny:
+  - `included_people` wymaga podania dopłaty za kolejną osobę (0 to świadoma
+    odpowiedź „za darmo”); bez niej osoba ponad cenę kosztowałaby 0 i zabierała
+    ze sobą dopłatę kategorii.
+  - „Za każdą noc albo dzień” (`extra_person_per_time_unit`) dotyczy też kwot
+    kategorii i zostaje tak, jak zapisał właściciel; przy cenie liczonej raz
+    jest odmową, a nie cichym wyłączeniem.
+  - Oferta, która ma cenę gdziekolwiek w swoim zasięgu — własną, grupy albo
+    jednostki, także wyłączoną — jest ofertą z ceną: rezerwacja, dla której
+    żadna cena nie obowiązuje, dostaje `price_missing`, nigdy 0. „Za darmo”
+    znaczy usunąć cenę.
+  - Rabat za długość daje próg najdłuższy z osiągniętych, a dłuższy próg musi
+    mieć większy procent (`discount_must_grow`).
+  - Jednostkę dobiera się najpierw według pojemności dla liczonych osób, potem
+    według obciążenia.
+  - Rezerwacja wyceniana ponownie (przełożenie) jest sprawdzana względem tego,
+    z czym ją zapisano: zostaje na niej kategoria i dopłata wyłączone później
+    oraz liczba sztuk, na którą dopłata już nie pozwala. Pojemność jednostki
+    sprawdza się nadal.
+  - Skrót wyceny nie zależy od kolejności pozycji (a więc od nazw), a wycena
+    odmawia sumowania kwot w walucie innej niż waluta firmy
+    (`currency_mismatch`).

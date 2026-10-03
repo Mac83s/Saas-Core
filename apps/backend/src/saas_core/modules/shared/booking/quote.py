@@ -29,6 +29,7 @@ discount for length — as the arrival day's season decides the booking rules.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime
@@ -54,6 +55,8 @@ from .models import (
     PriceRule,
     Resource,
     Service,
+    ServiceGroup,
+    ServiceResource,
     TimeModel,
     VatCode,
 )
@@ -213,9 +216,11 @@ def quote_stay(
     `Stay.days`). Refuses more people than the unit takes and a day the price
     list has no price for. `extras` — the optional ones picked
     (`[{"extra_id", "quantity"}]`); `kept` — a booking made earlier is priced
-    again, so an extra switched off since stays on it."""
+    again, so what it holds is checked against what it was booked with: a
+    category or an extra switched off since, and a quantity the extra no longer
+    allows, stay on it."""
     organization = Organization.objects.get(pk=service.organization_id)
-    party = _party(organization, participants)
+    party = _party(organization, participants, kept)
     people = sum(group.count for group in party if group.counts)
     if unit.capacity is not None and people > unit.capacity:
         raise _refused(
@@ -238,12 +243,19 @@ def _stay_lines(
     party: Sequence[_Party],
     names: _Names,
 ) -> list[QuoteLine]:
-    """The stay's own price, without extras; nothing without a price list."""
+    """The stay's own price, without extras; nothing for an offer that has no
+    price list at all."""
     scope = Q(service=service) | Q(resource=unit)
     if unit.group_id is not None:
         scope |= Q(group_id=unit.group_id)
-    rules = list(PriceRule.all_objects.filter(scope, organization=organization, active=True))
+    rules = _in_currency(
+        organization, PriceRule.all_objects.filter(scope, organization=organization, active=True)
+    )
     if not rules:
+        if _priced_offer(organization, service):
+            # Another unit of the offer has a price, or this one's is switched
+            # off: a forgotten price must not read as free.
+            raise _refused("start_date", f"„{unit.name}” nie ma ceny w cenniku.", "price_missing")
         return []
 
     def on(day: date, among: Sequence[PriceRule]) -> PriceRule:
@@ -275,11 +287,10 @@ def _stay_lines(
             lines += _people(rule, party, names, units)
         elif index == 0:
             lines += _people(rule, party, names, None)
-    # What is charged per time unit gets cheaper with the length of the stay.
-    percent = max(
-        (line["percent"] for line in first.length_discounts if line["min_length"] <= len(days)),
-        default=0,
-    )
+    # What is charged per time unit gets cheaper with the length of the stay:
+    # the longest threshold the stay reaches (their percents grow with length).
+    reached = [line for line in first.length_discounts if line["min_length"] <= len(days)]
+    percent = max(reached, key=lambda line: line["min_length"])["percent"] if reached else 0
     if percent:
         by_code: dict[str, int] = {}
         for line in lines:
@@ -319,14 +330,15 @@ def quote_visit(
     """What a visit that starts at `starts_at` costs: the price of that local
     day and hour, and the extras."""
     organization = Organization.objects.get(pk=service.organization_id)
-    party = _party(organization, participants)
+    party = _party(organization, participants, kept)
     picked = _picked(organization, service, extras, kept)
     names = _names(organization, service, party, picked, locale)
-    rules = list(
-        PriceRule.all_objects.filter(organization=organization, service=service, active=True)
+    rules = _in_currency(
+        organization,
+        PriceRule.all_objects.filter(organization=organization, service=service, active=True),
     )
     lines: list[QuoteLine] = []
-    if rules:
+    if rules or _priced_offer(organization, service):
         local = starts_at.astimezone(_zone())
         rule = price_for(rules, day=local.date(), at=local.time(), service_id=service.id)
         if rule is None:
@@ -376,8 +388,45 @@ def quote_offer(
         end_date=end_date,
         resource_id=resource_id,
         group_id=group_id,
+        people=people_counted(context.organization_id, participants),
     )
     return stay_quote(plan, participants=participants, extras=extras, locale=locale)
+
+
+def people_counted(
+    organization_id: UUID,
+    participants: Sequence[Mapping[str, Any]] | None,
+    kept: bool = False,
+) -> int:
+    """How many of those who come take a place in a unit's capacity."""
+    organization = Organization.objects.get(pk=organization_id)
+    return sum(group.count for group in _party(organization, participants, kept) if group.counts)
+
+
+def _in_currency(organization: Organization, rules: Any) -> list[PriceRule]:
+    """The rules, all in the company's currency — an amount in another one is
+    never added up as if it were (`currency_in_use` keeps them one)."""
+    found = list(rules)
+    if any(rule.currency != organization.currency for rule in found):
+        raise _refused(
+            "service_id", "Cennik ma ceny w innej walucie niż firma.", "currency_mismatch"
+        )
+    return found
+
+
+def _priced_offer(organization: Organization, service: Service) -> bool:
+    """Whether the offer has a price anywhere in its scope — its own, a group's
+    or a unit's, switched off ones too. Such an offer is never free by
+    omission; free again means deleting the price."""
+    groups = ServiceGroup.all_objects.filter(service=service).values("group_id")
+    units = Resource.all_objects.filter(
+        Q(pk__in=ServiceResource.all_objects.filter(service=service).values("resource_id"))
+        | Q(group_id__in=groups)
+    ).values("pk")
+    return PriceRule.all_objects.filter(
+        Q(service=service) | Q(group_id__in=groups) | Q(resource_id__in=units),
+        organization=organization,
+    ).exists()
 
 
 def assert_shown(quote: Quote, digest: str) -> None:
@@ -493,6 +542,8 @@ def _picked(
     offered = list(Extra.all_objects.filter(organization=organization, service=service))
     if set(wanted) - {extra.id for extra in offered}:
         raise _refused("extras", "Ta usługa nie ma takiej dopłaty.", "invalid")
+    if any(extra.currency != organization.currency for extra in offered):
+        raise _refused("service_id", "Dopłaty są w innej walucie niż firma.", "currency_mismatch")
     charged: list[tuple[Extra, int]] = []
     chosen: list[dict[str, Any]] = []
     deposit = 0
@@ -503,11 +554,11 @@ def _picked(
             if extra.active:
                 charged.append((extra, 1))
         elif quantity := wanted.get(extra.id, 0):
-            # A booking priced again keeps an extra the company has since
-            # switched off; a new one cannot take it.
+            # A booking priced again keeps what it took — an extra the company
+            # has since switched off, more than it now allows; a new one cannot.
             if not extra.active and not kept:
                 raise _refused("extras", f"„{extra.name}” nie jest już w ofercie.", "invalid")
-            if quantity > extra.max_quantity:
+            if quantity > extra.max_quantity and not kept:
                 raise _refused(
                     "extras",
                     f"„{extra.name}” można wziąć najwyżej {extra.max_quantity} razy.",
@@ -589,15 +640,22 @@ def _total(
         "vat_minor": sum(line.vat_minor for line in taxed),
         "gross_minor": sum(line.gross_minor for line in taxed),
     }
+    # Of the price, whatever order its lines come in: they follow names, and
+    # a rename between showing a price and booking it is no change of price.
     essence = {
         "currency": organization.currency,
         "amounts": GROSS if gross else NET,
-        "lines": [
-            {key: value for key, value in _line_json(line).items() if "name" not in key}
-            for line in taxed
-        ],
-        "participants": list(participants),
-        "extras": list(picked.chosen),
+        "lines": sorted(
+            (
+                {key: value for key, value in _line_json(line).items() if "name" not in key}
+                for line in taxed
+            ),
+            key=lambda line: json.dumps(line, sort_keys=True),
+        ),
+        "participants": sorted(
+            participants, key=lambda group: (group["category_id"] or "", group["count"])
+        ),
+        "extras": sorted(picked.chosen, key=lambda pick: pick["extra_id"]),
         "security_deposit_minor": picked.deposit,
         **sums,
     }
@@ -638,21 +696,20 @@ def _line_json(line: QuoteLine) -> dict[str, Any]:
 
 
 def _party(
-    organization: Organization, participants: Sequence[Mapping[str, Any]] | None
+    organization: Organization,
+    participants: Sequence[Mapping[str, Any]] | None,
+    kept: bool = False,
 ) -> list[_Party]:
-    """Who comes, each category once; nobody named is one standard person."""
+    """Who comes, each category once; nobody named is one standard person. A
+    booking priced again (`kept`) keeps a category switched off since."""
     counts: dict[UUID | None, int] = {}
     for line in participants or [{"category_id": None, "count": 1}]:
         raw = line.get("category_id")
         key = UUID(str(raw)) if raw else None
         counts[key] = counts.get(key, 0) + int(line["count"])
     wanted = [key for key in counts if key is not None]
-    found = {
-        item.id: item
-        for item in ParticipantCategory.all_objects.filter(
-            organization=organization, pk__in=wanted, active=True
-        )
-    }
+    categories = ParticipantCategory.all_objects.filter(organization=organization, pk__in=wanted)
+    found = {item.id: item for item in (categories if kept else categories.filter(active=True))}
     if len(found) != len(wanted):
         raise _refused("participants", "Nie ma takiej kategorii uczestników.", "invalid")
     party = sorted(

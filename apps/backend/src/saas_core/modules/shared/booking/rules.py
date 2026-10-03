@@ -335,7 +335,10 @@ def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extr
 def _replay[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra)](
     model: type[T], organization: Organization, item_id: UUID, created: bool
 ) -> Saved[T]:
-    item = model.all_objects.get(organization=organization, pk=item_id)
+    item = model.all_objects.filter(organization=organization, pk=item_id).first()
+    if item is None:
+        # The key's first answer was about an item deleted since.
+        raise NotFound("Tej pozycji już nie ma.")
     return Saved(item, item.id, item.version, created, {}, replayed=True)
 
 

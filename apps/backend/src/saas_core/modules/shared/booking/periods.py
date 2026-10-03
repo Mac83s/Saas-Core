@@ -211,12 +211,27 @@ def plan_stay(
     group_id: UUID | None = None,
     ignore_appointment_id: UUID | None = None,
     now: datetime | None = None,
+    people: int | None = None,
 ) -> StayPlan:
     """The unit a stay would take, or the reason none can: the first rule it
-    breaks, a closed day, or no free unit (409 `slot_unavailable`)."""
+    breaks, a closed day, or no free unit (409 `slot_unavailable`). With
+    `people` — how many of those who come count towards capacity — only a
+    unit that takes them is picked, the least busy of those."""
     service, units = _offer(service_id, resource_id, group_id)
     if not units:
         raise SlotUnavailable
+    if people is not None:
+        # Fit first, load second: a smaller unit being less busy is no reason
+        # to refuse a party the larger one takes.
+        fitting = [unit for unit in units if unit.capacity is None or unit.capacity >= people]
+        if not fitting:
+            most = max(unit.capacity or 0 for unit in units)
+            raise _refuse(
+                "participants",
+                "unit_capacity_exceeded",
+                f"Najwięcej osób w jednej jednostce: {most}.",
+            )
+        units = fitting
     zone = _zone()
     stay = stay_bounds(service, start_date, end_date, zone)
     calendar = _Calendar.load(
@@ -271,6 +286,7 @@ def book_stay(
     `quote_digest` is the digest of the quote the caller showed, and another
     price by now is 409 `quote_changed` (ADR-072 §7)."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    people = _people(context.organization_id, participants)
     if preview:
         plan = plan_stay(
             service_id=service_id,
@@ -278,6 +294,7 @@ def book_stay(
             end_date=end_date,
             resource_id=resource_id,
             group_id=group_id,
+            people=people,
         )
         return replace(
             plan,
@@ -342,6 +359,7 @@ def book_stay(
         end_date=end_date,
         resource_id=resource_id,
         group_id=group_id,
+        people=people,
     )
     organization = Organization.objects.get(pk=context.organization_id)
     customer, email = upsert_customer(organization, customer_data)
@@ -427,6 +445,12 @@ def move_stay(
         if existing.request_hash != request_hash:
             raise BookingIdempotencyConflict
         return appointment
+    # The people it was booked for, as its quote keeps them.
+    people = (
+        _people(context.organization_id, appointment.quote.get("participants"), kept=True)
+        if appointment.quote is not None
+        else None
+    )
     try:
         plan = plan_stay(
             service_id=appointment.service_id,
@@ -434,6 +458,7 @@ def move_stay(
             end_date=end_date,
             resource_id=appointment.resource_id,
             ignore_appointment_id=appointment.id,
+            people=people,
         )
     except (SlotUnavailable, StayRefused):
         if appointment.requested_group_id is None:
@@ -444,6 +469,7 @@ def move_stay(
             end_date=end_date,
             group_id=appointment.requested_group_id,
             ignore_appointment_id=appointment.id,
+            people=people,
         )
     if preview:
         if appointment.quote is None:
@@ -885,6 +911,18 @@ def stay_quote(
         locale=locale,
         kept=kept,
     )
+
+
+def _people(
+    organization_id: UUID,
+    participants: Sequence[Mapping[str, Any]] | None,
+    *,
+    kept: bool = False,
+) -> int:
+    """How many of those who come a unit has to take."""
+    from .quote import people_counted
+
+    return people_counted(organization_id, participants, kept)
 
 
 def _freeze(

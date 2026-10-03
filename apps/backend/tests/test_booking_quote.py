@@ -18,9 +18,10 @@ from saas_core.modules.core.organizations.settings_service import change_setting
 from saas_core.modules.shared.booking.item_translations import save_item_translation
 from saas_core.modules.shared.booking.models import Appointment
 from saas_core.modules.shared.booking.periods import move_stay, plan_stay, stay_quote
-from saas_core.modules.shared.booking.prices import save_category, save_price
+from saas_core.modules.shared.booking.prices import delete_price, save_category, save_price
 from saas_core.modules.shared.booking.quote import Quote, QuoteChanged, quote_offer, quote_visit
 from saas_core.modules.shared.booking.services import create_appointment, reschedule_appointment
+from saas_core.modules.shared.booking.setup import save_resource
 from test_booking import catalog, membership, tenant
 from test_booking_prices import add, key, season
 from test_booking_slots import team
@@ -485,3 +486,237 @@ def test_the_quote_api_prices_and_a_booking_answers_a_changed_price() -> None:
         HTTP_X_CSRFTOKEN=csrf,
     )
     assert neither.status_code == 400
+
+
+def test_a_category_pays_for_every_night_when_the_price_says_so() -> None:
+    owner = membership("wycena-pies-za-noc")
+    setup = cottages(owner, units=1)
+    with tenant(owner):
+        dog = category("Pies", counts_towards_capacity=False)
+        add(
+            30000,
+            "per_time_unit",
+            service_id=setup["service"].id,
+            extra_person_per_time_unit=True,
+            category_prices=[{"category_id": dog.id, "amount_minor": 2000}],
+        )
+        week = of_stay(setup, day(6, 1), day(6, 8), people(2, **{str(dog.id): 1}))
+    # Seven nights with a dog at 20 a night: 140, not 20.
+    assert [(line.kind, line.quantity, line.gross_minor) for line in week.lines] == [
+        ("price", 7, 210000),
+        ("category", 7, 14000),
+    ]
+
+
+def test_people_beyond_the_included_pay_what_the_owner_said() -> None:
+    owner = membership("wycena-ponad-cene")
+    setup = cottages(owner, units=1)
+    party = None
+    with tenant(owner):
+        child = category("Dziecko")
+        party = people(2, **{str(child.id): 1})
+        add(
+            40000,
+            service_id=setup["service"].id,
+            included_people=2,
+            extra_person_amount_minor=5000,
+            category_prices=[{"category_id": child.id, "amount_minor": 2500}],
+        )
+        paid = of_stay(setup, day(6, 1), day(6, 3), party)
+        # The same price with further people said to come free: the child is
+        # the dearest of the three, so the price includes it.
+        rule = _rules(owner)[0]
+        save_price(
+            price_id=rule.id,
+            data={"extra_person_amount_minor": 0},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+        free = of_stay(setup, day(6, 1), day(6, 3), party)
+    assert (paid.gross_minor, free.gross_minor) == (42500, 40000)
+
+
+def test_the_longest_threshold_reached_gives_the_discount() -> None:
+    owner = membership("wycena-progi")
+    setup = cottages(owner, units=1)
+    with tenant(owner):
+        add(
+            10000,
+            "per_time_unit",
+            service_id=setup["service"].id,
+            length_discounts=[{"min_length": 3, "percent": 10}, {"min_length": 7, "percent": 20}],
+        )
+        two, six, seven = (of_stay(setup, day(6, 1), day(6, 1 + nights)) for nights in (2, 6, 7))
+    assert [(quote.gross_minor, quote.lines[-1].percent) for quote in (two, six, seven)] == [
+        (20000, None),
+        (54000, 10),
+        (56000, 20),
+    ]
+
+
+def test_a_priced_offer_is_never_free_by_omission() -> None:
+    owner = membership("wycena-luka")
+    setup = cottages(owner, units=2)
+    first, second = setup["units"]
+    with tenant(owner):
+        # A price for one cottage, the other forgotten.
+        own = add(45000, "per_time_unit", resource_id=first.id)
+
+        def of_unit(unit: Any) -> Quote:
+            plan = plan_stay(
+                service_id=setup["service"].id,
+                start_date=day(6, 1),
+                end_date=day(6, 3),
+                resource_id=unit.id,
+            )
+            return stay_quote(plan)
+
+        priced = of_unit(first)
+        with pytest.raises(ValidationError) as missing:
+            of_unit(second)
+        # Switched off, the offer's only price is still a price it has.
+        save_price(
+            price_id=own.id, data={"active": False}, expected_version=1, idempotency_key=key()
+        )
+        with pytest.raises(ValidationError) as off:
+            of_unit(first)
+        # Free again is said by deleting the price.
+        delete_price(price_id=own.id, expected_version=2, idempotency_key=key())
+        free = of_unit(first)
+
+        visit = catalog(owner)["service"]
+        rule = add(15000, service_id=visit.id)
+        save_price(
+            price_id=rule.id, data={"active": False}, expected_version=1, idempotency_key=key()
+        )
+        with pytest.raises(ValidationError) as visit_off:
+            quote_visit(service=visit, starts_at=datetime(YEAR, 6, 8, 10, tzinfo=WARSAW))
+    # The unit's own price is the one in the quote.
+    assert (priced.gross_minor, priced.lines[0].price_rule_id) == (90000, own.id)
+    for refusal, field in ((missing, "start_date"), (off, "start_date"), (visit_off, "starts_at")):
+        assert [(found["field"], found["code"]) for found in problem_errors(refusal.value)] == [
+            (field, "price_missing")
+        ]
+    assert (free.priced, free.gross_minor) == (False, 0)
+
+
+def test_the_unit_that_takes_the_party_is_picked_before_the_least_busy() -> None:
+    owner = membership("wycena-pojemnosc")
+    setup = cottages(owner, units=2)
+    small, large = setup["units"]
+    with tenant(owner):
+        save_resource(
+            resource_id=small.id, data={"capacity": 4}, expected_version=1, idempotency_key=key()
+        )
+        # The larger cottage is the busier one.
+        stay(setup, day(5, 1), day(5, 8), resource_id=large.id, group_id=None)
+        four = stay(setup, day(6, 1), day(6, 3), participants=people(4), preview=True)
+        six = stay(setup, day(6, 1), day(6, 3), participants=people(6), preview=True)
+        booked = stay(setup, day(6, 1), day(6, 3), participants=people(6)).appointment
+        with pytest.raises(ValidationError) as crowd:
+            stay(setup, day(6, 10), day(6, 12), participants=people(7), preview=True)
+    assert (four.unit.id, six.unit.id, booked.resource_id) == (small.id, large.id, large.id)
+    assert [(found["field"], found["code"]) for found in problem_errors(crowd.value)] == [
+        ("participants", "unit_capacity_exceeded")
+    ]
+
+
+def test_a_booking_moves_with_what_it_was_booked_with() -> None:
+    owner = membership("wycena-przenosiny")
+    setup = priced_cottages(owner)
+    party = people(2, **{str(setup["child"].id): 3})
+    with tenant(owner):
+        booked = stay(setup, day(6, 1), day(6, 4), participants=party).appointment
+        before = dict(booked.quote)
+        # The company stops taking children as a category of their own.
+        save_category(
+            category_id=setup["child"].id,
+            data={"active": False},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+        assert refused(setup, day(6, 20), day(6, 22), party) == [("participants", "invalid")]
+
+        # A move with the price the mover saw for other dates is asked again…
+        stale = of_stay(setup, day(6, 20), day(6, 22), people(2))
+        with pytest.raises(QuoteChanged):
+            move_stay(
+                appointment_id=booked.id,
+                start_date=day(6, 10),
+                end_date=day(6, 13),
+                idempotency_key=key(),
+                principal_ref="test",
+                quote_digest=stale.digest,
+            )
+        booked.refresh_from_db()
+        assert (booked.starts_at.date(), booked.quote) == (day(6, 1), before)
+        # …and without one the stay moves, the child still on it.
+        moved = move_stay(
+            appointment_id=booked.id,
+            start_date=day(6, 10),
+            end_date=day(6, 13),
+            idempotency_key=key(),
+            principal_ref="test",
+        )
+    assert isinstance(moved, Appointment)
+    assert moved.quote["participants"] == before["participants"]
+    assert moved.quote["gross_minor"] == before["gross_minor"]
+
+
+def test_the_tax_rounds_halves_up_on_each_line_also_below_zero() -> None:
+    owner = membership("wycena-polowki")
+    setup = cottages(owner, units=1)
+    with tenant(owner):
+        version = read_group("pricing.entry").version
+        change_settings(
+            "pricing.entry",
+            changes={"amounts": "net"},
+            expected_version=version,
+            idempotency_key=key(),
+        )
+        # 2.50 net at 23%: the tax is 57.5 grosze. Seven nights of 50 grosze
+        # with 10% off: a discount of 35, whose tax is 8.05 the other way.
+        add(250, service_id=catalog(owner)["service"].id)
+        add(
+            50,
+            "per_time_unit",
+            service_id=setup["service"].id,
+            length_discounts=[{"min_length": 7, "percent": 10}],
+        )
+        visit = quote_visit(
+            service=_rules(owner)[0].service, starts_at=datetime(YEAR, 6, 8, 10, tzinfo=WARSAW)
+        )
+        week = of_stay(setup, day(6, 1), day(6, 8))
+    assert lines(visit) == [("price", 1, 250, 250, 58, 308)]
+    assert lines(week) == [
+        ("price", 7, 50, 350, 81, 431),
+        ("discount", 1, -35, -35, -8, -43),
+    ]
+    # The totals are the lines added up, nothing rounded twice.
+    assert (week.net_minor, week.vat_minor, week.gross_minor) == (315, 73, 388)
+
+
+def test_nights_are_dates_and_a_visits_day_is_the_companys() -> None:
+    owner = membership("wycena-zegar")
+    setup = cottages(owner, units=1)
+    # The night the clocks go back has 25 hours and is one night.
+    sunday = date(YEAR, 10, 31)
+    sunday -= timedelta(days=(sunday.weekday() + 1) % 7)
+    with tenant(owner):
+        add(30000, "per_time_unit", service_id=setup["service"].id)
+        over = of_stay(setup, sunday - timedelta(days=1), sunday + timedelta(days=1))
+
+        visit = catalog(owner)["service"]
+        add(15000, service_id=visit.id)
+        add(20000, service_id=visit.id, weekdays=[5])
+        saturday = day(6, 1) + timedelta(days=(5 - day(6, 1).weekday()) % 7)
+        late = datetime.combine(saturday, time(23, 30), WARSAW)
+        # Half past midnight on Sunday in Warsaw is still Saturday in UTC.
+        after = (late + timedelta(hours=1)).astimezone(ZoneInfo("UTC"))
+        prices = [
+            quote_visit(service=visit, starts_at=starts_at).gross_minor
+            for starts_at in (late, after)
+        ]
+    assert [(line.quantity, line.gross_minor) for line in over.lines] == [(2, 60000)]
+    assert after.weekday() == 5
+    assert prices == [20000, 15000]

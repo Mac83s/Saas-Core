@@ -48,7 +48,9 @@ from .models import (
     AppointmentStatus,
     BookingRule,
     BookingSetupMutation,
+    Extra,
     Location,
+    PriceRule,
     PublicBookingRoute,
     RangeUnit,
     Resource,
@@ -418,7 +420,8 @@ def discard_draft(
     *, service_id: UUID, idempotency_key: str = "", preview: bool = False
 ) -> Saved[UUID]:
     """Removes an offer that was never switched on and has no bookings, with
-    its links, its own rules and its translations — the undo of a draft.
+    its links, its own seasons, prices, extras and translations — the undo of
+    a draft.
 
     An offer that was ever bookable is not removed: customers, the site and
     the history may name it, so it is switched off instead (`not_a_draft`).
@@ -450,7 +453,16 @@ def _discard_draft(
         _refuse_discard("Tę usługę już włączano: można ją tylko wyłączyć.", "not_a_draft")
     if Appointment.all_objects.filter(organization=organization, service=service).exists():
         _refuse_discard("Usługa ma rezerwacje.", "service_has_bookings")
-    for model in (ServiceStaff, ServiceLocation, ServiceResource, ServiceGroup, BookingRule):
+    # Everything that is the draft's own: its links, seasons, prices and extras.
+    for model in (
+        ServiceStaff,
+        ServiceLocation,
+        ServiceResource,
+        ServiceGroup,
+        BookingRule,
+        PriceRule,
+        Extra,
+    ):
         model.all_objects.filter(organization=organization, service=service).delete()
     # The keys that made or changed it answer with an item that is gone: the
     # same key sent again makes a new draft instead of failing on the old one.

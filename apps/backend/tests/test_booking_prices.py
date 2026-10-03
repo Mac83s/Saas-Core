@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from django.core.cache import cache
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.models import OrganizationAuditEntry
 from saas_core.modules.core.organizations.services import update_current_organization
@@ -30,6 +30,7 @@ from saas_core.modules.shared.booking.prices import (
     list_prices,
     price_for,
     save_category,
+    save_extra,
     save_price,
 )
 from saas_core.modules.shared.booking.services import (
@@ -145,6 +146,11 @@ def test_a_price_is_a_setup_write_in_the_companys_currency() -> None:
         assert [item.amount_minor for item in list_prices()] == [15000]
         delete_price(price_id=made.item_id, expected_version=2, idempotency_key=key())
         assert list_prices() == []
+        # The key that made it answers about a price that is gone: 404, not a crash.
+        with pytest.raises(NotFound):
+            save_price(
+                price_id=None, data=price(12000, service_id=service.id), idempotency_key="cena-1"
+            )
     assert sorted(
         BookingSetupMutation.all_objects.filter(organization=owner.organization).values_list(
             "action", flat=True
@@ -247,6 +253,28 @@ def test_a_price_is_checked_before_it_is_kept() -> None:
                 price(100, service_id=visit, extra_person_amount_minor=50),
                 ("included_people", "included_people_required"),
             ),
+            # Who is beyond the included pays what the owner said, 0 too — never a guess.
+            (
+                price(100, service_id=visit, included_people=2),
+                ("extra_person_amount_minor", "required"),
+            ),
+            # Asked for a price charged once, the flag is refused, not dropped.
+            (
+                price(100, service_id=visit, extra_person_per_time_unit=True),
+                ("extra_person_per_time_unit", "not_for_this_basis"),
+            ),
+            (
+                price(
+                    100,
+                    "per_time_unit",
+                    service_id=stay,
+                    length_discounts=[
+                        {"min_length": 3, "percent": 20},
+                        {"min_length": 7, "percent": 10},
+                    ],
+                ),
+                ("length_discounts", "discount_must_grow"),
+            ),
             (
                 price(100, service_id=visit, length_discounts=[{"min_length": 7, "percent": 10}]),
                 ("length_discounts", "not_for_this_basis"),
@@ -309,6 +337,19 @@ def test_a_price_is_checked_before_it_is_kept() -> None:
     ]
     assert changed.changes == {"category_prices": {"changed": True}}
     assert PriceRule.all_objects.filter(organization=owner.organization).count() == 1
+    with tenant(owner):
+        # „Za każdą noc” stays as the owner saved it, also with no extra-person
+        # amount: it says how a category pays (a dog, per night).
+        nightly = add(
+            30000,
+            "per_time_unit",
+            service_id=stay,
+            extra_person_per_time_unit=True,
+            category_prices=[{"category_id": child, "amount_minor": 2000}],
+        )
+        free = add(40000, service_id=visit, included_people=2, extra_person_amount_minor=0)
+    assert nightly.extra_person_per_time_unit is True
+    assert (free.included_people, free.extra_person_amount_minor) == (2, 0)
 
 
 def test_a_years_season_prices_copy_to_the_next_and_base_prices_stay() -> None:
@@ -382,6 +423,13 @@ def test_gross_or_net_is_the_companys_setting_and_a_change_names_the_prices() ->
 
         add(12000, service_id=service.id)
         add(15000, service_id=service.id, **season("2027-07-01", "2027-08-31"))
+        # An extra's amount is read the same way; a deposit carries no tax.
+        for name, kind in (("Dojazd", "charge"), ("Kaucja", "security_deposit")):
+            save_extra(
+                extra_id=None,
+                data={"service_id": service.id, "name": name, "amount_minor": 5000, "kind": kind},
+                idempotency_key=key(),
+            )
         looked = change_settings(
             PRICING, changes={"amounts": "net"}, expected_version=version, preview=True
         )
@@ -392,9 +440,10 @@ def test_gross_or_net_is_the_companys_setting_and_a_change_names_the_prices() ->
         assert not amounts_are_gross()
     (effect,) = looked.effects
     assert effect.summary["pl"] == (
-        "Zmieni znaczenie 2 cen w cenniku: kwoty zostają, a podatek będzie do nich doliczany."
+        "Zmieni znaczenie 3 cen i dopłat w cenniku: kwoty zostają, a podatek będzie do nich "
+        "doliczany."
     )
-    assert "2 prices" in effect.summary["en"]
+    assert "3 prices and extras" in effect.summary["en"]
 
 
 def test_a_company_with_prices_keeps_its_currency() -> None:

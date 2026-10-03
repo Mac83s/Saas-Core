@@ -706,14 +706,18 @@ class PriceRule(TenantScopedModel):
     vat_code = models.CharField(max_length=2, choices=VatCode, default=VatCode.STANDARD)
     #: How many people the amount covers; empty — everybody who comes.
     included_people = models.PositiveSmallIntegerField(null=True, blank=True)
-    #: What each further person adds, per booking or per time unit.
+    #: What each further person adds; required with `included_people` (0 says
+    #: they come free).
     extra_person_amount_minor = models.PositiveIntegerField(null=True, blank=True)
+    #: Further people and priced categories pay per night or day, not once
+    #: (a price per time unit only).
     extra_person_per_time_unit = models.BooleanField(default=False)
     #: A category's own amount instead of a person's:
     #: `[{"category_id", "amount_minor"}]`.
     category_prices = models.JSONField(default=list, blank=True)
-    #: From this many time units the stay is cheaper, the longest reached one
-    #: applies: `[{"min_length", "percent"}]`.
+    #: From this many time units the stay is cheaper; the longest threshold
+    #: reached applies and a longer one always gives more:
+    #: `[{"min_length", "percent"}]`.
     length_discounts = models.JSONField(default=list, blank=True)
     active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)

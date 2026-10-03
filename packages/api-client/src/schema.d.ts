@@ -12271,13 +12271,13 @@ export interface components {
             vat_code?: components["schemas"]["VatCodeEnum"];
             /** @description How many people the amount covers; null — everybody who comes. */
             included_people?: number | null;
-            /** @description What each person beyond `included_people` adds. */
+            /** @description What each person beyond `included_people` adds; required with it — 0 says they come free. */
             extra_person_amount_minor?: number | null;
-            /** @description The extra person pays per night or day, not once. */
+            /** @description Further people and priced categories pay per night or day, not once. Only for `per_time_unit`. */
             extra_person_per_time_unit?: boolean;
             /** @description A participant category's own amount instead of a person's. */
             category_prices?: components["schemas"]["CategoryPrice"][];
-            /** @description For `per_time_unit`: the longest reached threshold's percent off the stay. */
+            /** @description For `per_time_unit`: the percent off the stay of the longest threshold it reaches. A longer threshold must give a higher percent. */
             length_discounts?: components["schemas"]["LengthDiscount"][];
             active?: boolean;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
@@ -13019,13 +13019,13 @@ export interface components {
             vat_code?: components["schemas"]["VatCodeEnum"];
             /** @description How many people the amount covers; null — everybody who comes. */
             included_people?: number | null;
-            /** @description What each person beyond `included_people` adds. */
+            /** @description What each person beyond `included_people` adds; required with it — 0 says they come free. */
             extra_person_amount_minor?: number | null;
-            /** @description The extra person pays per night or day, not once. */
+            /** @description Further people and priced categories pay per night or day, not once. Only for `per_time_unit`. */
             extra_person_per_time_unit?: boolean;
             /** @description A participant category's own amount instead of a person's. */
             category_prices?: components["schemas"]["CategoryPrice"][];
-            /** @description For `per_time_unit`: the longest reached threshold's percent off the stay. */
+            /** @description For `per_time_unit`: the percent off the stay of the longest threshold it reaches. A longer threshold must give a higher percent. */
             length_discounts?: components["schemas"]["LengthDiscount"][];
             active?: boolean;
         };
@@ -13118,13 +13118,13 @@ export interface components {
             vat_code?: components["schemas"]["VatCodeEnum"];
             /** @description How many people the amount covers; null — everybody who comes. */
             included_people?: number | null;
-            /** @description What each person beyond `included_people` adds. */
+            /** @description What each person beyond `included_people` adds; required with it — 0 says they come free. */
             extra_person_amount_minor?: number | null;
-            /** @description The extra person pays per night or day, not once. */
+            /** @description Further people and priced categories pay per night or day, not once. Only for `per_time_unit`. */
             extra_person_per_time_unit?: boolean;
             /** @description A participant category's own amount instead of a person's. */
             category_prices?: components["schemas"]["CategoryPrice"][];
-            /** @description For `per_time_unit`: the longest reached threshold's percent off the stay. */
+            /** @description For `per_time_unit`: the percent off the stay of the longest threshold it reaches. A longer threshold must give a higher percent. */
             length_discounts?: components["schemas"]["LengthDiscount"][];
             active?: boolean;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
