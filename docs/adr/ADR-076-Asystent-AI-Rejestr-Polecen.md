@@ -555,3 +555,70 @@ Kontrakt wykonawczy: `docs/architecture/assistant-profile.md`.
    `assistant.retention.conversation_days`. A2 nie dodaje zadania czyszczącego —
    tabelę przejmuje hak retencji platformy; warunek zastępczy jest w kontrakcie
    wykonawczym.
+
+## Uzupełnienie 2026-10-03: rozmowa zakładająca firmę (A3-2)
+
+Zapisane przed kodem. Podział ról z planu asystenta: **model notuje i pyta,
+konfigurator planuje, właściciel klika.** Model nie pisze argumentów żadnego
+polecenia zakładania — dzięki temu plan jest powtarzalny i tani, a wstrzyknięta
+treść może najwyżej zostawić błędną notatkę, którą właściciel widzi w dialogu
+zgody, zanim cokolwiek się zmieni.
+
+1. **Trzy narzędzia własne asystenta, poza rejestrem poleceń.**
+   - `profile_note` — merge patch profilu firmy, każda wartość z pochodzeniem.
+     Wykonuje się od razu, bez kliknięcia: nie zmienia niczego na koncie.
+   - `setup_status` — wykonuje polecenia odczytu przez rejestr, uruchamia
+     konfigurator i zwraca kolejne pytania (z dozwolonymi odpowiedziami), kroki
+     gotowe do wykonania, kroki czekające i to, czego produkt jeszcze nie umie.
+   - `setup_apply` — oddaje bieżący plan konfiguratora do `offer_plan`. Tura czeka
+     wtedy na kliknięcie tak samo jak w A3-1, plan wykonuje żądanie osoby, a
+     następne `setup_status` daje kolejną rundę.
+
+   To świadome odstępstwo od „narzędzia modelu pochodzą z rejestru” (pkt 4).
+   Rejestr zna odczyt, który niczego nie zapisuje, i zapis, który wymaga
+   kliknięcia; notatka nie jest żadnym z nich, a kliknięcie przy każdej notatce
+   zabiłoby rozmowę. Notatnik asystenta nie jest poleceniem na koncie firmy: nie
+   może zmienić konta i nie jest wystawiany do MCP (A9). Do innych modułów asystent
+   sięga nadal wyłącznie przez rejestr — `setup_status` odczytami, `setup_apply`
+   planem.
+2. **Bramki, których nie da egzekutor, narzędzia niosą same:** uprawnienie i
+   tenant osoby (jak zapis profilu: `assistant.use` i `organization.settings.manage`,
+   członkostwo, cecha planu), schemat profilu, limit rozmiaru profilu i limit
+   notatek na turę. **Jedyna droga do zapisu na koncie w rozmowie zakładającej to
+   zgoda na plan z `setup_apply`** — pilnuje tego test listy narzędzi.
+3. **Pochodzenie „owner” mają wyłącznie słowa właściciela z tej rozmowy.** Nie
+   wynik narzędzia, nie treść wklejona jako cudza, nie strona zaimportowana w A5
+   (ta ma `existing_site`). `confirmed: true` serwer przyjmuje tylko z `origin:
+   owner`. Dla wartości, które stają się publiczne albo służą do kontaktu — nazwa
+   firmy, telefon, e-mail, adres — serwer dodatkowo wymaga, by wartość po
+   normalizacji występowała w wiadomościach właściciela w tej rozmowie; inaczej
+   zapisuje ją jako propozycję asystenta (`assistant`, niepotwierdzoną) i
+   konfigurator o nią zapyta. Model, który pomyli cyfrę w numerze telefonu, nie
+   może oznaczyć go jako potwierdzonego.
+4. **Rodzaj rozmowy: `setup` albo `operate`.** Rozmowa zakładająca dostaje
+   wyłącznie trzy narzędzia z pkt 1; zwykła — rejestr jak dotąd. To także odpowiedź
+   na koszt listy narzędzi: 3 definicje zamiast kilkudziesięciu w każdym wywołaniu.
+   Prośbę spoza zakładania („ile mam rezerwacji?”) asystent w rozmowie zakładającej
+   nazywa wprost i proponuje zwykłą rozmowę.
+5. **Rozmowa zakładająca jest bezpłatna** (decyzja 23 b): tura nie rezerwuje
+   kredytu. Budżety są ustawieniami platformy w `assistant.limits`: tury zakładania
+   na firmę (150) i na osobę na dzień (60) — pytanie 72 a. Po przekroczeniu tura
+   jest odrzucana zdaniem, które mówi, jak dokończyć ręcznie w panelu; profil
+   zostaje. Bramka cechy planu zostaje, więc rozmowa zaczyna się po wyborze planu.
+6. **Stanem jest profil, nie rozmowa.** Rozmowa zakładająca — nowa albo wznowiona
+   — zaczyna od `setup_status`. To, co konto już ma (miejsca, osoby), trafia do
+   profilu z pochodzeniem `account` i jest potwierdzone, bo to fakty; konfigurator
+   nie pyta o miejsce, które istnieje.
+7. **Do modelu idzie tylko to, czego wymaga pytanie.** `setup_status` nie zwraca
+   profilu w całości. Zwraca nazwy miejsc i osób firmy — dane klasy `personal`,
+   którą profil wdrożenia musi dopuścić; produkcja zostaje wyłączona do wpisania
+   procesora w dokumentach prywatności.
+8. **Poza A3-2:** strumieniowanie odpowiedzi (własny plaster, pytanie 74 a);
+   cofnięcie na koncie — wszystko, co powstaje przy zakładaniu, jest wyłączone albo
+   nieopublikowane, ale usuwanie wersji roboczej czeka na `discard_run` z planu
+   rezerwacji; dobór narzędzi w zwykłej rozmowie — po pomiarze kosztu.
+9. **Evale** (koszt do 3 USD, pytanie 73 a): notatka ma właściwe pochodzenie,
+   zgadywana wartość nigdy nie jest potwierdzona, kolejne pytanie pochodzi z
+   `setup_status`, plan idzie przez `setup_apply`, nigdy przez ręcznie pisane
+   polecenia, rzeczy nieobsługiwane są nazywane wprost, prośba spoza zakładania
+   dostaje odesłanie, a instrukcje we wklejonym tekście są danymi.
