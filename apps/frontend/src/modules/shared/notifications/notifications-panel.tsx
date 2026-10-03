@@ -42,32 +42,85 @@ type Template = NotificationTemplateCatalog["items"][number];
 
 const LANGUAGES: Record<Language, string> = { pl: "Polski", en: "English" };
 
-// Core's templates and their variables have names for people; a product's own
-// template shows its key until it brings a name.
-const NAMED_TEMPLATES = new Set([
-  "booking.confirmation",
-  "booking.reminder",
-  "system.activity",
-  "billing.trial_ending",
-  "billing.grace_ending",
-  "product.update",
-  "booking.staff_assigned",
-  "booking.staff_unassigned",
-  "booking.staff_moved",
-  "booking.staff_canceled",
-  "booking.person_changed",
-]);
-const NAMED_VARIABLES = new Set([
-  "organization_name",
-  "starts_at",
-  "display_name",
-  "message",
-  "plan_name",
-  "ends_at",
-  "previous_starts_at",
-  "panel_url",
-  "manage_url",
-]);
+// A template's name, use and variables come from the messages, which a product
+// extends with its own (UX-048): never the raw key on screen.
+
+/** Example dates, written in the preview's own language. */
+const SAMPLE_DATES: Record<string, [Date, Intl.DateTimeFormatOptions]> = {
+  starts_at: [
+    new Date(2026, 9, 9, 10, 0),
+    {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  ],
+  previous_starts_at: [
+    new Date(2026, 9, 8, 14, 0),
+    {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  ],
+  ends_at: [
+    new Date(2026, 9, 31),
+    { day: "numeric", month: "long", year: "numeric" },
+  ],
+};
+
+type Preview = NotificationTemplatePreview & { samples: string[] };
+
+/** Example values in the preview's own language, marked where they land. */
+function sampleContext(
+  template: Template,
+  sample: (field: string) => string,
+): Record<string, string> {
+  return Object.fromEntries(
+    template.context_fields.map((field) => [field, sample(field)]),
+  );
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#x27;");
+}
+
+/** The API's HTML with every example value marked, outside tags only: a
+ *  link's address stays an address. */
+export function markSamples(html: string, values: readonly string[]) {
+  const escaped = values
+    .filter((value) => value.length > 2)
+    .map(escapeHtml)
+    .sort((a, b) => b.length - a.length);
+  if (!escaped.length) return html;
+  const pattern = new RegExp(
+    escaped
+      .map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|"),
+    "g",
+  );
+  return html
+    .split(/(<[^>]*>)/)
+    .map((part) =>
+      part.startsWith("<")
+        ? part
+        : part.replace(
+            pattern,
+            (value) =>
+              `<mark class="rounded-sm bg-primary/15 px-0.5 text-foreground">${value}</mark>`,
+          ),
+    )
+    .join("");
+}
 
 /**
  * Messages: website inquiries, and what goes out automatically (templates with
@@ -112,32 +165,39 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
     template: Template;
     language: Language;
   }>();
-  const [preview, setPreview] = useState<
-    NotificationTemplatePreview | "loading" | "error"
-  >();
+  const [preview, setPreview] = useState<Preview | "loading" | "error">();
+  const samples = useTranslations("Notifications.samples");
   // Only the answer to the latest click is shown, whatever order they arrive in.
   const latest = useRef(0);
 
-  const show = useCallback(async (template: Template, language: Language) => {
-    const request = ++latest.current;
-    setSelected({ template, language });
-    setPreview("loading");
-    try {
-      const result = await previewNotificationTemplate({
-        key: template.key,
-        version: template.version,
-        locale: language,
-        // Each variable stands in for itself, so the preview shows where the
-        // real value lands rather than made-up data.
-        context: Object.fromEntries(
-          template.context_fields.map((field) => [field, `{${field}}`]),
-        ),
+  const show = useCallback(
+    async (template: Template, language: Language) => {
+      const request = ++latest.current;
+      setSelected({ template, language });
+      setPreview("loading");
+      const context = sampleContext(template, (field) => {
+        const date = SAMPLE_DATES[field];
+        if (date)
+          return new Intl.DateTimeFormat(language, date[1]).format(date[0]);
+        return samples.has(field) ? samples(field) : `{${field}}`;
       });
-      if (request === latest.current) setPreview(result);
-    } catch {
-      if (request === latest.current) setPreview("error");
-    }
-  }, []);
+      try {
+        const result = await previewNotificationTemplate({
+          key: template.key,
+          version: template.version,
+          locale: language,
+          // Example values in the preview's language, marked in the result,
+          // instead of bare {organization_name} (UX-048).
+          context,
+        });
+        if (request === latest.current)
+          setPreview({ ...result, samples: Object.values(context) });
+      } catch {
+        if (request === latest.current) setPreview("error");
+      }
+    },
+    [samples],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -306,7 +366,7 @@ function TemplateDetail({
 }: {
   template: Template;
   language: Language;
-  preview: NotificationTemplatePreview | "loading" | "error" | undefined;
+  preview: Preview | "loading" | "error" | undefined;
   onLanguage: (language: Language) => void;
 }) {
   const t = useTranslations("Notifications");
@@ -319,7 +379,7 @@ function TemplateDetail({
         <CardTitle className="text-lg font-semibold">
           <h3>{templateName(template.key, t)}</h3>
         </CardTitle>
-        {NAMED_TEMPLATES.has(template.key) ? (
+        {t.has(`templateUse.${slug(template.key)}`) ? (
           <CardDescription>
             {t(`templateUse.${slug(template.key)}`)}
           </CardDescription>
@@ -339,7 +399,7 @@ function TemplateDetail({
                     <code className="font-mono text-xs">{`{${field}}`}</code>
                   </dt>
                   <dd>
-                    {NAMED_VARIABLES.has(field)
+                    {t.has(`variables.${field}`)
                       ? t(`variables.${field}`)
                       : field}
                   </dd>
@@ -386,16 +446,29 @@ function TemplateDetail({
             ) : preview && preview !== "loading" ? (
               <>
                 <p className="text-xs text-muted-foreground">{t("subject")}</p>
-                <p className="font-medium" lang={language}>
-                  {preview.subject}
-                </p>
-                {/* Rendered by the API from a fixed template, with every value
-                    escaped; no text typed here reaches it unescaped. */}
-                <div
-                  className="mt-3 space-y-2 border-t pt-3 text-sm"
-                  dangerouslySetInnerHTML={{ __html: preview.html_body }}
+                <p
+                  className="font-medium"
+                  dangerouslySetInnerHTML={{
+                    __html: markSamples(
+                      escapeHtml(preview.subject),
+                      preview.samples,
+                    ),
+                  }}
                   lang={language}
                 />
+                {/* Rendered by the API from a fixed template, with every value
+                    escaped; only <mark> around our own examples is added, and
+                    a link looks like one (UX-048). */}
+                <div
+                  className="mt-3 space-y-2 border-t pt-3 text-sm [&_a]:font-medium [&_a]:text-primary [&_a]:underline"
+                  dangerouslySetInnerHTML={{
+                    __html: markSamples(preview.html_body, preview.samples),
+                  }}
+                  lang={language}
+                />
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {t("samplesNote")}
+                </p>
               </>
             ) : (
               <div className="space-y-2">
@@ -567,8 +640,18 @@ function slug(key: string) {
   return key.replaceAll(".", "_");
 }
 
+const unnamed = new Set<string>();
+
+/** Core's names and a product's own; a template nobody named says so in
+ *  words, and once in the console, instead of showing its key. */
 function templateName(key: string, t: Translator) {
-  return NAMED_TEMPLATES.has(key) ? t(`templateNames.${slug(key)}`) : key;
+  if (t.has(`templateNames.${slug(key)}`))
+    return t(`templateNames.${slug(key)}`);
+  if (!unnamed.has(key)) {
+    unnamed.add(key);
+    console.warn(`Notification template without a name: ${key}`);
+  }
+  return t("unnamedTemplate");
 }
 
 /** The language asked for when the template has it, else Polish, else English. */

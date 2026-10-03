@@ -3050,7 +3050,16 @@
       "booking_staff_unassigned": "Taken off a visit",
       "booking_staff_moved": "Visit moved (for staff)",
       "booking_staff_canceled": "Visit called off (for staff)",
-      "booking_person_changed": "Change of person for a visit"
+      "booking_person_changed": "Change of person for a visit",
+      "booking_rescheduled": "Booking rescheduled",
+      "booking_canceled": "Booking canceled",
+      "sites_inquiry_received": "New website inquiry",
+      "translation_job_problem": "Translation with gaps",
+      "translation_review_waiting": "Translations to approve",
+      "translation_automation_paused": "Automatic translation paused",
+      "booking_office_new": "New online booking (for the office)",
+      "booking_office_waiting": "Visit waiting for a person (for the office)",
+      "booking_office_canceled": "Customer canceled a visit (for the office)"
     },
     "templateUse": {
       "booking_confirmation": "To the customer when a booking is made.",
@@ -3063,7 +3072,16 @@
       "booking_staff_unassigned": "To a staff member when somebody else takes them off a visit, or an absence does.",
       "booking_staff_moved": "To the people on a visit when somebody else moves it.",
       "booking_staff_canceled": "To the people on a visit when somebody else calls it off.",
-      "booking_person_changed": "To the customer when the person they chose or saw at booking changes. No names."
+      "booking_person_changed": "To the customer when the person they chose or saw at booking changes. No names.",
+      "booking_rescheduled": "To the customer when the company moves their booking — with the old and new time.",
+      "booking_canceled": "To the customer when the company cancels their booking.",
+      "sites_inquiry_received": "To the people handling the website when someone sends the contact form.",
+      "translation_job_problem": "To the website managers when a translation did not cover everything.",
+      "translation_review_waiting": "To the website managers when translations wait for their decision.",
+      "translation_automation_paused": "To the website managers when automatic translation of changes stops.",
+      "booking_office_new": "To the office when a customer books online.",
+      "booking_office_waiting": "To the office when a visit waits for someone to be assigned.",
+      "booking_office_canceled": "To the office when a customer cancels a visit."
     },
     "variablesTitle": "Variables",
     "variablesHelp": "In a sent message, each variable is replaced with the real value.",
@@ -3076,14 +3094,40 @@
       "ends_at": "End date",
       "previous_starts_at": "Previous time",
       "panel_url": "Link to the calendar in the panel",
-      "manage_url": "Link to the customer’s booking"
+      "manage_url": "Link to the customer’s booking",
+      "email": "Sender's e-mail",
+      "name": "Sender's name",
+      "phone": "Sender's phone",
+      "reference": "Inquiry number",
+      "site_name": "Website name",
+      "total": "Number of items",
+      "written": "Number translated",
+      "count": "Number of translations"
     },
     "previewTitle": "Preview",
     "previewLanguage": "Preview language",
     "subject": "Subject",
     "inquiriesTab": "Website inquiries",
     "automationTab": "Automatic notifications",
-    "sectionsLabel": "Message type"
+    "sectionsLabel": "Message type",
+    "samples": {
+      "organization_name": "Example Studio",
+      "display_name": "Anna",
+      "message": "The text of an example message.",
+      "plan_name": "Pro",
+      "panel_url": "https://panel.example/",
+      "manage_url": "https://site.example/booking",
+      "email": "jan@example.com",
+      "name": "Jan Kowalski",
+      "phone": "600 000 000",
+      "reference": "INQ-1024",
+      "site_name": "Example Studio",
+      "total": "12",
+      "written": "10",
+      "count": "3"
+    },
+    "unnamedTemplate": "Unnamed template",
+    "samplesNote": "Highlighted places are example values — the real ones appear in the message sent."
   },
   "Integrations": {
     "navigation": "Integrations",

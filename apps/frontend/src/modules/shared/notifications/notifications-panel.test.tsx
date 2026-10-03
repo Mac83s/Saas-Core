@@ -13,7 +13,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { ApiProblemError } from "@saas-core/api-client";
-import { NotificationsPanel } from "./notifications-panel";
+import { markSamples, NotificationsPanel } from "./notifications-panel";
 
 const {
   listSites,
@@ -116,14 +116,14 @@ test("podgląd podstawia zmienne szablonu i zmienia język bez wysyłania", asyn
   renderPanel();
 
   expect(await screen.findByText("Temat z API (pl)")).not.toBeNull();
-  // Each variable stands in for itself, so the preview shows where it lands.
+  // Example values in the preview's language, not bare {variables} (UX-048).
   expect(previewNotificationTemplate).toHaveBeenLastCalledWith({
     key: "booking.reminder",
     version: 1,
     locale: "pl",
     context: {
-      organization_name: "{organization_name}",
-      starts_at: "{starts_at}",
+      organization_name: "Studio Przykład",
+      starts_at: expect.stringMatching(/^pt\., 9 paź, 10:00$/),
     },
   });
 
@@ -147,7 +147,10 @@ test("podgląd podstawia zmienne szablonu i zmienia język bez wysyłania", asyn
       key: "product.update",
       version: 1,
       locale: "en",
-      context: { display_name: "{display_name}", message: "{message}" },
+      context: {
+        display_name: "Anna",
+        message: "Treść przykładowej wiadomości.",
+      },
     }),
   );
   expect(
@@ -323,4 +326,39 @@ test("brak obu uprawnień nie wywołuje endpointów ani nie pokazuje treści", (
   expect(getNotificationTemplates).not.toHaveBeenCalled();
   expect(getNotificationPreferences).not.toHaveBeenCalled();
   expect(screen.queryByRole("heading")).toBeNull();
+});
+
+test("an example value is marked in the text, never inside a link's address", () => {
+  const html = markSamples(
+    '<p>Rezerwacja w Studio Przykład.</p><p><a href="https://strona.example/rezerwacja">Zmień termin</a></p>',
+    ["Studio Przykład", "https://strona.example/rezerwacja"],
+  );
+  expect(html).toContain(
+    '<mark class="rounded-sm bg-primary/15 px-0.5 text-foreground">Studio Przykład</mark>',
+  );
+  expect(html).toContain('<a href="https://strona.example/rezerwacja">');
+});
+
+test("a template nobody named says so in words, never its key", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  getNotificationTemplates.mockResolvedValue({
+    items: [
+      {
+        key: "acme.secret_thing",
+        version: 1,
+        category: "required",
+        locales: ["pl"],
+        context_fields: [],
+      },
+    ],
+  });
+  renderPanel();
+  expect(
+    await screen.findByRole("heading", { name: "Szablon bez nazwy" }),
+  ).not.toBeNull();
+  expect(screen.queryByText("acme.secret_thing")).toBeNull();
+  expect(warn).toHaveBeenCalledWith(
+    "Notification template without a name: acme.secret_thing",
+  );
+  warn.mockRestore();
 });

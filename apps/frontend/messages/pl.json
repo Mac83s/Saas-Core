@@ -3050,7 +3050,16 @@
       "booking_staff_unassigned": "Usunięcie z wizyty",
       "booking_staff_moved": "Wizyta przełożona (dla pracowników)",
       "booking_staff_canceled": "Wizyta odwołana (dla pracowników)",
-      "booking_person_changed": "Zmiana osoby przy wizycie"
+      "booking_person_changed": "Zmiana osoby przy wizycie",
+      "booking_rescheduled": "Zmiana terminu rezerwacji",
+      "booking_canceled": "Odwołanie rezerwacji",
+      "sites_inquiry_received": "Nowe zapytanie ze strony",
+      "translation_job_problem": "Tłumaczenie z brakami",
+      "translation_review_waiting": "Tłumaczenia do akceptacji",
+      "translation_automation_paused": "Wstrzymane tłumaczenie zmian",
+      "booking_office_new": "Nowa rezerwacja online (dla biura)",
+      "booking_office_waiting": "Wizyta czeka na przydzielenie (dla biura)",
+      "booking_office_canceled": "Klient odwołał wizytę (dla biura)"
     },
     "templateUse": {
       "booking_confirmation": "Do klienta, gdy rezerwacja zostanie przyjęta.",
@@ -3063,7 +3072,16 @@
       "booking_staff_unassigned": "Do pracownika, gdy ktoś inny usunie go z wizyty albo gdy wypadnie z niej przez nieobecność.",
       "booking_staff_moved": "Do osób z wizyty, gdy ktoś inny ją przełoży.",
       "booking_staff_canceled": "Do osób z wizyty, gdy ktoś inny ją odwoła.",
-      "booking_person_changed": "Do klienta, gdy zmieni się osoba, którą wybrał albo widział przy rezerwacji. Bez nazwisk."
+      "booking_person_changed": "Do klienta, gdy zmieni się osoba, którą wybrał albo widział przy rezerwacji. Bez nazwisk.",
+      "booking_rescheduled": "Do klienta, gdy firma przełoży jego rezerwację — z poprzednim i nowym terminem.",
+      "booking_canceled": "Do klienta, gdy firma odwoła jego rezerwację.",
+      "sites_inquiry_received": "Do osób obsługujących stronę, gdy ktoś wyśle formularz kontaktowy.",
+      "translation_job_problem": "Do osób zarządzających stroną, gdy tłumaczenie nie objęło wszystkiego.",
+      "translation_review_waiting": "Do osób zarządzających stroną, gdy tłumaczenia czekają na ich decyzję.",
+      "translation_automation_paused": "Do osób zarządzających stroną, gdy automatyczne tłumaczenie zmian się zatrzyma.",
+      "booking_office_new": "Do biura, gdy klient zarezerwuje termin przez stronę.",
+      "booking_office_waiting": "Do biura, gdy wizyta czeka, aż ktoś ją przydzieli.",
+      "booking_office_canceled": "Do biura, gdy klient sam odwoła wizytę."
     },
     "variablesTitle": "Zmienne",
     "variablesHelp": "W wysłanej wiadomości w miejscu zmiennej pojawia się prawdziwa wartość.",
@@ -3076,14 +3094,40 @@
       "ends_at": "Data zakończenia",
       "previous_starts_at": "Poprzedni termin",
       "panel_url": "Link do kalendarza w panelu",
-      "manage_url": "Link do rezerwacji klienta"
+      "manage_url": "Link do rezerwacji klienta",
+      "email": "E-mail nadawcy",
+      "name": "Imię i nazwisko nadawcy",
+      "phone": "Telefon nadawcy",
+      "reference": "Numer zgłoszenia",
+      "site_name": "Nazwa strony",
+      "total": "Liczba pozycji",
+      "written": "Liczba przetłumaczonych",
+      "count": "Liczba tłumaczeń"
     },
     "previewTitle": "Podgląd",
     "previewLanguage": "Język podglądu",
     "subject": "Temat",
     "inquiriesTab": "Zapytania ze strony",
     "automationTab": "Powiadomienia automatyczne",
-    "sectionsLabel": "Rodzaj wiadomości"
+    "sectionsLabel": "Rodzaj wiadomości",
+    "samples": {
+      "organization_name": "Studio Przykład",
+      "display_name": "Anna",
+      "message": "Treść przykładowej wiadomości.",
+      "plan_name": "Pro",
+      "panel_url": "https://panel.example/",
+      "manage_url": "https://strona.example/rezerwacja",
+      "email": "jan@example.com",
+      "name": "Jan Kowalski",
+      "phone": "600 000 000",
+      "reference": "ZAP-1024",
+      "site_name": "Studio Przykład",
+      "total": "12",
+      "written": "10",
+      "count": "3"
+    },
+    "unnamedTemplate": "Szablon bez nazwy",
+    "samplesNote": "Wyróżnione miejsca to przykładowe wartości — w wysłanej wiadomości pojawią się prawdziwe."
   },
   "Integrations": {
     "navigation": "Integracje",
