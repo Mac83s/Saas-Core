@@ -315,10 +315,17 @@ export function SettingsGroupForm({
               {t("locked")}
             </p>
           ) : null}
+          {/* Until the saved values arrive no field is drawn: an empty one
+              reads as the company's choice („Nie usuwaj”, „Domyślne”). */}
+          {state || errors.root ? null : (
+            <p className="text-sm text-muted-foreground" role="status">
+              {t("loading")}
+            </p>
+          )}
           <FieldGroup>
             {group.keys.map((option) => {
               const field = fieldOf(option);
-              if (!applies(option, watched)) return null;
+              if (!state || !applies(option, watched)) return null;
               const source = reset.includes(field)
                 ? "default"
                 : (state?.sources as Record<string, string> | undefined)?.[

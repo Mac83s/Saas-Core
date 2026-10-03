@@ -5036,6 +5036,7 @@
     "stepUpMfaLocked": "Too many wrong codes on this account — try again in fifteen minutes.",
     "stepUpSetup": "This change is confirmed with a code from the authenticator app. Turn on two-factor sign-in first:",
     "stepUpSetupLink": "Your account › Two-factor sign-in",
+    "loading": "Loading the settings…",
     "loadError": "The settings could not be loaded. Refresh the page.",
     "saveError": "The settings could not be saved. Try again.",
     "conflict": "Someone changed these settings meanwhile — the current ones are shown. Make your change again.",

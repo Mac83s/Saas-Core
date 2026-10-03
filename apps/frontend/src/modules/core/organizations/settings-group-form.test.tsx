@@ -165,6 +165,39 @@ test("pokazuje źródło wartości, a zmiana z dodatkowym skutkiem czeka na potw
   expect(results.violations).toEqual([]);
 });
 
+test("przed wczytaniem wartości formularz nie pokazuje pól i niczego nie zapisuje", async () => {
+  // The saved values are still on their way: a field drawn now would show a
+  // default as if it were the company's choice, and nothing of it may be sent.
+  let arrive: (state: typeof STATE) => void = () => undefined;
+  getSettingsGroup.mockReturnValue(
+    new Promise((resolve) => {
+      arrive = resolve;
+    }),
+  );
+  const { container } = renderForm();
+
+  expect(screen.getByRole("status")).toHaveTextContent("Wczytywanie ustawień…");
+  expect(screen.queryByRole("button", { name: "Zapisz zmiany" })).toBeNull();
+  expect(screen.queryByRole("switch")).toBeNull();
+  expect(screen.queryByLabelText("Ile godzin przed wizytą")).toBeNull();
+  // Enter in a field, or any other way to submit, sends nothing either.
+  fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+  await Promise.resolve();
+  expect(previewSettingsGroup).not.toHaveBeenCalled();
+  expect(updateSettingsGroup).not.toHaveBeenCalled();
+
+  arrive({ ...STATE, values: { enabled: true, lead_hours: 48 } });
+
+  expect(
+    await screen.findByRole("button", { name: "Zapisz zmiany" }),
+  ).toBeEnabled();
+  expect(screen.getByLabelText("Ile godzin przed wizytą")).toHaveValue(48);
+  expect(
+    screen.getByRole("switch", { name: "Wysyłaj przypomnienia" }),
+  ).toBeChecked();
+  expect(screen.queryByText("Wczytywanie ustawień…")).toBeNull();
+});
+
 test("wyłączony przełącznik chowa zależne pole; błąd pola trafia pod pole", async () => {
   previewSettingsGroup.mockRejectedValue(
     new ApiProblemError({

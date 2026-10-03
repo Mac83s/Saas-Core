@@ -5036,6 +5036,7 @@
     "stepUpMfaLocked": "Zbyt wiele błędnych kodów na tym koncie — spróbuj ponownie za kwadrans.",
     "stepUpSetup": "Tę zmianę potwierdza się kodem z aplikacji uwierzytelniającej. Najpierw włącz weryfikację dwuetapową:",
     "stepUpSetupLink": "Twoje konto › Weryfikacja dwuetapowa",
+    "loading": "Wczytywanie ustawień…",
     "loadError": "Nie udało się wczytać ustawień. Odśwież stronę.",
     "saveError": "Nie udało się zapisać ustawień. Spróbuj ponownie.",
     "conflict": "Ktoś w międzyczasie zmienił te ustawienia — pokazujemy aktualne. Wprowadź zmianę jeszcze raz.",
