@@ -333,6 +333,10 @@ export type GroupSetupUpdate = components["schemas"]["GroupUpdate"];
 /** Days the company or one of its places is closed (B11). */
 export type BookingClosure = components["schemas"]["BookingClosure"];
 export type BookingClosureInput = components["schemas"]["BookingClosureInput"];
+export type BookingRule = components["schemas"]["BookingRule"];
+export type BookingRuleInput = components["schemas"]["BookingRuleInput"];
+export type BookingRuleUpdate =
+  components["schemas"]["PatchedBookingRuleUpdate"];
 export type BookingClosureUpdate =
   components["schemas"]["BookingClosureUpdate"];
 /** What can be set on a service, in the settings registry's shape (ADR-078). */
@@ -2255,6 +2259,96 @@ export async function copyBookingClosuresToNextYear(
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/booking/setup/closures/copy-year/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { year },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.count;
+}
+
+/** Seasons (ADR-072 §5): dated rules of an offer, a group or a unit. */
+export async function listBookingRules(): Promise<BookingRule[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/rules/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createBookingRule(
+  input: BookingRuleInput,
+  idempotencyKey: string,
+): Promise<BookingRule> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/rules/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBookingRule(
+  ruleId: string,
+  input: BookingRuleUpdate,
+  idempotencyKey: string,
+): Promise<BookingRule> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/rules/{rule_id}/",
+    {
+      params: {
+        path: { rule_id: ruleId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function deleteBookingRule(
+  ruleId: string,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/setup/rules/{rule_id}/",
+    {
+      params: {
+        path: { rule_id: ruleId },
+        query: { expected_version: expectedVersion },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/** Every season starting in `year` again a year later; answers how many. */
+export async function copyBookingRulesToNextYear(
+  year: number,
+  idempotencyKey: string,
+): Promise<number> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/rules/copy-year/",
     {
       params: { header: { "Idempotency-Key": idempotencyKey } },
       body: { year },

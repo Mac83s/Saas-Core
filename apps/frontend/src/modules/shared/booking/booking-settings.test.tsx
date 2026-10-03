@@ -17,7 +17,9 @@ import { BookingSettings } from "./booking-settings";
 
 const api = vi.hoisted(() => ({
   copyBookingClosuresToNextYear: vi.fn(),
+  copyBookingRulesToNextYear: vi.fn(),
   createBookingClosure: vi.fn(),
+  createBookingRule: vi.fn(),
   createSetupGroup: vi.fn(),
   createSetupLocation: vi.fn(),
   createSetupResource: vi.fn(),
@@ -25,6 +27,7 @@ const api = vi.hoisted(() => ({
   deleteBookingClosure: vi.fn(),
   getBookingSetup: vi.fn(),
   listBookingClosures: vi.fn(),
+  listBookingRules: vi.fn(),
   listInventoryBalances: vi.fn(),
   listInventoryItems: vi.fn(),
   updateSetupGroup: vi.fn(),
@@ -196,6 +199,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.getBookingSetup.mockResolvedValue(SETUP);
   api.listBookingClosures.mockResolvedValue([]);
+  api.listBookingRules.mockResolvedValue([]);
   api.createSetupService.mockImplementation(async (input) =>
     service({ ...input, id: "new" }),
   );
@@ -598,6 +602,113 @@ test("dni zamknięte: dodanie dla całej firmy i kopia na kolejny rok", async ()
   );
   expect(
     await screen.findByText("Skopiowano 1 zamknięcie na 2028 — sprawdź daty."),
+  ).toBeInTheDocument();
+});
+
+test("sezony: tylko przy pobytach; nowy sezon grupy z zasadami słowami i kopia na kolejny rok", async () => {
+  // A company without an offer booked by dates has no seasons to set.
+  const { unmount } = renderSettings();
+  await screen.findByRole("table", { name: "Usługi firmy" });
+  expect(screen.queryByRole("heading", { name: "Sezony i zasady" })).toBeNull();
+  unmount();
+
+  const stay = service({
+    id: "stay",
+    name: "Pobyt w domku",
+    time_model: "range",
+    range_unit: "night",
+    duration_minutes: null,
+    staff_count: 0,
+    staff_ids: [],
+    group_ids: [GROUP],
+  });
+  api.getBookingSetup.mockResolvedValue({ ...SETUP, services: [stay] });
+  const summer = {
+    id: "r-1",
+    name: "Lato",
+    service_id: null,
+    group_id: GROUP,
+    resource_id: null,
+    starts_on: "2027-07-01",
+    ends_on: "2027-08-31",
+    min_length: 2,
+    max_length: null,
+    length_multiple: null,
+    start_weekdays: [5],
+    end_weekdays: [],
+    notice_hours: null,
+    window_days: null,
+    closed: false,
+    buffer_after_minutes: null,
+    active: true,
+    version: 1,
+  };
+  api.createBookingRule.mockResolvedValue(summer);
+  api.copyBookingRulesToNextYear.mockResolvedValue(1);
+  renderSettings();
+  fireEvent.click(await screen.findByRole("button", { name: "Dodaj sezon" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowy sezon" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Podaj pierwszy i ostatni dzień sezonu.",
+  );
+  fireEvent.change(within(dialog).getByLabelText("Nazwa (opcjonalnie)"), {
+    target: { value: "Lato" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Dotyczy"), {
+    target: { value: `group:${GROUP}` },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Od"), {
+    target: { value: "2027-07-01" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Do (włącznie)"), {
+    target: { value: "2027-08-31" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Najkrótszy pobyt"), {
+    target: { value: "2" },
+  });
+  const arrival = within(dialog).getByRole("group", { name: /Dni przyjazdu/ });
+  fireEvent.click(within(arrival).getByLabelText("sob."));
+  expect((await axe.run(dialog, noContrast)).violations).toEqual([]);
+  api.listBookingRules.mockResolvedValue([summer]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.createBookingRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Lato",
+        service_id: null,
+        group_id: GROUP,
+        resource_id: null,
+        starts_on: "2027-07-01",
+        ends_on: "2027-08-31",
+        closed: false,
+        min_length: 2,
+        max_length: null,
+        start_weekdays: [5],
+        end_weekdays: [],
+      }),
+      expect.any(String),
+    ),
+  );
+  const seasons = await screen.findByRole("table", {
+    name: "Sezony i zasady pobytów",
+  });
+  const row = (await within(seasons).findByText("Lato")).closest("tr")!;
+  expect(within(row).getByText("Grupa: Poskrom mobilny")).toBeInTheDocument();
+  expect(
+    within(row).getByText("od 2 nocy · przyjazd: sob."),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Skopiuj sezony 2027 na 2028" }),
+  );
+  await waitFor(() =>
+    expect(api.copyBookingRulesToNextYear).toHaveBeenCalledWith(
+      2027,
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText("Skopiowano 1 sezon na rok 2028."),
   ).toBeInTheDocument();
 });
 

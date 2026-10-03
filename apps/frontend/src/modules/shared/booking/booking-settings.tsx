@@ -43,6 +43,7 @@ import {
   typeText,
 } from "#lib/organization-types";
 import { ClosuresSection } from "./closures-section";
+import { SeasonsSection } from "./seasons-section";
 import { problemText } from "./people/person-dialogs";
 import {
   ItemDialog,
@@ -669,6 +670,16 @@ export function BookingSettings({
         />
       </PanelSection>
       {setup ? <ClosuresSection places={setup.locations} /> : null}
+      {/* Seasons act on stays: only a company with an offer booked by dates. */}
+      {setup?.services.some((service) => service.time_model === "range") ? (
+        <SeasonsSection
+          groups={setup.groups}
+          resources={setup.resources}
+          services={setup.services.filter(
+            (service) => service.time_model === "range",
+          )}
+        />
+      ) : null}
 
       <Dialog
         onOpenChange={(next) => (next ? undefined : setSwitchingOff(undefined))}
