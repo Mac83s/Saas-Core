@@ -292,7 +292,11 @@
       "translation_review_discarded": "Discarded translations",
       "translation_job_reverted": "Took back a translation job",
       "translation_job_canceled": "Stopped a translation job",
-      "translation_job_confirmed": "The operator confirmed a translation job"
+      "translation_job_confirmed": "The operator confirmed a translation job",
+      "booking_closure_changed": "Closed days changed",
+      "booking_rule_changed": "Booking rules changed",
+      "booking_unit_blocked": "Unit blocked",
+      "booking_unit_unblocked": "Unit unblocked"
     },
     "fields": {
       "name": "Name",
@@ -349,7 +353,23 @@
       "locations": "Places",
       "resources": "Resources",
       "materials": "Warehouse products",
-      "place_town": "Town of the visit"
+      "place_town": "Town of the visit",
+      "closed": "Closed",
+      "end_weekdays": "Departure days",
+      "ends_on": "Until",
+      "group_id": "Group",
+      "length_multiple": "Length multiple",
+      "location_id": "Place",
+      "max_length": "Longest",
+      "min_length": "Shortest",
+      "note": "Note",
+      "notice_hours": "Notice (hours)",
+      "resource_id": "Unit",
+      "service_id": "Service",
+      "start_weekdays": "Arrival days",
+      "starts_on": "From",
+      "window_days": "Booking window (days)",
+      "address_line1": "Street and number"
     }
   },
   "Panel": {

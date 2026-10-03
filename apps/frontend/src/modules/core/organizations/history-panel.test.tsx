@@ -215,3 +215,17 @@ test("a visit's new place reads as words in both languages, without keys", async
     englishMessages.History.actions.booking_appointment_place_changed,
   ).toBe("Changed the visit's place");
 });
+
+test("the booking settings of phase 2 have their own words in the history", () => {
+  // Written by booking's rules and units under their own action keys, not the
+  // audit enum, so the enum's check does not see them.
+  for (const action of [
+    "booking_closure_changed",
+    "booking_rule_changed",
+    "booking_unit_blocked",
+    "booking_unit_unblocked",
+  ]) {
+    expect(polishMessages.History.actions).toHaveProperty(action);
+    expect(englishMessages.History.actions).toHaveProperty(action);
+  }
+});

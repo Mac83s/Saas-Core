@@ -292,7 +292,11 @@
       "translation_review_discarded": "Odrzucono tłumaczenia",
       "translation_job_reverted": "Cofnięto zlecenie tłumaczenia",
       "translation_job_canceled": "Zatrzymano zlecenie tłumaczenia",
-      "translation_job_confirmed": "Operator potwierdził zlecenie tłumaczenia"
+      "translation_job_confirmed": "Operator potwierdził zlecenie tłumaczenia",
+      "booking_closure_changed": "Zmieniono dni zamknięte",
+      "booking_rule_changed": "Zmieniono reguły rezerwacji",
+      "booking_unit_blocked": "Zablokowano jednostkę",
+      "booking_unit_unblocked": "Odblokowano jednostkę"
     },
     "fields": {
       "name": "Nazwa",
@@ -349,7 +353,23 @@
       "locations": "Miejsca",
       "resources": "Zasoby",
       "materials": "Produkty z magazynu",
-      "place_town": "Miejscowość wizyty"
+      "place_town": "Miejscowość wizyty",
+      "closed": "Zamknięte",
+      "end_weekdays": "Dni wyjazdu",
+      "ends_on": "Do dnia",
+      "group_id": "Grupa",
+      "length_multiple": "Wielokrotność długości",
+      "location_id": "Miejsce",
+      "max_length": "Najdłużej",
+      "min_length": "Najkrócej",
+      "note": "Notatka",
+      "notice_hours": "Wyprzedzenie (godz.)",
+      "resource_id": "Jednostka",
+      "service_id": "Usługa",
+      "start_weekdays": "Dni przyjazdu",
+      "starts_on": "Od dnia",
+      "window_days": "Okno rezerwacji (dni)",
+      "address_line1": "Ulica i numer"
     }
   },
   "Panel": {
