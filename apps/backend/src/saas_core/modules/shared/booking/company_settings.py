@@ -459,4 +459,6 @@ def self_service_allows(appointment: Any, action: str, now: Any) -> bool:
     mode = appointment.self_service_mode
     if mode == "none" or (action == "reschedule" and mode == "cancel_only"):
         return False
-    return appointment.starts_at - timedelta(hours=appointment.self_service_cutoff_hours) > now
+    return bool(
+        appointment.starts_at - timedelta(hours=appointment.self_service_cutoff_hours) > now
+    )

@@ -84,7 +84,8 @@ type ServiceValues = {
 
 const CHOICES: Choice[] = ["none", "team", "person"];
 /** How often a visit may start (B6): each divides an hour. */
-const SLOT_STEPS = [5, 10, 15, 20, 30, 60];
+const SLOT_STEPS = [5, 10, 15, 20, 30, 60] as const;
+type SlotStep = (typeof SLOT_STEPS)[number];
 const TIME_MODELS: TimeModel[] = ["slot", "range"];
 const RANGE_UNITS: RangeUnit[] = ["night", "day"];
 /** Check-in and check-out, pickup and return, until the company says (ADR-072 §1). */
@@ -300,7 +301,7 @@ export function ServiceDialog({
             duration_minutes: values.duration,
             staff_count: values.staffCount,
             public_staff_choice: values.choice,
-            slot_step_minutes: values.step,
+            slot_step_minutes: values.step as SlotStep,
             staff_ids: values.staffIds,
           };
     const body = {
