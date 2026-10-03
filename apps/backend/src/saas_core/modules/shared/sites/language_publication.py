@@ -22,7 +22,12 @@ from uuid import UUID
 
 from saas_core.content_protocol.facts import extract_facts
 
-from .language_versions import UNTRANSLATED_ORIGINS, site_locales
+from .language_versions import (
+    UNTRANSLATED_ORIGINS,
+    _texts,
+    _translated_by_source,
+    site_locales,
+)
 from .localization import localized_path
 from .localized_bodies import LocaleUnitsInvalid, TextUnit, assemble, extract_units
 from .models import Page, PageTranslation, PageVersion, Site
@@ -123,15 +128,22 @@ def fresh_entry(
     body = row.body_current
     if body is None:
         return None, UNTRANSLATED_UNITS
-    if body.source_version_id != source.id:
-        bound = body.source_version
-        return None, (SOURCE_UNPUBLISHED if bound.number > source.number else SOURCE_OUTDATED)
     units = extract_units(source_blocks)
+    stored: Mapping[str, Any] = body.units
+    if body.source_version_id != source.id:
+        # Bound to another source version: still this source's translation
+        # when every unit's text is translated by hash — the blocks only
+        # moved, or what changed has no words (ADR-070 pkt 4).
+        realigned = _realigned(stored, units)
+        if realigned is None:
+            bound = body.source_version
+            return None, (SOURCE_UNPUBLISHED if bound.number > source.number else SOURCE_OUTDATED)
+        stored = realigned
     if any(unit.placeholder for unit in units):
         return None, SOURCE_PLACEHOLDER
-    if any(not _translated(unit, body.units.get(unit.key)) for unit in units):
+    if any(not _translated(unit, stored.get(unit.key)) for unit in units):
         return None, UNTRANSLATED_UNITS
-    texts = {key: str(entry["text"]) for key, entry in body.units.items() if "text" in entry}
+    texts = _texts(stored)
     try:
         assembled = assemble(source_blocks, texts).blocks
     except LocaleUnitsInvalid:
@@ -157,6 +169,21 @@ def fresh_entry(
         "origin": _origin(body.units.values()),
         "withheld": False,
     }, None
+
+
+def _realigned(
+    stored: Mapping[str, Any], units: Sequence[TextUnit]
+) -> dict[str, Any] | None:
+    by_source = _translated_by_source(stored.values())
+    found: dict[str, Any] = {}
+    for unit in units:
+        if unit.copied:
+            continue
+        entry = by_source.get(unit.source_hash)
+        if entry is None:
+            return None
+        found[unit.key] = entry
+    return found
 
 
 def _translated(unit: TextUnit, entry: Any) -> bool:

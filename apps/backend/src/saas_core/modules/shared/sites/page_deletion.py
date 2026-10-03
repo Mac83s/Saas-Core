@@ -339,6 +339,9 @@ def delete_page(
     )
 
     publication = None
+    from .source_changes import notify_page_deleted
+
+    notify_page_deleted(context=context, page_id=page.id)
     if published is not None:
         assert site.current_publication is not None
         publication = publish_derived(

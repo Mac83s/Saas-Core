@@ -888,6 +888,33 @@ class PageBlock(TenantScopedModel):
         raise ValidationError("Blok wersji strony jest niemutowalny.")
 
 
+class PageTranslationWrite(TenantScopedModel):
+    """The receipt of one translation write of a page in one language
+    (`translation_source`, ADR-069 pkt 13): a repeat under the same key answers
+    the outcomes it got, other content under it conflicts."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
+    page = models.ForeignKey(Page, on_delete=models.PROTECT, related_name="+")
+    locale = models.CharField(max_length=10)
+    #: A digest of the engine's batch key.
+    idempotency_key = models.CharField(max_length=64)
+    request_hash = models.CharField(max_length=64)
+    job_ref = models.CharField(max_length=160, blank=True, default="")
+    outcomes = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "page", "locale", "idempotency_key"],
+                name="sites_translationwrite_idem_uq",
+            ),
+        ]
+
+
 class PageLocaleVersion(TenantScopedModel):
     """One version of a page body in another language (ADR-070).
 

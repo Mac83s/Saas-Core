@@ -546,12 +546,17 @@ def _source_blocks(version: PageVersion) -> list[dict[str, Any]]:
     ]
 
 
+#: Units a body carries beside its blocks' — the language's title and
+#: description a translation job wrote (`translation_source`).
+METADATA_PREFIX = "meta/"
+
+
 def _texts(units: Mapping[str, Any]) -> dict[str, str]:
     # An entry with only a suggestion has no text for this language yet.
     return {
         key: str(entry["text"])
         for key, entry in units.items()
-        if isinstance(entry, dict) and "text" in entry
+        if isinstance(entry, dict) and "text" in entry and not key.startswith(METADATA_PREFIX)
     }
 
 

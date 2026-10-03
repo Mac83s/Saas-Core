@@ -45,7 +45,10 @@ from saas_core.modules.core.organizations.locales import (
     assert_organization_content_locale,
 )
 from saas_core.modules.core.organizations.models import Organization, WorkspaceKind
-from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
+from saas_core.modules.core.organizations.tasks import (
+    issue_service_task_contract,
+    issue_tenant_task_contract,
+)
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     authorize_entitled,
@@ -2270,9 +2273,14 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         pk=site.id,
         organization_id=context.organization_id,
     ).update(current_publication=publication, updated_at=published_at)
+    from .source_changes import notify_pages_published
     from .tls import invalidate_site_tls_decisions
 
     transaction.on_commit(lambda: invalidate_site_tls_decisions(site_id=site.id))
+    # The engine plans translations of what visitors now read (ADR-069 pkt 5).
+    notify_pages_published(
+        context=context, previous=current, snapshot=snapshot, default_locale=site.default_locale
+    )
 
     active_correlation_id = correlation_id.get()
     event = SiteOutboxEvent.all_objects.create(
@@ -2551,7 +2559,18 @@ def revoke_automation_grant(*, grant_id: UUID, reason: str) -> ContentAutomation
 
 def _schedule_site_outbox_delivery(event: SiteOutboxEvent) -> None:
     OUTBOX_EVENTS.labels(event_type=event.event_type).inc()
-    task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
+    context = require_tenant_context()
+    if context.acting_via:
+        # A translation job's publication: a contract cannot carry acting, and
+        # delivering the event is the organization's own work.
+        task_contract = issue_service_task_contract(
+            organization_id=context.organization_id,
+            role_key="site_outbox",
+            permissions=frozenset(),
+            causation_id=f"sites-outbox:{event.id}",
+        )
+    else:
+        task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
 
     def enqueue_outbox() -> None:
         from .tasks import publish_site_outbox_event_task

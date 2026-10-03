@@ -259,8 +259,10 @@ def test_a_carried_language_version_keeps_its_pictures_or_waits_when_one_is_gone
     )
     _translate_all(client, pages["kontakt"], "kontakt-en-photo")
     publish_site_request(client, site_id, idempotency_key="with-old-photo")
-    # Polish gets a new picture; English is not refreshed and stays as it was.
-    draft(2, new, "Napisz do nas", "photo-new")
+    # Polish gets a new picture and new words no English text translates yet
+    # (words it already had would be realigned by their hash); English is not
+    # refreshed and stays as it was.
+    draft(2, new, "Napisz, zadzwoń albo wpadnij", "photo-new")
     publish_site_request(client, site_id, idempotency_key="with-new-photo")
 
     snapshot = Site.all_objects.get(pk=site_id).current_publication.snapshot

@@ -25,6 +25,7 @@ from rest_framework.exceptions import APIException
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.context import current_tenant_context
 from saas_core.modules.shared.billing.api import authorize_entitled
 
 from .block_decoration import stored_block_payload
@@ -40,10 +41,12 @@ from .language_versions import LocaleBodyVersionConflict, _target
 from .models import (
     Page,
     PageBlock,
+    PageLocaleVersion,
     PageTranslation,
     PageVersion,
     Publication,
     PublicationReason,
+    Site,
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
@@ -160,6 +163,7 @@ def accept_locale_versions(
             withdrawn_at=None,
             body_version=translation.body_version + 1,
             updated_at=now,
+            **body_metadata(translation, translation.body_pending),
         )
         if publication is not None and any(
             decision.translation.id == translation.id and decision.skipped is None
@@ -334,12 +338,94 @@ def _entry_for(
 
 
 def _with_body(translation: PageTranslation, body: Any) -> PageTranslation:
-    """The translation as it would be with `body` current, unsaved."""
+    """The translation as it would be with `body` current, unsaved — with the
+    title and description a translation job wrote into it (`meta/*`)."""
     copy = PageTranslation(**{
         field.attname: getattr(translation, field.attname) for field in PageTranslation._meta.fields
     })
     copy.body_current = body
+    for field, value in body_metadata(translation, body).items():
+        setattr(copy, field, value)
     return copy
+
+
+def body_metadata(translation: PageTranslation, body: Any) -> dict[str, str]:
+    """What a body's `meta/*` units change in the language's own title,
+    description and — while it is not public — address."""
+    from .translation_source import META_FIELDS, free_slug, slug_from_title
+
+    if body is None:
+        return {}
+    changes = {
+        field: str(body.units[key]["text"])[: 160 if field == "title" else 320]
+        for key, field in META_FIELDS.items()
+        if isinstance(body.units.get(key), dict) and "text" in body.units[key]
+    }
+    if "title" in changes and translation.slug_locked_at is None:
+        changes["slug"] = free_slug(
+            translation.page,
+            translation.locale,
+            slug_from_title(changes["title"]) or translation.page.key,
+            keep=translation.id,
+        )
+    return {
+        field: value for field, value in changes.items() if getattr(translation, field) != value
+    }
+
+
+def publish_job_versions(
+    *, site: Site, job_ref: str, reason: str, idempotency_key: str, reverting: bool = False
+) -> Publication | None:
+    """One derived publication of what a translation job made current on a
+    site (ADR-069 pkt 21, ADR-070 pkt 11) — or, `reverting`, of what it put
+    back. Called inside the job's context; drafts never go with it."""
+    context = current_tenant_context()
+    assert context is not None
+    snapshot = _current_snapshot(site)
+    touched = (
+        PageTranslation.all_objects.select_related(
+            "page", "body_current__source_version", "site"
+        )
+        .filter(
+            organization_id=site.organization_id,
+            site_id=site.id,
+            id__in=PageLocaleVersion.all_objects.filter(
+                organization_id=site.organization_id, site_id=site.id, origin_ref=job_ref
+            ).values("translation_id"),
+        )
+        .order_by("page_id", "locale")
+    )
+    home = (snapshot_home(snapshot) or {}).get("page_id")
+    rows = sorted(touched, key=lambda row: str(row.page_id) != home)
+    changed: list[PageTranslation] = []
+    for row in rows:
+        if not reverting and (row.body_current is None or row.body_current.origin_ref != job_ref):
+            continue
+        entry, _skipped = (
+            _entry_for(site, row.page, row, snapshot, row.body_current)
+            if row.body_current is not None
+            else (None, None)
+        )
+        if entry is None and not reverting:
+            continue
+        snapshot = with_language_entry(
+            snapshot, page_id=str(row.page_id), locale=row.locale, entry=entry
+        )
+        changed.append(row)
+    if not changed:
+        return None
+    scope = f"job:{canonical_json_hash([idempotency_key])[:40]}"
+    publication = _publish(context, site, snapshot, scope, reason, scope)
+    now = timezone.now()
+    for row in changed:
+        metadata = body_metadata(row, row.body_current)
+        if metadata:
+            PageTranslation.all_objects.filter(pk=row.id).update(
+                **metadata, version=row.version + 1, updated_at=now
+            )
+        if row.body_current is not None:
+            _lock_slug(row)
+    return publication
 
 
 def _publish(

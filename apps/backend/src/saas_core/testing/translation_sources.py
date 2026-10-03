@@ -162,6 +162,11 @@ class SourceDriver(Protocol):
     """
 
     source: TranslationSource
+    # Optional: units the source derives itself on every object, which no
+    # scenario creates and the suite does not compare — a page's
+    # `meta/title` and `meta/description`, without which its language version
+    # is not publishable (ADR-070 pkt 6). They are still sent and written.
+    #   extra_unit_keys: frozenset[str]
     # A person with the module's publish right.
     publisher: ContentContext
     # A person who may translate but not publish.
@@ -228,6 +233,39 @@ class Translated:
         return [(outcome.state, outcome.reason) for outcome in self.outcomes]
 
 
+def extra_unit_keys(driver: SourceDriver) -> frozenset[str]:
+    return frozenset(getattr(driver, "extra_unit_keys", frozenset()))
+
+
+def own_units(driver: SourceDriver, read: SourceRead) -> SourceRead:
+    """The read without the source's own units (`extra_unit_keys`)."""
+    extra = extra_unit_keys(driver)
+    if not extra:
+        return read
+    return replace(
+        read,
+        units=tuple(unit for unit in read.units if unit.key not in extra),
+        targets={key: target for key, target in read.targets.items() if key not in extra},
+    )
+
+
+def own_outcomes(
+    driver: SourceDriver, outcomes: Sequence[WriteOutcome]
+) -> tuple[WriteOutcome, ...]:
+    """The outcomes for the units the scenario made: an outcome only for the
+    source's own units is left out, and their keys are trimmed from the rest."""
+    extra = extra_unit_keys(driver)
+    if not extra:
+        return tuple(outcomes)
+    kept = []
+    for outcome in outcomes:
+        keys = tuple(key for key in outcome.keys if key not in extra)
+        if outcome.keys and not keys:
+            continue
+        kept.append(replace(outcome, keys=keys))
+    return tuple(kept)
+
+
 class TranslationSourceContract:
     """Subclass per source: set `source_key`, provide a `driver` fixture."""
 
@@ -244,11 +282,14 @@ class TranslationSourceContract:
     def read(
         self, driver: SourceDriver, object_id: UUID, *, basis: Basis = "published"
     ) -> SourceRead:
-        return driver.source.read(
-            context=driver.acting(driver.publisher),
-            object_id=object_id,
-            locale=self.locale,
-            basis=basis,
+        return own_units(
+            driver,
+            driver.source.read(
+                context=driver.acting(driver.publisher),
+                object_id=object_id,
+                locale=self.locale,
+                basis=basis,
+            ),
         )
 
     def translate(
@@ -269,12 +310,20 @@ class TranslationSourceContract:
             context=context, object_id=object_id, locale=self.locale, basis=basis
         )
         selection = sendable_units(read.units, read.targets, sendable=SENDABLE, protected=protected)
+        extra = extra_unit_keys(driver)
         texts: dict[str, tuple[str, Provenance]] = {}
         for unit in selection.units:
-            translated = text(unit.text, self.locale)
+            # The source's own units get a faithful translation: the scenario's
+            # translator is for the units it made.
+            translator = fake_translation if unit.key in extra else text
+            translated = translator(unit.text, self.locale)
             texts[unit.key] = (translated, ai_provenance(unit, translated))
+        seen = own_units(driver, read)
+        own_selection = sendable_units(
+            seen.units, seen.targets, sendable=SENDABLE, protected=protected
+        )
         if not texts:
-            return Translated(read, selection, ())
+            return Translated(seen, own_selection, ())
         job_ref = f"translation_job:{uuid4()}"
         batch = WriteBatch(
             source_key=driver.source.key,
@@ -296,6 +345,14 @@ class TranslationSourceContract:
             published_in_job=published_in_job,
         )
         outcomes = driver.source.write(context=context, batch=batch)
+        sent_extra = extra & set(texts)
+        if sent_extra:
+            # The source's own units go out with the first translation, or the
+            # rule that needs them would pass without them.
+            answered = {key for outcome in outcomes for key in outcome.keys}
+            assert sent_extra <= answered, (
+                f"The source's own units {sorted(sent_extra - answered)} got no outcome."
+            )
         if any(outcome.state == "live" for outcome in outcomes):
             driver.source.publish(
                 context=context,
@@ -303,7 +360,7 @@ class TranslationSourceContract:
                 job_ref=job_ref,
                 idempotency_key=f"{job_ref}:publish",
             )
-        return Translated(read, selection, outcomes)
+        return Translated(seen, own_selection, own_outcomes(driver, outcomes))
 
     def translated(self, driver: SourceDriver, texts: Sequence[str | UnitSpec]) -> UUID:
         object_id = driver.create(texts)

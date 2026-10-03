@@ -650,6 +650,11 @@ nie publikuje) — oraz `acting(context)`, ten sam kontekst działający przez z
 `placeholder`, `name`, `address`, `personal`, `health`); scenariusze bez danej zdolności
 są pomijane. Odmowę osoby test rozpoznaje po kodzie (`error_code(error) ==
 "person_required"`), więc moduł zgłasza ją własnym wyjątkiem.
+Opcjonalne `extra_unit_keys` nazywa fragmenty, które źródło wyprowadza samo na każdym
+obiekcie, a których scenariusz nie tworzy (strony: `meta/title` i `meta/description` —
+wersja językowa bez własnego tytułu i opisu nie jest publikowalna, ADR-070 pkt 6).
+Zestaw nie porównuje ich w odczytach ani wynikach, ale wysyła je wiernym tłumaczeniem i
+sprawdza, że zapis na nie odpowiedział.
 
 Scenariusze — punkt wyjścia: obiekt z fragmentami [A, B, C], opublikowany i
 przetłumaczony na `de`:
