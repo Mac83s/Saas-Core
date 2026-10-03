@@ -104,7 +104,8 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const [search, setSearch] = useState("");
   const [farmId, setFarmId] = useState(params?.get("farm") ?? "");
   const [status, setStatus] = useState("");
-  const [review, setReview] = useState(false);
+  // „Do przejrzenia” on the keeper's „Dziś” leads here with the list narrowed.
+  const [review, setReview] = useState(params?.get("review") === "1");
   const [version, setVersion] = useState(0);
   const [adding, setAdding] = useState(false);
   const [opened, setOpened] = useState<FarmAnimal>();

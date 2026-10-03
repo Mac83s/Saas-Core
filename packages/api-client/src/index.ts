@@ -4533,6 +4533,39 @@ export async function listFarmVisits(farmId: string): Promise<FarmVisit[]> {
   return data;
 }
 
+/** The companies' visits to all of the keeper's farms (UX-078), soonest first. */
+export type RegisterVisit = components["schemas"]["FarmRegisterVisit"];
+
+export async function listRegisterVisits(
+  query: {
+    from?: string;
+    to?: string;
+    status?: "planned" | "done" | "canceled";
+  } = {},
+): Promise<RegisterVisit[]> {
+  const { data, error, response } = await client.GET("/api/v1/farms/visits/", {
+    params: { query },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Controls due on the keeper's animals (ADR-052, addendum 2026-10-03). */
+export type FollowUp = components["schemas"]["FollowUp"];
+
+export async function listFollowUps(
+  query: { from?: string; to?: string } = {},
+): Promise<FollowUp[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/follow-ups/",
+    { params: { query }, credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 /** Zgoda rolnika na grafik firmy; przestawia ją tylko strona rejestru. */
 export async function setFarmShareSchedule(
   shareId: string,

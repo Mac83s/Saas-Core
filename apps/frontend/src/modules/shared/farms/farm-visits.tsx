@@ -306,7 +306,11 @@ function readSections(details: unknown): DetailSection[] {
   });
 }
 
-function VisitDetails({ details }: { details: Record<string, unknown> }) {
+export function VisitDetails({
+  details,
+}: {
+  details: Record<string, unknown>;
+}) {
   const t = useTranslations("Farms");
   const sections = readSections(details);
 

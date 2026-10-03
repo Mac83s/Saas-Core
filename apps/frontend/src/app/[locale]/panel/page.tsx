@@ -15,6 +15,7 @@ import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { getServerCurrentOrganization, getServerUser } from "#lib/server-auth";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import { DayAgenda } from "../../../modules/shared/booking";
+import type { ProductDashboard as ProductDashboardEntry } from "#lib/product-extension";
 import ProductDashboard from "../../../product/dashboard";
 
 export default async function PanelHomePage() {
@@ -25,13 +26,17 @@ export default async function PanelHomePage() {
   ]);
   const access = panelAccess(organization);
   // A product's "Today" only where it applies (e.g. HoofCare's for trimming
-  // companies, not for the farms of the same deployment).
-  if (ProductDashboard && allows(access, ProductDashboard))
+  // companies, the farmer's own for its farms, UX-078).
+  const dashboards: readonly ProductDashboardEntry[] =
+    ProductDashboard === null
+      ? []
+      : "component" in ProductDashboard
+        ? [ProductDashboard]
+        : ProductDashboard;
+  const dashboard = dashboards.find((item) => allows(access, item));
+  if (dashboard)
     return (
-      <ProductDashboard.component
-        access={access}
-        firstName={user?.first_name ?? ""}
-      />
+      <dashboard.component access={access} firstName={user?.first_name ?? ""} />
     );
   const modules = new Set(access.modules);
   // The same gates as the menu, so the start page offers no tile the menu hides.

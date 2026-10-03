@@ -82,6 +82,14 @@ export type ProductDashboard = {
 } & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;
 
 /**
+ * What the slot exports: one "Today", or one per kind of organization (a
+ * trimming company's and a farm's in one deployment, UX-078). The first one
+ * the person's access allows wins; none — core's start page.
+ */
+export type ProductDashboards =
+  ProductDashboard | readonly ProductDashboard[] | null;
+
+/**
  * A section a product renders inside the animal card (slot file
  * `src/product/animal-sections.tsx`, ADR-049 + ADR-051). The register of farms
  * and animals is core's; what a trade records about an animal — HoofCare's
