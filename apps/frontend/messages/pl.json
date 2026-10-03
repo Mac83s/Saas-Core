@@ -2736,6 +2736,12 @@
     }
   },
   "PublicBooking": {
+    "email": "E-mail",
+    "emailOptional": "E-mail (nieobowiązkowo)",
+    "phone": "Telefon",
+    "phoneOptional": "Telefon (nieobowiązkowo)",
+    "phoneRequired": "Podaj numer telefonu.",
+    "contactRequired": "Podaj e-mail albo telefon.",
     "paused": "Rezerwacje online są chwilowo wstrzymane. Aby umówić wizytę, skontaktuj się z firmą.",
     "pausedUntil": "Rezerwacje online są wstrzymane — wracają {date}. Do tego czasu umów wizytę bezpośrednio z firmą.",
     "title": "Umów termin",

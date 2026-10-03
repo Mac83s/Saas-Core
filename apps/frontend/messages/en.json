@@ -2736,6 +2736,12 @@
     }
   },
   "PublicBooking": {
+    "email": "E-mail",
+    "emailOptional": "E-mail (optional)",
+    "phone": "Phone",
+    "phoneOptional": "Phone (optional)",
+    "phoneRequired": "Enter a phone number.",
+    "contactRequired": "Enter an e-mail or a phone number.",
     "paused": "Online booking is paused for now. To book a visit, contact the company.",
     "pausedUntil": "Online booking is paused and returns on {date}. Until then, book directly with the company.",
     "title": "Book a time",

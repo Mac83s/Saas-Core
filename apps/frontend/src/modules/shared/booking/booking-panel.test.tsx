@@ -2050,3 +2050,43 @@ test("a company that paused online booking says so instead of a form (ADR-078)",
   ).toBeInTheDocument();
   expect(screen.queryByLabelText("Usługa")).toBeNull();
 });
+
+test("public booking offers the company's horizon and asks for the contact it requires (B3, B9)", async () => {
+  api.getPublicBookingCatalog.mockResolvedValue({
+    locations: catalog.locations,
+    services: catalog.services,
+    resources: catalog.resources,
+    timezone: "Europe/Warsaw",
+    online: {
+      paused: false,
+      resume_on: null,
+      horizon_days: 7,
+      last_day: "2026-08-25",
+      contact: "phone",
+    },
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <PublicBookingFlow publicSlug="demo" />
+    </NextIntlClientProvider>,
+  );
+  await screen.findByText("Consultation");
+  fireEvent.change(screen.getByLabelText("Service"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(screen.getByLabelText("Place"), {
+    target: { value: catalog.locations[0].id },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Show times" }));
+  await waitFor(() =>
+    expect(api.getPublicBookingDays).toHaveBeenCalledWith(
+      "demo",
+      expect.objectContaining({ from: "2026-08-19", to: "2026-08-25" }),
+    ),
+  );
+  expect(screen.getByLabelText("Phone")).toHaveAttribute("type", "tel");
+  expect(screen.getByLabelText("E-mail (optional)")).toHaveAttribute(
+    "type",
+    "email",
+  );
+});

@@ -51,6 +51,7 @@ type Values = {
   starts_at: string;
   display_name: string;
   email: string;
+  phone: string;
   notes: string;
 };
 
@@ -97,17 +98,43 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const [problem, setProblem] = useState<string>();
   // „Do kogo?”: nobody in particular, or the team / person the service offers.
   const [choice, setChoice] = useState<BookingPublicChoice>({});
+  // Which contact the company requires online (booking.online.contact, B9).
+  const contact = catalog?.online.contact ?? "email";
   const schema = useMemo(
     () =>
-      z.object({
-        service_id: z.string().uuid(t("required")),
-        location_id: z.string().uuid(t("required")),
-        starts_at: z.string().min(1, t("pickTime")),
-        display_name: z.string().trim().min(1, t("required")).max(160),
-        email: z.email(t("invalidEmail")),
-        notes: z.string().trim().max(500, t("notesTooLong")),
-      }),
-    [t],
+      z
+        .object({
+          service_id: z.string().uuid(t("required")),
+          location_id: z.string().uuid(t("required")),
+          starts_at: z.string().min(1, t("pickTime")),
+          display_name: z.string().trim().min(1, t("required")).max(160),
+          email: z.union([z.literal(""), z.email(t("invalidEmail"))]),
+          phone: z.string().trim().max(40),
+          notes: z.string().trim().max(500, t("notesTooLong")),
+        })
+        .superRefine((values, issues) => {
+          const email = Boolean(values.email);
+          const phone = Boolean(values.phone);
+          if (["email", "email_and_phone"].includes(contact) && !email)
+            issues.addIssue({
+              code: "custom",
+              path: ["email"],
+              message: t("invalidEmail"),
+            });
+          if (["phone", "email_and_phone"].includes(contact) && !phone)
+            issues.addIssue({
+              code: "custom",
+              path: ["phone"],
+              message: t("phoneRequired"),
+            });
+          if (contact === "email_or_phone" && !email && !phone)
+            issues.addIssue({
+              code: "custom",
+              path: ["email"],
+              message: t("contactRequired"),
+            });
+        }),
+    [contact, t],
   );
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -117,6 +144,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       starts_at: "",
       display_name: "",
       email: "",
+      phone: "",
       notes: "",
     },
   });
@@ -152,7 +180,8 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     getPublicBookingDays(publicSlug, {
       ...query,
       from,
-      to: addDays(from, 14),
+      // As far ahead as the company takes bookings online (B3).
+      to: catalog?.online.last_day ?? addDays(from, 14),
     })
       .then((value) => {
         if (!current) return;
@@ -167,7 +196,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     return () => {
       current = false;
     };
-  }, [publicSlug, query, t, zone]);
+  }, [catalog?.online.last_day, publicSlug, query, t, zone]);
   useEffect(() => {
     if (!query || !day) return;
     let current = true;
@@ -213,7 +242,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     });
   };
   const submit = form.handleSubmit(
-    async ({ display_name, email, notes, ...booking }) => {
+    async ({ display_name, email, phone, notes, ...booking }) => {
       try {
         // Who takes the visit, and the room it needs, is the server's pick
         // (ADR-058 §4) — within the team or the person the customer chose.
@@ -227,7 +256,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             customer: {
               display_name,
               email,
-              phone: "",
+              phone: phone.trim(),
               locale: locale === "en" ? "en" : "pl",
             },
           },
@@ -480,15 +509,35 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             <FieldError errors={[errors.display_name]} />
           </Field>
           <Field data-invalid={Boolean(errors.email)}>
-            <FieldLabel htmlFor="booking-email">E-mail</FieldLabel>
+            <FieldLabel htmlFor="booking-email">
+              {["email", "email_and_phone"].includes(contact)
+                ? t("email")
+                : t("emailOptional")}
+            </FieldLabel>
             <Input
               aria-invalid={Boolean(errors.email)}
+              autoComplete="email"
               id="booking-email"
               type="email"
               {...form.register("email")}
             />
             <FieldError errors={[errors.email]} />
           </Field>
+          {contact === "email" ? null : (
+            <Field data-invalid={Boolean(errors.phone)}>
+              <FieldLabel htmlFor="booking-phone">
+                {contact === "email_or_phone" ? t("phoneOptional") : t("phone")}
+              </FieldLabel>
+              <Input
+                aria-invalid={Boolean(errors.phone)}
+                autoComplete="tel"
+                id="booking-phone"
+                type="tel"
+                {...form.register("phone")}
+              />
+              <FieldError errors={[errors.phone]} />
+            </Field>
+          )}
           <Field data-invalid={Boolean(errors.notes)}>
             <FieldLabel htmlFor="booking-notes">{t("notes")}</FieldLabel>
             <Textarea
