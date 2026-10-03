@@ -303,11 +303,9 @@ test("saves the entry draft and confirms it", async () => {
   );
 
   expect(
-    await screen.findByRole("button", { name: "Zapisz nową wersję draftu" }),
+    await screen.findByRole("button", { name: "Zapisz szkic" }),
   ).not.toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz szkic" }));
 
   await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledOnce());
   // The version the server returned is what the next save must send, so the
@@ -345,9 +343,7 @@ test("entry editing preserves decoration through migration and clears it only on
   fireEvent.change(await screen.findByLabelText("Nagłówek"), {
     target: { value: "Nowy nagłówek wpisu" },
   });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz szkic" }));
   await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledOnce());
   expect(saveContentEntryDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
     block_type: "core.hero",
@@ -360,9 +356,7 @@ test("entry editing preserves decoration through migration and clears it only on
     screen.getByText("Dekoracje sekcji", { selector: "summary" }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Usuń dekoracje" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz szkic" }));
   await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledTimes(2));
   expect(saveContentEntryDraft.mock.calls[1]?.[1].blocks[0]).not.toHaveProperty(
     "decoration",

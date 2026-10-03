@@ -9,8 +9,8 @@ import {
   ArrowUpIcon,
   EyeIcon,
   EyeOffIcon,
-  RefreshCwIcon,
   SaveIcon,
+  Undo2Icon,
 } from "lucide-react";
 
 import {
@@ -333,7 +333,7 @@ export function NavigationEditor({
             type="button"
             variant={conflict ? "default" : "outline"}
           >
-            <RefreshCwIcon aria-hidden="true" />
+            <Undo2Icon aria-hidden="true" />
             {t("navigationReload")}
           </Button>
         </div>

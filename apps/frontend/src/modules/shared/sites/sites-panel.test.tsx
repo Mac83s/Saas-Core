@@ -283,7 +283,7 @@ test("slots and the template's contact are named, not called ready", async () =>
   ).toBe(`/panel/sites/pages/${page.id}`);
   // Publishing stays open; the card says what a visitor will not see.
   expect(
-    screen.getByRole("button", { name: "Opublikuj snapshot" }),
+    screen.getByRole("button", { name: "Opublikuj zmiany" }),
   ).not.toBeDisabled();
 });
 
@@ -291,7 +291,7 @@ test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
   renderPanel({ section: "publication" });
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Opublikuj snapshot" }),
+    await screen.findByRole("button", { name: "Opublikuj zmiany" }),
   );
 
   await waitFor(() => expect(publishSite).toHaveBeenCalledOnce());
@@ -485,9 +485,7 @@ test("each page of the section shows its own part, not a tab of the rest", async
   expect(await screen.findByLabelText("Własna domena")).not.toBeNull();
   expect(screen.queryByRole("tablist")).toBeNull();
   // Publishing and the page list live at their own addresses.
-  expect(
-    screen.queryByRole("button", { name: "Opublikuj snapshot" }),
-  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Opublikuj zmiany" })).toBeNull();
   expect(screen.queryByRole("table", { name: "Podstrony witryny" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Dodaj podstronę" })).toBeNull();
 

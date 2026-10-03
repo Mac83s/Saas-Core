@@ -120,7 +120,7 @@ test("keeps the operator's arrangement when the server version moved on", async 
   const names = screen.getAllByRole("listitem").map((item) => item.textContent);
   expect(names[0]).toContain("Oferta");
   expect(
-    screen.getByRole("button", { name: "Wczytaj wersję serwera" }),
+    screen.getByRole("button", { name: "Odrzuć moje zmiany" }),
   ).not.toBeNull();
 });
 

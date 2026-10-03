@@ -171,7 +171,7 @@ export function DomainPanel({ siteId }: { siteId: string }) {
             {t(`domainStatus_${domain.status}`)}
           </Badge>
           <Badge variant="outline">
-            TLS: {t(`tlsStatus_${domain.tls_status}`)}
+            {t("tls", { status: t(`tlsStatus_${domain.tls_status}`) })}
           </Badge>
         </div>
       ),

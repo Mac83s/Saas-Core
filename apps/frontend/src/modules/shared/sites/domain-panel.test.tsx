@@ -96,7 +96,9 @@ test("pokazuje status, instrukcję DNS i uruchamia kontrolę", async () => {
       /_saas-core\.www\.example\.test/,
     ),
   ).not.toBeNull();
-  expect(screen.getByText("TLS: oczekuje")).not.toBeNull();
+  expect(
+    screen.getByText("Bezpieczne połączenie (SSL): oczekuje"),
+  ).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Sprawdź DNS" }));
 
   await waitFor(() => expect(mutateSiteDomain).toHaveBeenCalledOnce());
@@ -126,7 +128,7 @@ test("ustawia zweryfikowaną domenę jako canonical i wyłącza ją z menu", asy
   renderPanel();
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Ustaw canonical" }),
+    await screen.findByRole("button", { name: "Ustaw jako adres główny" }),
   );
 
   await waitFor(() => expect(mutateSiteDomain).toHaveBeenCalledOnce());

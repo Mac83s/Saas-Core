@@ -96,7 +96,7 @@ function renderPanel() {
 /** Opens a row's "…" menu; the emergency stop lives there (ADR-057). */
 async function openMenu(credential: string) {
   const trigger = await screen.findByRole("button", {
-    name: `Działania dla poświadczenia ${credential}`,
+    name: `Działania dla dostępu ${credential}`,
   });
   fireEvent.click(trigger);
   return trigger;
@@ -116,7 +116,7 @@ test("pokazuje zakres, granice i ostatnią aktywność każdego połączenia", a
   expect(await screen.findByText(live.credential_id)).not.toBeNull();
   // The shared panel list (ADR-054): one row per grant, its state beside it.
   const table = screen.getByRole("table", {
-    name: "Połączenia automatyzacji z ich stanem i zasięgiem",
+    name: "Połączenia automatyzacji z ich stanem i zakresem",
   });
   expect(within(table).getAllByRole("row")).toHaveLength(4);
   expect(screen.getByText("Zapisywanie szkiców")).not.toBeNull();
@@ -157,7 +157,7 @@ test("nie proponuje odwołania grantu, który już nie działa", async () => {
   within(row).getByRole("button", { name: "Szczegóły połączenia" });
   expect(
     within(row).queryByRole("button", {
-      name: `Działania dla poświadczenia ${revoked.credential_id}`,
+      name: `Działania dla dostępu ${revoked.credential_id}`,
     }),
   ).toBeNull();
 
