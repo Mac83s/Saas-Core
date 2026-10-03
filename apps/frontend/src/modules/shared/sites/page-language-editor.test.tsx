@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   fireEvent,
   render,
@@ -102,7 +103,7 @@ function body(extra: Partial<LocaleBody> = {}): LocaleBody {
   } as LocaleBody;
 }
 
-function show(locale: "pl" | "en" = "pl") {
+function show(locale: "pl" | "en" = "pl", leading?: ReactNode) {
   return render(
     <NextIntlClientProvider
       locale={locale}
@@ -113,6 +114,7 @@ function show(locale: "pl" | "en" = "pl") {
         locale="de"
         languageName="Deutsch"
         sourceName="Polski"
+        leading={leading}
         languageSwitch={null}
         onSwitchToSource={vi.fn()}
         onChanged={vi.fn()}
@@ -164,6 +166,26 @@ test("only the words change: each fragment beside its source, structure in the s
   }
   expect(screen.getByText(/Brakuje 1 fragmentu/)).not.toBeNull();
   expect((await axe.run(view.container)).violations).toEqual([]);
+});
+
+test("one top bar, as the source's editor has: the way back, the page and its language, then saving", async () => {
+  api.getLocaleBody.mockResolvedValue(body());
+  show("pl", <button type="button">Wróć do podstron</button>);
+
+  const save = await screen.findByRole("button", {
+    name: "Zapisz tłumaczenie",
+  });
+  const bar = save.closest<HTMLElement>(".studio-topbar");
+  expect(bar).not.toBeNull();
+  const row = within(bar!);
+  expect(row.getByRole("button", { name: "Wróć do podstron" })).toBeDefined();
+  expect(row.getByText("Oferta")).toBeDefined();
+  expect(await row.findByText("Deutsch · Wersja 1")).toBeDefined();
+  expect(row.getByRole("button", { name: "Więcej" })).toBeDefined();
+  expect(row.getByRole("button", { name: "Podgląd" })).toBeDefined();
+  expect(
+    row.getByRole("button", { name: "Przejdź do wersji: Polski" }),
+  ).toBeDefined();
 });
 
 test("saving sends only what changed and the fragment reads as corrected", async () => {

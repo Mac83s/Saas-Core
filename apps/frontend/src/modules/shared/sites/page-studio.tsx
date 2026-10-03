@@ -347,26 +347,30 @@ export function PageStudio({
     />
   );
   const editingSource = contentLocale === sourceLocale;
-  const backButton = (compact: boolean) => (
-    <Button
-      type="button"
-      variant="ghost"
-      size={compact ? "icon-sm" : "default"}
-      className={compact ? "pointer-fine:size-8" : "max-sm:px-2"}
-      title={compact ? t("backToPages") : undefined}
-      disabled={exitState.busy || appearanceBusy}
-      onClick={() => changeOpen(false)}
-    >
-      <ChevronLeftIcon aria-hidden="true" />
-      <span className={compact ? "sr-only" : "max-sm:sr-only"}>
-        {t("backToPages")}
-      </span>
-    </Button>
-  );
-  const dialogDescription = (
-    <DialogDescription className="sr-only">
-      {t("studioDescription")}
-    </DialogDescription>
+  // Each editor puts this at the start of its own top bar: the way back,
+  // then the dialog's full title for a screen reader (the bar shows the
+  // page's name).
+  const leading = (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="pointer-fine:size-8"
+        title={t("backToPages")}
+        disabled={exitState.busy || appearanceBusy}
+        onClick={() => changeOpen(false)}
+      >
+        <ChevronLeftIcon aria-hidden="true" />
+        <span className="sr-only">{t("backToPages")}</span>
+      </Button>
+      <DialogTitle className="sr-only">
+        {t("studioTitle", { page: page.name })}
+      </DialogTitle>
+      <DialogDescription className="sr-only">
+        {t("studioDescription")}
+      </DialogDescription>
+    </>
   );
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
@@ -378,20 +382,6 @@ export function PageStudio({
         showCloseButton={false}
         className="flex flex-col gap-0 overflow-hidden"
       >
-        {/* The source's editor puts the way back into its own top bar; a
-            language version keeps this row: back first, then the page, on a
-            phone one short row with save and „…” under it (UX-039). */}
-        {!editingSource && (
-          <header className="flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2 sm:gap-3 sm:px-6 sm:py-3">
-            {backButton(false)}
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate">
-                {t("studioTitle", { page: page.name })}
-              </DialogTitle>
-              {dialogDescription}
-            </div>
-          </header>
-        )}
         <div
           className="min-h-0 flex-1 overflow-hidden"
           data-testid="fullscreen-studio"
@@ -403,6 +393,7 @@ export function PageStudio({
               locale={contentLocale}
               languageName={nameOf(contentLocale)}
               sourceName={nameOf(sourceLocale)}
+              leading={leading}
               languageSwitch={languageSwitch}
               appearance={savedAppearance?.data}
               onSwitchToSource={() => chooseLanguage(sourceLocale)}
@@ -416,17 +407,7 @@ export function PageStudio({
           {open && editingSource && (
             <PageEditor
               key={page.id}
-              leading={
-                <>
-                  {backButton(true)}
-                  {/* The bar shows the page's name; the dialog keeps its
-                      full title for a screen reader. */}
-                  <DialogTitle className="sr-only">
-                    {t("studioTitle", { page: page.name })}
-                  </DialogTitle>
-                  {dialogDescription}
-                </>
-              }
+              leading={leading}
               page={page}
               pagesPanel={pagesPanel}
               previewOnOpen={previewOnOpen}

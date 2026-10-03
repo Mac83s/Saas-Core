@@ -191,6 +191,9 @@ export interface PageLanguageEditorProps {
   readonly locale: string;
   readonly languageName: string;
   readonly sourceName: string;
+  /** What opens the top bar: the studio's way back and the dialog's title,
+   *  as in the source's editor. */
+  readonly leading?: ReactNode;
   /** The language picker, shown in this mode's toolbar. */
   readonly languageSwitch: ReactNode;
   readonly appearance?: SiteAppearance;
@@ -208,6 +211,7 @@ export function PageLanguageEditor({
   locale,
   languageName,
   sourceName,
+  leading,
   languageSwitch,
   appearance,
   onSwitchToSource,
@@ -538,15 +542,31 @@ export function PageLanguageEditor({
     body.version === null &&
     body.units.every((unit) => unit.text === null);
 
-  // The editor's toolbar shape (UX-039): the picker, then "Więcej", preview
-  // and save on the right; what changes the structure is not here at all.
+  // The source editor's one row (UX-039): the way back and the page on the
+  // left, then the picker, „Więcej”, preview and save on the right. In the
+  // middle, where the source has its device switch, a wide screen says where
+  // the structure is changed; narrower, that way is under „Więcej”.
   const toolbar = (
-    <div className="studio-toolbar">
-      <p className="text-sm text-muted-foreground max-md:hidden">
-        {t("structureHint")}{" "}
+    <div className="studio-toolbar studio-topbar">
+      {leading}
+      <div className="studio-topbar-page">
+        <p className="truncate text-sm font-semibold">{page.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {languageName}
+          {body?.version != null &&
+            ` · ${t("versionNamed", { number: body.version })}`}
+        </p>
+      </div>
+      <span
+        aria-hidden="true"
+        className="studio-topbar-divider hidden xl:block"
+      />
+      {/* The sentence gives way before the link does. */}
+      <p className="studio-topbar-center hidden items-baseline gap-1.5 text-sm text-muted-foreground xl:flex">
+        <span className="truncate">{t("structureHint")}</span>
         <button
           type="button"
-          className="underline underline-offset-4"
+          className="shrink-0 underline underline-offset-4"
           onClick={onSwitchToSource}
         >
           {t("toSource", { language: sourceName })}
@@ -557,13 +577,14 @@ export function PageLanguageEditor({
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label={studio("more")}
+            title={studio("more")}
             className={buttonVariants({
-              variant: "ghost",
-              className: "max-sm:px-2.5",
+              variant: "outline",
+              size: "icon-sm",
+              className: "pointer-fine:size-8",
             })}
           >
             <EllipsisIcon aria-hidden="true" />
-            <span className="max-sm:hidden">{studio("more")}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setMetadataOpen(true)}>
@@ -584,7 +605,7 @@ export function PageLanguageEditor({
                 {t("actions.withdraw")}
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem className="md:hidden" onClick={onSwitchToSource}>
+            <DropdownMenuItem className="xl:hidden" onClick={onSwitchToSource}>
               {t("toSource", { language: sourceName })}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -592,6 +613,8 @@ export function PageLanguageEditor({
         <Button
           type="button"
           variant="outline"
+          size="sm"
+          className="pointer-fine:h-8"
           aria-label={t("preview")}
           title={t("preview")}
           disabled={!body?.version_id}
@@ -602,6 +625,8 @@ export function PageLanguageEditor({
         </Button>
         <Button
           type="button"
+          size="sm"
+          className="pointer-fine:h-8"
           aria-label={t("save")}
           disabled={state !== "ready" || saving || dirtyKeys.length === 0}
           onClick={() => void save()}

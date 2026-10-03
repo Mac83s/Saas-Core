@@ -33,14 +33,17 @@ vi.mock("@saas-core/api-client", async (original) => ({
 vi.mock("./page-language-editor", () => ({
   PageLanguageEditor: ({
     locale,
+    leading,
     languageSwitch,
     onSwitchToSource,
   }: {
     locale: string;
+    leading: ReactNode;
     languageSwitch: ReactNode;
     onSwitchToSource: () => void;
   }) => (
     <>
+      {leading}
       {languageSwitch}
       <p>Translating into {locale}</p>
       <button onClick={onSwitchToSource}>Back to the source</button>
@@ -292,6 +295,14 @@ test("the studio edits another language of the page and keeps it in the address"
   setup("pl", "site");
 
   expect(await screen.findByText("Translating into de")).not.toBeNull();
+  // No row of the studio's own over the language mode: the way back and the
+  // dialog's title go into that editor's top bar, as with the source.
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.querySelector("header")).toBeNull();
+  expect(dialog).toHaveAccessibleName(/Home/);
+  expect(
+    screen.getByRole("button", { name: "Wróć do podstron" }),
+  ).toBeDefined();
   expect(
     screen.getByRole("combobox", { name: "Wersja językowa" }).textContent,
   ).toContain("Niepełna");
