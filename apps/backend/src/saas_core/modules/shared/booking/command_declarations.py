@@ -136,7 +136,12 @@ def _read_setup(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
     return cast(
         dict[str, Any],
         _jsonable({
-            "services": [_service_setup_payload(item) for item in value.services],
+            "services": [
+                # Who made it, for the undo of a draft: the conversation, when
+                # the assistant did (ADR-072 §11).
+                {**_service_setup_payload(item), "origin_ref": item.service.origin_ref}
+                for item in value.services
+            ],
             "locations": [_place_payload(item) for item in value.locations],
             "resources": [_resource_payload(item) for item in value.resources],
             "groups": [_group_payload(item) for item in value.groups],
@@ -458,7 +463,7 @@ SETUP_READ = CommandSpec(
         "names its group (group_id), a person comes with their working week (hours), in "
         "the shape booking.staff.hours.set takes. Use it before creating or changing a "
         "service, its units or someone's working hours, to know the ids. It does not "
-        "return bookings or prices (booking.prices.read)."
+        "return bookings, prices (booking.prices.read) or seasons (booking.seasons.read)."
     ),
     input_schema={
         "type": "object",
@@ -966,8 +971,9 @@ PRESET_APPLY = CommandSpec(
 
 
 def register_booking_commands() -> None:
-    # Imported here: the price-list commands use this module's helpers.
+    # Imported here: the price-list and season commands use this module's helpers.
     from .pricing_commands import PRICING_COMMANDS  # noqa: PLC0415
+    from .season_commands import SEASON_COMMANDS  # noqa: PLC0415
 
     for spec in (
         SETUP_READ,
@@ -979,5 +985,6 @@ def register_booking_commands() -> None:
         PRESET_LIST,
         PRESET_APPLY,
         *PRICING_COMMANDS,
+        *SEASON_COMMANDS,
     ):
         register_command(spec)

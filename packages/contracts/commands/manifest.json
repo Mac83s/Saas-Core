@@ -1505,6 +1505,266 @@
       "version_field": null
     },
     {
+      "command": "booking.season.save@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "description": "False switches the season off.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "buffer_after_minutes": {
+            "description": "The break after a booking (cleaning), in minutes.",
+            "maximum": 10080,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "closed": {
+            "description": "True takes no bookings in these dates at all.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "end_weekdays": {
+            "description": "The weekdays a booking may end on, 0 is Monday.",
+            "items": {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "ends_on": {
+            "description": "Last local day of the season, included.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group_id": {
+            "description": "The group of units it is a season of.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "length_multiple": {
+            "description": "Only multiples of this length; 7 is whole weeks.",
+            "maximum": 365,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_length": {
+            "description": "The longest booking, in the same units.",
+            "maximum": 1000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "min_length": {
+            "description": "The shortest booking, in the offer's time units (nights, days).",
+            "maximum": 1000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "A name for the company: „Sezon wysoki”, „Majówka”.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notice_hours": {
+            "description": "At least this many hours before its start a booking can be made.",
+            "maximum": 8760,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "resource_id": {
+            "description": "The unit it is a season of.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "season_id": {
+            "description": "The season to change; null adds a new one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The service it is a season of.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start_weekdays": {
+            "description": "The weekdays a booking may begin on, 0 is Monday; null keeps them, and a new season then allows every day.",
+            "items": {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "starts_on": {
+            "description": "First local day of the season, YYYY-MM-DD.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "window_days": {
+            "description": "At most this many days ahead a booking can be made.",
+            "maximum": 730,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "season_id",
+          "service_id",
+          "group_id",
+          "resource_id",
+          "name",
+          "starts_on",
+          "ends_on",
+          "min_length",
+          "max_length",
+          "length_multiple",
+          "start_weekdays",
+          "end_weekdays",
+          "notice_hours",
+          "window_days",
+          "closed",
+          "buffer_after_minutes",
+          "active"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds a season (season_id null) or changes one (its season_id from booking.seasons.read). A season belongs to exactly one of a service, a group of units or a unit, and holds the rules for bookings between starts_on and ends_on, both days included: min_length and max_length in the offer's time units (nights of a stay, days of a rental), length_multiple (7 — whole weeks only), start_weekdays and end_weekdays — the days a booking may begin and end on, 0 is Monday — notice_hours, window_days, closed (no bookings in these dates at all) and the break after a booking. The dates and every rule are the person's own words: when the dates were not said, ask, do not call; give a year only as the person meant it. Pass null for every field that stays as it is (a new season takes no rule it was not given); a list given replaces the list; a rule cannot be cleared here — the person clears it in the panel, in „Sezony i zasady”. A season prices nothing: a season's price is booking.price.save with the same dates. A season of a switched-on service is in force at once for new bookings; bookings already made stay.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "ends_on": {
+            "type": "string"
+          },
+          "season_id": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A season of a service, a group of units or a unit: its dates and booking rules.",
+        "pl": "Sezon usługi, grupy jednostek albo jednostki: daty i zasady rezerwacji."
+      },
+      "title": {
+        "en": "Save a season",
+        "pl": "Zapisz sezon"
+      },
+      "tool_name": "booking_season_save_v1",
+      "undo": "command:booking.season.save@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "booking.seasons.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns every season of the company — of a service, a group of units or a unit — switched-off ones included, each with its id, its version, its first and last local day and its rules: the shortest and the longest booking in the offer's time units (nights, days), whole multiples, the weekdays a booking may begin and end on (0 is Monday; an empty list is any day), how long before its start and how far ahead it can be made, closed, the break after. Use it before changing a season, to know its id. For a day the unit's season wins over its group's, and that over the service's. A season's price is not here: booking.prices.read has the price list.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "seasons": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The seasons of services, groups and units with their booking rules and versions.",
+        "pl": "Sezony usług, grup i jednostek z zasadami rezerwacji, z wersjami do zmian."
+      },
+      "title": {
+        "en": "Read the seasons",
+        "pl": "Odczytaj sezony"
+      },
+      "tool_name": "booking_seasons_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
       "command": "booking.settings_notices.read@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -2472,7 +2732,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns every service (with who does it, where, with which resource and in which groups of units), place, resource or unit, group of units and current person of the company, switched-off ones included, each with its id and version; a unit names its group (group_id), a person comes with their working week (hours), in the shape booking.staff.hours.set takes. Use it before creating or changing a service, its units or someone's working hours, to know the ids. It does not return bookings or prices (booking.prices.read).",
+      "model_description": "Returns every service (with who does it, where, with which resource and in which groups of units), place, resource or unit, group of units and current person of the company, switched-off ones included, each with its id and version; a unit names its group (group_id), a person comes with their working week (hours), in the shape booking.staff.hours.set takes. Use it before creating or changing a service, its units or someone's working hours, to know the ids. It does not return bookings, prices (booking.prices.read) or seasons (booking.seasons.read).",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",

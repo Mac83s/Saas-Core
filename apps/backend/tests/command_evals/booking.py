@@ -1,10 +1,11 @@
 """Evals of the assistant's service, place and working-hours commands
-(`shared/booking/command_declarations.py`, ADR-072 §11), and of its units,
-price list and draft removal (`shared/booking/pricing_commands.py`)."""
+(`shared/booking/command_declarations.py`, ADR-072 §11), of its units, price
+list and draft removal (`shared/booking/pricing_commands.py`) and of its
+seasons (`shared/booking/season_commands.py`)."""
 
 from __future__ import annotations
 
-from datetime import time
+from datetime import date, time
 from typing import Any
 
 from django.db.models import F
@@ -17,6 +18,7 @@ from saas_core.modules.shared.billing.models import (
 )
 from saas_core.modules.shared.booking.models import (
     AvailabilityRule,
+    BookingRule,
     Extra,
     Location,
     ParticipantCategory,
@@ -283,6 +285,53 @@ def _extra_fields(**given: Any) -> dict[str, Any]:
     return {**fields, **given}
 
 
+def _season_company(context: TenantContext) -> None:
+    """The stay with a season of its own: July and August, a week at least."""
+    _stay_company(context)
+    BookingRule.all_objects.create(
+        organization_id=context.organization_id,
+        service=_stay(context),
+        name="Sezon wysoki",
+        starts_on=date(2027, 7, 1),
+        ends_on=date(2027, 8, 31),
+        min_length=7,
+    )
+
+
+def _season_state(context: TenantContext) -> dict[str, Any]:
+    return {
+        **_price_state(context),
+        "seasons": sorted(
+            BookingRule.all_objects.filter(organization_id=context.organization_id).values_list(
+                "starts_on", "ends_on", "min_length", "start_weekdays", "active", "version"
+            )
+        ),
+    }
+
+
+def _season_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys((
+        "season_id",
+        "service_id",
+        "group_id",
+        "resource_id",
+        "name",
+        "starts_on",
+        "ends_on",
+        "min_length",
+        "max_length",
+        "length_multiple",
+        "start_weekdays",
+        "end_weekdays",
+        "notice_hours",
+        "window_days",
+        "closed",
+        "buffer_after_minutes",
+        "active",
+    ))
+    return {**fields, **given}
+
+
 def _quote_fields(**given: Any) -> dict[str, Any]:
     fields: dict[str, Any] = dict.fromkeys((
         "starts_at",
@@ -505,6 +554,28 @@ EVALS = {
         stale="nie dotyczy: odczyt nie sprawdza wersji",
         state=_price_state,
         prepare=_stay_company,
+    ),
+    "booking.seasons.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"seasons": True},
+        wrong_field="seasons",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_season_state,
+        prepare=_season_company,
+    ),
+    "booking.season.save@1": CommandEval(
+        arguments=lambda context: _season_fields(
+            season_id=str(_first(BookingRule, context).id), min_length=5, start_weekdays=[5]
+        ),
+        # Refused by the panel's own serializer: a new season needs its dates.
+        wrong_arguments=lambda context: _season_fields(
+            service_id=str(_stay(context).id), min_length=7
+        ),
+        wrong_field="starts_on",
+        stale=_bump(BookingRule),
+        state=_season_state,
+        prepare=_season_company,
+        preview_rolls_back=ROLLED_BACK,
     ),
     "booking.offer.discard@1": CommandEval(
         arguments=lambda context: {"service_id": str(_stay(context).id)},

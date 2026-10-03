@@ -192,8 +192,8 @@ def _per(basis: str, unit: str, at: int) -> str:
     return _BASIS[basis][at]
 
 
-def _scope(rule: PriceRule) -> tuple[tuple[str, str], str]:
-    """Whose price it is, in words, and the time unit its offer counts."""
+def _scope(rule: PriceRule | BookingRule) -> tuple[tuple[str, str], str]:
+    """Whose price or season it is, in words, and the time unit its offer counts."""
     if rule.service_id is not None:
         service = Service.all_objects.get(pk=rule.service_id)
         return (f"usługi „{service.name}”", f"of the service “{service.name}”"), service.range_unit
