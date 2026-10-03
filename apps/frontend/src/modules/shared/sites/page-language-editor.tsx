@@ -563,6 +563,12 @@ export function PageLanguageEditor({
     [body],
   );
   const filtered = onlyChanged && changedKeys.size > 0;
+  // The title and description the waiting version carries: read beside what
+  // the language has now, like its fragments.
+  const waitingMetadata = waiting ? (body?.pending?.metadata ?? []) : [];
+  const changedMetadata = waitingMetadata.filter(
+    (item) => item.text !== item.current_text,
+  ).length;
 
   const sections = useMemo(() => {
     const groups = new Map<number, LocaleBodyUnit[]>();
@@ -758,7 +764,7 @@ export function PageLanguageEditor({
             reason: t.has(`banner.reasons.${reason}`)
               ? t(`banner.reasons.${reason}`)
               : t("banner.reasons.other"),
-            count: changedKeys.size,
+            count: changedKeys.size + changedMetadata,
           },
         ),
         action: (
@@ -1108,6 +1114,69 @@ export function PageLanguageEditor({
           void save();
         }}
       >
+        {waitingMetadata.length > 0 && (
+          <section aria-labelledby="language-waiting-metadata">
+            <h3
+              id="language-waiting-metadata"
+              className="text-base font-semibold"
+            >
+              {t("waitingMetadata.title")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("waitingMetadata.hint")}
+            </p>
+            <FieldGroup className="gap-0">
+              {waitingMetadata.map((item) => {
+                const id = `language-${locale}-meta-${item.field}`;
+                const changed = item.text !== item.current_text;
+                const Control = item.field === "description" ? Textarea : Input;
+                return (
+                  <Field
+                    key={item.field}
+                    className="grid gap-3 border-b py-4 last:border-b-0 lg:grid-cols-2"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <span id={`${id}-label`} className="text-sm font-medium">
+                        {t(`waitingMetadata.field.${item.field}`)}
+                      </span>
+                      <p
+                        className="text-sm text-muted-foreground"
+                        aria-label={t("unit.source")}
+                      >
+                        {item.source_text}
+                      </p>
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <Control
+                        id={id}
+                        aria-labelledby={`${id}-label`}
+                        value={item.text}
+                        readOnly
+                      />
+                      {changed && (
+                        <Badge variant="warning">
+                          {t(
+                            item.current_text === null
+                              ? "unit.added"
+                              : "unit.changed",
+                          )}
+                        </Badge>
+                      )}
+                      {changed && item.current_text !== null && (
+                        <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {t("unit.present")}
+                          </span>{" "}
+                          {item.current_text}
+                        </p>
+                      )}
+                    </div>
+                  </Field>
+                );
+              })}
+            </FieldGroup>
+          </section>
+        )}
         {sections.map(([position, units]) => {
           const blockType = body.block_types[position];
           return (

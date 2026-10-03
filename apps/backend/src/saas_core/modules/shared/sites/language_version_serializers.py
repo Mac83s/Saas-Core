@@ -66,6 +66,18 @@ class LocaleBodyUnitSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class LocaleBodyPendingMetadataSerializer(serializers.Serializer[dict[str, Any]]):
+    field = serializers.ChoiceField(choices=["title", "description"])
+    source_text = serializers.CharField(
+        allow_blank=True,
+        help_text="The source language's title or description; empty when it has none.",
+    )
+    text = serializers.CharField(help_text="What accepting makes the language's own.")
+    current_text = serializers.CharField(
+        allow_null=True, help_text="What the language has now; null where it has nothing."
+    )
+
+
 class LocaleBodyPendingSerializer(serializers.Serializer[dict[str, Any]]):
     version_id = serializers.UUIDField()
     number = serializers.IntegerField()
@@ -78,6 +90,13 @@ class LocaleBodyPendingSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="The units carry this waiting version's text and follow its source, as "
         "the panel's read gives them. Accept or reject it first — a save writes over the "
         "language's own body, without this text."
+    )
+    metadata = LocaleBodyPendingMetadataSerializer(
+        many=True,
+        help_text="With `in_units`: the title and description the waiting version carries (a "
+        "translation job wrote them), each beside the source's and what the language has now. "
+        "Accepting makes them the language's own, and the address follows the title until it "
+        "is public. Empty when the version carries none, and outside that read.",
     )
 
 
@@ -181,11 +200,23 @@ class TranslationOverviewCellSerializer(serializers.Serializer[dict[str, Any]]):
     metadata_complete = serializers.BooleanField(
         allow_null=True, help_text="Own address, title and description (pages only)."
     )
+    on_site = serializers.BooleanField(
+        allow_null=True,
+        help_text="Pages: the site's current publication carries this language's own text — "
+        "a `complete` version that is not on the site waits for a publication. Null for an "
+        "article, whose state says it.",
+    )
 
 
 class TranslationOverviewRowSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(choices=OVERVIEW_KINDS)
     id = serializers.UUIDField(help_text="The page, or the article's translation group.")
+    source_id = serializers.UUIDField(
+        allow_null=True,
+        help_text="What a translation order names (`translation_quote_create`): the page "
+        "itself (`sites.page`), or the article's entry in the site's own language "
+        "(`sites.entry`); null when the article has no entry in that language.",
+    )
     title = serializers.CharField()
     cells = TranslationOverviewCellSerializer(many=True)
 

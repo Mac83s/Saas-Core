@@ -370,6 +370,7 @@ test("a waiting translation is accepted and published from the banner", async ()
         number: 2,
         reason: "review_mode",
         in_units: false,
+        metadata: [],
       },
     }),
   );
@@ -594,6 +595,7 @@ test("a first version that waits is read in the fields, and nothing offers to or
       number: 1,
       reason: "review_mode",
       in_units: true,
+      metadata: [],
     },
     units: body().units.map((item) =>
       item.key === "0/text"
@@ -671,6 +673,63 @@ test("a first version that waits is read in the fields, and nothing offers to or
   );
 });
 
+test("a waiting version's title and description are read before the decision", async () => {
+  api.getLocaleBody.mockResolvedValue(
+    body({
+      untranslated: 0,
+      pending: {
+        version_id: "019ff20d-a000-7000-8000-0000000000dd",
+        number: 2,
+        reason: "overwrites_human",
+        in_units: true,
+        metadata: [
+          {
+            field: "title",
+            source_text: "Oferta studia",
+            text: "Unser Angebot",
+            current_text: "Angebot",
+          },
+          {
+            field: "description",
+            source_text: "Projekty wnętrz od 120 zł za m².",
+            text: "Innenarchitektur ab 120 zł pro m².",
+            current_text: "Innenarchitektur ab 120 zł pro m².",
+          },
+        ],
+      },
+      units: [
+        unit("0/title", "Oferta", {
+          text: "Angebot",
+          origin: "human",
+          translated: true,
+          current_text: "Angebot",
+        }),
+      ],
+    }),
+  );
+  show();
+
+  // The body's fragments are the same; the title is what the decision changes.
+  expect(
+    await screen.findByText(
+      "Tłumaczenie czeka na Twoją decyzję: nadpisałoby Twoje poprawki. Poniżej jego tekst. Zmienione fragmenty (1) są oznaczone i pokazują obecny tekst. Poprawisz go po akceptacji.",
+    ),
+  ).not.toBeNull();
+  const section = screen.getByRole("region", { name: "Tytuł i opis strony" });
+  const title = within(section).getByLabelText("Tytuł strony");
+  expect(title).toHaveValue("Unser Angebot");
+  expect(title).toHaveAttribute("readonly");
+  expect(within(section).getByText("Oferta studia")).not.toBeNull();
+  const description = within(section).getByLabelText("Opis w wyszukiwarce");
+  expect(description).toHaveValue("Innenarchitektur ab 120 zł pro m².");
+  expect(description).toHaveAttribute("readonly");
+  // Only the title differs from what the language has now.
+  expect(within(section).getAllByText("Zmienione")).toHaveLength(1);
+  expect(within(section).getByText("Obecnie:").parentElement).toHaveTextContent(
+    "Obecnie: Angebot",
+  );
+});
+
 test("a version that waits beside the language's own is read with what it changes", async () => {
   const WAITING = "019ff20d-a000-7000-8000-0000000000dd";
   api.getLocaleBody.mockResolvedValue(
@@ -681,6 +740,7 @@ test("a version that waits beside the language's own is read with what it change
         number: 2,
         reason: "overwrites_human",
         in_units: true,
+        metadata: [],
       },
       units: [
         unit("0/text", "Projekt od 120 zł", {

@@ -17582,8 +17582,10 @@ paths:
     get:
       operationId: sites_translation_overview
       description: 'Pages: missing, pending, outdated, untranslated or complete per
-        language, with the untranslated count. Articles: published, draft or missing
-        per language. Filter by language and state; paginated by cursor.'
+        language, with the untranslated count and whether the version is on the site
+        (`on_site`). Articles: published, draft or missing per language. `source_id`
+        is what a translation order names. Filter by language and state; paginated
+        by cursor.'
       summary: Every page or article of a site against every other language
       parameters:
       - in: query
@@ -28957,6 +28959,14 @@ components:
       - scheduled_for
       - status
       - summary
+    FieldEnum:
+      enum:
+      - title
+      - description
+      type: string
+      description: |-
+        * `title` - title
+        * `description` - description
     FollowUp:
       type: object
       description: An animal somebody wants to see again, from the entry that says
@@ -31713,11 +31723,43 @@ components:
           description: The units carry this waiting version's text and follow its
             source, as the panel's read gives them. Accept or reject it first — a
             save writes over the language's own body, without this text.
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleBodyPendingMetadata'
+          description: 'With `in_units`: the title and description the waiting version
+            carries (a translation job wrote them), each beside the source''s and
+            what the language has now. Accepting makes them the language''s own, and
+            the address follows the title until it is public. Empty when the version
+            carries none, and outside that read.'
       required:
       - in_units
+      - metadata
       - number
       - reason
       - version_id
+    LocaleBodyPendingMetadata:
+      type: object
+      properties:
+        field:
+          $ref: '#/components/schemas/FieldEnum'
+        source_text:
+          type: string
+          description: The source language's title or description; empty when it has
+            none.
+        text:
+          type: string
+          description: What accepting makes the language's own.
+        current_text:
+          type:
+          - string
+          - 'null'
+          description: What the language has now; null where it has nothing.
+      required:
+      - current_text
+      - field
+      - source_text
+      - text
     LocaleBodyRebase:
       type: object
       properties:
@@ -42948,9 +42990,17 @@ components:
           - boolean
           - 'null'
           description: Own address, title and description (pages only).
+        on_site:
+          type:
+          - boolean
+          - 'null'
+          description: 'Pages: the site''s current publication carries this language''s
+            own text — a `complete` version that is not on the site waits for a publication.
+            Null for an article, whose state says it.'
       required:
       - locale
       - metadata_complete
+      - on_site
       - state
       - untranslated
     TranslationOverviewCellStateEnum:
@@ -42980,6 +43030,15 @@ components:
           type: string
           format: uuid
           description: The page, or the article's translation group.
+        source_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'What a translation order names (`translation_quote_create`):
+            the page itself (`sites.page`), or the article''s entry in the site''s
+            own language (`sites.entry`); null when the article has no entry in that
+            language.'
         title:
           type: string
         cells:
@@ -42990,6 +43049,7 @@ components:
       - cells
       - id
       - kind
+      - source_id
       - title
     TranslationOverviewRowKindEnum:
       enum:

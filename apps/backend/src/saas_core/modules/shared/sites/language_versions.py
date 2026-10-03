@@ -162,6 +162,20 @@ class UnitState:
 
 
 @dataclass(frozen=True, slots=True)
+class WaitingMetadata:
+    """A title or description that waits with a version: a translation job
+    wrote it into the version (`meta/*`), and accepting the version makes it
+    the language's own."""
+
+    field: str
+    # The source language's, which this text translates; empty when it has none.
+    source_text: str
+    text: str
+    # What the language has now; None where it has nothing.
+    current_text: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class LocaleBody:
     page: Page
     translation: PageTranslation
@@ -173,6 +187,8 @@ class LocaleBody:
     # The units are the waiting version's text against its source, not the
     # language's own body: a person decides on it first (`_waiting`).
     waiting: bool = False
+    # With `waiting`: the title and description the waiting version carries.
+    metadata: tuple[WaitingMetadata, ...] = ()
 
     @property
     def untranslated(self) -> int:
@@ -582,6 +598,7 @@ def _source_blocks(version: PageVersion) -> list[dict[str, Any]]:
 #: Units a body carries beside its blocks' — the language's title and
 #: description a translation job wrote (`translation_source`).
 METADATA_PREFIX = "meta/"
+METADATA_FIELDS = ("title", "description")
 
 
 def _texts(units: Mapping[str, Any]) -> dict[str, str]:
@@ -634,6 +651,27 @@ def _waiting(body: LocaleBody) -> LocaleBody | None:
             return same.text
         return by_source.get((unit.kind, unit.source_hash))
 
+    # The title and description the version carries are read the same way:
+    # beside the source's and what the language has now.
+    page = body.page
+    source_row = PageTranslation.all_objects.filter(
+        organization_id=page.organization_id, page_id=page.id, locale=page.site.default_locale
+    ).first()
+    metadata = []
+    for field in METADATA_FIELDS:
+        entry = pending.units.get(f"{METADATA_PREFIX}{field}")
+        if not isinstance(entry, dict) or "text" not in entry:
+            continue
+        limit = getattr(PageTranslation._meta.get_field(field), "max_length", None)
+        metadata.append(
+            WaitingMetadata(
+                field=field,
+                source_text=getattr(source_row, field).strip() if source_row is not None else "",
+                text=str(entry["text"])[:limit],
+                current_text=getattr(body.translation, field).strip() or None,
+            )
+        )
+
     return LocaleBody(
         page=body.page,
         translation=body.translation,
@@ -647,6 +685,7 @@ def _waiting(body: LocaleBody) -> LocaleBody | None:
             for unit in extract_units(_source_blocks(source))
         ),
         waiting=True,
+        metadata=tuple(metadata),
     )
 
 
@@ -912,6 +951,8 @@ class OverviewCell:
     state: str
     untranslated: int | None = None
     metadata_complete: bool | None = None
+    # Pages: the site's publication carries this language's own body.
+    on_site: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -920,6 +961,9 @@ class OverviewRow:
     id: UUID
     title: str
     cells: tuple[OverviewCell, ...]
+    # What a translation order names: the page itself, or the article's entry
+    # in the site's own language (None when the article has none).
+    source_id: UUID | None = None
 
 
 def site_translation_overview(
@@ -936,9 +980,10 @@ def site_translation_overview(
     A page's cell is the first that holds of: no translation yet (`missing`),
     a translation waiting for review (`pending`), following an older source
     version (`outdated`), units still untranslated (`untranslated`),
-    `complete`. An article is a group of entries, one per language, each
-    `published`, `draft` or `missing`. `state` keeps the rows with a cell in
-    that state (in `locale`, when given).
+    `complete` — and, apart from that, whether the site's publication carries
+    the language's own body (`on_site`). An article is a group of entries, one
+    per language, each `published`, `draft` or `missing`. `state` keeps the
+    rows with a cell in that state (in `locale`, when given).
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
     site = Site.all_objects.filter(pk=site_id, organization_id=context.organization_id).first()
@@ -946,7 +991,11 @@ def site_translation_overview(
         raise SiteNotFound
     locales = tuple(item for item in site_locales(site) if item != site.default_locale)
     shown = (locale,) if locale is not None else locales
-    rows = _entry_rows(site, shown) if kind == "entry" else _page_rows(site, shown)
+    if kind == "entry":
+        rows = _entry_rows(site, shown)
+    else:
+        snapshot = site.current_publication.snapshot if site.current_publication else {}
+        rows = _page_rows(site, shown, published=_published_bodies(snapshot))
     if state is not None:
         rows = [row for row in rows if any(cell.state == state for cell in row.cells)]
     if cursor is not None:
@@ -956,7 +1005,20 @@ def site_translation_overview(
     return page[:limit], next_cursor, shown
 
 
-def _page_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
+def _published_bodies(snapshot: Mapping[str, Any]) -> set[tuple[str, str]]:
+    """The (page, language) pairs a publication carries with their own body."""
+    return {
+        (str(page.get("page_id")), str(entry.get("locale")))
+        for page in snapshot.get("pages", [])
+        if isinstance(page, dict)
+        for entry in page.get("locales", [])
+        if isinstance(entry, dict) and "blocks" in entry and not entry.get("withheld")
+    }
+
+
+def _page_rows(
+    site: Site, locales: tuple[str, ...], *, published: set[tuple[str, str]] | None = None
+) -> list[OverviewRow]:
     pages = list(
         Page.all_objects.filter(
             organization_id=site.organization_id, site_id=site.id, deleted_at__isnull=True
@@ -984,8 +1046,9 @@ def _page_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
         cells = []
         for locale in locales:
             translation = translations.get((page.id, locale))
+            on_site = None if published is None else (str(page.id), locale) in published
             if translation is None:
-                cells.append(OverviewCell(locale, OVERVIEW_MISSING))
+                cells.append(OverviewCell(locale, OVERVIEW_MISSING, on_site=on_site))
                 continue
             version = translation.body_current
             source_id = version.source_version_id if version is not None else page.current_draft_id
@@ -1013,9 +1076,10 @@ def _page_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
                         translation.title.strip(),
                         translation.description.strip(),
                     )),
+                    on_site=on_site,
                 )
             )
-        rows.append(OverviewRow("page", page.id, page.name, tuple(cells)))
+        rows.append(OverviewRow("page", page.id, page.name, tuple(cells), source_id=page.id))
     return rows
 
 
@@ -1023,13 +1087,7 @@ def page_language_states(site: Site, snapshot: Mapping[str, Any]) -> dict[tuple[
     """Each page's version in another language: `published` when the site's
     publication carries its own body, otherwise the overview's cell."""
     locales = tuple(code for code in site_locales(site) if code != site.default_locale)
-    published = {
-        (str(page.get("page_id")), str(entry.get("locale")))
-        for page in snapshot.get("pages", [])
-        if isinstance(page, dict)
-        for entry in page.get("locales", [])
-        if isinstance(entry, dict) and "blocks" in entry and not entry.get("withheld")
-    }
+    published = _published_bodies(snapshot)
     return {
         (row.id, cell.locale): (
             OVERVIEW_PUBLISHED if (str(row.id), cell.locale) in published else cell.state
@@ -1047,9 +1105,8 @@ def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
         groups.setdefault(entry.translation_group, []).append(entry)
     rows: list[OverviewRow] = []
     for group, entries in sorted(groups.items()):
-        source = next(
-            (entry for entry in entries if entry.locale == site.default_locale), entries[0]
-        )
+        own = next((entry for entry in entries if entry.locale == site.default_locale), None)
+        source = own or entries[0]
         by_locale = {entry.locale: entry for entry in entries}
         cells = tuple(
             OverviewCell(
@@ -1064,5 +1121,7 @@ def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
             )
             for locale in locales
         )
-        rows.append(OverviewRow("entry", group, source.title, cells))
+        rows.append(
+            OverviewRow("entry", group, source.title, cells, source_id=own.id if own else None)
+        )
     return rows

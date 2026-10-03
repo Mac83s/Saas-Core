@@ -2507,9 +2507,11 @@
       },
       "untranslatedCount": "{count, plural, one {# fragment missing} other {# fragments missing}}",
       "noMetadata": "no address, title or description of its own",
+      "onSite": "on the site",
+      "notOnSite": "not on the site yet",
       "translateAll": "Translate missing and outdated (AI)",
       "nothingToTranslate": "Every page is translated.",
-      "entryHint": "An article is translated from its “Language versions” card in the blog.",
+      "entryHint": "To translate an article by hand, use its “Language versions” card in the blog.",
       "oneLanguage": "This site has one language for now.",
       "addLanguage": "Add a language in Settings › Languages and translations",
       "emptyPages": "This site has no pages yet.",
@@ -2619,6 +2621,14 @@
         "present": "Now:",
         "source": "Source text",
         "translation": "Translation: {label}"
+      },
+      "waitingMetadata": {
+        "title": "The page's title and description",
+        "hint": "This version also carries the page's title and description in this language. Accepting replaces the current ones; you can correct them afterwards in “Address and description”.",
+        "field": {
+          "title": "Page title",
+          "description": "Meta description"
+        }
       },
       "section": "{number}. {name}",
       "item": "{label} {number}",

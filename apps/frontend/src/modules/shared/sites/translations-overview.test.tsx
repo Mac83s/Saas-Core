@@ -39,7 +39,7 @@ const CONTACT = "0199f0a0-0000-7000-8000-0000000000a2";
 type Row = TranslationOverview["items"][number];
 
 function page(id: string, title: string, cells: Row["cells"]): Row {
-  return { kind: "page", id, title, cells };
+  return { kind: "page", id, source_id: id, title, cells };
 }
 
 const cell = (
@@ -51,6 +51,7 @@ const cell = (
   state,
   untranslated: null,
   metadata_complete: null,
+  on_site: null,
   ...extra,
 });
 
@@ -58,8 +59,16 @@ const PAGES: TranslationOverview = {
   locales: ["en", "de"],
   items: [
     page(HOME, "Strona główna", [
-      cell("en", "pending", { untranslated: 0, metadata_complete: true }),
-      cell("de", "complete", { untranslated: 0, metadata_complete: true }),
+      cell("en", "pending", {
+        untranslated: 0,
+        metadata_complete: true,
+        on_site: true,
+      }),
+      cell("de", "complete", {
+        untranslated: 0,
+        metadata_complete: true,
+        on_site: false,
+      }),
     ]),
     page(CONTACT, "Kontakt", [
       cell("en", "untranslated", { untranslated: 3, metadata_complete: false }),
@@ -124,6 +133,9 @@ test("lists every page against the site's other languages, with the way into eac
   const [home, contact] = within(table).getAllByRole("row").slice(1);
   expect(within(home!).getByText("Czeka na akceptację")).toBeTruthy();
   expect(within(home!).getByText("Przetłumaczona")).toBeTruthy();
+  // Translated is not yet published: the cell says where the version stands.
+  expect(within(home!).getByText("na stronie")).toBeTruthy();
+  expect(within(home!).getByText("jeszcze nie na stronie")).toBeTruthy();
   expect(within(contact!).getByText("Niepełna")).toBeTruthy();
   expect(within(contact!).getByText("brakuje 3 fragmentów")).toBeTruthy();
   expect(
@@ -272,6 +284,7 @@ test("filters ask the server; articles lead to the blog", async () => {
       {
         kind: "entry",
         id: "0199f0a0-0000-7000-8000-0000000000e1",
+        source_id: "0199f0a0-0000-7000-8000-0000000000e2",
         title: "Jak dbać o włosy zimą",
         cells: [cell("de", "draft")],
       },
@@ -300,7 +313,7 @@ test("filters ask the server; articles lead to the blog", async () => {
   );
   expect(
     screen.getByText(
-      "Wpis tłumaczysz w jego karcie „Wersje językowe” w blogu.",
+      "Ręcznie wpis tłumaczysz w jego karcie „Wersje językowe” w blogu.",
     ),
   ).toBeTruthy();
   expect(
@@ -536,4 +549,67 @@ test("no bar where the deployment has no translation engine", async () => {
   );
   expect(api.listTranslationJobs).not.toHaveBeenCalled();
   expect(screen.queryByRole("region")).toBeNull();
+});
+
+test("an article's missing version is ordered by its entry in the site's own language", async () => {
+  const GROUP = "0199f0a0-0000-7000-8000-0000000000e1";
+  const ENTRY = "0199f0a0-0000-7000-8000-0000000000e2";
+  api.getSiteTranslationOverview.mockResolvedValue({
+    locales: ["en", "de"],
+    items: [
+      {
+        kind: "entry",
+        id: GROUP,
+        source_id: ENTRY,
+        title: "Jak dbać o włosy zimą",
+        cells: [cell("en", "draft"), cell("de", "missing")],
+      },
+      {
+        // No entry in the site's own language: nothing an order could name.
+        kind: "entry",
+        id: "0199f0a0-0000-7000-8000-0000000000e3",
+        source_id: null,
+        title: "Winter hair care",
+        cells: [cell("en", "published"), cell("de", "missing")],
+      },
+    ],
+    next_cursor: null,
+  });
+  api.quoteTranslation.mockResolvedValue({
+    digest: "d",
+    units: 1,
+    credits: 1,
+    characters: 900,
+    lines: [{ locale: "de", outcome: "draft", proposals: 0, excluded: null }],
+  });
+  view();
+  const table = await screen.findByRole("table");
+  await waitFor(() => expect(api.getTranslationOffer).toHaveBeenCalled());
+  const [ordered, orphan] = within(table).getAllByRole("row").slice(1);
+  // An article is published or a draft, never „na stronie” twice.
+  expect(within(ordered!).queryByText("jeszcze nie na stronie")).toBeNull();
+
+  expect(
+    within(orphan!).queryByRole("button", { name: /^Działania dla:/ }),
+  ).toBeNull();
+  fireEvent.click(
+    within(ordered!).getByRole("button", {
+      name: "Działania dla: Jak dbać o włosy zimą",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Przetłumacz/ }));
+  // Only the missing language, and the entry — not the group — is named.
+  await waitFor(() =>
+    expect(api.quoteTranslation).toHaveBeenCalledWith(
+      [
+        {
+          source_key: "sites.entry",
+          object_id: ENTRY,
+          locale: "de",
+          basis: "published",
+        },
+      ],
+      "propose",
+    ),
+  );
 });

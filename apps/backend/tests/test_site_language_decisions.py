@@ -127,6 +127,7 @@ def test_the_body_says_what_waits_for_a_decision_and_what_was_taken_off():
         "number": row.body_pending.number,
         "reason": "review_mode",
         "in_units": True,
+        "metadata": [],
     }
     assert (waiting.json()["version_id"], waiting.json()["withdrawn"]) == (None, False)
     # The editor names a unit's section from its key's position.
@@ -164,6 +165,59 @@ def test_a_first_version_that_waits_is_read_before_the_decision():
 
     # Nothing of the language's own to set the waiting words against.
     assert {unit["current_text"] for unit in waiting["units"]} == {None}
+
+
+def test_a_waiting_versions_title_and_description_are_read_before_the_decision():
+    """A translation job writes the language's title and description into the
+    version it leaves (`meta/*`); they could only be accepted unseen (04.10).
+    The panel reads them beside the source's and what the language has now."""
+    client, _, _site_id, _home, offer, _host = _published_site("decide-read-meta")
+    row = _waiting(offer)
+    # A version is append-only: the job's is a new one, with the two `meta/*` units.
+    body = row.body_pending
+    job_version = PageLocaleVersion.all_objects.create(
+        organization_id=body.organization_id,
+        site_id=body.site_id,
+        page_id=body.page_id,
+        translation_id=row.id,
+        locale=body.locale,
+        number=body.number + 1,
+        source_version_id=body.source_version_id,
+        structure_signature=body.structure_signature,
+        units={
+            **body.units,
+            "meta/title": {"text": "Our offer"},
+            "meta/description": {"text": "Design from 120 zł."},
+        },
+        content_hash="0" * 64,
+        created_by_id=body.created_by_id,
+        origin="ai",
+        idempotency_key="job-version",
+        request_hash="0" * 64,
+    )
+    PageTranslation.all_objects.filter(pk=row.pk).update(body_pending=job_version)
+
+    waiting = client.get(_url(offer)).json()
+
+    assert waiting["pending"]["metadata"] == [
+        {"field": "title", "source_text": "Oferta", "text": "Our offer", "current_text": "Oferta"},
+        {
+            "field": "description",
+            "source_text": "Opis",
+            "text": "Design from 120 zł.",
+            "current_text": "Opis",
+        },
+    ]
+    # They wait beside the body's units, not among them.
+    assert not [unit["key"] for unit in waiting["units"] if unit["key"].startswith("meta/")]
+
+    accepted = _post(
+        client, _url(offer, tail="accept/"), {"expected_body_version": row.body_version}, "ok"
+    )
+    assert accepted.status_code == 200, accepted.data
+    row.refresh_from_db()
+    assert (row.title, row.description) == ("Our offer", "Design from 120 zł.")
+    assert client.get(_url(offer)).json()["pending"] is None
 
 
 def test_a_version_that_waits_beside_the_languages_own_is_read_with_what_it_changes():

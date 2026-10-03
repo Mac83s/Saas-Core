@@ -78,6 +78,14 @@ def test_a_complete_language_goes_out_with_its_own_body():
     assert english["origin"] == {"origin": "human", "machine": False, "reviewed": True}
     assert page["hreflang"] == {"pl": "/oferta/", "en": "/en/oferta-en/"}
 
+    # The overview says the versions are on the site, not only translated.
+    overview = client.get(f"/api/v1/sites/{site_id}/translations/").json()["items"]
+    assert {(row["id"], row["source_id"]) for row in overview} == {(home, home), (offer, offer)}
+    assert [[(cell["state"], cell["on_site"]) for cell in row["cells"]] for row in overview] == [
+        [("complete", True)],
+        [("complete", True)],
+    ]
+
     served = _get(host, "/en/oferta-en/")
     assert served.status_code == 200, served.data
     assert served.data["locale"] == "en"
@@ -102,6 +110,13 @@ def test_a_language_waits_for_its_home_page_and_for_every_unit():
     }
     # Never public, so not an address anybody has: 404, not a redirect.
     assert _get(host, "/en/oferta-en/").status_code == 404
+    # „Przetłumaczona” alone does not put a version on the site.
+    cells = {
+        row["id"]: row["cells"][0]
+        for row in client.get(f"/api/v1/sites/{site_id}/translations/").json()["items"]
+    }
+    assert (cells[offer]["state"], cells[offer]["on_site"]) == ("complete", False)
+    assert cells[home]["on_site"] is False
     assert _get(host, "/oferta/").data["hreflang"] == {"pl": f"https://{host}/oferta/"}
 
 

@@ -1268,6 +1268,18 @@ def test_an_article_gets_a_second_language_that_publishes_on_its_own() -> None:
     assert english.status_code == 201
     assert english.data["translation_group"] == polish.data["translation_group"]
     assert english.data["locale"] == "en"
+    # The overview names the article by its group and says which entry an
+    # order translates: the one in the site's own language.
+    [article] = client.get(
+        f"/api/v1/sites/{site.data['id']}/translations/", {"kind": "entry"}
+    ).json()["items"]
+    assert (article["id"], article["source_id"]) == (
+        str(polish.data["translation_group"]),
+        str(polish.data["id"]),
+    )
+    assert [(cell["locale"], cell["state"], cell["on_site"]) for cell in article["cells"]] == [
+        ("en", "draft", None)
+    ]
 
     platform = _verified_platform_domain(site.data["id"])
     with override_settings(PUBLIC_SITE_SCHEME="https"):

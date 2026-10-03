@@ -5896,7 +5896,7 @@ export interface paths {
         };
         /**
          * Every page or article of a site against every other language
-         * @description Pages: missing, pending, outdated, untranslated or complete per language, with the untranslated count. Articles: published, draft or missing per language. Filter by language and state; paginated by cursor.
+         * @description Pages: missing, pending, outdated, untranslated or complete per language, with the untranslated count and whether the version is on the site (`on_site`). Articles: published, draft or missing per language. `source_id` is what a translation order names. Filter by language and state; paginated by cursor.
          */
         get: operations["sites_translation_overview"];
         put?: never;
@@ -10141,6 +10141,12 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * @description * `title` - title
+         *     * `description` - description
+         * @enum {string}
+         */
+        FieldEnum: "title" | "description";
         /** @description An animal somebody wants to see again, from the entry that says so. */
         FollowUp: {
             /** Format: uuid */
@@ -11340,6 +11346,17 @@ export interface components {
             reason: string;
             /** @description The units carry this waiting version's text and follow its source, as the panel's read gives them. Accept or reject it first — a save writes over the language's own body, without this text. */
             in_units: boolean;
+            /** @description With `in_units`: the title and description the waiting version carries (a translation job wrote them), each beside the source's and what the language has now. Accepting makes them the language's own, and the address follows the title until it is public. Empty when the version carries none, and outside that read. */
+            metadata: components["schemas"]["LocaleBodyPendingMetadata"][];
+        };
+        LocaleBodyPendingMetadata: {
+            field: components["schemas"]["FieldEnum"];
+            /** @description The source language's title or description; empty when it has none. */
+            source_text: string;
+            /** @description What accepting makes the language's own. */
+            text: string;
+            /** @description What the language has now; null where it has nothing. */
+            current_text: string | null;
         };
         LocaleBodyRebase: {
             expected_body_version: number;
@@ -16336,6 +16353,8 @@ export interface components {
             untranslated: number | null;
             /** @description Own address, title and description (pages only). */
             metadata_complete: boolean | null;
+            /** @description Pages: the site's current publication carries this language's own text — a `complete` version that is not on the site waits for a publication. Null for an article, whose state says it. */
+            on_site: boolean | null;
         };
         /**
          * @description * `missing` - missing
@@ -16355,6 +16374,11 @@ export interface components {
              * @description The page, or the article's translation group.
              */
             id: string;
+            /**
+             * Format: uuid
+             * @description What a translation order names (`translation_quote_create`): the page itself (`sites.page`), or the article's entry in the site's own language (`sites.entry`); null when the article has no entry in that language.
+             */
+            source_id: string | null;
             title: string;
             cells: components["schemas"]["TranslationOverviewCell"][];
         };

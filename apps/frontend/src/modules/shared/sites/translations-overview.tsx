@@ -70,16 +70,22 @@ const NEEDS_TRANSLATION = new Set<CellState>([
   "untranslated",
 ]);
 
-/** A page's languages still to translate. An article is named here by its
- *  group, not by the entry an order needs, so articles are ordered from
- *  their own card in the blog. */
+/** The row's languages still to translate, as an order names them: a page
+ *  by itself, an article by its entry in the site's own language — an
+ *  article without one cannot be ordered. An article's version that exists
+ *  is a person's to finish, so only the missing ones are ordered. */
 function rowTargets(row: Row): TranslationTarget[] {
-  if (row.kind !== "page") return [];
+  const source = row.source_id;
+  if (!source) return [];
   return row.cells
-    .filter((cell) => NEEDS_TRANSLATION.has(cell.state))
+    .filter((cell) =>
+      row.kind === "page"
+        ? NEEDS_TRANSLATION.has(cell.state)
+        : cell.state === "missing",
+    )
     .map((cell) => ({
-      source_key: "sites.page",
-      object_id: row.id,
+      source_key: row.kind === "page" ? "sites.page" : "sites.entry",
+      object_id: source,
       locale: cell.locale,
       basis: "published" as const,
     }));
@@ -206,6 +212,12 @@ function CellBadge({ cell, editHref }: { cell: Cell; editHref?: string }) {
       ) : null}
       {cell.state !== "missing" && cell.metadata_complete === false ? (
         <p className="text-xs text-muted-foreground">{t("noMetadata")}</p>
+      ) : null}
+      {/* „Przetłumaczona” is not yet „na stronie”: a publication puts it there. */}
+      {cell.state !== "missing" && typeof cell.on_site === "boolean" ? (
+        <p className="text-xs text-muted-foreground">
+          {t(cell.on_site ? "onSite" : "notOnSite")}
+        </p>
       ) : null}
     </div>
   );
@@ -384,16 +396,6 @@ export function TranslationsOverview({
                 <Link href={`/panel/sites/pages/${row.id}?language=${code}`} />
               ),
             });
-          if (offer.state === "available" && rowTargets(row).length > 0)
-            items.push({
-              label: sites("languageMode.actions.translate"),
-              icon: <LanguagesIcon aria-hidden="true" />,
-              onSelect: () => {
-                // An order that ended is history: quote anew.
-                if (jobDone) setJobId(undefined);
-                setTranslating(row);
-              },
-            });
         } else {
           items.push({
             label: t("openBlog"),
@@ -403,6 +405,16 @@ export function TranslationsOverview({
             link: <Link href={`/panel/sites/blog?site=${siteId}`} />,
           });
         }
+        if (offer.state === "available" && rowTargets(row).length > 0)
+          items.push({
+            label: sites("languageMode.actions.translate"),
+            icon: <LanguagesIcon aria-hidden="true" />,
+            onSelect: () => {
+              // An order that ended is history: quote anew.
+              if (jobDone) setJobId(undefined);
+              setTranslating(row);
+            },
+          });
         return (
           <RowActions
             items={items}

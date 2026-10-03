@@ -88,6 +88,15 @@ def _body(body: LocaleBody) -> dict[str, Any]:
                 "number": pending.number,
                 "reason": body.translation.pending_reason,
                 "in_units": body.waiting,
+                "metadata": [
+                    {
+                        "field": item.field,
+                        "source_text": item.source_text,
+                        "text": item.text,
+                        "current_text": item.current_text,
+                    }
+                    for item in body.metadata
+                ],
             }
             if (pending := body.translation.body_pending) is not None
             else None
@@ -380,7 +389,9 @@ class SiteTranslationOverviewView(APIView):
         operation_id="sites_translation_overview",
         summary="Every page or article of a site against every other language",
         description="Pages: missing, pending, outdated, untranslated or complete per language, "
-        "with the untranslated count. Articles: published, draft or missing per language. "
+        "with the untranslated count and whether the version is on the site (`on_site`). "
+        "Articles: published, draft or missing per language. `source_id` is what a translation "
+        "order names. "
         "Filter by language and state; paginated by cursor.",
         tags=["sites"],
         parameters=[TranslationOverviewQuerySerializer],
@@ -398,6 +409,7 @@ class SiteTranslationOverviewView(APIView):
                 {
                     "kind": row.kind,
                     "id": row.id,
+                    "source_id": row.source_id,
                     "title": row.title,
                     "cells": [
                         {
@@ -405,6 +417,7 @@ class SiteTranslationOverviewView(APIView):
                             "state": cell.state,
                             "untranslated": cell.untranslated,
                             "metadata_complete": cell.metadata_complete,
+                            "on_site": cell.on_site,
                         }
                         for cell in row.cells
                     ],

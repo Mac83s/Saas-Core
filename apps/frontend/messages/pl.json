@@ -2507,9 +2507,11 @@
       },
       "untranslatedCount": "{count, plural, one {brakuje # fragmentu} few {brakuje # fragmentów} many {brakuje # fragmentów} other {brakuje # fragmentu}}",
       "noMetadata": "bez własnego adresu, tytułu lub opisu",
+      "onSite": "na stronie",
+      "notOnSite": "jeszcze nie na stronie",
       "translateAll": "Przetłumacz brakujące i nieaktualne (AI)",
       "nothingToTranslate": "Wszystkie podstrony są przetłumaczone.",
-      "entryHint": "Wpis tłumaczysz w jego karcie „Wersje językowe” w blogu.",
+      "entryHint": "Ręcznie wpis tłumaczysz w jego karcie „Wersje językowe” w blogu.",
       "oneLanguage": "Ta strona ma na razie jeden język.",
       "addLanguage": "Dodaj język w Ustawienia › Języki i tłumaczenia",
       "emptyPages": "Ta strona nie ma jeszcze podstron.",
@@ -2619,6 +2621,14 @@
         "present": "Obecnie:",
         "source": "Tekst źródłowy",
         "translation": "Tłumaczenie: {label}"
+      },
+      "waitingMetadata": {
+        "title": "Tytuł i opis strony",
+        "hint": "Ta wersja niesie też tytuł i opis strony w tym języku. Po akceptacji zastąpią obecne; poprawisz je potem w „Adres i opis”.",
+        "field": {
+          "title": "Tytuł strony",
+          "description": "Opis w wyszukiwarce"
+        }
       },
       "section": "{number}. {name}",
       "item": "{label} {number}",
