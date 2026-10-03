@@ -20,6 +20,15 @@ import {
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@saas-core/ui/components/dialog";
+import { cn } from "@saas-core/ui/lib/utils";
+import {
   DataTable,
   RowActions,
   type ColumnDef,
@@ -65,6 +74,7 @@ export function BookingSettings({
   canUseInventory?: boolean;
 }) {
   const t = useTranslations("ServicesSetup");
+  const common = useTranslations("Common");
   const settings = useTranslations("Settings");
   const locale = useLocale();
   const labels = useDataTableLabels();
@@ -73,6 +83,8 @@ export function BookingSettings({
   const [notice, setNotice] = useState("");
   const [problem, setProblem] = useState<string>();
   const [editing, setEditing] = useState<Editing>();
+  /** A service still booked ahead, asked about before it is switched off (W1). */
+  const [switchingOff, setSwitchingOff] = useState<ServiceSetup>();
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
 
   const load = useCallback(async () => {
@@ -166,6 +178,17 @@ export function BookingSettings({
     }
   }
 
+  const switchService = (service: ServiceSetup) =>
+    toggle(
+      (key) =>
+        updateSetupService(
+          service.id,
+          { active: !service.active, expected_version: service.version },
+          key,
+        ),
+      t(service.active ? "switchedOff" : "switchedOn", { name: service.name }),
+    );
+
   const close = () => {
     setEditing(undefined);
     // A dialog closed after a conflict leaves a stale row behind otherwise.
@@ -194,6 +217,13 @@ export function BookingSettings({
   const usedBy = (field: "location_ids" | "resource_ids", id: string) =>
     services.filter((service) => service.active && service[field].includes(id))
       .length;
+  // A switched-off service reads as one, not only by its badge (UX-059).
+  const dim = (service: ServiceSetup) =>
+    service.active ? undefined : "text-muted-foreground";
+  // The kinds of visit the company's modules provide (ADR-050); none, no column.
+  const kinds = new Map(
+    (setup?.appointment_kinds ?? []).map((kind) => [kind.key, kind.label]),
+  );
 
   const serviceColumns: ColumnDef<ServiceSetup, unknown>[] = [
     {
@@ -202,25 +232,46 @@ export function BookingSettings({
       header: t("colService"),
       meta: { primary: true },
       cell: ({ row: { original: service } }) => (
-        <p className="font-medium wrap-anywhere">
+        <p className={cn("font-medium wrap-anywhere", dim(service))}>
           {service.name}
           {service.active ? null : inactive("inactiveService")}
         </p>
       ),
     },
+    ...(kinds.size
+      ? [
+          {
+            id: "kind",
+            accessorFn: (service: ServiceSetup) =>
+              kinds.get(service.appointment_kind) ?? t("kindOther"),
+            header: t("colKind"),
+            cell: ({ row: { original: service } }) => (
+              <span className={dim(service)}>
+                {kinds.get(service.appointment_kind) ?? t("kindOther")}
+              </span>
+            ),
+          } satisfies ColumnDef<ServiceSetup, unknown>,
+        ]
+      : []),
     {
       id: "duration",
       accessorKey: "duration_minutes",
       header: t("colDuration"),
-      cell: ({ row: { original: service } }) =>
-        service.duration_minutes === null
-          ? t(`rangeLength_${service.range_unit === "day" ? "day" : "night"}`)
-          : duration(service.duration_minutes),
+      cell: ({ row: { original: service } }) => (
+        <span className={dim(service)}>
+          {service.duration_minutes === null
+            ? t(`rangeLength_${service.range_unit === "day" ? "day" : "night"}`)
+            : duration(service.duration_minutes)}
+        </span>
+      ),
     },
     {
       id: "count",
       accessorKey: "staff_count",
       header: t("colPeople"),
+      cell: ({ row: { original: service } }) => (
+        <span className={dim(service)}>{service.staff_count}</span>
+      ),
     },
     {
       id: "performers",
@@ -239,7 +290,12 @@ export function BookingSettings({
               })}
             </span>
           ) : (
-            t("performersCount", { count: service.staff_ids.length })
+            <span className={dim(service)}>
+              {t("performersOf", {
+                count: service.staff_ids.length,
+                total: setup?.staff.length ?? service.staff_ids.length,
+              })}
+            </span>
           )
         ) : (
           <span className="text-warning-foreground">{t("nobody")}</span>
@@ -249,8 +305,11 @@ export function BookingSettings({
       id: "public",
       header: t("colPublic"),
       enableSorting: false,
-      cell: ({ row: { original: service } }) =>
-        t(`public_${service.public_staff_choice}` as "public_none"),
+      cell: ({ row: { original: service } }) => (
+        <span className={dim(service)}>
+          {t(`public_${service.public_staff_choice}` as "public_none")}
+        </span>
+      ),
     },
     {
       id: "actions",
@@ -271,20 +330,10 @@ export function BookingSettings({
             {
               label: t(service.active ? "switchOffService" : "switchOnService"),
               onSelect: () =>
-                void toggle(
-                  (key) =>
-                    updateSetupService(
-                      service.id,
-                      {
-                        active: !service.active,
-                        expected_version: service.version,
-                      },
-                      key,
-                    ),
-                  t(service.active ? "switchedOff" : "switchedOn", {
-                    name: service.name,
-                  }),
-                ),
+                // Bookings still ahead stay; the owner hears how many first (W1).
+                service.active && service.future_bookings
+                  ? setSwitchingOff(service)
+                  : void switchService(service),
             },
           ]}
           label={t("actionsFor", { name: service.name })}
@@ -480,6 +529,16 @@ export function BookingSettings({
 
   return (
     <div className="space-y-10">
+      {/* The people's hours live with the people: said first, not last (UX-059). */}
+      <p className="max-w-3xl text-sm text-muted-foreground">
+        {t("peopleElsewhere")}{" "}
+        <Link
+          className="font-medium text-primary hover:underline"
+          href="/panel/team"
+        >
+          {t("peopleLink")}
+        </Link>
+      </p>
       <p className="text-sm text-success-foreground empty:hidden" role="status">
         {notice}
       </p>
@@ -610,15 +669,44 @@ export function BookingSettings({
         />
       </PanelSection>
       {setup ? <ClosuresSection places={setup.locations} /> : null}
-      <p className="max-w-3xl text-sm text-muted-foreground">
-        {t("peopleElsewhere")}{" "}
-        <Link
-          className="font-medium text-primary hover:underline"
-          href="/panel/team"
-        >
-          {t("peopleLink")}
-        </Link>
-      </p>
+
+      <Dialog
+        onOpenChange={(next) => (next ? undefined : setSwitchingOff(undefined))}
+        open={Boolean(switchingOff)}
+      >
+        <DialogContent closeLabel={common("close")}>
+          <DialogHeader>
+            <DialogTitle>
+              {t("switchOffTitle", { name: switchingOff?.name ?? "" })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("switchOffFuture", {
+                count: switchingOff?.future_bookings ?? 0,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Link
+              className={buttonVariants({ variant: "outline" })}
+              href={`/panel/calendar?view=list&service=${encodeURIComponent(
+                switchingOff?.name ?? "",
+              )}`}
+            >
+              {t("showInCalendar")}
+            </Link>
+            <Button
+              onClick={() => {
+                const service = switchingOff;
+                setSwitchingOff(undefined);
+                if (service) void switchService(service);
+              }}
+              type="button"
+            >
+              {t("switchOffAnyway")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {setup && editing?.kind === "service" ? (
         <ServiceDialog

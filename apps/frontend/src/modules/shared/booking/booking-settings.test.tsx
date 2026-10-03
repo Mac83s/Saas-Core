@@ -100,6 +100,7 @@ const service = (over: Record<string, unknown>) => ({
   materials: [],
   takes_materials: true,
   version: 3,
+  future_bookings: 0,
   ...over,
 });
 
@@ -151,6 +152,7 @@ const SETUP = {
     { id: MARCIN, name: "Marcin Kowalski", hours_version: 1 },
     { id: PIOTR, name: "Piotr Wiśniewski", hours_version: 1 },
   ],
+  appointment_kinds: [] as { key: string; label: string }[],
 };
 
 const problem = (status: number, code: string, detail: string) =>
@@ -221,8 +223,15 @@ test("usługi, miejsca i zasoby w listach, z tym, co trzeba poprawić", async ()
     .getByText("Korekcja stada 60–150 krów")
     .closest("tr")!;
   expect(within(herd).getByText("1 h 30 min")).toBeInTheDocument();
-  expect(within(herd).getByText("2 osoby")).toBeInTheDocument();
-  expect(within(herd).getByText("od razu · wybór: zespół")).toBeInTheDocument();
+  // Of the company's two people, both can do it (UX-059).
+  expect(within(herd).getByText("2 z 2 osób")).toBeInTheDocument();
+  expect(
+    within(herd).getByText("Tak, klient wybiera zespół"),
+  ).toBeInTheDocument();
+  // No module of the company provides a kind of visit: no „Rodzaj” column.
+  expect(
+    within(services).queryByRole("columnheader", { name: "Rodzaj" }),
+  ).toBeNull();
   const old = within(services).getByText("Wizyta interwencyjna").closest("tr")!;
   expect(within(old).getByText("Wyłączona")).toBeInTheDocument();
   // Nobody does it: said where it is set, not discovered in the calendar.
@@ -236,7 +245,7 @@ test("usługi, miejsca i zasoby w listach, z tym, co trzeba poprawić", async ()
     ),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "Przejdź do Zespół › Pracownicy" }),
+    screen.getByRole("link", { name: "Otwórz listę pracowników" }),
   ).toHaveAttribute("href", "/panel/team");
   expect((await axe.run(container, noContrast)).violations).toEqual([]);
 });
@@ -368,6 +377,53 @@ test("wyłączenie usługi i nowe miejsce z adresem", async () => {
   await waitFor(() =>
     expect(api.createSetupLocation).toHaveBeenCalledWith(
       { name: "Gabinet Toruń", address: "ul. Długa 2" },
+      expect.any(String),
+    ),
+  );
+});
+
+test("wyłączenie usługi z przyszłymi rezerwacjami pyta, ile zostaje, i nie odwołuje ich (W1)", async () => {
+  api.getBookingSetup.mockResolvedValue({
+    ...SETUP,
+    services: [service({ future_bookings: 3, appointment_kind: "farm_visit" })],
+    appointment_kinds: [{ key: "farm_visit", label: "Wizyta w gospodarstwie" }],
+  });
+  renderSettings();
+  const services = await screen.findByRole("table", { name: "Usługi firmy" });
+  expect(
+    within(services).getByRole("columnheader", { name: "Rodzaj" }),
+  ).toBeInTheDocument();
+  expect(
+    within(services).getByText("Wizyta w gospodarstwie"),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Więcej: Korekcja stada 60–150 krów" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Wyłącz usługę" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Wyłączyć usługę Korekcja stada 60–150 krów?",
+  });
+  expect(
+    within(dialog).getByText(/Zostają 3 przyszłe rezerwacje tej usługi/),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  expect(
+    within(dialog).getByRole("link", { name: "Pokaż w kalendarzu" }),
+  ).toHaveAttribute(
+    "href",
+    "/panel/calendar?view=list&service=Korekcja%20stada%2060%E2%80%93150%20kr%C3%B3w",
+  );
+  expect((await axe.run(dialog, noContrast)).violations).toEqual([]);
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Wyłącz mimo to" }),
+  );
+  await waitFor(() =>
+    expect(api.updateSetupService).toHaveBeenCalledWith(
+      HERD,
+      { active: false, expected_version: 3 },
       expect.any(String),
     ),
   );
