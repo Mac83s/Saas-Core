@@ -80,8 +80,14 @@ def customers_due(organization_id: UUID, cutoff: datetime) -> QuerySet[Customer]
 def erase_customers(organization_id: UUID, cutoff: datetime, limit: int) -> int:
     """Strips up to `limit` due customers, inside the company's tenant and the
     run's transaction. The rows are locked in id order, and whether a visit
-    ends after the cutoff is asked again in a fresh statement: a booking
-    committed between finding the customer and locking them keeps them."""
+    ends after the cutoff is asked again under locks: a booking committed
+    between finding the customer and locking them keeps them, and so does a
+    visit somebody moves ahead meanwhile. Moving a visit locks the visit, not
+    its customer, so the customers' visits are locked here too — all of them,
+    and the date read from the locked row: a move in flight makes the run wait
+    and is then seen, one that starts later waits for the run and finds the
+    customer stripped. The order is customer, then visit; a move takes the
+    visit alone, so nothing can wait in a circle."""
     from .services import strip_customer  # noqa: PLC0415 — services read settings
 
     found = list(
@@ -94,13 +100,19 @@ def erase_customers(organization_id: UUID, cutoff: datetime, limit: int) -> int:
         .filter(organization_id=organization_id, id__in=found, anonymized_at__isnull=True)
         .order_by("id")
     )
-    still_visiting = set(
-        Appointment.all_objects.filter(
+    # No `ends_at` in the filter: a row that does not match yet would be
+    # neither locked nor waited for. NO KEY, as for the customer — rows that
+    # only point at a visit do not queue behind the run.
+    visits = (
+        Appointment.all_objects.select_for_update(no_key=True)
+        .filter(
             organization_id=organization_id,
             customer_id__in=[customer.id for customer in locked],
-            ends_at__gte=cutoff,
-        ).values_list("customer_id", flat=True)
+        )
+        .order_by("id")
+        .values_list("customer_id", "ends_at")
     )
+    still_visiting = {customer_id for customer_id, ends_at in visits if ends_at >= cutoff}
     stripped = 0
     for customer in locked:
         if customer.id in still_visiting:

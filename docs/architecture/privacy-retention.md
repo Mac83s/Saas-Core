@@ -58,11 +58,28 @@ Obszar „Prywatność i dane” (`/panel/settings/privacy`), oba domyślnie `of
 - każdy zapis nazywa firmę w samym zapytaniu (`organization_id` w `WHERE`), nie
   polega na samym RLS;
 - **blokada i ponowne sprawdzenie:** klienci po terminie są blokowani w kolejności
-  identyfikatorów (`FOR NO KEY UPDATE`), a to, czy mają wizytę kończącą się po
-  granicy, jest sprawdzane jeszcze raz w nowym zapytaniu — rezerwacja zatwierdzona
-  między wyszukaniem a blokadą zostawia klienta. Z drugiej strony `upsert_customer`
-  blokuje znalezionego klienta i pyta o niego ponownie, więc rezerwacja złożona w
-  trakcie przebiegu dostaje nowego klienta, a nie dopina wizyty do usuniętego;
+  identyfikatorów (`FOR NO KEY UPDATE`), potem — tak samo — wszystkie ich wizyty, i
+  dopiero z zablokowanych wierszy czytane jest, czy któraś kończy się po granicy.
+  Rezerwacja zatwierdzona między wyszukaniem a blokadą zostawia klienta. Przełożenie
+  wizyty (`reschedule_appointment`, `move_stay`) blokuje wizytę, nie klienta: to w
+  toku każe przebiegowi poczekać i jest potem widziane, to późniejsze czeka na
+  przebieg. W zapytaniu blokującym wizyty nie ma daty — wiersz, który jeszcze nie
+  pasuje, nie byłby ani zablokowany, ani oczekiwany. Kolejność blokad: klient, potem
+  wizyta; przełożenie bierze samą wizytę, więc nic nie czeka w kółko. Z drugiej
+  strony `upsert_customer` blokuje znalezionego klienta i pyta o niego ponownie,
+  więc rezerwacja złożona w trakcie przebiegu dostaje nowego klienta, a nie dopina
+  wizyty do usuniętego;
+- **wykluczenia innych modułów** (`register_retention_exclusion`) są czytane przy
+  układaniu listy „po terminie”, nie drugi raz pod blokadą. Dziś nikt żadnego nie
+  rejestruje. Moduł, który zarejestruje pierwsze (dokumenty sprzedaży i zamówienia
+  w okresie ustawowym — rezerwacje, fazy 3–4), dokłada razem z nim ponowne pytanie
+  pod blokadą w `erase_customers`: dokument wystawiony między wyszukaniem a blokadą
+  musi zatrzymać klienta tak samo jak nowa wizyta;
+- reguła platformy w dniach (`platform_days`) nie ma okresu ochronnego, więc wartość
+  poniżej jednego dnia (albo nie-liczba) znaczy „brak reguły”, nigdy „usuń
+  wszystko”; kto rejestruje takie przemiatanie, deklaruje na kluczu rozsądne minimum;
+- firma, której transakcja się nie zatwierdziła, jest w wyniku tylko jako nieudana —
+  jej liczby trafiają do „usunięto” dopiero po zatwierdzeniu;
 - najwyżej `RUN_LIMIT` (200) rekordów na firmę i rodzaj danych w jednym przebiegu,
   reszta w następnym; ponowne uruchomienie niczego nie psuje;
 - błąd w jednej firmie jest logowany, pozostałe firmy przechodzą, komenda kończy się

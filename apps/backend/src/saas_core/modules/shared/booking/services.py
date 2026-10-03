@@ -1428,7 +1428,8 @@ def strip_customer(customer: Customer) -> None:
     # it names nobody.
     visits.exclude(place_address="").update(place_address="")
     visit_ids = list(visits.values_list("id", flat=True))
-    # The "manage my visit" links have nobody left to serve.
+    # The "manage my visit" links have nobody left to serve. A table without
+    # a tenant, but written on this connection: it rolls back with the rest.
     SelfServiceRoute.objects.filter(
         organization_id=organization_id, appointment_id__in=visit_ids, revoked_at__isnull=True
     ).update(revoked_at=timezone.now())

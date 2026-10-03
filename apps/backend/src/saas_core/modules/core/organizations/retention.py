@@ -151,6 +151,17 @@ def months_of(value: object) -> int | None:
     return None
 
 
+def days_of(value: object) -> int | None:
+    """The period in days a platform setting asks for; None for anything that
+    is not a whole number of at least one day — like `months_of`, never a
+    reason to remove: zero or less would make everything due at once."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
+        return int(value) if int(value) >= 1 else None
+    return None
+
+
 def cutoff_for(months: int, now: datetime | None = None) -> datetime:
     """The moment `months` calendar months before `now`: what ended before it
     is due. A day the earlier month does not have becomes its last one."""
@@ -193,12 +204,16 @@ def company_months(setting_key: str) -> Callable[[UUID, datetime], Rule | None]:
 def platform_days(setting_key: str) -> Callable[[UUID, datetime], Rule | None]:
     """The rule of a sweep the platform sets for every company: a number of
     days in the platform setting `setting_key`. No grace period — it is not a
-    company's click that could have been a mistake."""
+    company's click that could have been a mistake — so the setting's own
+    minimum is the guard: a value below one day is no rule at all here, and
+    whoever registers the sweep declares a sensible `minimum` on the key."""
 
     def rule(_organization_id: UUID, now: datetime) -> Rule | None:
         from .platform_settings import platform_setting  # noqa: PLC0415
 
-        days = int(platform_setting(setting_key))
+        days = days_of(platform_setting(setting_key))
+        if days is None:
+            return None
         return Rule(cutoff=now - timedelta(days=days), period=f"{days} dni")
 
     return rule
@@ -242,12 +257,16 @@ def run(now: datetime | None = None, *, limit: int = RUN_LIMIT) -> RunResult:
         try:
             with transaction.atomic():
                 set_local_organization_id(organization_id)
-                removed += _run_company(organization_id, moment, limit)
+                done = _run_company(organization_id, moment, limit)
         except Exception:
             failed.append(organization_id)
             logger.exception(
                 "privacy_retention_run_failed", extra={"organization_id": str(organization_id)}
             )
+        else:
+            # Counted only once the company's transaction has committed: one
+            # whose commit fails is reported as failed, never as removed too.
+            removed += done
     return RunResult(removed=tuple(removed), failed=tuple(failed))
 
 

@@ -7,8 +7,11 @@ company that said off."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from io import StringIO
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -16,7 +19,7 @@ import pytest
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import connection
+from django.db import OperationalError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -397,6 +400,39 @@ def test_one_companys_failure_stops_nobody_and_the_run_takes_a_capped_bite(
         call_command("privacy_retention", "--run", stdout=out)
 
 
+def test_a_company_whose_commit_fails_is_failed_and_never_also_removed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first, second = membership("retencja-commit"), membership("retencja-commit-ok")
+    customer(first, catalog(first), "pechowy", ended=40)
+    customer(second, catalog(second), "dawny", ended=40)
+    switch_on(first)
+    switch_on(second)
+    entered: list[Any] = []
+    set_tenant = retention.set_local_organization_id
+    monkeypatch.setattr(
+        retention,
+        "set_local_organization_id",
+        lambda organization_id: (entered.append(organization_id), set_tenant(organization_id)),
+    )
+
+    @contextmanager
+    def atomic() -> Iterator[None]:
+        with transaction.atomic():
+            yield
+        # The block's work went through; the commit is what fails.
+        if entered[-1] == first.organization_id:
+            raise OperationalError("could not commit")
+
+    # Only the run's own block: the services inside keep the real one.
+    monkeypatch.setattr(retention, "transaction", SimpleNamespace(atomic=atomic))
+
+    result = run()
+
+    assert result.failed == (first.organization_id,)
+    assert [item.organization_id for item in result.removed] == [second.organization_id]
+
+
 def test_a_visit_booked_while_the_run_was_looking_keeps_the_customer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -421,6 +457,34 @@ def test_a_visit_booked_while_the_run_was_looking_keeps_the_customer(
         assert erase_customers(owner.organization_id, cutoff_for(24), 10) == 1
     assert read_customer(owner, old).anonymized_at is not None
     assert read_customer(owner, booked).email == "wrocil@example.test"
+
+
+def test_the_run_locks_the_customers_visits_before_it_decides() -> None:
+    """Moving a visit locks the visit, not its customer. So that a visit moved
+    ahead while the run works is either waited for and seen, or waits for the
+    run: every visit of the locked customers is locked — with no date in the
+    filter, a row that does not match yet would not be waited for — after the
+    customers and before the first write. One connection cannot hold the
+    other side of the race; the order of the statements is the proof here."""
+    owner = membership("retencja-przeniesienie")
+    customer(owner, catalog(owner), "dawny", ended=25)
+
+    with tenant(owner), CaptureQueriesContext(connection) as queries:
+        assert erase_customers(owner.organization_id, cutoff_for(24), 10) == 1
+
+    statements = [query["sql"] for query in queries.captured_queries]
+
+    def locked(model: Any) -> int:
+        return next(
+            index
+            for index, sql in enumerate(statements)
+            if f'FROM "{model._meta.db_table}"' in sql and sql.endswith("FOR NO KEY UPDATE")
+        )
+
+    first_write = next(i for i, sql in enumerate(statements) if sql.startswith("UPDATE"))
+    assert locked(Customer) < locked(Appointment) < first_write
+    condition = statements[locked(Appointment)].split(" WHERE ")[1].split(" ORDER BY ")[0]
+    assert "customer_id" in condition and "ends_at" not in condition
 
 
 def test_a_booking_after_the_strip_gets_a_new_customer_and_companies_never_share_one() -> None:
@@ -595,3 +659,30 @@ def test_a_rule_the_platform_sets_runs_through_the_same_command(
         ("probe.conversations", "90 dni", 3)
     ]
     assert (owner.organization_id, now - timedelta(days=90), retention.RUN_LIMIT) in removed
+
+
+@pytest.mark.parametrize("value", [0, -30, True, "soon"])
+def test_a_platform_rule_below_one_day_is_no_rule(
+    monkeypatch: pytest.MonkeyPatch, value: Any
+) -> None:
+    """Such a rule has no grace period, so zero or less would make everything
+    due at once: it is read as no rule, never as a reason to remove."""
+    membership("retencja-zero")
+    monkeypatch.setattr(retention, "_sweeps", {})
+    monkeypatch.setattr(
+        "saas_core.modules.core.organizations.platform_settings.platform_setting",
+        lambda key: value,
+    )
+    asked: list[str] = []
+    retention.register_retention_sweep(
+        retention.RetentionSweep(
+            key="probe.conversations",
+            rule=retention.platform_days("assistant.retention.conversation_days"),
+            due=lambda organization_id, cutoff: asked.append("due") or 5,
+            erase=lambda organization_id, cutoff, limit: asked.append("erase") or 5,
+        )
+    )
+
+    assert dry_run() == []
+    assert run() == retention.RunResult(removed=(), failed=())
+    assert asked == []
