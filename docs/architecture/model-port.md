@@ -77,7 +77,7 @@ record_settlement(task, context, *, reference, credits, units, unit) -> None
 register_task(spec: TaskSpec) -> None               # AppConfig.ready modułu albo produktu
 ```
 
-Później, bez zmiany powyższych: `stream(request)` (A3) z tym samym żądaniem,
+Później, bez zmiany powyższych: `stream(request)` (po A3-1) z tym samym żądaniem,
 bramkami, dopuszczeniem i telemetrią; `embed(...)` tylko osobnym ADR.
 
 ## Zadania

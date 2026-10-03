@@ -122,8 +122,9 @@ o nieznanym wyniku, a tłumaczenia obciążają klienta tylko za dostarczone jed
    panelu, ADR-033:140-141; zajęte miejsce to od razu `retryable`, nigdy czekanie) i
    limit czasu przycięty do `GUNICORN_GRACEFUL_TIMEOUT` − 2 s, żeby restart nie uciął
    opłaconego wywołania; CMD obrazu czyta tę samą zmienną. Worker wołający zadanie
-   asystenta limitera nie ma. Strumieniowanie to później osobna metoda `stream` (A3) z
-   tym samym żądaniem, bramkami i telemetrią.
+   asystenta limitera nie ma. Strumieniowanie to później osobna metoda `stream` z
+   tym samym żądaniem, bramkami i telemetrią; A3-1 jej nie potrzebuje, bo tura biegnie
+   w workerze, a panel odpytuje rozmowę (ADR-076, uzupełnienie 2026-10-03).
 
 6. **Port sam nie ponawia.** Zwraca rodzaj błędu z `retry_after` albo `until`, a o
    ponowieniu decyduje wołający — ukryte ponowienia płacą podwójnie i psują limity

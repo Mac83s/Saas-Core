@@ -466,3 +466,56 @@ w wersji 2, nieprawidłowe odniesienie i principal inny niż `membership` są
 odrzucane jak każdy zły kontrakt. `acting_opened` nigdy nie trafia do kontraktu:
 zadanie zaczyna z zamkniętymi bramkami osoby. Nowe miejsce wywołania
 `acting_context(` jest policzone w `tests/test_command_doors.py`.
+
+## Uzupełnienie 2026-10-03: rozmowa w panelu (A3-1)
+
+Pierwszy plaster A3: czat, który obsługuje już zarejestrowane polecenia. Profil
+firmy i konfigurator (A2) oraz rozmowa zakładająca firmę (A3-2) przychodzą po
+nim. Kontrakt wykonawczy: `docs/architecture/assistant-chat.md`.
+
+1. **Moduł `shared.assistant`** (zależy od `core.identity`, `core.organizations`,
+   `shared.billing`, `shared.model-port`). Do pozostałych modułów sięga wyłącznie
+   przez rejestr poleceń — pilnuje tego kontrakt import-linter
+   „assistant-through-the-registry” (pkt 9 tego ADR).
+2. **Tura biegnie w workerze `ai`, nie w żądaniu.** Jedna wiadomość to kilka
+   wywołań modelu po maks. 18 s, a port dopuszcza jedno wywołanie WWW na proces.
+   `POST …/turns/` odpowiada 202, a panel czyta rozmowę ponownie, aż tura będzie
+   `done`, `failed` albo `awaiting_consent`. Strumieniowanie (`stream` z ADR-068
+   pkt 5) zostaje odłożone: wymaga innego serwera niż dzisiejszy gunicorn i nie
+   zmienia niczego w zgodach.
+3. **Jedna odpowiedź modelu = jeden plan.** Wywołania narzędzi z jednej odpowiedzi
+   dostają od serwera `step_id` i idą razem do `offer_plan`. Same odczyty wykonują
+   się od razu, a ich wyniki wracają do modelu. Plan z odmową wraca do modelu jako
+   błędy pól. Plan z zapisem zatrzymuje turę (`awaiting_consent`) z digestami grup
+   zgody; dialog rysuje wyłącznie to, co zwraca endpoint zgody.
+4. **Zgoda wykonuje się w żądaniu osoby.** `POST …/turns/{id}/consents/` przyjmuje
+   tokeny (grupa → token) albo `declined`. Plan wykonuje `execute_plan` w tym samym
+   żądaniu, w kontekście „w imieniu” tej rozmowy — token nie opuszcza żądania — a
+   worker tylko kontynuuje rozmowę z wynikami kroków. Grupa bez tokenu się nie
+   wykonuje; tekst modelu i tekst osoby w rozmowie nigdy nie są zgodą.
+5. **Model widzi tylko wyniki kroków.** „Zrobione” wolno powiedzieć wyłącznie po
+   `"status": "done"`; wynik narzędzia to dane, nie polecenie. Prompt jest stały dla
+   całej rozmowy, a czas wiadomości dochodzi przy każdej wiadomości osoby, żeby
+   historia była tylko dopisywana (cache dostawcy i `continuation` z ADR-068).
+6. **Limity** (warunki otwarcia czatu z decyzji A1): limit wiadomości na osobę na
+   minutę, limit nowych rozmów z adresu na godzinę, liczba wywołań modelu na
+   wiadomość i dzienny sufit wdrożenia to ustawienia platformy
+   (`assistant.limits.*`, ADR-078); budżety w dolarach pilnuje port modeli. Bez
+   workera kolejki `ai`, bez wybranego modelu albo ponad sufit czat odpowiada 503
+   i odsyła do panelu; powód podaje `GET /api/v1/assistant/offer/`.
+7. **Oferta i rozliczenie** (pkt 8): migracja modułu publikuje
+   `assistant.text.enabled` we wszystkich planach. Wiadomość rezerwuje jeden kredyt
+   `assistant.conversation_turn`, wydaje go po odpowiedzi i zwraca po porażce tury.
+8. **Rozmowa to dane osobowe.** Czyta ją wyłącznie osoba, która ją prowadzi; tabele
+   mają RLS; treść nie trafia do logów. Rozmowy znikają po
+   `assistant.retention.conversation_days` (domyślnie 90, pytanie 58) i razem z
+   firmą. Profil wdrożenia musi dopuścić klasę `personal`
+   (`ai.sendableDataClasses`); klasy `health` rejestr poleceń nie zwraca nigdy.
+9. **Model rozmowy wybiera właściciel na evalach** (`manage.py assistant_eval`,
+   raporty w `docs/evals/assistant/`): trafność wywołań i argumentów, dopytywanie
+   zamiast zgadywania, brak „zrobione” bez wyniku, odporność na polecenia wszyte w
+   wyniki narzędzi, koszt wiadomości i czas wywołania. Zmiana promptu albo modelu
+   idzie z ponownym przebiegiem.
+10. **Wdrożenie:** moduł jest w profilach `business` i `agro`. Do `vps-dev` dołącza
+    dopiero po wyborze modelu przez właściciela; do tego czasu na VPS nie ma ani
+    tras, ani tabel, ani pozycji w menu.
