@@ -153,7 +153,9 @@ def page_graph(
         posting: dict[str, Any] = {
             "@type": "BlogPosting",
             "@id": f"{canonical_url}#article",
-            "headline": title,
+            # The entry's own title where the payload carries it (K2's byline
+            # shows that one); the page's title is the same text until then.
+            "headline": str(article.get("title") or title),
             "inLanguage": locale,
             "mainEntityOfPage": {"@id": page_id},
             "isPartOf": website,

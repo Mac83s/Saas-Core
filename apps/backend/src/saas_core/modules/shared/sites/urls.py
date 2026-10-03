@@ -50,6 +50,7 @@ from .onboarding_views import (
     SubdomainAvailabilityView,
 )
 from .search_visibility_views import SearchVisibilityView
+from .seo_preview_views import SeoPreviewView
 from .template_media_views import TemplatePhotoView
 from .views import (
     AutomationConnectionListView,
@@ -105,6 +106,7 @@ urlpatterns = [
     ),
     path("<uuid:site_id>/appearance/", SiteAppearanceView.as_view(), name="site-appearance"),
     path("<uuid:site_id>/metrics/", SiteMetricsView.as_view(), name="site-metrics"),
+    path("<uuid:site_id>/seo/preview/", SeoPreviewView.as_view(), name="site-seo-preview"),
     path("blueprint-catalog/", BlueprintCatalogView.as_view(), name="blueprint-catalog"),
     path("<uuid:site_id>/blueprint-draft/", BlueprintDraftView.as_view(), name="blueprint-draft"),
     path(

@@ -4990,5 +4990,27 @@
     "noHome": "The home page has no version in this language",
     "sitemap": "Sitemap for search engines",
     "robots": "robots.txt file"
+  },
+  "SeoPreview": {
+    "title": "Search engine preview",
+    "description": "How a search engine will show this page after the next publication. The preview reads the saved draft and publishes nothing.",
+    "loading": "Loading the preview…",
+    "retry": "Try again",
+    "result": "Search result",
+    "noDescription": "The page has no description. The search engine will pick a piece of its text.",
+    "titleLong": "The title has {count} characters. A search engine shows about {limit}.",
+    "descriptionLong": "The description has {count} characters. A search engine shows about {limit}.",
+    "noindex": "This page asks search engines not to show it.",
+    "languages": "Language versions the search engine will learn about",
+    "structured": "Structured data",
+    "structuredTypes": "The page describes: {types}.",
+    "structuredSource": "Show the JSON-LD",
+    "notPublic": {
+      "not_written": "This page has no version in this language yet.",
+      "withheld": "This language version waits to be refreshed: a fact changed in the source text, for example a price or a date.",
+      "language_off": "The company has this language switched off, so this version is not public.",
+      "language_not_live": "The home page has no version in this language, so no page in it is public.",
+      "other": "This language version will not go out with the next publication."
+    }
   }
 }

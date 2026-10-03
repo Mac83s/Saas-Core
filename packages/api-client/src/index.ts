@@ -1259,6 +1259,30 @@ export async function readSearchVisibility(): Promise<SearchVisibility> {
   return data;
 }
 
+export type SeoPreview = components["schemas"]["SeoPreview"];
+
+/** One page in one language as a search engine would read it after the next
+ *  publication; nothing is saved (TL18). The texts are the company's own. */
+export async function readSeoPreview(
+  siteId: string,
+  pageId: string,
+  locale: string,
+): Promise<SeoPreview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/seo/preview/",
+    {
+      params: {
+        path: { site_id: siteId },
+        query: { page_id: pageId, locale },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function createSite(
   input: SiteCreateInput,
   idempotencyKey: string,

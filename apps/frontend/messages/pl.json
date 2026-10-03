@@ -4990,5 +4990,27 @@
     "noHome": "Strona główna nie ma wersji w tym języku",
     "sitemap": "Mapa strony dla wyszukiwarek",
     "robots": "Plik robots.txt"
+  },
+  "SeoPreview": {
+    "title": "Podgląd w wyszukiwarce",
+    "description": "Tak wyszukiwarka pokaże tę stronę po następnej publikacji. Podgląd bierze zapisany szkic i niczego nie publikuje.",
+    "loading": "Wczytuję podgląd…",
+    "retry": "Spróbuj ponownie",
+    "result": "Wynik wyszukiwania",
+    "noDescription": "Strona nie ma opisu. Wyszukiwarka sama wybierze fragment tekstu.",
+    "titleLong": "Tytuł ma {count} znaków. Wyszukiwarka pokaże około {limit}.",
+    "descriptionLong": "Opis ma {count} znaków. Wyszukiwarka pokaże około {limit}.",
+    "noindex": "Ta strona prosi wyszukiwarki, żeby jej nie pokazywały.",
+    "languages": "Wersje językowe, o których dowie się wyszukiwarka",
+    "structured": "Dane strukturalne",
+    "structuredTypes": "Strona opisuje: {types}.",
+    "structuredSource": "Pokaż zapis JSON-LD",
+    "notPublic": {
+      "not_written": "Ta strona nie ma jeszcze wersji w tym języku.",
+      "withheld": "Ta wersja językowa czeka na odświeżenie: w tekście źródłowym zmienił się fakt, na przykład cena albo data.",
+      "language_off": "Firma ma ten język wyłączony, więc ta wersja nie jest publiczna.",
+      "language_not_live": "Strona główna nie ma wersji w tym języku, więc żadna podstrona w nim nie jest publiczna.",
+      "other": "Ta wersja językowa nie wyjdzie z następną publikacją."
+    }
   }
 }

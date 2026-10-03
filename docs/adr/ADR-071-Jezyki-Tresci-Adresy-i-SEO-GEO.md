@@ -262,6 +262,15 @@ Jak pkt 16 jest wykonany, żeby drugi raz tego nie rozstrzygać:
   sekwencje ucieczki; test przeszukuje źródła frontendu i nie dopuszcza innego
   `application/ld+json`. Strony marketingowe i karta katalogu używają tego samego,
   a strona główna platformy dostała własny węzeł `Organization`.
-- **Poza tym etapem:** `translationOfWork` na wersjach AI (z TL19b), ceny, podgląd
-  SEO dla panelu i asystenta (TL18b).
+- **Podgląd SEO (TL18b).** `GET /api/v1/sites/{id}/seo/preview/?page_id=&locale=` i
+  polecenie `sites.seo_preview.read@1` odpowiadają tym, co wyszukiwarka przeczyta po
+  następnej publikacji. `seo_preview.next_snapshot` powtarza kroki `publish_site` bez
+  blokad i zapisów, a stronę czyta z tej migawki kod trasy publicznej
+  (`public_page_payload` na niezapisanej `Publication`) — podgląd nie ma własnej
+  logiki, którą mógłby się rozjechać z publikacją, a test porównuje obie migawki.
+  Niezapisana publikacja nie trafia do pamięci `visible_snapshot`. Teksty firmy są
+  przycięte (tytuł 300, opis 600 znaków) i oznaczone jako niezaufane: w OpenAPI
+  opisem, w poleceniu `x-untrusted`. Wersja językowa, która by nie wyszła, wraca z
+  `public: false` i powodem.
+- **Poza tym etapem:** `translationOfWork` na wersjach AI (z TL19b), ceny.
 

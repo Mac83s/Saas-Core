@@ -1437,6 +1437,10 @@ def visible_snapshot(
     sitemap too, but answers from `withheld` — a 307 until it is refreshed. A
     language whose home page is not live (`live_locales`) is not public.
     """
+    if publication._state.adding:
+        # A publication nobody saved — the SEO preview of the next one (TL18):
+        # read as visitors would get it, and kept out of the cache.
+        return _visible(publication.snapshot, available)
     # By the languages too: the same publication reads differently once the
     # company switches one off, and at once (ADR-071 pkt 8, 9).
     key = (publication.id, tuple(sorted(available)) if available is not None else None)

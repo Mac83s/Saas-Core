@@ -172,6 +172,23 @@ EVALS = {
         state=_state,
         prepare=_site,
     ),
+    "sites.seo_preview.read@1": CommandEval(
+        arguments=lambda context: {
+            "site_id": None,
+            "page_id": str(_page(context).id),
+            "locale": "pl",
+        },
+        wrong_arguments=lambda context: {
+            "site_id": None,
+            "page_id": str(_page(context).id),
+            "locale": "pl",
+            "publish": True,
+        },
+        wrong_field="publish",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_state,
+        prepare=_site,
+    ),
     "sites.locale_body.save@1": CommandEval(
         arguments=lambda context: _english(context, "Welcome"),
         # Refused by the service: the unit does not exist on the page.
