@@ -28,8 +28,9 @@
 	# The public catalogue's "Blisko mnie" asks the browser for its location
 	# (ADR-064 §7); every other page keeps geolocation off. The two matchers
 	# exclude each other, so the order of the directives does not matter.
-	@catalog path /katalog /katalog/* /en/katalog /en/katalog/*
-	@notCatalog not path /katalog /katalog/* /en/katalog /en/katalog/*
+	# Any language prefix (TL20): /katalog, /en/katalog, /de/katalog …
+	@catalog path_regexp ^/([a-z]{2}/)?katalog(/.*)?$
+	@notCatalog not path_regexp ^/([a-z]{2}/)?katalog(/.*)?$
 	header @catalog Permissions-Policy "camera=(), geolocation=(self), microphone=()"
 	header @notCatalog Permissions-Policy "camera=(), geolocation=(), microphone=()"
 
