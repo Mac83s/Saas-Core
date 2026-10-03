@@ -144,15 +144,48 @@
 .studio-sidebar--right {
   border-left: 1px solid var(--border);
 }
-.studio-sidebar-header {
-  padding: 1.1rem 1rem 0.85rem;
+/* The inspector: which section of how many, its icons, then its tabs. */
+.studio-inspector-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.625rem 0.5rem 0.875rem;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
 }
-.studio-sidebar-header h3 {
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.5;
+.studio-inspector-header h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.studio-inspector-tabs {
+  gap: 1rem;
+  padding: 0 0.875rem;
+}
+.studio-inspector-tabs [data-slot="tabs-tab"] {
+  min-height: 2.125rem;
+  padding: 0.375rem 0;
+  border-radius: 0;
+  font-size: 0.8125rem;
+}
+.studio-inspector-tabs [data-slot="tabs-indicator"] {
+  background: var(--foreground);
+}
+/* A mouse gets the condensed fields (36 px); touch keeps 44 px. */
+@media (pointer: fine) {
+  .studio-sidebar--right
+    :is(
+      input:not(
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"],
+        [type="range"],
+        [type="color"],
+        [type="hidden"]
+      ),
+      select
+    ).h-11 {
+    height: 2.25rem;
+  }
 }
 /* The left side: a rail of tools (an icon over a short word, UX-040)
    beside one panel. */

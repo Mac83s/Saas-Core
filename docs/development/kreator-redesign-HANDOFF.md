@@ -41,7 +41,7 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
 | 2   | Vertical 72 px icon rail + one 300 px panel; compact outline with header/footer rows and a working drag handle         | done  |
 | 3   | Section library: category chips with counts, compact rows (thumbnail, name, two lines, eye + "+"), insert hint, canvas "+" opens it in the panel | done  |
 | 4   | Page templates: two-column gallery of rendered thumbnails, in-panel detail (description, goal/style, section list, preview, use) | done  |
-| 5   | Inspector: "Sekcja N z M" header with icon actions; tabs Treść / Układ / Styl                                           | todo  |
+| 5   | Inspector: "Sekcja N z M" header with icon actions (up, down, duplicate, save as company template, remove); tabs Treść / Układ / Styl | done  |
 | 6   | Tests, axe, PL/EN, 390 px check                                                                                       | todo  |
 
 ## Files touched (expect conflicts with local work)
@@ -54,7 +54,11 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
   for company section and page templates in the studio's panel; the cards
   elsewhere are unchanged)
 - `apps/frontend/src/modules/shared/sites/page-editor-rich-content.test.tsx`
-  (picks the category by its chip)
+  (picks the category by its chip, opens a template's details, the "Styl" tab)
+- `apps/frontend/src/modules/shared/sites/block-form.tsx` (`BlockFields`
+  `part`, `SectionMoveButtons` `compact` + children)
+- `apps/frontend/src/modules/shared/sites/placeholder-banner.test.tsx` (asks
+  for the "Treść" textbox, not the "Treść" tab)
 - `packages/ui/src/styles/site-studio.css`
 - `apps/frontend/messages/pl.json`, `en.json` (`Sites.studio.*` only)
 
@@ -114,6 +118,25 @@ No backend, API, OpenAPI, `api-client` or migration changes so far.
   "save this page" when there are none. The swap flow is unchanged.
 - Messages: `Sites.studio.allTemplates`, `templateSections`, `useTemplate`
   added.
+
+- Inspector: the header says „Sekcja N z M” and the type, with one row of
+  icons (`SectionMoveButtons compact` with duplicate and `SaveAsTemplate
+  iconOnly` between "down" and "remove"). Below, `@saas-core/ui` `Tabs`:
+  Treść (the fields; a separator's size, width and tone), Układ (type change,
+  layout select, layout comparison) and Styl (width, surface, anchor, then
+  decorations). `BlockFields` takes `part`; the other parts stay mounted and
+  `hidden`, so a registered select (the layout, a separator's size) keeps
+  giving the form the value it shows, exactly as before — without that, a
+  legacy hero saved without its `layout`. Forms mode passes no `part` and is
+  unchanged. A save the schema refuses switches to the tab with the first
+  error; "Zmień zdjęcie" on the canvas switches to Treść. „Dodaj sekcję
+  poniżej” is gone from the inspector: the canvas's "+" and the panel's
+  library do that.
+- Inputs and selects in the inspector are 36 px on a mouse
+  (`pointer: fine`), 44 px on touch.
+- Messages: `Sites.studio.sectionOf`, `inspectorTabs`, `tabContent`,
+  `tabLayout`, `tabStyle`, `oneLayout` added; `Sites.studio.insertAfter`
+  removed.
 
 ## How to verify
 

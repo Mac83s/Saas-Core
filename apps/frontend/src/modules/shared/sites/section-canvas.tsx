@@ -40,6 +40,13 @@ import {
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
+  Tabs,
+  TabsIndicator,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+} from "@saas-core/ui/components/tabs";
+import {
   blockFieldId,
   blockOptions,
   blockPayload,
@@ -65,6 +72,14 @@ export type SectionCanvasHandle = { choose: (index: number) => void };
 /** The device the canvas imitates; the switch is in the editor's top bar. */
 export type CanvasViewport = "desktop" | "tablet" | "mobile";
 
+/** The inspector's tabs: a section's words, its layout and its look. */
+export type InspectorTab = "content" | "layout" | "style";
+const INSPECTOR_TABS = [
+  ["content", "studio.tabContent"],
+  ["layout", "studio.tabLayout"],
+  ["style", "studio.tabStyle"],
+] as const;
+
 /** The site's look on this page: palette, fonts, width and page style — the
  *  canvas root, and the full-screen writer that uses its fonts. */
 export function pageLookClassName(
@@ -85,6 +100,7 @@ export function SectionCanvas({
   onSelect,
   inspector,
   inspectorActions,
+  inspectorTab,
   library,
   libraryHint,
   pagesPanel,
@@ -132,6 +148,9 @@ export function SectionCanvas({
   inspector: ReactNode;
   /** Up, down and remove for the selected section, beside its name. */
   inspectorActions?: ReactNode;
+  /** Which part of the selected section the inspector shows; the editor
+   *  holds it, so a field it must open can switch it first. */
+  inspectorTab?: { value: InspectorTab; onChange: (tab: InspectorTab) => void };
   library: ReactNode;
   /** Where the library puts a section: „po sekcji 2”. */
   libraryHint?: string;
@@ -580,12 +599,17 @@ export function SectionCanvas({
         className="studio-sidebar studio-sidebar--right"
         aria-label={t("studio.inspector")}
       >
-        <div className="studio-sidebar-header flex items-start justify-between gap-2">
-          <div className="min-w-0">
+        <div className="studio-inspector-header">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">
-              {t("studio.inspector")}
+              {blocks.length
+                ? t("studio.sectionOf", {
+                    number: selected + 1,
+                    count: blocks.length,
+                  })
+                : t("studio.inspector")}
             </p>
-            <h3>
+            <h3 className="truncate">
               {blocks.length
                 ? sectionLabel(selected)
                 : t("studio.nothingSelected")}
@@ -593,15 +617,45 @@ export function SectionCanvas({
           </div>
           {blocks.length ? inspectorActions : null}
         </div>
-        <div className="studio-sidebar-scroll">
-          {blocks.length ? (
-            inspector
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {t("studio.selectHint")}
-            </p>
-          )}
-        </div>
+        {blocks.length && inspectorTab ? (
+          // The words, the layout and the look of the section, one at a time
+          // (Kreator stron).
+          <Tabs
+            value={inspectorTab.value}
+            onValueChange={(value) =>
+              inspectorTab.onChange(value as InspectorTab)
+            }
+            className="min-h-0 flex-1 gap-0"
+          >
+            <TabsList
+              aria-label={t("studio.inspectorTabs")}
+              className="studio-inspector-tabs"
+            >
+              {INSPECTOR_TABS.map(([value, label]) => (
+                <TabsTab key={value} value={value}>
+                  {t(label)}
+                </TabsTab>
+              ))}
+              <TabsIndicator />
+            </TabsList>
+            <TabsPanel
+              value={inspectorTab.value}
+              className="studio-sidebar-scroll"
+            >
+              {inspector}
+            </TabsPanel>
+          </Tabs>
+        ) : (
+          <div className="studio-sidebar-scroll">
+            {blocks.length ? (
+              inspector
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t("studio.selectHint")}
+              </p>
+            )}
+          </div>
+        )}
       </aside>
       <nav aria-label={t("studio.tools")} className="studio-mobile-nav">
         {(

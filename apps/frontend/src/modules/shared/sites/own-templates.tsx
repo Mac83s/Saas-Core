@@ -144,6 +144,7 @@ export function SaveAsTemplate({
   sourcePageId,
   triggerLabel,
   disabled,
+  iconOnly = false,
 }: {
   kind: "section" | "page";
   blocks: () => BlockFormValues[];
@@ -151,6 +152,8 @@ export function SaveAsTemplate({
   sourcePageId?: string;
   triggerLabel: string;
   disabled?: boolean;
+  /** A bookmark among the inspector's icons; its label stays its name. */
+  iconOnly?: boolean;
 }) {
   const t = useTranslations("Sites.ownTemplates");
   const common = useTranslations("Common");
@@ -227,17 +230,29 @@ export function SaveAsTemplate({
     >
       <DialogTrigger
         render={
-          <Button
-            type="button"
-            variant="outline"
-            // Long labels wrap in the 300 px rail instead of scrolling it.
-            className="h-auto min-h-10 w-full whitespace-normal py-2"
-            disabled={disabled}
-          />
+          iconOnly ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="pointer-fine:size-8"
+              aria-label={triggerLabel}
+              title={triggerLabel}
+              disabled={disabled}
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              // Long labels wrap in the 300 px rail instead of scrolling it.
+              className="h-auto min-h-10 w-full whitespace-normal py-2"
+              disabled={disabled}
+            />
+          )
         }
       >
         <BookmarkPlusIcon aria-hidden="true" />
-        {triggerLabel}
+        {iconOnly ? null : triggerLabel}
       </DialogTrigger>
       <DialogContent closeLabel={common("close")} className="sm:max-w-lg">
         <DialogHeader>
