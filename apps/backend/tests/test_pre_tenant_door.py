@@ -56,6 +56,11 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         "podgląd zmiany wartości platformy: lista firm, w których potem — każda we "
         "własnym tenancie — liczy się, czy mają własną wartość klucza; operator nie ma tenanta",
     ),
+    "modules/core/organizations/retention.py": (
+        1,
+        "usuwanie danych osobowych po czasie (37a): lista firm, z których każda jest potem "
+        "czytana we własnym tenancie — jej ustawienie i to, co byłoby do usunięcia",
+    ),
     "modules/core/organizations/lifecycle.py": (
         1,
         "zaproszenie odnalezione po tokenie przez kogoś, kto nie jest jeszcze członkiem",

@@ -1024,6 +1024,171 @@
       "version_field": "expected_version"
     },
     {
+      "command": "booking.settings_retention.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Customers' data' (customers): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. How long after a customer's last visit the company removes their personal data. A removal cannot be undone. The visits stay in the calendar and the statistics, without the person's data.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "customers": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "customers": {
+                "enum": [
+                  "off",
+                  "12",
+                  "24",
+                  "36"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "How long after a customer's last visit the company removes their personal data. A removal cannot be undone. The visits stay in the calendar and the statistics, without the person's data.",
+        "pl": "Po jakim czasie od ostatniej wizyty firma usuwa dane osobowe klienta. Usunięcia nie da się cofnąć. Wizyty zostają w kalendarzu i statystykach, bez danych osoby."
+      },
+      "title": {
+        "en": "Read settings: Customers' data",
+        "pl": "Odczytaj ustawienia: Dane klientów"
+      },
+      "tool_name": "booking_settings_retention_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.settings_retention.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "customers": {
+            "description": "After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
+            "enum": [
+              "off",
+              "12",
+              "24",
+              "36",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "customers"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "customers",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Customers' data'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). How long after a customer's last visit the company removes their personal data. A removal cannot be undone. The visits stay in the calendar and the statistics, without the person's data.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "customers": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "customers": {
+                "enum": [
+                  "off",
+                  "12",
+                  "24",
+                  "36"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "irreversible",
+      "summary": {
+        "en": "How long after a customer's last visit the company removes their personal data. A removal cannot be undone. The visits stay in the calendar and the statistics, without the person's data.",
+        "pl": "Po jakim czasie od ostatniej wizyty firma usuwa dane osobowe klienta. Usunięcia nie da się cofnąć. Wizyty zostają w kalendarzu i statystykach, bez danych osoby."
+      },
+      "title": {
+        "en": "Change settings: Customers' data",
+        "pl": "Zmień ustawienia: Dane klientów"
+      },
+      "tool_name": "booking_settings_retention_update_v1",
+      "undo": "command:booking.settings_retention.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "booking.settings_self_service.read@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -3736,6 +3901,171 @@
       },
       "tool_name": "sites_settings_inquiries_update_v1",
       "undo": "command:sites.settings_inquiries.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "sites.settings_retention.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Website enquiries' (inquiries): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "inquiries": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "inquiries": {
+                "enum": [
+                  "off",
+                  "12",
+                  "24",
+                  "36"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
+        "pl": "Po jakim czasie firma usuwa zapytania z formularza kontaktowego. Usunięcia nie da się cofnąć."
+      },
+      "title": {
+        "en": "Read settings: Website enquiries",
+        "pl": "Odczytaj ustawienia: Zapytania ze strony"
+      },
+      "tool_name": "sites_settings_retention_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "sites.settings_retention.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "inquiries": {
+            "description": "After how many months an enquiry from the site's contact form is removed for good, with every copy the system stores; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
+            "enum": [
+              "off",
+              "12",
+              "24",
+              "36",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "inquiries"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "inquiries",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Website enquiries'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "inquiries": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "inquiries": {
+                "enum": [
+                  "off",
+                  "12",
+                  "24",
+                  "36"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "irreversible",
+      "summary": {
+        "en": "How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
+        "pl": "Po jakim czasie firma usuwa zapytania z formularza kontaktowego. Usunięcia nie da się cofnąć."
+      },
+      "title": {
+        "en": "Change settings: Website enquiries",
+        "pl": "Zmień ustawienia: Zapytania ze strony"
+      },
+      "tool_name": "sites_settings_retention_update_v1",
+      "undo": "command:sites.settings_retention.update@1",
       "version_field": "expected_version"
     },
     {

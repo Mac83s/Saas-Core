@@ -24,7 +24,12 @@ class OrganizationsConfig(AppConfig):
 
         register_command_gate("settings", settings_gate)
         # The company's basic settings on the registry (ADR-078, R2b).
-        from .basic_settings import BASICS, COMPANY_AREA, SECURITY_AREA  # noqa: PLC0415
+        from .basic_settings import (  # noqa: PLC0415
+            BASICS,
+            COMPANY_AREA,
+            PRIVACY_AREA,
+            SECURITY_AREA,
+        )
         from .settings_registry import (  # noqa: PLC0415
             register_setting_area,
             register_setting_group,
@@ -32,6 +37,7 @@ class OrganizationsConfig(AppConfig):
 
         register_setting_area(COMPANY_AREA)
         register_setting_area(SECURITY_AREA)
+        register_setting_area(PRIVACY_AREA)
         register_setting_group(BASICS)
         # Whether the company requires 2FA of its people (35a).
         from .command_registry import register_command  # noqa: PLC0415

@@ -292,3 +292,38 @@ INVENTORY_EVALS = {
         prepare=_inventory_plan,
     ),
 }
+
+# Removal of personal data after a time (37a): off by default; turning it on is
+# irreversible in what it does, so the commands' class is `irreversible`.
+EVALS.update({
+    "booking.settings_retention.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"customers": "24"},
+        wrong_field="customers",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_booking_plan,
+    ),
+    "booking.settings_retention.update@1": CommandEval(
+        arguments=lambda _context: {"customers": "24", "reset": None},
+        wrong_arguments={"customers": "6", "reset": None},
+        wrong_field="customers",
+        stale=_stale("booking.retention.customers"),
+        state=_values,
+        prepare=_booking_plan,
+    ),
+    "sites.settings_retention.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"inquiries": "12"},
+        wrong_field="inquiries",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+    ),
+    "sites.settings_retention.update@1": CommandEval(
+        arguments=lambda _context: {"inquiries": "12", "reset": None},
+        wrong_arguments={"inquiries": "6", "reset": None},
+        wrong_field="inquiries",
+        stale=_stale("sites.retention.inquiries"),
+        state=_values,
+    ),
+})

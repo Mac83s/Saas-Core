@@ -36,6 +36,10 @@ class SitesConfig(AppConfig):
         register_inquiry_settings()
         # The operator's switch for the visible notice on AI translations (TL19b).
         register_machine_text_settings()
+        # How long enquiries are kept (D2, answer 37a).
+        from .inquiry_retention import register_inquiry_retention
+
+        register_inquiry_retention()
         register_public_locales_guard(site_locale_problems)
         register_public_locales_impact(removed_locale_redirects)
         # Pages, blog articles and site texts are translation sources (ADR-069, TL11).

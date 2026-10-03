@@ -39,6 +39,22 @@ SECURITY_AREA = SettingArea(
 )
 
 
+#: Where a company decides how long it keeps personal data of people outside
+#: it (answer 37a). The area is core's, because several modules keep such data
+#: — booking its customers, the site its enquiries — and each brings its group.
+PRIVACY_AREA = SettingArea(
+    key="privacy",
+    title={"pl": "Prywatność i dane", "en": "Privacy and data"},
+    description={
+        "pl": "Po jakim czasie firma usuwa dane osobowe klientów i osób, które do niej "
+        "napisały. Domyślnie nic nie jest usuwane.",
+        "en": "After how long the company removes personal data of its customers and of "
+        "people who wrote to it. By default nothing is removed.",
+    },
+    order=17,
+)
+
+
 def _explicit() -> dict[str, Any]:
     organization = Organization.objects.get(pk=require_tenant_context().organization_id)
     return {

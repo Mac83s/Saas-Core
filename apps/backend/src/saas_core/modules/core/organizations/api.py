@@ -61,6 +61,9 @@ from .references import (
     record_resource_references,
     register_resource_reference_handler,
 )
+from .retention import OFF as RETENTION_OFF
+from .retention import PERIODS as RETENTION_PERIODS
+from .retention import RetentionSweep, cutoff_for, months_of, register_retention_sweep
 from .settings_commands import group_commands
 from .settings_registry import (
     SettingArea,
@@ -85,6 +88,12 @@ from .settings_service import (
 )
 
 __all__ = [
+    "RETENTION_OFF",
+    "RETENTION_PERIODS",
+    "RetentionSweep",
+    "cutoff_for",
+    "months_of",
+    "register_retention_sweep",
     "HistoryTarget",
     "register_history_target",
     "Resolved",

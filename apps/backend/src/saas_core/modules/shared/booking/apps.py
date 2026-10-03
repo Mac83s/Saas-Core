@@ -48,6 +48,10 @@ class BookingConfig(AppConfig):
         from .company_settings import register_company_settings
 
         register_company_settings()
+        # How long customers' personal data is kept (D1, answer 37a).
+        from .retention import register_retention
+
+        register_retention()
         # The booking catalogue as a translation source (ADR-069, TL12c).
         from .translation_source import register_catalog_source
 
