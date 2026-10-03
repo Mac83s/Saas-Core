@@ -36,11 +36,14 @@ import { PanelHelp, PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
+  type InventoryData,
+  loadProblem,
+  type LoadProblem,
+  LoadProblemNotice,
   locationLabel,
+  type PageFrame,
   problemText,
   useFormat,
-  type InventoryData,
-  type PageFrame,
 } from "./shared";
 
 const KINDS = ["PZ", "WZ", "RW", "PW", "MM", "INW"] as const;
@@ -89,7 +92,7 @@ export function DocumentsTab({
   const { amount, day, money } = useFormat();
   const [kindFilter, setKindFilter] = useState("");
   const [rows, setRows] = useState<StockDocument[] | undefined>();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<LoadProblem>();
   const [problem, setProblem] = useState("");
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<StockDocument | null>(null);
@@ -136,10 +139,10 @@ export function DocumentsTab({
       .then((documents) => {
         if (!current) return;
         setRows(documents);
-        setFailed(false);
+        setFailed(undefined);
       })
-      .catch(() => {
-        if (current) setFailed(true);
+      .catch((error: unknown) => {
+        if (current) setFailed(loadProblem(error));
       });
     return () => {
       current = false;
@@ -332,9 +335,7 @@ export function DocumentsTab({
       description={t("documentsDescription")}
     >
       {failed ? (
-        <p className="text-sm text-destructive" role="alert">
-          {t("loadError")}
-        </p>
+        <LoadProblemNotice problem={failed} />
       ) : (
         <DataTable
           caption={t("documentsCaption")}

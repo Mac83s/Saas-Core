@@ -16,6 +16,7 @@ export async function inventoryPage(section: InventorySection) {
   return (
     <InventoryPanel
       canManage={allows(access, { permission: "inventory.manage" })}
+      canManageBilling={organization?.role === "owner"}
       canRead={allows(access, { permission: "inventory.read" })}
       section={section}
       zone={organization?.timezone ?? "UTC"}

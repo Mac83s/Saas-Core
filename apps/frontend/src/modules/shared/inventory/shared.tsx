@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 
+import { PlanGate } from "#components/panel/plan-gate";
 import { formatDate } from "#lib/dates";
 
 /** The header every warehouse page shares: section, its title, last outcome. */
@@ -94,6 +95,56 @@ export function personName(person: MembershipSummary): string {
   return (
     [person.first_name, person.last_name].filter(Boolean).join(" ") ||
     person.email
+  );
+}
+
+/**
+ * Why the warehouse did not load (UX-079, R11): the plan leaves it out, the
+ * role may not see it, or the request itself failed. Only the last one is
+ * helped by „Odśwież stronę”.
+ */
+export type LoadProblem = "plan" | "access" | "load";
+
+export function loadProblem(error: unknown): LoadProblem {
+  if (error instanceof ApiProblemError) {
+    if (error.problem.code === "entitlement_required") return "plan";
+    if (error.problem.status === 403) return "access";
+  }
+  return "load";
+}
+
+/** Says the problem by its kind: an offer, a plain sentence, or a retry. */
+export function LoadProblemNotice({
+  problem,
+  canManageBilling = false,
+}: {
+  problem: LoadProblem;
+  /** Whoever may change the plan gets the way to the plans. */
+  canManageBilling?: boolean;
+}) {
+  const t = useTranslations("Inventory");
+  if (problem === "plan")
+    return (
+      <PlanGate
+        action={
+          canManageBilling
+            ? {
+                href: "/panel/settings/billing?feature=inventory.enabled",
+                label: t("planGateAction"),
+              }
+            : undefined
+        }
+        title={t("planGateTitle")}
+      >
+        {t(canManageBilling ? "planGateOwner" : "planGateMember")}
+      </PlanGate>
+    );
+  if (problem === "access")
+    return <p className="text-sm text-muted-foreground">{t("accessDenied")}</p>;
+  return (
+    <p className="text-sm text-destructive" role="alert">
+      {t("loadError")}
+    </p>
   );
 }
 

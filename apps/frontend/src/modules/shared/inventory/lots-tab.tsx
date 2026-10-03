@@ -17,11 +17,14 @@ import {
 import { PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
-  LotStatusBadge,
-  locationLabel,
-  useFormat,
   type InventoryData,
+  loadProblem,
+  type LoadProblem,
+  LoadProblemNotice,
+  locationLabel,
+  LotStatusBadge,
   type PageFrame,
+  useFormat,
 } from "./shared";
 
 type Soon = "" | "soon" | "expired";
@@ -50,7 +53,7 @@ export function LotsTab({
   const [locationId, setLocationId] = useState("");
   const [soon, setSoon] = useState<Soon>("");
   const [rows, setRows] = useState<InventoryLotStock[] | undefined>();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<LoadProblem>();
 
   useEffect(() => {
     let current = true;
@@ -58,10 +61,10 @@ export function LotsTab({
       .then((lots) => {
         if (!current) return;
         setRows(lots);
-        setFailed(false);
+        setFailed(undefined);
       })
-      .catch(() => {
-        if (current) setFailed(true);
+      .catch((error: unknown) => {
+        if (current) setFailed(loadProblem(error));
       });
     return () => {
       current = false;
@@ -124,9 +127,7 @@ export function LotsTab({
   return (
     <PanelPage {...page} description={t("lotsDescription")}>
       {failed ? (
-        <p className="text-sm text-destructive" role="alert">
-          {t("loadError")}
-        </p>
+        <LoadProblemNotice problem={failed} />
       ) : (
         <DataTable
           caption={t("lotsCaption")}

@@ -27,10 +27,13 @@ import {
   type PeriodKey,
 } from "../booking/people/person-facts";
 import {
-  locationLabel,
-  useFormat,
   type InventoryData,
+  loadProblem,
+  type LoadProblem,
+  LoadProblemNotice,
+  locationLabel,
   type PageFrame,
+  useFormat,
 } from "./shared";
 
 const STOCK = ["item", "category", "location"] as const;
@@ -79,7 +82,7 @@ export function ReportsTab({
     stock?: InventoryStockValueReport;
     usage?: InventoryUsageReport;
   }>();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<LoadProblem>();
   const [kind, group] = report.split(":") as ["stock" | "usage", string];
   const { from, to } = periodDays(period, now, zone);
   const asked =
@@ -91,8 +94,8 @@ export function ReportsTab({
 
   useEffect(() => {
     let current = true;
-    const failure = () => {
-      if (current) setFailed(true);
+    const failure = (error: unknown) => {
+      if (current) setFailed(loadProblem(error));
     };
     if (kind === "stock") {
       getInventoryStockValue({
@@ -101,7 +104,7 @@ export function ReportsTab({
       }).then((next) => {
         if (!current) return;
         setAnswer({ asked, stock: next });
-        setFailed(false);
+        setFailed(undefined);
       }, failure);
     } else {
       getInventoryUsage({
@@ -113,7 +116,7 @@ export function ReportsTab({
       }).then((next) => {
         if (!current) return;
         setAnswer({ asked, usage: next });
-        setFailed(false);
+        setFailed(undefined);
       }, failure);
     }
     return () => {
@@ -321,9 +324,7 @@ export function ReportsTab({
       }
     >
       {failed ? (
-        <p className="text-sm text-destructive" role="alert">
-          {t("loadError")}
-        </p>
+        <LoadProblemNotice problem={failed} />
       ) : kind === "stock" ? (
         <DataTable
           caption={t("reportStock")}

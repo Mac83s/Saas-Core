@@ -38,12 +38,15 @@ import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
-  LotStatusBadge,
+  type InventoryData,
+  loadProblem,
+  type LoadProblem,
+  LoadProblemNotice,
   locationLabel,
+  LotStatusBadge,
+  type PageFrame,
   personName,
   useFormat,
-  type InventoryData,
-  type PageFrame,
 } from "./shared";
 
 type Movement = "receive" | "issue" | "return";
@@ -80,7 +83,7 @@ export function StockTab({
   const [locationId, setLocationId] = useState("");
   const shown = locationId || warehouse?.id || "";
   const [rows, setRows] = useState<InventoryBalance[] | undefined>();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<LoadProblem>();
   const [dialog, setDialog] = useState<Movement | null>(null);
   const [form, setForm] = useState({
     id: "",
@@ -124,10 +127,10 @@ export function StockTab({
       .then((balances) => {
         if (!current) return;
         setRows(balances);
-        setFailed(false);
+        setFailed(undefined);
       })
-      .catch(() => {
-        if (current) setFailed(true);
+      .catch((error: unknown) => {
+        if (current) setFailed(loadProblem(error));
       });
     return () => {
       current = false;
@@ -407,9 +410,7 @@ export function StockTab({
       description={canManage ? t("stockDescription") : t("myStockDescription")}
     >
       {failed ? (
-        <p className="text-sm text-destructive" role="alert">
-          {t("loadError")}
-        </p>
+        <LoadProblemNotice problem={failed} />
       ) : (
         <DataTable
           caption={t("stockCaption")}

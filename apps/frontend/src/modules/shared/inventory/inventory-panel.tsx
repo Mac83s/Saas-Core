@@ -24,7 +24,12 @@ import { ItemsTab } from "./items-tab";
 import { LotsTab } from "./lots-tab";
 import { ReportsTab } from "./reports-tab";
 import { SetupTab } from "./setup-tab";
-import type { InventoryData } from "./shared";
+import {
+  LoadProblemNotice,
+  loadProblem,
+  type InventoryData,
+  type LoadProblem,
+} from "./shared";
 import { StockTab } from "./stock-tab";
 
 /** The warehouse's pages, each at its own address under Magazyn (ADR-057). */
@@ -43,16 +48,19 @@ export function InventoryPanel({
   canRead = false,
   section = "stock",
   zone = "UTC",
+  canManageBilling = false,
 }: {
   canManage?: boolean;
   canRead?: boolean;
+  /** Whoever may change the plan: a missing plan feature offers the plans. */
+  canManageBilling?: boolean;
   section?: InventorySection;
   /** The company's time zone: a report's period is the company's days. */
   zone?: string;
 } = {}) {
   const t = useTranslations("Inventory");
   const [data, setData] = useState<InventoryData | undefined>();
-  const [failed, setFailed] = useState(false);
+  const [problem, setProblem] = useState<LoadProblem>();
   const [notice, setNotice] = useState("");
   const [reloads, setReloads] = useState(0);
   const allowed = canRead && (canManage || !MANAGED.includes(section));
@@ -75,10 +83,10 @@ export function InventoryPanel({
       .then(([items, categories, locations, suppliers, crew]) => {
         if (!current) return;
         setData({ items, categories, locations, suppliers, crew });
-        setFailed(false);
+        setProblem(undefined);
       })
-      .catch(() => {
-        if (current) setFailed(true);
+      .catch((error: unknown) => {
+        if (current) setProblem(loadProblem(error));
       });
     return () => {
       current = false;
@@ -99,7 +107,7 @@ export function InventoryPanel({
     setup: t("setupTitle"),
   }[section];
 
-  if (!allowed || failed || !data)
+  if (!allowed || problem || !data)
     return (
       <PanelPage eyebrow={t("title")} title={title}>
         {!allowed ? (
@@ -111,10 +119,11 @@ export function InventoryPanel({
               <CardDescription>{t("noAccess")}</CardDescription>
             </CardHeader>
           </Card>
-        ) : failed ? (
-          <p className="text-sm text-destructive" role="alert">
-            {t("loadError")}
-          </p>
+        ) : problem ? (
+          <LoadProblemNotice
+            canManageBilling={canManageBilling}
+            problem={problem}
+          />
         ) : (
           <ListSkeleton label={t("loading")} />
         )}
