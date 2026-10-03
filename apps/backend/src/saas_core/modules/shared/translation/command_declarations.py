@@ -52,7 +52,7 @@ from .services import (
     translation_offer,
     update_glossary_term,
 )
-from .settings_spec import AUTO_CHANGES, AUTO_MONTHLY_LIMIT, MODE
+from .settings_spec import AUTO_CHANGES, AUTO_MONTHLY_LIMIT, MODE, MODE_VALUES
 
 _MODULE = "shared.translation"
 _PUBLIC = "public"
@@ -746,7 +746,7 @@ SETTINGS_UPDATE = CommandSpec(
         "required": ["mode", "auto_changes", "auto_monthly_limit", "reset"],
         "properties": {
             "mode": _nullable(
-                "string", "automatic or review; null leaves it.", enum=[*MODE.variants, None]
+                "string", "automatic or review; null leaves it.", enum=[*MODE_VALUES, None]
             ),
             "auto_changes": _nullable(
                 "boolean", "Translate changes automatically; null leaves it."

@@ -31,6 +31,7 @@ from rest_framework.exceptions import (
 )
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.api import schema_entry
 from saas_core.modules.core.organizations.audit import field_changes, record_audit
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.canonical import canonical_json_hash
@@ -53,10 +54,12 @@ from .settings_spec import (
     COMPANY_SETTINGS,
     DECLARATIONS,
     MODE,
+    MODE_VALUES,
+    SETTINGS,
     profile_default,
 )
 
-SETTINGS_GROUP = "translation.settings"
+SETTINGS_GROUP = SETTINGS.key
 PROCESSING_ACK = "translation.settings.processing_acknowledged"
 
 #: Person-only labels (`assert_person_required`).
@@ -278,7 +281,7 @@ def _validate_settings(changes: Mapping[str, Any], reset: Sequence[str]) -> dict
         if key not in keys and key != PROCESSING_ACK:
             errors[key] = "unknown_setting"
     mode = changes.get(MODE.key)
-    if mode is not None and mode not in MODE.variants:
+    if mode is not None and mode not in MODE_VALUES:
         errors[MODE.key] = "invalid_choice"
     auto = changes.get(AUTO_CHANGES.key)
     if auto is not None and not isinstance(auto, bool):
@@ -668,6 +671,6 @@ def translation_offer() -> dict[str, Any]:
             "unit_characters": UNIT_CHARACTERS,
             "credits_per_unit": unit_cost,
         },
-        "settings": [declaration.as_dict() for declaration in DECLARATIONS.values()],
+        "settings": [schema_entry(spec) for spec in DECLARATIONS.values()],
         "glossary_limit": GLOSSARY_LIMIT,
     }

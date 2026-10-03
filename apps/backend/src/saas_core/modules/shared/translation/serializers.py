@@ -8,7 +8,7 @@ from saas_core.modules.core.organizations.serializers import SettingOptionSerial
 
 from .glossary import FORMS_MAX, TERM_MAX_LENGTH
 from .models import GlossaryRule, TranslationGlossaryTerm
-from .settings_spec import AUTO_MONTHLY_LIMIT, COMPANY_SETTINGS, MODE
+from .settings_spec import AUTO_MONTHLY_LIMIT, COMPANY_SETTINGS, MODE_VALUES
 
 
 class SettingValueSerializer(serializers.Serializer[dict[str, Any]]):
@@ -54,7 +54,7 @@ class TranslationSettingsPreviewSerializer(TranslationSettingsSerializer):
 
 class TranslationSettingsUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     mode = serializers.ChoiceField(
-        choices=MODE.variants,
+        choices=MODE_VALUES,
         required=False,
         allow_null=True,
         help_text="automatic or review; null leaves it as it is.",

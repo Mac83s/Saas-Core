@@ -8,6 +8,7 @@ from io import StringIO
 from uuid import uuid4
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
@@ -15,6 +16,7 @@ from django.test import override_settings
 from rest_framework.exceptions import ValidationError
 
 from saas_core.content_protocol.registry import translation_policy
+from saas_core.modules.core.organizations.api import register_setting_group
 from saas_core.modules.core.organizations.context import activate_tenant_context
 from saas_core.modules.core.organizations.models import (
     Membership,
@@ -22,7 +24,7 @@ from saas_core.modules.core.organizations.models import (
     Role,
 )
 from saas_core.modules.core.organizations.person_gate import PersonRequired
-from saas_core.modules.shared.translation.checks import check_translation_settings_defaults
+from saas_core.modules.core.organizations.settings_registry import settings_defaults_problems
 from saas_core.modules.shared.translation.engine_policy import effective_mode
 from saas_core.modules.shared.translation.models import (
     TranslationCeiling,
@@ -39,6 +41,7 @@ from saas_core.modules.shared.translation.services import (
     read_settings,
     translation_offer,
 )
+from saas_core.modules.shared.translation.settings_spec import SETTINGS
 from test_booking import membership, tenant
 from test_sites_ai_badge import operator
 from test_tenant_context import authenticated_client
@@ -398,20 +401,22 @@ def test_the_operator_switches_need_staff_mfa_and_a_reason() -> None:
 
 
 def test_bad_starting_values_stop_the_start() -> None:
-    with override_settings(SETTINGS_DEFAULTS={MODE: "review", LIMIT: 50, "booking.x": 1}):
-        assert check_translation_settings_defaults() == []
+    """The registry checks the profile's values when the group registers at
+    start; organizations.E101 names a translation key nobody declares."""
+    with override_settings(SETTINGS_DEFAULTS={MODE: "review", LIMIT: 50}):
+        register_setting_group(SETTINGS)
+        assert settings_defaults_problems() == []
+    # The automation is a person's consent, never a product's starting value.
+    for defaults in ({MODE: "sometimes"}, {LIMIT: -1}, {AUTO: True}):
+        with override_settings(SETTINGS_DEFAULTS=defaults), pytest.raises(ImproperlyConfigured):
+            register_setting_group(SETTINGS)
     with override_settings(
-        SETTINGS_DEFAULTS={
-            MODE: "sometimes",
-            LIMIT: -1,
-            "translation.unknown": 1,
-            "translation.ceiling": "off",
-        }
+        SETTINGS_DEFAULTS={"translation.unknown": 1, "translation.ceiling": "off"}
     ):
-        ids = sorted(error.id for error in check_translation_settings_defaults())
-    assert ids == ["translation.E001", "translation.E002", "translation.E002", "translation.E002"]
-    with override_settings(SETTINGS_DEFAULTS={AUTO: True}):
-        assert [error.id for error in check_translation_settings_defaults()] == ["translation.E003"]
+        assert sorted(settings_defaults_problems()) == [
+            "translation.ceiling",
+            "translation.unknown",
+        ]
 
 
 @pytest.mark.parametrize(

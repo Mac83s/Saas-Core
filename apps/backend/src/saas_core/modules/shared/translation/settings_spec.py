@@ -1,78 +1,42 @@
-"""The translation settings as named declarations (ADR-078, the interim rule in AGENTS.md).
+"""The translation settings on the settings registry (ADR-078, R2b).
 
-Until the settings registry (phase R1) takes them over without a change to
-the API or the commands, each setting a company or the operator could want
-otherwise lives here, once: its key, value type, bounds, variants, default,
-strategy and labels — and the API reads them from here, so the panel and the
-assistant learn the allowed values and the defaults from the server.
+`translation.settings` is an entity group: its values live in this module's
+`TranslationSettings` row, with its own endpoint, receipts, preview and
+`translation.settings.update@1`; the registry declares the keys, checks the
+profile's starting values (`settingsDefaults`) at start, lists them in the
+schema with `api`, and resolves them through `read_explicit`.
 
-`restrict` means the effective value is the strictest of the company's own,
-the operator's override and the ceiling; a profile gives only the starting
-value (`settingsDefaults`), never a ceiling (ADR-069 pkt 12).
+`restrict` means the value in force is the strictest of the company's own,
+the operator's override and the ceiling, which only this module knows; a
+profile gives only the starting value, never a ceiling (ADR-069 pkt 12).
 """
 
 from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass, field
 from typing import Any
 
+from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec
+from saas_core.modules.core.organizations.context import require_tenant_context
 
-@dataclass(frozen=True, slots=True)
-class SettingDeclaration:
-    key: str
-    kind: str  # "enum" | "bool" | "int"
-    default: Any
-    labels: Mapping[str, str]
-    help: Mapping[str, str]
-    scope: str = "organization"  # "organization" | "platform"
-    strategy: str = "override"  # "override" | "restrict"
-    # Enum values, most permissive first: `restrict` picks the later one.
-    variants: tuple[str, ...] = ()
-    variant_labels: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
-    minimum: int | None = None
-    maximum: int | None = None
-    # What the setting does, in English, for the assistant.
-    description: str = ""
+from .permissions import TRANSLATION_MANAGE
 
-    def as_dict(self) -> dict[str, Any]:
-        """An entry of the settings registry's schema (ADR-078 pkt 11), as
-        `organizations.options` and the booking offer options answer it."""
-        return {
-            "key": self.key,
-            "type": self.kind,
-            "minimum": self.minimum,
-            "maximum": self.maximum,
-            "unit": None,
-            "values": [
-                {"value": value, "label": dict(self.variant_labels[value])}
-                for value in self.variants
-            ]
-            or None,
-            "default": self.default,
-            "label": dict(self.labels),
-            "help": dict(self.help),
-            "description": self.description,
-            "scopes": [self.scope],
-            "depends_on": None,
-        }
-
-
-MODE = SettingDeclaration(
+MODE = SettingSpec(
     key="translation.settings.mode",
-    kind="enum",
+    type="enum",
     default="automatic",
+    scopes=("organization",),
     strategy="restrict",
-    variants=("automatic", "review"),
-    variant_labels={
-        "automatic": {"pl": "Automatycznie", "en": "Automatically"},
-        "review": {"pl": "Po akceptacji", "en": "After approval"},
-    },
-    labels={"pl": "Publikacja tłumaczeń", "en": "Publishing translations"},
-    description="Whether AI translations go public at once (automatic) or wait for a person "
-    "(review). The strictest of this, the operator's override and the deployment switch "
-    "applies; legal documents always wait.",
+    # Most permissive first: `restrict` picks the later one.
+    values=(
+        ("automatic", {"pl": "Automatycznie", "en": "Automatically"}),
+        ("review", {"pl": "Po akceptacji", "en": "After approval"}),
+    ),
+    label={"pl": "Publikacja tłumaczeń", "en": "Publishing translations"},
+    model_description="Whether AI translations go public at once (automatic) or wait for a "
+    "person (review). The strictest of this, the operator's override and the deployment "
+    "switch applies; legal documents always wait.",
     help={
         "pl": "Automatycznie: tłumaczenie wychodzi od razu. Po akceptacji: czeka na osobę. "
         "Dokumenty prawne zawsze czekają.",
@@ -80,13 +44,17 @@ MODE = SettingDeclaration(
         "a person. Legal documents always wait.",
     },
 )
-AUTO_CHANGES = SettingDeclaration(
+AUTO_CHANGES = SettingSpec(
     key="translation.settings.auto_changes",
-    kind="bool",
+    type="bool",
     default=False,
-    labels={"pl": "Tłumacz zmiany automatycznie", "en": "Translate changes automatically"},
-    description="Refresh the translations of published content when it changes, within the "
-    "monthly credit limit. Turning it on is the consent of the person who does it.",
+    scopes=("organization",),
+    # Turning it on is one person's consent, stored with who gave it
+    # (ADR-069 pkt 14): a product cannot give it for them.
+    product_default=False,
+    label={"pl": "Tłumacz zmiany automatycznie", "en": "Translate changes automatically"},
+    model_description="Refresh the translations of published content when it changes, within "
+    "the monthly credit limit. Turning it on is the consent of the person who does it.",
     help={
         "pl": "Po zmianie opublikowanej treści jej tłumaczenia odświeżą się same, w "
         "miesięcznym limicie kredytów. Włączenie to zgoda osoby, która je włącza.",
@@ -94,37 +62,40 @@ AUTO_CHANGES = SettingDeclaration(
         "the monthly credit limit. Turning it on is the consent of whoever does it.",
     },
 )
-AUTO_MONTHLY_LIMIT = SettingDeclaration(
+AUTO_MONTHLY_LIMIT = SettingSpec(
     key="translation.settings.auto_monthly_limit",
-    kind="int",
+    type="int",
     default=100,
+    scopes=("organization",),
     strategy="restrict",
     minimum=0,
     maximum=100_000,
-    labels={"pl": "Miesięczny limit automatu", "en": "Monthly limit of the automation"},
-    description="Credits a month that translations without a click may spend; 0 turns the "
-    "automation off. The operator may set a lower limit.",
+    label={"pl": "Miesięczny limit automatu", "en": "Monthly limit of the automation"},
+    model_description="Credits a month that translations without a click may spend; 0 turns "
+    "the automation off. The operator may set a lower limit.",
     help={
         "pl": "Ile kredytów miesięcznie mogą wydać tłumaczenia bez kliknięcia. 0 wyłącza automat.",
         "en": "How many credits a month translations without a click may spend. 0 turns the "
         "automation off.",
     },
 )
-CEILING = SettingDeclaration(
+#: The operator's switch for the deployment, kept in `TranslationCeiling` and
+#: set by `translation_ceiling`. Listed in the offer for the panel and the
+#: assistant; not a group's key, so no profile may set it (organizations.E101).
+CEILING = SettingSpec(
     key="translation.ceiling",
-    kind="enum",
+    type="enum",
     default="none",
-    scope="platform",
+    scopes=("platform",),
     strategy="restrict",
-    variants=("none", "review", "off"),
-    variant_labels={
-        "none": {"pl": "Bez ograniczeń", "en": "No limit"},
-        "review": {"pl": "Wszystko po akceptacji", "en": "Everything after approval"},
-        "off": {"pl": "Wyłączone", "en": "Off"},
-    },
-    labels={"pl": "Wyłącznik tłumaczeń wdrożenia", "en": "Deployment translation switch"},
-    description="The operator's switch for the whole deployment: none, review (everything "
-    "waits for a person) or off. Read-only for companies.",
+    values=(
+        ("none", {"pl": "Bez ograniczeń", "en": "No limit"}),
+        ("review", {"pl": "Wszystko po akceptacji", "en": "Everything after approval"}),
+        ("off", {"pl": "Wyłączone", "en": "Off"}),
+    ),
+    label={"pl": "Wyłącznik tłumaczeń wdrożenia", "en": "Deployment translation switch"},
+    model_description="The operator's switch for the whole deployment: none, review "
+    "(everything waits for a person) or off. Read-only for companies.",
     help={
         "pl": "Ustawia operator poleceniem z powodem; obowiązuje każdą firmę.",
         "en": "Set by the operator with a reason; binds every company.",
@@ -133,7 +104,42 @@ CEILING = SettingDeclaration(
 
 #: What a company sets through the API, in a stable order.
 COMPANY_SETTINGS = (MODE, AUTO_CHANGES, AUTO_MONTHLY_LIMIT)
-DECLARATIONS = {declaration.key: declaration for declaration in (*COMPANY_SETTINGS, CEILING)}
+DECLARATIONS = {spec.key: spec for spec in (*COMPANY_SETTINGS, CEILING)}
+MODE_VALUES = tuple(value for value, _ in MODE.values)
+
+
+def _explicit() -> dict[str, Any]:
+    """The company's own values in the current tenant, None where it has none."""
+    from .models import TranslationSettings  # noqa: PLC0415 — models load after apps
+
+    row = TranslationSettings.all_objects.filter(
+        organization_id=require_tenant_context().organization_id
+    ).first()
+    if row is None:
+        return {spec.field: None for spec in COMPANY_SETTINGS}
+    return {
+        MODE.field: row.mode or None,
+        AUTO_CHANGES.field: row.auto_changes,
+        AUTO_MONTHLY_LIMIT.field: row.auto_monthly_limit,
+    }
+
+
+SETTINGS = SettingGroup(
+    key="translation.settings",
+    module="shared.translation",
+    title={"pl": "Tłumaczenia AI", "en": "AI translations"},
+    description={
+        "pl": "Czy tłumaczenia wychodzą od razu, czy czekają na osobę, i czy zmiany "
+        "opublikowanych treści tłumaczą się same w miesięcznym limicie.",
+        "en": "Whether translations go out at once or wait for a person, and whether "
+        "changes to published content translate themselves within a monthly limit.",
+    },
+    permission=TRANSLATION_MANAGE,
+    area="languages",
+    api="/api/v1/translation/settings/",
+    read_explicit=_explicit,
+    settings=COMPANY_SETTINGS,
+)
 
 #: Strictness of a publication mode, for `restrict`.
 MODE_ORDER = ("automatic", "review", "off")
@@ -156,9 +162,9 @@ def strictest(*modes: str) -> str:
     return max(modes, key=MODE_ORDER.index)
 
 
-def profile_default(defaults: Mapping[str, Any], declaration: SettingDeclaration) -> Any:
+def profile_default(defaults: Mapping[str, Any], spec: SettingSpec) -> Any:
     """The profile's starting value for a key, else the code's."""
-    return defaults.get(declaration.key, declaration.default)
+    return defaults.get(spec.key, spec.default)
 
 
 def _env_float(name: str, default: float) -> float:
