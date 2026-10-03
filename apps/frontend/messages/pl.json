@@ -3099,7 +3099,8 @@
       "translation_automation_paused": "Wstrzymane tłumaczenie zmian",
       "booking_office_new": "Nowa rezerwacja online (dla biura)",
       "booking_office_waiting": "Wizyta czeka na przydzielenie (dla biura)",
-      "booking_office_canceled": "Klient odwołał wizytę (dla biura)"
+      "booking_office_canceled": "Klient odwołał wizytę (dla biura)",
+      "inventory_low_stock": "Magazyn: pozycje do uzupełnienia"
     },
     "templateUse": {
       "booking_confirmation": "Do klienta, gdy rezerwacja zostanie przyjęta.",
@@ -3121,7 +3122,8 @@
       "translation_automation_paused": "Do osób zarządzających stroną, gdy automatyczne tłumaczenie zmian się zatrzyma.",
       "booking_office_new": "Do biura, gdy klient zarezerwuje termin przez stronę.",
       "booking_office_waiting": "Do biura, gdy wizyta czeka, aż ktoś ją przydzieli.",
-      "booking_office_canceled": "Do biura, gdy klient sam odwoła wizytę."
+      "booking_office_canceled": "Do biura, gdy klient sam odwoła wizytę.",
+      "inventory_low_stock": "Do osób z roli powiadomień magazynu, raz dziennie, gdy pozycje spadną do minimum albo niżej."
     },
     "variablesTitle": "Zmienne",
     "variablesHelp": "W wysłanej wiadomości w miejscu zmiennej pojawia się prawdziwa wartość.",
@@ -3133,7 +3135,7 @@
       "plan_name": "Nazwa planu",
       "ends_at": "Data zakończenia",
       "previous_starts_at": "Poprzedni termin",
-      "panel_url": "Link do kalendarza w panelu",
+      "panel_url": "Link do panelu",
       "manage_url": "Link do rezerwacji klienta",
       "email": "E-mail nadawcy",
       "name": "Imię i nazwisko nadawcy",
@@ -3142,7 +3144,8 @@
       "site_name": "Nazwa strony",
       "total": "Liczba pozycji",
       "written": "Liczba przetłumaczonych",
-      "count": "Liczba tłumaczeń"
+      "count": "Liczba",
+      "items": "Lista pozycji"
     },
     "previewTitle": "Podgląd",
     "previewLanguage": "Język podglądu",
@@ -3164,7 +3167,8 @@
       "site_name": "Studio Przykład",
       "total": "12",
       "written": "10",
-      "count": "3"
+      "count": "3",
+      "items": "Rękawiczki nitrylowe M — 2 opak."
     },
     "unnamedTemplate": "Szablon bez nazwy",
     "samplesNote": "Wyróżnione miejsca to przykładowe wartości — w wysłanej wiadomości pojawią się prawdziwe.",

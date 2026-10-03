@@ -3099,7 +3099,8 @@
       "translation_automation_paused": "Automatic translation paused",
       "booking_office_new": "New online booking (for the office)",
       "booking_office_waiting": "Visit waiting for a person (for the office)",
-      "booking_office_canceled": "Customer canceled a visit (for the office)"
+      "booking_office_canceled": "Customer canceled a visit (for the office)",
+      "inventory_low_stock": "Warehouse: items to refill"
     },
     "templateUse": {
       "booking_confirmation": "To the customer when a booking is made.",
@@ -3121,7 +3122,8 @@
       "translation_automation_paused": "To the website managers when automatic translation of changes stops.",
       "booking_office_new": "To the office when a customer books online.",
       "booking_office_waiting": "To the office when a visit waits for someone to be assigned.",
-      "booking_office_canceled": "To the office when a customer cancels a visit."
+      "booking_office_canceled": "To the office when a customer cancels a visit.",
+      "inventory_low_stock": "To the people with the warehouse notification role, once a day, when items fall to their minimum or below."
     },
     "variablesTitle": "Variables",
     "variablesHelp": "In a sent message, each variable is replaced with the real value.",
@@ -3133,7 +3135,7 @@
       "plan_name": "Plan name",
       "ends_at": "End date",
       "previous_starts_at": "Previous time",
-      "panel_url": "Link to the calendar in the panel",
+      "panel_url": "Link to the panel",
       "manage_url": "Link to the customer’s booking",
       "email": "Sender's e-mail",
       "name": "Sender's name",
@@ -3142,7 +3144,8 @@
       "site_name": "Website name",
       "total": "Number of items",
       "written": "Number translated",
-      "count": "Number of translations"
+      "count": "Number",
+      "items": "List of items"
     },
     "previewTitle": "Preview",
     "previewLanguage": "Preview language",
@@ -3164,7 +3167,8 @@
       "site_name": "Example Studio",
       "total": "12",
       "written": "10",
-      "count": "3"
+      "count": "3",
+      "items": "Nitrile gloves M — 2 packs"
     },
     "unnamedTemplate": "Unnamed template",
     "samplesNote": "Highlighted places are example values — the real ones appear in the message sent.",
