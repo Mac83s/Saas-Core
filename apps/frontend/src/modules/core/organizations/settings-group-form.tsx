@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import {
   ApiProblemError,
+  confirmStepUp,
   getSettingsGroup,
   previewSettingsGroup,
   updateSettingsGroup,
@@ -45,6 +46,8 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Switch } from "@saas-core/ui/components/switch";
+
+import { Link } from "#i18n/navigation";
 
 type Values = Record<string, unknown>;
 
@@ -98,6 +101,11 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
     effects: SettingEffect[];
   }>();
   const [saved, setSaved] = useState(false);
+  // A change that waits for a code from the authenticator app (billing, 31b).
+  const [stepUp, setStepUp] = useState<SettingsGroupChange>();
+  const [code, setCode] = useState("");
+  const [stepUpProblem, setStepUpProblem] = useState<string>();
+  const [mfaSetup, setMfaSetup] = useState(false);
   const schema = useMemo(
     () =>
       z.object(
@@ -164,8 +172,38 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
       form.reset(value.values as Values);
       setSaved(true);
     } catch (error) {
+      if (error instanceof ApiProblemError) {
+        if (error.problem.code === "step_up_required") {
+          setCode("");
+          setStepUpProblem(undefined);
+          setStepUp(change);
+          return;
+        }
+        if (error.problem.code === "step_up_mfa_setup_required") {
+          setMfaSetup(true);
+          return;
+        }
+      }
       failed(error);
     }
+  }
+
+  async function confirmCode() {
+    if (!stepUp) return;
+    try {
+      await confirmStepUp(code);
+    } catch (error) {
+      setStepUpProblem(
+        error instanceof ApiProblemError &&
+          error.problem.code === "step_up_locked"
+          ? t("stepUpLocked")
+          : t("stepUpInvalid"),
+      );
+      return;
+    }
+    const change = stepUp;
+    setStepUp(undefined);
+    await save(change);
   }
 
   async function submit(values: Values) {
@@ -332,6 +370,14 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
               );
             })}
           </FieldGroup>
+          {mfaSetup ? (
+            <p className="text-sm text-destructive" role="alert">
+              {t("stepUpSetup")}{" "}
+              <Link className="underline" href="/panel/settings/account">
+                {t("stepUpSetupLink")}
+              </Link>
+            </p>
+          ) : null}
           {errors.root ? (
             <p className="text-sm text-destructive" role="alert">
               {errors.root.message}
@@ -370,6 +416,48 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
               type="button"
             >
               {t("confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        onOpenChange={(open) => (open ? null : setStepUp(undefined))}
+        open={Boolean(stepUp)}
+      >
+        <DialogContent closeLabel={t("cancel")}>
+          <DialogHeader>
+            <DialogTitle>{t("stepUpTitle")}</DialogTitle>
+            <DialogDescription>{t("stepUpDescription")}</DialogDescription>
+          </DialogHeader>
+          <Field data-invalid={Boolean(stepUpProblem)}>
+            <FieldLabel htmlFor={`step-up-${group.key}`}>
+              {t("stepUpCode")}
+            </FieldLabel>
+            <Input
+              aria-invalid={Boolean(stepUpProblem)}
+              autoComplete="one-time-code"
+              className="max-w-xs"
+              id={`step-up-${group.key}`}
+              inputMode="numeric"
+              onChange={(event) => setCode(event.target.value)}
+              value={code}
+            />
+            {stepUpProblem ? (
+              <p className="text-sm text-destructive" role="alert">
+                {stepUpProblem}
+              </p>
+            ) : null}
+          </Field>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              {t("cancel")}
+            </DialogClose>
+            <Button
+              disabled={code.trim().length < 6}
+              onClick={() => void confirmCode()}
+              type="button"
+            >
+              {t("stepUpConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

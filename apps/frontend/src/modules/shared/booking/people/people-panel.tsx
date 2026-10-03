@@ -518,6 +518,14 @@ export function PeoplePanel({
             {row.role && managing(row.role) ? (
               <Badge variant="secondary">{t("manages")}</Badge>
             ) : null}
+            {/* Shown to who manages the team (35a); null for anyone else. */}
+            {row.member?.mfa_enabled === true ? (
+              <Badge variant="outline">{t("mfaOn")}</Badge>
+            ) : row.member?.mfa_enabled === false ? (
+              <Badge variant="outline" className="text-muted-foreground">
+                {t("mfaOff")}
+              </Badge>
+            ) : null}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {accountText(row)}

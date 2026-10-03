@@ -2,14 +2,28 @@ import { Suspense } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { PanelPage } from "#components/panel/panel-page";
+import { allows, panelAccess } from "#lib/panel-navigation";
+import {
+  getServerCurrentOrganization,
+  getServerSettingsSchema,
+} from "#lib/server-auth";
 import { productCopy } from "../../../../../marketing/content";
+import { SettingsGroupForm } from "../../../../../modules/core/organizations";
 import { CustomerBillingPanel } from "../../../../../modules/shared/billing";
 
 export default async function BillingSettingsPage() {
-  const [t, locale] = await Promise.all([
+  const [t, locale, organization, schema] = await Promise.all([
     getTranslations("CustomerBilling"),
     getLocale(),
+    getServerCurrentOrganization(),
+    getServerSettingsSchema(),
   ]);
+  // Who manages billing besides the owner (34a) — shown to the billing roles.
+  const access = allows(panelAccess(organization), {
+    permission: "organization.billing.manage",
+  })
+    ? schema?.groups.find((group) => group.key === "billing.access")
+    : undefined;
   return (
     <PanelPage
       description={t("description")}
@@ -25,6 +39,11 @@ export default async function BillingSettingsPage() {
           featureLabels={productCopy(locale).pricing.features}
         />
       </Suspense>
+      {access ? (
+        <div className="mt-6 max-w-3xl">
+          <SettingsGroupForm group={access} />
+        </div>
+      ) : null}
     </PanelPage>
   );
 }

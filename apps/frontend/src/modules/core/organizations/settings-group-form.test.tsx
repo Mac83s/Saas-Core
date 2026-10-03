@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import axe from "axe-core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -11,15 +12,27 @@ import englishMessages from "../../../../messages/en.json";
 import messages from "../../../../messages/pl.json";
 import { SettingsGroupForm } from "./settings-group-form";
 
-const { getSettingsGroup, previewSettingsGroup, updateSettingsGroup } =
-  vi.hoisted(() => ({
-    getSettingsGroup: vi.fn(),
-    previewSettingsGroup: vi.fn(),
-    updateSettingsGroup: vi.fn(),
-  }));
+const {
+  confirmStepUp,
+  getSettingsGroup,
+  previewSettingsGroup,
+  updateSettingsGroup,
+} = vi.hoisted(() => ({
+  confirmStepUp: vi.fn(),
+  getSettingsGroup: vi.fn(),
+  previewSettingsGroup: vi.fn(),
+  updateSettingsGroup: vi.fn(),
+}));
+
+vi.mock("#i18n/navigation", () => ({
+  Link: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
+  confirmStepUp,
   getSettingsGroup,
   previewSettingsGroup,
   updateSettingsGroup,
@@ -225,4 +238,38 @@ test("pole zależne od wartości innego pola widać tylko przy tej wartości", a
   expect(screen.queryByLabelText("Jednostka")).toBeNull();
   fireEvent.change(model, { target: { value: "range" } });
   expect(await screen.findByLabelText("Jednostka")).toBeInTheDocument();
+});
+
+test("zmiana wymagająca kodu 2FA pyta o kod i powtarza zapis", async () => {
+  previewSettingsGroup.mockResolvedValue({
+    version: "v1",
+    values: { enabled: false, lead_hours: 24 },
+    changes: { enabled: { from: true, to: false } },
+    effects: [],
+  });
+  updateSettingsGroup
+    .mockRejectedValueOnce(
+      new ApiProblemError({
+        type: "about:blank",
+        title: "Forbidden",
+        status: 403,
+        code: "step_up_required",
+        detail: "Potwierdź kodem.",
+        correlation_id: null,
+      }),
+    )
+    .mockResolvedValueOnce({ ...STATE, version: "v2" });
+  confirmStepUp.mockResolvedValue(undefined);
+  renderForm();
+
+  fireEvent.click(await screen.findByRole("switch"));
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+  fireEvent.change(await screen.findByLabelText("Kod z aplikacji"), {
+    target: { value: "123456" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Potwierdź i zapisz" }));
+
+  await waitFor(() => expect(confirmStepUp).toHaveBeenCalledWith("123456"));
+  await waitFor(() => expect(updateSettingsGroup).toHaveBeenCalledTimes(2));
+  expect(await screen.findByText("Zapisano ustawienia.")).toBeInTheDocument();
 });

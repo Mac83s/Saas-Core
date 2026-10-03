@@ -489,6 +489,8 @@
     "transferConfirm": "Tak, przekaż organizację"
   },
   "People": {
+    "mfaOn": "2FA",
+    "mfaOff": "Bez 2FA",
     "eyebrow": "Zespół",
     "title": "Pracownicy",
     "description": "Wszyscy, którzy pracują w firmie — z kontem w panelu albo bez (np. podwykonawcy). Kliknij osobę, żeby zobaczyć jej dane, grafik i najbliższe wizyty.",
@@ -3987,6 +3989,14 @@
     "rangeLength_day": "na dni"
   },
   "CompanySettings": {
+    "stepUpTitle": "Potwierdź kodem z aplikacji",
+    "stepUpDescription": "Zmiana rozliczeń wymaga kodu z aplikacji uwierzytelniającej — nawet od właściciela.",
+    "stepUpCode": "Kod z aplikacji",
+    "stepUpConfirm": "Potwierdź i zapisz",
+    "stepUpInvalid": "Kod się nie zgadza. Wpisz aktualny kod z aplikacji.",
+    "stepUpLocked": "Zbyt wiele błędnych kodów — zaloguj się ponownie.",
+    "stepUpSetup": "Tę zmianę potwierdza się kodem z aplikacji uwierzytelniającej. Najpierw włącz weryfikację dwuetapową:",
+    "stepUpSetupLink": "Twoje konto › Weryfikacja dwuetapowa",
     "loadError": "Nie udało się wczytać ustawień. Odśwież stronę.",
     "saveError": "Nie udało się zapisać ustawień. Spróbuj ponownie.",
     "conflict": "Ktoś w międzyczasie zmienił te ustawienia — pokazujemy aktualne. Wprowadź zmianę jeszcze raz.",

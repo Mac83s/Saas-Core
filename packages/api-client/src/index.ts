@@ -715,6 +715,19 @@ export async function getOrganizationOptions(): Promise<SettingOptions> {
   return data;
 }
 
+/**
+ * Confirms the second factor once more (a code from the authenticator app):
+ * billing changes and legal documents ask for it, then the request is repeated.
+ */
+export async function confirmStepUp(code: string): Promise<void> {
+  const { error, response } = await client.POST("/api/v1/auth/step-up/", {
+    body: { code },
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": await getCsrfToken() },
+  });
+  if (error || !response.ok) throwProblem(error, response);
+}
+
 /** Every settings group of the company, its keys, variants and labels. */
 export async function getSettingsSchema(): Promise<SettingsSchema> {
   const { data, error, response } = await client.GET(
@@ -980,7 +993,8 @@ export async function getSeatUsage(): Promise<SeatUsage> {
 
 export type PublicLocales = components["schemas"]["PublicLocales"];
 export type PublicLocalesPlan = components["schemas"]["PublicLocalesPlan"];
-export type PublicLocalesChangeInput = components["schemas"]["PublicLocalesChange"];
+export type PublicLocalesChangeInput =
+  components["schemas"]["PublicLocalesChange"];
 
 /** The company's content languages in order, the languages it may add and
  *  the plan's limit (ADR-071 pkt 5). */

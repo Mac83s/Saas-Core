@@ -489,6 +489,8 @@
     "transferConfirm": "Yes, transfer the organization"
   },
   "People": {
+    "mfaOn": "2FA",
+    "mfaOff": "No 2FA",
     "eyebrow": "Team",
     "title": "People",
     "description": "Everyone who works for the company — with a panel account or without one (a subcontractor, say). Open a person to see their details, hours and next visits.",
@@ -3987,6 +3989,14 @@
     "rangeLength_day": "by the day"
   },
   "CompanySettings": {
+    "stepUpTitle": "Confirm with a code from the app",
+    "stepUpDescription": "A billing change needs a code from the authenticator app — even from the owner.",
+    "stepUpCode": "Code from the app",
+    "stepUpConfirm": "Confirm and save",
+    "stepUpInvalid": "The code does not match. Enter the current code from the app.",
+    "stepUpLocked": "Too many wrong codes — sign in again.",
+    "stepUpSetup": "This change is confirmed with a code from the authenticator app. Turn on two-factor sign-in first:",
+    "stepUpSetupLink": "Your account › Two-factor sign-in",
     "loadError": "The settings could not be loaded. Refresh the page.",
     "saveError": "The settings could not be saved. Try again.",
     "conflict": "Someone changed these settings meanwhile — the current ones are shown. Make your change again.",
