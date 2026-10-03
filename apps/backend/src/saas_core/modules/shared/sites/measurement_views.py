@@ -32,6 +32,14 @@ class SitePageViewCountSerializer(serializers.Serializer[dict[str, Any]]):
     views = serializers.IntegerField()
 
 
+class SitePageViewLocaleSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.CharField(
+        allow_null=True,
+        help_text="The language of the addresses; null for days counted before it was recorded.",
+    )
+    views = serializers.IntegerField(help_text="Views of that language's addresses in the range.")
+
+
 class SiteInquiryCountSerializer(serializers.Serializer[dict[str, Any]]):
     day = serializers.DateField()
     path = serializers.CharField()
@@ -45,6 +53,10 @@ class SiteMetricsSerializer(serializers.Serializer[dict[str, Any]]):
     since = serializers.DateField()
     until = serializers.DateField()
     counter_enabled = serializers.BooleanField()
+    page_views_by_locale = SitePageViewLocaleSerializer(
+        many=True,
+        help_text="The views of the range summed per language, most read first.",
+    )
     page_views = SitePageViewCountSerializer(many=True)
     inquiries = SiteInquiryCountSerializer(many=True)
 

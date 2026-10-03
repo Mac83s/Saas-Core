@@ -49,6 +49,7 @@ from .onboarding_views import (
     SiteOnboardingView,
     SubdomainAvailabilityView,
 )
+from .search_visibility_views import SearchVisibilityView
 from .template_media_views import TemplatePhotoView
 from .views import (
     AutomationConnectionListView,
@@ -166,8 +167,12 @@ urlpatterns = [
     ),
     path("inventory/", ContentInventoryView.as_view(), name="content-inventory"),
     path("content-base/", ContentBaseView.as_view(), name="content-base"),
-    path("proposals/<uuid:proposal_id>/accept/", ContentProposalAcceptView.as_view(),
-         name="content-proposal-accept"),
+    path("search-visibility/", SearchVisibilityView.as_view(), name="search-visibility"),
+    path(
+        "proposals/<uuid:proposal_id>/accept/",
+        ContentProposalAcceptView.as_view(),
+        name="content-proposal-accept",
+    ),
     path("changes/", ChangeSetProposalView.as_view(), name="change-set-preview"),
     path(
         "changes/apply/",

@@ -99,3 +99,11 @@ Stan zastany, który przesądza kształt rozwiązania:
 
 Odbiór (z planu): na wskazanej stronie licznik i agregat działają co najmniej
 cztery tygodnie, a liczby jednego dnia zgadzają się z ręczną kontrolą.
+
+## Uzupełnienie 2026-10-03: odsłony per język (TL19)
+
+Wiersz licznika niesie język adresu od ADR-070 pkt 14. Odczyt dodaje
+`page_views_by_locale`: sumę odsłon zakresu na język, od najczęściej czytanego
+(`locale: null` to dni policzone, zanim język był zapisywany). To ta sama liczba co
+suma wierszy `page_views`, tylko policzona po stronie bazy — nic nowego nie jest
+zbierane, a zakres, uprawnienia i zakres klucza `content:metrics` zostają bez zmian.

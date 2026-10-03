@@ -343,6 +343,63 @@ def llms_path(default_locale: str, locale: str) -> str:
     return feed_path(default_locale, locale, "llms.txt")
 
 
+def _page_versions(snapshot: dict[str, Any], language: str) -> dict[str, dict[str, Any]]:
+    """The versions of the site's pages a visitor gets in one language, by
+    page; a page kept out of search engines is not offered to a model either."""
+    versions: dict[str, dict[str, Any]] = {}
+    for raw_page in snapshot["pages"]:
+        if raw_page.get("noindex"):
+            continue
+        for raw_locale in raw_page.get("locales", []):
+            if (
+                isinstance(raw_locale, dict)
+                and raw_locale.get("locale") == language
+                and raw_locale.get("path")
+            ):
+                versions[str(raw_page.get("page_id"))] = raw_locale
+    return versions
+
+
+def search_addresses(*, site: Any, origin: str, languages: tuple[str, ...]) -> dict[str, Any]:
+    """What a search engine and a language model are pointed at on one site
+    (TL19): the sitemap, `robots.txt`, and per language the site answers in
+    now its home and its `llms.txt` — by the rules those addresses themselves
+    answer by, so the panel never lists one that gives 404.
+
+    `languages`: the company's languages this deployment serves, in its order.
+    """
+    publication = site.current_publication
+    default_locale = str(site.default_locale)
+    if publication is None:
+        return {"sitemap_url": None, "robots_url": None, "languages": []}
+    available = frozenset(languages) | {default_locale}
+    snapshot = visible_snapshot(publication, available)
+    written = {
+        str(entry["locale"])
+        for entry in published_entries(
+            organization_id=site.organization_id, site_id=site.id, available=available
+        )
+    }
+    rows = []
+    for language in dict.fromkeys((default_locale, *languages)):
+        versions = _page_versions(snapshot, language)
+        home = language_home(default_locale, language)
+        has_home = any(version["path"] == home for version in versions.values())
+        has_llms = bool(versions) or language in written
+        if not has_home and not has_llms:
+            continue
+        rows.append({
+            "locale": language,
+            "home_url": origin + home if has_home else None,
+            "llms_url": origin + llms_path(default_locale, language) if has_llms else None,
+        })
+    return {
+        "sitemap_url": origin + "/sitemap.xml",
+        "robots_url": origin + "/robots.txt",
+        "languages": rows,
+    }
+
+
 def render_site_llms(*, host: str, locale: str | None = None) -> HttpResponse:
     """`/llms.txt` (llmstxt.org): what the site is and where its pages are, in
     one language, for a language model's first read (TL19).
@@ -360,20 +417,15 @@ def render_site_llms(*, host: str, locale: str | None = None) -> HttpResponse:
     if publication is None:
         raise PublicSiteNotFound
     snapshot = visible_snapshot(publication, available)
-    versions: dict[str, dict[str, Any]] = {}
-    home: dict[str, Any] | None = None
-    for raw_page in snapshot["pages"]:
-        if raw_page.get("noindex"):
-            continue
-        for raw_locale in raw_page.get("locales", []):
-            if (
-                isinstance(raw_locale, dict)
-                and raw_locale.get("locale") == language
-                and raw_locale.get("path")
-            ):
-                versions[str(raw_page.get("page_id"))] = raw_locale
-                if raw_locale["path"] == language_home(default_locale, language):
-                    home = raw_locale
+    versions = _page_versions(snapshot, language)
+    home = next(
+        (
+            version
+            for version in versions.values()
+            if version["path"] == language_home(default_locale, language)
+        ),
+        None,
+    )
     entries = _feed_entries(domain, language, available)
     if not versions and not entries:
         # A language the company serves but this site is not written in.

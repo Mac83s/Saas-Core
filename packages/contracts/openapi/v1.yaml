@@ -18993,6 +18993,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/search-visibility/:
+    get:
+      operationId: sites_search_visibility_retrieve
+      description: 'Per site: the sitemap and robots.txt, and per language the site
+        answers in now its home address and its llms.txt. Lists only addresses that
+        answer now.'
+      summary: Read where search engines and language models read the company's sites
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchVisibility'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/subdomain-availability/:
     get:
       operationId: sites_subdomain_availability
@@ -33798,6 +33822,76 @@ components:
       description: |-
         * `system` - system
         * `organization` - organization
+    SearchVisibility:
+      type: object
+      properties:
+        sites:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchVisibilitySite'
+      required:
+      - sites
+    SearchVisibilityLanguage:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: The language's code, e.g. `de`.
+        name:
+          type: string
+          description: The language's own name, e.g. Deutsch.
+        home_url:
+          type:
+          - string
+          - 'null'
+          description: The site's home in this language; null when the home page has
+            no published version in it.
+        llms_url:
+          type:
+          - string
+          - 'null'
+          description: The `llms.txt` of this language; null when the site has nothing
+            to list in it.
+      required:
+      - home_url
+      - llms_url
+      - locale
+      - name
+    SearchVisibilitySite:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        origin:
+          type:
+          - string
+          - 'null'
+          description: The address the site calls its own; null before the first publication
+            or without a verified address.
+        sitemap_url:
+          type:
+          - string
+          - 'null'
+        robots_url:
+          type:
+          - string
+          - 'null'
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchVisibilityLanguage'
+          description: The languages the site answers in now, its own first. A language
+            of the company the site is not written in is not listed.
+      required:
+      - languages
+      - name
+      - origin
+      - robots_url
+      - site_id
+      - sitemap_url
     SeatUsage:
       type: object
       description: Accounts that log in against the plan's limit (owner's answer 5).
@@ -35159,6 +35253,11 @@ components:
           format: date
         counter_enabled:
           type: boolean
+        page_views_by_locale:
+          type: array
+          items:
+            $ref: '#/components/schemas/SitePageViewLocale'
+          description: The views of the range summed per language, most read first.
         page_views:
           type: array
           items:
@@ -35171,6 +35270,7 @@ components:
       - counter_enabled
       - inquiries
       - page_views
+      - page_views_by_locale
       - since
       - site_id
       - until
@@ -35311,6 +35411,21 @@ components:
         * `page` - page
         * `entry` - entry
         * `collection` - collection
+    SitePageViewLocale:
+      type: object
+      properties:
+        locale:
+          type:
+          - string
+          - 'null'
+          description: The language of the addresses; null for days counted before
+            it was recorded.
+        views:
+          type: integer
+          description: Views of that language's addresses in the range.
+      required:
+      - locale
+      - views
     SitePublication:
       type: object
       properties:

@@ -9,6 +9,7 @@ import {
   LanguagesPanel,
   SettingsSearch,
 } from "../../../../../modules/core/organizations";
+import { SearchVisibility } from "../../../../../modules/shared/sites";
 
 export default async function LanguagesSettingsPage() {
   const [t, languages, organization] = await Promise.all([
@@ -16,13 +17,22 @@ export default async function LanguagesSettingsPage() {
     getPanelTranslations("Languages"),
     getServerCurrentOrganization(),
   ]);
+  const access = organization ? panelAccess(organization) : undefined;
   if (
-    organization &&
-    allows(panelAccess(organization), {
-      permission: "organization.settings.manage",
-    })
+    access &&
+    allows(access, { permission: "organization.settings.manage" })
   ) {
-    return <LanguagesPanel />;
+    return (
+      <LanguagesPanel>
+        {/* The sites' own section, for whoever may see the sites (TL19). */}
+        {allows(access, {
+          module: "shared.sites",
+          permission: "site.content.edit",
+        }) ? (
+          <SearchVisibility />
+        ) : null}
+      </LanguagesPanel>
+    );
   }
   return (
     <PanelPage

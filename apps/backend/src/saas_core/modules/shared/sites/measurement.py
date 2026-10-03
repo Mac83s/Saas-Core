@@ -15,7 +15,7 @@ from uuid import UUID, uuid7
 
 from django.conf import settings
 from django.db import DatabaseError, connection, transaction
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework.exceptions import APIException
@@ -116,9 +116,7 @@ def read_site_metrics(
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    if not Site.all_objects.filter(
-        pk=site_id, organization_id=context.organization_id
-    ).exists():
+    if not Site.all_objects.filter(pk=site_id, organization_id=context.organization_id).exists():
         raise SiteNotFound
     # The whole site's numbers, so a grant for the whole site: one collection
     # does not stand for the pages around it.
@@ -152,6 +150,15 @@ def read_site_metrics(
         "since": since,
         "until": until,
         "counter_enabled": settings.SITES_PAGE_VIEW_COUNTER_ENABLED,
+        # The same views summed per language of the address (TL19): which
+        # language versions are read, without adding up the daily rows.
+        "page_views_by_locale": [
+            {"locale": row["locale"] or None, "views": row["total"]}
+            for row in views.order_by()
+            .values("locale")
+            .annotate(total=Sum("views"))
+            .order_by("-total", "locale")
+        ],
         "page_views": [
             {
                 "day": row.day,

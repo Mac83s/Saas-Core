@@ -1243,6 +1243,22 @@ export async function listSites(): Promise<SiteList> {
   return data;
 }
 
+export type SearchVisibility = components["schemas"]["SearchVisibility"];
+export type SearchVisibilitySite =
+  components["schemas"]["SearchVisibilitySite"];
+
+/** Where search engines and language models read the company's sites: per
+ *  site the sitemap and robots.txt, per language its home and llms.txt —
+ *  only addresses that answer now (TL19). */
+export async function readSearchVisibility(): Promise<SearchVisibility> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/search-visibility/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function createSite(
   input: SiteCreateInput,
   idempotencyKey: string,

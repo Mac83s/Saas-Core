@@ -86,6 +86,28 @@ test("lists the company's languages in order, with the customers' language and t
   expect(results.violations).toEqual([]);
 });
 
+test("shows under the table the sections the page composes from other modules", async () => {
+  render(
+    <NextIntlClientProvider
+      locale="pl"
+      messages={polishMessages}
+      timeZone="Europe/Warsaw"
+    >
+      <LanguagesPanel>
+        <section aria-label="Sekcja innego modułu">treść</section>
+      </LanguagesPanel>
+    </NextIntlClientProvider>,
+  );
+
+  const table = await screen.findByRole("table", {
+    name: "Języki firmy w kolejności",
+  });
+  const section = screen.getByRole("region", { name: "Sekcja innego modułu" });
+  expect(
+    table.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
 test("adds a language the product offers and sends the version it read", async () => {
   view();
 

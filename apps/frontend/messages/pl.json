@@ -4979,5 +4979,16 @@
     "historyEmpty": "Nikt jeszcze nie zmieniał tego klucza — obowiązuje wartość z konfiguracji serwera albo z kodu.",
     "historyRestored": "Przywrócono domyślną",
     "setAgain": "Ustaw tę wartość ponownie"
+  },
+  "SearchVisibility": {
+    "title": "Widoczność w wyszukiwarkach i AI",
+    "description": "Adresy, pod którymi wyszukiwarki i modele językowe czytają stronę w każdym języku. Na liście są tylko adresy, które odpowiadają teraz. Plik llms.txt to krótki spis strony dla modeli językowych, osobny dla każdego języka.",
+    "caption": "Adresy strony {site} w jej językach",
+    "colLanguage": "Język",
+    "colHome": "Strona główna",
+    "colLlms": "Plik llms.txt",
+    "noHome": "Strona główna nie ma wersji w tym języku",
+    "sitemap": "Mapa strony dla wyszukiwarek",
+    "robots": "Plik robots.txt"
   }
 }

@@ -4979,5 +4979,16 @@
     "historyEmpty": "Nobody has changed this key yet — the server's configuration or the code's value is in force.",
     "historyRestored": "Default restored",
     "setAgain": "Set this value again"
+  },
+  "SearchVisibility": {
+    "title": "Visibility in search engines and AI",
+    "description": "The addresses where search engines and language models read the site in each language. Only addresses that answer now are listed. The llms.txt file is a short map of the site for language models, one per language.",
+    "caption": "Addresses of the site {site} in its languages",
+    "colLanguage": "Language",
+    "colHome": "Home page",
+    "colLlms": "llms.txt file",
+    "noHome": "The home page has no version in this language",
+    "sitemap": "Sitemap for search engines",
+    "robots": "robots.txt file"
   }
 }

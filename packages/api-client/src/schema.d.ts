@@ -6265,6 +6265,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/search-visibility/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read where search engines and language models read the company's sites
+         * @description Per site: the sitemap and robots.txt, and per language the site answers in now its home address and its llms.txt. Lists only addresses that answer now.
+         */
+        get: operations["sites_search_visibility_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/subdomain-availability/": {
         parameters: {
             query?: never;
@@ -12476,6 +12496,30 @@ export interface components {
          * @enum {string}
          */
         ScopeEnum: "system" | "organization";
+        SearchVisibility: {
+            sites: components["schemas"]["SearchVisibilitySite"][];
+        };
+        SearchVisibilityLanguage: {
+            /** @description The language's code, e.g. `de`. */
+            locale: string;
+            /** @description The language's own name, e.g. Deutsch. */
+            name: string;
+            /** @description The site's home in this language; null when the home page has no published version in it. */
+            home_url: string | null;
+            /** @description The `llms.txt` of this language; null when the site has nothing to list in it. */
+            llms_url: string | null;
+        };
+        SearchVisibilitySite: {
+            /** Format: uuid */
+            site_id: string;
+            name: string;
+            /** @description The address the site calls its own; null before the first publication or without a verified address. */
+            origin: string | null;
+            sitemap_url: string | null;
+            robots_url: string | null;
+            /** @description The languages the site answers in now, its own first. A language of the company the site is not written in is not listed. */
+            languages: components["schemas"]["SearchVisibilityLanguage"][];
+        };
         /** @description Accounts that log in against the plan's limit (owner's answer 5). */
         SeatUsage: {
             used: number;
@@ -13030,6 +13074,8 @@ export interface components {
             /** Format: date */
             until: string;
             counter_enabled: boolean;
+            /** @description The views of the range summed per language, most read first. */
+            page_views_by_locale: components["schemas"]["SitePageViewLocale"][];
             page_views: components["schemas"]["SitePageViewCount"][];
             inquiries: components["schemas"]["SiteInquiryCount"][];
         };
@@ -13084,6 +13130,12 @@ export interface components {
          * @enum {string}
          */
         SitePageViewCountKindEnum: "page" | "entry" | "collection";
+        SitePageViewLocale: {
+            /** @description The language of the addresses; null for days counted before it was recorded. */
+            locale: string | null;
+            /** @description Views of that language's addresses in the range. */
+            views: number;
+        };
         SitePublication: {
             /** Format: uuid */
             id: string;
@@ -33234,6 +33286,33 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_search_visibility_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchVisibility"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

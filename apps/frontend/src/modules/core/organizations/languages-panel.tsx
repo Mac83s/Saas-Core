@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { PlusIcon } from "lucide-react";
 
@@ -46,8 +46,12 @@ type Row = { code: string; name: string; first: boolean; protectedBy?: string };
  * company speaks to its customers, in order — the first is its customers'
  * language. Adding counts against the plan; removing and reordering always
  * work, and a removal shows first which addresses start to redirect.
+ *
+ * `children`: sections another module adds under the table — the page
+ * composes them, this module does not know them (TL19: the sites' „Widoczność
+ * w wyszukiwarkach i AI”).
  */
-export function LanguagesPanel() {
+export function LanguagesPanel({ children }: { children?: ReactNode } = {}) {
   const t = useTranslations("Languages");
   const settings = useTranslations("Settings");
   const common = useTranslations("Common");
@@ -261,6 +265,7 @@ export function LanguagesPanel() {
           ) : null}
         </>
       )}
+      {children}
 
       <Dialog
         onOpenChange={(next) => (next ? undefined : setAdding(false))}
