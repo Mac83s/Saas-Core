@@ -10725,6 +10725,7 @@ export interface components {
             id: string;
             /** Format: email */
             email: string;
+            name: string;
         };
         /**
          * @description * `customer` - customer

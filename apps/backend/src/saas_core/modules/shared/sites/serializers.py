@@ -905,6 +905,8 @@ class SiteRollbackSerializer(serializers.Serializer[dict[str, Any]]):
 class PublicationAuthorSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     email = serializers.EmailField()
+    #: First and last name; empty when the account has none — show the e-mail then.
+    name = serializers.CharField(allow_blank=True)
 
 
 class PageVersionRestoreSerializer(serializers.Serializer[dict[str, Any]]):

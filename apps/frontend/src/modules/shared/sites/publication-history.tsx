@@ -72,18 +72,27 @@ export function PublicationHistory({
                 </Badge>
               )}
           </p>
-          <p className="truncate font-mono text-xs text-muted-foreground">
-            {publication.snapshot_hash}
+          {/* Seven characters tell two versions apart; the rest is noise
+              (UX-044). The whole hash stays on hover. */}
+          <p
+            className="font-mono text-xs text-muted-foreground"
+            title={publication.snapshot_hash}
+          >
+            {publication.snapshot_hash.slice(0, 7)}
           </p>
         </div>
       ),
     },
     {
       id: "author",
-      accessorFn: (publication) => publication.created_by.email,
+      // „Anna Właścicielka”; the e-mail only for an account without a name.
+      accessorFn: (publication) =>
+        publication.created_by.name || publication.created_by.email,
       header: t("lists.publicationAuthor"),
       cell: ({ row: { original: publication } }) => (
-        <span className="break-all">{publication.created_by.email}</span>
+        <span className="wrap-anywhere">
+          {publication.created_by.name || publication.created_by.email}
+        </span>
       ),
     },
     {
@@ -102,10 +111,11 @@ export function PublicationHistory({
         publication.id === currentPublicationId ? null : (
           <RowActions
             items={[
+              // In „…” with its effect in the words: a bare ↺ said nothing
+              // of a new publication (UX-044).
               {
                 label: t("restore"),
                 icon: <RotateCcwIcon aria-hidden="true" />,
-                inline: true,
                 onSelect: () => {
                   if (!loading) onRollback(publication);
                 },

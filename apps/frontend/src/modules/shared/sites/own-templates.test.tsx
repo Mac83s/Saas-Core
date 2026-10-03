@@ -40,6 +40,7 @@ const heroVersion = registry.definitions.get("core.hero")!.latestVersion;
 const author = {
   id: "019ff20d-a000-7000-8000-0000000000f9",
   email: "ania@example.test",
+  name: "",
 };
 const offer: SiteTemplate = {
   id: "019ff20d-a000-7000-8000-0000000000f1",

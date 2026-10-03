@@ -146,7 +146,7 @@ export function VersionHistory({
         <div>
           <p>{dateFormatter.format(new Date(version.created_at))}</p>
           <p className="text-xs break-all text-muted-foreground">
-            {version.created_by.email}
+            {version.created_by.name || version.created_by.email}
           </p>
         </div>
       ),

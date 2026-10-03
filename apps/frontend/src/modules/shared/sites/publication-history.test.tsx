@@ -16,6 +16,7 @@ import { PublicationHistory } from "./publication-history";
 const author = {
   id: "019ff20d-e000-7000-8000-0000000000a0",
   email: "ania@example.test",
+  name: "Anna Właścicielka",
 };
 const live = {
   id: "019ff20d-e000-7000-8000-000000000002",
@@ -70,25 +71,39 @@ test("lists publications as a table and restores an older one", async () => {
   expect(rows).toHaveLength(3);
   const current = within(table).getByText("Publikacja #2").closest("tr")!;
   expect(within(current).getByText("Bieżąca")).not.toBeNull();
-  expect(within(current).getByText("ania@example.test")).not.toBeNull();
+  // The person by name, the hash in seven characters (UX-044).
+  expect(within(current).getByText("Anna Właścicielka")).not.toBeNull();
+  expect(within(current).queryByText("ania@example.test")).toBeNull();
+  expect(within(current).getByText("bbbbbbb").getAttribute("title")).toBe(
+    "b".repeat(64),
+  );
   // The live publication has nothing to go back to.
   expect(within(current).queryByRole("button")).toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 
   const row = within(table).getByText("Publikacja #1").closest("tr")!;
   expect(within(row).getByText("Usunięcie podstrony")).not.toBeNull();
+  // Restoring sits in „…” and says what it does.
   fireEvent.click(
-    within(row).getByRole("button", { name: "Przywróć jako nową publikację" }),
+    within(row).getByRole("button", { name: "Działania dla publikacji #1" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", {
+      name: "Przywróć jako nową publikację",
+    }),
   );
   expect(onRollback).toHaveBeenCalledWith(older);
 });
 
-test("does not start a second rollback while one is running (EN)", () => {
+test("does not start a second rollback while one is running (EN)", async () => {
   const onRollback = vi.fn();
   renderHistory(onRollback, { locale: "en", loading: true });
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Restore as new publication" }),
+    screen.getByRole("button", { name: "Actions for publication #1" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Restore as new publication" }),
   );
   expect(onRollback).not.toHaveBeenCalled();
 });

@@ -484,7 +484,7 @@ def _own_template(item: OwnTemplate) -> dict[str, Any]:
         "kind": template.kind,
         "name": template.name,
         "description": template.description,
-        "created_by": {"id": template.created_by_id, "email": template.created_by.email},
+        "created_by": _author(template.created_by_id, template.created_by),
         "created_at": template.created_at,
         "updated_at": template.updated_at,
         "version": {
@@ -492,7 +492,7 @@ def _own_template(item: OwnTemplate) -> dict[str, Any]:
             "blocks": version.blocks,
             "page_presentation": version.page_presentation,
             "media_asset_ids": version.media_asset_ids,
-            "created_by": {"id": version.created_by_id, "email": version.created_by.email},
+            "created_by": _author(version.created_by_id, version.created_by),
             "created_at": version.created_at,
         },
     }
@@ -869,6 +869,15 @@ def _page_summary(page: Page) -> dict[str, Any]:
     }
 
 
+def _author(user_id: Any, user: Any) -> dict[str, Any]:
+    """Who did it, as people know them: „Anna Właścicielka”, not an e-mail (UX-044)."""
+    return {
+        "id": user_id,
+        "email": user.email,
+        "name": " ".join(part for part in (user.first_name, user.last_name) if part),
+    }
+
+
 def _publication_summary(publication: Publication) -> dict[str, Any]:
     return {
         "id": publication.id,
@@ -878,10 +887,7 @@ def _publication_summary(publication: Publication) -> dict[str, Any]:
         "snapshot_hash": publication.snapshot_hash,
         "source_publication_id": publication.source_publication_id,
         "reason": publication.reason,
-        "created_by": {
-            "id": publication.created_by_id,
-            "email": publication.created_by.email,
-        },
+        "created_by": _author(publication.created_by_id, publication.created_by),
         "created_at": publication.created_at,
     }
 
@@ -892,7 +898,7 @@ def _version_summary(version: Any) -> dict[str, Any]:
         "number": version.number,
         "origin": version.origin,
         "origin_ref": version.origin_ref,
-        "created_by": {"id": version.created_by_id, "email": version.created_by.email},
+        "created_by": _author(version.created_by_id, version.created_by),
         "automation": version.created_by_credential is not None,
         "block_count": version.block_count,
         "current": version.page.current_draft_id == version.id,

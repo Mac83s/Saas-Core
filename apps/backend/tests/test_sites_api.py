@@ -1592,6 +1592,8 @@ def test_publication_history_and_rollback_preserve_newer_draft_and_media() -> No
         slug="sites-publication-rollback",
         role_key="owner",
     )
+    user.first_name, user.last_name = "Anna", "Właścicielka"
+    user.save(update_fields=["first_name", "last_name"])
     site = create_site(client)
     page = create_page(client, site.data["id"])
     asset = create_media_asset(organization, user)
@@ -1732,6 +1734,8 @@ def test_publication_history_and_rollback_preserve_newer_draft_and_media() -> No
     assert [item["sequence"] for item in history.data["items"]] == [3, 2]
     assert history.data["items"][0]["source_publication_id"] == first.data["id"]
     assert history.data["items"][0]["created_by"]["email"] == user.email
+    # The person by name, not by e-mail (UX-044).
+    assert history.data["items"][0]["created_by"]["name"] == "Anna Właścicielka"
     assert next_page.status_code == 200
     assert [item["sequence"] for item in next_page.data["items"]] == [1]
     assert SiteOutboxEvent.all_objects.filter(publication=rollback_record).count() == 1

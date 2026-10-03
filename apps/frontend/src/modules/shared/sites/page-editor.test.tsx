@@ -488,13 +488,15 @@ test("pokazuje konflikt optimistic lock bez nadpisania lokalnych wartości", asy
   fireEvent.change(heading, { target: { value: "Moja lokalna wersja" } });
   fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
-  expect(await screen.findByText(/Ktoś zapisał nowszy draft/)).not.toBeNull();
+  expect(
+    await screen.findByText(/Ktoś zapisał w międzyczasie nowszą wersję szkicu/),
+  ).not.toBeNull();
   expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
     "Moja lokalna wersja",
   );
   expect(screen.getByRole("button", { name: "Zapisz stronę" })).toBeDisabled();
   expect(
-    screen.getByRole("button", { name: "Wczytaj wersję serwera" }),
+    screen.getByRole("button", { name: "Wczytaj zapisaną wersję" }),
   ).toHaveFocus();
 });
 
@@ -540,7 +542,7 @@ test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () 
   await screen.findByLabelText("Heading");
 
   fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
-  const localeSelect = screen.getByRole("combobox", { name: "Locale" });
+  const localeSelect = screen.getByRole("combobox", { name: "Language" });
   fireEvent.click(localeSelect);
   const englishOption = await screen.findByRole("option", { name: "English" });
   fireEvent.pointerDown(englishOption, { button: 0 });
@@ -593,7 +595,7 @@ test("konflikt metadanych zachowuje lokalną wartość", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Zapisz metadane" }));
 
   expect(
-    await screen.findByText(/Ktoś zapisał nowsze metadane/),
+    await screen.findByText(/Ktoś zapisał w międzyczasie nowsze dane/),
   ).not.toBeNull();
   expect(
     (screen.getByLabelText("Tytuł strony") as HTMLInputElement).value,
@@ -682,7 +684,7 @@ test("przesyła obraz przez signed PUT i odświeża listę mediów", async () =>
   expect(listMediaAssets).toHaveBeenCalledTimes(2);
 });
 
-test("historia pokazuje autora i przekazuje wybraną publikację do rollbacku", () => {
+test("historia pokazuje autora i przekazuje wybraną publikację do rollbacku", async () => {
   const onRollback = vi.fn();
   const publication = {
     id: "019ff20d-a000-7000-8000-000000000025",
@@ -695,6 +697,7 @@ test("historia pokazuje autora i przekazuje wybraną publikację do rollbacku", 
     created_by: {
       id: "019ff20d-a000-7000-8000-000000000027",
       email: "owner@example.test",
+      name: "",
     },
     created_at: "2026-08-11T12:00:00Z",
   };
@@ -711,7 +714,12 @@ test("historia pokazuje autora i przekazuje wybraną publikację do rollbacku", 
 
   expect(screen.getByText(/owner@example\.test/)).not.toBeNull();
   fireEvent.click(
-    screen.getByRole("button", { name: "Przywróć jako nową publikację" }),
+    screen.getByRole("button", { name: /Działania dla publikacji/ }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", {
+      name: "Przywróć jako nową publikację",
+    }),
   );
   expect(onRollback).toHaveBeenCalledWith(publication);
 });
@@ -1731,7 +1739,7 @@ test("a pending metadata save disables fields, locale changes and repeat submiss
     name: englishMessages.Sites.metadata,
   });
   const title = within(dialog).getByLabelText("Page title");
-  const locale = within(dialog).getByRole("combobox", { name: "Locale" });
+  const locale = within(dialog).getByRole("combobox", { name: "Language" });
   const save = within(dialog).getByRole("button", { name: "Save metadata" });
   fireEvent.change(title, { target: { value: "Pending metadata title" } });
   fireEvent.click(save);

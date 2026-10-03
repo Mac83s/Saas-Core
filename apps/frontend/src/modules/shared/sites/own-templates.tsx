@@ -587,7 +587,9 @@ function OwnTemplateBody({
       <p className="flex-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">
         {t("versionBy", {
           number: template.version.number,
-          author: template.version.created_by.email,
+          author:
+            template.version.created_by.name ||
+            template.version.created_by.email,
         })}
       </p>
       <div className="flex flex-wrap items-center justify-end gap-1 pt-1">

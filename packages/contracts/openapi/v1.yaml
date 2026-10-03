@@ -29823,9 +29823,12 @@ components:
         email:
           type: string
           format: email
+        name:
+          type: string
       required:
       - email
       - id
+      - name
     PurposeEnum:
       enum:
       - customer
