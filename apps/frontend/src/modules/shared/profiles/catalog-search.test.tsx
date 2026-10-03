@@ -102,16 +102,24 @@ test("nothing exact: the meaning-based entries come as similar ones", async () =
     target: { value: "boli mnie ząb" },
   });
 
+  // Typing pauses before the catalogue is asked: one search per pause. Waited
+  // for as a state, with room for a loaded machine — the pause and the render
+  // after it passed the default second under a full parallel run.
+  await waitFor(
+    () =>
+      expect(api.searchCatalog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ q: "boli mnie ząb" }),
+      ),
+    { timeout: 5_000 },
+  );
   expect(
-    await screen.findByRole("heading", {
-      name: "Nie znaleźliśmy dokładnie „boli mnie ząb”. Podobne:",
-    }),
+    await screen.findByRole(
+      "heading",
+      { name: "Nie znaleźliśmy dokładnie „boli mnie ząb”. Podobne:" },
+      { timeout: 5_000 },
+    ),
   ).toBeTruthy();
   expect(screen.getByRole("link", { name: "Gabinet Uśmiech" })).toBeTruthy();
-  // Typing pauses before the catalogue is asked: one search per pause.
-  expect(api.searchCatalog).toHaveBeenLastCalledWith(
-    expect.objectContaining({ q: "boli mnie ząb" }),
-  );
   expect((await axe.run(container)).violations).toEqual([]);
 });
 
