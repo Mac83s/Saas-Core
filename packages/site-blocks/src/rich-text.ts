@@ -1,3 +1,4 @@
+import { CYRILLIC_TO_LATIN, GERMAN_TO_LATIN } from "./transliteration";
 import type { JsonObject, JsonValue, RichTextNode, SiteBlock } from "./types";
 
 const ANCHOR_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
@@ -23,8 +24,16 @@ export function richTextAnchorSlug(
   taken: ReadonlySet<string> = new Set(),
 ): string {
   const base =
-    text
-      .toLowerCase()
+    // Letters of other scripts and languages as an address writes them
+    // (TL17): `Наши услуги` → `nashi-uslugi`, `Über uns` → `ueber-uns`.
+    Array.from(text.toLowerCase())
+      .map(
+        (letter) =>
+          CYRILLIC_TO_LATIN.get(letter) ??
+          GERMAN_TO_LATIN.get(letter) ??
+          letter,
+      )
+      .join("")
       .replace(/[ąćęłńóśźż]/g, (letter) => TRANSLITERATION[letter] ?? letter)
       .normalize("NFKD")
       .replace(/[̀-ͯ]/g, "")

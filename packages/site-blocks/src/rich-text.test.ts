@@ -21,6 +21,16 @@ describe("rich text helpers", () => {
     expect(richTextAnchorSlug("x".repeat(200)).length).toBeLessThanOrEqual(56);
   });
 
+  it("writes Cyrillic and German headings the way an address does", () => {
+    expect(richTextAnchorSlug("Наши услуги")).toBe("nashi-uslugi");
+    expect(richTextAnchorSlug("Ёлка и щётка")).toBe("elka-i-shchetka");
+    expect(richTextAnchorSlug("Über uns: Größen & Preise")).toBe(
+      "ueber-uns-groessen-preise",
+    );
+    // Nothing Latin left to write is still the fallback.
+    expect(richTextAnchorSlug("你好")).toBe("section");
+  });
+
   it("finds every nested asset id once, in order", () => {
     const data = {
       image: { asset_id: "a", alt: "x" },
