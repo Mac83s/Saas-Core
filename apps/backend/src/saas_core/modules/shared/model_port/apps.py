@@ -14,15 +14,24 @@ class ModelPortConfig(AppConfig):
 
         from . import checks  # noqa: F401 — registers the system checks
         from .adapters.openrouter import OpenRouterAdapter
-        from .models import UsageEntry
+        from .models import TestDoubleCompany, UsageEntry
         from .service import register_adapter
 
         register_adapter(OpenRouterAdapter())
-        if settings.APP_ENV in {"test", "local"}:
+        if settings.APP_ENV in {"test", "local"} or settings.MODEL_PORT_TEST_DOUBLE:
             from .adapters.fake import FAKE
 
             register_adapter(FAKE)
+        if settings.MODEL_PORT_TEST_DOUBLE:
+            # The stand-in translator of browser tests: its model exists only
+            # where the stack asks for it by name (`test_double`).
+            from .matrix import register_model
+            from .test_double import echo_profile
+
+            register_model(echo_profile())
         register_erasure_rows("shared.model-port.usage", UsageEntry, "organization_id")
+        # A browser test's company leaves the stand-in's list with the company.
+        register_erasure_rows("shared.model-port.test-double", TestDoubleCompany, "organization_id")
 
         # The tasks' models as platform settings (TL22).
         from saas_core.modules.core.organizations.api import (

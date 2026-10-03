@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:daad896bb6295729889c4963c105f6f38ee34a149acbaff1eac155b98993fbff",
+  "profileHash": "sha256:8d63e930039e8f46f810ab2012242d29368cb11ddb77e1e5112284eec0eb6468",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -149,7 +149,8 @@
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": [
-          "model_port_usageentry"
+          "model_port_usageentry",
+          "model_port_testdoublecompany"
         ],
         "middleware": [
           "saas_core.modules.shared.model_port.middleware.ModelPortWebCallMiddleware"

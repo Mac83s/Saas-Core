@@ -42,7 +42,7 @@ from saas_core.modules.core.organizations.platform_workspace import is_platform_
 from saas_core.modules.core.organizations.settings_registry import check_value
 from saas_core.modules.shared.billing.api import unit_cost as credit_unit_cost
 from saas_core.modules.shared.billing.models import CreditOperation
-from saas_core.modules.shared.model_port.api import task_status
+from saas_core.modules.shared.model_port.api import ModelContext, task_status
 
 from .engine_policy import ceiling_state, effective_mode, operator_override
 from .glossary import GLOSSARY_LIMIT, GlossaryEntry, entry_problems
@@ -638,7 +638,7 @@ def translation_offer() -> dict[str, Any]:
     platform = is_platform_workspace(organization)
     state = settings_state(organization.id)
     reasons: list[str] = []
-    port = task_status(TASK)
+    port = task_status(TASK, ModelContext(organization_id=organization.id))
     if port.reason is not None:
         reasons.append(port.reason)
     operation = CreditOperation.objects.filter(key=CREDIT_OPERATION).first()

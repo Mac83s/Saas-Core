@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:4e29615b0cc582620c0378c4506fc80bebb6d3a0d0c1708f73ed6bd4935680fc",
+  "profileHash": "sha256:cd189788549e8f941fa5038f7fffd183c37a48d74a17484f033d4c59f9b56e02",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -148,7 +148,8 @@
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": [
-          "model_port_usageentry"
+          "model_port_usageentry",
+          "model_port_testdoublecompany"
         ],
         "middleware": [
           "saas_core.modules.shared.model_port.middleware.ModelPortWebCallMiddleware"

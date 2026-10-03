@@ -969,6 +969,14 @@ MODEL_PORT_OPENROUTER_BASE_URL = os.environ.get(
 MODEL_PORT_PROCESSOR_LISTED = os.environ.get(
     "MODEL_PORT_PROCESSOR_LISTED", "false"
 ).strip().lower() in {"1", "true", "yes"}
+#: The stand-in translator of browser tests (`model_port.test_double`): on only
+#: where an e2e or CI environment says so by name. Never derived from APP_ENV —
+#: the dev VPS runs as `local` too.
+MODEL_PORT_TEST_DOUBLE = os.environ.get("MODEL_PORT_TEST_DOUBLE", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 MODEL_PORT_WEB_CALLS_PER_PROCESS = int(os.environ.get("MODEL_PORT_WEB_CALLS_PER_PROCESS", "1"))
 #: The deployment's values of two translation engine keys (TL22): below an
 #: operator's value in the „Platforma” panel, above the code's default

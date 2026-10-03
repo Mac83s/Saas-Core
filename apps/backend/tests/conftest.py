@@ -43,6 +43,7 @@ collect_ignore_glob = [
             "test_translation_automation.py",
             "test_translation_commands.py",
             "test_translation_demand.py",
+            "test_translation_e2e_fixture.py",
             "test_translation_engine.py",
             "test_translation_evals.py",
             "test_translation_jobs.py",

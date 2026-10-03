@@ -103,3 +103,26 @@ class UsageEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.task} {self.state} {self.outcome}"
+
+
+class TestDoubleCompany(models.Model):
+    """A company whose translation calls the stand-in answers on a stack with
+    `MODEL_PORT_TEST_DOUBLE` on — a browser test's fixture, not a setting
+    (`test_double`). The organization is a bare UUID like `UsageEntry`'s, and
+    the table is declared in `platformTables`: the port's reader sets no tenant.
+    Written only by `manage.py translation_e2e_fixture`.
+    """
+
+    # Not a test case, whatever the name says to pytest.
+    __test__ = False
+
+    organization_id = models.UUIDField(primary_key=True)
+    #: Who put the company on the stand-in.
+    added_by = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "model_port_testdoublecompany"
+
+    def __str__(self) -> str:
+        return str(self.organization_id)

@@ -5,6 +5,9 @@ text, tool calls, structured output, refusals, errors — and the fake plays
 them in order through the same port core as the real adapter: gates,
 admission, validation and telemetry all run, only HTTP does not. A call the
 script did not expect fails the test; every call received is kept for asserts.
+
+One model, `fake/echo`, answers without a script: the stand-in translator of
+browser tests on a local stack (`test_double`).
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 
+from ..test_double import ECHO_MODEL, echo
 from ..types import Continuation, ErrorKind, ModelError, Usage
 from .base import AdapterCall, AdapterResult, RawToolCall
 
@@ -58,6 +62,10 @@ class FakeAdapter:
         return len(self._script)
 
     def complete(self, call: AdapterCall) -> AdapterResult:
+        if not self._script and call.model.model == ECHO_MODEL:
+            # The stand-in for browser tests (`test_double`): an answer without
+            # a script, and no record — a worker runs for days.
+            return echo(call)
         self.calls.append(call)
         if not self._script:
             raise AssertionError("FakeAdapter: wywołanie spoza skryptu.")

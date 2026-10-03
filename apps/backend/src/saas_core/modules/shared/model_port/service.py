@@ -30,6 +30,7 @@ from .adapters.base import Adapter, AdapterCall, AdapterResult, StructuredMode
 from .matrix import ModelProfile, model_profile
 from .models import EntryState, UsageEntry
 from .registry import task_spec
+from .test_double import routed
 from .types import (
     DATA_CLASS_RANK,
     FieldError,
@@ -98,7 +99,8 @@ def user_tag(organization_id: UUID | None) -> str:
 
 
 def complete(request: ModelRequest) -> ModelResponse:
-    spec = _spec(request.task)
+    # A browser test's company on a local stack gets the stand-in (TL15d).
+    spec = routed(_spec(request.task), request.context.organization_id)
     profile = _profile(spec, request)
     purpose = _purpose(request)
     _validate(request, spec, profile, purpose)

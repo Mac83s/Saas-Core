@@ -16,6 +16,7 @@ from .models import EntryKind, EntryState, UsageEntry
 from .registry import register_task, task_spec
 from .service import complete, estimate, highest_data_class
 from .state import active_block
+from .test_double import routed
 from .types import (
     Admission,
     BudgetLevel,
@@ -62,10 +63,15 @@ def release(admission_id: UUID) -> None:
 
 
 def task_status(task: str, context: ModelContext | None = None) -> TaskStatus:
-    """Whether the task can be called now, why not, and what its model can do."""
+    """Whether the task can be called now, why not, and what its model can do.
+
+    With a context, as that company calls it: a browser test's company on a
+    local stack is answered by the stand-in, whatever the real provider does."""
     spec = task_spec(task)
     if spec is None:
         raise ModelError("invalid_request", "task_unknown")
+    if context is not None:
+        spec = routed(spec, context.organization_id)
     profile = model_profile(spec.adapter, spec.model) if spec.model else None
     reason: str | None = None
     until = None

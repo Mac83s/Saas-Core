@@ -263,3 +263,38 @@ o nieznanym wyniku, a tłumaczenia obciążają klienta tylko za dostarczone jed
 - **ADR-076** — rejestr poleceń daje definicje narzędzi (nazwy mapowane na wzorzec
   portu) i format błędów pól, którego używa `tool_args_invalid`; audyt „w imieniu”
   należy do wołającego, port nie pisze audytu.
+
+## Uzupełnienie 2026-10-03: atrapa tłumaczeń dla testów przeglądarkowych (TL15d)
+
+Test Playwright zamawia tłumaczenie z panelu, a `worker-ai` to osobny proces, więc
+skryptu `FakeAdapter` nie da się mu podać z testu. Zamiast przełączać model całej
+platformy (wtedy każde kliknięcie na stacku dostałoby atrapę, a przerwany test
+zostawiłby ją wszystkim):
+
+- **`fake/echo`** — jeden model adaptera `fake`, który na wywołanie `translation.text`
+  bez skryptu odpowiada sam: każdy fragment wraca jako `[<język docelowy>] <tekst
+  źródłowy>`, z żetonami i znacznikami na miejscu. Koszt 0, wywołanie nie jest
+  zapamiętywane (worker żyje dniami). Wywołania ze skryptem działają jak dotąd.
+- **Dwa warunki naraz.** Port kieruje firmę do atrapy tylko wtedy, gdy stack ma
+  jawnie włączone `MODEL_PORT_TEST_DOUBLE` **i** firma ma wiersz w
+  `model_port_testdoublecompany`. Sam wiersz niczego nie zmienia (test to sprawdza).
+- **Przełącznik nie wynika z `APP_ENV`.** Dev VPS działa z `APP_ENV=local`, więc
+  nazwa środowiska niczego nie chroni. `MODEL_PORT_TEST_DOUBLE` jest domyślnie
+  wyłączone i ustawia się je tylko w środowisku testów przeglądarkowych (lokalna
+  nakładka compose, CI); model `fake/echo` jest rejestrowany tylko przy włączonym.
+- **Lista firm to stan fixtury, nie ustawienie.** Własna tabela platformowa
+  (`platformTables`: czytnik portu nie ustawia tenanta; identyfikator firmy bez klucza
+  obcego, jak w `UsageEntry`; wiersz znika z firmą przez `register_erasure_rows`), z
+  adresem operatora i datą. Nie jest w rejestrze ustawień, więc nie ma jej w panelu
+  „Platforma” i żaden operator nie zmieni jej z przeglądarki (uwaga development-15:
+  rejestr jest na to, co platforma albo firma może chcieć inaczej).
+- **Jedna komenda.** `manage.py translation_e2e_fixture on|off --organization <slug>
+  --operator <e-mail>` (i `show`) dopisuje albo usuwa wiersz; odmawia przy wyłączonym
+  przełączniku. Nie zapisuje modelu, ceny ani klucza. Firma jest szukana po slugu
+  przez drzwi sprzed tenanta (wpis w `test_pre_tenant_door.py`).
+- Oferta pyta port jako firma (`task_status` z kontekstem), więc firma z atrapą nie
+  zależy od stanu prawdziwego dostawcy.
+- Atrapa kopiuje słowa źródła, więc kontrola miękka (`leftover_share`) może oznaczyć
+  fragmenty do przeglądu także w trybie automatycznym; test pracuje w trybie „po
+  akceptacji”. Prefiks wydłuża tekst o kilka znaków — fragment tuż przy swoim limicie
+  długości nie przejdzie kontroli twardej.

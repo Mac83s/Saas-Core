@@ -10,7 +10,7 @@
     "entitlements": [],
     "eventSchemas": [],
     "publicTables": [],
-    "platformTables": ["model_port_usageentry"],
+    "platformTables": ["model_port_usageentry", "model_port_testdoublecompany"],
     "middleware": [
       "saas_core.modules.shared.model_port.middleware.ModelPortWebCallMiddleware"
     ],

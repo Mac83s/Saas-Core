@@ -75,6 +75,11 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         "przemiatania w tle po wszystkich organizacjach oraz rozpoznanie tenanta "
         "po kliencie Stripe",
     ),
+    "modules/shared/translation/management/commands/translation_e2e_fixture.py": (
+        1,
+        "atrapa tłumaczeń testu przeglądarkowego (tylko stack lokalny): odnalezienie "
+        "firmy testu po slugu, zanim cokolwiek zna jej tenanta",
+    ),
     "modules/shared/sites/management/commands/sites_e2e_fixture.py": (
         3,
         "fixture E2E: czy slug jest wolny w całym rejestrze i czy po sprzątaniu "
