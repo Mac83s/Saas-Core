@@ -112,7 +112,11 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
     const inspector = studio.getByRole("complementary", {
       name: "Edycja wybranej sekcji",
     });
-    const library = page.getByRole("dialog", { name: "Wybierz sekcję" });
+    // The canvas's "+" opens the section library in the left panel, aimed
+    // at that gap (the page editor's redesign, 03.10).
+    const library = studio.getByRole("complementary", {
+      name: "Budowa strony",
+    });
     const undo = studio.getByRole("button", { name: "Cofnij", exact: true });
     const redo = studio.getByRole("button", { name: "Ponów", exact: true });
     let pageId = "";
@@ -137,16 +141,15 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       ).toHaveText(text);
     };
 
-    /** A section from the library dialog the canvas's "+" opened. */
+    /** A section from the library the canvas's "+" opened in the panel. */
     const addFromLibrary = async (name: string) => {
-      await expect(library).toBeVisible();
-      await library
-        .getByRole("searchbox", { name: "Szukaj układu" })
-        .fill(name);
+      const search = library.getByRole("searchbox", { name: "Szukaj układu" });
+      // The "+" takes the keyboard to the library's search.
+      await expect(search).toBeFocused();
+      await search.fill(name);
       await library
         .getByRole("button", { name: `Dodaj: ${name}`, exact: true })
         .click();
-      await expect(library).toBeHidden();
     };
 
     const save = async () => {
@@ -231,7 +234,12 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       pageId = pages.items.find((item) => item.key === PAGE_SLUG)!.id;
 
       await expect(studio.getByText("Zacznij od szablonu")).toBeVisible();
-      await studio
+      // An empty page opens the gallery of ready pages in the left panel: a
+      // tile leads to the recipe's details, and those to "Użyj szablonu".
+      await library
+        .getByRole("button", { name: new RegExp(`^${TEMPLATE}`) })
+        .click();
+      await library
         .getByRole("button", { name: `Użyj szablonu ${TEMPLATE}` })
         .click();
       // The import copies the template's photo into the library first.
@@ -254,7 +262,7 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       await studio.getByRole("button", { name: "Więcej" }).click();
       await page.getByRole("menuitem", { name: "Ustawienia strony" }).click();
       const metadata = page.getByRole("dialog", {
-        name: "Locale i metadane SEO",
+        name: "Język i opis strony w Google",
       });
       await expect(metadata.getByLabel("Slug", { exact: true })).toHaveValue(
         PAGE_SLUG,
@@ -446,17 +454,21 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       const visitor = await visitors.newPage();
       visitor.on("pageerror", (error) => publicErrors.push(error.message));
       try {
-        const response = await visitor.goto(`http://${hostname}/${PAGE_SLUG}/`);
+        // The site's only page is the one its root shows, so it is served at
+        // `/` and nowhere else (ADR-071 pkt 11). `goto` follows redirects, so
+        // a 308 in front of the 200 shows only here.
+        const response = await visitor.goto(`http://${hostname}/`);
         expect(response?.status()).toBe(200);
-        // Served at the canonical address itself: `goto` follows redirects,
-        // so a 308 in front of the 200 shows only here (ADR-071).
         expect(response?.request().redirectedFrom()).toBeNull();
-        // The other spelling is one 308 away, not a second copy of the page.
-        const other = await visitor.goto(`http://${hostname}/${PAGE_SLUG}`);
-        expect(other?.url()).toBe(`http://${hostname}/${PAGE_SLUG}/`);
-        const hop = other?.request().redirectedFrom();
-        expect(hop?.url()).toBe(`http://${hostname}/${PAGE_SLUG}`);
-        expect(hop?.redirectedFrom()).toBeNull();
+        // The address with the page's own slug is one 308 away, with the
+        // trailing slash or without — not a second copy of the page.
+        for (const spelling of [`/${PAGE_SLUG}/`, `/${PAGE_SLUG}`]) {
+          const other = await visitor.goto(`http://${hostname}${spelling}`);
+          expect(other?.url()).toBe(`http://${hostname}/`);
+          const hop = other?.request().redirectedFrom();
+          expect(hop?.url()).toBe(`http://${hostname}${spelling}`);
+          expect(hop?.redirectedFrom()).toBeNull();
+        }
         await expect(
           visitor.getByRole("heading", { name: shown, exact: true }),
         ).toBeVisible();
@@ -520,7 +532,8 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       });
 
       await test.step("rolls back to the first publication without losing the draft", async () => {
-        const history = page.locator("article");
+        // The publication history is a table (ADR-054): one row each.
+        const history = page.getByRole("row");
         // Restoring sits in the row's „…” and says what it does (UX-044).
         await page
           .getByRole("button", { name: "Działania dla publikacji #1" })
