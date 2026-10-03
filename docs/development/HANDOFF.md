@@ -161,7 +161,11 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
 - **Site Studio:** testy e2e edytora WYSIWYG i całego studia są w repo
   (`site-rich-text-editor.spec.ts`, `SITE_EDITOR_E2E=1`;
   `sites-publication.spec.ts`, `SITE_STUDIO_E2E=1`: onboarding → szablon →
-  płótno → publikacje → rollback); limit szablonów firmy w planach od billing
+  płótno → publikacje → rollback; `site-translation.spec.ts`,
+  `SITE_TRANSLATION_E2E=1`: zlecenie tłumaczenia atrapą → akceptacja → `/de/`,
+  wszystkie trzy zielone na `:8080` 03.10); otwarte: pierwszej wersji językowej
+  czekającej na akceptację nie widać w trybie języka przed decyzją
+  (`e2e/site-catalog.md`); limit szablonów firmy w planach od billing
   0025: Profil 3, Starter 10, Pro 50 (`sites.templates.max`);
   błędy walidacji edytora to jeden komunikat bez wskazania elementu;
   prawdziwe zdjęcia produktu i portretów (dziś 4 ilustracje AI, recepty

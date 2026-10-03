@@ -148,7 +148,9 @@ sekcją i „Dodaj sekcję na końcu strony”, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y z
 fokusem na płótnie, widok „Telefon” i z powrotem, „Zmień zdjęcie” otwierające
 pole „Obraz” w panelu edycji. Potem „Zapisz stronę” i odczyt draftu z API
 (kolejność bloków, nagłówek), publikacja, sprawdzenie opublikowanej strony pod
-jej własnym hostem (przeglądarka jak w `site-catalog.spec.ts`), druga
+jej własnym hostem (przeglądarka jak w `site-catalog.spec.ts`; jedyna podstrona
+witryny jest jej stroną główną, więc stoi pod `/`, a adres z jej slugiem —
+z ukośnikiem i bez — odpowiada jednym 308, ADR-071 pkt 11), druga
 publikacja ze zmienionym nagłówkiem i przywrócenie pierwszej publikacji
 („Przywróć jako nową publikację”); draft zostaje nietknięty. Zero błędów JS w
 panelu i na opublikowanej stronie.
@@ -163,3 +165,40 @@ SITE_STUDIO_E2E=1 pnpm test:e2e e2e/sites-publication.spec.ts --output <katalog>
 Bez `SITE_STUDIO_E2E=1` test jest pomijany. Konto
 `w6-e2e-studio-<losowe>@example.test` zakłada i usuwa `site-catalog-run.sh`
 (`prepare` / `cleanup`), jak w teście edytora tekstu.
+
+## Test tłumaczenia strony (`site-translation.spec.ts`)
+
+Prowadzi automatyczne tłumaczenie strony od zlecenia do opublikowanej wersji
+językowej (TL15d): firma włącza niemiecki i tryb „po akceptacji”, publikuje
+polską witrynę z jedną stroną, w trybie języka edytora nadaje wersji
+niemieckiej adres („Nadaj adres i tytuł”), zleca „Przetłumacz (AI)” — okno
+podaje liczbę znaków, koszt 1 kredytu i to, że gotowy tekst poczeka — worker
+tłumaczy, wersja czeka na decyzję i przed nią `/de/` nie odpowiada 200, osoba
+klika „Zaakceptuj i opublikuj”, pola pokazują tekst obok źródła, a opublikowana
+witryna odpowiada po niemiecku pod `/de/` (`lang="de"`, nagłówek i tekst atrapy,
+link „Deutsch” na polskiej stronie). Zero błędów JS w panelu i na stronie.
+
+Tłumaczy atrapa (`fake/echo`: każdy fragment wraca z „[de] ” na początku),
+włączona tylko dla syntetycznej firmy tego biegu — żaden prawdziwy model nie
+jest wołany i nic nie kosztuje. Wymaga stosu z `MODEL_PORT_TEST_DOUBLE=true`
+(lokalna nakładka `.runtime/compose.local.yaml`; nigdy na stosie serwowanym po
+https — kontrola startowa `model_port.E003`). Bez przełącznika `prepare`
+odmawia, usuwa konto i test kończy się błędem przed pierwszym krokiem.
+
+```bash
+cd apps/frontend
+SITE_TRANSLATION_E2E=1 pnpm test:e2e e2e/site-translation.spec.ts --output <katalog>
+```
+
+Bez `SITE_TRANSLATION_E2E=1` test jest pomijany. Konto
+`w6-e2e-translate-<losowe>@example.test` zakłada i usuwa
+`site-translation-run.sh` (`prepare` / `cleanup`): to konto z
+`site-catalog-run.sh` plus wpis na listę atrapy (`translation_e2e_fixture on`,
+operator `operator@saas.test` albo `SITE_TRANSLATION_OPERATOR`) i miesięczna
+pula 50 kredytów, z której zlecenie blokuje swój koszt. Trwa ok. 20 s.
+
+Otwarte (03.10): pierwszej wersji językowej, która czeka na akceptację, nie da
+się przeczytać w trybie języka przed decyzją — treść pól pochodzi tylko z wersji
+zaakceptowanej, więc ekran dalej pokazuje „Ta strona nie ma jeszcze wersji”.
+Test sprawdza słowa atrapy po akceptacji i zgłasza to adnotacją `issue`; gdy
+edytor pokaże czekającą wersję, asercję trzeba przenieść przed decyzję.
