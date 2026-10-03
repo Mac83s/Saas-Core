@@ -4727,7 +4727,7 @@
     "you": "You",
     "assistant": "Assistant",
     "notice": "The assistant uses an external AI model — do not enter anything you would not want it to receive. {credits, plural, =0 {An answer uses no credits.} one {Each answer is # credit.} other {Each answer is # credits.}}",
-    "checked": "Checked: {title}",
+    "enterHint": "Enter sends, Shift+Enter adds a new line.",
     "status_done": "Done",
     "status_pending": "Waiting for consent",
     "status_refused": "Not done",

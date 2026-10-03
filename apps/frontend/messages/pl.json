@@ -4727,7 +4727,7 @@
     "you": "Ty",
     "assistant": "Asystent",
     "notice": "Asystent korzysta z zewnętrznego modelu AI — nie wpisuj tu danych, których nie chcesz mu przekazać. {credits, plural, =0 {Odpowiedź nie zużywa kredytów.} one {Każda odpowiedź to # kredyt.} few {Każda odpowiedź to # kredyty.} other {Każda odpowiedź to # kredytów.}}",
-    "checked": "Sprawdzono: {title}",
+    "enterHint": "Enter wysyła, Shift+Enter dodaje nową linię.",
     "status_done": "Wykonano",
     "status_pending": "Czeka na zgodę",
     "status_refused": "Nie wykonano",

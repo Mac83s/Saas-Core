@@ -165,9 +165,7 @@ test("a message starts a conversation and its answer appears, with what was chec
     expect.any(String),
   );
   // A read is a quiet line with the command's title — never its key.
-  expect(
-    screen.getByText("Sprawdzono: Odczytaj dane firmy"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Odczytaj dane firmy")).toBeInTheDocument();
   expect(container.textContent).not.toContain("organization.");
   expect(screen.getByRole("log")).toBeInTheDocument();
   expect((await axe.run(container)).violations).toEqual([]);

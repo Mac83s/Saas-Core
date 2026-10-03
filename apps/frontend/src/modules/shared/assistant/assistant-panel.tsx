@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { SendHorizontalIcon } from "lucide-react";
+import { SearchIcon, SendHorizontalIcon } from "lucide-react";
 
 import {
   ApiProblemError,
@@ -279,6 +279,7 @@ export function AssistantPanel({
             </div>
             <p className="text-xs text-muted-foreground">
               {t("notice", { credits: offer?.credits_per_message ?? 0 })}
+              <span className="hidden lg:inline"> {t("enterHint")}</span>
             </p>
           </form>
         </div>
@@ -352,8 +353,12 @@ function Action({ item, locale }: { item: AssistantTurnItem; locale: Locale }) {
   const status = item.status ?? "pending";
   const title = item.title?.[locale] ?? "";
   if (item.risk === "read" && status === "done") {
+    // A read is a quiet step: the same title a change shows, without a badge.
     return (
-      <p className="text-xs text-muted-foreground">{t("checked", { title })}</p>
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <SearchIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span>{title}</span>
+      </p>
     );
   }
   return (
