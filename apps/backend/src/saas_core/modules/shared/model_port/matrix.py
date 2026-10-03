@@ -141,6 +141,49 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         max_output_tokens=65_536,
         probed="2026-10-02",
     ),
+    # DeepSeek V4 Pro (answer 53 of 03.10: a test beside Sonnet 5.5). Both
+    # snapshots OpenRouter lists under the name; the probe of 2026-10-03
+    # confirmed plain, JSON schema, tools and forced tools on both (answered by
+    # third-party hosts: StreamLake, NextBit, Wafer, Ionstream, Relace). Test
+    # data only: another processor
+    # jurisdiction, so production use is the owner's decision (RODO, provider
+    # routing, MODEL_PORT_PROCESSOR_LISTED).
+    ("openrouter", "deepseek/deepseek-v4-pro"): ModelProfile(
+        adapter="openrouter",
+        model="deepseek/deepseek-v4-pro",
+        capabilities=frozenset({
+            "tools",
+            "tool_choice_required",
+            "json_schema",
+            "json_schema_with_tools",
+            "reasoning_effort",
+            "temperature",
+        }),
+        forbidden_parameters=frozenset(),
+        input_usd_per_mtok=0.2088,
+        output_usd_per_mtok=0.4176,
+        context_window=1_024_000,
+        max_output_tokens=384_000,
+        probed="2026-10-03",
+    ),
+    ("openrouter", "deepseek/deepseek-v4-pro-0813"): ModelProfile(
+        adapter="openrouter",
+        model="deepseek/deepseek-v4-pro-0813",
+        capabilities=frozenset({
+            "tools",
+            "tool_choice_required",
+            "json_schema",
+            "json_schema_with_tools",
+            "reasoning_effort",
+            "temperature",
+        }),
+        forbidden_parameters=frozenset(),
+        input_usd_per_mtok=0.66,
+        output_usd_per_mtok=1.98,
+        context_window=1_048_576,
+        max_output_tokens=393_216,
+        probed="2026-10-03",
+    ),
 }
 
 

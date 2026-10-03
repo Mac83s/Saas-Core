@@ -1,0 +1,56 @@
+{
+  "adapter": "openrouter",
+  "model": "deepseek/deepseek-v4-pro",
+  "at": "2026-10-03T07:28:29.051093+00:00",
+  "claimed_capabilities": [
+    "json_schema",
+    "json_schema_with_tools",
+    "reasoning_effort",
+    "temperature",
+    "tool_choice_required",
+    "tools"
+  ],
+  "checks": {
+    "plain": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "deepseek/deepseek-v4-pro",
+      "resolved_provider": "StreamLake",
+      "cost_usd_micros": 8,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2875
+    },
+    "json_schema": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "deepseek/deepseek-v4-pro",
+      "resolved_provider": "StreamLake",
+      "cost_usd_micros": 16,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2337
+    },
+    "tools_auto": {
+      "ok": true,
+      "finish_reason": "tool_calls",
+      "resolved_model": "deepseek/deepseek-v4-pro",
+      "resolved_provider": "StreamLake",
+      "cost_usd_micros": 47,
+      "cost_source": "provider",
+      "tool_calls": 1,
+      "latency_ms": 3909
+    },
+    "tool_choice_required": {
+      "ok": true,
+      "finish_reason": "tool_calls",
+      "resolved_model": "deepseek/deepseek-v4-pro",
+      "resolved_provider": "NextBit",
+      "cost_usd_micros": 654,
+      "cost_source": "provider",
+      "tool_calls": 1,
+      "latency_ms": 2671
+    }
+  },
+  "spent_usd_micros": 725
+}

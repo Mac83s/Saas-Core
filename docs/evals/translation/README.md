@@ -57,3 +57,29 @@ przez dostawcę, telemetria `model_port_usageentry`).
   w jednym języku (odpowiedź 54a). Oba mają być zmienialne w panelu administratora
   platformy (TL22); do tego czasu model w rejestrze zadań, cena w migracji
   `translation 0015`.
+
+## DeepSeek V4 Pro (2026-10-03, prompt `translation.v1`, test na prośbę właściciela)
+
+OpenRouter wymienia pod tą nazwą dwa snapshoty: `deepseek/deepseek-v4-pro` (główny
+identyfikator, „V4 Pro 0423”, USD 0,21 / 0,42 za Mtok) i `deepseek/deepseek-v4-pro-0813`
+(USD 0,66 / 1,98). Próba na żywo (`docs/evals/model-port/`, łącznie USD 0,0016)
+potwierdziła na obu zwykłą odpowiedź, schemat JSON, narzędzia i wymuszone narzędzie;
+odpowiadały hosty trzecie (StreamLake, NextBit, Wafer, Ionstream, Relace), nie
+DeepSeek bezpośrednio. Ta sama bateria 5 par, sędzia Claude Sonnet 5.5 (inna
+rodzina); wydano USD 0,64 z limitu 5.
+
+| Model | Kontrola twarda | Odmowy | Wprowadzone kontakty | Sędzia (1–5) | USD / 1000 znaków | p95 wywołania |
+| --- | --- | --- | --- | --- | --- | --- |
+| DeepSeek V4 Pro (`deepseek-v4-pro`) | 100% (5/5 par) | 0 | 0 | 4,46–4,66 (sędzia Sonnet) | 0,0007–0,0066 | 59–115 s |
+| DeepSeek V4 Pro 0813 | 100% w 2 parach; 3 pary bez wyniku (`openrouter_result_unknown` — wywołanie przekroczyło 150 s) | 0 | 0 | 4,20–4,61 (2 pary) | 0,009–0,013 | 32–71 s (2 pary) |
+
+- Jakość głównego snapshotu blisko Haiku/Gemini, poniżej Sonneta (Sonnet ocenia
+  DeepSeek, Gemini oceniał Sonneta — średnie nie są wprost porównywalne).
+- Koszt kilkanaście razy niższy niż Sonnet, ale czas: p95 jednego wywołania
+  (46 segmentów) 1–2 minuty, blisko limitu zadania 150 s; snapshot 0813 go
+  przekraczał. Do użycia wymagałby mniejszych paczek albo dłuższego limitu.
+- Poza testem: inna jurysdykcja przetwarzającego i hosty, których nie wybieramy.
+  Użycie produkcyjne to decyzja właściciela — routing dostawców musi zostać
+  `data_collection=deny` na hostach akceptowalnych dla RODO, a
+  `MODEL_PORT_PROCESSOR_LISTED` i lista podprzetwarzających muszą to odzwierciedlać.
+  Do tego czasu wiersze w macierzy służą tylko evalom; domyślny model zostaje Sonnet 5.5.

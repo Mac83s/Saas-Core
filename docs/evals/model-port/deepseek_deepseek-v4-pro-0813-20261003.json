@@ -1,0 +1,56 @@
+{
+  "adapter": "openrouter",
+  "model": "deepseek/deepseek-v4-pro-0813",
+  "at": "2026-10-03T07:28:40.347007+00:00",
+  "claimed_capabilities": [
+    "json_schema",
+    "json_schema_with_tools",
+    "reasoning_effort",
+    "temperature",
+    "tool_choice_required",
+    "tools"
+  ],
+  "checks": {
+    "plain": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "deepseek/deepseek-v4-pro-0813",
+      "resolved_provider": "Wafer",
+      "cost_usd_micros": 43,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1166
+    },
+    "json_schema": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "deepseek/deepseek-v4-pro-0813",
+      "resolved_provider": "Ionstream",
+      "cost_usd_micros": 74,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 2745
+    },
+    "tools_auto": {
+      "ok": true,
+      "finish_reason": "stop",
+      "resolved_model": "deepseek/deepseek-v4-pro-0813",
+      "resolved_provider": "Relace",
+      "cost_usd_micros": 431,
+      "cost_source": "provider",
+      "tool_calls": 0,
+      "latency_ms": 1297
+    },
+    "tool_choice_required": {
+      "ok": true,
+      "finish_reason": "tool_calls",
+      "resolved_model": "deepseek/deepseek-v4-pro-0813",
+      "resolved_provider": "Wafer",
+      "cost_usd_micros": 338,
+      "cost_source": "provider",
+      "tool_calls": 1,
+      "latency_ms": 1700
+    }
+  },
+  "spent_usd_micros": 886
+}

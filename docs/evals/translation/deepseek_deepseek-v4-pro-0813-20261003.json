@@ -1,0 +1,267 @@
+{
+  "model": "deepseek/deepseek-v4-pro-0813",
+  "judge_model": "anthropic/claude-sonnet-5.5",
+  "prompt": "translation.v1",
+  "max_usd": 2.4,
+  "spent_usd_micros": 233960,
+  "stopped_by_budget": false,
+  "pairs": [
+    {
+      "pair": "pl-en",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 0.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {
+        "openrouter_result_unknown": 1
+      },
+      "cost_usd_micros": 0,
+      "cost_usd_per_1000_characters": 0.0,
+      "p95_latency_ms": null,
+      "judge_mean": null,
+      "judge_scored": 0,
+      "judge_cost_usd_micros": 0,
+      "by_category": {
+        "contacts": {
+          "error:openrouter_result_unknown": 4
+        },
+        "glossary": {
+          "error:openrouter_result_unknown": 4
+        },
+        "hoofcare": {
+          "error:openrouter_result_unknown": 5
+        },
+        "injection": {
+          "error:openrouter_result_unknown": 6
+        },
+        "marketing": {
+          "error:openrouter_result_unknown": 8
+        },
+        "medplano": {
+          "error:openrouter_result_unknown": 5
+        },
+        "names": {
+          "error:openrouter_result_unknown": 4
+        },
+        "rich_text": {
+          "error:openrouter_result_unknown": 6
+        },
+        "seo_description": {
+          "error:openrouter_result_unknown": 2
+        },
+        "seo_title": {
+          "error:openrouter_result_unknown": 2
+        }
+      }
+    },
+    {
+      "pair": "pl-de",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 1.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 40091,
+      "cost_usd_per_1000_characters": 0.012528,
+      "p95_latency_ms": 71285,
+      "judge_mean": 4.196,
+      "judge_scored": 46,
+      "judge_cost_usd_micros": 98406,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 5
+        },
+        "injection": {
+          "passed": 6
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 5
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 6
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    },
+    {
+      "pair": "pl-es",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 0.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {
+        "openrouter_result_unknown": 1
+      },
+      "cost_usd_micros": 0,
+      "cost_usd_per_1000_characters": 0.0,
+      "p95_latency_ms": null,
+      "judge_mean": null,
+      "judge_scored": 0,
+      "judge_cost_usd_micros": 0,
+      "by_category": {
+        "contacts": {
+          "error:openrouter_result_unknown": 4
+        },
+        "glossary": {
+          "error:openrouter_result_unknown": 4
+        },
+        "hoofcare": {
+          "error:openrouter_result_unknown": 5
+        },
+        "injection": {
+          "error:openrouter_result_unknown": 6
+        },
+        "marketing": {
+          "error:openrouter_result_unknown": 8
+        },
+        "medplano": {
+          "error:openrouter_result_unknown": 5
+        },
+        "names": {
+          "error:openrouter_result_unknown": 4
+        },
+        "rich_text": {
+          "error:openrouter_result_unknown": 6
+        },
+        "seo_description": {
+          "error:openrouter_result_unknown": 2
+        },
+        "seo_title": {
+          "error:openrouter_result_unknown": 2
+        }
+      }
+    },
+    {
+      "pair": "pl-ru",
+      "segments": 46,
+      "source_characters": 3200,
+      "hard_pass_rate": 0.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {
+        "openrouter_result_unknown": 1
+      },
+      "cost_usd_micros": 0,
+      "cost_usd_per_1000_characters": 0.0,
+      "p95_latency_ms": null,
+      "judge_mean": null,
+      "judge_scored": 0,
+      "judge_cost_usd_micros": 0,
+      "by_category": {
+        "contacts": {
+          "error:openrouter_result_unknown": 4
+        },
+        "glossary": {
+          "error:openrouter_result_unknown": 4
+        },
+        "hoofcare": {
+          "error:openrouter_result_unknown": 5
+        },
+        "injection": {
+          "error:openrouter_result_unknown": 6
+        },
+        "marketing": {
+          "error:openrouter_result_unknown": 8
+        },
+        "medplano": {
+          "error:openrouter_result_unknown": 5
+        },
+        "names": {
+          "error:openrouter_result_unknown": 4
+        },
+        "rich_text": {
+          "error:openrouter_result_unknown": 6
+        },
+        "seo_description": {
+          "error:openrouter_result_unknown": 2
+        },
+        "seo_title": {
+          "error:openrouter_result_unknown": 2
+        }
+      }
+    },
+    {
+      "pair": "en-pl",
+      "segments": 44,
+      "source_characters": 2803,
+      "hard_pass_rate": 1.0,
+      "hard_failed": {},
+      "soft_flags": {},
+      "contacts_introduced": 0,
+      "calls": 1,
+      "refusal_rate": 0.0,
+      "errors": {},
+      "cost_usd_micros": 24729,
+      "cost_usd_per_1000_characters": 0.008822,
+      "p95_latency_ms": 31558,
+      "judge_mean": 4.614,
+      "judge_scored": 44,
+      "judge_cost_usd_micros": 70734,
+      "by_category": {
+        "contacts": {
+          "passed": 4
+        },
+        "glossary": {
+          "passed": 4
+        },
+        "hoofcare": {
+          "passed": 4
+        },
+        "injection": {
+          "passed": 6
+        },
+        "marketing": {
+          "passed": 8
+        },
+        "medplano": {
+          "passed": 4
+        },
+        "names": {
+          "passed": 4
+        },
+        "rich_text": {
+          "passed": 6
+        },
+        "seo_description": {
+          "passed": 2
+        },
+        "seo_title": {
+          "passed": 2
+        }
+      }
+    }
+  ],
+  "at": "2026-10-03T07:54:41.409233+00:00"
+}
