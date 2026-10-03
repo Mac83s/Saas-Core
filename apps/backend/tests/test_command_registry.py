@@ -36,6 +36,7 @@ from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
 def empty_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(command_registry, "_commands", {})
     monkeypatch.setattr(command_registry, "_tools", {})
+    monkeypatch.setattr(command_registry, "_unretitled", {})
 
 
 def _run(arguments: Any, invocation: Any) -> dict[str, str]:
@@ -128,6 +129,9 @@ def test_a_product_retitles_a_command_and_nothing_else() -> None:
     assert (after.run, after.risk, after.tool_name) == (before.run, before.risk, before.tool_name)
     # The same words again are no change, like registering the same declaration.
     retitle_command(before.key, title=title, summary=summary, model_description="Reads them.")
+    assert command(before.key) == after
+    # Its module declaring it again is no conflict either; the words stay.
+    register_command(spec())
     assert command(before.key) == after
 
     with pytest.raises(ImproperlyConfigured):

@@ -37,6 +37,7 @@ def own_registry(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(settings_registry, name, dict(getattr(settings_registry, name)))
     monkeypatch.setattr(settings_registry, "_type_words", {})
     monkeypatch.setattr(command_registry, "_commands", dict(command_registry._commands))
+    monkeypatch.setattr(command_registry, "_unretitled", dict(command_registry._unretitled))
 
 
 def words(pl: str, en: str) -> dict[str, str]:

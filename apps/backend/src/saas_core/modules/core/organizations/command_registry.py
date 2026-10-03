@@ -135,7 +135,8 @@ def register_command(spec: CommandSpec) -> None:
         raise ImproperlyConfigured(f"Polecenie {spec.key}: " + "; ".join(problems))
     existing = _commands.get(spec.key)
     if existing is not None:
-        if existing == spec:
+        # A retitled command is compared as its module declared it.
+        if _unretitled.get(spec.key, existing) == spec:
             return
         raise ImproperlyConfigured(f"Polecenie {spec.key} jest już zarejestrowane inaczej.")
     owner = _tools.get(spec.tool_name)
@@ -145,6 +146,10 @@ def register_command(spec: CommandSpec) -> None:
         )
     _commands[spec.key] = spec
     _tools[spec.tool_name] = spec.key
+
+
+#: Commands as their modules declared them, before a product's words.
+_unretitled: dict[str, CommandSpec] = {}
 
 
 def retitle_command(
@@ -165,6 +170,7 @@ def retitle_command(
     problems = _declaration_problems(retitled)
     if problems:
         raise ImproperlyConfigured(f"Polecenie {key}: " + "; ".join(problems))
+    _unretitled.setdefault(key, existing)
     _commands[key] = retitled
 
 
