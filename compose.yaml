@@ -27,6 +27,9 @@ x-backend-environment: &backend-environment
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_app_password
   POSTGRES_PORT: "5432"
   POSTGRES_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
+  # Served over http here: the cookies' Secure flag and HSTS follow this scheme,
+  # so it is said, not left to the https default. compose.vps.yaml says https.
+  PUBLIC_SITE_SCHEME: ${PUBLIC_SITE_SCHEME:-http}
   REDIS_HOST: redis
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-saas_core_local_session}
   SEO_SSA_BASE_URL: ${SEO_SSA_BASE_URL:-}

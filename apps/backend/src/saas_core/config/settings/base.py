@@ -220,6 +220,29 @@ DOMAIN_RELEASE_QUARANTINE_DAYS = int(os.environ.get("DOMAIN_RELEASE_QUARANTINE_D
 DOMAIN_TLS_DECISION_CACHE_SECONDS = int(os.environ.get("DOMAIN_TLS_DECISION_CACHE_SECONDS", "10"))
 DOMAIN_TLS_RATE_LIMIT_PER_MINUTE = int(os.environ.get("DOMAIN_TLS_RATE_LIMIT_PER_MINUTE", "30"))
 PUBLIC_SITE_SCHEME = os.environ.get("PUBLIC_SITE_SCHEME", "https").strip().lower()
+
+
+def local_transport_security(public_site_scheme: str, hsts_seconds: int) -> dict[str, object]:
+    """What a stack named `local` does about https.
+
+    The name says how it was started, not how it is reached: the dev VPS runs
+    as `local` behind https and hands out real session cookies. So the cookie
+    flags and HSTS follow the scheme the stack is served over, and only the
+    redirect follows the name — the internal http hops (health checks, the
+    frontend's server-side calls, metrics) cannot take one."""
+    over_https = public_site_scheme == "https"
+    return {
+        "SECURE_SSL_REDIRECT": False,
+        "SECURE_HSTS_SECONDS": hsts_seconds if over_https else 0,
+        # Never includeSubDomains here: customers' own domains reach the same
+        # backend, and the header would forbid plain http on subdomains of
+        # theirs that the platform neither serves nor knows.
+        "SECURE_HSTS_INCLUDE_SUBDOMAINS": False,
+        "SESSION_COOKIE_SECURE": over_https,
+        "CSRF_COOKIE_SECURE": over_https,
+    }
+
+
 if (
     DOMAIN_DNS_TIMEOUT_SECONDS <= 0
     or DOMAIN_REVERIFY_SECONDS <= 0

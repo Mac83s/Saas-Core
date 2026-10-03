@@ -54,12 +54,15 @@ def test_deployment_billing_plan_keys_follow_enabled_module() -> None:
         ["core.identity", "shared.billing"],
     ) == ("profile", "starter", "pro")
     # Produkt z dwoma typami organizacji sprzedaje więcej niż trzy plany.
-    assert len(
-        _deployment_billing_plan_keys(
-            {"billing": {"planKeys": ["profile", "starter", "pro", "farm_free", "farm_plus"]}},
-            ["shared.billing"],
+    assert (
+        len(
+            _deployment_billing_plan_keys(
+                {"billing": {"planKeys": ["profile", "starter", "pro", "farm_free", "farm_plus"]}},
+                ["shared.billing"],
+            )
         )
-    ) == 5
+        == 5
+    )
 
 
 @pytest.mark.parametrize(
@@ -122,3 +125,66 @@ def test_json_formatter_uses_context_and_allowlisted_fields() -> None:
     assert payload["http_method"] == "GET"
     assert payload["http_path"] == "/api/v1/example/"
     assert "password" not in payload
+
+
+def test_a_local_stack_served_over_https_hands_out_secure_cookies_and_hsts() -> None:
+    """The dev VPS runs as APP_ENV=local behind https: what follows the name
+    is only the redirect (found 03.10: its session cookie went out without
+    Secure and without HSTS)."""
+    from saas_core.config.settings.base import local_transport_security  # noqa: PLC0415
+
+    assert local_transport_security("http", 3600) == {
+        "SECURE_SSL_REDIRECT": False,
+        "SECURE_HSTS_SECONDS": 0,
+        "SECURE_HSTS_INCLUDE_SUBDOMAINS": False,
+        "SESSION_COOKIE_SECURE": False,
+        "CSRF_COOKIE_SECURE": False,
+    }
+    assert local_transport_security("https", 3600) == {
+        "SECURE_SSL_REDIRECT": False,
+        "SECURE_HSTS_SECONDS": 3600,
+        # A customer's own domain reaches the same backend: its other
+        # subdomains are not the platform's to force onto https.
+        "SECURE_HSTS_INCLUDE_SUBDOMAINS": False,
+        "SESSION_COOKIE_SECURE": True,
+        "CSRF_COOKIE_SECURE": True,
+    }
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(("scheme", "secure"), [("http", False), ("https", True)])
+def test_the_cookies_and_the_hsts_header_follow_the_scheme_the_stack_is_served_over(
+    settings, scheme: str, secure: bool
+) -> None:  # type: ignore[no-untyped-def]
+    from django.test import Client  # noqa: PLC0415
+
+    from saas_core.config.settings.base import local_transport_security  # noqa: PLC0415
+    from saas_core.modules.core.identity.models import User, UserStatus  # noqa: PLC0415
+
+    for name, value in local_transport_security(scheme, 3600).items():
+        setattr(settings, name, value)
+    settings.SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    settings.CSRF_TRUSTED_ORIGINS = ["https://testserver"]
+    user = User.objects.create_user(email="ciastka@example.test", password="Bezpieczne-Haslo-2026!")
+    user.status = UserStatus.ACTIVE
+    user.save()
+    client = Client(enforce_csrf_checks=True)
+    forwarded = {"HTTP_X_FORWARDED_PROTO": scheme}
+
+    token = client.get("/api/v1/auth/csrf/", **forwarded)
+    login = client.post(
+        "/api/v1/auth/login/",
+        {"email": user.email, "password": "Bezpieczne-Haslo-2026!"},
+        content_type="application/json",
+        HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+        HTTP_REFERER="https://testserver/" if secure else "http://testserver/",
+        **forwarded,
+    )
+
+    assert login.status_code == 200, login.content
+    assert bool(client.cookies["csrftoken"]["secure"]) is secure
+    assert bool(client.cookies[settings.SESSION_COOKIE_NAME]["secure"]) is secure
+    assert ("Strict-Transport-Security" in token.headers) is secure
+    assert "includeSubDomains" not in token.headers.get("Strict-Transport-Security", "")
+    # The redirect stays off in both shapes: internal http hops cannot take it.
+    assert client.get("/api/v1/health/live/").status_code == 200
