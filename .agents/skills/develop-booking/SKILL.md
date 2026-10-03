@@ -183,6 +183,17 @@ constant without changing the API. A new offer setting goes there first, never
 as a number in a serializer or a component. A new setup write uses
 `setup_write`, `check_version` and the floor of `change-api-and-events`.
 
+Presets are data, read by `presets.py` from the image's copy of
+`packages/contracts/booking-presets` (`BOOKING_PRESET_CONTRACTS_PATH`, system
+check `booking.E010`); `GET /booking/presets/` is the only list a caller
+chooses from. `presets.apply_preset` is a setup write that copies a `ready`
+preset into a switched-off offer with its origin (`preset_id`,
+`preset_version`, `origin_ref`) and picks nobody and no place for the company.
+A service made switched off is a `draft` until somebody switches it on, and
+**only a draft without bookings is ever deleted** (`setup.discard_draft`, the
+undo of commands that make drafts). Every other service is switched off, never
+removed.
+
 ## Done means
 
 ```
