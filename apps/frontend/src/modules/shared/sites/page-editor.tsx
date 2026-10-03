@@ -1090,7 +1090,7 @@ export function PageEditor({
                   <div className="studio-toolbar">
                     <div
                       aria-label={t("studio.mode")}
-                      className="studio-mode max-sm:hidden"
+                      className="studio-mode inline-flex max-sm:hidden"
                       role="group"
                     >
                       <Button

@@ -57,9 +57,9 @@
   gap: 0.5rem;
   margin-left: auto;
 }
-/* Visual or forms: one control with its state in sight (UX-039). */
+/* Visual or forms: one control with its state in sight (UX-039). Its
+   display comes from the utilities, so a phone can hide it. */
 .studio-mode {
-  display: inline-flex;
   gap: 0.125rem;
   padding: 0.125rem;
   border: 1px solid var(--border);
