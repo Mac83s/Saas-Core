@@ -358,8 +358,10 @@ class PriceRuleListView(APIView):
         summary="List the price list",
         description="Every price of the company's offers, groups and units, switched-off "
         "ones included, and how its amounts are read. For a day and an hour one price "
-        "applies: the unit's over its group's over the offer's, a season's over the base "
-        "price, the narrower one (weekdays, hours) over the wider, then the later start.",
+        "applies: one for some days only (a season, weekdays, hours) over a base price, "
+        "whoever it is for; between two of one kind the unit's over its group's over the "
+        "offer's, then a season's over one without dates, the narrower one (weekdays, "
+        "hours) over the wider, then the later start.",
         tags=["booking"],
         responses={200: PriceRuleListSerializer, 403: ProblemDetailsSerializer},
     )

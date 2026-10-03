@@ -433,8 +433,9 @@ Ustalenia, których §6–§7 nie rozstrzygały, przyjęte przy budowie cennika
 (`prices.py`) i wyceny (`quote.py`).
 
 - **Która cena obowiązuje.** Cena bez dat to cena podstawowa, z datami —
-  sezonu; dni tygodnia i godziny zawężają ją do weekendu albo szczytu. Na dany
-  dzień i godzinę: jednostka przed grupą przed ofertą (jak reguły, §5), potem
+  sezonu; dni tygodnia i godziny zawężają ją do weekendu albo szczytu. Kolejność
+  na dany dzień i godzinę zmieniło uzupełnienie z 2026-10-03 niżej (decyzja
+  75b); pierwotnie: jednostka przed grupą przed ofertą (jak reguły, §5), potem
   sezon przed ceną podstawową, potem węższa przed szerszą, potem późniejszy
   początek. Noc należy do dnia, w którym się zaczyna.
 - **Dzień przyjazdu decyduje** o podstawie ceny, o tym, czy kolejne osoby płacą
@@ -552,3 +553,26 @@ Ustalenia przyjęte przy budowie panelu cennika (`apps/frontend/src/modules/shar
   rezerwacji `gross_minor` i `currency` z zamrożonej wyceny — bez dodatkowego
   zapytania; blokada, rezerwacja bez ceny i cudza rezerwacja (UX-023) ich nie
   mają.
+
+## Uzupełnienie 2026-10-03: cena na wybrane dni wygrywa z ceną podstawową (decyzja 75b)
+
+Zmienia punkt „Która cena obowiązuje” uzupełnienia o cenniku i wycenie.
+
+- **Decyzja właściciela 75b** (podjęta 03.10 przez koordynatora w imieniu
+  właściciela): cena na wybrane dni — sezonu (z datami), dni tygodnia albo pory
+  dnia — wygrywa z ceną podstawową niezależnie od tego, czy dotyczy jednostki,
+  grupy czy całej oferty. „Domek 350, lipiec 500 dla wszystkich” daje w lipcu
+  500, także w domku, który ma własną cenę podstawową.
+- **Zasięg rozstrzyga tylko między cenami tego samego rodzaju.** Rodzaje są
+  dwa: cena podstawowa (bez dat, dni tygodnia i godzin) oraz cena na wybrane
+  dni. W obrębie rodzaju: jednostka przed grupą przed ofertą, potem sezon przed
+  ceną bez dat, potem węższa przed szerszą (dni tygodnia i godziny przed samymi
+  dniami albo samymi godzinami), potem późniejszy początek, potem później
+  dodana. Domek z własną ceną lipcową zachowuje ją wobec lipcowej ceny oferty.
+- **Reguły rezerwacji (§5) zostają bez zmian**: `BookingRule` zawsze ma daty,
+  więc między regułami rozstrzyga sam zasięg.
+- — Poprzednia kolejność (zasięg przed datami) kazała firmie powtarzać cenę
+  sezonu w każdej jednostce, która ma własną cenę podstawową; zapomniany wpis
+  dawał w sezonie cenę spoza sezonu. Odrzucone: trzy rodzaje (sezon, dni
+  tygodnia, pora dnia) z zasięgiem na końcu — własna cena weekendowa domku
+  przegrywałaby wtedy z ceną sezonu oferty, czego decyzja nie mówi.

@@ -297,9 +297,12 @@ def price_for(
     resource_id: UUID | None = None,
 ) -> PriceRule | None:
     """The price that applies on `day` — and at `at`, for a booking that starts
-    at an hour. The unit's over its group's over the offer's; then a season's
-    over the base price; then the narrower one (weekdays and hours over
-    weekdays or hours over neither); then the later start, then the later made.
+    at an hour. A price for some days only — a season's, a weekday's, an
+    hour's — over a base price, whoever it is for: „lipiec 500 dla wszystkich”
+    beats „Domek 350” in July (owner decision 75b). Between two of one kind the
+    unit's over its group's over the offer's; then a season's over one without
+    dates; then the narrower one (weekdays and hours over weekdays or hours);
+    then the later start, then the later made.
     """
     covering = [
         rule
@@ -319,6 +322,7 @@ def price_for(
     return max(
         covering,
         key=lambda rule: (
+            rule.starts_on is not None or bool(rule.weekdays) or rule.local_from is not None,
             2 if rule.resource_id else 1 if rule.group_id else 0,
             rule.starts_on is not None,
             bool(rule.weekdays) + (rule.local_from is not None),

@@ -196,8 +196,13 @@ def test_one_price_applies_on_a_day_and_at_an_hour() -> None:
         grouped = add(35000, "per_time_unit", group_id=group.id)
         own = add(70000, "per_time_unit", resource_id=unit.id, **season("2027-07-10", "2027-07-10"))
         rules = list(PriceRule.all_objects.filter(organization=owner.organization))
-    # The unit's over its group's over the offer's, whatever their dates.
-    assert nightly("2027-07-06", group_id=group.id, resource_id=unit.id) == grouped
+    # A price for some days only beats a base price, whoever it is for: the
+    # offer's July over the group's base, its weekend over it in June (75b).
+    assert nightly("2027-07-06", group_id=group.id, resource_id=unit.id) == high
+    assert nightly("2027-06-12", group_id=group.id, resource_id=unit.id) == weekend
+    # Between two base prices, and between two for some days only, the unit's
+    # over its group's over the offer's.
+    assert nightly("2027-06-08", group_id=group.id, resource_id=unit.id) == grouped
     assert nightly("2027-07-10", group_id=group.id, resource_id=unit.id) == own
     assert nightly("2027-07-10") == high_weekend
 

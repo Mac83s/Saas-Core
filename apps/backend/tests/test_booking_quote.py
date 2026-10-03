@@ -701,6 +701,29 @@ def test_a_priced_offer_is_never_free_by_omission() -> None:
     assert (free.priced, free.gross_minor) == (False, 0)
 
 
+def test_a_seasons_price_for_everyone_beats_a_cottages_own_base_price() -> None:
+    """„Domek 350, lipiec 500 dla wszystkich” is 500 in July (owner decision 75b)."""
+    owner = membership("wycena-sezon-ponad-domek")
+    setup = cottages(owner, units=1)
+    (unit,) = setup["units"]
+    with tenant(owner):
+        add(35000, "per_time_unit", resource_id=unit.id)
+        add(
+            50000,
+            "per_time_unit",
+            service_id=setup["service"].id,
+            starts_on=day(7, 1),
+            ends_on=day(7, 31),
+        )
+        quote = of_stay(setup, day(6, 29), day(7, 2))
+    # Two nights of June at the cottage's own price, the night of 1 July at the season's.
+    assert [(line.quantity, line.unit_amount_minor) for line in quote.lines] == [
+        (2, 35000),
+        (1, 50000),
+    ]
+    assert quote.gross_minor == 120000
+
+
 def test_the_unit_that_takes_the_party_is_picked_before_the_least_busy() -> None:
     owner = membership("wycena-pojemnosc")
     setup = cottages(owner, units=2)
