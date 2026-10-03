@@ -86,7 +86,7 @@ from .prompts import (
     SETUP_PROMPT_VERSION,
     system_prompt,
 )
-from .settings_spec import STEPS_PER_TURN
+from .settings_spec import SETUP_STEPS_PER_TURN, STEPS_PER_TURN
 
 logger = logging.getLogger("saas_core.assistant")
 
@@ -189,7 +189,9 @@ def _next_request(organization_id: UUID, turn_id: UUID) -> ModelRequest | None:
         if not allowed:
             _finish(scope, TurnState.FAILED, FAILURE_REVOKED)
             return None
-        if turn.steps_used >= int(platform_setting(STEPS_PER_TURN.key)):
+        setting_up = scope.conversation.kind == ConversationKind.SETUP
+        limit = SETUP_STEPS_PER_TURN if setting_up else STEPS_PER_TURN
+        if turn.steps_used >= int(platform_setting(limit.key)):
             _finish(scope, TurnState.FAILED, FAILURE_STEP_LIMIT)
             return None
         turn.state = TurnState.RUNNING

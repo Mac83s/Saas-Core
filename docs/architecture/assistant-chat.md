@@ -120,6 +120,7 @@ kodu, który by go wysyłał, a A3-2 wyśle tylko to, czego wymaga pytanie.
 `assistant.limits.conversation_starts_per_ip_per_hour` (20),
 `assistant.limits.model_steps_per_turn` (6),
 `assistant.limits.daily_turns_ceiling` (2000),
+`assistant.limits.setup_model_steps_per_turn` (10),
 `assistant.limits.setup_turns_per_company` (150),
 `assistant.limits.setup_turns_per_person_per_day` (60),
 `assistant.retention.conversation_days` (90). Budżety w USD: port modeli.

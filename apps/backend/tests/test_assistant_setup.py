@@ -318,6 +318,34 @@ def test_setup_is_free_within_its_budget_and_a_spent_budget_loses_nothing(
     assert not CreditReservation.all_objects.exists()
 
 
+def test_a_setup_message_has_its_own_limit_of_model_calls(
+    talk: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        platform_settings,
+        "platform_overrides",
+        lambda: {
+            # An ordinary message's limit does not bind a setup message…
+            "assistant.limits.model_steps_per_turn": 1,
+            "assistant.limits.setup_model_steps_per_turn": 3,
+        },
+    )
+    chat = talk(owner("setup-steps"), "setup")
+    FAKE.script(
+        tool("setup_status", {}),
+        notes(("company.city", "Olsztyn", "owner"), call_id="c2"),
+        tool("setup_status", {}, "c3"),
+        FakeReply(text="Nie dojdzie do tej odpowiedzi."),
+    )
+
+    chat.say("Działam w Olsztynie")
+
+    # …and its own does: three calls were made, the fourth was not.
+    turn = chat.last()
+    assert (turn["state"], turn["failure_code"]) == ("failed", "step_limit")
+    assert len(FAKE.calls) == 3
+
+
 def test_only_who_manages_the_company_sets_it_up(talk: Any) -> None:
     staff = owner("setup-staff", role_key="staff")
 

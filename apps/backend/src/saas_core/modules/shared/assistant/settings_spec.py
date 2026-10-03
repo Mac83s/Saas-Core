@@ -76,6 +76,22 @@ DAILY_TURNS = SettingSpec(
     model_description="Messages the whole deployment accepts in a day (UTC); above it the "
     "chat sends people to the panel. 0 closes the chat.",
 )
+SETUP_STEPS_PER_TURN = SettingSpec(
+    key="assistant.limits.setup_model_steps_per_turn",
+    type="int",
+    default=10,
+    minimum=3,
+    maximum=30,
+    scopes=("platform",),
+    label={
+        "pl": "Wywołania modelu na jedną wiadomość zakładania firmy",
+        "en": "Model calls per setup message",
+    },
+    model_description="How many times the model may be called to answer one message of a "
+    "conversation that sets a company up. Such a message takes more calls than an ordinary "
+    "one: the assistant asks what is next, notes what was said, asks again, offers the plan "
+    "and reports on it.",
+)
 SETUP_TURNS_PER_COMPANY = SettingSpec(
     key="assistant.limits.setup_turns_per_company",
     type="int",
@@ -138,6 +154,7 @@ LIMITS = SettingGroup(
         STARTS_PER_HOUR,
         STEPS_PER_TURN,
         DAILY_TURNS,
+        SETUP_STEPS_PER_TURN,
         SETUP_TURNS_PER_COMPANY,
         SETUP_TURNS_PER_DAY,
     ),
