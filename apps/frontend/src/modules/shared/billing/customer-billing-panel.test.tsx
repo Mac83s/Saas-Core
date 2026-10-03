@@ -520,6 +520,10 @@ test("bez danych do faktury nie da się kliknąć planu, a formularz jest otwart
   ).not.toBeNull();
   expect(screen.getByRole("textbox", { name: "Ulica i numer" })).not.toBeNull();
   expect(screen.queryByRole("button", { name: "Anuluj" })).toBeNull();
+  // The kind of buyer reads as its label before the list is ever opened.
+  expect(
+    screen.getByRole("combobox", { name: "Rodzaj nabywcy" }),
+  ).toHaveTextContent("Firma");
 });
 
 test("komplet danych do faktury to podsumowanie, a edycja wraca do niego z focusem", async () => {

@@ -403,6 +403,9 @@ function SelectField<T extends FieldValues>({
         <Field data-invalid={fieldState.invalid}>
           <FieldLabel htmlFor={name}>{label}</FieldLabel>
           <Select
+            // The trigger shows the option's label, not its raw value, before
+            // the list has ever been opened.
+            items={options.map(([value, text]) => ({ value, label: text }))}
             onValueChange={field.onChange}
             value={typeof field.value === "string" ? field.value : null}
           >
