@@ -44,7 +44,9 @@ def test_a_person_sees_others_visits_only_where_the_product_lets_them(settings: 
         return {item["id"] for item in response.json()["items"]}
 
     both = {str(own.id), str(others.id)}
-    # Core: a small team plans together, so the calendar is everyone's.
+    # Core: a small team plans together, so the calendar is everyone's (a
+    # product that declares the permission — MedPlano — starts elsewhere).
+    settings.BOOKING_OTHERS_PERMISSION = None
     assert seen(worker) == both
 
     settings.BOOKING_OTHERS_PERMISSION = "test.visits.all"

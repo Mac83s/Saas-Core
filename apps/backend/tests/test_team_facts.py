@@ -35,6 +35,13 @@ def no_mail(monkeypatch: pytest.MonkeyPatch) -> None:
     _no_delivery(monkeypatch)
 
 
+@pytest.fixture(autouse=True)
+def core_closing(settings: Any) -> None:
+    """Core's own rule — a product's `appointmentKindsCompletedExplicitly`
+    (HoofCare lists "") must not change what these tests start from."""
+    settings.APPOINTMENT_KINDS_COMPLETED_EXPLICITLY = frozenset()
+
+
 def company(slug: str) -> dict[str, Any]:
     """Two people doing a one-hour service 08:00–16:00, a week from today;
     the first of them works with an account."""

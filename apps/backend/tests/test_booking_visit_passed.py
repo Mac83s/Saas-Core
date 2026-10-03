@@ -43,6 +43,13 @@ def no_mail(monkeypatch: pytest.MonkeyPatch) -> None:
     _no_delivery(monkeypatch)
 
 
+@pytest.fixture(autouse=True)
+def core_closing(settings: Any) -> None:
+    """Core's own rule — a product's `appointmentKindsCompletedExplicitly`
+    (HoofCare lists "") must not change what these tests start from."""
+    settings.APPOINTMENT_KINDS_COMPLETED_EXPLICITLY = frozenset()
+
+
 def moved(appointment: Appointment, starts_at: datetime) -> Appointment:
     """The booked visit, with the time its people and resource hold, moved to
     start at `starts_at` — booking refuses the past, and the clock is real."""
