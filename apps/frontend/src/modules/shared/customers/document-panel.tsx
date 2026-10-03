@@ -149,7 +149,17 @@ export function CustomerDocumentPanel({
     try {
       await action();
     } catch (error) {
-      if (!stepUp.handled(error, () => run(action, fallback))) {
+      if (stepUp.handled(error, () => run(action, fallback))) {
+        // An account without two-factor sign-in: the hook says where to turn
+        // it on, on the page — behind the open dialog, so the dialog says it
+        // too and keeps what was typed.
+        if (
+          error instanceof ApiProblemError &&
+          error.problem.code === "step_up_mfa_setup_required"
+        ) {
+          setProblem(t("needsTwoFactor"));
+        }
+      } else {
         setProblem(message(error, fallback));
         if (
           error instanceof ApiProblemError &&

@@ -5628,6 +5628,7 @@
     "approveError": "Nie udało się zatwierdzić dokumentu.",
     "saveError": "Nie udało się zapisać.",
     "stepUp": "Zatwierdzenie dokumentu dla klientów potwierdzasz kodem z aplikacji uwierzytelniającej.",
+    "needsTwoFactor": "Zatwierdzenie wymaga weryfikacji dwuetapowej. Włącz ją w „Twoje konto”, a potem wróć tutaj — szkic zostaje zapisany.",
     "versionNumber": "Wersja {number}",
     "approvedBy": "{date} · {person}",
     "noText": "brak tekstu",

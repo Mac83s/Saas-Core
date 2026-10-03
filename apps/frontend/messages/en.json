@@ -5628,6 +5628,7 @@
     "approveError": "The document could not be approved.",
     "saveError": "Could not save.",
     "stepUp": "You confirm approving a document for customers with a code from your authenticator app.",
+    "needsTwoFactor": "Approving takes two-factor sign-in. Turn it on in “Your account”, then come back — the draft stays saved.",
     "versionNumber": "Version {number}",
     "approvedBy": "{date} · {person}",
     "noText": "no text",

@@ -226,6 +226,55 @@ test("a draft is saved at the version read and approved after the preview and th
   expect(await screen.findByText("Wersja 3 zatwierdzona.")).toBeTruthy();
 });
 
+test("an account without two-factor sign-in is told so in the dialog it is looking at", async () => {
+  api.readCustomerDocument.mockResolvedValue({
+    document: privacy({
+      version: 6,
+      draft: { text: "Nowa treść polityki.", locale: "pl", origin_ref: "" },
+    }),
+    options,
+  });
+  api.previewCustomerDocumentApproval.mockResolvedValue({
+    effect: {
+      number: 3,
+      effective_from: "2026-10-03",
+      source_locale: "pl",
+      locales_without_text: [],
+    },
+    document: privacy({ version: 6 }),
+  });
+  api.approveCustomerDocument.mockRejectedValue(
+    new ApiProblemError({
+      status: 403,
+      code: "step_up_mfa_setup_required",
+      title: "",
+      detail: "Włącz weryfikację dwuetapową.",
+    } as never),
+  );
+  wrap(<CustomerDocumentPanel canManage kind="privacy_policy" />);
+
+  const draft = await screen.findByRole("region", { name: "Szkic" });
+  await waitFor(() =>
+    expect(
+      (within(draft).getByLabelText("Treść") as HTMLTextAreaElement).value,
+    ).toBe("Nowa treść polityki."),
+  );
+  fireEvent.click(within(draft).getByRole("button", { name: "Zatwierdź…" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Zatwierdzić dokument?",
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zatwierdź" }));
+
+  expect(
+    await within(dialog).findByText(/wymaga weryfikacji dwuetapowej/),
+  ).toBeTruthy();
+  // The saved draft was not written again, and no code is asked for.
+  expect(api.saveCustomerDocumentDraft).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("dialog", { name: polishMessages.StepUp.title }),
+  ).toBeNull();
+});
+
 test("a missing language of the version in force gets its text as a new row", async () => {
   api.addCustomerDocumentText.mockResolvedValue(
     privacy({ version: 6, in_force: { ...version, locales: ["en", "pl"] } }),
