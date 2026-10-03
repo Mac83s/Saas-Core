@@ -39,7 +39,13 @@ from saas_core.modules.core.organizations.locales import organization_content_lo
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_decoration import stored_block_payload
-from .localized_bodies import LocaleUnitsInvalid, TextUnit, assemble, extract_units
+from .localized_bodies import (
+    LocaleUnitsInvalid,
+    TextUnit,
+    assemble,
+    extract_units,
+    inline_marks,
+)
 from .localized_bodies import structure_signature as body_structure_signature
 from .models import (
     ContentEntry,
@@ -166,6 +172,11 @@ class LocaleBody:
     @property
     def untranslated(self) -> int:
         return sum(1 for state in self.units if not state.translated)
+
+    @property
+    def marks(self) -> dict[str, list[dict[str, Any]]]:
+        """What each token of an inline unit marks in the source (TL15)."""
+        return inline_marks(_source_blocks(self.source_version))
 
     @property
     def outdated(self) -> bool:

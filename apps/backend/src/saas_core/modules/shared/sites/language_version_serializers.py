@@ -13,6 +13,13 @@ from .localized_bodies import (
 )
 
 
+class LocaleBodyMarkSerializer(serializers.Serializer[dict[str, Any]]):
+    bold = serializers.BooleanField(required=False)
+    italic = serializers.BooleanField(required=False)
+    href = serializers.CharField(required=False)
+    rel = serializers.CharField(required=False)
+
+
 class LocaleBodyUnitSerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.CharField(
         help_text="Block position and JSON path, e.g. `2/items/0/question`. Stable for one "
@@ -45,6 +52,11 @@ class LocaleBodyUnitSerializer(serializers.Serializer[dict[str, Any]]):
     )
     max_length = serializers.IntegerField(allow_null=True)
     required_text = serializers.BooleanField(help_text="The unit may not be left empty.")
+    marks = LocaleBodyMarkSerializer(
+        many=True,
+        help_text="For an `inline` unit, what each token marks in the source: `⟦n⟧` is entry "
+        "n-1. A translation keeps every token and may move it, never change it.",
+    )
 
 
 class LocaleBodyPendingSerializer(serializers.Serializer[dict[str, Any]]):

@@ -65,6 +65,7 @@ PROBLEMS = {
 
 
 def _body(body: LocaleBody) -> dict[str, Any]:
+    marks = body.marks
     return {
         "page_id": body.page.id,
         "locale": body.translation.locale,
@@ -101,6 +102,7 @@ def _body(body: LocaleBody) -> dict[str, Any]:
                 "placeholder": state.unit.placeholder,
                 "max_length": state.unit.max_length,
                 "required_text": state.unit.required,
+                "marks": marks.get(state.unit.key, []),
             }
             for state in body.units
         ],

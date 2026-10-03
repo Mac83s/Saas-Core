@@ -262,6 +262,19 @@ def _marks(spans: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def inline_marks(blocks: Sequence[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """What each token of an inline unit marks, by unit key: `⟦n⟧` is entry
+    n-1 — bold, italic, a link and its target. The editor shows them and
+    never lets them change (TL15)."""
+    found: dict[str, list[dict[str, Any]]] = {}
+    for position, block in enumerate(blocks):
+        fields = text_fields(str(block["block_type"]), int(block["schema_version"]))
+        for path, field, value in _places(block["data"], fields, ()):
+            if field.kind == UNIT_INLINE:
+                found[_key(position, path)] = _marks(value)
+    return found
+
+
 def extract_units(blocks: Sequence[Mapping[str, Any]]) -> list[TextUnit]:
     """The text units of a body, in block order."""
     units: list[TextUnit] = []

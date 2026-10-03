@@ -175,6 +175,19 @@ TESTIMONIALS = {
 }
 
 
+def test_each_token_of_a_run_says_what_it_marks_for_the_editor():
+    """The editor's language mode shows bold, italic and links as they are
+    in the source and never lets one change (TL15)."""
+    from saas_core.modules.shared.sites.localized_bodies import inline_marks
+
+    assert inline_marks([RICH, TESTIMONIALS]) == {
+        "0/content/0/content": [
+            {"bold": True, "href": "/oferta/"},
+            {"href": "https://partner.example", "rel": "sponsored"},
+        ]
+    }
+
+
 def test_a_rich_text_run_is_one_unit_whose_marks_may_move():
     units = {unit.key: unit for unit in extract_units([RICH, TESTIMONIALS])}
     run = units["0/content/0/content"]
