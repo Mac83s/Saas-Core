@@ -40,6 +40,7 @@ from .review import (
     decide_review,
     list_review,
     revert_job,
+    review_detail,
     review_listing,
 )
 from .serializers import (
@@ -57,6 +58,7 @@ from .serializers import (
     QuoteSerializer,
     ReviewDecisionResultSerializer,
     ReviewDecisionSerializer,
+    ReviewDetailSerializer,
     ReviewPageSerializer,
     ReviewQuerySerializer,
     TranslationOfferSerializer,
@@ -493,6 +495,30 @@ class ReviewListView(APIView):
             "count": count_review(reason=query.validated_data.get("reason")),
             "next_cursor": next_cursor,
         })
+
+
+class ReviewDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_review_retrieve",
+        summary="A translation waiting for a person, text beside text",
+        description="One waiting result with, for each unit, the source text, what stands in "
+        "the language now and what accepting would write. The texts are kept here for a live "
+        "record only (a card, the booking catalogue); a versioned source (a page, an article) "
+        "answers `comparable: false` with no units and shows its waiting text in its own "
+        "editor. `fits: false` means the source or the translation moved since and an "
+        "acceptance would answer 409. An item already decided or replaced is 404; a source "
+        "the person may not read is 403.",
+        tags=["translation"],
+        responses={
+            200: ReviewDetailSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, review_id: UUID) -> Response:
+        return Response(ReviewDetailSerializer(review_detail(review_id)).data)
 
 
 def _decision_view(action: str, operation_id: str, summary: str, description: str) -> type[APIView]:

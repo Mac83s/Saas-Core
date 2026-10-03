@@ -11,6 +11,7 @@ from .views import (
     JobRevertView,
     QuoteView,
     ReviewAcceptView,
+    ReviewDetailView,
     ReviewDiscardView,
     ReviewListView,
     TranslationOfferView,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("review/", ReviewListView.as_view(), name="translation-review"),
     path("review/accept/", ReviewAcceptView.as_view(), name="translation-review-accept"),
     path("review/discard/", ReviewDiscardView.as_view(), name="translation-review-discard"),
+    path("review/<uuid:review_id>/", ReviewDetailView.as_view(), name="translation-review-item"),
     path("offer/", TranslationOfferView.as_view(), name="translation-offer"),
     path("settings/", TranslationSettingsView.as_view(), name="translation-settings"),
     path(

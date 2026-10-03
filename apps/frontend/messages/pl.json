@@ -2486,6 +2486,7 @@
       "colEntry": "Wpis",
       "colActions": "Działania",
       "actionsFor": "Działania dla: {name}",
+      "edit": "Edytuj",
       "editIn": "Edytuj: {language}",
       "openBlog": "Otwórz blog",
       "filterKind": "Rodzaj",
@@ -5212,6 +5213,28 @@
       "loadMore": "Wczytaj więcej",
       "clearFilters": "Wyczyść filtry",
       "cancel": "Anuluj",
+      "compare": {
+        "open": "Porównaj",
+        "title": "{name} · {language}",
+        "list": "Teksty czekające na decyzję",
+        "loading": "Wczytuję teksty…",
+        "loadFailed": "Nie udało się wczytać tekstów tego tłumaczenia.",
+        "source": "Tekst źródłowy",
+        "sourceIn": "Tekst źródłowy ({language})",
+        "sourceGone": "Tego tekstu nie ma już w źródle.",
+        "current": "Teraz ({language})",
+        "proposed": "Propozycja",
+        "outdated": "Tekst źródłowy albo tłumaczenie zmieniło się, odkąd powstała ta propozycja, więc nie da się jej już zaakceptować. Odrzuć ją i zleć tłumaczenie jeszcze raz.",
+        "items": {
+          "service": "Usługa",
+          "location": "Miejsce",
+          "resource": "Zasób",
+          "group": "Grupa",
+          "team": "Zespół",
+          "participant_category": "Kategoria uczestników",
+          "extra": "Dodatek"
+        }
+      },
       "dialog": {
         "acceptOne": {
           "title": "Zaakceptować tłumaczenie i opublikować je?",

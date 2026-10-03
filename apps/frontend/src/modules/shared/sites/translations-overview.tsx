@@ -175,11 +175,23 @@ export function TranslateSiteAction({
   );
 }
 
-function CellBadge({ cell }: { cell: Cell }) {
+function CellBadge({ cell, editHref }: { cell: Cell; editHref?: string }) {
   const t = useTranslations("Sites.translationsCentre");
   return (
     <div className="space-y-1">
-      <Badge variant={TONE[cell.state]}>{t(`states.${cell.state}`)}</Badge>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Badge variant={TONE[cell.state]}>{t(`states.${cell.state}`)}</Badge>
+        {editHref ? (
+          <Link
+            aria-label={t("editIn", { language: nativeName(cell.locale) })}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+            href={editHref}
+          >
+            <PencilIcon aria-hidden="true" className="size-3" />
+            {t("edit")}
+          </Link>
+        ) : null}
+      </div>
       {cell.state === "untranslated" && cell.untranslated ? (
         <p className="text-xs text-muted-foreground">
           {t("untranslatedCount", { count: cell.untranslated })}
@@ -331,7 +343,19 @@ export function TranslationsOverview({
       header: nativeName(code),
       cell: ({ row: { original: row } }) => {
         const cell = row.cells.find((item) => item.locale === code);
-        return cell ? <CellBadge cell={cell} /> : "—";
+        // Several languages: each one's editor is in its own column, in sight.
+        return cell ? (
+          <CellBadge
+            cell={cell}
+            editHref={
+              row.kind === "page" && shown.length > 1
+                ? `/panel/sites/pages/${row.id}?language=${code}`
+                : undefined
+            }
+          />
+        ) : (
+          "—"
+        );
       },
     })),
     {

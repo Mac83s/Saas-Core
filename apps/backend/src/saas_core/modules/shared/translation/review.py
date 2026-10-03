@@ -137,8 +137,66 @@ def review_listing(rows: Sequence[TranslationReviewItem]) -> list[dict[str, Any]
             **review_payload(row),
             "label": ref.label if ref else "",
             "scope": ref.scope if ref else "",
+            # Only a live record's text waits here; a versioned source keeps its own.
+            "comparable": bool(row.texts),
         })
     return listed
+
+
+def review_detail(review_id: UUID) -> dict[str, Any]:
+    """One waiting result with its texts side by side: the source, what stands
+    in the language now and what the engine proposes.
+
+    The texts are here for a live record only (a card, the booking catalogue);
+    a versioned source keeps the waiting text itself and shows it in its own
+    editor, so it answers `comparable: false` and no units. `fits` says whether
+    an acceptance would still be taken: the source checks the versions the
+    result was made on, and a moved one answers `translation_review_changed`.
+    """
+    context = authorize(TRANSLATION_REQUEST)
+    row = _open_rows(None).filter(pk=review_id).first()
+    if row is None:
+        raise NotFound("Nie ma takiej pozycji przeglądu.")
+    [listed] = review_listing([row])
+    detail = {**listed, "source_locale": "", "fits": True, "units": []}
+    if not row.texts:
+        return detail
+    try:
+        source = translation_source(row.source_key)
+    except LookupError:
+        return {**detail, "comparable": False}
+    source.authorize(context=context, action="read", object_ids=[row.object_id])
+    read = source.read(
+        context=context,
+        object_id=row.object_id,
+        locale=row.locale,
+        basis=row.basis,
+    )
+    known = {unit.key: unit for unit in read.units}
+    # In the source's order; a unit the source no longer has goes last.
+    keys = [key for key in known if key in row.texts]
+    keys += sorted(key for key in row.texts if key not in known)
+    units = []
+    for key in keys:
+        unit = known.get(key)
+        target = read.targets.get(key)
+        units.append({
+            "key": key,
+            "source_text": unit.text if unit else "",
+            "current_text": target.text if target else "",
+            "proposed_text": str(row.texts[key][0]),
+        })
+    return {
+        **detail,
+        "source_locale": read.source_locale,
+        "fits": (
+            read.excluded is None
+            and read.basis_version == row.basis_version
+            and (read.target_version or "") == row.target_version
+            and len(known.keys() & row.texts.keys()) == len(row.texts)
+        ),
+        "units": units,
+    }
 
 
 def review_payload(row: TranslationReviewItem) -> dict[str, Any]:

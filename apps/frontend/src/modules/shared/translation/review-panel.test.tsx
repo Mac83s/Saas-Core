@@ -11,6 +11,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 import {
   ApiProblemError,
+  type TranslationReviewDetail,
   type TranslationReviewItem,
 } from "@saas-core/api-client";
 import englishMessages from "../../../../messages/en.json";
@@ -18,7 +19,11 @@ import polishMessages from "../../../../messages/pl.json";
 import { TranslationReviewPanel } from "./review-panel";
 
 const { api } = vi.hoisted(() => ({
-  api: { listTranslationReview: vi.fn(), decideTranslationReview: vi.fn() },
+  api: {
+    listTranslationReview: vi.fn(),
+    decideTranslationReview: vi.fn(),
+    getTranslationReview: vi.fn(),
+  },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
@@ -53,6 +58,7 @@ function item(
     created_at: "2026-10-03T12:11:49Z",
     label: "Strona główna",
     scope: SITE,
+    comparable: false,
     ...overrides,
   };
 }
@@ -66,7 +72,34 @@ const CARD = item({
   keys: 1,
   label: "Studio Testowe",
   scope: "",
+  comparable: true,
 });
+
+function cardTexts(
+  overrides: Partial<TranslationReviewDetail> = {},
+): TranslationReviewDetail {
+  return {
+    ...CARD,
+    version: 2,
+    source_locale: "pl",
+    fits: true,
+    units: [
+      {
+        key: "headline",
+        source_text: "Salon fryzjerski w centrum",
+        current_text: "",
+        proposed_text: "Friseursalon im Zentrum",
+      },
+      {
+        key: "bio",
+        source_text: "Strzyżemy od 2010 roku.",
+        current_text: "Wir schneiden seit 2010.",
+        proposed_text: "Wir schneiden Haare seit 2010.",
+      },
+    ],
+    ...overrides,
+  };
+}
 const REFUSED = item({
   id: "0199f0a0-0000-7000-8000-0000000000b3",
   source_key: "sites.entry",
@@ -413,4 +446,123 @@ test("English words and axe", async () => {
   ).toHaveLength(2);
   expect(screen.getByRole("link", { name: "To approve (3)" })).toBeTruthy();
   await expectNoAxeViolations(container);
+});
+
+test("a card's waiting text is read beside its source and accepted from there", async () => {
+  api.getTranslationReview.mockResolvedValue(cardTexts());
+  api.decideTranslationReview.mockResolvedValue({
+    items: [{ ...CARD, state: "accepted", outcomes: [{ state: "live" }] }],
+  });
+  const { container } = view();
+  const table = await screen.findByRole("table");
+  const [home, card] = within(table).getAllByRole("row").slice(1);
+  // A page's waiting text lives in its language editor: nothing to compare here.
+  expect(within(home!).queryByRole("button", { name: "Porównaj" })).toBeNull();
+
+  fireEvent.click(within(card!).getByRole("button", { name: "Porównaj" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Studio Testowe · Deutsch",
+  });
+  const texts = await within(dialog).findByRole("list", {
+    name: "Teksty czekające na decyzję",
+  });
+  expect(api.getTranslationReview).toHaveBeenCalledWith(CARD.id);
+  const [headline, bio] = within(texts).getAllByRole("listitem");
+  expect(headline!.textContent).toContain("Nagłówek");
+  expect(headline!.textContent).toContain("Tekst źródłowy (Polski)");
+  expect(headline!.textContent).toContain("Salon fryzjerski w centrum");
+  // Nothing stands in the language yet.
+  expect(headline!.textContent).toContain("Brak — pokaże się tekst źródłowy");
+  expect(headline!.textContent).toContain("Friseursalon im Zentrum");
+  expect(bio!.textContent).toContain("Teraz (Deutsch)");
+  expect(bio!.textContent).toContain("Wir schneiden seit 2010.");
+  expect(within(bio!).getByText("Wir schneiden Haare seit 2010.").lang).toBe(
+    "de",
+  );
+  await expectNoAxeViolations(container.ownerDocument.body);
+
+  api.listTranslationReview.mockResolvedValue(page([item(), REFUSED]));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zaakceptuj i opublikuj" }),
+  );
+  // The decision carries the version the dialog read, not the list's.
+  await waitFor(() =>
+    expect(api.decideTranslationReview).toHaveBeenCalledWith(
+      "accept",
+      [expect.objectContaining({ id: CARD.id, version: 2 })],
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText("Tłumaczenie zaakceptowane i opublikowane."),
+  ).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("a proposal its source has moved past can only be discarded", async () => {
+  api.getTranslationReview.mockResolvedValue(cardTexts({ fits: false }));
+  view("en");
+  const table = await screen.findByRole("table");
+  fireEvent.click(within(table).getByRole("button", { name: "Compare" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Studio Testowe · Deutsch",
+  });
+  expect((await within(dialog).findByRole("alert")).textContent).toContain(
+    "can no longer be accepted",
+  );
+  expect(
+    within(dialog).queryByRole("button", { name: "Accept and publish" }),
+  ).toBeNull();
+  await expectNoAxeViolations(dialog.ownerDocument.body);
+
+  // Discarding keeps its own question, with the word about credits.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
+  const question = await screen.findByRole("dialog", {
+    name: "Discard this translation?",
+  });
+  expect(question.textContent).toContain("Credits for a delivered translation");
+  expect(api.decideTranslationReview).not.toHaveBeenCalled();
+});
+
+test("texts that do not load can be asked for again; a decided item returns to the list", async () => {
+  let fail: (error: Error) => void = () => undefined;
+  api.getTranslationReview.mockReturnValueOnce(
+    new Promise((_resolve, reject) => {
+      fail = reject;
+    }),
+  );
+  view();
+  const table = await screen.findByRole("table");
+  fireEvent.click(within(table).getByRole("button", { name: "Porównaj" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("status").textContent).toBe(
+    "Wczytuję teksty…",
+  );
+  fail(new Error("offline"));
+  expect((await within(dialog).findByRole("alert")).textContent).toContain(
+    "Nie udało się wczytać tekstów tego tłumaczenia.",
+  );
+  // No text read, no decision offered.
+  expect(within(dialog).queryByRole("button", { name: "Odrzuć" })).toBeNull();
+
+  // Somebody decided it meanwhile: the item is gone.
+  api.getTranslationReview.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Not found",
+      status: 404,
+      code: "not_found",
+      detail: "",
+    } as ConstructorParameters<typeof ApiProblemError>[0]),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Spróbuj ponownie" }),
+  );
+  expect(
+    await screen.findByText(
+      "Ta pozycja zmieniła się albo ktoś już o niej zdecydował — poniżej aktualna lista.",
+    ),
+  ).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(api.listTranslationReview).toHaveBeenCalledTimes(2);
 });

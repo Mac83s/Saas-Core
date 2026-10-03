@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
+import { CheckIcon, Columns2Icon, PencilIcon, XIcon } from "lucide-react";
 import {
   ApiProblemError,
   decideTranslationReview,
@@ -35,6 +35,7 @@ import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { ReviewCompareDialog } from "./review-compare";
 import { TranslationTabs } from "./translation-tabs";
 
 type Row = TranslationReviewItem;
@@ -118,6 +119,8 @@ export function TranslationReviewPanel() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [deciding, setDeciding] = useState<Decision>();
+  // A live record's waiting text, read beside its source before the decision.
+  const [comparing, setComparing] = useState<{ row: Row; key: string }>();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [problem, setProblem] = useState("");
@@ -200,6 +203,14 @@ export function TranslationReviewPanel() {
     setReloads((value) => value + 1);
   }
 
+  /** Somebody decided it meanwhile, or a newer result replaced it. */
+  function gone() {
+    setProblem(t("changed"));
+    setDeciding(undefined);
+    setComparing(undefined);
+    reload();
+  }
+
   async function decide(decision: Decision) {
     setBusy(true);
     setDialogProblem("");
@@ -230,6 +241,7 @@ export function TranslationReviewPanel() {
               : t("accepted", { count }),
       );
       setDeciding(undefined);
+      setComparing(undefined);
       // Decided rows leave at once — the list asked for again confirms it.
       const decided = new Set(decision.rows.map((row) => row.id));
       setAnswer((current) =>
@@ -246,10 +258,7 @@ export function TranslationReviewPanel() {
       const code =
         error instanceof ApiProblemError ? error.problem.code : undefined;
       if (code === "translation_review_changed") {
-        // Somebody decided it meanwhile, or a newer result replaced it.
-        setProblem(t("changed"));
-        setDeciding(undefined);
-        reload();
+        gone();
       } else
         setDialogProblem(
           error instanceof ApiProblemError && error.problem.status === 403
@@ -361,12 +370,24 @@ export function TranslationReviewPanel() {
       cell: ({ row: { original: row } }) => {
         const items: RowAction[] = [];
         const place = placeOf(row);
+        // Its text waits only here: reading it comes before the decision.
+        if (row.comparable)
+          items.push({
+            label: t("compare.open"),
+            icon: <Columns2Icon aria-hidden="true" />,
+            inline: true,
+            main: true,
+            onSelect: () => {
+              setDialogProblem("");
+              setComparing({ row, key: crypto.randomUUID() });
+            },
+          });
         if (row.acceptable)
           items.push({
             label: t(withdrawal(row) ? "withdraw" : "accept"),
             icon: <CheckIcon aria-hidden="true" />,
             inline: true,
-            main: true,
+            main: !row.comparable,
             onSelect: () => ask("accept", [row]),
           });
         if (place)
@@ -375,7 +396,7 @@ export function TranslationReviewPanel() {
             icon: <PencilIcon aria-hidden="true" />,
             // Nothing to accept: reading and translating by hand is the way.
             inline: !row.acceptable,
-            main: !row.acceptable,
+            main: !row.acceptable && !row.comparable,
             link: <Link href={place} />,
           });
         items.push({
@@ -549,6 +570,24 @@ export function TranslationReviewPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ReviewCompareDialog
+        busy={busy}
+        name={comparing ? nameOf(comparing.row) : ""}
+        onAccept={(detail) =>
+          comparing &&
+          void decide({ action: "accept", rows: [detail], key: comparing.key })
+        }
+        onClose={() => setComparing(undefined)}
+        onDiscard={(detail) => {
+          // Discarding keeps its own question: the credits do not come back.
+          setComparing(undefined);
+          ask("discard", [detail]);
+        }}
+        onGone={gone}
+        problem={deciding ? "" : dialogProblem}
+        reason={comparing ? reasonOf(comparing.row) : ""}
+        row={comparing?.row}
+      />
     </PanelPage>
   );
 }

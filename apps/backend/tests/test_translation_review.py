@@ -182,6 +182,69 @@ def test_a_live_records_waiting_text_is_kept_here_and_written_on_acceptance(
     assert row.state == ReviewState.ACCEPTED and row.texts == {}
 
 
+def test_a_live_records_waiting_text_is_read_beside_its_source(
+    pages: JobSource, cards: LiveCards, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    owner = company("tl16c-detail")
+    review_mode(owner)
+    driver = FakeSourceDriver(cards)
+    card = driver.create(["Salon fryzjerski dla psów", "Kąpiel"])
+    run(_order_card(owner, card))
+    page_id = page(pages, "Alfa")
+    run(order(owner, [page_id]))
+    client = authenticated_client(owner)
+    waiting = client.get("/api/v1/translation/review/").json()["items"]
+    listed = {item["source_key"]: item for item in waiting}
+    assert listed["testing.cards"]["comparable"] is True
+    # A versioned source keeps the waiting text itself: nothing to compare here.
+    versioned = listed[next(key for key in listed if key != "testing.cards")]
+    assert versioned["comparable"] is False
+    answer = client.get(f"/api/v1/translation/review/{versioned['id']}/").json()
+    assert (answer["comparable"], answer["fits"], answer["units"]) == (False, True, [])
+
+    detail = client.get(f"/api/v1/translation/review/{listed['testing.cards']['id']}/").json()
+    assert (detail["comparable"], detail["fits"], detail["source_locale"]) == (True, True, "pl")
+    assert detail["units"] == [
+        {
+            "key": "u0",
+            "source_text": "Salon fryzjerski dla psów",
+            "current_text": "",
+            "proposed_text": german("Salon fryzjerski dla psów"),
+        },
+        {
+            "key": "u1",
+            "source_text": "Kąpiel",
+            "current_text": "",
+            "proposed_text": german("Kąpiel"),
+        },
+    ]
+
+    # The source moved since: the text is still shown, and an acceptance would not be taken.
+    driver.edit(card, 1, "Kąpiel z suszeniem")
+    moved = client.get(f"/api/v1/translation/review/{detail['id']}/").json()
+    assert moved["fits"] is False
+    assert moved["units"][1]["source_text"] == "Kąpiel z suszeniem"
+    [row] = [row for row in open_reviews(owner) if row.source_key == "testing.cards"]
+    with tenant(owner), pytest.raises(ReviewChanged):
+        decide_review(action="accept", choices=choices([row]), idempotency_key="moved-1")
+
+    # Another company does not see it; a source the person may not read answers 403.
+    stranger = authenticated_client(company("tl16c-stranger"))
+    assert stranger.get(f"/api/v1/translation/review/{detail['id']}/").status_code == 404
+
+    def refuse(**_kwargs: Any) -> Any:
+        raise PermissionDenied
+
+    monkeypatch.setattr(cards, "authorize", refuse)
+    assert client.get(f"/api/v1/translation/review/{detail['id']}/").status_code == 403
+
+    # Once decided the text is gone, and so is the item.
+    monkeypatch.undo()
+    with tenant(owner):
+        decide_review(action="discard", choices=choices([row]), idempotency_key="gone-1")
+    assert client.get(f"/api/v1/translation/review/{detail['id']}/").status_code == 404
+
+
 def _order_card(owner: Any, card: Any) -> Any:
     from saas_core.modules.shared.translation.jobs import (
         TargetRequest,

@@ -2486,6 +2486,7 @@
       "colEntry": "Article",
       "colActions": "Actions",
       "actionsFor": "Actions for: {name}",
+      "edit": "Edit",
       "editIn": "Edit: {language}",
       "openBlog": "Open the blog",
       "filterKind": "Kind",
@@ -5212,6 +5213,28 @@
       "loadMore": "Load more",
       "clearFilters": "Clear filters",
       "cancel": "Cancel",
+      "compare": {
+        "open": "Compare",
+        "title": "{name} · {language}",
+        "list": "Texts waiting for a decision",
+        "loading": "Loading the texts…",
+        "loadFailed": "The texts of this translation could not be loaded.",
+        "source": "Source text",
+        "sourceIn": "Source text ({language})",
+        "sourceGone": "The source no longer has this text.",
+        "current": "Now ({language})",
+        "proposed": "Proposal",
+        "outdated": "The source text or the translation has changed since this proposal was made, so it can no longer be accepted. Discard it and order the translation again.",
+        "items": {
+          "service": "Service",
+          "location": "Place",
+          "resource": "Resource",
+          "group": "Group",
+          "team": "Team",
+          "participant_category": "Participant category",
+          "extra": "Extra"
+        }
+      },
       "dialog": {
         "acceptOne": {
           "title": "Accept the translation and publish it?",

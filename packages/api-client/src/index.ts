@@ -5994,6 +5994,24 @@ export async function listTranslationReview(
 
 /** A person's decision on waiting results: accepting publishes them the way
  *  their source publishes, discarding drops them and what is public stays. */
+/** One waiting result with its texts side by side — a live record's only. */
+export type TranslationReviewDetail = components["schemas"]["ReviewDetail"];
+
+export async function getTranslationReview(
+  reviewId: string,
+): Promise<TranslationReviewDetail> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/review/{review_id}/",
+    {
+      params: { path: { review_id: reviewId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function decideTranslationReview(
   action: "accept" | "discard",
   items: TranslationReviewChoice[],

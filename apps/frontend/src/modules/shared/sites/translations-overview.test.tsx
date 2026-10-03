@@ -134,7 +134,20 @@ test("lists every page against the site's other languages, with the way into eac
   });
   await expectNoAxeViolations(container);
 
-  // Two languages: each version's editor is under the row's „…”.
+  // Two languages: each version's editor is in its own column, in sight…
+  expect(
+    within(contact!)
+      .getAllByRole("link", { name: /^Edytuj: / })
+      .map((link) => [
+        link.getAttribute("aria-label"),
+        link.textContent,
+        link.getAttribute("href"),
+      ]),
+  ).toEqual([
+    ["Edytuj: English", "Edytuj", `/panel/sites/pages/${CONTACT}?language=en`],
+    ["Edytuj: Deutsch", "Edytuj", `/panel/sites/pages/${CONTACT}?language=de`],
+  ]);
+  // …and under the row's „…”, beside the order.
   fireEvent.click(
     within(contact!).getByRole("button", { name: "Działania dla: Kontakt" }),
   );
