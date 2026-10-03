@@ -32,8 +32,9 @@ def closes_explicitly(kind: str) -> bool:
 
 
 def has_passed(appointment: Any, now: datetime | None = None) -> bool:
-    return appointment.status == AppointmentStatus.CONFIRMED and appointment.ends_at <= (
-        now or timezone.now()
+    return bool(
+        appointment.status == AppointmentStatus.CONFIRMED
+        and appointment.ends_at <= (now or timezone.now())
     )
 
 
