@@ -24,7 +24,6 @@ from saas_core.modules.core.organizations.audit import (
 )
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.context import require_tenant_context
-from saas_core.modules.core.organizations.locales import clamp_content_locale
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
@@ -34,6 +33,7 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.tasks import issue_service_task_contract
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
+from saas_core.modules.shared.customers.api import Customer, match_or_create, strip_customer
 from saas_core.modules.shared.notifications.retention_notice import scrub_messages
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
@@ -58,7 +58,6 @@ from .models import (
     AppointmentStatusHistory,
     AvailabilityRule,
     BookingMutation,
-    Customer,
     Location,
     PublicBookingRoute,
     QueueReason,
@@ -608,7 +607,7 @@ def create_appointment(
             chose = len(free) > need
     elif walk_in_minutes <= 0:
         raise ValidationError({"walk_in_minutes": "Podaj, na jak długo zająć okno."})
-    customer, email = upsert_customer(organization, customer_data)
+    customer, email = match_or_create(organization, customer_data)
     if materials is not None:
         # Hand-picked products: whoever types them must be allowed to take stock.
         if materials:
@@ -1451,28 +1450,13 @@ def anonymize_customer(customer_id: UUID) -> Customer:
     return customer
 
 
-def strip_customer(customer: Customer) -> None:
-    """Takes the person out of a customer's record, in every copy the system
-    stores (docs/architecture/privacy-retention.md) — by hand from the panel
-    or by the company's retention setting. The caller holds the row's lock and
-    the company's tenant. The visits stay, without the person."""
+def strip_customer_visits(customer: Customer) -> None:
+    """What booking stores about a customer beside the customer's row
+    (docs/architecture/privacy-retention.md), registered with
+    `register_customer_anonymizer`: `customers.strip_customer` calls it in its
+    transaction, holding the row's lock and the company's tenant. The visits
+    stay, without the person."""
     organization_id = customer.organization_id
-    now = timezone.now()
-    customer.display_name = "Zanonimizowany klient"
-    customer.email = ""
-    customer.phone = ""
-    customer.contact_hash = hashlib.sha256(f"anon:{customer.id}".encode()).hexdigest()
-    customer.anonymized_at = now
-    customer.updated_at = now
-    # The company is named in the statement itself, not left to RLS alone.
-    Customer.all_objects.filter(organization_id=organization_id, pk=customer.pk).update(
-        display_name=customer.display_name,
-        email=customer.email,
-        phone=customer.phone,
-        contact_hash=customer.contact_hash,
-        anonymized_at=now,
-        updated_at=now,
-    )
     visits = Appointment.all_objects.filter(organization_id=organization_id, customer=customer)
     # What the customer wrote about the visit goes too (answer 1A, 28.09):
     # in a clinic it can be about their health.
@@ -1531,41 +1515,6 @@ def _visit_quote(
         raise QuoteChanged(quote)
     assert_shown(quote, shown)
     return quote
-
-
-def upsert_customer(
-    organization: Organization, customer_data: dict[str, str]
-) -> tuple[Customer, str]:
-    """The end customer by their contact, made on their first booking; and
-    the e-mail the confirmation goes to."""
-    email = customer_data.get("email", "").strip().lower()
-    phone = customer_data.get("phone", "").strip()
-    if not email and not phone:
-        raise ValidationError("Wymagany jest e-mail albo telefon.")
-    contact_hash = hashlib.sha256(f"{email}|{phone}".encode()).hexdigest()
-    # Locked, and asked for again under the lock: a retention run (or a hand
-    # anonymisation) that takes this customer in another transaction makes the
-    # booking wait, and the row then no longer matches — the booking gets a
-    # new customer instead of attaching a visit to a stripped one. NO KEY, so
-    # rows that only point at the customer do not queue behind it.
-    customer = (
-        Customer.all_objects.select_for_update(no_key=True)
-        .filter(organization=organization, contact_hash=contact_hash, anonymized_at__isnull=True)
-        .first()
-    )
-    if customer is None:
-        customer = Customer.all_objects.create(
-            organization=organization,
-            display_name=customer_data["display_name"].strip(),
-            email=email,
-            phone=phone,
-            contact_hash=contact_hash,
-            locale=clamp_content_locale(
-                str(customer_data.get("locale") or "").strip().lower() or None,
-                organization=organization,
-            ),
-        )
-    return customer, email
 
 
 def record_new_booking(

@@ -46,9 +46,10 @@ from saas_core.modules.core.organizations.settings_service import (
 )
 from saas_core.modules.core.organizations.tasks import run_privacy_retention
 from saas_core.modules.shared.booking import retention as booking_retention
-from saas_core.modules.shared.booking.models import Appointment, Customer, SelfServiceRoute
+from saas_core.modules.shared.booking.models import Appointment, SelfServiceRoute
 from saas_core.modules.shared.booking.retention import customers_due, erase_customers
 from saas_core.modules.shared.booking.services import anonymize_customer
+from saas_core.modules.shared.customers.api import Customer
 from saas_core.modules.shared.notifications.models import NotificationMessage
 from saas_core.modules.shared.notifications.services import queue_email
 from saas_core.modules.shared.sites.models import SiteInquiry

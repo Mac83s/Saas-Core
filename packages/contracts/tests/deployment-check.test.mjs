@@ -52,6 +52,7 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "shared.profiles",
     "shared.translation",
     "shared.assistant",
+    "shared.customers",
     "shared.booking",
     "shared.seo",
     "shared.inventory",
@@ -502,7 +503,7 @@ test("typy organizacji używają tylko modułów i planów profilu (ADR-050)", a
   const company = {
     key: "company",
     label: { pl: "Firma", en: "Company" },
-    modules: ["shared.billing", "shared.booking"],
+    modules: ["shared.billing", "shared.customers", "shared.booking"],
     planKeys: ["profile"],
     selfSignup: true,
   };
@@ -532,6 +533,46 @@ test("typy organizacji używają tylko modułów i planów profilu (ADR-050)", a
   );
 });
 
+test("klienci stoją tylko obok rezerwacji, a typ z rezerwacjami ma klientów (ADR-073 §2)", async () => {
+  const withoutBooking = await typedProfileRoot(undefined);
+  const profilePath = path.join(
+    withoutBooking,
+    "deployments/typed/deployment.json",
+  );
+  const profile = JSON.parse(await readFile(profilePath, "utf8"));
+  // Everything that needs booking goes with it; customers stay.
+  profile.modules = [
+    "core.health",
+    "core.identity",
+    "core.organizations",
+    "shared.customers",
+  ];
+  delete profile.billing;
+  delete profile.settingsDefaults;
+  delete profile.ai;
+  await writeFile(profilePath, JSON.stringify(profile));
+  await assert.rejects(
+    validateDeployment("typed", withoutBooking),
+    /shared\.customers wymaga shared\.booking/,
+  );
+
+  await assert.rejects(
+    validateDeployment(
+      "typed",
+      await typedProfileRoot([
+        {
+          key: "company",
+          label: { pl: "Firma", en: "Company" },
+          modules: ["shared.billing", "shared.booking"],
+          planKeys: ["profile"],
+          selfSignup: true,
+        },
+      ]),
+    ),
+    /typ company używa shared\.booking bez shared\.customers/,
+  );
+});
+
 test("profil bez typów dostaje jeden typ business ze wszystkim (ADR-050)", () => {
   const [only] = effectiveOrganizationTypes(
     { billing: { planKeys: ["a", "b", "c"] } },
@@ -556,7 +597,7 @@ test("role typu: owner i admin, uprawnienia modułów typu, owner z całym rdzen
   const type = (roles) => ({
     key: "company",
     label: { pl: "Firma", en: "Company" },
-    modules: ["shared.billing", "shared.booking"],
+    modules: ["shared.billing", "shared.customers", "shared.booking"],
     planKeys: ["profile"],
     selfSignup: true,
     roles,

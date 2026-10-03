@@ -20,6 +20,7 @@
     "shared.profiles",
     "shared.notifications",
     "shared.translation",
+    "shared.customers",
     "shared.booking",
     "shared.seo",
     "shared.inventory"

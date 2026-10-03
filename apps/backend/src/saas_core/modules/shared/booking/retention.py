@@ -45,9 +45,10 @@ from saas_core.modules.core.organizations.api import (
 from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.models import Organization, OrganizationSetting
 from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
+from saas_core.modules.shared.customers.api import Customer, strip_customer
 from saas_core.modules.shared.notifications.retention_notice import announce_retention
 
-from .models import Appointment, Customer
+from .models import Appointment
 
 CUSTOMERS = "booking.retention.customers"
 SWEEP = "booking.customers"
@@ -88,8 +89,6 @@ def erase_customers(organization_id: UUID, cutoff: datetime, limit: int) -> int:
     and is then seen, one that starts later waits for the run and finds the
     customer stripped. The order is customer, then visit; a move takes the
     visit alone, so nothing can wait in a circle."""
-    from .services import strip_customer  # noqa: PLC0415 — services read settings
-
     found = list(
         customers_due(organization_id, cutoff).order_by("id").values_list("id", flat=True)[:limit]
     )

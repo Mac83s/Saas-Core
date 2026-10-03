@@ -39,6 +39,7 @@ from saas_core.modules.core.organizations.context import TenantContext, require_
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
+from saas_core.modules.shared.customers.api import match_or_create
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
 
@@ -75,7 +76,6 @@ from .services import (
     arm_reminder,
     local_time,
     record_new_booking,
-    upsert_customer,
 )
 
 if TYPE_CHECKING:
@@ -387,7 +387,7 @@ def book_stay(
         people=people,
     )
     organization = Organization.objects.get(pk=context.organization_id)
-    customer, email = upsert_customer(organization, customer_data)
+    customer, email = match_or_create(organization, customer_data)
     token, digest = issue_self_service_token()
     expires = _self_service_expiry(plan.stay.ends_at)
     appointment = Appointment.all_objects.create(

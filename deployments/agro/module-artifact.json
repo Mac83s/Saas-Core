@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:8d63e930039e8f46f810ab2012242d29368cb11ddb77e1e5112284eec0eb6468",
+  "profileHash": "sha256:1b1b824192719dbb485d909166f404e68d669385f780cb0708a4b80cff66f1f3",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -33,6 +33,7 @@
         "shared.profiles",
         "shared.translation",
         "shared.assistant",
+        "shared.customers",
         "shared.booking",
         "shared.seo",
         "shared.farms",
@@ -536,11 +537,34 @@
       }
     },
     {
+      "id": "shared.customers",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.customers",
+        "urlPrefix": null,
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
+      }
+    },
+    {
       "id": "shared.booking",
       "version": 1,
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
+        "shared.customers",
         "shared.notifications",
         "shared.profiles"
       ],

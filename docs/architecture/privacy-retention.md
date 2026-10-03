@@ -109,8 +109,15 @@ przełącznika nie czyta.
 
 ## D1 — klient rezerwacji: wszystkie przechowywane kopie
 
-Źródło: `booking.Customer`. Jedna funkcja `strip_customer`
-(`shared/booking/services.py`) obsługuje ręczną anonimizację z panelu i przebieg.
+Źródło: `customers.Customer` (moduł `shared.customers`, ADR-073 §2; tabela
+`booking_customer`). Jedna funkcja `strip_customer`
+(`shared/customers/services.py`) obsługuje ręczną anonimizację z panelu i przebieg:
+czyści wiersz klienta, a potem woła w tej samej transakcji każdy moduł, który
+zarejestrował, co sam trzyma o kliencie (`register_customer_anonymizer`). Booking
+rejestruje `strip_customer_visits` (`shared/booking/services.py`) — wiersze tabeli
+niżej dotyczące wizyt, linków i wiadomości. Moduł, który zacznie trzymać dane
+klienta (zamówienie: migawka kupującego; sklep: dane dostawy), rejestruje własne
+czyszczenie i dopisuje swoje wiersze do tej tabeli.
 
 | Kopia | Co zawiera | Co się dzieje | Powód |
 |---|---|---|---|

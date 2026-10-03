@@ -46,7 +46,6 @@ from saas_core.modules.shared.booking.models import (
     AppointmentStaffAllocation,
     AppointmentStatus,
     AvailabilityRule,
-    Customer,
     Location,
     PublicBookingRoute,
     ReminderRoute,
@@ -73,6 +72,7 @@ from saas_core.modules.shared.booking.services import (
     create_catalog_item,
     reschedule_appointment,
 )
+from saas_core.modules.shared.customers.api import Customer
 from saas_core.modules.shared.notifications.models import NotificationMessage
 
 pytestmark = pytest.mark.django_db(transaction=True)

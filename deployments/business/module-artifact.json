@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:1f6604ba786f0c8c4086feff18645416884e7610dc8747a976b31db7b46a6c6e",
+  "profileHash": "sha256:30fb0e7bdcf109b2d28d66f93feeb4f851016461fe0dea437d3aa501227e56de",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -35,6 +35,7 @@
         "shared.profiles",
         "shared.translation",
         "shared.assistant",
+        "shared.customers",
         "shared.booking",
         "shared.seo",
         "shared.inventory"
@@ -537,11 +538,34 @@
       }
     },
     {
+      "id": "shared.customers",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.customers",
+        "urlPrefix": null,
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
+      }
+    },
+    {
       "id": "shared.booking",
       "version": 1,
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
+        "shared.customers",
         "shared.notifications",
         "shared.profiles"
       ],

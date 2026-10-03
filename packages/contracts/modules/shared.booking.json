@@ -4,6 +4,7 @@
   "version": 1,
   "dependsOn": [
     "core.organizations",
+    "shared.customers",
     "shared.notifications",
     "shared.profiles"
   ],

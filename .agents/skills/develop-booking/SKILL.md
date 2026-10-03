@@ -114,6 +114,14 @@ not in PostgreSQL.
 - `Customer` is a **tenant entity independent of `User`**. Guest booking is the
   default and complete; there is no fictional membership for a customer, and
   there will not be one.
+- **The customer's record belongs to `shared.customers`** (ADR-073 §2), on the
+  table booking made (`booking_customer`; only the model's state moved).
+  Booking reaches it through `customers.api`: `match_or_create` on a booking,
+  `strip_customer` for the person's data. What a visit keeps of a customer —
+  notes, the street, the self-service link, the stored mails — goes in
+  `services.strip_customer_visits`, registered with
+  `register_customer_anonymizer`; a new copy of customer data on a visit is
+  added there, or it outlives the customer.
 - Anonymisation clears contact data without deleting business history. It is
   manual (`anonymize_customer`) today; automatic deletion after inactivity is off
   by default and a company may turn it on at 12, 24 or 36 months from the last

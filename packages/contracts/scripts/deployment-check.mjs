@@ -255,6 +255,21 @@ const assertInventory = (type, profileName) => {
   }
 };
 
+// ADR-073 §2: the customer's table is still the one booking's migrations
+// made, and a descriptor cannot say "only beside booking" — the reverse
+// dependency would be a cycle. Until customers owns its table, a profile with
+// customers and without booking would boot without it.
+const assertCustomersHaveTheirTable = (profile, profileName) => {
+  if (
+    profile.modules.includes("shared.customers") &&
+    !profile.modules.includes("shared.booking")
+  ) {
+    throw new Error(
+      `Profil ${profileName}: shared.customers wymaga shared.booking, bo tabela klienta powstaje w migracjach rezerwacji (ADR-073 §2)`,
+    );
+  }
+};
+
 const assertOrganizationTypes = (profile, profileName) => {
   const composed = new Set(profile.modules);
   const plans = new Set(profile.billing?.planKeys ?? []);
@@ -282,6 +297,16 @@ const assertOrganizationTypes = (profile, profileName) => {
     }
     if (type.inventory) {
       assertInventory(type, profileName);
+    }
+    // ADR-073: a type that books has the customers it books for, or the
+    // module gate answers 404 to their documents and consents.
+    if (
+      type.modules.includes("shared.booking") &&
+      !type.modules.includes("shared.customers")
+    ) {
+      throw new Error(
+        `Profil ${profileName}: typ ${type.key} używa shared.booking bez shared.customers`,
+      );
     }
     for (const moduleId of type.modules) {
       if (!composed.has(moduleId)) {
@@ -508,6 +533,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
   assertLocales(profile, await loadLocaleRegistry(root), profileName);
   assertBillingConfiguration(profile, profileName);
   assertOrganizationTypes(profile, profileName);
+  assertCustomersHaveTheirTable(profile, profileName);
 
   const validateModule = createValidator(moduleSchema);
   const checkDjangoApps = await backendSourcePresent(root);

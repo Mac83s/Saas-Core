@@ -12,6 +12,7 @@ from django.db import models
 from django.db.models.functions import Lower
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
+from saas_core.modules.shared.customers.api import CUSTOMER_MODEL
 
 
 class AppointmentStatus(models.TextChoices):
@@ -831,37 +832,12 @@ class Extra(TenantScopedModel):
         ]
 
 
-class Customer(TenantScopedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    display_name = models.CharField(max_length=160)
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=40, blank=True)
-    contact_hash = models.CharField(max_length=64)
-    #: A content language from the company's list (ADR-071 pkt 21).
-    locale = models.CharField(max_length=10, default="pl")
-    anonymized_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    all_objects = models.Manager()
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
-                name="booking_customer_locale_format_ck",
-            ),
-        ]
-        ordering = ("organization_id", "-created_at", "id")
-        indexes = [
-            models.Index(
-                fields=["organization", "contact_hash"], name="booking_customer_contact_idx"
-            )
-        ]
-
-
 class Appointment(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="appointments")
+    #: The company's customer, a record of `shared.customers` (ADR-073 §2).
+    customer = models.ForeignKey(
+        CUSTOMER_MODEL, on_delete=models.PROTECT, related_name="appointments"
+    )
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="appointments")
     #: The lead; empty exactly when the booking takes nobody — a unit, a seat
     #: (ADR-072 §2, `staff_required` 0).

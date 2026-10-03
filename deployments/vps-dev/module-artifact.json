@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:f9d920ee55ef6faf1e52a16fc69addada57d65a8c6f429abd7ae2f21bf86486d",
+  "profileHash": "sha256:df3e4b9a0667fc32ac7c5881ec645357c9a3de8bd192cb310a60f6ff1585c7f3",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -34,6 +34,7 @@
         "shared.image-generation",
         "shared.profiles",
         "shared.translation",
+        "shared.customers",
         "shared.booking",
         "shared.seo",
         "shared.inventory"
@@ -477,11 +478,34 @@
       }
     },
     {
+      "id": "shared.customers",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.customers",
+        "urlPrefix": null,
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
+      }
+    },
+    {
       "id": "shared.booking",
       "version": 1,
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
+        "shared.customers",
         "shared.notifications",
         "shared.profiles"
       ],

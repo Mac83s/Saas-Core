@@ -146,6 +146,10 @@
       "skill": "change-api-and-events",
       "note": "Świadomie ogólny: skrzynka, webhooki wychodzące i klucze API to kontrakt API i zdarzenia."
     },
+    "shared.customers": {
+      "skill": "change-tenant-data",
+      "note": "Klient końcowy firmy, dokumenty dla klientów i dziennik zgód (ADR-073 §2 i §9): tabele tenantowe z RLS, wersje i zgody tylko do dopisywania; kto szuka klienta przy rezerwacji albo czyści jego dane, czyta też develop-booking."
+    },
     "shared.booking": {
       "skill": "develop-booking",
       "note": "Własna procedura: czas lokalny, DST i rozstrzyganie wyścigu przez ograniczenie bazy to reguły, których nie da się wyprowadzić z niczego innego."

@@ -1,0 +1,20 @@
+{
+  "id": "shared.customers",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.customers",
+    "urlPrefix": null,
+    "permissions": [],
+    "entitlements": [],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}

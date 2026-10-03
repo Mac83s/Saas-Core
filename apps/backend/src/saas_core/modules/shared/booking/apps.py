@@ -52,6 +52,13 @@ class BookingConfig(AppConfig):
         from .company_settings import register_company_settings
 
         register_company_settings()
+        # What a visit keeps of a customer goes when the customer is stripped
+        # (ADR-073 §2).
+        from saas_core.modules.shared.customers.api import register_customer_anonymizer
+
+        from .services import strip_customer_visits
+
+        register_customer_anonymizer("shared.booking.visits", strip_customer_visits)
         # How long customers' personal data is kept (D1, answer 37a).
         from .retention import register_retention
 
