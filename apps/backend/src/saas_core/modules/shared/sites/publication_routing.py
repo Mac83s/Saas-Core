@@ -724,7 +724,11 @@ def _find_entry(
                         if entry.published_at is not None
                         else None
                     ),
-                    "updated_at": publication.created_at.isoformat(),
+                    # When the text changed, which publishing it again does
+                    # not move (TL14); older snapshots: the publication.
+                    "updated_at": str(
+                        snapshot.get("changed_at") or publication.created_at.isoformat()
+                    ),
                     "tags": [
                         tag
                         for tag in snapshot.get("tags", [])

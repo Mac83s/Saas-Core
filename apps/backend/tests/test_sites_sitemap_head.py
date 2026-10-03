@@ -146,6 +146,11 @@ def test_the_head_says_the_language_the_site_and_the_article() -> None:
     assert english["social"]["image"] is None
     # The article's subjects in its own language.
     assert [tag["name"] for tag in english["article"]["tags"]] == ["Tips"]
+    # Modified when its text changed, not whenever it was published again.
+    from saas_core.modules.shared.sites.models import ContentEntry
+
+    entry = ContentEntry.all_objects.get(translation_group__isnull=False, slug="in-english")
+    assert english["article"]["updated_at"] == entry.current_draft.created_at.isoformat()
     assert home["social"]["locale"] == "en_US"
     assert home["article"] is None
 
