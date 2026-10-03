@@ -3481,6 +3481,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/settings/booking.notices/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Team notices
+         * @description Who in the company hears about a new online booking, a visit waiting for someone and a customer's cancellation. The people on the visit always do. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_booking_notices_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Team notices
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_booking_notices_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.notices/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Team notices
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_booking_notices_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/settings/booking.online/": {
         parameters: {
             query?: never;
@@ -3671,6 +3715,50 @@ export interface paths {
         get: operations["organization_settings_schema_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/sites.inquiries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Who receives enquiries
+         * @description A message from the contact form on the company's site comes by e-mail to these people, each in the language of their own panel. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_sites_inquiries_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Who receives enquiries
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_sites_inquiries_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/sites.inquiries/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Who receives enquiries
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_sites_inquiries_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6582,6 +6670,50 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
+        BookingNoticesSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["BookingNoticesSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["BookingNoticesSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        BookingNoticesSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingNoticesSettingsChangeResetEnum"][];
+            /** @description On: everyone who may manage visits (booking.appointment.manage) also hears about a new online booking, a visit waiting for someone to be assigned and a customer's cancellation by link. Off: only the people on the visit, as before. */
+            office?: boolean | null;
+        };
+        /**
+         * @description * `office` - office
+         * @enum {string}
+         */
+        BookingNoticesSettingsChangeResetEnum: "office";
+        BookingNoticesSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["BookingNoticesSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        BookingNoticesSettingsSources: {
+            office: components["schemas"]["SettingSourceEnum"];
+        };
+        BookingNoticesSettingsValues: {
+            /** @description On: everyone who may manage visits (booking.appointment.manage) also hears about a new online booking, a visit waiting for someone to be assigned and a customer's cancellation by link. Off: only the people on the visit, as before. */
+            office: boolean;
+        };
         BookingOnlineSettings: {
             group: string;
             /** @description The group's version token. */
@@ -6605,13 +6737,26 @@ export interface components {
              * @description The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off.
              */
             resume_on?: string | null;
+            /** @description How many days of the calendar, today included, the booking form on the company's site offers (1 to 62); a start beyond them is refused online. The panel is not limited. */
+            horizon_days?: number | null;
+            /**
+             * @description What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link.
+             *
+             *     * `email` - email
+             *     * `phone` - phone
+             *     * `email_or_phone` - email_or_phone
+             *     * `email_and_phone` - email_and_phone
+             */
+            contact?: components["schemas"]["ContactA7eEnum"] | components["schemas"]["NullEnum"];
         };
         /**
          * @description * `paused` - paused
          *     * `resume_on` - resume_on
+         *     * `horizon_days` - horizon_days
+         *     * `contact` - contact
          * @enum {string}
          */
-        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on";
+        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on" | "horizon_days" | "contact";
         BookingOnlineSettingsPreview: {
             /** @description The version token the preview read. */
             version: string;
@@ -6628,6 +6773,8 @@ export interface components {
         BookingOnlineSettingsSources: {
             paused: components["schemas"]["SettingSourceEnum"];
             resume_on: components["schemas"]["SettingSourceEnum"];
+            horizon_days: components["schemas"]["SettingSourceEnum"];
+            contact: components["schemas"]["SettingSourceEnum"];
         };
         BookingOnlineSettingsValues: {
             /** @description Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. */
@@ -6637,6 +6784,17 @@ export interface components {
              * @description The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off.
              */
             resume_on: string | null;
+            /** @description How many days of the calendar, today included, the booking form on the company's site offers (1 to 62); a start beyond them is refused online. The panel is not limited. */
+            horizon_days: number;
+            /**
+             * @description What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link.
+             *
+             *     * `email` - email
+             *     * `phone` - phone
+             *     * `email_or_phone` - email_or_phone
+             *     * `email_and_phone` - email_and_phone
+             */
+            contact: components["schemas"]["ContactA7eEnum"];
         };
         BookingRemindersSettings: {
             group: string;
@@ -7067,6 +7225,14 @@ export interface components {
             resource_id: string;
             summary: components["schemas"]["LocalizedText"];
         };
+        /**
+         * @description * `email` - email
+         *     * `phone` - phone
+         *     * `email_or_phone` - email_or_phone
+         *     * `email_and_phone` - email_and_phone
+         * @enum {string}
+         */
+        ContactA7eEnum: "email" | "phone" | "email_or_phone" | "email_and_phone";
         ContentBase: {
             target: components["schemas"]["ContentBaseQuery"];
             base: components["schemas"]["ContentBaseState"];
@@ -9324,6 +9490,14 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
+        PatchedBookingNoticesSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingNoticesSettingsChangeResetEnum"][];
+            /** @description On: everyone who may manage visits (booking.appointment.manage) also hears about a new online booking, a visit waiting for someone to be assigned and a customer's cancellation by link. Off: only the people on the visit, as before. */
+            office?: boolean | null;
+        };
         PatchedBookingOnlineSettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
             expected_version?: string;
@@ -9336,6 +9510,17 @@ export interface components {
              * @description The day online booking resumes by itself, in the company's time zone (YYYY-MM-DD). Empty: paused until switched off.
              */
             resume_on?: string | null;
+            /** @description How many days of the calendar, today included, the booking form on the company's site offers (1 to 62); a start beyond them is refused online. The panel is not limited. */
+            horizon_days?: number | null;
+            /**
+             * @description What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link.
+             *
+             *     * `email` - email
+             *     * `phone` - phone
+             *     * `email_or_phone` - email_or_phone
+             *     * `email_and_phone` - email_and_phone
+             */
+            contact?: components["schemas"]["ContactA7eEnum"] | components["schemas"]["NullEnum"];
         };
         PatchedBookingRemindersSettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
@@ -9573,6 +9758,19 @@ export interface components {
             name?: string;
             /** @default  */
             description: string;
+        };
+        PatchedSitesInquiriesSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["SitesInquiriesSettingsChangeResetEnum"][];
+            /**
+             * @description Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content.
+             *
+             *     * `owner` - owner
+             *     * `editors` - editors
+             */
+            recipients?: components["schemas"]["RecipientsD00Enum"] | components["schemas"]["NullEnum"];
         };
         PatchedStockDocumentInput: {
             /** Format: uuid */
@@ -10168,6 +10366,22 @@ export interface components {
              * @description The day booking resumes.
              */
             resume_on: string | null;
+            /** @description How many days, today included, the form offers (booking.online.horizon_days). */
+            horizon_days: number;
+            /**
+             * Format: date
+             * @description The last day a customer may book online.
+             */
+            last_day: string;
+            /**
+             * @description What the form requires of the customer (booking.online.contact).
+             *
+             *     * `email` - email
+             *     * `phone` - phone
+             *     * `email_or_phone` - email_or_phone
+             *     * `email_and_phone` - email_and_phone
+             */
+            contact: components["schemas"]["ContactA7eEnum"];
         };
         PublicPlan: {
             key: string;
@@ -10413,6 +10627,12 @@ export interface components {
          * @enum {string}
          */
         RangeUnitEnum: "night" | "day";
+        /**
+         * @description * `owner` - owner
+         *     * `editors` - editors
+         * @enum {string}
+         */
+        RecipientsD00Enum: "owner" | "editors";
         Registration: {
             /** Format: email */
             email: string;
@@ -11410,6 +11630,60 @@ export interface components {
             texts: {
                 [key: string]: string;
             };
+        };
+        SitesInquiriesSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["SitesInquiriesSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["SitesInquiriesSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        SitesInquiriesSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["SitesInquiriesSettingsChangeResetEnum"][];
+            /**
+             * @description Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content.
+             *
+             *     * `owner` - owner
+             *     * `editors` - editors
+             */
+            recipients?: components["schemas"]["RecipientsD00Enum"] | components["schemas"]["NullEnum"];
+        };
+        /**
+         * @description * `recipients` - recipients
+         * @enum {string}
+         */
+        SitesInquiriesSettingsChangeResetEnum: "recipients";
+        SitesInquiriesSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["SitesInquiriesSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        SitesInquiriesSettingsSources: {
+            recipients: components["schemas"]["SettingSourceEnum"];
+        };
+        SitesInquiriesSettingsValues: {
+            /**
+             * @description Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content.
+             *
+             *     * `owner` - owner
+             *     * `editors` - editors
+             */
+            recipients: components["schemas"]["RecipientsD00Enum"];
         };
         /**
          * @description * `metadata_incomplete` - metadata_incomplete
@@ -22523,6 +22797,158 @@ export interface operations {
             };
         };
     };
+    organization_settings_booking_notices_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingNoticesSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_notices_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingNoticesSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingNoticesSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedBookingNoticesSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingNoticesSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_notices_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingNoticesSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingNoticesSettingsChange"];
+                "multipart/form-data": components["schemas"]["BookingNoticesSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingNoticesSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     organization_settings_booking_online_retrieve: {
         parameters: {
             query?: never;
@@ -23149,6 +23575,158 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_sites_inquiries_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesInquiriesSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_sites_inquiries_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSitesInquiriesSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSitesInquiriesSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedSitesInquiriesSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesInquiriesSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_sites_inquiries_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SitesInquiriesSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["SitesInquiriesSettingsChange"];
+                "multipart/form-data": components["schemas"]["SitesInquiriesSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesInquiriesSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

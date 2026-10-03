@@ -10143,6 +10143,151 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/organizations/current/settings/booking.notices/:
+    get:
+      operationId: organization_settings_booking_notices_retrieve
+      description: Who in the company hears about a new online booking, a visit waiting
+        for someone and a customer's cancellation. The people on the visit always
+        do. The values that apply, where each comes from (code, platform or the company)
+        and the group's version token.
+      summary: 'Read the company''s settings: Team notices'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingNoticesSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_booking_notices_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Team notices'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingNoticesSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingNoticesSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingNoticesSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingNoticesSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/booking.notices/preview/:
+    post:
+      operationId: organization_settings_booking_notices_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Team notices'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingNoticesSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingNoticesSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingNoticesSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingNoticesSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/organizations/current/settings/booking.online/:
     get:
       operationId: organization_settings_booking_online_retrieve
@@ -10747,6 +10892,152 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/current/settings/sites.inquiries/:
+    get:
+      operationId: organization_settings_sites_inquiries_retrieve
+      description: A message from the contact form on the company's site comes by
+        e-mail to these people, each in the language of their own panel. The values
+        that apply, where each comes from (code, platform or the company) and the
+        group's version token.
+      summary: 'Read the company''s settings: Who receives enquiries'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SitesInquiriesSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_sites_inquiries_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Who receives enquiries'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSitesInquiriesSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSitesInquiriesSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSitesInquiriesSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SitesInquiriesSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/sites.inquiries/preview/:
+    post:
+      operationId: organization_settings_sites_inquiries_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Who receives
+        enquiries'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SitesInquiriesSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SitesInquiriesSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SitesInquiriesSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SitesInquiriesSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/organizations/options/:
     get:
       operationId: organization_options_retrieve
@@ -19794,6 +20085,102 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    BookingNoticesSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingNoticesSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/BookingNoticesSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    BookingNoticesSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingNoticesSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        office:
+          type:
+          - boolean
+          - 'null'
+          description: 'On: everyone who may manage visits (booking.appointment.manage)
+            also hears about a new online booking, a visit waiting for someone to
+            be assigned and a customer''s cancellation by link. Off: only the people
+            on the visit, as before.'
+      required:
+      - expected_version
+    BookingNoticesSettingsChangeResetEnum:
+      enum:
+      - office
+      type: string
+      description: '* `office` - office'
+    BookingNoticesSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingNoticesSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    BookingNoticesSettingsSources:
+      type: object
+      properties:
+        office:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - office
+    BookingNoticesSettingsValues:
+      type: object
+      properties:
+        office:
+          type: boolean
+          description: 'On: everyone who may manage visits (booking.appointment.manage)
+            also hears about a new online booking, a visit waiting for someone to
+            be assigned and a customer''s cancellation by link. Off: only the people
+            on the visit, as before.'
+      required:
+      - office
     BookingOnlineSettings:
       type: object
       properties:
@@ -19846,16 +20233,40 @@ components:
           format: date
           description: 'The day online booking resumes by itself, in the company''s
             time zone (YYYY-MM-DD). Empty: paused until switched off.'
+        horizon_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 62
+          minimum: 1
+          description: How many days of the calendar, today included, the booking
+            form on the company's site offers (1 to 62); a start beyond them is refused
+            online. The panel is not limited.
+        contact:
+          description: |-
+            What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link.
+
+            * `email` - email
+            * `phone` - phone
+            * `email_or_phone` - email_or_phone
+            * `email_and_phone` - email_and_phone
+          oneOf:
+          - $ref: '#/components/schemas/ContactA7eEnum'
+          - $ref: '#/components/schemas/NullEnum'
       required:
       - expected_version
     BookingOnlineSettingsChangeResetEnum:
       enum:
       - paused
       - resume_on
+      - horizon_days
+      - contact
       type: string
       description: |-
         * `paused` - paused
         * `resume_on` - resume_on
+        * `horizon_days` - horizon_days
+        * `contact` - contact
     BookingOnlineSettingsPreview:
       type: object
       properties:
@@ -19888,7 +20299,13 @@ components:
           $ref: '#/components/schemas/SettingSourceEnum'
         resume_on:
           $ref: '#/components/schemas/SettingSourceEnum'
+        horizon_days:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        contact:
+          $ref: '#/components/schemas/SettingSourceEnum'
       required:
+      - contact
+      - horizon_days
       - paused
       - resume_on
     BookingOnlineSettingsValues:
@@ -19906,7 +20323,26 @@ components:
           format: date
           description: 'The day online booking resumes by itself, in the company''s
             time zone (YYYY-MM-DD). Empty: paused until switched off.'
+        horizon_days:
+          type: integer
+          maximum: 62
+          minimum: 1
+          description: How many days of the calendar, today included, the booking
+            form on the company's site offers (1 to 62); a start beyond them is refused
+            online. The panel is not limited.
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ContactA7eEnum'
+          description: |-
+            What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link.
+
+            * `email` - email
+            * `phone` - phone
+            * `email_or_phone` - email_or_phone
+            * `email_and_phone` - email_and_phone
       required:
+      - contact
+      - horizon_days
       - paused
       - resume_on
     BookingRemindersSettings:
@@ -21045,6 +21481,18 @@ components:
       - resource
       - resource_id
       - summary
+    ContactA7eEnum:
+      enum:
+      - email
+      - phone
+      - email_or_phone
+      - email_and_phone
+      type: string
+      description: |-
+        * `email` - email
+        * `phone` - phone
+        * `email_or_phone` - email_or_phone
+        * `email_and_phone` - email_and_phone
     ContentBase:
       type: object
       properties:
@@ -26428,6 +26876,25 @@ components:
           minimum: 1
           description: The version the change was made on, as the last read gave it;
             another one answers 409 `booking_version_conflict`.
+    PatchedBookingNoticesSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingNoticesSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        office:
+          type:
+          - boolean
+          - 'null'
+          description: 'On: everyone who may manage visits (booking.appointment.manage)
+            also hears about a new online booking, a visit waiting for someone to
+            be assigned and a customer''s cancellation by link. Off: only the people
+            on the visit, as before.'
     PatchedBookingOnlineSettingsChange:
       type: object
       properties:
@@ -26453,6 +26920,26 @@ components:
           format: date
           description: 'The day online booking resumes by itself, in the company''s
             time zone (YYYY-MM-DD). Empty: paused until switched off.'
+        horizon_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 62
+          minimum: 1
+          description: How many days of the calendar, today included, the booking
+            form on the company's site offers (1 to 62); a start beyond them is refused
+            online. The panel is not limited.
+        contact:
+          description: |-
+            What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link.
+
+            * `email` - email
+            * `phone` - phone
+            * `email_or_phone` - email_or_phone
+            * `email_and_phone` - email_and_phone
+          oneOf:
+          - $ref: '#/components/schemas/ContactA7eEnum'
+          - $ref: '#/components/schemas/NullEnum'
     PatchedBookingRemindersSettingsChange:
       type: object
       properties:
@@ -27014,6 +27501,26 @@ components:
           type: string
           default: ''
           maxLength: 500
+    PatchedSitesInquiriesSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/SitesInquiriesSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        recipients:
+          description: |-
+            Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content.
+
+            * `owner` - owner
+            * `editors` - editors
+          oneOf:
+          - $ref: '#/components/schemas/RecipientsD00Enum'
+          - $ref: '#/components/schemas/NullEnum'
     PatchedStockDocumentInput:
       type: object
       properties:
@@ -28538,7 +29045,27 @@ components:
           - 'null'
           format: date
           description: The day booking resumes.
+        horizon_days:
+          type: integer
+          description: How many days, today included, the form offers (booking.online.horizon_days).
+        last_day:
+          type: string
+          format: date
+          description: The last day a customer may book online.
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ContactA7eEnum'
+          description: |-
+            What the form requires of the customer (booking.online.contact).
+
+            * `email` - email
+            * `phone` - phone
+            * `email_or_phone` - email_or_phone
+            * `email_and_phone` - email_and_phone
       required:
+      - contact
+      - horizon_days
+      - last_day
       - paused
       - resume_on
     PublicPlan:
@@ -29089,6 +29616,14 @@ components:
       description: |-
         * `night` - night
         * `day` - day
+    RecipientsD00Enum:
+      enum:
+      - owner
+      - editors
+      type: string
+      description: |-
+        * `owner` - owner
+        * `editors` - editors
     Registration:
       type: object
       properties:
@@ -31466,6 +32001,105 @@ components:
       required:
       - expected_version
       - texts
+    SitesInquiriesSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/SitesInquiriesSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/SitesInquiriesSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    SitesInquiriesSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/SitesInquiriesSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        recipients:
+          description: |-
+            Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content.
+
+            * `owner` - owner
+            * `editors` - editors
+          oneOf:
+          - $ref: '#/components/schemas/RecipientsD00Enum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - expected_version
+    SitesInquiriesSettingsChangeResetEnum:
+      enum:
+      - recipients
+      type: string
+      description: '* `recipients` - recipients'
+    SitesInquiriesSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/SitesInquiriesSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    SitesInquiriesSettingsSources:
+      type: object
+      properties:
+        recipients:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - recipients
+    SitesInquiriesSettingsValues:
+      type: object
+      properties:
+        recipients:
+          allOf:
+          - $ref: '#/components/schemas/RecipientsD00Enum'
+          description: |-
+            Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content.
+
+            * `owner` - owner
+            * `editors` - editors
+      required:
+      - recipients
     SkippedEnum:
       enum:
       - metadata_incomplete

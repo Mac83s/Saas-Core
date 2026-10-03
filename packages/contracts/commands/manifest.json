@@ -306,6 +306,152 @@
       "version_field": "expected_version"
     },
     {
+      "command": "booking.settings_notices.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Team notices' (office): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Who in the company hears about a new online booking, a visit waiting for someone and a customer's cancellation. The people on the visit always do.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "office": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "office": {
+                "type": "boolean",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "Who in the company hears about a new online booking, a visit waiting for someone and a customer's cancellation. The people on the visit always do.",
+        "pl": "Kto w firmie dowiaduje się o nowej rezerwacji online, wizycie czekającej na przydział i odwołaniu przez klienta. Przypisane osoby wiedzą zawsze."
+      },
+      "title": {
+        "en": "Read settings: Team notices",
+        "pl": "Odczytaj ustawienia: Powiadomienia zespołu"
+      },
+      "tool_name": "booking_settings_notices_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.settings_notices.update@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "office": {
+            "description": "On: everyone who may manage visits (booking.appointment.manage) also hears about a new online booking, a visit waiting for someone to be assigned and a customer's cancellation by link. Off: only the people on the visit, as before. Null keeps it as it is.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "office"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "office",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Team notices'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). Who in the company hears about a new online booking, a visit waiting for someone and a customer's cancellation. The people on the visit always do.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "office": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "office": {
+                "type": "boolean",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "Who in the company hears about a new online booking, a visit waiting for someone and a customer's cancellation. The people on the visit always do.",
+        "pl": "Kto w firmie dowiaduje się o nowej rezerwacji online, wizycie czekającej na przydział i odwołaniu przez klienta. Przypisane osoby wiedzą zawsze."
+      },
+      "title": {
+        "en": "Change settings: Team notices",
+        "pl": "Zmień ustawienia: Powiadomienia zespołu"
+      },
+      "tool_name": "booking_settings_notices_update_v1",
+      "undo": "command:booking.settings_notices.update@1",
+      "version_field": "expected_version"
+    },
+    {
       "command": "booking.settings_online.read@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -318,7 +464,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's settings 'Online booking' (paused, resume_on): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
+      "model_description": "Returns the company's settings 'Online booking' (paused, resume_on, horizon_days, contact): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -327,6 +473,12 @@
         "properties": {
           "sources": {
             "properties": {
+              "contact": {
+                "type": "string"
+              },
+              "horizon_days": {
+                "type": "string"
+              },
               "paused": {
                 "type": "string"
               },
@@ -338,6 +490,22 @@
           },
           "values": {
             "properties": {
+              "contact": {
+                "enum": [
+                  "email",
+                  "phone",
+                  "email_or_phone",
+                  "email_and_phone"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "horizon_days": {
+                "maximum": 62,
+                "minimum": 1,
+                "type": "integer",
+                "x-data-class": "public"
+              },
               "paused": {
                 "type": "boolean",
                 "x-data-class": "public"
@@ -387,6 +555,29 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "contact": {
+            "description": "What the booking form on the company's site requires: an e-mail, a phone, either, or both. Without an e-mail the customer gets no confirmation or self-service link. Null keeps it as it is.",
+            "enum": [
+              "email",
+              "phone",
+              "email_or_phone",
+              "email_and_phone",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "horizon_days": {
+            "description": "How many days of the calendar, today included, the booking form on the company's site offers (1 to 62); a start beyond them is refused online. The panel is not limited. Null keeps it as it is.",
+            "maximum": 62,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "paused": {
             "description": "Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. Null keeps it as it is.",
             "type": [
@@ -399,7 +590,9 @@
             "items": {
               "enum": [
                 "paused",
-                "resume_on"
+                "resume_on",
+                "horizon_days",
+                "contact"
               ],
               "type": "string"
             },
@@ -420,6 +613,8 @@
         "required": [
           "paused",
           "resume_on",
+          "horizon_days",
+          "contact",
           "reset"
         ],
         "type": "object"
@@ -433,6 +628,12 @@
         "properties": {
           "sources": {
             "properties": {
+              "contact": {
+                "type": "string"
+              },
+              "horizon_days": {
+                "type": "string"
+              },
               "paused": {
                 "type": "string"
               },
@@ -444,6 +645,22 @@
           },
           "values": {
             "properties": {
+              "contact": {
+                "enum": [
+                  "email",
+                  "phone",
+                  "email_or_phone",
+                  "email_and_phone"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              },
+              "horizon_days": {
+                "maximum": 62,
+                "minimum": 1,
+                "type": "integer",
+                "x-data-class": "public"
+              },
               "paused": {
                 "type": "boolean",
                 "x-data-class": "public"
@@ -2115,6 +2332,165 @@
       "tool_name": "sites_page_draft_from_template_v1",
       "undo": "none:a draft page is deleted by the person in Site Studio",
       "version_field": null
+    },
+    {
+      "command": "sites.settings_inquiries.read@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Who receives enquiries' (recipients): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. A message from the contact form on the company's site comes by e-mail to these people, each in the language of their own panel.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "recipients": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "recipients": {
+                "enum": [
+                  "owner",
+                  "editors"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "A message from the contact form on the company's site comes by e-mail to these people, each in the language of their own panel.",
+        "pl": "Wiadomość z formularza kontaktowego na stronie firmy przychodzi e-mailem do tych osób, każdej w języku jej panelu."
+      },
+      "title": {
+        "en": "Read settings: Who receives enquiries",
+        "pl": "Odczytaj ustawienia: Odbiorcy zapytań"
+      },
+      "tool_name": "sites_settings_inquiries_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "sites.settings_inquiries.update@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "recipients": {
+            "description": "Who gets the e-mail about a message from the site's contact form: the owner (the earliest active one), or everyone whose role may edit the site's content. Null keeps it as it is.",
+            "enum": [
+              "owner",
+              "editors",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "recipients"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "recipients",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Who receives enquiries'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). A message from the contact form on the company's site comes by e-mail to these people, each in the language of their own panel.",
+      "modifiers": [],
+      "module": "shared.sites",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "recipients": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "recipients": {
+                "enum": [
+                  "owner",
+                  "editors"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "A message from the contact form on the company's site comes by e-mail to these people, each in the language of their own panel.",
+        "pl": "Wiadomość z formularza kontaktowego na stronie firmy przychodzi e-mailem do tych osób, każdej w języku jej panelu."
+      },
+      "title": {
+        "en": "Change settings: Who receives enquiries",
+        "pl": "Zmień ustawienia: Odbiorcy zapytań"
+      },
+      "tool_name": "sites_settings_inquiries_update_v1",
+      "undo": "command:sites.settings_inquiries.update@1",
+      "version_field": "expected_version"
     },
     {
       "command": "translation.glossary.update@1",
