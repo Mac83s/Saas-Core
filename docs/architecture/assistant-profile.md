@@ -15,7 +15,12 @@ Schemat: `packages/contracts/assistant/company-profile.v1.schema.json` — pisan
 - Sekcje: `company` (nazwa, czym się zajmuje, miasto, kategoria, kontakt), `card`
   (zdanie i opis), `languages`, `places`, `people` (z tygodniem pracy), `offers`
   (rodzaj rezerwacji — id presetu, czas, sztuki, pojemność, cena, stawka VAT ceny,
-  miejsca, osoby, odpowiedzi na `requiredInputs` presetu), `sources`.
+  sezony, miejsca, osoby, odpowiedzi na `requiredInputs` presetu), `sources`.
+- **Sezony pobytu albo wynajmu** (`offers[].seasons`) to jedna wartość — lista sezonów
+  tak, jak nazwał je właściciel: `starts_on`, `ends_on` (dni kalendarza, oba włącznie,
+  ostatni nie przed pierwszym — inaczej błąd pola), a z zasad tylko to, co padło:
+  `min_stay` (najkrótszy pobyt w nocach albo dniach oferty), `arrival_days` (dni
+  przyjazdu, 0 = poniedziałek), `name`.
 - **Cena to kwota właściciela** (`offers[].price`: kwota do 999 999,99, waluta, za
   co — rezerwację, osobę, godzinę, dzień, noc) i osobno **stawka VAT**
   (`offers[].vat`: `23`, `8`, `5`, `0`, `zw`, `np`). Żadna z nich nie ma wartości
@@ -58,23 +63,28 @@ i `assistant.use`), także asystent działający w jego imieniu; cecha planu
 
 ## Konfigurator (`shared/assistant/configurator.py`)
 
-`configure(profile, reads, commands)` — bez modelu, bez bazy, bez wykonywania poleceń.
+`configure(profile, reads, commands, setup_refs=())` — bez modelu, bez bazy, bez
+wykonywania poleceń.
 
 - `reads`: wyniki poleceń odczytu, po nazwie polecenia — asystent sięga do innych
   modułów tylko przez rejestr (ADR-076 pkt 9): `organization.read@1`,
   `organization.public_locales.read@1`, `profiles.organization.read@1`,
   `profiles.catalog_options.read@1`, `booking.setup.read@1`, `booking.preset.list@1`,
-  `booking.prices.read@1`. Obszar bez swoich odczytów jest pomijany.
+  `booking.prices.read@1`, `booking.seasons.read@1`. Obszar bez swoich odczytów jest
+  pomijany.
 - `commands`: nazwy poleceń, którymi wolno planować.
+- `setup_refs`: rozmowy ustawiające tej firmy, w postaci, w jakiej usługa nazywa
+  rozmowę, która ją założyła (`origin_ref` w `booking.setup.read@1`). Podaje je
+  `setup._setup_refs` z tabeli rozmów — konfigurator sam niczego nie czyta.
 
 Wynik to cztery listy:
 
 | Lista | Co zawiera |
 | --- | --- |
-| `missing` | pytania do właściciela, od najważniejszych: `ask` (brakuje wartości) albo `confirm` (jest, ale niepotwierdzona), z `reason`, propozycją i dozwolonymi odpowiedziami |
-| `plan` | polecenia gotowe do wykonania: `ref`, `command`, `arguments` |
+| `missing` | pytania do właściciela, od najważniejszych: `ask` (brakuje wartości) albo `confirm` (jest, ale niepotwierdzona), z `reason`, propozycją, dozwolonymi odpowiedziami (`options`) i tym, co zapowiedziane, ale jeszcze nie do wyboru (`soon`) |
+| `plan` | polecenia gotowe do wykonania: `ref`, `command`, `arguments`; krok o czymś, czego notatki już nie nazywają (usunięcie szkicu), niesie nazwę w `about` |
 | `blocked` | kroki, które czekają: `waits` (na wcześniejszy krok — `waits_for`), `command_missing` (produkt nie ma polecenia), `person_only` (krok właściciela, np. włączenie usługi) |
-| `unsupported` | czego właściciel chce, a produkt jeszcze nie umie: `preset_not_ready`, `price_list` (rejestr bez poleceń cennika), `price_currency` (cena w innej walucie niż firma — nie przeliczamy), `city_not_in_catalog`, `language_not_offered`, `language_limit`, `preset_unknown`, `category_unknown`, `booking_unavailable`, `presets_unavailable` |
+| `unsupported` | czego właściciel chce, a produkt jeszcze nie umie: `preset_not_ready`, `price_list` (rejestr bez poleceń cennika), `price_currency` (cena w innej walucie niż firma — nie przeliczamy), `city_not_in_catalog`, `language_not_offered`, `language_limit`, `preset_unknown`, `category_unknown`, `booking_unavailable`, `presets_unavailable`, `seasons_for_stays` (sezon przy wizycie na godzinę), `season_rules` (rejestr bez poleceń sezonów) |
 
 Zasady:
 
@@ -84,6 +94,17 @@ Zasady:
 - **Tylko dokłada.** Miejsce, osoba, język albo wykonawca usługi, których profil nie
   wymienia, zostają. Wyjątek: tydzień pracy osoby to jedna wartość — tydzień z profilu
   zastępuje ten z konta. O miasto i kategorię, które wizytówka już ma, nie pyta.
+- **Jedno cofa: szkic, którego notatki już nie nazywają.** Usługa, która jest szkicem
+  (`draft` — nigdy niewłączona), którą założyła rozmowa ustawiająca (`origin_ref` z
+  `setup_refs`) i której nazwy nie ma żadna oferta w notatkach — bo właściciel ofertę
+  usunął albo nazwał inaczej — dostaje krok `discard:<id usługi>` z poleceniem
+  `booking.offer.discard@1` (klasa `irreversible`, osobne kliknięcie), na końcu planu.
+  Nazwa, którą notatki nadal mają — potwierdzona albo nie — zatrzymuje szkic. Szkicu
+  założonego w panelu, w zwykłej rozmowie albo w rozmowie, którą retencja już usunęła,
+  konfigurator nie rusza; bez polecenia w rejestrze nie mówi o nim nic.
+- **Rodzaj rezerwacji**: pytanie `offer_needs_kind` podaje jako odpowiedzi tylko
+  rodzaje gotowe (`readiness: ready`); zapowiedziane trafiają do `soon` — asystent
+  nazywa je „wkrótce” i nie proponuje.
 - **Dopasowanie po nazwie**: miejsca, osoby i usługi konta poznaje po nazwie bez
   wielkości liter, znaków diakrytycznych i interpunkcji.
 - **Usługa** powstaje przez `booking.preset.apply@1`, gdy produkt ma to polecenie; do
@@ -109,8 +130,14 @@ Zasady:
   propozycją do potwierdzenia. **Oferta, która ma już jakąkolwiek cenę — własną albo
   swojej grupy jednostek — zostaje nietknięta**: cennik na koncie należy do
   właściciela, notatka go nie nadpisuje.
+- **Sezony** (oferta `range`): każdy sezon z notatek staje się krokiem
+  `booking.season.save@1` (`season:<klucz>:<pierwszy dzień>`), gdy oferta ma już
+  identyfikator — z datami i tylko tymi zasadami, które właściciel nazwał. O sezony
+  konfigurator nie pyta: planuje je dopiero, gdy właściciel sam o nich powie. Sezon,
+  który oferta albo jej grupa jednostek ma już na te same daty, zostaje nietknięty —
+  jak cena. Sezon przy wizycie na godzinę to `seasons_for_stays`.
 - **Włączenie oferty** (`person_only`) konfigurator podaje dopiero wtedy, gdy nic z
-  oferty nie zostało do ustawienia — także jednostki i cena.
+  oferty nie zostało do ustawienia — także jednostki, cena i sezony.
 - **Kategoria katalogu**: propozycja z presetu oferty, a gdy jej nie ma — kategoria,
   której słowo kluczowe pada najwcześniej w opisie działalności, a potem w nazwach
   ofert (zawód pada przed szczegółami: „hydraulik: awarie, instalacje”). Zawsze jako

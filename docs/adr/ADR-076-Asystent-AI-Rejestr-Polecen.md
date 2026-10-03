@@ -690,3 +690,77 @@ zakładać. Polecenia są cienkimi adapterami serwisów konfiguracji z ADR-072 �
    `assistant.conversations` i `assistant.profile_versions` z regułą
    `platform_days(assistant.retention.conversation_days)`; własne zadanie
    `purge_assistant_conversations` i wpis harmonogramu `assistant-purge` usunięte.
+
+## Uzupełnienie 2026-10-04: cofnięcie w rozmowie ustawiającej, sezony i rodzaje gotowe
+
+Zamyka trzy rzeczy, które poprzednie uzupełnienie zostawiło otwarte: cofnięcie szkicu
+w samej rozmowie ustawiającej, zasady sezonów jako polecenia i pytanie o rodzaj
+rezerwacji, które podawało też rodzaje jeszcze niedostępne.
+
+1. **Polecenia sezonów.** `booking.seasons.read@1` (`read`) i `booking.season.save@1`
+   to cienkie adaptery `rules.list_rules` i `rules.save_rule` (ADR-072 §5 i §11;
+   `shared/booking/season_commands.py`): sezon usługi, grupy jednostek albo jednostki
+   — daty i zasady rezerwacji w nich (najkrótszy i najdłuższy pobyt, wielokrotność,
+   dni przyjazdu i wyjazdu, wyprzedzenie, termin zamknięty, przerwa po pobycie).
+   Klasa jak przy cenie (pkt 2 poprzedniego uzupełnienia): sezon oferty wyłączonej to
+   `draft`, a oferty włączonej — albo grupy lub jednostki, którą taka rezerwuje —
+   podgląd podnosi do `apply`, bo obowiązuje od razu dla nowych rezerwacji. Słowa
+   zgody pisze serwer z podglądu zapisu, słowami panelu „Sezony i zasady”. Pole o
+   wartości null zostaje, jak było; zasady nie da się tu wyczyścić, a sezonu usunąć —
+   wyłącza się go (`active: false`), usuwa w panelu. Cofnięciem jest to samo
+   polecenie. Odrzucone teraz: osobne polecenia usuwania sezonu i dni zamkniętych —
+   ustawienie firmy ich nie potrzebuje, dojdą z asystentem codziennym (A7).
+2. **Sezony w rozmowie ustawiającej.** Profil dostaje `offers[].seasons`: jedną
+   wartość z listą sezonów, jak tydzień pracy osoby — daty zawsze, a z zasad tylko
+   najkrótszy pobyt i dni przyjazdu, i tylko te, które właściciel nazwał. Konfigurator
+   planuje `season:<oferta>:<pierwszy dzień>` po powstaniu oferty i **o sezony nie
+   pyta**: sezon jest krokiem planu dopiero wtedy, gdy właściciel sam o nim powie.
+   Sezon, który oferta albo jej grupa ma już na te same daty, zostaje nietknięty —
+   ta sama reguła co „oferta, która ma cenę” (pkt 6 poprzedniego uzupełnienia).
+   Daty przepisuje model ze słów właściciela na dni kalendarza; serwer sprawdza, że to
+   prawdziwe dni we właściwej kolejności, a właściciel czyta je w dialogu zgody przed
+   zapisem. Kontroli „właściciel napisał to sam”, jak dla kwoty, daty nie mają: nikt
+   nie pisze dat w zapisie, w którym je przechowujemy, a sezon — inaczej niż cena —
+   nie jest pieniędzmi i w wersji roboczej niczego nie zmienia dla klientów.
+3. **Cofnięcie w rozmowie ustawiającej** (zamyka pkt 5 poprzedniego uzupełnienia i
+   pkt 8 uzupełnienia „rozmowa zakładająca firmę”). Konfigurator nadal tylko dokłada,
+   z jednym wyjątkiem: szkic (`draft`, nigdy niewłączony), który założyła rozmowa
+   ustawiająca i którego nazwy nie ma już żadna oferta w notatkach — bo właściciel
+   ofertę usunął albo nazwał inaczej — planuje do usunięcia poleceniem
+   `booking.offer.discard@1`, jako ostatni krok planu.
+   - **Skąd wiadomo, czyj to szkic.** Usługa niesie rozmowę, która ją założyła
+     (`origin_ref`, ADR-072 §11); `booking.setup.read@1` zwraca ją jako dodane pole
+     wyjścia, a `shared.assistant` sprawdza we własnej tabeli rozmów, które z nich są
+     rodzaju `setup`, i podaje je konfiguratorowi (`setup_refs`) — konfigurator
+     zostaje czystą funkcją. W rozmowie ustawiającej jedyną drogą do zapisu jest plan
+     konfiguratora (pkt 2 uzupełnienia A3-2), więc jej szkic na pewno powstał z
+     notatek i notatki mogą go zabrać.
+   - **Zgoda.** Klasa `irreversible`: osobna grupa, jedno kliknięcie tylko na ten
+     krok, ze słowami serwera (ile cen, dopłat i sezonów ginie; jednostki zostają) i
+     etykietą „Nie da się cofnąć”. To samo mówią notatki obok rozmowy („…— tego nie da
+     się cofnąć”, a przy usuwaniu oferty z notatek — co dalej stanie się w koncie) i
+     model (reguła promptu). Odmowa zostawia szkic i resztę planu bez zmian.
+   - **Odrzucone:** usuwanie każdego szkicu, którego notatki nie nazywają — zabrałoby
+     szkice założone w panelu albo w zwykłej rozmowie; ślad usuniętej oferty zapisany
+     w profilu — drugi zapis tej samej prawdy, który nie obejmuje zmiany nazwy w
+     notatkach i wymaga sprzątania; usunięcie bez kliknięcia — giną kwoty wpisane
+     przez właściciela.
+   - **Granice.** Nazwa, którą notatki nadal mają — potwierdzona albo nie —
+     zatrzymuje szkic. Szkic przemianowany w panelu, gdy notatki mają starą nazwę,
+     też dostanie propozycję usunięcia (obok założenia oferty pod nazwą z notatek):
+     właściciel widzi nazwę w kroku i może nie kliknąć. Gdy retencja usunie rozmowę,
+     która szkic założyła, szkic przestaje być „z notatek” i zostaje w koncie.
+4. **Rodzaje rezerwacji: gotowe i zapowiedziane.** Pytanie `offer_needs_kind` podaje
+   jako odpowiedzi tylko presety `ready`. Zapowiedziane (`soon`) są osobną listą
+   pytania, którą model dostaje słowami, bez identyfikatorów: nazywa je „wkrótce” i
+   nie proponuje, więc nikt nie wybiera rodzaju, którego nie da się ustawić. Rodzaj
+   zapowiedziany zapisany wcześniej w notatkach zostaje `preset_not_ready`.
+5. **Dodane pola wyjścia** (pkt 4 uzupełnienia „profil firmy i konfigurator”):
+   `booking.setup.read@1` zwraca `origin_ref` usługi; API notatek
+   (`GET …/conversations/{id}/setup/`) zwraca w `ready[]` pole `name` — nazwę tego,
+   czego notatki już nie nazywają.
+6. **Prompt `assistant.setup@3`** dokłada dwie reguły: `soon` nie jest odpowiedzią;
+   usunięcie oferty z notatek nie usuwa niczego z konta, a krok oznaczony
+   `cannot_be_undone` asystent nazywa wprost, zanim zaproponuje plan. Evale: trzy
+   nowe scenariusze (`season_pl`, `kind_soon_pl`, `undo_pl`); ocena czyta też słowa
+   modelu napisane obok wywołania narzędzia, bo tam pada „nie da się cofnąć”.
