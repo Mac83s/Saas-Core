@@ -146,6 +146,20 @@ class PublicSocialImageSerializer(serializers.Serializer[dict[str, Any]]):
     alt = serializers.CharField(allow_blank=True, help_text="In the page's language.")
 
 
+class PublicMachineTextSerializer(serializers.Serializer[dict[str, Any]]):
+    source_type = serializers.CharField(
+        help_text="IPTC digital source type of the text: a trained model's, or a person's "
+        "and a model's together."
+    )
+    reviewed = serializers.BooleanField(
+        help_text="A person accepted this version, or published it themselves."
+    )
+    notice = serializers.BooleanField(
+        help_text="Show the visitor a notice that a machine translated this version: the "
+        "operator's switch is on and nobody has accepted the version yet."
+    )
+
+
 class PublicSocialSerializer(serializers.Serializer[dict[str, Any]]):
     site_name = serializers.CharField(allow_blank=True)
     locale = serializers.CharField(help_text="`og:locale` of the page's language, e.g. `de_DE`.")
@@ -208,6 +222,12 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     describedby = serializers.URLField(
         required=False,
         help_text="The site's llms.txt in the page's language (`rel=describedby`, TL19).",
+    )
+    machine_text = PublicMachineTextSerializer(
+        required=False,
+        allow_null=True,
+        help_text="Set on a language version with text an AI model wrote; null for a "
+        "person's text (ADR-071 pkt 17).",
     )
     structured_data = serializers.DictField(
         required=False,

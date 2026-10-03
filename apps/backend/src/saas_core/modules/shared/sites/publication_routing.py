@@ -21,6 +21,7 @@ from saas_core.modules.shared.media.api import ai_generated_asset_ids
 from .ai_badge import badge_visible
 from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
+from .machine_text import machine_text
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -290,6 +291,14 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
     )
     article = _localized_article(page, site_snapshot, default_locale)
     image = _social_image(page, blocks, canonical_origin)
+    machine = machine_text(selected_locale.get("origin"))
+    # The work a machine's version translates: an article's own source, a
+    # page's version in the site's language.
+    source_path = (
+        selected_locale.get("translation_of_path")
+        if article is not None
+        else page.page.get("hreflang", {}).get(default_locale)
+    )
     return {
         "publication_id": str(page.publication.id),
         "snapshot_hash": page.publication.snapshot_hash,
@@ -338,6 +347,10 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         },
         # The llms.txt of the language being read (TL19): `rel=describedby`.
         "describedby": f"{canonical_origin}{feed_path(default_locale, page.locale, 'llms.txt')}",
+        # A version with AI text says so to machines, always; `notice` asks
+        # the renderer for the visible note (ADR-071 pkt 17, TL19b). None: a
+        # person's text.
+        "machine_text": machine,
         # One JSON-LD graph from the same values as the head above (TL18): the
         # company is one `#organization` in every language, with the facts the
         # publication froze.
@@ -353,6 +366,12 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             article=article,
             image=image,
             facts=site_snapshot.get("organization"),
+            machine_source_type=machine["source_type"] if machine else None,
+            translation_of=(
+                f"{canonical_origin}{source_path}"
+                if machine and source_path and source_path != page.canonical_path
+                else None
+            ),
         ),
     }
 
@@ -706,6 +725,9 @@ def _find_entry(
             "social_title": snapshot["title"],
             "social_description": snapshot.get("excerpt", ""),
             "fallback_fields": [],
+            # Who wrote a translation's text (ADR-071 pkt 17); an article
+            # written as itself has none.
+            "origin": snapshot.get("origin"),
         }
         siblings = {
             locale: path
@@ -714,6 +736,17 @@ def _find_entry(
             ).items()
             if available is None or locale in available
         }
+        if entry.translation_of_id is not None:
+            # The article this one translates, where it is published: what the
+            # structured data names as the work translated.
+            source_locale = (
+                ContentEntry.all_objects.filter(
+                    organization_id=organization_id, pk=entry.translation_of_id
+                )
+                .values_list("locale", flat=True)
+                .first()
+            )
+            locale_document["translation_of_path"] = siblings.get(str(source_locale))
         if available is not None and snapshot["locale"] not in available:
             # A language the company switched off: the article in the site's
             # language, when there is one, otherwise nothing (ADR-071 pkt 9).

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 
-import { JsonLd } from "#components/json-ld";
 import { countsAsPageView } from "../../../modules/shared/sites/page-view";
+import { PublicSiteHead } from "../../../modules/shared/sites/public-head";
 import {
   getPublicSite,
   publicSiteMetadata,
@@ -49,20 +49,7 @@ export default async function PublicSitePage({
   }
   return (
     <>
-      {/* Where a language model finds the site's map in this language
-          (TL19); React hoists the link into the head. */}
-      {result.page.describedby ? (
-        <link
-          href={result.page.describedby}
-          rel="describedby"
-          type="text/plain"
-        />
-      ) : null}
-      {/* The page's structured data, built by the backend from the same
-          values as the head (TL18); printed only through `JsonLd`. */}
-      {result.page.structured_data ? (
-        <JsonLd data={result.page.structured_data} />
-      ) : null}
+      <PublicSiteHead page={result.page} />
       <PublicSiteRenderer page={result.page} />
     </>
   );

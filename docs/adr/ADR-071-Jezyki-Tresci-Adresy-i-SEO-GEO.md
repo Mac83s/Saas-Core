@@ -274,3 +274,29 @@ Jak pkt 16 jest wykonany, żeby drugi raz tego nie rozstrzygać:
   `public: false` i powodem.
 - **Poza tym etapem:** `translationOfWork` na wersjach AI (z TL19b), ceny.
 
+## Uzupełnienie 2026-10-03: znacznik tekstu AI i notka operatora (TL19b, pkt 17)
+
+- **Skąd wiadomo.** Migawka niesie przy wersji językowej strony i przy wpisie
+  `origin: {origin, machine, reviewed}` (K2, `d8b38e73` i następny): `machine` — jest
+  tekst modelu; `reviewed` — osoba zaakceptowała tę wersję albo sama ją opublikowała.
+  Migawki sprzed pola `machine` czytamy zachowawczo: `origin` równe `ai` albo `mixed`.
+- **Znacznik maszynowy jest zawsze**, niezależnie od przełącznika. Ładunek strony ma
+  `machine_text: {source_type, reviewed, notice}` (albo `null` dla tekstu osoby), a z
+  niego:
+  - JSON-LD: `digitalSourceType` z wartością IPTC (`trainedAlgorithmicMedia` dla
+    tekstu modelu, `compositeWithTrainedAlgorithmicMedia` dla tekstu osoby i modelu) na
+    `WebPage`, a przy wpisie na `BlogPosting`, oraz `translationOfWork` wskazujące
+    opublikowany oryginał: wersję strony w języku strony, a dla wpisu jego wpis
+    źródłowy (`translation_of`);
+  - head: `<meta name="digital-source-type" content="<wartość IPTC>">`. Nie ma na to
+    standardu meta; nazwa jest nasza, wartość ze słownika IPTC — tego samego, którego
+    używają obrazy (ADR-059).
+- **Widoczna notka** to przełącznik operatora `sites.translation.machine_notice`
+  (bool, domyślnie wyłączony, poziom 2, tylko platforma). `notice` jest prawdą tylko
+  przy włączonym przełączniku i wersji, której nikt nie zaakceptował (`reviewed`
+  fałsz): zaakceptowane tłumaczenie jest tekstem firmy. Samą notkę rysuje renderer
+  strony (K2) z pola `notice`.
+- **Obszar ustawień.** Klucz stoi w obszarze modułu stron (`sites-platform`), nie w
+  „ai”: produkty składają strony bez portu modeli, a grupa w cudzym obszarze
+  zatrzymałaby ich start (`organizations.E102`).
+

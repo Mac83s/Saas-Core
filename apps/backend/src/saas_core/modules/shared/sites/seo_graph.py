@@ -100,6 +100,8 @@ def page_graph(
     article: dict[str, Any] | None,
     image: dict[str, str] | None,
     facts: dict[str, Any] | None,
+    machine_source_type: str | None = None,
+    translation_of: str | None = None,
 ) -> dict[str, Any]:
     """WebSite, the company, this page, its trail, and what the page is
     besides: an article (`BlogPosting`) or a page of questions (`FAQPage`)."""
@@ -148,6 +150,16 @@ def page_graph(
                 for position, crumb in enumerate(breadcrumbs, start=1)
             ],
         })
+    # Text a model wrote says so (ADR-071 pkt 17): IPTC's digital source type,
+    # and the work it translates where that is published.
+    marked: dict[str, Any] = {}
+    if machine_source_type:
+        marked["digitalSourceType"] = machine_source_type
+        if translation_of:
+            suffix = "#article" if article is not None else "#webpage"
+            marked["translationOfWork"] = {"@id": f"{translation_of}{suffix}"}
+    if article is None:
+        page.update(marked)
     if article is not None:
         author = str(article.get("author_name") or "").strip()
         posting: dict[str, Any] = {
@@ -176,5 +188,7 @@ def page_graph(
         keywords = [str(tag["name"]) for tag in article.get("tags") or () if tag.get("name")]
         if keywords:
             posting["keywords"] = keywords
+        # The article is the work a model wrote, not the page around it.
+        posting.update(marked)
         graph.append(posting)
     return {"@context": CONTEXT, "@graph": graph}

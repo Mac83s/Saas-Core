@@ -32899,6 +32899,24 @@ components:
       - redirects
       - removed
       - version
+    PublicMachineText:
+      type: object
+      properties:
+        source_type:
+          type: string
+          description: 'IPTC digital source type of the text: a trained model''s,
+            or a person''s and a model''s together.'
+        reviewed:
+          type: boolean
+          description: A person accepted this version, or published it themselves.
+        notice:
+          type: boolean
+          description: 'Show the visitor a notice that a machine translated this version:
+            the operator''s switch is on and nobody has accepted the version yet.'
+      required:
+      - notice
+      - reviewed
+      - source_type
     PublicName:
       type: object
       properties:
@@ -33133,6 +33151,12 @@ components:
           format: uri
           description: The site's llms.txt in the page's language (`rel=describedby`,
             TL19).
+        machine_text:
+          oneOf:
+          - $ref: '#/components/schemas/PublicMachineText'
+          - type: 'null'
+          description: Set on a language version with text an AI model wrote; null
+            for a person's text (ADR-071 pkt 17).
         structured_data:
           type: object
           additionalProperties: {}

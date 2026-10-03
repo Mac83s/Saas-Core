@@ -30,8 +30,11 @@ class SitesConfig(AppConfig):
         register_history_targets()
         # Who receives the contact form's messages (W2, ADR-078).
         from .inquiry_settings import register_inquiry_settings
+        from .machine_text import register_machine_text_settings
 
         register_inquiry_settings()
+        # The operator's switch for the visible notice on AI translations (TL19b).
+        register_machine_text_settings()
         register_public_locales_guard(site_locale_problems)
         register_public_locales_impact(removed_locale_redirects)
         # Pages, blog articles and site texts are translation sources (ADR-069, TL11).
@@ -76,8 +79,7 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
                 Error(
                     f"{name} nie wskazuje na katalog z manifest.json.",
                     hint=(
-                        "Skopiuj katalog kontraktów do obrazu i ustaw zmienną "
-                        f"środowiskową {name}."
+                        f"Skopiuj katalog kontraktów do obrazu i ustaw zmienną środowiskową {name}."
                     ),
                     obj=str(directory),
                     id=code,

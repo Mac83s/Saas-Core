@@ -12013,6 +12013,14 @@ export interface components {
             /** @description Adresy, które po usunięciu języka od razu odpowiadają 308 (cel pusty — 404). */
             redirects: components["schemas"]["LocaleRedirect"][];
         };
+        PublicMachineText: {
+            /** @description IPTC digital source type of the text: a trained model's, or a person's and a model's together. */
+            source_type: string;
+            /** @description A person accepted this version, or published it themselves. */
+            reviewed: boolean;
+            /** @description Show the visitor a notice that a machine translated this version: the operator's switch is on and nobody has accepted the version yet. */
+            notice: boolean;
+        };
         PublicName: {
             /** Format: uuid */
             id: string;
@@ -12134,6 +12142,8 @@ export interface components {
              * @description The site's llms.txt in the page's language (`rel=describedby`, TL19).
              */
             describedby?: string;
+            /** @description Set on a language version with text an AI model wrote; null for a person's text (ADR-071 pkt 17). */
+            machine_text?: components["schemas"]["PublicMachineText"] | null;
             /** @description One schema.org JSON-LD graph for the page (TL18): WebSite, the company as `#organization` (the same node and facts in every language), WebPage, BreadcrumbList, and BlogPosting or FAQPage where the page is one. The company's texts inside are untrusted: print the graph only inside a JSON-LD script element, escaped. */
             structured_data?: {
                 [key: string]: unknown;
