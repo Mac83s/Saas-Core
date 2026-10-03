@@ -78,6 +78,22 @@
               "null"
             ]
           },
+          "slot_step_minutes": {
+            "description": "How often a visit may start, from the start of a person's hours.",
+            "enum": [
+              5,
+              10,
+              15,
+              20,
+              30,
+              60,
+              null
+            ],
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "staff_count": {
             "description": "How many people one visit needs.",
             "type": [
@@ -104,6 +120,7 @@
           "minimum_notice_minutes",
           "staff_count",
           "public_staff_choice",
+          "slot_step_minutes",
           "staff_ids",
           "location_ids",
           "resource_ids"
@@ -232,6 +249,22 @@
             "description": "The service to change.",
             "type": "string"
           },
+          "slot_step_minutes": {
+            "description": "How often a visit may start, from the start of a person's hours.",
+            "enum": [
+              5,
+              10,
+              15,
+              20,
+              30,
+              60,
+              null
+            ],
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "staff_count": {
             "description": "How many people one visit needs.",
             "type": [
@@ -259,6 +292,7 @@
           "minimum_notice_minutes",
           "staff_count",
           "public_staff_choice",
+          "slot_step_minutes",
           "staff_ids",
           "location_ids",
           "resource_ids"
@@ -902,6 +936,197 @@
       },
       "tool_name": "booking_settings_reminders_update_v1",
       "undo": "command:booking.settings_reminders.update@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "booking.settings_self_service.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the company's settings 'Changes by the customer' (mode, cutoff_hours): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. What the customer may do with the link in the booking confirmation. It holds for bookings made after a change — earlier ones keep their terms.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "cutoff_hours": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "cutoff_hours": {
+                "maximum": 168,
+                "minimum": 0,
+                "type": "integer",
+                "x-data-class": "public"
+              },
+              "mode": {
+                "enum": [
+                  "change_and_cancel",
+                  "cancel_only",
+                  "none"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "What the customer may do with the link in the booking confirmation. It holds for bookings made after a change — earlier ones keep their terms.",
+        "pl": "Co klient może zrobić linkiem z potwierdzenia rezerwacji. Obowiązuje dla rezerwacji zrobionych po zmianie — wcześniejsze zostają na swoich zasadach."
+      },
+      "title": {
+        "en": "Read settings: Changes by the customer",
+        "pl": "Odczytaj ustawienia: Zmiana i odwołanie przez klienta"
+      },
+      "tool_name": "booking_settings_self_service_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "booking.settings_self_service.update@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "cutoff_hours": {
+            "description": "How many hours before the start the link stops allowing changes (0 to 168; 0: until the start). Frozen into each booking. Null keeps it as it is.",
+            "maximum": 168,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mode": {
+            "description": "What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made. Null keeps it as it is.",
+            "enum": [
+              "change_and_cancel",
+              "cancel_only",
+              "none",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
+            "items": {
+              "enum": [
+                "mode",
+                "cutoff_hours"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "cutoff_hours",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "model_description": "Changes the company's settings 'Changes by the customer'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). What the customer may do with the link in the booking confirmation. It holds for bookings made after a change — earlier ones keep their terms.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "sources": {
+            "properties": {
+              "cutoff_hours": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "values": {
+            "properties": {
+              "cutoff_hours": {
+                "maximum": 168,
+                "minimum": 0,
+                "type": "integer",
+                "x-data-class": "public"
+              },
+              "mode": {
+                "enum": [
+                  "change_and_cancel",
+                  "cancel_only",
+                  "none"
+                ],
+                "type": "string",
+                "x-data-class": "public"
+              }
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.settings.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "apply",
+      "summary": {
+        "en": "What the customer may do with the link in the booking confirmation. It holds for bookings made after a change — earlier ones keep their terms.",
+        "pl": "Co klient może zrobić linkiem z potwierdzenia rezerwacji. Obowiązuje dla rezerwacji zrobionych po zmianie — wcześniejsze zostają na swoich zasadach."
+      },
+      "title": {
+        "en": "Change settings: Changes by the customer",
+        "pl": "Zmień ustawienia: Zmiana i odwołanie przez klienta"
+      },
+      "tool_name": "booking_settings_self_service_update_v1",
+      "undo": "command:booking.settings_self_service.update@1",
       "version_field": "expected_version"
     },
     {

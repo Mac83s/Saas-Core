@@ -3613,6 +3613,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/settings/booking.self_service/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Changes by the customer
+         * @description What the customer may do with the link in the booking confirmation. It holds for bookings made after a change — earlier ones keep their terms. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_booking_self_service_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Changes by the customer
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_booking_self_service_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.self_service/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Changes by the customer
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_booking_self_service_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/settings/notifications.customer_mail/": {
         parameters: {
             query?: never;
@@ -6983,6 +7027,68 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
+        BookingSelfServiceSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["BookingSelfServiceSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["BookingSelfServiceSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        BookingSelfServiceSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingSelfServiceSettingsChangeResetEnum"][];
+            /**
+             * @description What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made.
+             *
+             *     * `change_and_cancel` - change_and_cancel
+             *     * `cancel_only` - cancel_only
+             *     * `none` - none
+             */
+            mode?: components["schemas"]["ModeC97Enum"] | components["schemas"]["NullEnum"];
+            /** @description How many hours before the start the link stops allowing changes (0 to 168; 0: until the start). Frozen into each booking. */
+            cutoff_hours?: number | null;
+        };
+        /**
+         * @description * `mode` - mode
+         *     * `cutoff_hours` - cutoff_hours
+         * @enum {string}
+         */
+        BookingSelfServiceSettingsChangeResetEnum: "mode" | "cutoff_hours";
+        BookingSelfServiceSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["BookingSelfServiceSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        BookingSelfServiceSettingsSources: {
+            mode: components["schemas"]["SettingSourceEnum"];
+            cutoff_hours: components["schemas"]["SettingSourceEnum"];
+        };
+        BookingSelfServiceSettingsValues: {
+            /**
+             * @description What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made.
+             *
+             *     * `change_and_cancel` - change_and_cancel
+             *     * `cancel_only` - cancel_only
+             *     * `none` - none
+             */
+            mode: components["schemas"]["ModeC97Enum"];
+            /** @description How many hours before the start the link stops allowing changes (0 to 168; 0: until the start). Frozen into each booking. */
+            cutoff_hours: number;
+        };
         CallbackEnvelope: {
             /** Format: uuid */
             id: string;
@@ -8906,6 +9012,13 @@ export interface components {
          */
         MfaRequired487Enum: "none" | "managers" | "all";
         /**
+         * @description * `change_and_cancel` - change_and_cancel
+         *     * `cancel_only` - cancel_only
+         *     * `none` - none
+         * @enum {string}
+         */
+        ModeC97Enum: "change_and_cancel" | "cancel_only" | "none";
+        /**
          * @description * `consume` - consume
          *     * `sale` - sale
          * @enum {string}
@@ -9568,6 +9681,22 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
+        PatchedBookingSelfServiceSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingSelfServiceSettingsChangeResetEnum"][];
+            /**
+             * @description What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made.
+             *
+             *     * `change_and_cancel` - change_and_cancel
+             *     * `cancel_only` - cancel_only
+             *     * `none` - none
+             */
+            mode?: components["schemas"]["ModeC97Enum"] | components["schemas"]["NullEnum"];
+            /** @description How many hours before the start the link stops allowing changes (0 to 168; 0: until the start). Frozen into each booking. */
+            cutoff_hours?: number | null;
+        };
         /** @description Each field is optional: one left out keeps its value. */
         PatchedContentEntryMetadata: {
             /** @description The article's title; never empty. */
@@ -9678,6 +9807,8 @@ export interface components {
             name?: string;
             address?: string;
             active?: boolean;
+            /** @description Shown on the booking form on the company's site (B2). */
+            online?: boolean;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
@@ -9746,6 +9877,19 @@ export interface components {
             /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
+            /**
+             * @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid.
+             *
+             *     * `5` - 5
+             *     * `10` - 10
+             *     * `15` - 15
+             *     * `20` - 20
+             *     * `30` - 30
+             *     * `60` - 60
+             */
+            slot_step_minutes?: components["schemas"]["SlotStepMinutesEnum"];
+            /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
+            online?: boolean;
             active?: boolean;
             staff_ids?: string[];
             location_ids?: string[];
@@ -10003,6 +10147,8 @@ export interface components {
             name: string;
             address?: string;
             active?: boolean;
+            /** @description Shown on the booking form on the company's site (B2). */
+            online?: boolean;
         };
         PlaceSetup: {
             /** Format: uuid */
@@ -10010,6 +10156,8 @@ export interface components {
             name: string;
             address: string;
             active: boolean;
+            /** @description Shown on the booking form on the company's site (B2). */
+            online: boolean;
             /** @description The place's version; a change names it (`expected_version`). */
             version: number;
         };
@@ -10020,6 +10168,8 @@ export interface components {
             name: string;
             address: string;
             active: boolean;
+            /** @description Shown on the booking form on the company's site (B2). */
+            online: boolean;
             /** @description The place's version; a change names it (`expected_version`). */
             version: number;
             /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
@@ -10032,6 +10182,8 @@ export interface components {
             name?: string;
             address?: string;
             active?: boolean;
+            /** @description Shown on the booking form on the company's site (B2). */
+            online?: boolean;
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
@@ -10240,6 +10392,7 @@ export interface components {
             team_name: string | null;
             person_name: string | null;
             self_service_token?: string;
+            self_service: components["schemas"]["PublicSelfService"];
         };
         /**
          * @description The customer names the service, place and time, and — where the service
@@ -10409,6 +10562,16 @@ export interface components {
             quotas: {
                 [key: string]: number;
             };
+        };
+        /** @description What the customer's link may still do, by the booking's own terms (B4). */
+        PublicSelfService: {
+            reschedule: boolean;
+            cancel: boolean;
+            /**
+             * Format: date-time
+             * @description Until when the link allows changes; null when it allows none.
+             */
+            until: string | null;
         };
         PublicSiteNotFound: {
             /** @description Always `about:blank`; `code` names the problem. */
@@ -10965,6 +11128,19 @@ export interface components {
             /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
+            /**
+             * @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid.
+             *
+             *     * `5` - 5
+             *     * `10` - 10
+             *     * `15` - 15
+             *     * `20` - 20
+             *     * `30` - 30
+             *     * `60` - 60
+             */
+            slot_step_minutes?: components["schemas"]["SlotStepMinutesEnum"];
+            /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
+            online?: boolean;
             active?: boolean;
             appointment_kind?: string;
             staff_ids?: string[];
@@ -10992,6 +11168,10 @@ export interface components {
             minimum_notice_minutes: number;
             staff_count: number;
             public_staff_choice: string;
+            /** @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid. */
+            slot_step_minutes: number;
+            /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
+            online: boolean;
             active: boolean;
             staff_ids: string[];
             location_ids: string[];
@@ -11023,6 +11203,10 @@ export interface components {
             minimum_notice_minutes: number;
             staff_count: number;
             public_staff_choice: string;
+            /** @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid. */
+            slot_step_minutes: number;
+            /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
+            online: boolean;
             active: boolean;
             staff_ids: string[];
             location_ids: string[];
@@ -11078,6 +11262,19 @@ export interface components {
             /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
+            /**
+             * @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid.
+             *
+             *     * `5` - 5
+             *     * `10` - 10
+             *     * `15` - 15
+             *     * `20` - 20
+             *     * `30` - 30
+             *     * `60` - 60
+             */
+            slot_step_minutes?: components["schemas"]["SlotStepMinutesEnum"];
+            /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
+            online?: boolean;
             active?: boolean;
             staff_ids?: string[];
             location_ids?: string[];
@@ -11733,6 +11930,16 @@ export interface components {
             /** Format: uuid */
             resource_id: string | null;
         };
+        /**
+         * @description * `5` - 5
+         *     * `10` - 10
+         *     * `15` - 15
+         *     * `20` - 20
+         *     * `30` - 30
+         *     * `60` - 60
+         * @enum {integer}
+         */
+        SlotStepMinutesEnum: 5 | 10 | 15 | 20 | 30 | 60;
         SlotTime: {
             /** Format: date-time */
             starts_at: string;
@@ -23232,6 +23439,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingRemindersSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_self_service_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingSelfServiceSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_self_service_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingSelfServiceSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingSelfServiceSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedBookingSelfServiceSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingSelfServiceSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_self_service_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingSelfServiceSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingSelfServiceSettingsChange"];
+                "multipart/form-data": components["schemas"]["BookingSelfServiceSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingSelfServiceSettingsPreview"];
                 };
             };
             400: {

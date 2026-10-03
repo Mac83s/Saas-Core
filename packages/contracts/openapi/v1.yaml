@@ -10577,6 +10577,152 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/organizations/current/settings/booking.self_service/:
+    get:
+      operationId: organization_settings_booking_self_service_retrieve
+      description: What the customer may do with the link in the booking confirmation.
+        It holds for bookings made after a change — earlier ones keep their terms.
+        The values that apply, where each comes from (code, platform or the company)
+        and the group's version token.
+      summary: 'Read the company''s settings: Changes by the customer'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingSelfServiceSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_booking_self_service_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Changes by the customer'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingSelfServiceSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingSelfServiceSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingSelfServiceSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingSelfServiceSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/booking.self_service/preview/:
+    post:
+      operationId: organization_settings_booking_self_service_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Changes by
+        the customer'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingSelfServiceSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingSelfServiceSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingSelfServiceSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingSelfServiceSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/organizations/current/settings/notifications.customer_mail/:
     get:
       operationId: organization_settings_notifications_customer_mail_retrieve
@@ -20866,6 +21012,128 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    BookingSelfServiceSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingSelfServiceSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/BookingSelfServiceSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    BookingSelfServiceSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingSelfServiceSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        mode:
+          description: |-
+            What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made.
+
+            * `change_and_cancel` - change_and_cancel
+            * `cancel_only` - cancel_only
+            * `none` - none
+          oneOf:
+          - $ref: '#/components/schemas/ModeC97Enum'
+          - $ref: '#/components/schemas/NullEnum'
+        cutoff_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 168
+          minimum: 0
+          description: 'How many hours before the start the link stops allowing changes
+            (0 to 168; 0: until the start). Frozen into each booking.'
+      required:
+      - expected_version
+    BookingSelfServiceSettingsChangeResetEnum:
+      enum:
+      - mode
+      - cutoff_hours
+      type: string
+      description: |-
+        * `mode` - mode
+        * `cutoff_hours` - cutoff_hours
+    BookingSelfServiceSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/BookingSelfServiceSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    BookingSelfServiceSettingsSources:
+      type: object
+      properties:
+        mode:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        cutoff_hours:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - cutoff_hours
+      - mode
+    BookingSelfServiceSettingsValues:
+      type: object
+      properties:
+        mode:
+          allOf:
+          - $ref: '#/components/schemas/ModeC97Enum'
+          description: |-
+            What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made.
+
+            * `change_and_cancel` - change_and_cancel
+            * `cancel_only` - cancel_only
+            * `none` - none
+        cutoff_hours:
+          type: integer
+          maximum: 168
+          minimum: 0
+          description: 'How many hours before the start the link stops allowing changes
+            (0 to 168; 0: until the start). Frozen into each booking.'
+      required:
+      - cutoff_hours
+      - mode
     CallbackEnvelope:
       type: object
       properties:
@@ -25524,6 +25792,16 @@ components:
         * `none` - none
         * `managers` - managers
         * `all` - all
+    ModeC97Enum:
+      enum:
+      - change_and_cancel
+      - cancel_only
+      - none
+      type: string
+      description: |-
+        * `change_and_cancel` - change_and_cancel
+        * `cancel_only` - cancel_only
+        * `none` - none
     ModeEnum:
       enum:
       - consume
@@ -27072,6 +27350,35 @@ components:
           minimum: 1
           description: The version the change was made on, as the last read gave it;
             another one answers 409 `booking_version_conflict`.
+    PatchedBookingSelfServiceSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingSelfServiceSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        mode:
+          description: |-
+            What the customer's self-service link allows: change the time and cancel, cancel only, or nothing (the customer contacts the company). Frozen into each booking when it is made.
+
+            * `change_and_cancel` - change_and_cancel
+            * `cancel_only` - cancel_only
+            * `none` - none
+          oneOf:
+          - $ref: '#/components/schemas/ModeC97Enum'
+          - $ref: '#/components/schemas/NullEnum'
+        cutoff_hours:
+          type:
+          - integer
+          - 'null'
+          maximum: 168
+          minimum: 0
+          description: 'How many hours before the start the link stops allowing changes
+            (0 to 168; 0: until the start). Frozen into each booking.'
     PatchedContentEntryMetadata:
       type: object
       description: 'Each field is optional: one left out keeps its value.'
@@ -27330,6 +27637,9 @@ components:
           maxLength: 240
         active:
           type: boolean
+        online:
+          type: boolean
+          description: Shown on the booking form on the company's site (B2).
         expected_version:
           type: integer
           minimum: 1
@@ -27462,6 +27772,22 @@ components:
             §2).
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
+        slot_step_minutes:
+          allOf:
+          - $ref: '#/components/schemas/SlotStepMinutesEnum'
+          description: |-
+            How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid.
+
+            * `5` - 5
+            * `10` - 10
+            * `15` - 15
+            * `20` - 20
+            * `30` - 30
+            * `60` - 60
+        online:
+          type: boolean
+          description: 'Whether the service is on the booking form on the company''s
+            site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
         staff_ids:
@@ -28159,6 +28485,9 @@ components:
           maxLength: 240
         active:
           type: boolean
+        online:
+          type: boolean
+          description: Shown on the booking form on the company's site (B2).
       required:
       - name
     PlaceSetup:
@@ -28173,6 +28502,9 @@ components:
           type: string
         active:
           type: boolean
+        online:
+          type: boolean
+          description: Shown on the booking form on the company's site (B2).
         version:
           type: integer
           description: The place's version; a change names it (`expected_version`).
@@ -28181,6 +28513,7 @@ components:
       - address
       - id
       - name
+      - online
       - version
     PlaceSetupPreview:
       type: object
@@ -28195,6 +28528,9 @@ components:
           type: string
         active:
           type: boolean
+        online:
+          type: boolean
+          description: Shown on the booking form on the company's site (B2).
         version:
           type: integer
           description: The place's version; a change names it (`expected_version`).
@@ -28210,6 +28546,7 @@ components:
       - changes
       - id
       - name
+      - online
       - version
     PlaceUpdate:
       type: object
@@ -28223,6 +28560,9 @@ components:
           maxLength: 240
         active:
           type: boolean
+        online:
+          type: boolean
+          description: Shown on the booking form on the company's site (B2).
         expected_version:
           type: integer
           minimum: 1
@@ -28719,11 +29059,14 @@ components:
           - 'null'
         self_service_token:
           type: string
+        self_service:
+          $ref: '#/components/schemas/PublicSelfService'
       required:
       - ends_at
       - id
       - location_name
       - person_name
+      - self_service
       - service_name
       - starts_at
       - status
@@ -29121,6 +29464,25 @@ components:
       - quotas
       - trial_days
       - unit_amount_minor
+    PublicSelfService:
+      type: object
+      description: What the customer's link may still do, by the booking's own terms
+        (B4).
+      properties:
+        reschedule:
+          type: boolean
+        cancel:
+          type: boolean
+        until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Until when the link allows changes; null when it allows none.
+      required:
+      - cancel
+      - reschedule
+      - until
     PublicSiteNotFound:
       type: object
       properties:
@@ -30301,6 +30663,22 @@ components:
             §2).
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
+        slot_step_minutes:
+          allOf:
+          - $ref: '#/components/schemas/SlotStepMinutesEnum'
+          description: |-
+            How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid.
+
+            * `5` - 5
+            * `10` - 10
+            * `15` - 15
+            * `20` - 20
+            * `30` - 30
+            * `60` - 60
+        online:
+          type: boolean
+          description: 'Whether the service is on the booking form on the company''s
+            site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
         appointment_kind:
@@ -30376,6 +30754,15 @@ components:
           type: integer
         public_staff_choice:
           type: string
+        slot_step_minutes:
+          type: integer
+          description: 'How often a visit of this service may start, counted from
+            the start of a person''s working hours: 5, 10, 15, 20, 30 or 60 minutes.
+            Free times and a booked start follow the same grid.'
+        online:
+          type: boolean
+          description: 'Whether the service is on the booking form on the company''s
+            site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
         staff_ids:
@@ -30420,11 +30807,13 @@ components:
       - materials
       - minimum_notice_minutes
       - name
+      - online
       - public_staff_choice
       - range_end_local
       - range_start_local
       - range_unit
       - resource_ids
+      - slot_step_minutes
       - staff_count
       - staff_ids
       - takes_materials
@@ -30475,6 +30864,15 @@ components:
           type: integer
         public_staff_choice:
           type: string
+        slot_step_minutes:
+          type: integer
+          description: 'How often a visit of this service may start, counted from
+            the start of a person''s working hours: 5, 10, 15, 20, 30 or 60 minutes.
+            Free times and a booked start follow the same grid.'
+        online:
+          type: boolean
+          description: 'Whether the service is on the booking form on the company''s
+            site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
         staff_ids:
@@ -30526,11 +30924,13 @@ components:
       - materials
       - minimum_notice_minutes
       - name
+      - online
       - public_staff_choice
       - range_end_local
       - range_start_local
       - range_unit
       - resource_ids
+      - slot_step_minutes
       - staff_count
       - staff_ids
       - takes_materials
@@ -30612,6 +31012,22 @@ components:
             §2).
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
+        slot_step_minutes:
+          allOf:
+          - $ref: '#/components/schemas/SlotStepMinutesEnum'
+          description: |-
+            How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid.
+
+            * `5` - 5
+            * `10` - 10
+            * `15` - 15
+            * `20` - 20
+            * `30` - 30
+            * `60` - 60
+        online:
+          type: boolean
+          description: 'Whether the service is on the booking form on the company''s
+            site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
         staff_ids:
@@ -32194,6 +32610,22 @@ components:
       required:
       - resource_id
       - staff_id
+    SlotStepMinutesEnum:
+      enum:
+      - 5
+      - 10
+      - 15
+      - 20
+      - 30
+      - 60
+      type: integer
+      description: |-
+        * `5` - 5
+        * `10` - 10
+        * `15` - 15
+        * `20` - 20
+        * `30` - 30
+        * `60` - 60
     SlotTime:
       type: object
       properties:
