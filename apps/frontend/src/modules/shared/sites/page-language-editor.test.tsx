@@ -306,6 +306,52 @@ test("a page with no version yet starts from an empty state", async () => {
   expect(await screen.findByLabelText("Treść")).not.toBeNull();
 });
 
+test("the address dialog opens its fields once the language's metadata has arrived", async () => {
+  api.getLocaleBody.mockResolvedValue(body());
+  let arrive: (list: unknown) => void = () => undefined;
+  api.listPageTranslations.mockReturnValue(
+    new Promise((resolve) => {
+      arrive = resolve;
+    }),
+  );
+  show();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Więcej" }));
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Adres i opis" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  // Nothing can be typed that the arriving metadata would overwrite.
+  const title = within(dialog).getByLabelText("Tytuł strony");
+  expect(title).toBeDisabled();
+  expect(within(dialog).getByLabelText("Opis meta")).toBeDisabled();
+  expect(
+    within(dialog).getByRole("button", { name: "Zapisz metadane" }),
+  ).toBeDisabled();
+
+  arrive({
+    page_id: PAGE.id,
+    items: [
+      {
+        locale: "de",
+        slug: "angebot",
+        title: "Angebot",
+        description: "",
+        social_title: "",
+        social_description: "",
+        version: 2,
+        slug_locked: false,
+      },
+    ],
+  });
+
+  await waitFor(() => expect(title).toBeEnabled());
+  expect(title).toHaveValue("Angebot");
+  expect(
+    within(dialog).getByRole("button", { name: "Zapisz metadane" }),
+  ).toBeEnabled();
+});
+
 const DECISION = {
   page_id: PAGE.id,
   locale: "de",
@@ -322,6 +368,7 @@ test("a waiting translation is accepted and published from the banner", async ()
         version_id: "019ff20d-a000-7000-8000-0000000000dd",
         number: 2,
         reason: "review_mode",
+        in_units: false,
       },
     }),
   );
@@ -531,6 +578,96 @@ test("an order from the empty state is followed and the page reloads when it end
     await screen.findByText("Tłumaczenie gotowe — poniżej nowa wersja."),
   ).not.toBeNull();
   expect(api.getLocaleBody).toHaveBeenCalledTimes(2);
+});
+
+test("a first version that waits is read in the fields, and nothing offers to order it again", async () => {
+  // The order ended in review mode: the language has no version of its own
+  // yet, and the answer carries the waiting text.
+  const waiting = body({
+    version: null,
+    version_id: null,
+    untranslated: 0,
+    outdated: true,
+    pending: {
+      version_id: "019ff20d-a000-7000-8000-0000000000dd",
+      number: 1,
+      reason: "review_mode",
+      in_units: true,
+    },
+    units: body().units.map((item) =>
+      item.key === "0/text"
+        ? { ...item, text: "Projekt ab 120 zł", origin: "ai", translated: true }
+        : item,
+    ),
+  });
+  api.getLocaleBody.mockResolvedValueOnce(EMPTY()).mockResolvedValue(waiting);
+  api.getTranslationOffer.mockResolvedValue({
+    available: true,
+    reasons: [],
+    billing: { mode: "credits" },
+  });
+  api.getCustomerCredits.mockResolvedValue({ balance: { available: 5 } });
+  api.quoteTranslation.mockResolvedValue({
+    digest: "d".repeat(64),
+    characters: 120,
+    units: 1,
+    credits: 1,
+    lines: [
+      {
+        object_id: PAGE.id,
+        locale: "de",
+        proposals: 0,
+        outcome: "pending",
+        reason: "review_mode",
+        excluded: null,
+      },
+    ],
+  });
+  api.orderTranslation.mockResolvedValue({ id: "job-1", state: "queued" });
+  api.getTranslationJob.mockResolvedValue({ id: "job-1", state: "succeeded" });
+  api.getLocaleBodyVersion.mockResolvedValue({
+    version: { number: 1 },
+    blocks: [],
+  });
+  show();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Przetłumacz (AI)" }),
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz" }));
+
+  // Not „poniżej nowa wersja”: nothing is a version before the decision.
+  expect(
+    await screen.findByText("Tłumaczenie gotowe — czeka na Twoją decyzję."),
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Zamknij" }));
+  expect(
+    screen.getByText(
+      "Tłumaczenie czeka na Twoją decyzję: tłumaczenia w tej firmie czekają na akceptację. Poniżej jego tekst — poprawisz go po akceptacji.",
+    ),
+  ).not.toBeNull();
+  expect(screen.queryByText(/nie ma jeszcze wersji/)).toBeNull();
+  // The waiting words are read, not written: the decision comes first.
+  const field = screen.getByLabelText("Treść");
+  expect(field).toHaveValue("Projekt ab 120 zł");
+  expect(field).toHaveAttribute("readonly");
+  expect(screen.getByRole("button", { name: /^Zapisz/ })).toBeDisabled();
+  // No second paid order for text that already waits, in any wording — the
+  // source moved on meanwhile, which otherwise offers one.
+  expect(screen.queryByRole("button", { name: /Przetłumacz/ })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Zaakceptuj i opublikuj" }),
+  ).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Odrzuć" })).toBeEnabled();
+  // The preview shows what waits, as a visitor would get it.
+  fireEvent.click(screen.getByRole("button", { name: "Podgląd" }));
+  await waitFor(() =>
+    expect(api.getLocaleBodyVersion).toHaveBeenCalledWith(
+      PAGE.id,
+      "de",
+      "019ff20d-a000-7000-8000-0000000000dd",
+    ),
+  );
 });
 
 test("an order that ended is history: asking again quotes anew", async () => {

@@ -174,15 +174,12 @@ test.describe("A page translated by the stand-in and accepted by a person", () =
       const saveAddress = address.getByRole("button", {
         name: "Zapisz metadane",
       });
-      // The dialog fills its form when the language's metadata arrives, over
-      // anything typed before that: type until the words stay.
-      await expect(async () => {
-        await address.getByLabel("Tytuł strony", { exact: true }).fill("Start");
-        await address
-          .getByLabel("Opis meta", { exact: true })
-          .fill("Testseite der Übersetzungen.");
-        await expect(saveAddress).toBeEnabled({ timeout: 2_000 });
-      }).toPass();
+      // The fields open once the language's metadata has arrived, so what
+      // is typed stays.
+      await address.getByLabel("Tytuł strony", { exact: true }).fill("Start");
+      await address
+        .getByLabel("Opis meta", { exact: true })
+        .fill("Testseite der Übersetzungen.");
       await saveAddress.click();
       await expect(address).toBeHidden();
     });
@@ -220,15 +217,21 @@ test.describe("A page translated by the stand-in and accepted by a person", () =
       await expect(
         page.getByText(/Tłumaczenie czeka na Twoją decyzję/),
       ).toBeVisible({ timeout: 90_000 });
-      // Open (03.10): a language's first version that waits is not in the
-      // fields — the body holds only the accepted version, so the screen
-      // still says the page has no version here. The words are asserted
-      // after the decision; move them up once the editor shows what waits.
-      testInfo.annotations.push({
-        type: "issue",
-        description:
-          "A first version waiting for acceptance cannot be read in the language mode before the decision.",
-      });
+      // The waiting words are read in the fields before the decision, and
+      // nothing offers to order them again.
+      await expect
+        .poll(() =>
+          page
+            .locator("input, textarea")
+            .evaluateAll((fields) =>
+              fields.map((field) => (field as HTMLInputElement).value),
+            ),
+        )
+        .toContain(`[de] ${HEADING}`);
+      await expect(page.getByText(/nie ma jeszcze wersji/)).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: /Przetłumacz/ }),
+      ).toHaveCount(0);
       // Nothing is on the site before the decision.
       const before = await page.request.get(`${origin}/de/`, {
         headers: { Host: hostname },

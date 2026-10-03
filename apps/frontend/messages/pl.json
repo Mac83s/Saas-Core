@@ -2545,6 +2545,7 @@
         "complete": "Wszystkie fragmenty są przetłumaczone.",
         "outdated": "Strona źródłowa zmieniła się od tego tłumaczenia.",
         "pending": "Tłumaczenie czeka na Twoją decyzję: {reason}.",
+        "pendingShown": "Tłumaczenie czeka na Twoją decyzję: {reason}. Poniżej jego tekst — poprawisz go po akceptacji.",
         "withdrawn": "Ta wersja jest zdjęta ze strony. Wróci po opublikowaniu tej wersji.",
         "reasons": {
           "review_mode": "tłumaczenia w tej firmie czekają na akceptację",
@@ -2637,7 +2638,8 @@
         "translate": "Przetłumacz (AI)",
         "translateMissing": "Przetłumacz brakujące (AI)",
         "translating": "Tłumaczenie tej strony trwa…",
-        "translated": "Tłumaczenie gotowe — poniżej nowa wersja."
+        "translated": "Tłumaczenie gotowe — poniżej nowa wersja.",
+        "translatedWaiting": "Tłumaczenie gotowe — czeka na Twoją decyzję."
       },
       "decision": {
         "acceptTitle": "Zaakceptować tłumaczenie i opublikować je?",

@@ -173,7 +173,8 @@ językowej (TL15d): firma włącza niemiecki i tryb „po akceptacji”, publiku
 polską witrynę z jedną stroną, w trybie języka edytora nadaje wersji
 niemieckiej adres („Nadaj adres i tytuł”), zleca „Przetłumacz (AI)” — okno
 podaje liczbę znaków, koszt 1 kredytu i to, że gotowy tekst poczeka — worker
-tłumaczy, wersja czeka na decyzję i przed nią `/de/` nie odpowiada 200, osoba
+tłumaczy, wersja czeka na decyzję — pola pokazują już jej tekst (tylko do
+odczytu), nic nie proponuje drugiego zlecenia, a `/de/` nie odpowiada 200 — osoba
 klika „Zaakceptuj i opublikuj”, pola pokazują tekst obok źródła, a opublikowana
 witryna odpowiada po niemiecku pod `/de/` (`lang="de"`, nagłówek i tekst atrapy,
 link „Deutsch” na polskiej stronie). Zero błędów JS w panelu i na stronie.
@@ -196,9 +197,3 @@ Bez `SITE_TRANSLATION_E2E=1` test jest pomijany. Konto
 `site-catalog-run.sh` plus wpis na listę atrapy (`translation_e2e_fixture on`,
 operator `operator@saas.test` albo `SITE_TRANSLATION_OPERATOR`) i miesięczna
 pula 50 kredytów, z której zlecenie blokuje swój koszt. Trwa ok. 20 s.
-
-Otwarte (03.10): pierwszej wersji językowej, która czeka na akceptację, nie da
-się przeczytać w trybie języka przed decyzją — treść pól pochodzi tylko z wersji
-zaakceptowanej, więc ekran dalej pokazuje „Ta strona nie ma jeszcze wersji”.
-Test sprawdza słowa atrapy po akceptacji i zgłasza to adnotacją `issue`; gdy
-edytor pokaże czekającą wersję, asercję trzeba przenieść przed decyzję.

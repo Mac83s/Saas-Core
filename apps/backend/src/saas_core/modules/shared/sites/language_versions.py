@@ -167,6 +167,9 @@ class LocaleBody:
     source_version: PageVersion
     version: PageLocaleVersion | None
     units: tuple[UnitState, ...]
+    # The units are the waiting version's text, not a body of the language's
+    # own: its first version waits for a person's decision (`_waiting`).
+    waiting: bool = False
 
     @property
     def untranslated(self) -> int:
@@ -190,10 +193,15 @@ def site_locales(site: Site) -> tuple[str, ...]:
     return (site.default_locale, *(code for code in company if code != site.default_locale))
 
 
-def get_locale_body(*, page_id: UUID, locale: str) -> LocaleBody:
+def get_locale_body(*, page_id: UUID, locale: str, waiting: bool = False) -> LocaleBody:
+    """The language's body. `waiting`: for a person reading it — a language
+    whose first version waits for acceptance is read with that version's text
+    (`LocaleBody.waiting`), so the decision is made on words that can be seen.
+    Writes go on from the language's own body, which is still empty then."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
     page, translation = _target(context, page_id=page_id, locale=locale, lock=False)
-    return _body(page, translation)
+    body = _body(page, translation)
+    return (_waiting(body) or body) if waiting else body
 
 
 @transaction.atomic
@@ -545,7 +553,7 @@ def _target(
     if normalized not in site_locales(page.site):
         raise LocaleNotEnabled
     translations = PageTranslation.all_objects.select_related(
-        "body_current__source_version", "body_pending"
+        "body_current__source_version", "body_pending__source_version"
     )
     if lock:
         translations = translations.select_for_update(of=("self",))
@@ -592,6 +600,27 @@ def _body(page: Page, translation: PageTranslation) -> LocaleBody:
     )
     return LocaleBody(
         page=page, translation=translation, source_version=source, version=version, units=states
+    )
+
+
+def _waiting(body: LocaleBody) -> LocaleBody | None:
+    """The first version of a language while it waits for a person's decision:
+    its text against the source it was written for. Nothing is accepted yet,
+    so there is still no `version`."""
+    pending = body.translation.body_pending
+    if body.version is not None or pending is None:
+        return None
+    source = pending.source_version
+    return LocaleBody(
+        page=body.page,
+        translation=body.translation,
+        source_version=source,
+        version=None,
+        units=tuple(
+            _state(unit, pending.units.get(unit.key))
+            for unit in extract_units(_source_blocks(source))
+        ),
+        waiting=True,
     )
 
 

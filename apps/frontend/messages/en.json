@@ -2545,6 +2545,7 @@
         "complete": "All fragments are translated.",
         "outdated": "The source page has changed since this translation.",
         "pending": "The translation is waiting for your decision: {reason}.",
+        "pendingShown": "The translation is waiting for your decision: {reason}. Its text is below — you can correct it once you accept it.",
         "withdrawn": "This version has been taken off the site. It returns once this version is published.",
         "reasons": {
           "review_mode": "translations in this company wait for approval",
@@ -2637,7 +2638,8 @@
         "translate": "Translate (AI)",
         "translateMissing": "Translate what is missing (AI)",
         "translating": "This page is being translated…",
-        "translated": "The translation is ready — the new version is below."
+        "translated": "The translation is ready — the new version is below.",
+        "translatedWaiting": "The translation is ready — it is waiting for your decision."
       },
       "decision": {
         "acceptTitle": "Accept the translation and publish it?",

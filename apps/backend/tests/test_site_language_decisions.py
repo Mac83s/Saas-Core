@@ -20,7 +20,7 @@ from saas_core.modules.core.organizations.context import (
 )
 from saas_core.modules.core.organizations.models import Membership
 from saas_core.modules.shared.sites.language_decisions import publish_locale_version
-from saas_core.modules.shared.sites.language_versions import save_locale_body
+from saas_core.modules.shared.sites.language_versions import get_locale_body, save_locale_body
 from saas_core.modules.shared.sites.models import (
     PageLocaleVersion,
     PageTranslation,
@@ -126,6 +126,7 @@ def test_the_body_says_what_waits_for_a_decision_and_what_was_taken_off():
         "version_id": str(row.body_pending_id),
         "number": row.body_pending.number,
         "reason": "review_mode",
+        "in_units": True,
     }
     assert (waiting.json()["version_id"], waiting.json()["withdrawn"]) == (None, False)
     # The editor names a unit's section from its key's position.
@@ -138,6 +139,35 @@ def test_the_body_says_what_waits_for_a_decision_and_what_was_taken_off():
     assert accepted["version_id"] == str(row.body_pending_id)
     _post(client, _url(offer, tail="withdraw/"), key="off")
     assert client.get(_url(offer)).json()["withdrawn"] is True
+
+
+def test_a_first_version_that_waits_is_read_before_the_decision():
+    """The language has no body of its own yet, so a person reads the waiting
+    text in the fields (03.10: the screen said the page had no version in that
+    language and offered to translate it again). Nothing counts as accepted,
+    and the doors that write still stand on the language's own, empty body."""
+    client, organization, _site_id, _home, offer, _host = _published_site("decide-read-first")
+    written = {unit["key"]: unit["text"] for unit in client.get(_url(offer)).json()["units"]}
+    row = _waiting(offer)
+
+    waiting = client.get(_url(offer)).json()
+
+    assert waiting["pending"]["in_units"] is True
+    assert {unit["key"]: unit["text"] for unit in waiting["units"]} == written
+    assert "EN Oferta" in written.values()
+    assert (waiting["version"], waiting["version_id"], waiting["untranslated"]) == (None, None, 0)
+    assert waiting["source_version_id"] == str(row.body_pending.source_version_id)
+    membership = Membership.objects.get(organization=organization)
+    with activate_tenant_context(context_from_membership(membership)):
+        own = get_locale_body(page_id=UUID(offer), locale="en")
+    assert (own.waiting, {state.text for state in own.units}) == (False, {None})
+
+    # A language with a version of its own keeps it in the fields: what waits
+    # beside it is named, not laid over the person's text.
+    PageTranslation.all_objects.filter(pk=row.pk).update(body_current=row.body_pending_id)
+    beside = client.get(_url(offer)).json()
+    assert beside["pending"]["in_units"] is False
+    assert beside["version_id"] == str(row.body_pending_id)
 
 
 def test_rejecting_drops_the_waiting_version_and_publishes_nothing():

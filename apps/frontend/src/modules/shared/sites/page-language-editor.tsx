@@ -280,6 +280,7 @@ export function PageLanguageEditor({
         setInitial(fresh);
         setValues({ ...fresh, ...keep });
         setState("ready");
+        return loaded;
       } catch (error) {
         const code = problemOf(error)?.code;
         setState(
@@ -289,6 +290,7 @@ export function PageLanguageEditor({
               ? "not-enabled"
               : "error",
         );
+        return undefined;
       }
     },
     [locale, page.id],
@@ -303,9 +305,19 @@ export function PageLanguageEditor({
   const jobDone = translationJobFinished(job);
   useEffect(() => {
     if (!jobDone) return;
-    // The job wrote this language: show what it wrote.
+    // The job wrote this language: show what it wrote. Text that waits for a
+    // decision is not a new version yet, and the notice says so.
+    const before = body?.version_id ?? null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load().then(() => setNotice(t("actions.translated")));
+    void load().then((loaded) =>
+      setNotice(
+        t(
+          loaded?.pending && loaded.version_id === before
+            ? "actions.translatedWaiting"
+            : "actions.translated",
+        ),
+      ),
+    );
     onChanged();
     // `load` and `onChanged` are the same for the editor's life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -381,8 +393,11 @@ export function PageLanguageEditor({
   }
 
   async function openPreview() {
-    if (!body?.version_id || body.version === null) return;
-    const shown = await getLocaleBodyVersion(page.id, locale, body.version_id);
+    // The language's own version, or the first one while it waits.
+    const versionId =
+      body?.version_id ?? (waiting ? body?.pending?.version_id : null);
+    if (!versionId) return;
+    const shown = await getLocaleBodyVersion(page.id, locale, versionId);
     setPreview({ number: shown.version.number, blocks: shown.blocks });
   }
 
@@ -537,9 +552,14 @@ export function PageLanguageEditor({
     );
   }, [body]);
 
+  // The language's first version waits for a decision: the fields carry its
+  // text to read, and it is accepted or rejected before anything is written
+  // — or ordered again.
+  const waiting = body?.pending?.in_units === true;
   const untouched =
     body !== undefined &&
     body.version === null &&
+    !waiting &&
     body.units.every((unit) => unit.text === null);
 
   // The source editor's one row (UX-039): the way back and the page on the
@@ -617,7 +637,7 @@ export function PageLanguageEditor({
           className="pointer-fine:h-8"
           aria-label={t("preview")}
           title={t("preview")}
-          disabled={!body?.version_id}
+          disabled={!body?.version_id && !waiting}
           onClick={() => void openPreview()}
         >
           <EyeIcon aria-hidden="true" />
@@ -697,7 +717,7 @@ export function PageLanguageEditor({
       const reason = body.pending.reason || "other";
       lines.push({
         tone: "warning",
-        text: t("banner.pending", {
+        text: t(waiting ? "banner.pendingShown" : "banner.pending", {
           reason: t.has(`banner.reasons.${reason}`)
             ? t(`banner.reasons.${reason}`)
             : t("banner.reasons.other"),
@@ -717,7 +737,9 @@ export function PageLanguageEditor({
         action: act("publish", t("actions.publish")),
       });
     }
-    if (body.outdated) {
+    // What waits is decided first: moving it onto the new source or ordering
+    // the page again would only add to what waits.
+    if (body.outdated && !waiting) {
       lines.push({
         tone: "warning",
         text: t("banner.outdated"),
@@ -839,7 +861,7 @@ export function PageLanguageEditor({
           marks={marks[unit.key] ?? []}
           labelledBy={`${id}-label`}
           describedBy={error ? `${id}-error` : undefined}
-          disabled={saving}
+          disabled={saving || waiting}
           onRefused={setNotice}
         />
       );
@@ -855,6 +877,7 @@ export function PageLanguageEditor({
           value={value}
           maxLength={unit.max_length ?? undefined}
           disabled={saving}
+          readOnly={waiting}
           onChange={(event) => setValue(event.target.value)}
         />
       );
@@ -867,6 +890,7 @@ export function PageLanguageEditor({
           value={value}
           maxLength={unit.max_length ?? undefined}
           disabled={saving}
+          readOnly={waiting}
           onChange={(event) => setValue(event.target.value)}
         />
       );
@@ -895,6 +919,7 @@ export function PageLanguageEditor({
               <Badge variant="neutral">{statusOf(unit)}</Badge>
             )}
             {editable(unit) &&
+              !waiting &&
               (unit.text === null || unit.origin === "copy") && (
                 <Button
                   type="button"
@@ -906,7 +931,7 @@ export function PageLanguageEditor({
                   {t("unit.keep")}
                 </Button>
               )}
-            {unit.suggestion && (
+            {unit.suggestion && !waiting && (
               <span className="text-sm text-muted-foreground">
                 {t("unit.suggestion", { text: unit.suggestion })}{" "}
                 <Button
@@ -1313,28 +1338,39 @@ function LanguageMetadataDialog({
   const [slugTouched, setSlugTouched] = useState(false);
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
+  // The fields open once this language's metadata has arrived: it fills the
+  // form, and words typed before that were overwritten.
+  const [loaded, setLoaded] = useState(false);
   const receipt = useRef<MutationReceipt | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    void listPageTranslations(page.id).then((list) => {
-      if (!active) return;
-      const found = list.items.find((item) => item.locale === locale) ?? null;
-      setCurrent(found);
-      setSlugTouched(Boolean(found));
-      setValues({
-        slug: found?.slug ?? "",
-        title: found?.title ?? "",
-        description: found?.description ?? "",
-        social_title: found?.social_title ?? "",
-        social_description: found?.social_description ?? "",
+    void listPageTranslations(page.id)
+      .then((list) => {
+        if (!active) return;
+        const found = list.items.find((item) => item.locale === locale) ?? null;
+        setCurrent(found);
+        setSlugTouched(Boolean(found));
+        setValues({
+          slug: found?.slug ?? "",
+          title: found?.title ?? "",
+          description: found?.description ?? "",
+          social_title: found?.social_title ?? "",
+          social_description: found?.social_description ?? "",
+        });
+        setProblem("");
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (active) setProblem(t("languageMode.loadError"));
       });
-    });
     return () => {
       active = false;
+      // The next opening reads the metadata again.
+      setLoaded(false);
     };
-  }, [open, page.id, locale]);
+  }, [open, page.id, locale, t]);
 
   const set = (name: keyof typeof values) => (next: string) =>
     setValues((previous) => ({
@@ -1412,6 +1448,7 @@ function LanguageMetadataDialog({
                     <Textarea
                       id={id}
                       value={values[name]}
+                      disabled={!loaded}
                       onChange={(event) => set(name)(event.target.value)}
                     />
                   ) : (
@@ -1419,7 +1456,8 @@ function LanguageMetadataDialog({
                       id={id}
                       value={values[name]}
                       disabled={
-                        name === "slug" && Boolean(current?.slug_locked)
+                        !loaded ||
+                        (name === "slug" && Boolean(current?.slug_locked))
                       }
                       onChange={(event) => {
                         if (name === "slug") setSlugTouched(true);
@@ -1449,7 +1487,7 @@ function LanguageMetadataDialog({
             </Button>
             <Button
               type="submit"
-              disabled={busy || !values.slug || !values.title}
+              disabled={busy || !loaded || !values.slug || !values.title}
             >
               {t("saveMetadata")}
             </Button>

@@ -68,6 +68,11 @@ class LocaleBodyPendingSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Why it waits: the translation engine's review reason (e.g. `review_mode`, "
         "`legal_document`, `overwrites_human`, `qa_flagged`).",
     )
+    in_units = serializers.BooleanField(
+        help_text="The units carry this waiting version's text and follow its source: the "
+        "language has no version of its own yet. Accept or reject it first — a save now "
+        "starts the language's own body without this text."
+    )
 
 
 class LocaleBodySerializer(serializers.Serializer[dict[str, Any]]):
