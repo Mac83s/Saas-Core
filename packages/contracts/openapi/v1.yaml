@@ -11255,7 +11255,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/PublicSiteNotFound'
           description: ''
   /api/v1/public/site/inquiries/:
     post:
@@ -28345,6 +28345,26 @@ components:
       - public_slug
       - staff_choice
       - team_ids
+    PublicLanguageLink:
+      type: object
+      properties:
+        locale:
+          type: string
+        name:
+          type: string
+          description: The language's name in itself, e.g. Deutsch.
+        path:
+          type: string
+          description: This page's version in the language, else the language's home
+            page.
+        current:
+          type: boolean
+          description: The language the page is in.
+      required:
+      - current
+      - locale
+      - name
+      - path
     PublicLocaleOption:
       type: object
       properties:
@@ -28556,6 +28576,52 @@ components:
       - quotas
       - trial_days
       - unit_amount_minor
+    PublicSiteNotFound:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Always `about:blank`; `code` names the problem.
+        title:
+          type: string
+          description: A fixed, generic title in the server's language.
+        status:
+          type: integer
+          description: The HTTP status of the response.
+        code:
+          type: string
+          description: Stable machine-readable code of the problem; clients branch
+            on it. Input validation answers `invalid` unless the operation names a
+            domain code.
+        detail:
+          description: 'For display only: a sentence, or for input validation a map
+            of field to messages. A program reads `code` and `errors` instead.'
+        correlation_id:
+          type:
+          - string
+          - 'null'
+          description: The request's `X-Correlation-ID`, to quote when reporting the
+            problem.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemFieldError'
+          description: 'On 400 and 422 only, never empty: each problem the caller
+            can act on, with the failing field (or null for the whole request), its
+            code and a message.'
+        locale:
+          type: string
+          description: The language a known site says it in (TL14).
+        home_path:
+          type: string
+          description: That language's home page on the site.
+      required:
+      - code
+      - correlation_id
+      - detail
+      - status
+      - title
+      - type
     PublicSitePage:
       type: object
       properties:
@@ -28637,6 +28703,12 @@ components:
         noindex:
           type: boolean
           description: The page asks search engines not to index it (robots noindex,follow).
+        language_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicLanguageLink'
+          description: Where to read the page in each language the site is live in;
+            empty while there is only one.
       required:
       - ai_media_ids
       - article
@@ -28646,6 +28718,7 @@ components:
       - description
       - design_tokens
       - hreflang
+      - language_links
       - locale
       - navigation
       - noindex

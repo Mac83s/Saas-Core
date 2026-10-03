@@ -5,14 +5,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { siteUiTexts } from "./site-ui-texts";
 import type { BlockImageRenderer } from "./types";
-
-type Locale = "pl" | "en";
-
-const ALT_SUFFIX: Record<Locale, string> = {
-  pl: " — obraz wygenerowany przez AI",
-  en: " — AI-generated image",
-};
 
 /** A block's own `<img>`, handed to the page's renderer when it has one. */
 export function renderImage(
@@ -28,13 +22,13 @@ export function renderImage(
  *  hidden from assistive technology, so nothing is read twice. */
 export function withAiBadge(
   element: ReactElement<{ alt?: string }>,
-  locale: Locale = "pl",
+  locale = "pl",
 ): ReactElement {
   return h(
     "span",
     { className: "site-ai-media" },
     cloneElement(element, {
-      alt: `${element.props.alt ?? ""}${ALT_SUFFIX[locale]}`,
+      alt: `${element.props.alt ?? ""}${siteUiTexts(locale).aiImage}`,
     }),
     h("span", { className: "site-ai-badge", "aria-hidden": "true" }, "AI"),
   );
@@ -43,7 +37,7 @@ export function withAiBadge(
 /** Badges the listed assets; every other image comes back untouched. */
 export function aiBadgeImageRenderer(
   ids: readonly string[],
-  locale: Locale = "pl",
+  locale = "pl",
 ): BlockImageRenderer {
   const generated = new Set(ids);
   return (image, element) =>

@@ -310,7 +310,83 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # by their author) say so in the document itself; a sitemap that
         # leaves them out is not enough for a crawler that arrives by link.
         "noindex": bool(page.page.get("noindex", False)),
+        "language_links": language_links(
+            page,
+            publication_snapshot if isinstance(page.publication, Publication) else None,
+        ),
     }
+
+
+def language_links(
+    page: PublicPage, site_snapshot: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """Where a visitor switches language (TL14): each language the site is
+    live in, at this page's own version there, else at that language's home —
+    never at a version that does not exist. Nothing to switch to, no links."""
+    if site_snapshot is None:
+        site = (
+            Site.all_objects.select_related("current_publication")
+            .filter(pk=page.site_id, organization_id=page.organization_id)
+            .first()
+        )
+        publication = site.current_publication if site is not None else None
+        site_snapshot = (
+            visible_snapshot(publication, page.available) if publication is not None else {}
+        )
+    default = str(site_snapshot.get("default_locale") or "")
+    live = [
+        code
+        for code in dict.fromkeys([default, *(site_snapshot.get("live_locales") or [])])
+        if code and (page.available is None or code in page.available)
+    ]
+    if len(live) < 2:
+        return []
+    versions = page.page.get("hreflang") or {}
+    return [
+        {
+            "locale": code,
+            "name": _native_name(code),
+            "path": str(versions.get(code) or _language_home(default, code)),
+            "current": code == page.locale,
+        }
+        for code in live
+    ]
+
+
+def not_found_hint(*, host: str, path: str) -> dict[str, str] | None:
+    """The language a missing address on a known site is read in, and that
+    language's home, so the page that says so speaks it (TL14)."""
+    try:
+        hostname = normalize_hostname(host, allow_port=True)
+    except InvalidHostname:
+        return None
+    domain = (
+        Domain.all_objects.select_related("site__current_publication")
+        .filter(hostname=hostname, status=DomainStatus.VERIFIED)
+        .first()
+    )
+    if domain is None:
+        return None
+    locales = serving_locales(domain.organization_id)
+    if locales is None:
+        return None
+    default = domain.site.default_locale
+    available = locales | {default}
+    publication = domain.site.current_publication
+    snapshot = visible_snapshot(publication, available) if publication is not None else {}
+    live = set(snapshot.get("live_locales") or []) & available
+    first = path.strip("/").split("/", 1)[0]
+    locale = first if first in live and first != default else default
+    return {"locale": locale, "home_path": _language_home(default, locale)}
+
+
+def _language_home(default_locale: str, locale: str) -> str:
+    return "/" if locale == default_locale else f"/{locale}/"
+
+
+def _native_name(code: str) -> str:
+    entry = settings.LOCALE_REGISTRY.get(code)
+    return entry.native_name if entry is not None else code
 
 
 #: Block and appearance fields that hold a link (`ctaHref`: core.hero v1;

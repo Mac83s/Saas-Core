@@ -11,65 +11,13 @@ import {
 } from "@saas-core/api-client";
 import {
   contactFormFields,
+  siteUiTexts,
   type ContactFormMode,
 } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { Textarea } from "@saas-core/ui/components/textarea";
-
-// Published pages have their own locale and do not require the panel's intl
-// provider. These are fixed interface labels, never tenant-supplied markup.
-const COPY = {
-  pl: {
-    name: "Imię i nazwisko",
-    email: "Adres e-mail",
-    phone: "Telefon",
-    message: "Wiadomość",
-    optional: "(opcjonalnie)",
-    required: "Uzupełnij to pole.",
-    invalidEmail: "Podaj poprawny adres e-mail.",
-    invalidPhone: "Podaj poprawny numer telefonu.",
-    tooLong: "Skróć treść tego pola.",
-    submit: "Wyślij wiadomość",
-    submitting: "Wysyłanie…",
-    success: "Dziękujemy! Twoja wiadomość została przyjęta.",
-    error:
-      "Nie udało się potwierdzić wysłania wiadomości. Spróbuj ponownie. Twoja treść pozostała w formularzu.",
-    unavailable:
-      "Ten formularz nie przyjmuje obecnie wiadomości. Skorzystaj z innych danych kontaktowych na stronie.",
-    limited:
-      "Wysłano zbyt wiele wiadomości. Odczekaj chwilę i spróbuj ponownie.",
-    invalid: "Sprawdź wprowadzone dane i spróbuj ponownie.",
-    conflict:
-      "Nie udało się potwierdzić wysłania wiadomości. Odśwież stronę przed kolejną próbą, zachowując wcześniej wpisaną treść.",
-    tooLarge: "Wiadomość jest zbyt długa. Skróć ją i spróbuj ponownie.",
-  },
-  en: {
-    name: "Full name",
-    email: "Email address",
-    phone: "Phone",
-    message: "Message",
-    optional: "(optional)",
-    required: "Complete this field.",
-    invalidEmail: "Enter a valid email address.",
-    invalidPhone: "Enter a valid phone number.",
-    tooLong: "Shorten this field.",
-    submit: "Send message",
-    submitting: "Sending…",
-    success: "Thank you! Your message has been received.",
-    error:
-      "Your submission could not be confirmed. Try again. Your text is still in the form.",
-    unavailable:
-      "This form is not accepting messages at the moment. Please use the other contact details on this page.",
-    limited:
-      "Too many messages have been sent. Please wait a moment and try again.",
-    invalid: "Check your details and try again.",
-    conflict:
-      "Your submission could not be confirmed. Save your text and refresh the page before trying again.",
-    tooLarge: "Your message is too long. Shorten it and try again.",
-  },
-} as const;
 
 // The server applies the same check (inquiry_serializers.py).
 const PHONE = /^\+?[\d\s().\/-]+$/;
@@ -98,13 +46,14 @@ export function PublicContactForm({
   path: string;
   blockPosition: number;
   publicationId: string;
-  locale: "pl" | "en";
+  /** The page's language; its texts come from the site's catalogue. */
+  locale: string;
   /** What the block's variant asks for; the server checks the same rules. */
   contact?: ContactFormMode;
   submitLabel?: string;
   successMessage?: string;
 }) {
-  const copy = COPY[locale];
+  const copy = siteUiTexts(locale).contactForm;
   const id = useId();
   const fields = useMemo(() => contactFormFields({ contact }), [contact]);
   const schema = useMemo(() => {

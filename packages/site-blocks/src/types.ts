@@ -84,7 +84,9 @@ export type PagePresentationV2 = Omit<PagePresentationV1, "schemaVersion"> & {
 export interface BlockRenderOptions {
   /** A draft never animates or exposes public controls. */
   preview?: boolean;
-  locale?: "pl" | "en";
+  /** The page's language: what the block says by itself follows it
+   *  (`siteUiTexts`). */
+  locale?: string;
 }
 
 export type HeroV1Data = JsonObject & {
@@ -588,8 +590,19 @@ export interface PaginationLabels {
  *  (`header.tagline`, `footer.text`, `footer.links.<i>.label`) → that language. */
 export type AppearanceLang = Readonly<Record<string, string>>;
 
+/** Where a visitor reads the page in another language (TL14). */
+export interface LanguageLink {
+  readonly locale: string;
+  /** The language's name in itself, e.g. Deutsch. */
+  readonly name: string;
+  readonly path: string;
+  readonly current: boolean;
+}
+
 export interface PublishedPageDocument {
-  readonly locale?: "pl" | "en";
+  readonly locale?: string;
+  /** Each live language of the site; nothing to switch to, no switch. */
+  readonly languageLinks?: readonly LanguageLink[];
   readonly appearance?: SiteAppearance | null;
   readonly appearanceLang?: AppearanceLang;
   readonly pagePresentation?: PagePresentationV1 | PagePresentationV2 | null;

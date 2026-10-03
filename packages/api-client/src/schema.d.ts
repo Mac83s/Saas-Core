@@ -10091,6 +10091,15 @@ export interface components {
             team_ids: string[];
             person_ids: string[];
         };
+        PublicLanguageLink: {
+            locale: string;
+            /** @description The language's name in itself, e.g. Deutsch. */
+            name: string;
+            /** @description This page's version in the language, else the language's home page. */
+            path: string;
+            /** @description The language the page is in. */
+            current: boolean;
+        };
         PublicLocaleOption: {
             /** @description Kod języka z rejestru platformy. */
             code: string;
@@ -10173,6 +10182,26 @@ export interface components {
                 [key: string]: number;
             };
         };
+        PublicSiteNotFound: {
+            /** @description Always `about:blank`; `code` names the problem. */
+            type: string;
+            /** @description A fixed, generic title in the server's language. */
+            title: string;
+            /** @description The HTTP status of the response. */
+            status: number;
+            /** @description Stable machine-readable code of the problem; clients branch on it. Input validation answers `invalid` unless the operation names a domain code. */
+            code: string;
+            /** @description For display only: a sentence, or for input validation a map of field to messages. A program reads `code` and `errors` instead. */
+            detail: unknown;
+            /** @description The request's `X-Correlation-ID`, to quote when reporting the problem. */
+            correlation_id: string | null;
+            /** @description On 400 and 422 only, never empty: each problem the caller can act on, with the failing field (or null for the whole request), its code and a message. */
+            errors?: components["schemas"]["ProblemFieldError"][];
+            /** @description The language a known site says it in (TL14). */
+            locale?: string;
+            /** @description That language's home page on the site. */
+            home_path?: string;
+        };
         PublicSitePage: {
             /** Format: uuid */
             publication_id: string;
@@ -10218,6 +10247,8 @@ export interface components {
             ai_media_ids: string[];
             /** @description The page asks search engines not to index it (robots noindex,follow). */
             noindex: boolean;
+            /** @description Where to read the page in each language the site is live in; empty while there is only one. */
+            language_links: components["schemas"]["PublicLanguageLink"][];
         };
         /**
          * @description * `none` - Nikogo
@@ -23640,7 +23671,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
+                    "application/json": components["schemas"]["PublicSiteNotFound"];
                 };
             };
         };

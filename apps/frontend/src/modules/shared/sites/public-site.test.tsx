@@ -63,6 +63,7 @@ const page: PublicSitePage = {
   article: null,
   ai_media_ids: [],
   noindex: false,
+  language_links: [],
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -242,4 +243,28 @@ test("a page that asks not to be indexed says so in its head", () => {
     index: false,
     follow: true,
   });
+});
+
+test("switches language with plain links and names the menu in the page's language", () => {
+  render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        locale: "de",
+        language_links: [
+          { locale: "pl", name: "Polski", path: "/oferta/", current: false },
+          { locale: "de", name: "Deutsch", path: "/de/", current: true },
+        ],
+      }}
+    />,
+  );
+
+  const switcher = screen.getByRole("navigation", { name: "Sprache" });
+  expect(switcher.querySelector('a[hreflang="pl"]')?.getAttribute("href")).toBe(
+    "/oferta/",
+  );
+  expect(switcher.querySelector('a[aria-current="true"]')?.textContent).toBe(
+    "Deutsch",
+  );
+  expect(screen.getByRole("navigation", { name: "Menü" })).not.toBeNull();
 });

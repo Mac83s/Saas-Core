@@ -8,6 +8,7 @@ import {
   createSiteBlockRegistry,
   renderPublishedPage,
   parseSiteAppearance,
+  siteUiTexts,
   type DesignTokensV1,
   type IndexPagination,
   type PagePresentationV1,
@@ -21,7 +22,8 @@ const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 export type PublicSiteResult =
   | { kind: "page"; page: PublicSitePage }
   | { kind: "redirect"; location: string; temporary?: boolean }
-  | { kind: "not-found" };
+  /** On a known site, the language the address was asked in and its home. */
+  | { kind: "not-found"; locale?: string; homePath?: string };
 
 type BackendResponse = {
   status: number;
@@ -106,13 +108,31 @@ export const getPublicSite = cache(
             temporary: response.status === 307,
           };
     }
-    if (response.status === 404) return { kind: "not-found" };
+    if (response.status === 404) return notFoundOf(response.body);
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`Public Sites API zwróciło status ${response.status}`);
     }
     return { kind: "page", page: JSON.parse(response.body) as PublicSitePage };
   },
 );
+
+function notFoundOf(body: string): PublicSiteResult {
+  try {
+    const problem = JSON.parse(body) as {
+      locale?: unknown;
+      home_path?: unknown;
+    };
+    return {
+      kind: "not-found",
+      ...(typeof problem.locale === "string" ? { locale: problem.locale } : {}),
+      ...(typeof problem.home_path === "string"
+        ? { homePath: problem.home_path }
+        : {}),
+    };
+  } catch {
+    return { kind: "not-found" };
+  }
+}
 
 export function publicSiteMetadata(page: PublicSitePage): Metadata {
   return {
@@ -150,10 +170,11 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
 }
 
 export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
+  const texts = siteUiTexts(page.locale);
   return renderPublishedPage(
     {
       kind: "publication",
-      locale: page.locale === "en" ? "en" : "pl",
+      locale: page.locale,
       publicationId: page.publication_id,
       snapshotHash: page.snapshot_hash,
       blocks: page.blocks as unknown as SiteBlock[],
@@ -170,24 +191,13 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       navigation: page.navigation,
       // AI images get the visible badge; empty when the operator hid it.
       aiMediaIds: page.ai_media_ids,
-      // The visitor is reading one language; the menu's accessible name has to
-      // be in it too, not in the panel's language.
-      navigationLabel: page.locale === "en" ? "Menu" : "Menu witryny",
+      // The visitor is reading one language; what the site says by itself —
+      // the menu's name, pagination, the language switch — is in it too, not in
+      // the panel's language (TL14).
+      navigationLabel: texts.menu,
       pagination: page.pagination as IndexPagination | null,
-      paginationLabels:
-        page.locale === "en"
-          ? {
-              label: "Pages",
-              previous: "Previous",
-              next: "Next",
-              position: (current, total) => `Page ${current} of ${total}`,
-            }
-          : {
-              label: "Strony",
-              previous: "Poprzednia",
-              next: "Następna",
-              position: (current, total) => `Strona ${current} z ${total}`,
-            },
+      paginationLabels: texts.pagination,
+      languageLinks: page.language_links,
     },
     registry,
     (form, blockPosition) => (
@@ -195,7 +205,7 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
         publicationId={page.publication_id}
         path={new URL(page.canonical_url).pathname}
         blockPosition={blockPosition}
-        locale={page.locale === "en" ? "en" : "pl"}
+        locale={page.locale}
         contact={form.contact}
         submitLabel={form.submit_label}
         successMessage={form.success_message}

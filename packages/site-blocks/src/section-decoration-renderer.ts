@@ -1,4 +1,5 @@
 import { createElement as h, type ReactElement, type ReactNode } from "react";
+import { siteUiTexts } from "./site-ui-texts";
 import type { SectionDecorationV1 } from "./types";
 
 type Ornament = NonNullable<SectionDecorationV1["ornament"]>;
@@ -82,11 +83,8 @@ function ornamentArtwork(ornament: Ornament): ReactElement {
   );
 }
 
-function pauseControl(locale: "pl" | "en"): ReactElement {
-  const label =
-    locale === "pl"
-      ? "Wstrzymaj animację dekoracji"
-      : "Pause decorative animation";
+function pauseControl(locale: string): ReactElement {
+  const label = siteUiTexts(locale).pauseMotion;
   return h(
     "label",
     { className: "site-decoration__pause", title: label },
@@ -122,7 +120,7 @@ function pauseControl(locale: "pl" | "en"): ReactElement {
 export function decorateSection(
   content: ReactElement,
   decoration: SectionDecorationV1 | undefined,
-  options: { preview?: boolean; locale?: "pl" | "en" } = {},
+  options: { preview?: boolean; locale?: string } = {},
   key?: string,
 ): ReactElement {
   if (!decoration) return content;

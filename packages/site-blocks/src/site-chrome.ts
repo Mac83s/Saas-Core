@@ -1,6 +1,40 @@
 import { createElement as h, type ReactNode } from "react";
 import type { SiteAppearance } from "./appearance";
-import type { AppearanceLang, NavigationLink } from "./types";
+import type { AppearanceLang, LanguageLink, NavigationLink } from "./types";
+
+/** Plain links, so the switch works without JavaScript: each language at the
+ *  page's own version there, or at its home (TL14). The current one is
+ *  marked rather than linked again. */
+export function renderLanguageSwitcher(
+  links: readonly LanguageLink[] | undefined,
+  label: string,
+) {
+  if (!links || links.length < 2) return null;
+  return h(
+    "nav",
+    { className: "site-language-switch", "aria-label": label },
+    h(
+      "ul",
+      null,
+      ...links.map((link) =>
+        h(
+          "li",
+          { key: link.locale },
+          h(
+            "a",
+            {
+              href: link.path,
+              hrefLang: link.locale,
+              lang: link.locale,
+              "aria-current": link.current ? "true" : undefined,
+            },
+            link.name,
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 export function renderSiteHeader(
   appearance: SiteAppearance,

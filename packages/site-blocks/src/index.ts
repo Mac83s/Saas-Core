@@ -3,6 +3,13 @@ export const SITE_BLOCK_SCHEMA_VERSION = 1 as const;
 export * from "./errors";
 export { aiBadgeImageRenderer, withAiBadge } from "./ai-badge";
 export {
+  SITE_UI_LOCALES,
+  siteUiTexts,
+  type ContactFormTexts,
+  type SiteUiLocale,
+  type SiteUiTexts,
+} from "./site-ui-texts";
+export {
   isTemplateContact,
   withoutSlots,
   withoutTemplateLeftovers,
@@ -72,6 +79,7 @@ export {
 } from "./appearance";
 export type { SiteAppearance } from "./appearance";
 export {
+  renderLanguageSwitcher,
   renderSiteHeader,
   renderSiteFooter,
   renderResponsiveNavigation,

@@ -4,6 +4,7 @@ import { plainBlockText } from "./block-text";
 import { linkRel } from "./link-rel";
 import { renderImage } from "./ai-badge";
 import { FULL_WIDTH, HALF_WIDTH, publicImage } from "./public-image";
+import { siteUiTexts } from "./site-ui-texts";
 import { monogram, picture } from "./editorial-blocks";
 
 import type {
@@ -370,7 +371,7 @@ export function RichTextBlock({
           "nav",
           {
             className: "site-section__toc",
-            "aria-label": options?.locale === "en" ? "Contents" : "Spis treści",
+            "aria-label": siteUiTexts(options?.locale).contents,
           },
           h(
             "ol",

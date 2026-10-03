@@ -10,6 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from saas_core.http.exceptions import problem_details_exception_handler
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .measurement import COUNT_VIEW_HEADER, record_page_view
@@ -23,10 +24,11 @@ from .public_media import serve_public_media
 from .publication_routing import (
     PublicSiteMoved,
     PublicSiteNotFound,
+    not_found_hint,
     public_page_payload,
     resolve_public_page,
 )
-from .serializers import PublicSitePageSerializer
+from .serializers import PublicSiteNotFoundSerializer, PublicSitePageSerializer
 from .tls import authorize_tls_hostname
 
 
@@ -70,15 +72,23 @@ class PublicSitePageView(APIView):
             307: None,
             308: None,
             400: ProblemDetailsSerializer,
-            404: ProblemDetailsSerializer,
+            404: PublicSiteNotFoundSerializer,
         },
     )
     def get(self, request: Request) -> Response:
         host = str(request.META.get("HTTP_HOST", ""))
+        path = request.query_params.get("path", "")
         try:
-            page = resolve_public_page(
-                host=host, path=request.query_params.get("path", "")
+            page = resolve_public_page(host=host, path=path)
+        except PublicSiteNotFound as missing:
+            # A known site says it in the language of the address, with a way
+            # home (TL14); an unknown host learns nothing about any site.
+            response = problem_details_exception_handler(
+                missing, {"request": request, "view": self}
             )
+            assert response is not None
+            response.data.update(not_found_hint(host=host, path=path) or {})
+            return response
         except PublicSiteMoved as moved:
             # The address changed deliberately and the old one still answers,
             # permanently, so a search engine can move the ranking across —

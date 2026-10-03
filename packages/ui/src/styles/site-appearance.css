@@ -298,3 +298,27 @@
 .site-canvas--tablet .site-tablet--drawer .site-bottom-links {
   display: none;
 }
+
+/* The language switch (TL14): plain links at the top, the current language
+   marked by weight rather than colour alone. */
+.site-language-switch {
+  padding: 0.5rem 1.5rem;
+}
+.site-language-switch ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.site-language-switch a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+}
+.site-language-switch a[aria-current="true"] {
+  font-weight: 600;
+  text-decoration: none;
+}

@@ -9,10 +9,12 @@ import {
   type SiteAppearance,
 } from "./appearance";
 import {
+  renderLanguageSwitcher,
   renderSiteHeader,
   renderSiteFooter,
   renderResponsiveNavigation,
 } from "./site-chrome";
+import { siteUiTexts } from "./site-ui-texts";
 import { aiBadgeImageRenderer } from "./ai-badge";
 import { InvalidDesignTokensError } from "./errors";
 import type {
@@ -190,6 +192,7 @@ function renderDocument(
   options?: BlockRenderOptions,
   pagePresentation?: PagePresentationV1 | PagePresentationV2 | null,
   appearanceLang?: AppearanceLang,
+  languageSwitch?: ReactElement | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -205,6 +208,7 @@ function renderDocument(
         .join(" "),
     },
     appearance ? renderSiteHeader(appearance, menu, appearanceLang) : menu,
+    languageSwitch ?? null,
     createElement(
       contentElement,
       null,
@@ -294,10 +298,10 @@ export function renderPublishedPage(
     document.designTokens,
     registry,
     document.navigation ?? [],
-    document.navigationLabel ?? "Menu",
+    document.navigationLabel ?? siteUiTexts(document.locale).menu,
     "main",
     document.pagination ?? null,
-    document.paginationLabels ?? DEFAULT_PAGINATION_LABELS,
+    document.paginationLabels ?? siteUiTexts(document.locale).pagination,
     // Without AI images the page renders exactly as it always did.
     document.aiMediaIds?.length
       ? aiBadgeImageRenderer(document.aiMediaIds, document.locale ?? "pl")
@@ -307,5 +311,9 @@ export function renderPublishedPage(
     { preview: false, locale: document.locale ?? "pl" },
     document.pagePresentation,
     document.appearanceLang,
+    renderLanguageSwitcher(
+      document.languageLinks,
+      siteUiTexts(document.locale).languages,
+    ),
   );
 }

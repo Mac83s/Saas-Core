@@ -41,6 +41,8 @@ export default async function PublicSiteLayout({
       countsAsPageView(requestHeaders),
     );
     if (result.kind === "page") locale = result.page.locale;
+    // A missing address on a known site is said in its language (TL14).
+    if (result.kind === "not-found") locale = result.locale;
   } catch {
     // The page route reports the failure; the layout only loses the language.
   }

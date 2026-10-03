@@ -5,6 +5,7 @@ from typing import Any
 from django.conf import settings
 from rest_framework import serializers
 
+from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.locales import ContentLocaleField
 
 from .models import PublicationReason
@@ -135,6 +136,24 @@ class PublicNavigationLinkSerializer(serializers.Serializer[dict[str, Any]]):
     path = serializers.CharField()
 
 
+class PublicLanguageLinkSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.CharField()
+    name = serializers.CharField(help_text="The language's name in itself, e.g. Deutsch.")
+    path = serializers.CharField(
+        help_text="This page's version in the language, else the language's home page."
+    )
+    current = serializers.BooleanField(help_text="The language the page is in.")
+
+
+class PublicSiteNotFoundSerializer(ProblemDetailsSerializer):
+    locale = serializers.CharField(
+        required=False, help_text="The language a known site says it in (TL14)."
+    )
+    home_path = serializers.CharField(
+        required=False, help_text="That language's home page on the site."
+    )
+
+
 class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     publication_id = serializers.UUIDField()
     snapshot_hash = serializers.CharField()
@@ -165,6 +184,11 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     ai_media_ids = serializers.ListField(child=serializers.UUIDField())
     noindex = serializers.BooleanField(
         help_text="The page asks search engines not to index it (robots noindex,follow)."
+    )
+    language_links = PublicLanguageLinkSerializer(
+        many=True,
+        help_text="Where to read the page in each language the site is live in; empty "
+        "while there is only one.",
     )
 
 
