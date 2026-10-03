@@ -48,6 +48,17 @@ import {
   type BlockFormValues,
 } from "./block-form";
 
+type LeftPanel = "outline" | "library" | "templates" | "appearance" | "pages";
+
+/** The panel names what it holds; the rail's short word starts the name. */
+const PANEL_TITLES: Record<LeftPanel, string> = {
+  outline: "studio.sections",
+  library: "studio.addSection",
+  templates: "studio.pageTemplates",
+  appearance: "studio.design",
+  pages: "studio.pagesTool",
+};
+
 /** Lets the page editor pick a section exactly as the outline does. */
 export type SectionCanvasHandle = { choose: (index: number) => void };
 
@@ -136,9 +147,9 @@ export function SectionCanvas({
   const placeholders = useTranslations("Sites.studio.placeholders");
   const canvasRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
-  const [leftPanel, setLeftPanel] = useState<
-    "outline" | "library" | "templates" | "appearance" | "pages"
-  >(blocks.length ? "outline" : "templates");
+  const [leftPanel, setLeftPanel] = useState<LeftPanel>(
+    blocks.length ? "outline" : "templates",
+  );
   // A new inspector request (an invalid field, a photo to change) shows the
   // inspector on a phone until the person picks another panel.
   const focusRequest = focusField?.request ?? 0;
@@ -232,104 +243,137 @@ export function SectionCanvas({
         className="studio-sidebar studio-sidebar--left"
         aria-label={t("studio.pageNavigation")}
       >
-        <div className="studio-sidebar-header">
-          {/* The tabs name what is here; the heading stays for a screen
-              reader's list of headings (UX-040). */}
-          <h3 className="sr-only">{t("studio.pageNavigation")}</h3>
-          <div
-            className="studio-sidebar-tabs"
-            role="group"
-            aria-label={t("studio.tools")}
-          >
-            {(
-              [
-                ["outline", LayersIcon, "studio.sections"],
-                ["library", PlusIcon, "sectionLibrary.open"],
-                ["templates", LayoutTemplateIcon, "studio.pageTemplates"],
-                ["appearance", PaletteIcon, "studio.design"],
-                ["pages", FilesIcon, "studio.pagesTool"],
-              ] as const
+        {/* A rail of tools, an icon over a short word, beside one panel
+            (UX-040; Kreator stron, 03.10). */}
+        <div
+          className="studio-rail"
+          role="group"
+          aria-label={t("studio.tools")}
+        >
+          {(
+            [
+              ["outline", LayersIcon, "studio.sections"],
+              ["library", PlusIcon, "sectionLibrary.open"],
+              ["templates", LayoutTemplateIcon, "studio.pageTemplates"],
+              ["appearance", PaletteIcon, "studio.design"],
+              ["pages", FilesIcon, "studio.pagesTool"],
+            ] as const
+          )
+            .filter(
+              ([key]) =>
+                (key !== "appearance" || appearanceControls) &&
+                (key !== "pages" || pagesPanel),
             )
-              .filter(
-                ([key]) =>
-                  (key !== "appearance" || appearanceControls) &&
-                  (key !== "pages" || pagesPanel),
-              )
-              .map(([key, Icon, label]) => (
-                // One row, an icon over a short word: five tools no longer
-                // break into 2 + 2 + 1 (UX-040).
-                <Button
-                  key={key}
-                  type="button"
-                  size="sm"
-                  variant={leftPanel === key ? "secondary" : "ghost"}
-                  aria-pressed={leftPanel === key}
-                  // The short word is the start of the full name (WCAG 2.5.3).
-                  aria-label={t(label)}
-                  disabled={disabled}
-                  onClick={() => setLeftPanel(key)}
-                  title={t(label)}
-                >
-                  <Icon aria-hidden="true" />
-                  {t(`studio.tab.${key}`)}
-                </Button>
-              ))}
-          </div>
-        </div>
-        <div className="studio-sidebar-scroll">
-          {leftPanel === "outline" && (
-            <>
-              <p className="mb-4 text-sm text-muted-foreground">
-                {t("studio.outlineHint")}
-              </p>
-              <ol className="studio-outline">
-                {blocks.map((block, index) => (
-                  <li key={blockIds[index]}>
-                    <button
-                      type="button"
-                      aria-current={selected === index ? "true" : undefined}
-                      disabled={disabled}
-                      onClick={() => chooseSection(index)}
-                    >
-                      <span className="studio-outline-number">{index + 1}</span>
-                      <span className="min-w-0">
-                        <span className="block text-xs text-muted-foreground">
-                          {sectionLabel(index)}
-                        </span>
-                        <span className="block truncate font-medium">
-                          {outlineTitle(block) || sectionLabel(index)}
-                        </span>
-                        {/* Said in words, not a bare yellow number (UX-040). */}
-                        {unfilled?.[index] ? (
-                          <span className="mt-0.5 flex items-center gap-1 text-xs text-warning-foreground">
-                            <CircleAlertIcon
-                              aria-hidden="true"
-                              className="size-3.5 shrink-0"
-                            />
-                            {placeholders("count", { count: unfilled[index] })}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-              <Button
+            .map(([key, Icon, label]) => (
+              <button
+                key={key}
                 type="button"
-                variant="outline"
-                className="mt-4 w-full"
+                aria-pressed={leftPanel === key}
+                // The short word is the start of the full name (WCAG 2.5.3).
+                aria-label={t(label)}
+                title={t(label)}
                 disabled={disabled}
-                onClick={() => setLeftPanel("library")}
+                onClick={() => setLeftPanel(key)}
               >
-                <PlusIcon aria-hidden="true" />
-                {t("studio.addSection")}
-              </Button>
-            </>
-          )}
-          {leftPanel === "library" && library}
-          {leftPanel === "templates" && templates}
-          {leftPanel === "appearance" && appearanceControls}
-          {leftPanel === "pages" && pagesPanel}
+                <Icon aria-hidden="true" />
+                {t(`studio.tab.${key}`)}
+              </button>
+            ))}
+        </div>
+        <div className="studio-panel">
+          <div className="studio-panel-header">
+            <h3>{t(PANEL_TITLES[leftPanel])}</h3>
+            {leftPanel === "outline" && blocks.length > 0 ? (
+              <span aria-hidden="true">{blocks.length}</span>
+            ) : null}
+          </div>
+          <div className="studio-sidebar-scroll">
+            {leftPanel === "outline" && (
+              <div className="studio-outline">
+                {appearance &&
+                (appearance.header.layout !== "none" || navigation.length) ? (
+                  <p className="studio-outline-frame">
+                    <span aria-hidden="true">—</span>
+                    {t("studio.siteHeader")}
+                  </p>
+                ) : null}
+                <ReorderList
+                  items={blocks.map((block, index) => ({
+                    id: blockIds[index],
+                    block,
+                  }))}
+                  label={t("studio.sections")}
+                  instructions={t("studio.reorderInstructions")}
+                  handleLabel={(_item, index) =>
+                    t("studio.reorderInOutline", { number: index + 1 })
+                  }
+                  movedLabel={(_item, position, count) =>
+                    t("studio.movedSection", { position, count })
+                  }
+                  onMove={onMove}
+                  disabled={disabled}
+                >
+                  {({ block }, index, handle) => (
+                    <div
+                      className="studio-outline-item"
+                      data-selected={selected === index ? "" : undefined}
+                    >
+                      <button
+                        type="button"
+                        aria-current={selected === index ? "true" : undefined}
+                        disabled={disabled}
+                        onClick={() => chooseSection(index)}
+                      >
+                        <span className="studio-outline-number">
+                          {index + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">
+                            {sectionLabel(index)}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {outlineTitle(block) || sectionLabel(index)}
+                          </span>
+                          {/* Said in words, not a bare yellow number (UX-040). */}
+                          {unfilled?.[index] ? (
+                            <span className="mt-0.5 flex items-center gap-1 text-xs text-warning-foreground">
+                              <CircleAlertIcon
+                                aria-hidden="true"
+                                className="size-3.5 shrink-0"
+                              />
+                              {placeholders("count", {
+                                count: unfilled[index],
+                              })}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                      {handle}
+                    </div>
+                  )}
+                </ReorderList>
+                {appearance && appearance.footer.layout !== "none" ? (
+                  <p className="studio-outline-frame">
+                    <span aria-hidden="true">—</span>
+                    {t("studio.siteFooter")}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="studio-outline-add"
+                  disabled={disabled}
+                  onClick={() => setLeftPanel("library")}
+                >
+                  <PlusIcon aria-hidden="true" />
+                  {t("studio.addSection")}
+                </button>
+              </div>
+            )}
+            {leftPanel === "library" && library}
+            {leftPanel === "templates" && templates}
+            {leftPanel === "appearance" && appearanceControls}
+            {leftPanel === "pages" && pagesPanel}
+          </div>
         </div>
       </aside>
       <div className="studio-stage">

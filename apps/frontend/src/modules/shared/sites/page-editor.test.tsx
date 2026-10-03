@@ -20,6 +20,7 @@ import {
 } from "@saas-core/api-client";
 import {
   availablePageTemplates,
+  parseSiteAppearance,
   sectionDecorationPresets,
   type SectionDecorationV1,
 } from "@saas-core/site-blocks";
@@ -802,6 +803,7 @@ function renderEditor(
   visual = false,
   extraProps: Pick<
     ComponentProps<typeof PageEditor>,
+    | "appearance"
     | "appearanceControls"
     | "onExitStateChange"
     | "previewOnOpen"
@@ -1195,6 +1197,58 @@ test("moving a section by keyboard follows its inspector and is one undo step", 
       (block: { data: { title: string } }) => block.data.title,
     ),
   ).toEqual(["Druga sekcja", "Stary nagłówek"]);
+});
+
+test("the outline moves a section by its own handle, between the site's header and footer", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+    {
+      appearance: parseSiteAppearance({
+        schemaVersion: 1,
+        designTokens: {
+          schemaVersion: 1,
+          palette: "neutral",
+          typography: "sans",
+          radius: "medium",
+          spacing: "comfortable",
+        },
+        font: "system",
+        width: "standard",
+        buttons: "solid",
+        header: { layout: "classic", brand: "Gabinet", tagline: "" },
+        footer: { layout: "simple", text: "Zapraszamy", links: [] },
+        navigation: { mobile: "drawer", tablet: "drawer" },
+      }),
+    },
+  );
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.click(screen.getByRole("button", { name: "Powiel sekcję" }));
+  fireEvent.change(screen.getByLabelText("Nagłówek"), {
+    target: { value: "Druga sekcja" },
+  });
+  const rail = screen.getByRole("complementary", { name: "Budowa strony" });
+  const rows = within(rail).getAllByRole("listitem");
+  expect(rows).toHaveLength(2);
+  expect(within(rail).getByText("Nagłówek strony")).toBeDefined();
+  expect(within(rail).getByText("Stopka strony")).toBeDefined();
+  fireEvent.keyDown(
+    within(rail).getByRole("button", { name: "Przenieś sekcję 2 na liście" }),
+    { key: "ArrowUp" },
+  );
+  expect(
+    screen.getByTestId("live-canvas").querySelector("h1")?.textContent,
+  ).toBe("Druga sekcja");
+  expect(
+    within(rail).getByRole("button", { name: /Druga sekcja/ }),
+  ).toHaveAttribute("aria-current", "true");
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(
+    screen.getByTestId("live-canvas").querySelector("h1")?.textContent,
+  ).toBe("Stary nagłówek");
+  expect(savePageDraft).not.toHaveBeenCalled();
 });
 
 test("inline text commits to the existing form, cancels and undoes without submitting", async () => {
