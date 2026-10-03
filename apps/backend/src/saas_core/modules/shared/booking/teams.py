@@ -43,6 +43,7 @@ def create_team(*, name: str, member_ids: Sequence[UUID]) -> StaffTeam:
         raise ValidationError({"name": _TAKEN}) from error
     _set_members(team, member_ids)
     _audit(OrganizationAuditAction.BOOKING_TEAM_CREATED, context.actor_id, team)
+    _catalog_changed(context)
     return team
 
 
@@ -65,6 +66,7 @@ def update_team(
                 team.save(update_fields=["name", "updated_at"])
         except IntegrityError as error:
             raise ValidationError({"name": _TAKEN}) from error
+        _catalog_changed(context)
     if member_ids is not None:
         _set_members(team, member_ids)
     _audit(OrganizationAuditAction.BOOKING_TEAM_UPDATED, context.actor_id, team)
@@ -85,6 +87,14 @@ def delete_team(*, team_id: UUID) -> None:
         raise NotFound("Nie ma takiego zespołu.")
     _audit(OrganizationAuditAction.BOOKING_TEAM_DELETED, context.actor_id, team)
     team.delete()
+    _catalog_changed(context)
+
+
+def _catalog_changed(context: object) -> None:
+    """A team's name is part of the booking catalogue's text (TL12c)."""
+    from .translation_source import notify_catalog_changed
+
+    notify_catalog_changed(context=context)
 
 
 def member_ids(team: StaffTeam) -> list[UUID]:

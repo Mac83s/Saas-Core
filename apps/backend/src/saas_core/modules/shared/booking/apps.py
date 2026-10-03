@@ -40,6 +40,10 @@ class BookingConfig(AppConfig):
         from .company_settings import register_company_settings
 
         register_company_settings()
+        # The booking catalogue as a translation source (ADR-069, TL12c).
+        from .translation_source import register_catalog_source
+
+        register_catalog_source()
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")

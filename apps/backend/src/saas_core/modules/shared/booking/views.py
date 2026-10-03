@@ -393,7 +393,9 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "starts_at": value.starts_at,
         "ends_at": value.ends_at,
         "timezone": value.timezone,
-        "service_name": value.service_name,
+        # In the customer's language when the company translated it, frozen at
+        # booking; a visit from before has only the company's (TL12c).
+        "service_name": value.customer_service_name or value.service_name,
         "location_name": value.location.name,
         "status": value.status,
         "team_name": team,

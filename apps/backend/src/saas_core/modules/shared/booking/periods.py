@@ -320,6 +320,7 @@ def book_stay(
         occupied_until=plan.occupied_until,
         timezone=organization.timezone,
         service_name=plan.service.name,
+        customer_service_name=_customer_service_name(plan.service, customer.locale),
         self_service_token_ciphertext=encrypt_secret(token),
         self_service_expires_at=expires,
         staff_required=0,
@@ -816,3 +817,10 @@ def _hash(value: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _customer_service_name(service: Any, locale: str) -> str:
+    # Imported late: the translations' setup writes import this module.
+    from .item_translations import customer_service_name
+
+    return customer_service_name(service, locale)

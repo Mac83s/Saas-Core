@@ -174,7 +174,9 @@ class SourceDriver(Protocol):
 
     Positions are indexes into the object's current units in order.
     `capabilities` names what the source can hold: `legal`, `placeholder`,
-    `name`, `address`, `personal` (public_personal), `health`.
+    `name`, `address`, `personal` (public_personal), `health`; and what its
+    structure lacks: `unordered` (units have no positions to move, e.g. a
+    catalogue of named items) and `single_object` (one object per company).
     """
 
     source: TranslationSource
@@ -426,6 +428,8 @@ class TranslationSourceContract:
         assert [unit.text for unit in self.selection(read).units] == ["Iks"]
 
     def test_moving_a_unit_keeps_every_translation(self, driver: SourceDriver) -> None:
+        if "unordered" in driver.capabilities:
+            pytest.skip("The source's units have no positions.")
         object_id = self.translated(driver, ["Alfa", "Beta", "Gamma"])
         driver.move(object_id, 2, 0)
         driver.publish(object_id)
@@ -613,6 +617,8 @@ class TranslationSourceContract:
         assert result.decisions == [("pending", "publisher_required")]
 
     def test_mass_publication_is_counted_in_objects(self, driver: SourceDriver) -> None:
+        if "single_object" in driver.capabilities:
+            pytest.skip("One object per company: nothing else goes out in its job.")
         capped = TranslationPolicy(mode="automatic", reason=None, mass_publication_cap=1)
         with translation_policy_override(capped):
             first = self.translated(driver, ["Alfa"])

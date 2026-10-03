@@ -203,7 +203,7 @@ to błąd.
 | `sites.entry` | `shared.sites` | wersjonowane, osobna publikacja języka (rodzeństwo) | `published`, `working` | `draft`, `pending`, `live` | nie | TL11 |
 | `sites.site_texts` | `shared.sites` | wersjonowane (`SiteTextTranslation`) | `published` | `pending`, `live` | nie | TL11 |
 | `profiles.public_profile` | `shared.profiles` | rekord na żywo | `published` | `live` | nie | TL12 |
-| `booking.service`, `booking.location`, `booking.team`, `booking.resource` | `shared.booking` | rekord na żywo | `published` | `live` | nie | TL12 |
+| `booking.catalog` — jeden obiekt na firmę (jej katalog rezerwacji); jednostki `<rodzaj>/<id>/<pole>` usług, miejsc, jednostek, grup i zespołów (nazwa zespołu jako `name`) | `shared.booking` | rekord na żywo | `published` | `live` | nie | TL12c |
 | `puppily.*` (rasa, wpis, kategoria, dokument) | `vertical.puppily` | wersjonowane | `published` (`working` od PU10) | `pending`, `live` | dokument prawny | PU5 |
 
 ## 6. Adapter
@@ -554,8 +554,7 @@ nigdy zapis szkicu.
 | `shared.sites` | nie zgłaszają: publikacje pochodne (każdy powód) i `rollback_site` | — |
 | `shared.profiles` | zmiana nagłówka, bio albo etykiety linku opublikowanej karty; `publish_profile` | `changed` |
 | `shared.profiles` | `withdraw_profile`; `delete_profile` | `withdrawn`; `deleted` |
-| `shared.booking` | utworzenie i zmiana nazwy usługi, miejsca, zespołu albo zasobu; ponowne włączenie | `changed` |
-| `shared.booking` | wyłączenie; usunięcie | `withdrawn`; `deleted` |
+| `shared.booking` | utworzenie, zmiana nazwy lub opisu, wyłączenie albo ponowne włączenie usługi, miejsca, jednostki lub grupy; utworzenie, zmiana nazwy i usunięcie zespołu — obiekt to katalog firmy, więc zawsze | `changed` |
 | `vertical.puppily` | publikacja, wycofanie i usunięcie w serwisie redakcyjnym | wszystkie trzy |
 
 ### 8.2. Kontrakt wywołania

@@ -336,6 +336,11 @@ def _audit(
 ) -> None:
     if not changes and not created:
         return
+    if created or set(changes) & {"name", "description", "active"}:
+        # The catalogue's text, or what it offers, changed (TL12c).
+        from .translation_source import notify_catalog_changed
+
+        notify_catalog_changed(context=context)
     record_audit(
         organization=organization,
         action=OrganizationAuditAction.BOOKING_CATALOG_CHANGED,

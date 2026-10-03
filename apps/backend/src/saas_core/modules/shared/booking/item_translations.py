@@ -343,3 +343,14 @@ def localized_texts(
         if texts:
             found[item.id] = texts
     return found
+
+
+def customer_service_name(service: Service, locale: str) -> str:
+    """The service's name in the customer's language when the company
+    translated it, to freeze on a booking; empty when it is the company's."""
+    name = (
+        localized_texts(translatable("service"), [service], locale)
+        .get(service.id, {})
+        .get("name", "")
+    )
+    return name if name and name != service.name else ""

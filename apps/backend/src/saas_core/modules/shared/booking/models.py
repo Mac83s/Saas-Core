@@ -628,6 +628,10 @@ class Appointment(TenantScopedModel):
     occupied_until = models.DateTimeField()
     timezone = models.CharField(max_length=64)
     service_name = models.CharField(max_length=160)
+    #: The service's name in the customer's language when the company translated
+    #: it, frozen like `service_name`; empty: the same (TL12c). Customer-facing
+    #: answers read it, the panel keeps the company's language.
+    customer_service_name = models.CharField(max_length=160, blank=True)
     #: Produkty tej wizyty: kopia z usługi albo wpisane ręcznie, z nazwą i
     #: ceną z chwili zapisu. Stan jest zarezerwowany do zakończenia wizyty.
     materials = models.JSONField(default=list, blank=True)
@@ -965,6 +969,32 @@ class StaffTeamTranslation(ItemTranslation):
                 condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_team_tr_locale_ck"
             ),
         ]
+
+
+class CatalogTranslationWrite(TenantScopedModel):
+    """The receipt of one translation write of the booking catalogue in one
+    language (`translation_source`, TL12c): a repeat answers the same outcomes,
+    and the texts it replaced let `revert` put them back."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    locale = models.CharField(max_length=10)
+    idempotency_key = models.CharField(max_length=64)
+    request_hash = models.CharField(max_length=64)
+    job_ref = models.CharField(max_length=160, blank=True, default="")
+    outcomes = models.JSONField(default=list)
+    # Unit key → [text, provenance] before the write; null where it had none.
+    replaced = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "locale", "idempotency_key"],
+                name="booking_catalogtranslationwrite_idem_uq",
+            ),
+        ]
+        indexes = [models.Index(fields=["organization", "job_ref"])]
 
 
 def validate_same_tenant(instance: Any, *related_names: str) -> None:

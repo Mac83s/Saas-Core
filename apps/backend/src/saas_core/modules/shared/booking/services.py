@@ -607,6 +607,7 @@ def create_appointment(
                 occupied_until=occupied_until,
                 timezone=organization.timezone,
                 service_name=service.name,
+                customer_service_name=_customer_service_name(service, customer.locale),
                 materials=lines,
                 self_service_token_ciphertext=encrypt_secret(token),
                 self_service_expires_at=expires,
@@ -1527,3 +1528,10 @@ def _hash(value: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _customer_service_name(service: Any, locale: str) -> str:
+    # Imported late: the translations' setup writes import this module.
+    from .item_translations import customer_service_name
+
+    return customer_service_name(service, locale)
