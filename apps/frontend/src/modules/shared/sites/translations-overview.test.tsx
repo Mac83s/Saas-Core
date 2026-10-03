@@ -266,6 +266,8 @@ test("filters ask the server; articles lead to the blog", async () => {
   fireEvent.change(screen.getByLabelText("Rodzaj"), {
     target: { value: "entry" },
   });
+  // Pages never stand under the articles' column while those are on the way.
+  expect(screen.queryByText("Kontakt")).toBeNull();
   // The states are the kind's own: the page's state filter is dropped.
   await waitFor(() =>
     expect(api.getSiteTranslationOverview).toHaveBeenLastCalledWith(SITE, {

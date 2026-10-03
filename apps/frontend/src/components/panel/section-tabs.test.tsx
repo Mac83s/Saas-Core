@@ -35,6 +35,9 @@ test("on a phone the current tab scrolls into view and a long name is short for 
   const current = screen.getByRole("link", { name: "Role i uprawnienia" });
   expect(current).toHaveAttribute("aria-current", "page");
   expect(current).toHaveTextContent("Role");
+  // The whole name is out of the flow: its tab holds it, or the name of a tab
+  // scrolled out of sight makes a phone's page scroll sideways (TL16, 390 px).
+  expect(current).toHaveClass("relative");
   expect(scrollIntoView).toHaveBeenCalledWith({
     inline: "center",
     block: "nearest",

@@ -407,7 +407,8 @@ export function TranslationsOverview({
         activeFilters={activeFilters}
         caption={t("caption")}
         columns={columns}
-        data={rows}
+        // Rows of the previous query never stand under the new one's columns.
+        data={loading ? [] : rows}
         emptyAction={
           activeFilters ? (
             <Button

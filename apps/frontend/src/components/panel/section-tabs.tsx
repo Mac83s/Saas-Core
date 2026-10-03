@@ -71,8 +71,11 @@ export function SectionTabs({ access }: { access: PanelAccess }) {
             <li key={tab.href}>
               <Link
                 aria-current={active ? "page" : undefined}
+                // `relative`: a tab's full name for screen readers is taken out
+                // of the flow; without a positioned tab around it, the name of
+                // a tab scrolled out of sight widens the whole page on a phone.
                 className={cn(
-                  "-mb-px flex min-h-11 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                  "relative -mb-px flex min-h-11 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
                   active && "border-primary text-foreground",
                 )}
                 href={tab.href}
