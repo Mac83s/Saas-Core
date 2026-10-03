@@ -76,6 +76,35 @@ DAILY_TURNS = SettingSpec(
     model_description="Messages the whole deployment accepts in a day (UTC); above it the "
     "chat sends people to the panel. 0 closes the chat.",
 )
+SETUP_TURNS_PER_COMPANY = SettingSpec(
+    key="assistant.limits.setup_turns_per_company",
+    type="int",
+    default=150,
+    minimum=0,
+    maximum=10_000,
+    scopes=("platform",),
+    label={
+        "pl": "Bezpłatne wiadomości zakładania firmy na firmę",
+        "en": "Free setup messages per company",
+    },
+    model_description="Messages one company may send in conversations that set it up, which "
+    "cost no credits (decision 23 b); above it the setup is finished in the panel. 0 closes "
+    "free setup.",
+)
+SETUP_TURNS_PER_DAY = SettingSpec(
+    key="assistant.limits.setup_turns_per_person_per_day",
+    type="int",
+    default=60,
+    minimum=0,
+    maximum=1_000,
+    scopes=("platform",),
+    label={
+        "pl": "Bezpłatne wiadomości zakładania firmy na osobę na dzień",
+        "en": "Free setup messages per person per day",
+    },
+    model_description="Messages one person may send in a day (UTC) in conversations that "
+    "set a company up.",
+)
 RETENTION_DAYS = SettingSpec(
     key="assistant.retention.conversation_days",
     type="int",
@@ -104,7 +133,14 @@ LIMITS = SettingGroup(
     # permission some composed module declares.
     permission=SETTINGS_MANAGE,
     area="ai",
-    settings=(TURNS_PER_MINUTE, STARTS_PER_HOUR, STEPS_PER_TURN, DAILY_TURNS),
+    settings=(
+        TURNS_PER_MINUTE,
+        STARTS_PER_HOUR,
+        STEPS_PER_TURN,
+        DAILY_TURNS,
+        SETUP_TURNS_PER_COMPANY,
+        SETUP_TURNS_PER_DAY,
+    ),
 )
 RETENTION = SettingGroup(
     key="assistant.retention",

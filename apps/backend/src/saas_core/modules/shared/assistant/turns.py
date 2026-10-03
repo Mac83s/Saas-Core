@@ -30,7 +30,9 @@ from uuid import UUID
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
+from rest_framework.exceptions import APIException
 
+from saas_core.http.exceptions import problem_code, problem_errors
 from saas_core.modules.core.organizations.api import (
     CallResult,
     Invocation,
@@ -67,9 +69,23 @@ from saas_core.modules.shared.model_port.api import (
     complete,
 )
 
-from .models import AssistantConversation, AssistantMessage, AssistantTurn, MessageRole, TurnState
+from . import setup
+from .models import (
+    AssistantConversation,
+    AssistantMessage,
+    AssistantTurn,
+    ConversationKind,
+    MessageRole,
+    TurnState,
+)
 from .permissions import ASSISTANT_USE, TASK, TEXT_FEATURE
-from .prompts import PROMPT_ID, PROMPT_VERSION, system_prompt
+from .prompts import (
+    PROMPT_ID,
+    PROMPT_VERSION,
+    SETUP_PROMPT_ID,
+    SETUP_PROMPT_VERSION,
+    system_prompt,
+)
 from .settings_spec import STEPS_PER_TURN
 
 logger = logging.getLogger("saas_core.assistant")
@@ -184,22 +200,27 @@ def _next_request(organization_id: UUID, turn_id: UUID) -> ModelRequest | None:
 
 def _request(scope: _Scope) -> ModelRequest:
     conversation = scope.conversation
+    # A conversation that sets the company up gets its own three tools and no
+    # command of the registry (ADR-076, A3-2): the plan is the configurator's.
+    setting_up = conversation.kind == ConversationKind.SETUP
     tools = tuple(
         ToolSpec(
             name=tool["name"], description=tool["description"], input_schema=tool["input_schema"]
         )
-        for tool in command_tools(scope.context)
+        for tool in (setup.TOOLS if setting_up else command_tools(scope.context))
     )
     return ModelRequest(
         task=TASK,
         messages=(
             Message(
-                role="system", content=system_prompt(language=conversation.language), cache=True
+                role="system",
+                content=system_prompt(language=conversation.language, setup=setting_up),
+                cache=True,
             ),
             *transcript(conversation.id),
         ),
-        prompt_id=PROMPT_ID,
-        prompt_version=PROMPT_VERSION,
+        prompt_id=SETUP_PROMPT_ID if setting_up else PROMPT_ID,
+        prompt_version=SETUP_PROMPT_VERSION if setting_up else PROMPT_VERSION,
         context=ModelContext(
             organization_id=scope.context.organization_id,
             actor_id=scope.context.actor_id,
@@ -268,6 +289,8 @@ def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse
         if not calls:
             _finish(scope, TurnState.DONE)
             return False
+        if scope.conversation.kind == ConversationKind.SETUP:
+            return _run_setup_calls(scope, calls)
         invocations = [
             Invocation(
                 command=call["name"],
@@ -306,6 +329,145 @@ def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse
             return False
         record_results(scope.turn, scope.conversation, calls, execute_plan(invocations))
         return True
+
+
+def _run_setup_calls(scope: _Scope, calls: list[dict[str, Any]]) -> bool:
+    """A setup conversation's calls, in the order the model made them: a note
+    and a status are answered at once; the plan waits for the person, and what
+    follows it in the same answer is not run. False ends the loop."""
+    for position, call in enumerate(calls):
+        try:
+            waits = _run_setup_call(scope, call)
+        except APIException as error:
+            # Wrong notes, a profile too long, a permission taken away: said
+            # to the model field by field, like a command's refusal.
+            _append_result(
+                scope,
+                call,
+                status="refused",
+                code=problem_code(error),
+                errors=tuple(
+                    {key: entry.get(key) for key in ("field", "code", "message")}
+                    for entry in problem_errors(error)
+                ),
+            )
+            continue
+        if waits:
+            for later in calls[position + 1 :]:
+                _append_result(scope, later, status="skipped", code="plan_not_run")
+            return False
+    return True
+
+
+def _run_setup_call(scope: _Scope, call: Mapping[str, Any]) -> bool:
+    """Runs one of the assistant's own tools; True when the turn now waits for
+    the person's click on the configurator's plan."""
+    name = call["name"]
+    if name not in setup.TOOL_NAMES:
+        # No command of the registry is reachable from here, whatever is named.
+        _append_result(scope, call, status="refused", code="unknown_tool")
+        return False
+    if name == setup.PROFILE_NOTE:
+        output = setup.note(
+            json.loads(call["arguments_json"]),
+            owner_words=owner_words(scope.conversation),
+            key=f"note:{call['step_id']}",
+        )
+    elif name == setup.SETUP_STATUS:
+        output = setup.status(scope.context, language=scope.conversation.language)
+    else:
+        steps = setup.planned(scope.context)
+        plan = offer_plan(setup.invocations(steps)) if steps else None
+        if plan is None:
+            _append_result(
+                scope, call, status="done", output={"steps": [], "note": "Nothing is ready."}
+            )
+            return False
+        if plan.refusals:
+            refusal = plan.refusals[0]
+            _append_result(scope, call, status="refused", code=refusal.code, errors=refusal.errors)
+            return False
+        if plan.groups:
+            scope.turn.pending = {
+                "calls": [dict(call)],
+                "steps": steps,
+                "groups": [
+                    {
+                        "id": group.id,
+                        "digest": group.digest,
+                        "steps": [planned.step_id for planned in group.calls],
+                    }
+                    for group in plan.groups
+                ],
+            }
+            scope.turn.state = TurnState.AWAITING_CONSENT
+            scope.turn.save(update_fields=["pending", "state", "updated_at"])
+            return True
+        # The configurator plans writes only, and a write always takes a click.
+        _append_result(scope, call, status="refused", code="plan_without_consent")
+        return False
+    _append_result(scope, call, status="done", output=output)
+    return False
+
+
+def owner_words(conversation: AssistantConversation) -> str:
+    """Everything the person wrote in this conversation — the only thing a
+    value can be the owner's own word for (ADR-076, A3-2 pkt 3)."""
+    return "\n".join(
+        AssistantMessage.all_objects.filter(
+            conversation=conversation, role=MessageRole.USER
+        ).values_list("content", flat=True)
+    )
+
+
+def record_plan(
+    turn: AssistantTurn,
+    conversation: AssistantConversation,
+    call: Mapping[str, Any],
+    steps: Sequence[Mapping[str, Any]],
+    results: Sequence[CallResult],
+) -> None:
+    """The configurator's plan after the person's click: one tool message for
+    the one call that offered it, with every step's own result."""
+    by_step = {result.step_id: result for result in results}
+    done = all(by_step[step["step_id"]].status == "done" for step in steps)
+    append_message(
+        turn,
+        conversation,
+        role=MessageRole.TOOL,
+        content=json.dumps(
+            {
+                "status": "done" if done else "failed",
+                "output": {
+                    "steps": [
+                        {
+                            "step": step["ref"],
+                            "status": by_step[step["step_id"]].status,
+                            "error": by_step[step["step_id"]].code,
+                        }
+                        for step in steps
+                    ]
+                },
+            },
+            ensure_ascii=False,
+        ),
+        tool_call_id=call["id"],
+        result={
+            "step_id": call["step_id"],
+            "command": "",
+            "status": "done" if done else "failed",
+            "code": "",
+            "steps": [
+                {
+                    "step_id": step["step_id"],
+                    "command": step["command"],
+                    "status": by_step[step["step_id"]].status,
+                    "code": by_step[step["step_id"]].code or "",
+                }
+                for step in steps
+            ],
+        },
+    )
 
 
 def _record_invalid_calls(organization_id: UUID, turn_id: UUID, error: ModelError) -> bool:

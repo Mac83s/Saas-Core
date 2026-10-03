@@ -13,6 +13,7 @@ acting for them.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -70,8 +71,41 @@ def save_profile(
 ) -> ProfileState:
     """Applies the changes to the version the caller saw. A preview answers
     what the save would leave and writes nothing."""
+    return _store(
+        lambda document: _merged(document, changes),
+        expected_version=expected_version,
+        request={"changes": changes, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+    )
+
+
+@transaction.atomic
+def rewrite_profile(
+    *, rewrite: Callable[[dict[str, Any]], dict[str, Any]], request: Any, idempotency_key: str
+) -> ProfileState:
+    """Changes the newest version under its lock, for a caller that did not
+    read the profile first — the assistant's notes. `request` is what was
+    asked, so the key repeated for something else is refused."""
+    return _store(
+        rewrite,
+        expected_version=None,
+        request=request,
+        idempotency_key=idempotency_key,
+        preview=False,
+    )
+
+
+def _store(
+    make: Callable[[dict[str, Any]], dict[str, Any]],
+    *,
+    expected_version: int | None,
+    request: Any,
+    idempotency_key: str,
+    preview: bool,
+) -> ProfileState:
     context = _manager(FeatureOperation.WRITE)
-    request_hash = canonical_json_hash({"changes": changes, "expected_version": expected_version})
+    request_hash = canonical_json_hash(request)
     if not preview:
         if not idempotency_key:
             raise ValidationError({"idempotency_key": "Zapis profilu wymaga klucza."})
@@ -83,9 +117,9 @@ def save_profile(
             return _state(repeated, changed_from=_state(earlier).document)
     current = _latest(context, lock=True)
     before = _state(current)
-    if before.version != expected_version:
+    if expected_version is not None and before.version != expected_version:
         raise ProfileVersionConflict
-    document = _merged(before.document, changes)
+    document = make(before.document)
     validate_profile(document)
     if len(canonical_json(document)) > MAX_PROFILE_BYTES:
         raise ValidationError({"changes": "Profil jest za długi."}, code="too_large")

@@ -47,7 +47,8 @@ paths:
       description: Opens an empty conversation of the signed-in person. Refused with
         503 `assistant_unavailable` while the chat is closed (see the offer), 403
         `assistant_not_in_plan` without the plan feature and 429 above the limit of
-        new conversations per address. A repeated Idempotency-Key answers the first
+        new conversations per address. A `setup` conversation is opened by whoever
+        manages the company's settings. A repeated Idempotency-Key answers the first
         result again.
       summary: Start a conversation with the assistant
       parameters:
@@ -159,8 +160,11 @@ paths:
       description: 'Takes the person''s message and queues the assistant''s turn;
         the answer arrives in the conversation. One turn at a time: 409 `assistant_turn_in_progress`
         while the previous one runs or waits for consent. A turn holds the credits
-        of one message and spends them only when it is answered. A repeated Idempotency-Key
-        answers the first result again.'
+        of one message and spends them only when it is answered; a message in a `setup`
+        conversation is free and counts against the setup budgets instead (429 `assistant_setup_budget`,
+        `assistant_setup_daily_budget`: what was settled stays in the company profile
+        and the setup is finished in the panel). A repeated Idempotency-Key answers
+        the first result again.'
       summary: Send the assistant a message
       parameters:
       - in: header
@@ -21579,6 +21583,14 @@ components:
       - title
       - turns
       - updated_at
+    AssistantConversationKindEnum:
+      enum:
+      - operate
+      - setup
+      type: string
+      description: |-
+        * `operate` - Operate
+        * `setup` - Setup
     AssistantConversationList:
       type: object
       properties:
@@ -21599,6 +21611,15 @@ components:
 
             * `pl` - pl
             * `en` - en
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AssistantConversationKindEnum'
+          default: operate
+          description: |-
+            `operate`: the assistant works with the company's commands, a credit per answered message. `setup`: it sets the company up — notes what the owner says into the company profile and offers the plan worked out from it; free, within the setup budgets.
+
+            * `operate` - Operate
+            * `setup` - Setup
       required:
       - language
     AssistantConversationSummary:
@@ -21607,6 +21628,14 @@ components:
         id:
           type: string
           format: uuid
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AssistantConversationKindEnum'
+          description: |-
+            `operate`: the assistant works with the company's commands, a credit per answered message. `setup`: it sets the company up — notes what the owner says into the company profile and offers the plan worked out from it; free, within the setup budgets.
+
+            * `operate` - Operate
+            * `setup` - Setup
         title:
           type: string
           description: The first message, shortened.
@@ -21621,6 +21650,7 @@ components:
       required:
       - created_at
       - id
+      - kind
       - language
       - title
       - updated_at
@@ -21647,12 +21677,18 @@ components:
         max_message_characters:
           type: integer
           minimum: 1
+        setup:
+          allOf:
+          - $ref: '#/components/schemas/AssistantSetupOffer'
+          description: 'The conversation that sets the company up: free, within these
+            budgets.'
       required:
       - available
       - credits_per_message
       - in_plan
       - max_message_characters
       - reasons
+      - setup
     AssistantProfile:
       type: object
       properties:
@@ -21725,6 +21761,25 @@ components:
       - schema
       - updated_at
       - version
+    AssistantSetupOffer:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          description: 'Whether this person may set the company up: they manage its
+            settings.'
+        turns_left:
+          type: integer
+          minimum: 0
+          description: Free setup messages the company has left.
+        turns_left_today:
+          type: integer
+          minimum: 0
+          description: Free setup messages this person has left today (UTC).
+      required:
+      - allowed
+      - turns_left
+      - turns_left_today
     AssistantTurn:
       type: object
       properties:

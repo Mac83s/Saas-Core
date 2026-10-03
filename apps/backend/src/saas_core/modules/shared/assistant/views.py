@@ -117,7 +117,8 @@ class ConversationListView(APIView):
         description="Opens an empty conversation of the signed-in person. Refused with "
         "503 `assistant_unavailable` while the chat is closed (see the offer), 403 "
         "`assistant_not_in_plan` without the plan feature and 429 above the limit of new "
-        "conversations per address." + _REPEAT_NOTE,
+        "conversations per address. A `setup` conversation is opened by whoever manages "
+        "the company's settings." + _REPEAT_NOTE,
         tags=["assistant"],
         parameters=[IDEMPOTENCY],
         request=AssistantConversationStartSerializer,
@@ -128,6 +129,7 @@ class ConversationListView(APIView):
         serializer.is_valid(raise_exception=True)
         conversation = start_conversation(
             language=serializer.validated_data["language"],
+            kind=serializer.validated_data["kind"],
             idempotency_key=_idem(request),
             address=BaseThrottle().get_ident(request),
         )
@@ -165,7 +167,10 @@ class TurnCreateView(APIView):
         description="Takes the person's message and queues the assistant's turn; the "
         "answer arrives in the conversation. One turn at a time: 409 "
         "`assistant_turn_in_progress` while the previous one runs or waits for consent. A "
-        "turn holds the credits of one message and spends them only when it is answered."
+        "turn holds the credits of one message and spends them only when it is answered; a "
+        "message in a `setup` conversation is free and counts against the setup budgets "
+        "instead (429 `assistant_setup_budget`, `assistant_setup_daily_budget`: what was "
+        "settled stays in the company profile and the setup is finished in the panel)."
         + _REPEAT_NOTE,
         tags=["assistant"],
         parameters=[IDEMPOTENCY],

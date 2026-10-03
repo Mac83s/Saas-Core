@@ -28,7 +28,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -48,7 +54,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -68,7 +80,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -87,7 +105,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -107,7 +131,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -127,7 +157,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -147,7 +183,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -174,7 +216,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -194,7 +242,13 @@
             },
             "origin": {
               "type": "string",
-              "enum": ["owner", "existing_site", "preset_default", "assistant"]
+              "enum": [
+                "owner",
+                "account",
+                "existing_site",
+                "preset_default",
+                "assistant"
+              ]
             },
             "confirmed": {
               "type": "boolean"
@@ -221,7 +275,13 @@
         },
         "origin": {
           "type": "string",
-          "enum": ["owner", "existing_site", "preset_default", "assistant"]
+          "enum": [
+            "owner",
+            "account",
+            "existing_site",
+            "preset_default",
+            "assistant"
+          ]
         },
         "confirmed": {
           "type": "boolean"
@@ -255,6 +315,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -280,6 +341,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -320,6 +382,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -370,6 +433,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -410,6 +474,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -434,6 +499,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -459,6 +525,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -484,6 +551,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -509,6 +577,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -548,6 +617,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -577,6 +647,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -606,6 +677,7 @@
                 "type": "string",
                 "enum": [
                   "owner",
+                  "account",
                   "existing_site",
                   "preset_default",
                   "assistant"
@@ -634,6 +706,7 @@
                   "type": "string",
                   "enum": [
                     "owner",
+                    "account",
                     "existing_site",
                     "preset_default",
                     "assistant"

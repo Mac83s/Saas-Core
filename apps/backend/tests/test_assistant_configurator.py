@@ -382,6 +382,23 @@ def test_an_area_whose_reads_are_not_given_is_left_alone() -> None:
     ]
 
 
+def test_without_the_list_of_kinds_places_are_set_up_and_offers_wait() -> None:
+    """The registry before `booking.preset.list@1`: a place and a person need
+    no kind of booking, an offer cannot be planned without one."""
+    reads = new_company("Salon Fryzjerski Ania")
+    del reads[PRESETS]
+
+    answer = configure(example("hairdresser"), reads, COMMANDS)
+
+    assert [entry["ref"] for entry in answer["plan"]] == ["card", "place:salon"]
+    assert answer["unsupported"] == [
+        cannot("offers.cut", "presets_unavailable"),
+        cannot("offers.colour", "presets_unavailable"),
+    ]
+    # Nobody's hours are asked for while no offer says who works.
+    assert "people.ola.hours" not in [question["key"] for question in answer["missing"]]
+
+
 def test_a_language_the_plan_does_not_allow_is_not_planned() -> None:
     reads = new_company("Domki nad Jeziorem")
     reads["organization.public_locales.read@1"]["additional_max"] = 0

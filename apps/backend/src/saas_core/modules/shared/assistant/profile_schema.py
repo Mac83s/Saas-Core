@@ -20,8 +20,10 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.settings import api_settings
 
 SCHEMA_ID = "company-profile.v1"
-#: Who a value comes from. Only the owner's own word arrives confirmed.
-ORIGINS = ("owner", "existing_site", "preset_default", "assistant")
+#: Where a value comes from: the owner's own words in a conversation, what the
+#: account already holds, the company's earlier site, a preset's default or
+#: the assistant's proposal. Only the first two are facts.
+ORIGINS = ("owner", "account", "existing_site", "preset_default", "assistant")
 #: A profile is an interview's notes, not an archive.
 MAX_PROFILE_BYTES = 64_000
 

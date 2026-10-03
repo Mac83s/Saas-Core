@@ -949,6 +949,7 @@ SPECTACULAR_SETTINGS = {
             ("done", "Done"),
             ("failed", "Failed"),
         ],
+        "AssistantConversationKindEnum": [("operate", "Operate"), ("setup", "Setup")],
         "StockLocationKindEnum": "saas_core.modules.shared.inventory.models.LocationKind",
     },
 }

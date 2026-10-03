@@ -16,7 +16,7 @@ Schemat: `packages/contracts/assistant/company-profile.v1.schema.json` — pisan
   (rodzaj rezerwacji — id presetu, czas, sztuki, pojemność, cena, miejsca, osoby,
   odpowiedzi na `requiredInputs` presetu), `sources`.
 - **Każda wartość ma pochodzenie i potwierdzenie**:
-  `{"value", "origin": owner | existing_site | preset_default | assistant, "confirmed"}`.
+  `{"value", "origin": owner | account | existing_site | preset_default | assistant, "confirmed"}`.
   Do konta trafia wyłącznie wartość potwierdzona; niepotwierdzona wraca jako pytanie.
 - Wpisy list mają `key` — nazwę wewnątrz dokumentu. Oferta wskazuje miejsca i osoby
   po kluczach, godziny wskazują miejsce; klucz powtórzony albo wskazujący na brak
@@ -69,7 +69,7 @@ Wynik to cztery listy:
 | `missing` | pytania do właściciela, od najważniejszych: `ask` (brakuje wartości) albo `confirm` (jest, ale niepotwierdzona), z `reason`, propozycją i dozwolonymi odpowiedziami |
 | `plan` | polecenia gotowe do wykonania: `ref`, `command`, `arguments` |
 | `blocked` | kroki, które czekają: `waits` (na wcześniejszy krok — `waits_for`), `command_missing` (produkt nie ma polecenia), `person_only` (krok właściciela, np. włączenie usługi) |
-| `unsupported` | czego właściciel chce, a produkt jeszcze nie umie: `preset_not_ready`, `price_list`, `city_not_in_catalog`, `language_not_offered`, `language_limit`, `preset_unknown`, `category_unknown`, `booking_unavailable` |
+| `unsupported` | czego właściciel chce, a produkt jeszcze nie umie: `preset_not_ready`, `price_list`, `city_not_in_catalog`, `language_not_offered`, `language_limit`, `preset_unknown`, `category_unknown`, `booking_unavailable`, `presets_unavailable` |
 
 Zasady:
 

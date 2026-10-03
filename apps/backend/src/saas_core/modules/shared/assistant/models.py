@@ -38,8 +38,19 @@ class MessageRole(models.TextChoices):
     TOOL = "tool", "Tool"
 
 
+class ConversationKind(models.TextChoices):
+    #: Operates the company through the registry's commands (A3-1).
+    OPERATE = "operate", "Operate"
+    #: Sets the company up: notes the profile and offers the configurator's
+    #: plan, with three tools of its own and no other (A3-2).
+    SETUP = "setup", "Setup"
+
+
 class AssistantConversation(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    kind = models.CharField(
+        max_length=10, choices=ConversationKind.choices, default=ConversationKind.OPERATE
+    )
     # The membership the assistant acts for; only that person reads the rows.
     membership_id = models.UUIDField()
     created_by = models.ForeignKey(
@@ -58,7 +69,11 @@ class AssistantConversation(TenantScopedModel):
             models.UniqueConstraint(
                 fields=["organization", "membership_id", "idempotency_key"],
                 name="assistant_conv_key_unique",
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(kind__in=[choice.value for choice in ConversationKind]),
+                name="assistant_conv_kind_ck",
+            ),
         ]
         indexes = [
             models.Index(

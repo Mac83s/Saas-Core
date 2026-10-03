@@ -106,7 +106,7 @@ def configure(
     _languages(run)
     _card(run)
     _booking(run)
-    for key, node in _said(profile):
+    for key, node in said_values(profile):
         if not node["confirmed"]:
             run.missing.append({
                 "key": key,
@@ -181,7 +181,7 @@ def _confirmed(node: Mapping[str, Any] | None) -> Any:
     return node["value"] if node is not None and node["confirmed"] else None
 
 
-def _said(profile: Mapping[str, Any]) -> Iterator[tuple[str, Mapping[str, Any]]]:
+def said_values(profile: Mapping[str, Any]) -> Iterator[tuple[str, Mapping[str, Any]]]:
     """Every value of the profile with its path; a list's entry by its key."""
     for section in ("company", "card"):
         for field, node in profile.get(section, {}).items():
@@ -213,7 +213,7 @@ def _rank(key: str) -> int:
     return order.index(True) if True in order else len(order)
 
 
-def _fold(text: str) -> str:
+def fold(text: str) -> str:
     """A name as people compare it: case, accents, punctuation and spacing aside."""
     decomposed = unicodedata.normalize("NFKD", text.translate(_FOLD))
     plain = "".join(
@@ -230,6 +230,9 @@ def _label(text: str) -> dict[str, str]:
 
 
 def _company(run: _Run) -> None:
+    if "activity" not in run.profile.get("company", {}):
+        # Where every setup starts, whatever the product then holds of it.
+        run.ask("company.activity", "what_company_does")
     account = run.reads.get(ORGANIZATION)
     name = run.said("company", "name")
     if account is not None and name is not None and name != account["name"]:
@@ -277,7 +280,7 @@ def _card(run: _Run) -> None:
             run.ask("company.city", "card_needs_city")
     elif (name := _confirmed(city)) is not None:
         slug = next(
-            (entry["slug"] for entry in options["cities"] if _fold(entry["name"]) == _fold(name)),
+            (entry["slug"] for entry in options["cities"] if fold(entry["name"]) == fold(name)),
             None,
         )
         if slug is None:
@@ -318,14 +321,14 @@ def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | 
         if hint in keys:
             return str(hint)
     said = [run.said("company", "activity"), *(_confirmed(offer.get("name")) for offer in offers)]
-    words = f" {_fold(' '.join(text for text in said if text))} "
+    words = f" {fold(' '.join(text for text in said if text))} "
     best: dict[str, tuple[int, int]] = {}
     for entry in categories:
         found = [
             (at, -len(folded))
             for keywords in entry["keywords"].values()
             for keyword in keywords
-            if (at := words.find(f" {(folded := _fold(keyword))} ")) >= 0
+            if (at := words.find(f" {(folded := fold(keyword))} ")) >= 0
         ]
         if found:
             best[entry["key"]] = min(found)
@@ -340,24 +343,29 @@ def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | 
 def _booking(run: _Run) -> None:
     setup, presets = run.reads.get(SETUP), run.reads.get(PRESETS)
     offers = run.profile.get("offers", [])
-    if setup is None or presets is None:
+    if setup is None:
         for offer in offers:
             run.cannot(f"offers.{offer['key']}", "booking_unavailable")
         return
     if not offers:
-        if "activity" not in run.profile.get("company", {}):
-            run.ask("company.activity", "what_company_does")
         run.ask("offers", "nothing_to_sell")
     places = _places(run, setup)
     people = _people(run, setup)
-    working = _offers(run, setup, presets, places, people)
+    working: set[str] = set()
+    if presets is None:
+        # Places and people need no kind of booking; an offer cannot be told
+        # from another without the list of kinds.
+        for offer in offers:
+            run.cannot(f"offers.{offer['key']}", "presets_unavailable")
+    else:
+        working = _offers(run, setup, presets, places, people)
     _hours(run, setup, places, people, working)
 
 
 def _places(run: _Run, setup: Mapping[str, Any]) -> dict[str, str | None]:
     """Each named place of the profile with its id in the account, or None
     while it is still to be added."""
-    existing = {_fold(place["name"]): place for place in setup["locations"]}
+    existing = {fold(place["name"]): place for place in setup["locations"]}
     ids: dict[str, str | None] = {}
     for place in run.profile.get("places", []):
         key = place["key"]
@@ -367,7 +375,7 @@ def _places(run: _Run, setup: Mapping[str, Any]) -> dict[str, str | None]:
         if name is None:
             continue
         address = _confirmed(place.get("address"))
-        found = existing.get(_fold(name))
+        found = existing.get(fold(name))
         ids[key] = found["id"] if found is not None else None
         if found is None:
             run.step(
@@ -383,7 +391,7 @@ def _places(run: _Run, setup: Mapping[str, Any]) -> dict[str, str | None]:
 
 
 def _people(run: _Run, setup: Mapping[str, Any]) -> dict[str, str | None]:
-    existing = {_fold(person["name"]): person for person in setup["staff"]}
+    existing = {fold(person["name"]): person for person in setup["staff"]}
     ids: dict[str, str | None] = {}
     for person in run.profile.get("people", []):
         key = person["key"]
@@ -392,7 +400,7 @@ def _people(run: _Run, setup: Mapping[str, Any]) -> dict[str, str | None]:
         name = _confirmed(person.get("name"))
         if name is None:
             continue
-        found = existing.get(_fold(name))
+        found = existing.get(fold(name))
         ids[key] = found["id"] if found is not None else None
         if found is None:
             run.step(f"person:{key}", _PERSON_ADD, {**dict.fromkeys(_PERSON_FIELDS), "name": name})
@@ -409,7 +417,7 @@ def _offers(
     """Plans each offer the product can hold; answers the keys of the people
     who do one, so their hours are asked for."""
     known = {preset["id"]: preset for preset in presets["presets"]}
-    services = {_fold(service["name"]): service for service in setup["services"]}
+    services = {fold(service["name"]): service for service in setup["services"]}
     working: set[str] = set()
     for offer in run.profile.get("offers", []):
         path = f"offers.{offer['key']}"
@@ -517,7 +525,7 @@ def _offer(
         *(f"place:{place}" for place in where if places[place] is None),
         *(f"person:{person}" for person in who if people[person] is None),
     ]
-    service = services.get(_fold(name))
+    service = services.get(fold(name))
     if service is None:
         # Through the preset once the product has the command; until then a
         # visit by the clock can be created as a plain service.

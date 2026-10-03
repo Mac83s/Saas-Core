@@ -19,7 +19,7 @@ export interface paths {
         put?: never;
         /**
          * Start a conversation with the assistant
-         * @description Opens an empty conversation of the signed-in person. Refused with 503 `assistant_unavailable` while the chat is closed (see the offer), 403 `assistant_not_in_plan` without the plan feature and 429 above the limit of new conversations per address. A repeated Idempotency-Key answers the first result again.
+         * @description Opens an empty conversation of the signed-in person. Refused with 503 `assistant_unavailable` while the chat is closed (see the offer), 403 `assistant_not_in_plan` without the plan feature and 429 above the limit of new conversations per address. A `setup` conversation is opened by whoever manages the company's settings. A repeated Idempotency-Key answers the first result again.
          */
         post: operations["assistant_conversation_create"];
         delete?: never;
@@ -59,7 +59,7 @@ export interface paths {
         put?: never;
         /**
          * Send the assistant a message
-         * @description Takes the person's message and queues the assistant's turn; the answer arrives in the conversation. One turn at a time: 409 `assistant_turn_in_progress` while the previous one runs or waits for consent. A turn holds the credits of one message and spends them only when it is answered. A repeated Idempotency-Key answers the first result again.
+         * @description Takes the person's message and queues the assistant's turn; the answer arrives in the conversation. One turn at a time: 409 `assistant_turn_in_progress` while the previous one runs or waits for consent. A turn holds the credits of one message and spends them only when it is answered; a message in a `setup` conversation is free and counts against the setup budgets instead (429 `assistant_setup_budget`, `assistant_setup_daily_budget`: what was settled stays in the company profile and the setup is finished in the panel). A repeated Idempotency-Key answers the first result again.
          */
         post: operations["assistant_turn_create"];
         delete?: never;
@@ -7148,6 +7148,12 @@ export interface components {
             updated_at: string;
             turns: components["schemas"]["AssistantTurn"][];
         };
+        /**
+         * @description * `operate` - Operate
+         *     * `setup` - Setup
+         * @enum {string}
+         */
+        AssistantConversationKindEnum: "operate" | "setup";
         AssistantConversationList: {
             items: components["schemas"]["AssistantConversationSummary"][];
         };
@@ -7159,10 +7165,25 @@ export interface components {
              *     * `en` - en
              */
             language: components["schemas"]["LocaleEnum"];
+            /**
+             * @description `operate`: the assistant works with the company's commands, a credit per answered message. `setup`: it sets the company up — notes what the owner says into the company profile and offers the plan worked out from it; free, within the setup budgets.
+             *
+             *     * `operate` - Operate
+             *     * `setup` - Setup
+             * @default operate
+             */
+            kind: components["schemas"]["AssistantConversationKindEnum"];
         };
         AssistantConversationSummary: {
             /** Format: uuid */
             id: string;
+            /**
+             * @description `operate`: the assistant works with the company's commands, a credit per answered message. `setup`: it sets the company up — notes what the owner says into the company profile and offers the plan worked out from it; free, within the setup budgets.
+             *
+             *     * `operate` - Operate
+             *     * `setup` - Setup
+             */
+            kind: components["schemas"]["AssistantConversationKindEnum"];
             /** @description The first message, shortened. */
             title: string;
             language: components["schemas"]["LocaleEnum"];
@@ -7181,6 +7202,8 @@ export interface components {
             /** @description Credits one answered message costs; 0 while it is not metered. */
             credits_per_message: number;
             max_message_characters: number;
+            /** @description The conversation that sets the company up: free, within these budgets. */
+            setup: components["schemas"]["AssistantSetupOffer"];
         };
         AssistantProfile: {
             /** @description The document's contract: `company-profile.v1`. */
@@ -7215,6 +7238,14 @@ export interface components {
             updated_at: string | null;
             /** @description The fields the change touched, e.g. `company.city`; a list counts as one field. Empty when it changed nothing. */
             changed: string[];
+        };
+        AssistantSetupOffer: {
+            /** @description Whether this person may set the company up: they manage its settings. */
+            allowed: boolean;
+            /** @description Free setup messages the company has left. */
+            turns_left: number;
+            /** @description Free setup messages this person has left today (UTC). */
+            turns_left_today: number;
         };
         AssistantTurn: {
             /** Format: uuid */

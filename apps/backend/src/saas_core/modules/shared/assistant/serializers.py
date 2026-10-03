@@ -6,8 +6,20 @@ from rest_framework import serializers
 
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
-from .models import TurnState
+from .models import ConversationKind, TurnState
 from .services import MAX_MESSAGE_CHARACTERS
+
+
+class AssistantSetupOfferSerializer(serializers.Serializer[Any]):
+    allowed = serializers.BooleanField(
+        help_text="Whether this person may set the company up: they manage its settings."
+    )
+    turns_left = serializers.IntegerField(
+        min_value=0, help_text="Free setup messages the company has left."
+    )
+    turns_left_today = serializers.IntegerField(
+        min_value=0, help_text="Free setup messages this person has left today (UTC)."
+    )
 
 
 class AssistantOfferSerializer(serializers.Serializer[Any]):
@@ -26,6 +38,16 @@ class AssistantOfferSerializer(serializers.Serializer[Any]):
         min_value=0, help_text="Credits one answered message costs; 0 while it is not metered."
     )
     max_message_characters = serializers.IntegerField(min_value=1)
+    setup = AssistantSetupOfferSerializer(
+        help_text="The conversation that sets the company up: free, within these budgets."
+    )
+
+
+_KIND_HELP = (
+    "`operate`: the assistant works with the company's commands, a credit per answered "
+    "message. `setup`: it sets the company up — notes what the owner says into the company "
+    "profile and offers the plan worked out from it; free, within the setup budgets."
+)
 
 
 class AssistantConversationStartSerializer(serializers.Serializer[Any]):
@@ -34,10 +56,14 @@ class AssistantConversationStartSerializer(serializers.Serializer[Any]):
         help_text="The panel's language: previews and refusals are shown in it. The "
         "assistant itself answers in the language the person writes in.",
     )
+    kind = serializers.ChoiceField(
+        choices=ConversationKind.choices, default=ConversationKind.OPERATE, help_text=_KIND_HELP
+    )
 
 
 class AssistantConversationSummarySerializer(serializers.Serializer[Any]):
     id = serializers.UUIDField()
+    kind = serializers.ChoiceField(choices=ConversationKind.choices, help_text=_KIND_HELP)
     title = serializers.CharField(allow_blank=True, help_text="The first message, shortened.")
     language = serializers.ChoiceField(choices=("pl", "en"))
     created_at = serializers.DateTimeField()

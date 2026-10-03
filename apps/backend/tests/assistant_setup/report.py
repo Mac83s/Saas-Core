@@ -84,6 +84,7 @@ FIELD_LABELS = {
 ORIGINS = {
     "assistant": "propozycja asystenta",
     "existing_site": "z dotychczasowej strony firmy",
+    "account": "z konta firmy",
     "preset_default": "wartość domyślna rodzaju rezerwacji",
     "owner": "słowa właściciela",
 }
@@ -310,4 +311,5 @@ def _unsupported(
         "language_not_offered": f"język „{detail}” — platforma go nie oferuje",
         "language_limit": f"języki: {detail} — plan firmy nie pozwala dodać kolejnego języka",
         "booking_unavailable": f"{name} — ten produkt nie ma modułu rezerwacji",
+        "presets_unavailable": f"{name} — asystent nie ma jeszcze odczytu rodzajów rezerwacji",
     }[code]

@@ -36,6 +36,7 @@ from saas_core.modules.core.organizations.context import (
     acting_context,
     activate_tenant_context,
 )
+from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     decide_feature,
@@ -44,20 +45,29 @@ from saas_core.modules.shared.billing.api import (
 )
 from saas_core.modules.shared.model_port.api import task_status
 
+from . import setup
 from .models import (
     TURN_OPEN,
     AssistantConversation,
     AssistantMessage,
     AssistantTurn,
+    ConversationKind,
     MessageRole,
     TurnState,
 )
 from .permissions import ASSISTANT_USE, CREDIT_OPERATION, TASK, TEXT_FEATURE
-from .settings_spec import DAILY_TURNS, STARTS_PER_HOUR, TURNS_PER_MINUTE
+from .settings_spec import (
+    DAILY_TURNS,
+    SETUP_TURNS_PER_COMPANY,
+    SETUP_TURNS_PER_DAY,
+    STARTS_PER_HOUR,
+    TURNS_PER_MINUTE,
+)
 from .turns import (
     append_message,
     close_open_calls,
     conversation_ref,
+    record_plan,
     record_results,
 )
 
@@ -109,6 +119,28 @@ class ConsentNotAwaited(APIException):
     default_code = "assistant_consent_not_awaited"
 
 
+class SetupBudgetSpent(APIException):
+    """The free setup conversation has used its messages. Nothing is lost:
+    what was settled stays in the company's profile."""
+
+    status_code = 429
+    default_detail = (
+        "Bezpłatna rozmowa zakładająca firmę wykorzystała limit wiadomości. To, co już "
+        "ustalono, zostaje w profilu firmy. Resztę ustawisz w panelu — Wizytówka, Zespół, "
+        "Ustawienia › Usługi i grafik — albo w zwykłej rozmowie z asystentem."
+    )
+    default_code = "assistant_setup_budget"
+
+
+class SetupBudgetSpentToday(SetupBudgetSpent):
+    default_detail = (
+        "Na dziś bezpłatna rozmowa zakładająca firmę wykorzystała limit wiadomości. To, co "
+        "już ustalono, zostaje w profilu firmy. Wróć do niej jutro albo dokończ w panelu — "
+        "Wizytówka, Zespół, Ustawienia › Usługi i grafik."
+    )
+    default_code = "assistant_setup_daily_budget"
+
+
 class IdempotencyConflict(APIException):
     status_code = 409
     default_detail = "Ten klucz Idempotency-Key był już użyty do innej wiadomości."
@@ -139,17 +171,23 @@ def conversation_context(
 
 def assistant_offer() -> dict[str, Any]:
     """Whether the person can talk to the assistant now, and why not."""
-    _person()
+    context = _person()
     reasons = _unavailable()
     feature = decide_feature(TEXT_FEATURE, operation=FeatureOperation.WRITE).allowed
     if not feature:
         reasons.append(UNAVAILABLE_FEATURE)
+    company, today = _setup_turns_left(context)
     return {
         "available": not reasons,
         "reasons": reasons,
         "in_plan": feature,
         "credits_per_message": operation_cost(CREDIT_OPERATION),
         "max_message_characters": MAX_MESSAGE_CHARACTERS,
+        "setup": {
+            "allowed": context.has_permission(SETTINGS_MANAGE),
+            "turns_left": company,
+            "turns_left_today": today,
+        },
     }
 
 
@@ -212,23 +250,43 @@ def _count_turn(context: TenantContext) -> None:
     cache.incr(_day_key())
 
 
+def _setup_turns_left(context: TenantContext) -> tuple[int, int]:
+    """Free setup messages left for the company and for this person today
+    (decision 23 b: setting a company up costs no credits, within budgets)."""
+    turns = AssistantTurn.all_objects.filter(
+        organization_id=context.organization_id, conversation__kind=ConversationKind.SETUP
+    )
+    midnight = timezone.now().astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = turns.filter(
+        conversation__membership_id=context.membership_id, created_at__gte=midnight
+    )
+    return (
+        max(0, int(platform_setting(SETUP_TURNS_PER_COMPANY.key)) - turns.count()),
+        max(0, int(platform_setting(SETUP_TURNS_PER_DAY.key)) - today.count()),
+    )
+
+
 # --- Conversations -----------------------------------------------------------------
 
 
 @transaction.atomic
 def start_conversation(
-    *, language: str, idempotency_key: str, address: str
+    *, language: str, idempotency_key: str, address: str, kind: str = ConversationKind.OPERATE
 ) -> AssistantConversation:
     context = _person()
     existing = _conversations(context).filter(idempotency_key=idempotency_key).first()
     if existing is not None:
         return existing
+    if kind == ConversationKind.SETUP:
+        # The profile is the company's: whoever sets it up manages its settings.
+        authorize(SETTINGS_MANAGE)
     _require_open()
     _count_start(address)
     return AssistantConversation.all_objects.create(
         organization_id=context.organization_id,
         membership_id=context.membership_id,
         created_by_id=context.actor_id,
+        kind=kind,
         language=language,
         idempotency_key=idempotency_key,
     )
@@ -301,6 +359,13 @@ def add_turn(*, conversation_id: UUID, text: str, idempotency_key: str) -> Assis
     if turns.filter(state__in=TURN_OPEN).exists():
         raise TurnInProgress
     _require_open()
+    setting_up = conversation.kind == ConversationKind.SETUP
+    if setting_up:
+        company, today = _setup_turns_left(context)
+        if not company:
+            raise SetupBudgetSpent
+        if not today:
+            raise SetupBudgetSpentToday
     _count_turn(context)
     last = turns.aggregate(last=Max("index"))["last"] or 0
     try:
@@ -313,10 +378,15 @@ def add_turn(*, conversation_id: UUID, text: str, idempotency_key: str) -> Assis
             )
     except IntegrityError:
         raise TurnInProgress from None
-    reservation = reserve_credits(
-        CREDIT_OPERATION,
-        idempotency_key=f"assistant_turn:{turn.id}",
-        expires_at=timezone.now() + timedelta(minutes=HOLD_MINUTES),
+    # A message that sets the company up is free; any other holds its credit.
+    reservation = (
+        None
+        if setting_up
+        else reserve_credits(
+            CREDIT_OPERATION,
+            idempotency_key=f"assistant_turn:{turn.id}",
+            expires_at=timezone.now() + timedelta(minutes=HOLD_MINUTES),
+        )
     )
     if reservation is not None:
         turn.credit_reservation_key = f"assistant_turn:{turn.id}"
@@ -355,13 +425,17 @@ def answer_consent(
         raise ConversationNotFound
     if turn.state != TurnState.AWAITING_CONSENT or not turn.pending:
         raise ConsentNotAwaited
-    calls: list[dict[str, Any]] = turn.pending["calls"]
+    pending: dict[str, Any] = turn.pending
+    calls: list[dict[str, Any]] = pending["calls"]
     if declined:
         close_open_calls(turn, conversation, "consent_declined")
     else:
         with activate_tenant_context(conversation_context(context, conversation)):
-            results = execute_plan(_invocations(calls), dict(consents))
-        record_results(turn, conversation, calls, results)
+            results = execute_plan(_pending_invocations(pending), dict(consents))
+        if "steps" in pending:
+            record_plan(turn, conversation, calls[0], pending["steps"], results)
+        else:
+            record_results(turn, conversation, calls, results)
         turn.pending = None
     turn.state = TurnState.RUNNING
     turn.save(update_fields=["pending", "state", "updated_at"])
@@ -369,14 +443,19 @@ def answer_consent(
     return turn
 
 
-def _invocations(calls: list[dict[str, Any]]) -> list[Invocation]:
+def _pending_invocations(pending: Mapping[str, Any]) -> list[Invocation]:
+    """What a waiting plan runs: the configurator's steps in a setup
+    conversation (one call of the model offered them all), else the model's
+    own calls."""
+    if "steps" in pending:
+        return setup.invocations(pending["steps"])
     return [
         Invocation(
             command=call["name"],
             arguments=json.loads(call["arguments_json"]),
             step_id=call["step_id"],
         )
-        for call in calls
+        for call in pending["calls"]
     ]
 
 
@@ -390,7 +469,7 @@ def _offer_again(
     if all(pending_consent(context, group["digest"]) for group in pending["groups"]):
         return
     with activate_tenant_context(conversation_context(context, conversation)), transaction.atomic():
-        plan = offer_plan(_invocations(pending["calls"]))
+        plan = offer_plan(_pending_invocations(pending))
     groups = [
         {"id": group.id, "digest": group.digest, "steps": [call.step_id for call in group.calls]}
         for group in plan.groups
@@ -419,12 +498,17 @@ def _shown_turn(turn: AssistantTurn, messages: list[AssistantMessage]) -> dict[s
         if message.content:
             items.append({"kind": "text", "text": message.content})
         for call in message.tool_calls:
+            result = results.get(call["id"], {})
+            steps = _plan_steps(turn, call, result)
+            if steps:
+                items.extend(steps)
+                continue
             items.append({
                 "kind": "action",
                 "step_id": call["step_id"],
-                **_command_words(call["command"]),
-                "status": results.get(call["id"], {}).get("status", "pending"),
-                "code": results.get(call["id"], {}).get("code", ""),
+                **_command_words(call["command"], call["name"]),
+                "status": result.get("status", "pending"),
+                "code": result.get("code", ""),
             })
     person = next((message for message in own if message.role == MessageRole.USER), None)
     return {
@@ -437,8 +521,33 @@ def _shown_turn(turn: AssistantTurn, messages: list[AssistantMessage]) -> dict[s
     }
 
 
-def _command_words(key: str) -> dict[str, Any]:
+def _plan_steps(
+    turn: AssistantTurn, call: Mapping[str, Any], result: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """The steps of the configurator's plan one call offered: as they wait for
+    the click, and as each ended after it."""
+    pending = turn.pending or {}
+    waiting = turn.state == TurnState.AWAITING_CONSENT and "steps" in pending
+    if waiting and pending["calls"][0]["id"] == call["id"]:
+        steps = [{**step, "status": "pending", "code": ""} for step in pending["steps"]]
+    else:
+        steps = result.get("steps", [])
+    return [
+        {
+            "kind": "action",
+            "step_id": step["step_id"],
+            **_command_words(step["command"]),
+            "status": step["status"],
+            "code": step["code"],
+        }
+        for step in steps
+    ]
+
+
+def _command_words(key: str, tool: str = "") -> dict[str, Any]:
     """The command as a person reads it: its title, never its key."""
+    if tool in setup.TITLES:
+        return {"title": setup.TITLES[tool], "risk": "read"}
     try:
         spec = command(key)
     except UnknownCommand:

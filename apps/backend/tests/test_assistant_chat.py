@@ -187,10 +187,10 @@ def tool(name: str, arguments: Mapping[str, Any], call_id: str = "c1") -> FakeRe
 class Chat:
     """One person's conversation, with queued work run as the worker would."""
 
-    def __init__(self, client: APIClient, capture: Any) -> None:
+    def __init__(self, client: APIClient, capture: Any, kind: str = "operate") -> None:
         self.client = client
         self._capture = capture
-        started = self.post("conversations/", {"language": "pl"}, key="start")
+        started = self.post("conversations/", {"language": "pl", "kind": kind}, key="start")
         assert started.status_code == 201, started.data
         self.id = started.data["id"]
 
@@ -228,7 +228,7 @@ class Chat:
 
 @pytest.fixture
 def talk(django_capture_on_commit_callbacks: Any) -> Any:
-    return lambda client: Chat(client, django_capture_on_commit_callbacks)
+    return lambda client, kind="operate": Chat(client, django_capture_on_commit_callbacks, kind)
 
 
 def sent_tool_results(call_index: int) -> list[dict[str, Any]]:
