@@ -172,24 +172,35 @@ in the studio there, add a section with "+" between two sections, open a ready
 page's details and use it on a page with content (the swap dialog), and switch
 the inspector's tabs on a separator and on a hero.
 
+## Follow-ups after the owner's answers (03.10, `feat/editor-followups`)
+
+Maciej's answers to the three decisions below: 1a (the rail keeps „Biblioteka”
+and „Całe strony”), 2b and 3b. What followed:
+
+- `PlaceholderBanner` is one line under the top bar at every width: what is
+  left in short (slots, „kontakt z szablonu”, links to nowhere) as the polite
+  status, „Pokaż”/„Zwiń” and the close button. The sentences and the section
+  chips are a region that is `hidden` until asked for, so a test opens it
+  before it reads them.
+- Styl tab: the content width is a row of segments (`SegmentedOptions`, the
+  top bar's `.studio-segmented`), the surface is four swatch buttons painted by
+  the site's own look (`PageEditorContext.look` + the real
+  `site-presentation--surface-*` class, `.studio-swatch`), the decoration's
+  visibility is two segments. Each is a `fieldset` named by its legend with
+  `aria-pressed` buttons. The other decoration fields stay selects: their
+  options are too long for segments, and a background pattern is not readable
+  in a 20 px dot. Neither set draws a box of its own any more, so no legend
+  sits on a border. „Standardowa (jak witryna)” became „Standardowa”; the hint
+  under the segments says the rest.
+- The language mode has the source editor's top bar (`PageLanguageEditor`
+  takes `leading`; `PageStudio` no longer draws a header row): back, the page's
+  name over „{language} · Wersja N”, from 1280 px the sentence about the
+  structure with the way to the source (narrower: under „Więcej”), then the
+  language switch, „Więcej”, preview and save. `LanguageSwitch` is unchanged.
+
 ## What is left
 
-- `LanguageSwitch` keeps its own (taller) control in the top bar; the language
-  mode is being changed locally, so it was not touched.
-- The placeholder banner (`PlaceholderBanner`) is unchanged and takes three
-  lines under the top bar on a wide screen.
-- The Styl tab shows the existing width, surface and anchor fields and the
-  decoration presets as they are (selects), not the mockup's swatches and
-  segmented buttons; that would change `section-presentation-fields.tsx` and
-  `section-decoration-fields.tsx`.
 - The Wygląd and Podstrony panels keep their content (the mockup only sketched
   them).
-
-## Decisions that need Maciej
-
-1. Rail words: (a) keep the product's „Biblioteka” and „Całe strony” (as now),
-   or (b) use the mockup's „Dodaj” and „Szablony”.
-2. Placeholder banner: (a) leave it as it is, or (b) a follow-up that folds it
-   into one line under the top bar.
-3. Styl tab: (a) keep the selects, or (b) a follow-up with swatches and
-   segmented buttons as in the mockup.
+- The mockup is not on the local machine: the swatches and segments are plain
+  `@saas-core/ui` buttons, not a copy of its drawing.
