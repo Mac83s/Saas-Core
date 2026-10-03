@@ -7,6 +7,7 @@ messages with `queue_email` — never through the private models.
 
 from .attachments import Attachment, register_attachment_resolver
 from .customer_mail import public_url, register_customer_sender
+from .retention_notice import announce_retention, scrub_messages
 from .services import notify_in_app, queue_email, staff_locale
 from .templates import (
     AUDIENCE_CUSTOMER,
@@ -22,6 +23,8 @@ __all__ = [
     "AUDIENCE_STAFF",
     "TEMPLATES",
     "Attachment",
+    "announce_retention",
+    "scrub_messages",
     "EmailTemplate",
     "notify_in_app",
     "queue_email",

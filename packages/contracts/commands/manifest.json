@@ -1101,7 +1101,7 @@
         "additionalProperties": false,
         "properties": {
           "customers": {
-            "description": "After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
+            "description": "After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
             "enum": [
               "off",
               "12",
@@ -3981,7 +3981,7 @@
         "additionalProperties": false,
         "properties": {
           "inquiries": {
-            "description": "After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
+            "description": "After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
             "enum": [
               "off",
               "12",

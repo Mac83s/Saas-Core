@@ -34,6 +34,7 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.tasks import issue_service_task_contract
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
+from saas_core.modules.shared.notifications.retention_notice import scrub_messages
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
 
@@ -1379,25 +1380,14 @@ def mark_no_show(*, appointment_id: UUID, idempotency_key: str, principal_ref: s
 @transaction.atomic
 def anonymize_customer(customer_id: UUID) -> Customer:
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
-    customer = Customer.all_objects.select_for_update().filter(pk=customer_id).first()
+    customer = (
+        Customer.all_objects.select_for_update()
+        .filter(organization_id=context.organization_id, pk=customer_id)
+        .first()
+    )
     if not customer:
         raise NotFound("Klient nie istnieje.")
-    customer.display_name = "Zanonimizowany klient"
-    customer.email = ""
-    customer.phone = ""
-    customer.contact_hash = hashlib.sha256(f"anon:{customer.id}".encode()).hexdigest()
-    customer.anonymized_at = timezone.now()
-    customer.save()
-    # What the customer wrote about the visit goes too (answer 1A, 28.09):
-    # in a clinic it can be about their health.
-    Appointment.all_objects.filter(customer=customer).exclude(customer_notes="").update(
-        customer_notes=""
-    )
-    # So does the street of a visit at the customer's (ADR-066); the town stays,
-    # it names nobody.
-    Appointment.all_objects.filter(customer=customer).exclude(place_address="").update(
-        place_address=""
-    )
+    strip_customer(customer)
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
         action="booking.customer.anonymized",
@@ -1406,6 +1396,49 @@ def anonymize_customer(customer_id: UUID) -> Customer:
         target_id=customer.id,
     )
     return customer
+
+
+def strip_customer(customer: Customer) -> None:
+    """Takes the person out of a customer's record, in every copy the system
+    stores (docs/architecture/privacy-retention.md) — by hand from the panel
+    or by the company's retention setting. The caller holds the row's lock and
+    the company's tenant. The visits stay, without the person."""
+    organization_id = customer.organization_id
+    now = timezone.now()
+    customer.display_name = "Zanonimizowany klient"
+    customer.email = ""
+    customer.phone = ""
+    customer.contact_hash = hashlib.sha256(f"anon:{customer.id}".encode()).hexdigest()
+    customer.anonymized_at = now
+    customer.updated_at = now
+    # The company is named in the statement itself, not left to RLS alone.
+    Customer.all_objects.filter(organization_id=organization_id, pk=customer.pk).update(
+        display_name=customer.display_name,
+        email=customer.email,
+        phone=customer.phone,
+        contact_hash=customer.contact_hash,
+        anonymized_at=now,
+        updated_at=now,
+    )
+    visits = Appointment.all_objects.filter(organization_id=organization_id, customer=customer)
+    # What the customer wrote about the visit goes too (answer 1A, 28.09):
+    # in a clinic it can be about their health.
+    visits.exclude(customer_notes="").update(customer_notes="")
+    # So does the street of a visit at the customer's (ADR-066); the town stays,
+    # it names nobody.
+    visits.exclude(place_address="").update(place_address="")
+    visit_ids = list(visits.values_list("id", flat=True))
+    # The "manage my visit" links have nobody left to serve.
+    SelfServiceRoute.objects.filter(
+        organization_id=organization_id, appointment_id__in=visit_ids, revoked_at__isnull=True
+    ).update(revoked_at=timezone.now())
+    # The address and what was rendered into the mails the customer got: the
+    # stored copies go now, not at their own 30 days.
+    scrub_messages(
+        organization_id,
+        [f"booking:{visit_id}" for visit_id in visit_ids],
+        to_customers_only=True,
+    )
 
 
 def upsert_customer(
@@ -1418,9 +1451,16 @@ def upsert_customer(
     if not email and not phone:
         raise ValidationError("Wymagany jest e-mail albo telefon.")
     contact_hash = hashlib.sha256(f"{email}|{phone}".encode()).hexdigest()
-    customer = Customer.all_objects.filter(
-        contact_hash=contact_hash, anonymized_at__isnull=True
-    ).first()
+    # Locked, and asked for again under the lock: a retention run (or a hand
+    # anonymisation) that takes this customer in another transaction makes the
+    # booking wait, and the row then no longer matches — the booking gets a
+    # new customer instead of attaching a visit to a stripped one. NO KEY, so
+    # rows that only point at the customer do not queue behind it.
+    customer = (
+        Customer.all_objects.select_for_update(no_key=True)
+        .filter(organization=organization, contact_hash=contact_hash, anonymized_at__isnull=True)
+        .first()
+    )
     if customer is None:
         customer = Customer.all_objects.create(
             organization=organization,

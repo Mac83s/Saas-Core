@@ -38,6 +38,7 @@ const first = {
   message: "First private inquiry",
   created_at: "2026-09-21T12:00:00Z",
   read_at: null,
+  erased_at: null,
   email_status: "queued",
 };
 const second = {
@@ -382,4 +383,36 @@ test("na telefonie wiadomość otwiera się w arkuszu, bez zaślepki pod listą 
   } finally {
     window.matchMedia = original;
   }
+});
+
+test("zapytanie po terminie retencji nie pokazuje osoby ani treści, tylko to, że było", async () => {
+  const erased = {
+    ...first,
+    id: "10000000-0000-4000-8000-000000000003",
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+    read_at: "2025-08-01T10:00:00Z",
+    erased_at: "2026-10-03T10:00:00Z",
+  };
+  listSiteInquiries.mockResolvedValue({
+    items: [first, erased],
+    next_cursor: null,
+  });
+  markSiteInquiryRead.mockResolvedValue(erased);
+  const { container } = renderInbox();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Dane usunięte" }));
+  expect(
+    await screen.findByText(/zostały usunięte po czasie ustawionym/),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("First private inquiry")).toBeNull();
+  expect(
+    (
+      await axe.run(container, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).violations,
+  ).toEqual([]);
 });

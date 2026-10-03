@@ -13,9 +13,12 @@ class NotificationsConfig(AppConfig):
 
         from .customer_mail import register_customer_mail
         from .models import ApiKeyCredentialRoute, ProviderMessageRoute
+        from .retention_notice import register_retention_notice
         from .services import consume_domain_event
 
         # Pre-tenant lookups keyed by a bare organization id: erased with it.
+        # The owners hear when a removal of personal data is switched on (37a).
+        register_retention_notice()
         register_erasure_rows(
             "shared.notifications.provider_message_route", ProviderMessageRoute, "organization_id"
         )

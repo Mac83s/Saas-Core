@@ -82,6 +82,11 @@ w skrzynce oraz rzeczywistą drogę powiadomienia. Testy fixture nie dowodzą
 wysyłki na działającym środowisku.
 
 Nie dodano załączników, samodzielnego budowania pól, automatycznej odpowiedzi,
-osobnego ustawienia odbiorcy ani okresu retencji zapytań. Usuwanie danych całej
-organizacji pozostaje w istniejącym procesie erasure; nie dodano kasowania
-pojedynczych zapytań w panelu.
+osobnego ustawienia odbiorcy. Usuwanie danych całej organizacji pozostaje w
+istniejącym procesie erasure; nie dodano kasowania pojedynczych zapytań w panelu.
+
+Okres retencji zapytań (03.10, odpowiedź 37a): ustawienie firmy
+`sites.retention.inquiries`, domyślnie wyłączone. Po wybranym czasie z zapytania
+znikają imię, e-mail, telefon i treść — także z zapisanych powiadomień, które je
+niosły — a wiersz zostaje z datą i stroną (`erased_at`), żeby statystyki strony nadal
+liczyły zapytanie. Szczegóły: `docs/architecture/privacy-retention.md`.

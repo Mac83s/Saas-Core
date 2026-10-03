@@ -29,6 +29,7 @@
   },
   "features": {
     "customDomains": true,
-    "publicBooking": true
+    "publicBooking": true,
+    "customerRetention": true
   }
 }

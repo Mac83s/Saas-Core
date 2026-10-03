@@ -305,7 +305,15 @@ function SiteInbox({
             }}
             type="button"
           >
-            {item.name}
+            {/* The company's retention took the person out (D2): the row
+                stays for the statistics, with nothing left to show. */}
+            {item.erased_at ? (
+              <span className="font-normal text-muted-foreground">
+                {t("erased")}
+              </span>
+            ) : (
+              item.name
+            )}
           </button>
           {selectedId === item.id ? (
             <Badge variant="outline">{t("opened")}</Badge>
@@ -352,7 +360,9 @@ function SiteInbox({
       <time dateTime={selected.created_at}>{date(selected.created_at)}</time>
     </p>
   ) : null;
-  const detailBody = selected ? (
+  const detailBody = selected?.erased_at ? (
+    <p className="text-sm text-muted-foreground">{t("erasedDetail")}</p>
+  ) : selected ? (
     <>
       <dl className="grid gap-3 text-sm">
         {/* A call-back form may arrive without an e-mail or a message; only
@@ -490,7 +500,7 @@ function SiteInbox({
           </div>
           {narrow ? null : selected ? (
             <article
-              aria-label={selected.name}
+              aria-label={selected.erased_at ? t("erased") : selected.name}
               // Stays in view beside a long list on a wide screen.
               className="min-w-0 space-y-5 rounded-xl border bg-card p-5 sm:p-6 xl:sticky xl:top-4"
             >
@@ -500,7 +510,7 @@ function SiteInbox({
                   ref={detailHeading}
                   tabIndex={-1}
                 >
-                  {selected.name}
+                  {selected.erased_at ? t("erased") : selected.name}
                 </h3>
                 {detailHeader}
               </header>
@@ -521,7 +531,9 @@ function SiteInbox({
         >
           <SheetContent closeLabel={t("close")}>
             <SheetHeader>
-              <SheetTitle className="break-words">{selected?.name}</SheetTitle>
+              <SheetTitle className="break-words">
+                {selected?.erased_at ? t("erased") : selected?.name}
+              </SheetTitle>
               {detailHeader}
             </SheetHeader>
             <SheetBody className="space-y-5">{detailBody}</SheetBody>

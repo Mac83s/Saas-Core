@@ -57,12 +57,18 @@ class SiteInquirySerializer(serializers.Serializer[dict[str, Any]]):
     locale = serializers.CharField(
         allow_null=True, help_text="The language of the page the form was on."
     )
-    name = serializers.CharField()
+    # Empty once the company's retention took the person out (`erased_at`).
+    name = serializers.CharField(allow_blank=True)
     email = serializers.EmailField()
     phone = serializers.CharField()
     message = serializers.CharField()
     created_at = serializers.DateTimeField()
     read_at = serializers.DateTimeField(allow_null=True)
+    erased_at = serializers.DateTimeField(
+        allow_null=True,
+        help_text="When the company's retention setting removed the person's data from "
+        "the enquiry; name, e-mail, phone and message are then empty.",
+    )
     email_status = serializers.ChoiceField(
         choices=[*DeliveryStatus.choices, ("unavailable", "Niedostępny")]
     )

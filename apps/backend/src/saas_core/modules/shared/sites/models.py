@@ -2212,6 +2212,10 @@ class SiteInquiry(TenantScopedModel):
     request_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
+    #: When the company's retention setting took the person out of it (D2,
+    #: answer 37a): name, e-mail, phone and text are gone for good; the row
+    #: stays for the site's statistics — that an enquiry was made, when, where.
+    erased_at = models.DateTimeField(null=True, blank=True)
 
     all_objects = models.Manager()
 

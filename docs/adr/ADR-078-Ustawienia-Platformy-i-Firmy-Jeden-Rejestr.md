@@ -778,3 +778,24 @@ firmy istnieje w języku treści albo wcale.
 - **Licznik „dotyczy N firm” dla grupy z własną tabelą** (`api` + `read_explicit`)
   pyta moduł o własną wartość firmy w jej tenancie, a nie tabelę `organization_setting`;
   bez `read_explicit` licznika nie ma (null).
+
+## Uzupełnienie 2026-10-03 (10): usuwanie danych osobowych po czasie (D1–D2, odpowiedź 37a)
+
+- **Dwa ustawienia firmy w obszarze „Prywatność i dane”** (obszar rdzenia, bo dane
+  osób spoza firmy trzyma kilka modułów): `booking.retention.customers` i
+  `sites.retention.inquiries`, `off` albo 12/24/36 miesięcy, klasa zmiany
+  `irreversible`, `product_default=False` i zasięg wyłącznie firmy — usuwanie
+  uruchamia tylko wartość zapisana przez firmę.
+- **Rejestracja przebiegów w rdzeniu** (`core/organizations/retention.py`):
+  `RetentionSweep(key, rule, due, erase)`; reguła firmy to `company_months(<klucz>)`
+  z okresem ochronnym 7 dni od ostatniej zmiany wartości, reguła platformy to
+  `platform_days(<klucz>)`. Moduł, który jeszcze potrzebuje rekordu innego modułu,
+  rejestruje wyjątek (`register_retention_exclusion`).
+- **Przebieg** idzie firma po firmie, każda we własnej transakcji i tenancie, z
+  ustawieniem czytanym w tej transakcji; błąd jednej firmy nie zatrzymuje pozostałych;
+  wpis w historii firmy niesie tylko liczby. Harmonogram jest wyłączony do odbioru
+  dowodu na działającym stosie; usuwa komenda `privacy_retention --run`.
+- **„Dane klientów” oferuje profil** (`features.customerRetention`), nie moduł: w
+  profilu, w którym wizyta wisi na innym rekordzie tej samej osoby (karta
+  gospodarstwa), anonimizacja klienta nie usuwałaby osoby.
+- Pełna lista przechowywanych kopii i rozstrzygnięć: `docs/architecture/privacy-retention.md`.

@@ -7800,7 +7800,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["BookingRetentionSettingsChangeResetEnum"][];
             /**
-             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -7832,7 +7832,7 @@ export interface components {
         };
         BookingRetentionSettingsValues: {
             /**
-             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -11098,7 +11098,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["BookingRetentionSettingsChangeResetEnum"][];
             /**
-             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -11444,7 +11444,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["SitesRetentionSettingsChangeResetEnum"][];
             /**
-             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -13366,6 +13366,11 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             read_at: string | null;
+            /**
+             * Format: date-time
+             * @description When the company's retention setting removed the person's data from the enquiry; name, e-mail, phone and message are then empty.
+             */
+            erased_at: string | null;
             email_status: components["schemas"]["EmailStatusEnum"];
         };
         SiteInquiryAccepted: {
@@ -13740,7 +13745,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["SitesRetentionSettingsChangeResetEnum"][];
             /**
-             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -13772,7 +13777,7 @@ export interface components {
         };
         SitesRetentionSettingsValues: {
             /**
-             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12

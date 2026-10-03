@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:cd189788549e8f941fa5038f7fffd183c37a48d74a17484f033d4c59f9b56e02",
+  "profileHash": "sha256:f9d920ee55ef6faf1e52a16fc69addada57d65a8c6f429abd7ae2f21bf86486d",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -14,7 +14,8 @@
   },
   "features": {
     "customDomains": true,
-    "publicBooking": true
+    "publicBooking": true,
+    "customerRetention": true
   },
   "organizationTypes": [
     {

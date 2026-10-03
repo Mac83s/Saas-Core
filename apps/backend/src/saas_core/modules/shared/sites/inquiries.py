@@ -262,6 +262,7 @@ def inquiry_payload(inquiry: SiteInquiry) -> dict[str, Any]:
         "message": inquiry.message,
         "created_at": inquiry.created_at,
         "read_at": inquiry.read_at,
+        "erased_at": inquiry.erased_at,
         "email_status": inquiry.notification_message.status
         if inquiry.notification_message
         else "unavailable",

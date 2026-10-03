@@ -30,7 +30,8 @@
   },
   "features": {
     "customDomains": true,
-    "publicBooking": true
+    "publicBooking": true,
+    "customerRetention": true
   },
   "ai": {
     "sendableDataClasses": ["public", "public_personal", "personal"]

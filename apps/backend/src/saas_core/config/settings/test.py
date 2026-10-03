@@ -38,6 +38,10 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 CELERY_TASK_ALWAYS_EAGER = True
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
+# Tests and the static checks carry what the repository ships, whatever the
+# main profile offers at run time: the customers' retention group is tested
+# and typed here although a profile with the farm register does not offer it.
+CUSTOMER_RETENTION_OFFERED = True
 OBJECT_STORAGE_ENDPOINT_URL = "http://object-storage.test"
 OBJECT_STORAGE_PUBLIC_ENDPOINT_URL = "http://object-storage.test"
 OBJECT_STORAGE_BUCKET = "test-media"

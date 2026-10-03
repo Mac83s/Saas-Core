@@ -198,6 +198,11 @@ except CompositionError as error:
 
 BOOKING_MODULE_ENABLED = "shared.booking" in ACTIVE_MODULES
 PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))
+#: Whether the profile offers the company a removal of its booking customers'
+#: data after a time (D1, 37a). Off where a visit hangs on another record of
+#: the same person (a farm's card): stripping the customer alone would leave
+#: them named there.
+CUSTOMER_RETENTION_OFFERED = bool(_deployment_features.get("customerRetention", False))
 if not SITES_PLATFORM_DOMAIN:
     raise ImproperlyConfigured("Profil deploymentu wymaga platformDomain")
 DOMAIN_DNS_CNAME_TARGET = (

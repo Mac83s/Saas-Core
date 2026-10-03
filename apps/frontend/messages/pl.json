@@ -335,7 +335,8 @@
       "sites_domain_released": "Zwolniono domenę",
       "sites_domain_canonical_changed": "Zmieniono adres główny strony",
       "sites_domain_verification_requested": "Zlecono sprawdzenie DNS domeny",
-      "translation_settings_processing_acknowledged": "Potwierdzono przetwarzanie treści przez tłumaczenie"
+      "translation_settings_processing_acknowledged": "Potwierdzono przetwarzanie treści przez tłumaczenie",
+      "privacy_retention_run": "Usunięto dane osobowe po terminie"
     },
     "fields": {
       "name": "Nazwa",
@@ -3214,7 +3215,8 @@
       "booking_office_new": "Nowa rezerwacja online (dla biura)",
       "booking_office_waiting": "Wizyta czeka na przydzielenie (dla biura)",
       "booking_office_canceled": "Klient odwołał wizytę (dla biura)",
-      "inventory_low_stock": "Magazyn: pozycje do uzupełnienia"
+      "inventory_low_stock": "Magazyn: pozycje do uzupełnienia",
+      "system_retention_scheduled": "Włączono usuwanie danych osobowych"
     },
     "templateUse": {
       "booking_confirmation": "Do klienta, gdy rezerwacja zostanie przyjęta.",
@@ -3237,7 +3239,8 @@
       "booking_office_new": "Do biura, gdy klient zarezerwuje termin przez stronę.",
       "booking_office_waiting": "Do biura, gdy wizyta czeka, aż ktoś ją przydzieli.",
       "booking_office_canceled": "Do biura, gdy klient sam odwoła wizytę.",
-      "inventory_low_stock": "Do osób z roli powiadomień magazynu, raz dziennie, gdy pozycje spadną do minimum albo niżej."
+      "inventory_low_stock": "Do osób z roli powiadomień magazynu, raz dziennie, gdy pozycje spadną do minimum albo niżej.",
+      "system_retention_scheduled": "Do właścicieli firmy, gdy ktoś włączy automatyczne usuwanie danych osobowych albo skróci jego okres."
     },
     "variablesTitle": "Zmienne",
     "variablesHelp": "W wysłanej wiadomości w miejscu zmiennej pojawia się prawdziwa wartość.",
@@ -3259,7 +3262,12 @@
       "total": "Liczba pozycji",
       "written": "Liczba przetłumaczonych",
       "count": "Liczba",
-      "items": "Lista pozycji"
+      "items": "Lista pozycji",
+      "actor": "Kto zmienił",
+      "what": "Jakie dane",
+      "months": "Okres w miesiącach",
+      "starts_on": "Od kiedy",
+      "settings_url": "Adres ustawień"
     },
     "previewTitle": "Podgląd",
     "previewLanguage": "Język podglądu",
@@ -4504,7 +4512,9 @@
     "state": "Stan",
     "opened": "Czytasz",
     "emptyAction": "Otwórz podstrony strony",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "erased": "Dane usunięte",
+    "erasedDetail": "Dane osoby i treść tego zapytania zostały usunięte po czasie ustawionym w Ustawienia › Prywatność i dane. Zostaje data i strona zapytania."
   },
   "ImageGeneration": {
     "open": "Wygeneruj obraz AI",

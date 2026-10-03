@@ -335,7 +335,8 @@
       "sites_domain_released": "Domain released",
       "sites_domain_canonical_changed": "Website main address changed",
       "sites_domain_verification_requested": "Domain DNS check requested",
-      "translation_settings_processing_acknowledged": "Content processing by translation acknowledged"
+      "translation_settings_processing_acknowledged": "Content processing by translation acknowledged",
+      "privacy_retention_run": "Personal data removed after its time"
     },
     "fields": {
       "name": "Name",
@@ -3214,7 +3215,8 @@
       "booking_office_new": "New online booking (for the office)",
       "booking_office_waiting": "Visit waiting for a person (for the office)",
       "booking_office_canceled": "Customer canceled a visit (for the office)",
-      "inventory_low_stock": "Warehouse: items to refill"
+      "inventory_low_stock": "Warehouse: items to refill",
+      "system_retention_scheduled": "Removal of personal data switched on"
     },
     "templateUse": {
       "booking_confirmation": "To the customer when a booking is made.",
@@ -3237,7 +3239,8 @@
       "booking_office_new": "To the office when a customer books online.",
       "booking_office_waiting": "To the office when a visit waits for someone to be assigned.",
       "booking_office_canceled": "To the office when a customer cancels a visit.",
-      "inventory_low_stock": "To the people with the warehouse notification role, once a day, when items fall to their minimum or below."
+      "inventory_low_stock": "To the people with the warehouse notification role, once a day, when items fall to their minimum or below.",
+      "system_retention_scheduled": "To the company's owners when somebody switches automatic removal of personal data on or makes its period shorter."
     },
     "variablesTitle": "Variables",
     "variablesHelp": "In a sent message, each variable is replaced with the real value.",
@@ -3259,7 +3262,12 @@
       "total": "Number of items",
       "written": "Number translated",
       "count": "Number",
-      "items": "List of items"
+      "items": "List of items",
+      "actor": "Who changed it",
+      "what": "Which data",
+      "months": "Period in months",
+      "starts_on": "From when",
+      "settings_url": "Settings address"
     },
     "previewTitle": "Preview",
     "previewLanguage": "Preview language",
@@ -4504,7 +4512,9 @@
     "state": "Status",
     "opened": "Reading",
     "emptyAction": "Open the website pages",
-    "close": "Close"
+    "close": "Close",
+    "erased": "Data removed",
+    "erasedDetail": "The person's data and the text of this enquiry were removed after the time set in Settings › Privacy and data. The enquiry's date and page stay."
   },
   "ImageGeneration": {
     "open": "Generate AI image",
