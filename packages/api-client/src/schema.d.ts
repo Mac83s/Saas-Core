@@ -8813,6 +8813,12 @@ export interface components {
             source_version_id: string;
             expected_body_version: number;
         };
+        LocaleBodyMark: {
+            bold?: boolean;
+            italic?: boolean;
+            href?: string;
+            rel?: string;
+        };
         LocaleBodyPending: {
             /** Format: uuid */
             version_id: string;
@@ -8862,6 +8868,8 @@ export interface components {
             max_length: number | null;
             /** @description The unit may not be left empty. */
             required_text: boolean;
+            /** @description For an `inline` unit, what each token marks in the source: `⟦n⟧` is entry n-1. A translation keeps every token and may move it, never change it. */
+            marks: components["schemas"]["LocaleBodyMark"][];
         };
         /**
          * @description * `text` - text

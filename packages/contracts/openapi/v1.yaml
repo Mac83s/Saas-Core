@@ -25341,6 +25341,17 @@ components:
       required:
       - expected_body_version
       - source_version_id
+    LocaleBodyMark:
+      type: object
+      properties:
+        bold:
+          type: boolean
+        italic:
+          type: boolean
+        href:
+          type: string
+        rel:
+          type: string
     LocaleBodyPending:
       type: object
       properties:
@@ -25445,10 +25456,18 @@ components:
         required_text:
           type: boolean
           description: The unit may not be left empty.
+        marks:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleBodyMark'
+          description: 'For an `inline` unit, what each token marks in the source:
+            `⟦n⟧` is entry n-1. A translation keeps every token and may move it, never
+            change it.'
       required:
       - data_class
       - key
       - kind
+      - marks
       - max_length
       - origin
       - placeholder
