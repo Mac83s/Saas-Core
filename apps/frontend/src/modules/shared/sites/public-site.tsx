@@ -214,9 +214,7 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       },
       // The server's verdict (TL19b): AI text nobody accepted, and the
       // operator's switch on. Absent in older payloads: no notice.
-      machineNotice:
-        (page as { machine_text?: { notice?: boolean } | null }).machine_text
-          ?.notice === true,
+      machineNotice: page.machine_text?.notice === true,
       publicationId: page.publication_id,
       snapshotHash: page.snapshot_hash,
       blocks: page.blocks as unknown as SiteBlock[],
