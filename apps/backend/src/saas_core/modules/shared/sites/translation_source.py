@@ -97,6 +97,7 @@ from .language_versions import (
 )
 from .localized_bodies import extract_units
 from .models import (
+    ContentCollection,
     Page,
     PageBlock,
     PageLocaleVersion,
@@ -958,6 +959,8 @@ def _apply_meta(page: Page, row: PageTranslation, written: Mapping[str, Mapping[
 
 
 def free_slug(page: Page, locale: str, wanted: str, *, keep: UUID | None = None) -> str:
+    """Unique in (site, language) and never a collection's path, which the
+    language's blog answers at (ADR-070 pkt 18)."""
     base = (wanted or page.key or "strona")[:72].strip("-") or "strona"
     taken = set(
         PageTranslation.all_objects.filter(
@@ -965,6 +968,10 @@ def free_slug(page: Page, locale: str, wanted: str, *, keep: UUID | None = None)
         )
         .exclude(pk__in=[keep] if keep is not None else [])
         .values_list("slug", flat=True)
+    ) | set(
+        ContentCollection.all_objects.filter(
+            organization_id=page.organization_id, site_id=page.site_id
+        ).values_list("base_path", flat=True)
     )
     slug, number = base, 2
     while slug in taken:

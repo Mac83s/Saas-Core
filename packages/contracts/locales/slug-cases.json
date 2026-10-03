@@ -1,0 +1,24 @@
+{
+  "$comment": "A language version's address from its translated title (ADR-070 pkt 18): ASCII, ä/ö/ü/ß → ae/oe/ue/ss, Cyrillic by BGN/PCGN without diacritics. Both generators — content_protocol.transliteration.slug_from_title and the panel's slugFromTitle — must give exactly these.",
+  "cases": [
+    { "title": "Über uns", "slug": "ueber-uns" },
+    { "title": "Наши услуги", "slug": "nashi-uslugi" },
+    {
+      "title": "Strzyżenie psów — cennik 2026",
+      "slug": "strzyzenie-psow-cennik-2026"
+    },
+    {
+      "title": "Hundeschnitt: Preise & Größen",
+      "slug": "hundeschnitt-preise-groessen"
+    },
+    { "title": "Стрижка собак и цены", "slug": "strizhka-sobak-i-tseny" },
+    { "title": "Łódź, ul. Wójcika", "slug": "lodz-ul-wojcika" },
+    { "title": "Zażółć gęślą jaźń", "slug": "zazolc-gesla-jazn" },
+    { "title": "Peluquería y estética", "slug": "peluqueria-y-estetica" },
+    { "title": "Ёлка и щётка", "slug": "elka-i-shchetka" },
+    { "title": "Straße 7", "slug": "strasse-7" },
+    { "title": "ÄÖÜ äöü", "slug": "aeoeue-aeoeue" },
+    { "title": "Объявление: подъезд", "slug": "obyavlenie-podezd" },
+    { "title": "  — ? —  ", "slug": "" }
+  ]
+}

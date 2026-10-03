@@ -34,8 +34,7 @@ import { useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
-import { slugifyTitle } from "./slug";
-
+import { slugFromTitle } from "./slug";
 
 export function EntryTranslations({
   entry,
@@ -78,7 +77,9 @@ export function EntryTranslations({
   // Derived rather than stored: until the operator types their own address it
   // simply *is* the title's, so there is no state to keep in step and no
   // effect writing into a field the user is looking at.
-  const address = slugEdited ? slug : slugifyTitle(title);
+  // In the version's own language: "Über uns" becomes "ueber-uns", as the
+  // backend writes it.
+  const address = slugEdited ? slug : slugFromTitle(title);
 
   const missing = companyLocaleOptions.filter(
     (candidate) =>

@@ -1,6 +1,21 @@
 import { expect, test } from "vitest";
 
-import { slugifyTitle } from "./slug";
+import shared from "../../../../../../packages/contracts/locales/slug-cases.json";
+import { slugFromTitle, slugifyTitle } from "./slug";
+
+// The cases the backend's `slug_from_title` answers too.
+test.each(shared.cases)(
+  "makes the address the backend makes: $title",
+  ({ title, slug }) => {
+    expect(slugFromTitle(title)).toBe(slug);
+  },
+);
+
+test("cuts a long title without a trailing hyphen", () => {
+  const slug = slugFromTitle("Strzyżenie ".repeat(20), 30);
+  expect(slug.length).toBeLessThanOrEqual(30);
+  expect(slug.endsWith("-")).toBe(false);
+});
 
 test("folds Polish letters instead of dropping them", () => {
   // Unicode normalisation cannot decompose ł, so a naive strip-the-marks

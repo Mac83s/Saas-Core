@@ -40,6 +40,7 @@ collect_ignore_glob = [
             "test_translation_notify.py",
             "test_translation_review.py",
             "test_translation_settings.py",
+            "test_translation_sites_triggers.py",
             "test_translation_withdrawal.py",
         ]
     ),

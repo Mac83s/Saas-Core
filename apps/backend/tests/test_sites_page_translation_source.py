@@ -479,3 +479,23 @@ def test_accepting_a_proposal_keeps_what_the_same_job_published():
     )
 
     assert driver.public_texts(home, "de") == ["[de] Alfa nowa", "[de] Beta nowa"]
+
+
+def test_a_translated_address_never_takes_a_collections_path():
+    from saas_core.modules.shared.sites.collections import create_collection
+    from saas_core.modules.shared.sites.translation_source import free_slug
+
+    driver = SitesPageDriver()
+    home = driver.create(["Witamy"])
+    with _as(driver.publisher):
+        create_collection(
+            site_id=driver.site_id,
+            key="blog",
+            name="Blog",
+            kind="blog",
+            base_path="blog",
+            idempotency_key=_key(),
+        )
+        page = Page.all_objects.get(pk=home)
+
+        assert free_slug(page, "de", "blog") == "blog-2"

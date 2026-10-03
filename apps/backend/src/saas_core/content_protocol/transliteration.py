@@ -109,8 +109,12 @@ _CYRILLIC_TO_LATIN = {
     "ю": "yu",
     "я": "ya",
 }
-# Letters NFKD does not take apart into a base and a mark.
+# Letters NFKD does not take apart into a base and a mark, and the German
+# umlauts, which are written out rather than dropped (ADR-070 pkt 18).
 _LATIN_FOLDS = str.maketrans({
+    "ä": "ae",
+    "ö": "oe",
+    "ü": "ue",
     "ł": "l",
     "Ł": "L",
     "đ": "d",

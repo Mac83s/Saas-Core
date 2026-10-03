@@ -71,7 +71,7 @@ import { EntryTags } from "./entry-tags";
 import { EntryTranslations } from "./entry-translations";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
-import { slugifyTitle } from "./slug";
+import { slugFromTitle } from "./slug";
 
 type CollectionValues = { name: string; base_path: string };
 type EntryValues = { title: string; slug: string; locale: string };
@@ -676,7 +676,7 @@ function useSlugSuggestion<TValues extends FieldValues>(
   const value = useWatch({ control: form.control, name: source });
   useEffect(() => {
     if (edited) return;
-    const suggestion = slugifyTitle(typeof value === "string" ? value : "");
+    const suggestion = slugFromTitle(typeof value === "string" ? value : "");
     if (suggestion !== form.getValues(target)) {
       form.setValue(target, suggestion as PathValue<TValues, Path<TValues>>, {
         shouldValidate: false,

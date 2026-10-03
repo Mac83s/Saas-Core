@@ -287,7 +287,7 @@ def test_a_name_stays_in_latin_and_is_transliterated_into_cyrillic() -> None:
 
 def test_a_slug_is_made_by_code_per_language_and_is_never_a_unit() -> None:
     assert slug_from_title("Strzyżenie psów — cennik 2026") == "strzyzenie-psow-cennik-2026"
-    assert slug_from_title("Hundeschnitt: Preise & Größen") == "hundeschnitt-preise-grossen"
+    assert slug_from_title("Hundeschnitt: Preise & Größen") == "hundeschnitt-preise-groessen"
     assert slug_from_title("Стрижка собак и цены") == "strizhka-sobak-i-tseny"
     assert slug_from_title("Łódź, ul. Wójcika") == "lodz-ul-wojcika"
     with pytest.raises(ValueError):

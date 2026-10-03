@@ -727,3 +727,14 @@ pierwszy segment klucza to etykieta aplikacji modułu, który je zarejestrował 
   dokument w tym samym commicie, a gdy zmienia decyzję — także ADR-069.
 - Produkty dokładają źródła nowymi plikami (ADR-049); brakujący punkt rozszerzenia
   dodaje się w Saas-Core.
+- Produkty składają `shared.sites` bez `shared.translation`: kod źródeł nie importuje
+  silnika (tylko `content_protocol`), a test importujący silnik trafia w tym samym
+  commicie na `collect_ignore_glob` w `tests/conftest.py`.
+- Slug wersji językowej liczą `content_protocol.transliteration.slug_from_title` i
+  `slugFromTitle` w panelu; oba odpowiadają wspólnym przypadkom z
+  `packages/contracts/locales/slug-cases.json` (ADR-070 pkt 18), a slug wygenerowany dla
+  podstrony nie zajmuje ścieżki kolekcji witryny.
+- Wsparcie do czasu widoku operatora: `translation_support_overview --organization <id>
+  --operator <e-mail> --reason "…"` wypisuje tryb i jego źródło, zgodę i zużycie automatu,
+  zlecenia z 30 dni oraz per źródło pozycje zleceń, przegląd i popyt — bez tekstów firmy;
+  każde otwarcie zostaje w historii firmy (`translation.support_overview_viewed`).
