@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -24,6 +24,7 @@ import { typeRole, typeText } from "#lib/organization-types";
 import { getPanelMessages, getPanelTranslations } from "#lib/panel-messages";
 import { allows, panelAccess, type PanelAccess } from "#lib/panel-navigation";
 import { PANEL_WIDTH_COOKIE } from "#lib/panel-width";
+import { isPanelLocale } from "#i18n/routing";
 import {
   SidebarInset,
   SidebarProvider,
@@ -38,6 +39,9 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
+  // The proxy sends a guest language to the panel's English (TL17); this is
+  // the floor if a request reaches the page another way.
+  if (!isPanelLocale((await params).locale)) notFound();
   const [{ locale }, user, organization, organizations, t, jar, words] =
     await Promise.all([
       params,

@@ -1,12 +1,46 @@
 import createMiddleware from "next-intl/middleware";
+import { defineRouting } from "next-intl/routing";
 import { NextRequest, NextResponse } from "next/server";
 
-import { routing } from "#i18n/routing";
+import { isPanelLocale, panelLocales, routing } from "#i18n/routing";
 import { deployment } from "./generated/deployment";
 import { PUBLIC_SITE_METHOD_HEADER } from "./modules/shared/sites/page-view";
 import { normalizeRequestHostname } from "./proxy-host";
 
-const internationalization = createMiddleware(routing);
+/**
+ * Two route groups (TL17). The team's pages speak pl/en and may follow the
+ * person's cookie or browser; the guest pages speak every content language,
+ * and only by their address — no detection, no `NEXT_LOCALE` cookie, no Link
+ * header — so a crawler and a visitor get the same page for the same URL.
+ */
+const panelInternationalization = createMiddleware(
+  defineRouting({
+    locales: [...panelLocales],
+    defaultLocale: "pl",
+    localePrefix: "as-needed",
+  }),
+);
+const publicInternationalization = createMiddleware(
+  defineRouting({
+    ...routing,
+    localeDetection: false,
+    localeCookie: false,
+    alternateLinks: false,
+  }),
+);
+
+/** The first path segment of the team's pages, after any language prefix. */
+const PANEL_SEGMENTS = new Set([
+  "panel",
+  "settings",
+  "invitations",
+  "login",
+  "register",
+  "onboarding",
+  "password-reset",
+  "reset-password",
+  "verify-email",
+]);
 
 /** Carries the visitor-facing path across the rewrite into `/site-renderer`,
  *  so the public layout can set `<html lang>` from the published page. */
@@ -50,13 +84,13 @@ export default function proxy(request: NextRequest) {
   // wants an absolute Location from a proxy; built from the visitor's own host
   // and the scheme the gateway saw, so it stays on their port.
   if (pathname.length > 1 && pathname.endsWith("/")) {
-    const scheme =
-      request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
-    const target = new URL(
-      `${pathname.replace(/\/+$/, "")}${request.nextUrl.search}`,
-      `${scheme}://${request.headers.get("host") ?? request.nextUrl.host}`,
+    return NextResponse.redirect(
+      absolute(
+        request,
+        `${pathname.replace(/\/+$/, "")}${request.nextUrl.search}`,
+      ),
+      308,
     );
-    return NextResponse.redirect(target, 308);
   }
   // The product's own sitemap and robots are app routes, not localized pages.
   if (METADATA_PATHS.has(pathname)) return NextResponse.next();
@@ -66,7 +100,58 @@ export default function proxy(request: NextRequest) {
   ) {
     return new NextResponse(null, { status: 404 });
   }
-  return internationalization(request);
+  return localized(request, pathname);
+}
+
+/**
+ * Hands a platform page to its group's locale middleware. A redirect that
+ * only spells the address canonically is permanent (308); one that follows
+ * the person's cookie or browser stays temporary (307) — a cached 308 would
+ * keep sending someone who later switched language back to the old one.
+ */
+function localized(request: NextRequest, pathname: string): Response {
+  const [first = "", ...rest] = pathname.split("/").slice(1);
+  const prefixed = (routing.locales as readonly string[]).includes(first);
+  const segment = prefixed ? (rest[0] ?? "") : first;
+  if (!PANEL_SEGMENTS.has(segment)) {
+    // No detection here, so every redirect is canonical.
+    return permanent(publicInternationalization(request));
+  }
+  if (prefixed && !isPanelLocale(first)) {
+    // A guest language in front of the team's page: the panel's English.
+    return NextResponse.redirect(
+      absolute(request, `/en/${rest.join("/")}${request.nextUrl.search}`),
+      308,
+    );
+  }
+  const response = panelInternationalization(request);
+  // With a language in the address the redirect only drops the default
+  // prefix; without one it came from detection.
+  return prefixed ? permanent(response) : response;
+}
+
+function permanent(response: Response): Response {
+  const location = response.headers.get("location");
+  if (response.status !== 307 || !location) return response;
+  const moved = NextResponse.redirect(location, 308);
+  response.headers.forEach((value, key) => {
+    if (key !== "location" && key !== "set-cookie")
+      moved.headers.set(key, value);
+  });
+  for (const cookie of response.headers.getSetCookie()) {
+    moved.headers.append("set-cookie", cookie);
+  }
+  return moved;
+}
+
+/** Next wants an absolute Location from a proxy; on the visitor's own host. */
+function absolute(request: NextRequest, path: string): URL {
+  const scheme =
+    request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
+  return new URL(
+    path,
+    `${scheme}://${request.headers.get("host") ?? request.nextUrl.host}`,
+  );
 }
 
 const METADATA_PATHS = new Set(["/sitemap.xml", "/robots.txt"]);

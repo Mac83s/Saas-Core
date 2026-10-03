@@ -2,6 +2,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { LocaleSwitcher } from "#components/locale-switcher";
 import { getPathname, Link } from "#i18n/navigation";
+import { isMarketingLocale } from "#i18n/routing";
 import { Button } from "@saas-core/ui/components/button";
 
 import { productCopy, productHasCatalog, productName } from "../content";
@@ -32,7 +33,7 @@ export function MarketingNavLink({
       {link.label}
     </a>
   ) : (
-    <Link href={link.href} className={className}>
+    <Link href={link.href} locale={locale} className={className}>
       {link.label}
     </Link>
   );
@@ -40,7 +41,10 @@ export function MarketingNavLink({
 
 export async function SiteHeader() {
   const t = await getTranslations("Marketing");
-  const locale = await getLocale();
+  const pageLocale = await getLocale();
+  // A guest language has the catalogue but no marketing copy (TL17): the
+  // header's pages are the English ones there.
+  const locale = isMarketingLocale(pageLocale) ? pageLocale : "en";
   const copy = productCopy(locale);
   const links = marketingLinks(
     copy,
@@ -61,7 +65,11 @@ export async function SiteHeader() {
       className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur"
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-6 px-5">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
+        <Link
+          href="/"
+          locale={locale}
+          className="text-lg font-semibold tracking-tight"
+        >
           {productName}
         </Link>
         <nav aria-label={t("nav.label")} className={layout.nav}>
@@ -69,7 +77,7 @@ export async function SiteHeader() {
             <MarketingNavLink
               key={link.href}
               link={link}
-              locale={locale}
+              locale={link.href === "/katalog" ? pageLocale : locale}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             />
           ))}
@@ -78,10 +86,14 @@ export async function SiteHeader() {
           <div className="hidden sm:block">
             <LocaleSwitcher />
           </div>
-          <Button render={<Link href="/login" />} variant="ghost" size="sm">
+          <Button
+            render={<Link href="/login" locale={locale} />}
+            variant="ghost"
+            size="sm"
+          >
             {t("signIn")}
           </Button>
-          <Button render={<Link href="/register" />} size="sm">
+          <Button render={<Link href="/register" locale={locale} />} size="sm">
             {t("signUp")}
           </Button>
         </div>
@@ -96,7 +108,7 @@ export async function SiteHeader() {
             <MarketingNavLink
               key={link.href}
               link={link}
-              locale={locale}
+              locale={link.href === "/katalog" ? pageLocale : locale}
               className="py-2 text-sm"
             />
           ))}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { marketingLocales } from "#i18n/routing";
 import { deployment } from "../generated/deployment";
 
 const origin = `https://${deployment.product.platformDomain}`;
@@ -40,9 +41,14 @@ export function marketingMetadata(args: {
     description: args.description,
     alternates: {
       canonical: url,
+      // The languages the product has copy in, not every routed one (TL17).
       languages: {
-        pl: localizedUrl("pl", args.path),
-        en: localizedUrl("en", args.path),
+        ...Object.fromEntries(
+          marketingLocales.map((locale) => [
+            locale,
+            localizedUrl(locale, args.path),
+          ]),
+        ),
         "x-default": localizedUrl("pl", args.path),
       },
     },

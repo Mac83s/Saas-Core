@@ -2,13 +2,18 @@ import type { Metadata } from "next";
 import { MailIcon, MapPinIcon, PhoneIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { productCopy, productName } from "../../../../marketing/content";
+import {
+  productCopy,
+  productName,
+  requireMarketingLocale,
+} from "../../../../marketing/content";
 import { marketingMetadata } from "../../../../marketing/seo";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  requireMarketingLocale(locale);
   const { contact } = productCopy(locale);
   return marketingMetadata({
     locale,
@@ -21,6 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 // ponytail: e-mail link only; a contact form needs mail delivery (Resend keys pending) and anti-spam.
 export default async function ContactPage({ params }: Props) {
   const { locale } = await params;
+  requireMarketingLocale(locale);
   const { contact } = productCopy(locale);
   const t = await getTranslations("Marketing.contact");
 

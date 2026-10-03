@@ -4,7 +4,11 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { Link } from "#i18n/navigation";
-import { productCopy, productName } from "../../../../marketing/content";
+import {
+  productCopy,
+  productName,
+  requireMarketingLocale,
+} from "../../../../marketing/content";
 import { localizedUrl, marketingMetadata } from "../../../../marketing/seo";
 import { Button } from "@saas-core/ui/components/button";
 
@@ -22,6 +26,7 @@ function detailPage(locale: string, slug: string) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
+  requireMarketingLocale(locale);
   const page = detailPage(locale, slug);
   if (!page) notFound();
   return marketingMetadata({
@@ -34,6 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function DetailPage({ params }: Props) {
   const { locale, slug } = await params;
+  requireMarketingLocale(locale);
   const page = detailPage(locale, slug);
   if (!page) notFound();
   const t = await getTranslations("Marketing");

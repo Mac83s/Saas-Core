@@ -1,3 +1,6 @@
+import { notFound } from "next/navigation";
+
+import { isMarketingLocale } from "#i18n/routing";
 import { deployment } from "../../generated/deployment";
 import { product } from "../../product";
 import { business } from "./business";
@@ -17,3 +20,12 @@ export const productName = deployment.product.name;
 export const productHasCatalog = (
   deployment.modules as readonly string[]
 ).includes("shared.profiles");
+
+/**
+ * A marketing page exists only in a language the product has copy in
+ * (TL17): `/de/pricing` without German copy is a 404, not English copy under
+ * a German address. The catalogue is not a marketing page.
+ */
+export function requireMarketingLocale(locale: string): void {
+  if (!isMarketingLocale(locale)) notFound();
+}

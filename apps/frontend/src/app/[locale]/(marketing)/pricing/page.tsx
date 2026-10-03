@@ -4,7 +4,11 @@ import { getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
 import { selfSignupTypes, typeText } from "#lib/organization-types";
-import { productCopy, productName } from "../../../../marketing/content";
+import {
+  productCopy,
+  productName,
+  requireMarketingLocale,
+} from "../../../../marketing/content";
 import { formatPrice, getPublicPlans } from "../../../../marketing/plans";
 import { marketingMetadata } from "../../../../marketing/seo";
 import { Button } from "@saas-core/ui/components/button";
@@ -24,6 +28,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  requireMarketingLocale(locale);
   const { pricing } = productCopy(locale);
   return marketingMetadata({
     locale,
@@ -35,6 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PricingPage({ params, searchParams }: Props) {
   const { locale } = await params;
+  requireMarketingLocale(locale);
   const requested = (await searchParams)?.type;
   const { pricing } = productCopy(locale);
   const t = await getTranslations("Marketing.pricing");

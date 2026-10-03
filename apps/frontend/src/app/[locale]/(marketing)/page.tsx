@@ -4,7 +4,11 @@ import { CheckIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
-import { productCopy, productName } from "../../../marketing/content";
+import {
+  productCopy,
+  productName,
+  requireMarketingLocale,
+} from "../../../marketing/content";
 import { localizedUrl, marketingMetadata } from "../../../marketing/seo";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -19,12 +23,14 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  requireMarketingLocale(locale);
   const { seo } = productCopy(locale);
   return marketingMetadata({ locale, path: "/", ...seo });
 }
 
 export default async function HomePage({ params }: Props) {
   const { locale } = await params;
+  requireMarketingLocale(locale);
   const copy = productCopy(locale);
   const t = await getTranslations("Marketing");
 

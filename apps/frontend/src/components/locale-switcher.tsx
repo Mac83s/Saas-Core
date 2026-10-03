@@ -25,7 +25,9 @@ export function LocaleSwitcher() {
           router.replace(pathname, { locale: nextLocale });
         }
       }}
-      value={locale}
+      // A guest language (TL17) is not one of the panel's two; switching from
+      // it keeps the address.
+      value={locale === "pl" || locale === "en" ? locale : undefined}
     >
       <SelectTrigger aria-label={t("language")} size="sm">
         <SelectValue />

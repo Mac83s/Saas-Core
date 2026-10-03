@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
+import { isMarketingLocale } from "#i18n/routing";
 
 import { productCopy, productHasCatalog, productName } from "../content";
 import { marketingLinks } from "../navigation";
@@ -8,7 +9,9 @@ import { MarketingNavLink } from "./site-header";
 
 export async function SiteFooter() {
   const t = await getTranslations("Marketing");
-  const locale = await getLocale();
+  const pageLocale = await getLocale();
+  // As in the header: a guest language links the English pages (TL17).
+  const locale = isMarketingLocale(pageLocale) ? pageLocale : "en";
   const copy = productCopy(locale);
   const links = marketingLinks(
     copy,
@@ -37,7 +40,7 @@ export async function SiteFooter() {
             <MarketingNavLink
               key={link.href}
               link={link}
-              locale={locale}
+              locale={link.href === "/katalog" ? pageLocale : locale}
               className="text-muted-foreground hover:text-foreground"
             />
           ))}
@@ -49,12 +52,14 @@ export async function SiteFooter() {
           <p className="font-medium">{t("footer.account")}</p>
           <Link
             href="/login"
+            locale={locale}
             className="text-muted-foreground hover:text-foreground"
           >
             {t("signIn")}
           </Link>
           <Link
             href="/register"
+            locale={locale}
             className="text-muted-foreground hover:text-foreground"
           >
             {t("signUp")}

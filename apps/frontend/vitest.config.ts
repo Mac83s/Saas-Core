@@ -15,5 +15,9 @@ export default defineConfig({
     // Uncapped, vitest starts a worker per CPU (31 on the 32-vCPU dev VM, ~5 GB),
     // and parallel sessions froze the whole machine on 29.09. CI keeps the default.
     maxWorkers: process.env.CI ? undefined : 4,
+    // next-intl's middleware imports `next/server` without an extension, which
+    // Node's own resolver refuses; through Vite it resolves, so the proxy's
+    // language groups are tested against the real middleware (TL17).
+    server: { deps: { inline: ["next-intl"] } },
   },
 });

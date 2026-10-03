@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import { routing } from "#i18n/routing";
+import { marketingLocales, routing } from "#i18n/routing";
 import { localizedUrl } from "../marketing/seo";
 import { productCopy, productHasCatalog } from "../marketing/content";
 import { cardLanguages } from "../modules/shared/profiles/catalog-seo";
@@ -46,7 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...(productCopy("pl").pages ?? []).map((page) => `/${page.slug}`),
   ];
   const marketing = paths.flatMap((path) =>
-    inLanguages(path, routing.locales, routing.defaultLocale),
+    inLanguages(path, marketingLocales, routing.defaultLocale),
   );
   if (!productHasCatalog) return marketing;
 
