@@ -13,8 +13,15 @@ export function PanelDocumentTitle({ company }: { company: string }) {
     const main = document.getElementById("panel-main");
     if (!main) return;
     const name = () => {
-      const heading = main.querySelector("h1")?.textContent?.trim();
-      const wanted = heading ? `${heading} · ${company}` : company;
+      const heading = main.querySelector("h1")?.textContent;
+      // As `document.title` reads back: whitespace collapsed, none at the
+      // ends. Without a company (an operator, or no active company yet) the
+      // name is the heading alone — a title the getter gives back changed
+      // would be set again on every mutation it causes, forever.
+      const wanted = [heading, company]
+        .map((part) => (part ?? "").replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .join(" · ");
       if (document.title !== wanted) document.title = wanted;
     };
     name();
