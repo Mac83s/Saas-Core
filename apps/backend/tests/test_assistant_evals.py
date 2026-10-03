@@ -284,6 +284,37 @@ def test_a_declined_plan_is_not_reported_as_done() -> None:
     assert setup_run("start_pl").failed == ["no_status"]
 
 
+def test_services_the_product_cannot_set_up_yet_are_said_in_words() -> None:
+    """Without the list of booking kinds the status says why, in a sentence
+    the model can repeat; an answer that passes over it fails."""
+    noted = notes(
+        ("offers.cut.name", "Strzyżenie damskie", "owner"),
+        ("offers.cut.duration_minutes", 45, "owner"),
+    )
+    FAKE.script(
+        tool("setup_status", {}),
+        noted,
+        tool("setup_status", {}),
+        FakeReply(
+            text="Zanotowano obie usługi. Asystent nie potrafi jeszcze ich ustawić: "
+            "dodasz je w panelu, w Ustawienia › Usługi i grafik."
+        ),
+    )
+    assert setup_run("services_not_yet_pl").passed
+    status = json.loads(FAKE.calls[3].request.messages[-1].content)["output"]
+    assert status["unsupported"] == [
+        {
+            "field": "offers.cut",
+            "why": "The assistant cannot set services up yet. The person can add this "
+            "service in the panel, under Ustawienia › Usługi i grafik; it stays noted in "
+            "the profile.",
+        }
+    ]
+
+    FAKE.script(tool("setup_status", {}), noted, FakeReply(text="Zanotowano obie usługi."))
+    assert setup_run("services_not_yet_pl").failed == ["did_not_say:panel"]
+
+
 def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: Path) -> None:
     FAKE.script(tool("setup_status", {}), FakeReply(text="Czym zajmuje się Twoja firma?"))
     out = StringIO()

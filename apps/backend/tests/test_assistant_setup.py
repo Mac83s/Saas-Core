@@ -448,3 +448,16 @@ def test_what_the_account_has_joins_the_profile_before_anything_is_asked(talk: A
     FAKE.script(tool("setup_status", {}), FakeReply(text="Co oferuje Twoja firma?"))
     chat.say("Jestem", key="t2")
     assert AssistantProfileVersion.all_objects.count() == 1
+
+    # A fact follows the account: the place renamed and the hours changed in
+    # the panel are what the profile says next, and nothing is planned back.
+    Location.all_objects.filter(pk=place.pk).update(name="Gabinet na Długiej")
+    AvailabilityRule.all_objects.update(local_end=time(14))
+    FAKE.script(tool("setup_status", {}), FakeReply(text="Co oferuje Twoja firma?"))
+    chat.say("Zmieniłam nazwę gabinetu w panelu", key="t3")
+
+    profile = document(client)
+    assert [entry["name"]["value"] for entry in profile["places"]] == ["Gabinet na Długiej"]
+    (week,) = [person["hours"]["value"] for person in profile["people"]]
+    assert (week[0]["end"], week[0]["place"]) == ("14:00", profile["places"][0]["key"])
+    assert sent_tool_results(5)[-1]["output"]["ready"] == []

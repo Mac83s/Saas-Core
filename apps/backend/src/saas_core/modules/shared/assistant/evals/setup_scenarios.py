@@ -199,6 +199,8 @@ class SetupScenario:
     no_done_claim: bool = False
     says: tuple[str, ...] = ()
     never_says: tuple[str, ...] = ()
+    #: Reads the account does not answer: a command the registry lacks.
+    without: tuple[str, ...] = ()
 
 
 SETUP_SCENARIOS: tuple[SetupScenario, ...] = (
@@ -298,6 +300,17 @@ SETUP_SCENARIOS: tuple[SetupScenario, ...] = (
         messages=("Czy moje domki są już gotowe do rezerwacji?",),
         no_done_claim=True,
         never_says=("core.lodging",),
+    ),
+    SetupScenario(
+        # The registry before the list of booking kinds: the owner names their
+        # services and must hear, in words, why none is set up.
+        key="services_not_yet_pl",
+        language="pl",
+        profile=_SALON,
+        messages=("W ofercie mam strzyżenie damskie, 45 minut, i koloryzację, 2 godziny.",),
+        without=(PRESETS,),
+        no_done_claim=True,
+        says=("panel",),
     ),
     SetupScenario(
         key="other_request_pl",

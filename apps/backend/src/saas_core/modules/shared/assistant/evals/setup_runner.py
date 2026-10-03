@@ -169,7 +169,8 @@ class _State:
         # The commands the registry has today: a step it lacks is told to
         # the model as waiting, as in a conversation.
         commands = frozenset(WRITES) & {spec.key for spec in registered_commands()}
-        answer = configure(self.document, ACCOUNT, commands)
+        account = {key: read for key, read in ACCOUNT.items() if key not in self.scenario.without}
+        answer = configure(self.document, account, commands)
         if name == setup.SETUP_STATUS:
             return {
                 "status": "done",

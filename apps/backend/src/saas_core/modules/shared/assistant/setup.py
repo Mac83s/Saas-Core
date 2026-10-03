@@ -142,6 +142,24 @@ _WHY_WAITING = {
     "person_only": "Switching it on is the person's own step in the panel.",
 }
 
+#: Why the product cannot hold something the owner asked for, as the model is
+#: told it — a code alone would be guessed at, or said aloud.
+_WHY_UNSUPPORTED = {
+    "preset_not_ready": "The product does not offer this kind of booking yet. It stays "
+    "noted in the profile.",
+    "preset_unknown": "This kind of booking is not available to this company.",
+    "presets_unavailable": "The assistant cannot set services up yet. The person can add "
+    "this service in the panel, under Ustawienia › Usługi i grafik; it stays noted in the "
+    "profile.",
+    "price_list": "The product does not store prices yet. The price stays noted in the profile.",
+    "city_not_in_catalog": "This town is not on the company directory's list of towns, so "
+    "the company's card cannot name it yet.",
+    "category_unknown": "The company directory has no such category.",
+    "language_not_offered": "The platform does not offer this language yet.",
+    "language_limit": "The company's plan does not allow another language.",
+    "booking_unavailable": "This product has no bookings.",
+}
+
 _KEY = "[a-z][a-z0-9_]{0,31}"
 _FIELD = re.compile(
     "company\\.(?:name|activity|city|category|address|phone|email)"
@@ -327,7 +345,10 @@ def described(
             {"step": step["ref"], "why": _WHY_WAITING[step["reason"]], "after": step["waits_for"]}
             for step in answer["blocked"]
         ],
-        "unsupported": answer["unsupported"],
+        "unsupported": [
+            {"field": entry["key"], "why": _WHY_UNSUPPORTED[entry["code"]]}
+            for entry in answer["unsupported"]
+        ],
         "known": [
             {"field": field, "confirmed": node["confirmed"]}
             if _WITHHELD.fullmatch(field)
@@ -441,17 +462,17 @@ def _answer(
 
 def _seeded(document: dict[str, Any], reads: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     """The profile with the places and people the account already has — facts,
-    so nobody is asked for a place that exists."""
+    so nobody is asked for a place that exists. A fact follows the account: a
+    place renamed or hours changed in the panel are what the profile then says,
+    or the configurator would plan them back."""
     setup = reads.get(SETUP)
     if setup is None:
         return document
     seeded = copy.deepcopy(document)
     places = _seed(seeded, "places", setup["locations"], "place")
-    for location, key in places.items():
-        address = next(item["address"] for item in setup["locations"] if item["id"] == location)
-        entry = next(item for item in seeded["places"] if item["key"] == key)
-        if address and "address" not in entry:
-            entry["address"] = _fact(address)
+    for location in setup["locations"]:
+        entry = next(item for item in seeded["places"] if item["key"] == places[location["id"]])
+        _mirror(entry, "address", location["address"])
     people = _seed(seeded, "people", setup["staff"], "person")
     for person in setup["staff"]:
         entry = next(item for item in seeded["people"] if item["key"] == people[person["id"]])
@@ -465,17 +486,33 @@ def _seeded(document: dict[str, Any], reads: Mapping[str, Mapping[str, Any]]) ->
             for rule in person.get("hours", [])
             if rule["location_id"] in places
         ]
-        if week and "hours" not in entry:
-            entry["hours"] = _fact(week)
+        _mirror(entry, "hours", week)
     _tidy(seeded)
     return seeded
+
+
+def _mirror(entry: dict[str, Any], field: str, value: Any) -> None:
+    """The account's value for a field nobody said anything about; what the
+    owner said, or the assistant proposed, stays."""
+    if entry.get(field, {"origin": "account"})["origin"] != "account":
+        return
+    if value:
+        entry[field] = _fact(value)
+    else:
+        entry.pop(field, None)
 
 
 def _seed(
     document: dict[str, Any], listed: str, items: Sequence[Mapping[str, Any]], prefix: str
 ) -> dict[str, str]:
-    """Adds the account's items the profile does not name yet; answers each
-    item's key in the profile by its id in the account."""
+    """Adds the account's items the profile does not name yet and takes out
+    the facts the account no longer has; answers each item's key in the
+    profile by its id in the account."""
+    names = {fold(item["name"]) for item in items}
+    for entry in list(document.get(listed, [])):
+        name = entry.get("name")
+        if name is not None and name["origin"] == "account" and fold(name["value"]) not in names:
+            _remove_entry(document, listed, entry["key"])
     entries = document.setdefault(listed, [])
     by_name = {fold(entry["name"]["value"]): entry["key"] for entry in entries if "name" in entry}
     taken = {entry["key"] for entry in entries}
