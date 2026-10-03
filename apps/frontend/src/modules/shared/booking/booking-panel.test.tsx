@@ -2105,7 +2105,9 @@ test("the customer's link offers only what the booking's terms allow (B4)", asyn
       <SelfServiceBooking token="bk_terms" />
     </NextIntlClientProvider>,
   );
-  expect(await screen.findByRole("button", { name: "Cancel booking" })).not.toBeNull();
+  expect(
+    await screen.findByRole("button", { name: "Cancel booking" }),
+  ).not.toBeNull();
   expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
   expect(
     screen.getByText(/You can change the time or cancel until/),

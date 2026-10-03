@@ -20,10 +20,7 @@
       "source_locale": "pl",
       "target_locale": "en",
       "translation": "hygienic trim",
-      "forms": [
-        "strzyżenia higienicznego",
-        "strzyżeniu higienicznym"
-      ]
+      "forms": ["strzyżenia higienicznego", "strzyżeniu higienicznym"]
     },
     {
       "term": "Anna Wiśniewska",

@@ -237,8 +237,7 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
         .map((option) => {
           const field = fieldOf(option);
           const touched = (form.formState.dirtyFields as Values)[field] as
-            | Record<string, boolean>
-            | undefined;
+            Record<string, boolean> | undefined;
           const texts = (values[field] ?? {}) as Record<string, string | null>;
           return [
             field,

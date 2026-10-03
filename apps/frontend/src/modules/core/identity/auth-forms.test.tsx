@@ -7,19 +7,14 @@ import { ApiProblemError } from "@saas-core/api-client";
 import messages from "../../../../messages/pl.json";
 import { LoginForm, RegistrationForm } from "./auth-forms";
 
-const {
-  replace,
-  refresh,
-  loginAccount,
-  completeMfaLogin,
-  registerAccount,
-} = vi.hoisted(() => ({
-  replace: vi.fn(),
-  refresh: vi.fn(),
-  loginAccount: vi.fn(),
-  completeMfaLogin: vi.fn(),
-  registerAccount: vi.fn(),
-}));
+const { replace, refresh, loginAccount, completeMfaLogin, registerAccount } =
+  vi.hoisted(() => ({
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    loginAccount: vi.fn(),
+    completeMfaLogin: vi.fn(),
+    registerAccount: vi.fn(),
+  }));
 
 vi.mock("#i18n/navigation", () => ({
   Link: "a",
