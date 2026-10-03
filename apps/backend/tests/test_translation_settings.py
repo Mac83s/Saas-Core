@@ -434,3 +434,25 @@ def test_tenant_tables_force_rls(table: str) -> None:
             "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = %s", [table]
         )
         assert cursor.fetchone() == (True, True)
+
+
+@override_settings(MODEL_PORT_PROCESSOR_LISTED=True, SETTINGS_DEFAULTS={})
+def test_a_bad_value_answers_the_registrys_codes() -> None:
+    """The same codes as every setting on the registry (ADR-078), for the panel
+    and the assistant alike."""
+    owner = membership("tl-codes")
+    with tenant(owner):
+        with pytest.raises(ValidationError) as caught:
+            change_settings(
+                changes={MODE: "sometimes", AUTO: "yes", LIMIT: -1},
+                expected_version=0,
+                idempotency_key=key(),
+            )
+        assert caught.value.get_codes() == {
+            MODE: ["invalid_choice"],
+            AUTO: ["invalid"],
+            LIMIT: ["min_value"],
+        }
+        with pytest.raises(ValidationError) as caught:
+            change_settings(changes={LIMIT: 100_001}, expected_version=0, idempotency_key=key())
+        assert caught.value.get_codes() == {LIMIT: ["max_value"]}

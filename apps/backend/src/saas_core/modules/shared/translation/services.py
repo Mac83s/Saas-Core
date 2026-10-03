@@ -39,6 +39,7 @@ from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
+from saas_core.modules.core.organizations.settings_registry import check_value
 from saas_core.modules.shared.billing.models import CreditOperation
 from saas_core.modules.shared.model_port.api import task_status
 
@@ -54,7 +55,6 @@ from .settings_spec import (
     COMPANY_SETTINGS,
     DECLARATIONS,
     MODE,
-    MODE_VALUES,
     SETTINGS,
     profile_default,
 )
@@ -164,7 +164,8 @@ _MESSAGES = {
     "unknown_setting": "Nie ma takiego ustawienia.",
     "invalid_choice": "Wybierz jedną z dozwolonych wartości.",
     "invalid": "Nieprawidłowa wartość.",
-    "out_of_range": "Wartość spoza dozwolonego zakresu.",
+    "min_value": "Wartość jest mniejsza niż dozwolona.",
+    "max_value": "Wartość jest większa niż dozwolona.",
     "only_true": "To potwierdzenie można tylko włączyć.",
     "reset_conflict": "Nie można jednocześnie zmienić i przywrócić tego ustawienia.",
     "locale_not_in_registry": "Tego języka nie ma na platformie.",
@@ -280,19 +281,15 @@ def _validate_settings(changes: Mapping[str, Any], reset: Sequence[str]) -> dict
     for key in changes:
         if key not in keys and key != PROCESSING_ACK:
             errors[key] = "unknown_setting"
-    mode = changes.get(MODE.key)
-    if mode is not None and mode not in MODE_VALUES:
-        errors[MODE.key] = "invalid_choice"
-    auto = changes.get(AUTO_CHANGES.key)
-    if auto is not None and not isinstance(auto, bool):
-        errors[AUTO_CHANGES.key] = "invalid"
-    limit = changes.get(AUTO_MONTHLY_LIMIT.key)
-    if limit is not None and (
-        isinstance(limit, bool)
-        or not isinstance(limit, int)
-        or not (AUTO_MONTHLY_LIMIT.minimum or 0) <= limit <= (AUTO_MONTHLY_LIMIT.maximum or 0)
-    ):
-        errors[AUTO_MONTHLY_LIMIT.key] = "out_of_range"
+    for spec in COMPANY_SETTINGS:
+        value = changes.get(spec.key)
+        if value is None:
+            continue
+        # The registry's own check, so its codes are the panel's and the
+        # assistant's everywhere: invalid_choice, invalid, min_value, max_value.
+        checked = check_value(spec, value)
+        if checked is None or checked[1]:
+            errors[spec.key] = checked[2] if checked else "invalid"
     ack = changes.get(PROCESSING_ACK)
     if ack is not None and ack is not True:
         errors[PROCESSING_ACK] = "only_true"
