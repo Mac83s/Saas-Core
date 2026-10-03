@@ -52,4 +52,8 @@ przez dostawcę, telemetria `model_port_usageentry`).
 - Rekomendacja dla `translation.text`: Claude Sonnet 5.5 — jakość prawie jak Opus
   przy połowie ceny i najkrótszym czasie wśród modeli Claude; tańsza alternatywa
   Gemini 3.8 Flash (ok. 1/3 kosztu Sonneta, bez błędów twardych, niższa ocena).
-  Model domyślny wybiera właściciel; do tego czasu zadanie nie ma modelu.
+  Wybór właściciela (odpowiedź 53, 03.10): Claude Sonnet 5.5 jako model domyślny
+  `translation.text`; cena `translation.characters` X = 1 kredyt za 1000 znaków źródła
+  w jednym języku (odpowiedź 54a). Oba mają być zmienialne w panelu administratora
+  platformy (TL22); do tego czasu model w rejestrze zadań, cena w migracji
+  `translation 0015`.

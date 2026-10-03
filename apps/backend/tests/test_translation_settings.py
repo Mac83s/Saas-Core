@@ -318,17 +318,14 @@ def test_the_offer_says_why_translation_is_not_available_yet() -> None:
     with tenant(owner):
         offer = translation_offer()
     assert offer["available"] is False
-    assert {
-        "model_not_selected",
-        "operation_unpriced",
-        "processing_ack_required",
-        "worker_unavailable",
-    } <= set(offer["reasons"])
+    # The model and the price are set (answers 53 and 54a); the company's
+    # acknowledgement and a running worker are what is missing here.
+    assert set(offer["reasons"]) == {"processing_ack_required", "worker_unavailable"}
     assert offer["billing"] == {
         "mode": "credits",
         "operation_key": "translation.characters",
         "unit_characters": 1000,
-        "credits_per_unit": None,
+        "credits_per_unit": 1,
     }
     keys = [setting["key"] for setting in offer["settings"]]
     assert keys == [MODE, AUTO, LIMIT, "translation.ceiling"]

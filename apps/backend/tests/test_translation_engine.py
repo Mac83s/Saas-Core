@@ -471,12 +471,13 @@ def test_what_is_proposed_and_skipped_is_counted_apart() -> None:
 
 
 @pytest.mark.django_db
-def test_the_operation_is_seeded_unpriced_and_roles_get_the_permissions() -> None:
+def test_the_operation_is_priced_at_one_credit_and_roles_get_the_permissions() -> None:
     from saas_core.modules.core.organizations.models import Role
     from saas_core.modules.shared.billing.models import CreditOperation
 
     operation = CreditOperation.objects.get(key="translation.characters")
-    assert (operation.is_active, operation.cost, operation.unit) == (False, 0, "1000_characters")
+    # X = 1 credit per 1,000 source characters per language (answer 54a, 03.10).
+    assert (operation.is_active, operation.cost, operation.unit) == (True, 1, "1000_characters")
     grants = {
         role.key: {p for p in role.permissions if p.startswith("translation.")}
         for role in Role.objects.filter(

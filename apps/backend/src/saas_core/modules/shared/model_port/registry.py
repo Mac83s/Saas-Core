@@ -21,14 +21,15 @@ POOLS = frozenset({"translation", "assistant"})
 _TASKS: dict[str, TaskSpec] = {}
 _KEY = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
 
-#: The tasks every deployment has from day one. No default model: translation's
-#: is chosen by the owner after the evals (TL7), the assistant's by its track.
+#: The tasks every deployment has from day one. Translation's model is the
+#: owner's choice on the evals (TL7, answer 53 of 03.10: Claude Sonnet 5.5);
+#: the assistant's comes with its track.
 DEFAULT_TASKS = (
     TaskSpec(
         key="translation.text",
         pool="translation",
         adapter="openrouter",
-        model="",
+        model="anthropic/claude-sonnet-5.5",
         timeout_seconds=150,
         max_tokens_rule=(2.5, 1024, 16_384),
         defaults={"reasoning_effort": "low"},
