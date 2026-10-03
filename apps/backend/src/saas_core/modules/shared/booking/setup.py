@@ -98,6 +98,8 @@ _GROUP_FIELDS = ("name", "description", "active")
 #: A protective bound, not a business rule: the units one offer's pool is
 #: brought up to in one write.
 MAX_OFFER_UNITS = 1000
+#: How many people one unit may take, as the panel's unit form bounds it.
+MAX_UNIT_CAPACITY = 1000
 # `slugify` drops what NFKD cannot fold: "Łódź" would become "odz".
 _FOLD = str.maketrans({"ł": "l", "Ł": "L"})
 
@@ -951,6 +953,11 @@ def _write_offer_units(
         )
     if not 1 <= count <= MAX_OFFER_UNITS:
         _refuse_units("count", f"Podaj liczbę od 1 do {MAX_OFFER_UNITS}.", "out_of_range")
+    if capacity is not None and not 1 <= capacity <= MAX_UNIT_CAPACITY:
+        # The panel's own bound for a unit (`ResourceInputSerializer`).
+        _refuse_units(
+            "capacity", f"Podaj liczbę osób od 1 do {MAX_UNIT_CAPACITY}.", "out_of_range"
+        )
     if location_id is not None:
         _own(Location, organization, [location_id], "location_id")
     linked = list(
@@ -982,6 +989,14 @@ def _write_offer_units(
         )
         _relink(ServiceGroup, organization, service, "group_id", [group.id])
         changes["groups"] = {"changed": True}
+    if not group.active:
+        # A switched-off pool gives no unit to anybody: adding to it would
+        # look done and book nothing.
+        _refuse_units(
+            "service_id",
+            f"Grupa jednostek „{group.name}” jest wyłączona — włącz ją w panelu.",
+            "unit_group_switched_off",
+        )
     units = _pool(group)
     if count < len(units):
         _refuse_units(

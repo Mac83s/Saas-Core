@@ -130,6 +130,20 @@ def test_units_are_never_removed_by_a_count() -> None:
     assert names(person) == ["Domki 1", "Domki 2", "Domki 3"]
 
 
+def test_a_pool_that_is_switched_off_is_not_added_to() -> None:
+    person = owner("units-off", UNITS)
+    ResourceGroup.all_objects.filter(organization_id=person.organization_id).update(active=False)
+
+    assert refused(person, units(person, 3)) == ("service_id", "unit_group_switched_off")
+    assert names(person) == ["Domki 1"]
+
+
+def test_a_units_capacity_is_bounded_as_in_the_panel() -> None:
+    person = owner("units-capacity", UNITS)
+
+    assert refused(person, units(person, 3, capacity=0))[0] == "capacity"
+
+
 def test_a_visit_by_the_clock_has_no_units() -> None:
     person = owner("units-slot", UNITS)
     visit = Service.all_objects.get(organization_id=person.organization_id, name="Konsultacja")

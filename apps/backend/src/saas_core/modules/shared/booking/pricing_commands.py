@@ -72,7 +72,7 @@ from .prices import (
 from .quote import quote_offer
 from .serializers import BookingQuoteInputSerializer
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
-from .setup import MAX_OFFER_UNITS, discard_draft, set_offer_units
+from .setup import MAX_OFFER_UNITS, MAX_UNIT_CAPACITY, discard_draft, set_offer_units
 
 _PUBLIC = "public"
 
@@ -345,7 +345,8 @@ OFFER_UNITS_SET = CommandSpec(
         "is there is refused with `units_cannot_be_removed` on `count` — tell the person "
         "to switch the spare unit off in the panel. `capacity` (people one unit takes) and "
         "`location_id` describe the units added; null leaves them unset. A visit by the "
-        "clock has no units (`units_need_range_offer`). Take the count from the person; "
+        "clock has no units (`units_need_range_offer`); a group that is switched off is "
+        "refused (`unit_group_switched_off`). Take the count from the person; "
         "use booking.setup.read first for the service id."
     ),
     input_schema={
@@ -360,8 +361,11 @@ OFFER_UNITS_SET = CommandSpec(
                 "maximum": MAX_OFFER_UNITS,
                 "description": "How many units the service has in all.",
             },
-            "capacity": _nullable(
-                "integer", "How many people one new unit takes; null leaves it unset."
+            "capacity": _bounded(
+                "integer",
+                "How many people one new unit takes; null leaves it unset.",
+                minimum=1,
+                maximum=MAX_UNIT_CAPACITY,
             ),
             "location_id": _nullable(
                 "string", "The company's place the new units are at; null leaves it unset."

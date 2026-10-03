@@ -488,6 +488,8 @@
         "properties": {
           "capacity": {
             "description": "How many people one new unit takes; null leaves it unset.",
+            "maximum": 1000,
+            "minimum": 1,
             "type": [
               "integer",
               "null"
@@ -519,7 +521,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Brings a stay or a rental (a service with time model `range`) up to `count` identical units — cottages, rooms, kayaks — in one step: the service's group of units is made under the service's name when it has none, and the units it lacks are added, named after the group and numbered. `count` is how many units the service has in all, not how many to add. It only ever adds: a count below what is there is refused with `units_cannot_be_removed` on `count` — tell the person to switch the spare unit off in the panel. `capacity` (people one unit takes) and `location_id` describe the units added; null leaves them unset. A visit by the clock has no units (`units_need_range_offer`). Take the count from the person; use booking.setup.read first for the service id.",
+      "model_description": "Brings a stay or a rental (a service with time model `range`) up to `count` identical units — cottages, rooms, kayaks — in one step: the service's group of units is made under the service's name when it has none, and the units it lacks are added, named after the group and numbered. `count` is how many units the service has in all, not how many to add. It only ever adds: a count below what is there is refused with `units_cannot_be_removed` on `count` — tell the person to switch the spare unit off in the panel. `capacity` (people one unit takes) and `location_id` describe the units added; null leaves them unset. A visit by the clock has no units (`units_need_range_offer`); a group that is switched off is refused (`unit_group_switched_off`). Take the count from the person; use booking.setup.read first for the service id.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": null,
