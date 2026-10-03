@@ -8,7 +8,7 @@ Demand rows are written directly — recording them is TL21a's test.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -25,6 +25,7 @@ from saas_core.modules.shared.billing.models import (
     EntitlementSnapshot,
 )
 from saas_core.modules.shared.notifications.models import AppNotification, NotificationMessage
+from saas_core.modules.shared.translation import automation
 from saas_core.modules.shared.translation.automation import (
     CONSENT_LOST,
     CREDITS_EXHAUSTED,
@@ -42,6 +43,7 @@ from saas_core.modules.shared.translation.models import (
 from saas_core.modules.shared.translation.notify import AUTOMATION_PAUSED
 from saas_core.modules.shared.translation.services import change_settings
 from saas_core.modules.shared.translation.settings_spec import demand_wait
+from saas_core.testing.clock import never_backwards
 from saas_core.testing.translation_sources import FakeSourceDriver
 from test_booking import tenant
 from test_model_port import fake_models  # noqa: F401 — the port's fake models
@@ -160,6 +162,32 @@ def test_the_automation_pays_whole_thousands_and_carries_the_rest(source: JobSou
     assert (entry.amount, entry.operation_quantity) == (-2, 1)
     settings_row.refresh_from_db()
     assert settings_row.auto_carry_characters == 1_198 - 1_000
+
+
+def test_a_job_created_just_before_the_clock_steps_back_still_runs(
+    source: JobSource, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What failed the test above once beside a second gate (03.10): the
+    machine's clock was stepped back 100 ms between the job's creation and its
+    claim, the worker read the job as not yet due and the run did nothing. The
+    suite's clock only moves forward (`saas_core.testing.clock`)."""
+    owner = automated("tl21-step")
+    source.live_locales.add("de")
+    due(owner, page(source, "Alfa"))
+    step = timedelta(0)
+    monkeypatch.setattr(timezone, "now", never_backwards(lambda: datetime.now(UTC) + step))
+    create = automation._create_job
+
+    def created_then_stepped_back(*args: Any, **kwargs: Any) -> TranslationJob:
+        nonlocal step
+        job = create(*args, **kwargs)
+        step = timedelta(milliseconds=-100)
+        return job
+
+    monkeypatch.setattr(automation, "_create_job", created_then_stepped_back)
+    job_id = start_due_demand(owner.organization_id)
+    # The run the creation itself hands over is enough: nothing waits for a tick.
+    assert TranslationJob.all_objects.get(pk=job_id).state == JobState.SUCCEEDED
 
 
 def test_the_months_limit_holds_the_demand_until_next_month(source: JobSource) -> None:

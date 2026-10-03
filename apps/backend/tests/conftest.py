@@ -8,11 +8,15 @@ tests of typed roles (`test_organization_roles.py`) configure the types they
 need themselves.
 """
 
+from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
 
 import pytest
 from django.conf import settings
+from django.utils import timezone
+
+from saas_core.testing.clock import never_backwards
 
 # A module's tests that import its models at the top cannot even be collected
 # where the profile does not compose the module (a product repository runs
@@ -66,3 +70,13 @@ def core_global_roles(settings: Any) -> None:
         key: replace(organization_type, roles=())
         for key, organization_type in settings.ORGANIZATION_TYPES.items()
     }
+
+
+@pytest.fixture(autouse=True, scope="session")
+def wall_clock_never_runs_backwards() -> Iterator[None]:
+    """`timezone.now()` only moves forward during the suite, whatever the
+    machine's clock does (`saas_core.testing.clock`). A test that sets its own
+    clock still replaces this one for its duration."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(timezone, "now", never_backwards(timezone.now))
+        yield
