@@ -19,12 +19,14 @@ class Command(BaseCommand):
         if settings.STRIPE_LIVEMODE:
             raise CommandError("Symulator płatności nie obsługuje trybu live.")
 
+        # A plan a product keeps off the offer gets its price too, as in Stripe's
+        # catalog: checkout refuses a hidden plan, and this command runs with
+        # every migrate, so refusing here would stop the whole stack.
         plans_by_key = {
             plan.key: plan
             for plan in Plan.objects.filter(
                 key__in=settings.BILLING_PLAN_KEYS,
                 is_active=True,
-                is_public=True,
                 current_version__isnull=False,
             ).select_related("current_version")
         }

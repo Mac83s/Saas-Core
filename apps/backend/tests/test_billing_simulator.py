@@ -28,6 +28,7 @@ from saas_core.modules.shared.billing.overview import customer_billing_overview
 from saas_core.modules.shared.billing.provider import get_billing_provider
 from saas_core.modules.shared.billing.reconciliation import run_reconciliation_batch
 from saas_core.modules.shared.billing.services import (
+    BillingPlanUnavailable,
     BillingPortalUnavailable,
     activate_customer_trial,
     create_customer_portal,
@@ -91,6 +92,24 @@ def test_simulated_price_configuration_is_deterministic_and_idempotent() -> None
     }
     assert "configured=3, unchanged=0" in first_output.getvalue()
     assert "configured=0, unchanged=3" in second_output.getvalue()
+
+
+@override_settings(BILLING_PROVIDER="simulated", STRIPE_LIVEMODE=False)
+def test_a_plan_kept_off_the_offer_does_not_stop_the_simulators_catalog() -> None:
+    """A product may hide a plan of its profile (HoofCare's „Gospodarstwo Plus”,
+    owner's answer 46a). The command runs with every migrate, so it must not
+    refuse; the price waits, as it does in Stripe's catalog, and is not sold."""
+    hidden = Plan.objects.get(key="starter")
+    Plan.objects.filter(pk=hidden.pk).update(is_public=False)
+
+    call_command("configure_simulated_prices")
+
+    assert StripePriceMapping.objects.filter(
+        plan_version=hidden.current_version, provider="simulated", is_active=True
+    ).exists()
+    _organization, context = owner_context(slug="simulator-hidden-plan")
+    with activate_tenant_context(context), pytest.raises(BillingPlanUnavailable):
+        create_setup_checkout(plan_key="starter", idempotency_key="hidden-plan-one")
 
 
 @override_settings(BILLING_PROVIDER="stripe", STRIPE_LIVEMODE=False)
