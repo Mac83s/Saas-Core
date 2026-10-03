@@ -21,6 +21,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from django.test import override_settings
 
 from saas_core.modules.shared.profiles import search_index
 from saas_core.modules.shared.profiles.search_engine import Meilisearch
@@ -62,6 +63,15 @@ def _document(
     }
 
 
+def _settings() -> dict[str, Any]:
+    """What `index_settings` sends for a profile with Polish, English and
+    German, without the embedder (the vector tests set their own)."""
+    with override_settings(SITES_SUPPORTED_LOCALES=("pl", "en", "de")):
+        built = search_index.index_settings()
+    built.pop("embedders")
+    return built
+
+
 @pytest.fixture(scope="module")
 def engine() -> Meilisearch:
     return Meilisearch(URL, KEY, 5.0)
@@ -70,7 +80,7 @@ def engine() -> Meilisearch:
 @pytest.fixture(scope="module")
 def index(engine: Meilisearch) -> Iterator[str]:
     name = f"test-{uuid.uuid4().hex[:8]}-catalog"
-    engine.rebuild(name, search_index.INDEX_SETTINGS, [_document(*entry) for entry in ENTRIES])
+    engine.rebuild(name, _settings(), [_document(*entry) for entry in ENTRIES])
     yield name
     engine._drop(name)
 
@@ -125,14 +135,15 @@ def _last_task(engine: Meilisearch) -> int:
 def test_ensure_index_settles_to_no_change(engine: Meilisearch, index: str) -> None:
     """Settings read back equal to what was written, or reconcile would patch forever."""
     current = engine._call("GET", f"/indexes/{index}/settings")
-    assert {key: current[key] for key in search_index.INDEX_SETTINGS} == search_index.INDEX_SETTINGS
+    built = _settings()
+    assert {key: current[key] for key in built} == built
 
 
 def test_meaning_scores_vectors_and_skips_documents_without_one(engine: Meilisearch) -> None:
     """The scale the threshold is set on: (1 + cosine) / 2, and 0 without a vector."""
     name = f"test-{uuid.uuid4().hex[:8]}-catalog"
     index_settings = {
-        **search_index.INDEX_SETTINGS,
+        **_settings(),
         "embedders": {search_index.EMBEDDER: {"source": "userProvided", "dimensions": 2}},
     }
     documents = [
@@ -163,5 +174,32 @@ def test_meaning_scores_vectors_and_skips_documents_without_one(engine: Meilisea
         # Read back as written, so reconcile does not patch it every ten minutes.
         current = engine._call("GET", f"/indexes/{name}/settings")
         assert current["embedders"] == index_settings["embedders"]
+    finally:
+        engine._drop(name)
+
+
+def test_a_german_page_finds_german_words(engine: Meilisearch) -> None:
+    """TL20: a card whole in German is found by its German text, and a trade
+    the category names in German finds the category's companies."""
+    name = f"test-{uuid.uuid4().hex[:8]}-catalog"
+    vet = {
+        **_document("wet-de", "Przychodnia Azor", "Psy i koty", "Ełk", [], "zwierzeta"),
+        "category_keywords": ["weterynarz", "Tierarzt", "Tierklinik"],
+    }
+    salon = {
+        **_document("salon-de", "Studio Anna", "Fryzjer w centrum", "Mrągowo", [], "uroda"),
+        "headline_de": "Friseursalon im Stadtzentrum",
+        "bio_de": "Wir schneiden und färben seit 1990.",
+    }
+    engine.rebuild(name, _settings(), [vet, salon])
+    try:
+
+        def found(query: str) -> list[str]:
+            body = {"q": query, "locales": ["deu"], "attributesToRetrieve": ["id"], "limit": 3}
+            return [hit["id"] for hit in engine.search(name, body)["hits"]]
+
+        assert found("Tierarzt") == [vet["id"]]
+        assert found("Friseursalon") == [salon["id"]]
+        assert found("Stadtzentrum") == [salon["id"]]
     finally:
         engine._drop(name)

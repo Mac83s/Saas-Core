@@ -184,6 +184,7 @@ def _similar(
     city_slugs: list[str] | None,
     category: str,
     found: list[CatalogEntry],
+    locale: str | None = None,
 ) -> list[CatalogEntry]:
     try:
         ids = similar_ids(
@@ -192,6 +193,7 @@ def _similar(
             category=category,
             exclude={entry.organization_id for entry in found},
             limit=SIMILAR_BELOW if found else PAGE_SIZE,
+            locale=locale,
         )
     except SearchEngineUnavailable:
         return []
@@ -246,6 +248,7 @@ def search_catalog(
                 category=category,
                 page=page,
                 page_size=PAGE_SIZE,
+                locale=locale,
             )
         except SearchEngineUnavailable as error:
             # No query text in the log: in some products a search says
@@ -255,7 +258,7 @@ def search_catalog(
             CATALOG_SEARCHES.labels(engine="search").inc()
             found = _rows(entries, ids)
             if page == 1:
-                similar = _similar(entries, query, city_slugs, category, found)
+                similar = _similar(entries, query, city_slugs, category, found, locale)
     if found is None:
         if query.strip():
             CATALOG_SEARCHES.labels(engine="database").inc()

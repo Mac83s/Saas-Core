@@ -261,7 +261,8 @@
         "key": "uroda-i-zdrowie",
         "label": {
           "pl": "Uroda i zdrowie",
-          "en": "Beauty and health"
+          "en": "Beauty and health",
+          "de": "Schönheit und Gesundheit"
         },
         "keywords": {
           "pl": [
@@ -294,6 +295,23 @@
             "dietitian",
             "psychologist",
             "spa"
+          ],
+          "de": [
+            "Friseur",
+            "Barbier",
+            "Kosmetikerin",
+            "Kosmetikstudio",
+            "Maniküre",
+            "Pediküre",
+            "Massage",
+            "Physiotherapeut",
+            "Zahnarzt",
+            "Arzt",
+            "Praxis",
+            "Ernährungsberater",
+            "Psychologe",
+            "Reha",
+            "Spa"
           ]
         }
       },
@@ -301,7 +319,8 @@
         "key": "uslugi-dla-domu",
         "label": {
           "pl": "Usługi dla domu",
-          "en": "Home services"
+          "en": "Home services",
+          "de": "Haushaltsdienste"
         },
         "keywords": {
           "pl": [
@@ -324,6 +343,16 @@
             "movers",
             "appliance repair",
             "locksmith"
+          ],
+          "de": [
+            "Reinigung",
+            "Putzfrau",
+            "Klempner",
+            "Elektriker",
+            "Gärtner",
+            "Umzug",
+            "Hausmeister",
+            "Schlüsseldienst"
           ]
         }
       },
@@ -331,7 +360,8 @@
         "key": "budowlanka",
         "label": {
           "pl": "Budowa i remonty",
-          "en": "Construction"
+          "en": "Construction",
+          "de": "Bau und Renovierung"
         },
         "keywords": {
           "pl": [
@@ -357,6 +387,17 @@
             "carpenter",
             "windows",
             "doors"
+          ],
+          "de": [
+            "Bauunternehmen",
+            "Maurer",
+            "Maler",
+            "Fliesenleger",
+            "Dachdecker",
+            "Tischler",
+            "Renovierung",
+            "Architekt",
+            "Installateur"
           ]
         }
       },
@@ -364,7 +405,8 @@
         "key": "motoryzacja",
         "label": {
           "pl": "Motoryzacja",
-          "en": "Automotive"
+          "en": "Automotive",
+          "de": "Auto und Verkehr"
         },
         "keywords": {
           "pl": [
@@ -386,6 +428,14 @@
             "car wash",
             "body shop",
             "towing"
+          ],
+          "de": [
+            "Autowerkstatt",
+            "Mechaniker",
+            "Reifenservice",
+            "Autowäsche",
+            "Lackiererei",
+            "Abschleppdienst"
           ]
         }
       },
@@ -393,7 +443,8 @@
         "key": "gastronomia",
         "label": {
           "pl": "Gastronomia",
-          "en": "Food and drink"
+          "en": "Food and drink",
+          "de": "Gastronomie"
         },
         "keywords": {
           "pl": [
@@ -413,6 +464,14 @@
             "catering",
             "bakery",
             "takeaway"
+          ],
+          "de": [
+            "Restaurant",
+            "Café",
+            "Bäckerei",
+            "Catering",
+            "Pizzeria",
+            "Bar"
           ]
         }
       },
@@ -420,7 +479,8 @@
         "key": "handel",
         "label": {
           "pl": "Handel",
-          "en": "Retail"
+          "en": "Retail",
+          "de": "Handel"
         },
         "keywords": {
           "pl": [
@@ -438,6 +498,14 @@
             "online shop",
             "florist",
             "pharmacy"
+          ],
+          "de": [
+            "Geschäft",
+            "Laden",
+            "Großhandel",
+            "Onlineshop",
+            "Blumenladen",
+            "Boutique"
           ]
         }
       },
@@ -445,7 +513,8 @@
         "key": "turystyka-i-noclegi",
         "label": {
           "pl": "Turystyka i noclegi",
-          "en": "Travel and stays"
+          "en": "Travel and stays",
+          "de": "Reisen und Unterkunft"
         },
         "keywords": {
           "pl": [
@@ -467,6 +536,16 @@
             "camping",
             "travel agency",
             "kayak rental"
+          ],
+          "de": [
+            "Hotel",
+            "Pension",
+            "Ferienwohnung",
+            "Gästezimmer",
+            "Reisebüro",
+            "Agroturismus",
+            "Campingplatz",
+            "Reiseführer"
           ]
         }
       },
@@ -474,7 +553,8 @@
         "key": "sport-i-rekreacja",
         "label": {
           "pl": "Sport i rekreacja",
-          "en": "Sport and leisure"
+          "en": "Sport and leisure",
+          "de": "Sport und Freizeit"
         },
         "keywords": {
           "pl": [
@@ -496,6 +576,16 @@
             "dance school",
             "martial arts",
             "horse riding"
+          ],
+          "de": [
+            "Fitnessstudio",
+            "Personal Trainer",
+            "Yoga",
+            "Schwimmbad",
+            "Reitschule",
+            "Tanzschule",
+            "Kampfsport",
+            "Tennis"
           ]
         }
       },
@@ -503,7 +593,8 @@
         "key": "edukacja",
         "label": {
           "pl": "Edukacja",
-          "en": "Education"
+          "en": "Education",
+          "de": "Bildung"
         },
         "keywords": {
           "pl": [
@@ -524,6 +615,15 @@
             "nursery",
             "driving school",
             "childcare"
+          ],
+          "de": [
+            "Nachhilfe",
+            "Sprachschule",
+            "Kindergarten",
+            "Kinderkrippe",
+            "Fahrschule",
+            "Musikschule",
+            "Kurse"
           ]
         }
       },
@@ -531,7 +631,8 @@
         "key": "it-i-marketing",
         "label": {
           "pl": "IT i marketing",
-          "en": "IT and marketing"
+          "en": "IT and marketing",
+          "de": "IT und Marketing"
         },
         "keywords": {
           "pl": [
@@ -555,6 +656,16 @@
             "seo",
             "computer repair",
             "developer"
+          ],
+          "de": [
+            "Webdesign",
+            "Programmierer",
+            "Werbeagentur",
+            "SEO",
+            "Grafikdesign",
+            "Fotograf",
+            "Social Media",
+            "IT-Service"
           ]
         }
       },
@@ -562,7 +673,8 @@
         "key": "finanse-i-prawo",
         "label": {
           "pl": "Finanse i prawo",
-          "en": "Finance and law"
+          "en": "Finance and law",
+          "de": "Finanzen und Recht"
         },
         "keywords": {
           "pl": [
@@ -585,6 +697,15 @@
             "notary",
             "insurance",
             "loans"
+          ],
+          "de": [
+            "Steuerberater",
+            "Buchhaltung",
+            "Rechtsanwalt",
+            "Notar",
+            "Versicherung",
+            "Finanzberater",
+            "Kredit"
           ]
         }
       },
@@ -592,7 +713,8 @@
         "key": "transport",
         "label": {
           "pl": "Transport",
-          "en": "Transport"
+          "en": "Transport",
+          "de": "Transport"
         },
         "keywords": {
           "pl": [
@@ -612,6 +734,14 @@
             "movers",
             "freight",
             "minibus rental"
+          ],
+          "de": [
+            "Spedition",
+            "Kurier",
+            "Taxi",
+            "Umzugsfirma",
+            "Lieferdienst",
+            "Busvermietung"
           ]
         }
       },
@@ -619,7 +749,8 @@
         "key": "zwierzeta",
         "label": {
           "pl": "Zwierzęta",
-          "en": "Animals"
+          "en": "Animals",
+          "de": "Tiere"
         },
         "keywords": {
           "pl": [
@@ -642,6 +773,16 @@
             "dog training",
             "hoof trimming",
             "farrier"
+          ],
+          "de": [
+            "Tierarzt",
+            "Tierklinik",
+            "Hundesalon",
+            "Hundefriseur",
+            "Tierpension",
+            "Hundetrainer",
+            "Hufschmied",
+            "Zoohandlung"
           ]
         }
       },
@@ -649,7 +790,8 @@
         "key": "rolnictwo",
         "label": {
           "pl": "Rolnictwo",
-          "en": "Agriculture"
+          "en": "Agriculture",
+          "de": "Landwirtschaft"
         },
         "keywords": {
           "pl": [
@@ -673,6 +815,16 @@
             "livestock",
             "seeds",
             "feed"
+          ],
+          "de": [
+            "Landwirt",
+            "Bauernhof",
+            "Lohnunternehmen",
+            "Mähdrescher",
+            "Tierhaltung",
+            "Obstbau",
+            "Landmaschinen",
+            "Klauenpflege"
           ]
         }
       },
@@ -680,7 +832,8 @@
         "key": "wydarzenia",
         "label": {
           "pl": "Wydarzenia",
-          "en": "Events"
+          "en": "Events",
+          "de": "Veranstaltungen"
         },
         "keywords": {
           "pl": [
@@ -701,6 +854,15 @@
             "event venue",
             "event planning",
             "decorations"
+          ],
+          "de": [
+            "Hochzeit",
+            "Eventplanung",
+            "DJ",
+            "Fotograf",
+            "Saalvermietung",
+            "Catering",
+            "Dekoration"
           ]
         }
       },
@@ -708,7 +870,8 @@
         "key": "inne",
         "label": {
           "pl": "Inne usługi",
-          "en": "Other services"
+          "en": "Other services",
+          "de": "Sonstige Dienstleistungen"
         }
       }
     ]

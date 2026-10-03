@@ -40,7 +40,9 @@ logger = logging.getLogger(__name__)
 
 #: Order is rank: a word in the name beats the same word in the description.
 #: `folded` is the text again without diacritics the engine keeps (ł, ø, ß —
-#: it folds ż and ó itself), so "lodz" finds Łódź.
+#: it folds ż and ó itself), so "lodz" finds Łódź. A `*_<code>` field holds
+#: the card's text in one of its other languages (TL20), only where the card
+#: is whole in it.
 INDEX_SETTINGS: dict[str, Any] = {
     "searchableAttributes": [
         "display_name",
@@ -48,23 +50,63 @@ INDEX_SETTINGS: dict[str, Any] = {
         "category_labels",
         "category_keywords",
         "headline",
-        "translations",
+        "headline_*",
         "city",
         "voivodeship",
         "folded",
         "bio",
+        "bio_*",
     ],
     "filterableAttributes": ["category", "city_slug"],
-    "localizedAttributes": [{"attributePatterns": ["*"], "locales": ["pol", "eng"]}],
 }
+
+#: Fields of one language: `<field>_<code>` (TL20).
+_LOCALIZED_FIELDS = ("headline", "bio")
 
 #: The engine's name for the vectors the backend sends (`userProvided`).
 EMBEDDER = "meaning"
 
 
+def searchable_attributes() -> list[str]:
+    """`INDEX_SETTINGS` with each `<field>_*` spelled out for the profile's
+    languages: the engine takes names, not patterns, here."""
+    names: list[str] = []
+    for name in INDEX_SETTINGS["searchableAttributes"]:
+        if name.endswith("_*"):
+            names.extend(f"{name[:-2]}_{code}" for code in settings.SITES_SUPPORTED_LOCALES)
+        else:
+            names.append(name)
+    return names
+
+
+#: The engine's names for the registry's languages. It takes `pl` too, but
+#: reads it back as `pol`, and `ensure_index` would then patch the settings on
+#: every sync; so the three-letter name it keeps (ISO 639-3) is what is sent.
+ENGINE_LOCALES = {"pl": "pol", "en": "eng", "de": "deu", "es": "spa", "ru": "rus"}
+
+
+def search_locale(code: str) -> str:
+    """The engine's name for a registry language, from its `searchCode`."""
+    search_code = settings.LOCALE_REGISTRY[code].search_code.split("-")[0]
+    return ENGINE_LOCALES.get(search_code, search_code)
+
+
+def localized_attributes() -> list[dict[str, Any]]:
+    """Which language each field is in, from the profile (TL20): a `*_<code>`
+    field in that language; the rest — the card's own texts, names, towns —
+    in any of the profile's languages, which the engine tells apart."""
+    codes = [code for code in settings.SITES_SUPPORTED_LOCALES if code in settings.LOCALE_REGISTRY]
+    return [
+        *({"attributePatterns": [f"*_{code}"], "locales": [search_locale(code)]} for code in codes),
+        {"attributePatterns": ["*"], "locales": [search_locale(code) for code in codes]},
+    ]
+
+
 def index_settings() -> dict[str, Any]:
     return {
         **INDEX_SETTINGS,
+        "searchableAttributes": searchable_attributes(),
+        "localizedAttributes": localized_attributes(),
         "embedders": {
             EMBEDDER: {
                 "source": "userProvided",
@@ -168,14 +210,19 @@ def _document(entry: CatalogEntry) -> dict[str, Any] | None:
         ).first()
         if profile is None:
             return None
-        translations = [
-            text
-            for headline, bio in PublicProfileTranslation.all_objects.filter(
-                organization_id=entry.organization_id, profile_id=profile.id
-            ).values_list("headline", "bio")
-            for text in (headline, bio[:_BIO_CHARS])
-            if text
-        ]
+        # Only the languages the card is whole in (the row's copy, TL20): a
+        # half-translated card is not found in a language it is not shown in.
+        from .card_languages import card_in_language
+
+        in_languages: dict[str, str] = {}
+        for row in PublicProfileTranslation.all_objects.filter(
+            organization_id=entry.organization_id,
+            profile_id=profile.id,
+            locale__in=list(entry.translated_locales or ()),
+        ):
+            shown = card_in_language(profile, row)
+            for field in _LOCALIZED_FIELDS:
+                in_languages[f"{field}_{row.locale}"] = shown[field][:_BIO_CHARS]
         organization_type = (
             Organization.objects.filter(pk=entry.organization_id)
             .values_list("organization_type", flat=True)
@@ -200,7 +247,7 @@ def _document(entry: CatalogEntry) -> dict[str, Any] | None:
         "display_name": entry.display_name,
         "headline": entry.headline,
         "bio": profile.bio[:_BIO_CHARS],
-        "translations": translations,
+        **in_languages,
         "category": entry.category,
         "category_labels": labels,
         "category_keywords": keywords,
@@ -333,6 +380,14 @@ def _search(body: dict[str, Any]) -> dict[str, Any]:
         raise
 
 
+def _query_locales(locale: str | None) -> dict[str, Any]:
+    """The page's language as a hint for reading the words (TL20): "Tierarzt"
+    is split and stemmed as German on a German page."""
+    if locale and locale in settings.SITES_SUPPORTED_LOCALES and locale in settings.LOCALE_REGISTRY:
+        return {"locales": [search_locale(locale)]}
+    return {}
+
+
 def search_ids(
     *,
     query: str,
@@ -340,6 +395,7 @@ def search_ids(
     category: str,
     page: int,
     page_size: int,
+    locale: str | None = None,
 ) -> tuple[list[UUID], int]:
     """Organization ids of the entries that contain the words, best first, and how many."""
     body: dict[str, Any] = {
@@ -347,6 +403,7 @@ def search_ids(
         "page": page,
         "hitsPerPage": page_size,
         "attributesToRetrieve": ["id"],
+        **_query_locales(locale),
     }
     if filters := _filters(city_slugs, category):
         body["filter"] = filters
@@ -361,6 +418,7 @@ def similar_ids(
     category: str,
     exclude: set[UUID],
     limit: int,
+    locale: str | None = None,
 ) -> list[UUID]:
     """Entries that fit the words by meaning, best first (ADR-064 §8).
 
@@ -383,6 +441,7 @@ def similar_ids(
         "limit": limit + len(exclude),
         "attributesToRetrieve": ["id"],
         "rankingScoreThreshold": settings.CATALOG_SIMILAR_MIN_SCORE,
+        **_query_locales(locale),
     }
     if filters := _filters(city_slugs, category):
         body["filter"] = filters

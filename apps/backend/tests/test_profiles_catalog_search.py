@@ -94,10 +94,7 @@ class FakeEngine:
         for document in self.index(index):
             text = search_index.fold(
                 json.dumps(
-                    [
-                        document[field]
-                        for field in search_index.INDEX_SETTINGS["searchableAttributes"]
-                    ],
+                    [document.get(field, "") for field in search_index.searchable_attributes()],
                     ensure_ascii=False,
                 )
             ).lower()
@@ -604,3 +601,95 @@ def test_a_provider_that_does_not_answer_leaves_the_words(
     assert listing.status_code == 200
     assert [item["slug"] for item in listing.data["items"]] == ["szukaj-slowa"]
     assert listing.data["similar"] == []
+
+
+# -- per language (TL20d) ----------------------------------------------------
+
+
+def _languages(organization: Organization, locales: list[str]) -> None:
+    Organization.objects.filter(pk=organization.pk).update(public_locales=locales)
+
+
+def _translate(client: APIClient, locale: str, **values: Any) -> Any:
+    profile = client.get(PROFILE_URL).data["profile"]
+    current = client.get(f"/api/v1/profiles/{profile['id']}/translations/").data
+    version = next(
+        (entry["version"] for entry in current["languages"] if entry["locale"] == locale), 0
+    )
+    return client.put(
+        f"/api/v1/profiles/{profile['id']}/translations/{locale}/",
+        {"expected_version": version, **values},
+        format="json",
+        HTTP_X_CSRFTOKEN=_csrf(client),
+    )
+
+
+def test_the_index_reads_its_languages_from_the_profile(settings: Any) -> None:
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+
+    built = search_index.index_settings()
+
+    assert built["localizedAttributes"] == [
+        {"attributePatterns": ["*_pl"], "locales": ["pol"]},
+        {"attributePatterns": ["*_en"], "locales": ["eng"]},
+        {"attributePatterns": ["*_de"], "locales": ["deu"]},
+        {"attributePatterns": ["*"], "locales": ["pol", "eng", "deu"]},
+    ]
+    assert "headline_de" in built["searchableAttributes"]
+    assert "bio_de" in built["searchableAttributes"]
+    assert not any(name.endswith("_*") for name in built["searchableAttributes"])
+
+
+def test_a_card_is_searchable_in_a_language_only_when_it_is_whole_in_it(
+    engine: FakeEngine, django_capture_on_commit_callbacks: Any, settings: Any
+) -> None:
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+    client, organization = _published(
+        "szukaj-niemiecki",
+        django_capture_on_commit_callbacks,
+        headline="Fryzjer w centrum",
+        bio="Strzyżemy od 1990 roku.",
+    )
+    _languages(organization, ["pl", "de"])
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert _translate(client, "de", headline="Friseur im Zentrum").status_code == 200
+    half = _document(engine, organization)
+    assert half is not None
+    assert "headline_de" not in half
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert _translate(client, "de", bio="Wir schneiden seit 1990.").status_code == 200
+    whole = _document(engine, organization)
+    assert whole is not None
+    assert (whole["headline_de"], whole["bio_de"]) == (
+        "Friseur im Zentrum",
+        "Wir schneiden seit 1990.",
+    )
+    found = APIClient().get(CATALOG_URL, {"q": "Zentrum", "locale": "de"}).data
+    assert [item["headline"] for item in found["items"]] == ["Friseur im Zentrum"]
+    # The page's language goes with the words, so the engine reads them as German.
+    assert engine.searches[-1]["locales"] == ["deu"]
+
+
+def test_a_vet_is_found_by_its_german_trade(
+    engine: FakeEngine, django_capture_on_commit_callbacks: Any, settings: Any
+) -> None:
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+    _client, organization = _published(
+        "szukaj-weterynarz",
+        django_capture_on_commit_callbacks,
+        category="zwierzeta",
+        headline="Przychodnia dla psów i kotów",
+    )
+
+    found = APIClient().get(CATALOG_URL, {"q": "Tierarzt", "locale": "de"}).data
+
+    assert [item["display_name"] for item in found["items"]] == [organization.name]
+
+
+def test_every_registry_language_has_the_name_the_engine_keeps() -> None:
+    """A language without one would be written as `xx`, read back as `xxx`,
+    and the settings patched on every sync."""
+    for code in settings.LOCALE_REGISTRY:
+        assert len(search_index.search_locale(code)) == 3, code
