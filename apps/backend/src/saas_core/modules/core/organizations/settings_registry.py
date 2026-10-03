@@ -136,6 +136,14 @@ class SettingGroup:
     ) = None
     #: Called in the change's transaction, after the values are saved.
     on_changed: Callable[[Mapping[str, Any], Mapping[str, Any]], None] | None = None
+    #: The same refusal for the platform's values — a rule between keys an
+    #: operator's change must keep (a longest wait not below the wait):
+    #: `platform_check(before, after)` → {field: (message, code)}, both the
+    #: group's platform values in force by field. Run by the platform's change
+    #: and its preview; no writes.
+    platform_check: (
+        Callable[[Mapping[str, Any], Mapping[str, Any]], Mapping[str, tuple[str, str]]] | None
+    ) = None
     #: The assistant's `read` and `update` commands, `name@version`.
     commands: tuple[str, str] | None = None
     #: Only the company's owner changes it (the permission alone is not enough).

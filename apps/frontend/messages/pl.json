@@ -5005,7 +5005,9 @@
     "historyDescription": "Każda zmiana klucza, od najnowszej: wartość, kto i dlaczego.",
     "historyEmpty": "Nikt jeszcze nie zmieniał tego klucza — obowiązuje wartość z konfiguracji serwera albo z kodu.",
     "historyRestored": "Przywrócono domyślną",
-    "setAgain": "Ustaw tę wartość ponownie"
+    "setAgain": "Ustaw tę wartość ponownie",
+    "productShadow": "W tym wdrożeniu produkt ustawia: {value}. Firma bez własnej wartości dostaje tę, nie wartość platformy.",
+    "previewProduct": "W tym wdrożeniu produkt ustawia {value}, więc ta zmiana nie dotrze do żadnej firmy: firmy bez własnej wartości dostają wartość produktu."
   },
   "SearchVisibility": {
     "title": "Widoczność w wyszukiwarkach i AI",

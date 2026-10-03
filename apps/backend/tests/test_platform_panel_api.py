@@ -170,3 +170,129 @@ def test_an_operator_without_a_company_has_an_empty_inbox_not_an_error() -> None
 
     assert (inbox.status_code, inbox.data["items"], inbox.data["unread"]) == (200, [], 0)
     assert read.status_code == 200
+
+
+WAIT = "organization.wait_probe.wait_minutes"
+MAX_WAIT = "organization.wait_probe.max_wait_minutes"
+OWN = "organization.own_probe.mode"
+
+
+def _wait(field: str, default: int) -> SettingSpec:
+    return SettingSpec(
+        key=f"organization.wait_probe.{field}",
+        type="int",
+        minimum=1,
+        maximum=240,
+        default=default,
+        scopes=("platform",),
+        operator_level=1,
+        label={"pl": field, "en": field},
+        model_description="A probe wait.",
+    )
+
+
+def test_a_rule_between_two_platform_keys_is_kept_by_the_change_and_the_preview(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    def longest_not_below(_before: Any, after: Any) -> dict[str, tuple[str, str]]:
+        if after["max_wait_minutes"] < after["wait_minutes"]:
+            return {
+                "max_wait_minutes": ("Najdłuższe czekanie nie krótsze niż zwykłe.", "below_wait")
+            }
+        return {}
+
+    register_setting_group(
+        SettingGroup(
+            key="organization.wait_probe",
+            module="core.organizations",
+            title={"pl": "Czekanie", "en": "Waiting"},
+            description={"pl": "Opis", "en": "Description"},
+            permission=SETTINGS_MANAGE,
+            area="company",
+            platform_check=longest_not_below,
+            settings=(_wait("wait_minutes", 5), _wait("max_wait_minutes", 30)),
+        )
+    )
+    operator, _secret = operator_after_enrolment()
+
+    # Raising the wait above the longest breaks the rule whichever key moves.
+    preview = _post(operator, f"{URL}{WAIT}/preview/", {"value": 40, "reason": "Próba"})
+    refused = _post(operator, f"{URL}{WAIT}/", {"value": 40, "reason": "Próba"})
+    assert (preview.status_code, refused.status_code) == (400, 400)
+    assert [(e["field"], e["code"]) for e in refused.data["errors"]] == [("value", "below_wait")]
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert (
+            _post(operator, f"{URL}{MAX_WAIT}/", {"value": 60, "reason": "Dłużej"}).status_code
+            == 200
+        )
+    with django_capture_on_commit_callbacks(execute=True):
+        assert _post(operator, f"{URL}{WAIT}/", {"value": 40, "reason": "Próba"}).status_code == 200
+    # Giving the longest wait back to its default (30) would fall below 40.
+    back = _post(operator, f"{URL}{MAX_WAIT}/", {"value": None, "reason": "Wraca"})
+    assert (back.status_code, back.data["errors"][0]["code"]) == (400, "below_wait")
+
+
+def test_a_products_own_default_stands_above_the_platforms_and_the_panel_says_so(
+    settings: Any,
+) -> None:
+    membership("pod-produktem")
+    operator, _secret = operator_after_enrolment()
+    before = _post(operator, f"{URL}{LEAD}/preview/", {"value": 48, "reason": "Pilot"})
+    assert before.data["product_value"] is None and before.data["companies_following"] >= 1
+
+    settings.SETTINGS_DEFAULTS = {LEAD: 36}
+
+    preview = _post(operator, f"{URL}{LEAD}/preview/", {"value": 48, "reason": "Pilot"})
+    listed = _keys(operator.get(URL))[LEAD]
+    # The company gets the product's 36, whatever the operator sets.
+    assert (preview.data["companies_following"], preview.data["product_value"]) == (0, 36)
+    assert listed["product_value"] == 36
+    assert _keys(operator.get(URL))[NOTE]["product_value"] is None
+
+
+def test_companies_with_a_value_in_a_modules_own_table_are_counted_through_it() -> None:
+    from saas_core.modules.core.organizations.context import (  # noqa: PLC0415
+        require_tenant_context,
+    )
+
+    first, second = membership("wlasna-tabela"), membership("bez-wlasnej")
+
+    def explicit() -> dict[str, Any]:
+        # The module's own table: only the first company chose a mode.
+        mine = require_tenant_context().organization_id == first.organization_id
+        return {"mode": "review" if mine else None}
+
+    register_setting_group(
+        SettingGroup(
+            key="organization.own_probe",
+            module="core.organizations",
+            title={"pl": "Własna tabela", "en": "Own table"},
+            description={"pl": "Opis", "en": "Description"},
+            permission=SETTINGS_MANAGE,
+            area="company",
+            api="/api/v1/organizations/own-probe/",
+            read_explicit=explicit,
+            settings=(
+                SettingSpec(
+                    key=OWN,
+                    type="enum",
+                    default="automatic",
+                    values=(
+                        ("automatic", {"pl": "Automat", "en": "Automatic"}),
+                        ("review", {"pl": "Przegląd", "en": "Review"}),
+                    ),
+                    label={"pl": "Tryb", "en": "Mode"},
+                    model_description="A probe mode.",
+                ),
+            ),
+        )
+    )
+    operator, _secret = operator_after_enrolment()
+    OperatorGrant.objects.create(user=User.objects.get(email="operator@example.test"), reason="t")
+
+    preview = _post(operator, f"{URL}{OWN}/preview/", {"value": "review", "reason": "Próba"})
+
+    assert preview.status_code == 200, preview.data
+    assert second.organization_id != first.organization_id
+    assert preview.data["companies_following"] == Organization.objects.count() - 1

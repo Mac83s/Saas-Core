@@ -5005,7 +5005,9 @@
     "historyDescription": "Every change of the key, newest first: the value, who and why.",
     "historyEmpty": "Nobody has changed this key yet — the server's configuration or the code's value is in force.",
     "historyRestored": "Default restored",
-    "setAgain": "Set this value again"
+    "setAgain": "Set this value again",
+    "productShadow": "On this deployment the product sets: {value}. A company with no value of its own gets that, not the platform's.",
+    "previewProduct": "On this deployment the product sets {value}, so this change reaches no company: companies with no value of their own get the product's."
   },
   "SearchVisibility": {
     "title": "Visibility in search engines and AI",

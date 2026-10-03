@@ -11575,6 +11575,8 @@ export interface components {
             operator_level: number;
             /** @description Whether this operator may change it. */
             can_change: boolean;
+            /** @description The product's own default of a company key on this deployment, which a company with no value of its own gets instead of the platform's; null: none. */
+            product_value: unknown | null;
         };
         /**
          * @description * `platform` - platform
@@ -11587,8 +11589,10 @@ export interface components {
             key: string;
             current: unknown;
             proposed: unknown;
-            /** @description Companies with no value of their own, which the change reaches at once; null for a key companies do not set. */
+            /** @description Companies with no value of their own, which the change reaches at once; 0 where the product's default stands above the platform's; null for a key companies do not set. */
             companies_following: number | null;
+            /** @description The product's default that wins over the platform's, or null. */
+            product_value: unknown | null;
         };
         PlatformSchema: {
             /** @description This operator's level: 1 or 2. */

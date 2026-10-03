@@ -24,15 +24,16 @@ from saas_core.modules.core.identity.step_up import require_step_up
 from .platform_settings import (
     PlatformValue,
     change_platform_setting,
+    checked_platform_value,
     companies_following,
     platform_history,
     platform_spec,
+    product_shadow,
     read_platform_setting,
     value_after,
 )
 from .serializers import LocalizedTextSerializer, SettingOptionSerializer
 from .settings_registry import (
-    check_value,
     registered_areas,
     registered_groups,
     schema_entry,
@@ -57,6 +58,11 @@ class PlatformKeySerializer(SettingOptionSerializer):
         help_text="1: any operator changes it; 2: a platform administrator, with a code."
     )
     can_change = serializers.BooleanField(help_text="Whether this operator may change it.")
+    product_value = serializers.JSONField(
+        allow_null=True,
+        help_text="The product's own default of a company key on this deployment, which a "
+        "company with no value of its own gets instead of the platform's; null: none.",
+    )
 
 
 class PlatformGroupSerializer(serializers.Serializer[dict[str, Any]]):
@@ -94,7 +100,11 @@ class PlatformPreviewSerializer(serializers.Serializer[dict[str, Any]]):
     companies_following = serializers.IntegerField(
         allow_null=True,
         help_text="Companies with no value of their own, which the change reaches at once; "
-        "null for a key companies do not set.",
+        "0 where the product's default stands above the platform's; null for a key "
+        "companies do not set.",
+    )
+    product_value = serializers.JSONField(
+        allow_null=True, help_text="The product's default that wins over the platform's, or null."
     )
 
 
@@ -159,6 +169,7 @@ class PlatformSettingsView(APIView):
                             if name != "key"
                         },
                         "can_change": level >= spec.operator_level,
+                        "product_value": product_shadow(spec.key),
                     }
                     for spec in keys
                 ],
@@ -229,21 +240,16 @@ class PlatformSettingPreviewView(APIView):
         extensions={"x-dry-run": True},
     )
     def post(self, request: Request, key: str) -> Response:
-        spec = platform_spec(key)
+        platform_spec(key)
         data = PlatformChangeSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        proposed = data.validated_data["value"]
-        if proposed is not None:
-            checked = check_value(spec, proposed)
-            if checked is None or checked[1]:
-                message, code = (checked[1], checked[2]) if checked else ("Zła wartość.", "invalid")
-                raise serializers.ValidationError({"value": [message]}, code=code)
-            proposed = checked[0]
+        proposed = checked_platform_value(key, data.validated_data["value"])
         return Response({
             "key": key,
             "current": read_platform_setting(key).value,
             "proposed": proposed,
             "companies_following": companies_following(key),
+            "product_value": product_shadow(key),
         })
 
 

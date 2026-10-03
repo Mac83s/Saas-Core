@@ -760,3 +760,21 @@ firmy istnieje w języku treści albo wcale.
   per język. OpenAPI: obiekt z tekstami i `maxLength` na tekst.
 - **Poza zakresem:** panel „Platforma” (klucz ma zasięg firmy); produkty dostają
   typ przez `core:update` i dziś nie rejestrują żadnego klucza tego typu.
+
+## Uzupełnienie 2026-10-03 (9): reguła między kluczami platformy i domyślna produktu w panelu
+
+- **`SettingGroup.platform_check(before, after)`** — odpowiednik `check` dla wartości
+  platformy: reguła między kluczami jednej grupy (np. najdłuższe czekanie nie krótsze
+  niż zwykłe). Oba argumenty to wartości platformy w mocy, po polach; wywołuje ją
+  zmiana operatora (`change_platform_setting`) i podgląd panelu, także przy
+  „Przywróć domyślną” — wtedy `after` ma wartość z `.env` albo z kodu. Złamaną regułę
+  zgłasza pole `value` żądania, z kodem reguły. Moduł nie przycina wartości przy
+  odczycie.
+- **Domyślna produktu stoi nad platformą** (pkt 3: firma → produkt → platforma → kod).
+  Gdzie profil wdrożenia ma `settingsDefaults` dla klucza firmy czytane na żywo,
+  wartość operatora nie dociera do żadnej firmy. Panel „Platforma” mówi to wprost:
+  klucz pokazuje wartość produktu (`product_value`), a podgląd zmiany liczy 0 firm i
+  podaje powód. Kolejność z pkt 3 się nie zmienia.
+- **Licznik „dotyczy N firm” dla grupy z własną tabelą** (`api` + `read_explicit`)
+  pyta moduł o własną wartość firmy w jej tenancie, a nie tabelę `organization_setting`;
+  bez `read_explicit` licznika nie ma (null).

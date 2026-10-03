@@ -31775,6 +31775,13 @@ components:
         can_change:
           type: boolean
           description: Whether this operator may change it.
+        product_value:
+          oneOf:
+          - {}
+          - type: 'null'
+          description: 'The product''s own default of a company key on this deployment,
+            which a company with no value of its own gets instead of the platform''s;
+            null: none.'
       required:
       - can_change
       - default
@@ -31786,6 +31793,7 @@ components:
       - maximum
       - minimum
       - operator_level
+      - product_value
       - scopes
       - source
       - strategy
@@ -31815,11 +31823,18 @@ components:
           - integer
           - 'null'
           description: Companies with no value of their own, which the change reaches
-            at once; null for a key companies do not set.
+            at once; 0 where the product's default stands above the platform's; null
+            for a key companies do not set.
+        product_value:
+          oneOf:
+          - {}
+          - type: 'null'
+          description: The product's default that wins over the platform's, or null.
       required:
       - companies_following
       - current
       - key
+      - product_value
       - proposed
     PlatformSchema:
       type: object

@@ -227,6 +227,15 @@ function KeyRow({
             <Badge variant="secondary">{t("companiesChoose")}</Badge>
           ) : null}
         </p>
+        {/* The product's own default stands above the platform's (ADR-078
+            pkt 3): what the operator sets here reaches no company then. */}
+        {option.product_value !== null ? (
+          <p className="text-sm text-muted-foreground" role="note">
+            {t("productShadow", {
+              value: show(option, option.product_value),
+            })}
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
         {option.can_change ? (
@@ -481,11 +490,15 @@ function ChangeDialog({
                 })}
               </p>
               <p className="text-muted-foreground">
-                {preview.companies_following === null
-                  ? t("previewPlatformOnly")
-                  : t("previewCompanies", {
-                      count: preview.companies_following,
-                    })}
+                {preview.product_value !== null
+                  ? t("previewProduct", {
+                      value: show(option, preview.product_value),
+                    })
+                  : preview.companies_following === null
+                    ? t("previewPlatformOnly")
+                    : t("previewCompanies", {
+                        count: preview.companies_following,
+                      })}
               </p>
             </div>
           ) : null}

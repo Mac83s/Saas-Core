@@ -83,6 +83,7 @@ function schema(level: number): PlatformSchema {
             source: "code",
             operator_level: 2,
             can_change: level >= 2,
+            product_value: null,
           },
           {
             ...KEY,
@@ -95,6 +96,7 @@ function schema(level: number): PlatformSchema {
             source: "platform",
             operator_level: 1,
             can_change: true,
+            product_value: null,
           },
         ],
       },
@@ -136,6 +138,7 @@ test("operator poziomu 1 zmienia klucz poziomu 1 z powodem, po podglądzie skutk
     current: "Stara",
     proposed: "Nowa",
     companies_following: null,
+    product_value: null,
   });
   changePlatformSetting.mockResolvedValue({
     key: "booking.reminders.note",
@@ -198,6 +201,7 @@ test("a level-2 key counts the companies it reaches and takes a fresh code", asy
     current: 24,
     proposed: 48,
     companies_following: 3,
+    product_value: null,
   });
   changePlatformSetting
     .mockRejectedValueOnce(
@@ -298,4 +302,38 @@ test("historia mówi kto i dlaczego, a wcześniejszą wartość da się ustawić
     "Nowa wartość",
   )) as HTMLInputElement;
   expect(value.value).toBe("Pierwsza");
+});
+
+test("mówi, gdy domyślna produktu stoi nad wartością platformy", async () => {
+  const shadowed = schema(2);
+  shadowed.groups[0]!.keys[0]!.product_value = 36;
+  getPlatformSettings.mockResolvedValue(shadowed);
+  previewPlatformSetting.mockResolvedValue({
+    key: "booking.reminders.lead_hours",
+    current: 24,
+    proposed: 48,
+    companies_following: 0,
+    product_value: 36,
+  });
+  renderPage();
+
+  expect(
+    await screen.findByText(
+      "W tym wdrożeniu produkt ustawia: 36. Firma bez własnej wartości dostaje tę, nie wartość platformy.",
+    ),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zmień: Ile godzin przed wizytą" }),
+  );
+  fireEvent.change(await screen.findByLabelText("Nowa wartość"), {
+    target: { value: "48" },
+  });
+  fireEvent.change(screen.getByLabelText("Powód zmiany"), {
+    target: { value: "Pilot" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Sprawdź skutek" }));
+  expect(
+    await screen.findByText(/ta zmiana nie dotrze do żadnej firmy/),
+  ).toBeInTheDocument();
+  await noViolations(document.body);
 });

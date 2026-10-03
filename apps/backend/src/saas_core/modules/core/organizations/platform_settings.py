@@ -21,10 +21,16 @@ from rest_framework.exceptions import ValidationError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.operators import operator_level
 
-from .context import set_local_organization_id
+from .context import TenantContext, activate_tenant_context, set_local_organization_id
 from .models import Organization, OrganizationSetting, PlatformSettingEntry
 from .pre_tenant import PRE_TENANT_DB
-from .settings_registry import SettingSpec, check_value, setting_spec
+from .settings_registry import (
+    SettingSpec,
+    check_value,
+    live_product_value,
+    setting_group,
+    setting_spec,
+)
 
 _VERSION_KEY = "organizations:platform-settings:version"
 _VALUES_KEY = "organizations:platform-settings:values:{}"
@@ -131,13 +137,7 @@ def change_platform_setting(
     reason = reason.strip()
     if not reason:
         raise ValidationError({"reason": ["Podaj powód: trafia do historii."]}, code="required")
-    stored = None
-    if value is not None:
-        checked = check_value(spec, value)
-        if checked is None or checked[1]:
-            message, code = (checked[1], checked[2]) if checked else ("Zła wartość.", "invalid")
-            raise ValidationError({"value": [message]}, code=code)
-        stored = checked[0]
+    stored = checked_platform_value(key, value)
     latest = PlatformSettingEntry.objects.filter(key=key).order_by("-created_at", "-id").first()
     if latest is not None and (latest.value, latest.reason, latest.operator_id) == (
         stored,
@@ -154,24 +154,85 @@ def change_platform_setting(
     return entry
 
 
+def checked_platform_value(key: str, value: Any) -> Any:
+    """`value` as the platform would store it — None gives the key back —
+    after the key's own check and its group's rule between keys
+    (`platform_check`); what the change and its preview both refuse."""
+    spec = platform_spec(key)
+    stored = None
+    if value is not None:
+        checked = check_value(spec, value)
+        if checked is None or checked[1]:
+            message, code = (checked[1], checked[2]) if checked else ("Zła wartość.", "invalid")
+            raise ValidationError({"value": [message]}, code=code)
+        stored = checked[0]
+    group = setting_group(spec.group)
+    if group.platform_check is not None:
+        before = {
+            other.field: read_platform_setting(other.key).value
+            for other in group.settings
+            if "platform" in other.scopes
+        }
+        after = {
+            **before,
+            spec.field: stored if stored is not None else _below_the_operator(spec).value,
+        }
+        problems = dict(group.platform_check(before, after))
+        if problems:
+            # One value is being changed: whatever rule breaks is said on it.
+            message, code = problems.get(spec.field) or next(iter(problems.values()))
+            raise ValidationError({"value": [message]}, code=code)
+    return stored
+
+
+def product_shadow(key: str) -> Any:
+    """The product's own starting value of a company key on this deployment
+    (`settingsDefaults`, read live), or None. Where it exists, a company with
+    no value of its own gets it — not the platform's: the product stands above
+    the platform in the registry's order (ADR-078 pkt 3)."""
+    spec = platform_spec(key)
+    return live_product_value(spec) if "organization" in spec.scopes else None
+
+
 def companies_following(key: str) -> int | None:
     """How many companies have no value of their own for a company key, so a
     change of the platform's reaches them at once; None for a key companies do
-    not set. A number only: like the billing sweeps (ADR-039), the door lists
-    the companies and each one's rows are read inside its own tenant."""
+    not set (or whose company values this code cannot read). Zero where the
+    product's own default stands above the platform's. A number only: like the
+    billing sweeps (ADR-039), the door lists the companies and each one's rows
+    are read inside its own tenant — a module's own table through the group's
+    `read_explicit`."""
     spec = platform_spec(key)
     if "organization" not in spec.scopes:
         return None
+    group = setting_group(spec.group)
+    if group.api is not None and group.read_explicit is None:
+        return None
+    if product_shadow(key) is not None:
+        return 0
     # ADR-041: the operator has no tenant; the list of companies is the read.
     identifiers = Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True)
     following = 0
     for organization_id in identifiers:
         with transaction.atomic():
             set_local_organization_id(organization_id)
-            own = OrganizationSetting.objects.filter(
-                organization_id=organization_id, key=key, value__isnull=False
-            )
-            if not own.exists():
+            if group.read_explicit is not None:
+                # The module's own table: read as the company itself would.
+                reader = TenantContext(
+                    organization_id=organization_id,
+                    membership_id=organization_id,
+                    actor_id=organization_id,
+                    role_key="platform_preview",
+                    permissions=frozenset(),
+                    principal_kind="service",
+                )
+                with activate_tenant_context(reader):
+                    own = group.read_explicit().get(spec.field) is not None
+            else:
+                own = OrganizationSetting.objects.filter(
+                    organization_id=organization_id, key=key, value__isnull=False
+                ).exists()
+            if not own:
                 following += 1
     return following
 
