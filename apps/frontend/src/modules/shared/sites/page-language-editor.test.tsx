@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -29,6 +35,7 @@ const api = vi.hoisted(() => ({
   quoteTranslation: vi.fn(),
   orderTranslation: vi.fn(),
   getCustomerCredits: vi.fn(),
+  readSeoPreview: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -118,6 +125,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   // No translation engine composed, unless a test says otherwise.
   api.getTranslationOffer.mockRejectedValue(new Error("not found"));
+  // The search preview of the address dialog stays loading unless asked.
+  api.readSeoPreview.mockReturnValue(new Promise(() => undefined));
 });
 
 test("only the words change: each fragment beside its source, structure in the source", async () => {
@@ -517,4 +526,44 @@ test("an order that ended is history: asking again quotes anew", async () => {
       "Tłumaczenie gotowe częściowo — część fragmentów wymaga Twojej uwagi.",
     ),
   ).toBeNull();
+});
+
+test("the address dialog shows what a search engine reads of this version", async () => {
+  api.getLocaleBody.mockResolvedValue(body());
+  api.listPageTranslations.mockResolvedValue({
+    page_id: PAGE.id,
+    items: [{ locale: "de", slug: "angebot", title: "Angebot", version: 4 }],
+  });
+  api.readSeoPreview.mockResolvedValue({
+    public: true,
+    reason: "",
+    url: "https://studio.example.test/de/angebot/",
+    title: "Angebot",
+    description: "",
+    site_name: "Studio",
+    noindex: false,
+    hreflang: {},
+    structured_data: {},
+  });
+  show();
+
+  await screen.findByText("1. Baner powitalny");
+  fireEvent.click(screen.getByRole("button", { name: "Więcej" }));
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Adres i opis" }),
+  );
+
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    await within(dialog).findByRole("heading", {
+      name: "Podgląd w wyszukiwarce",
+    }),
+  ).not.toBeNull();
+  expect(
+    await within(dialog).findByText(
+      "Studio · https://studio.example.test/de/angebot/",
+    ),
+  ).not.toBeNull();
+  // This page, this language.
+  expect(api.readSeoPreview).toHaveBeenCalledWith(PAGE.site_id, PAGE.id, "de");
 });

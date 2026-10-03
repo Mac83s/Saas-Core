@@ -133,6 +133,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   savePageDraft,
   savePageTranslation,
   setPageType,
+  // The settings dialog's search preview stays loading unless a test asks.
+  readSeoPreview: vi.fn(() => new Promise(() => undefined)),
 }));
 
 const page = {
@@ -667,6 +669,31 @@ test("zapisuje metadane EN bez zapożyczeń ze źródła i z optimistic lockiem"
       expected_version: 0,
     }),
   ]);
+});
+
+test("the page settings show what a search engine reads, again after a save", async () => {
+  const { readSeoPreview } = await import("@saas-core/api-client");
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+
+  await fromMore("Ustawienia strony");
+  expect(
+    await screen.findByRole("heading", { name: "Podgląd w wyszukiwarce" }),
+  ).not.toBeNull();
+  await waitFor(() =>
+    expect(readSeoPreview).toHaveBeenCalledWith(page.site_id, page.id, "pl"),
+  );
+  const before = vi.mocked(readSeoPreview).mock.calls.length;
+
+  fireEvent.change(screen.getByLabelText("Tytuł strony"), {
+    target: { value: "Nowy tytuł" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz metadane" }));
+  await waitFor(() => expect(savePageTranslation).toHaveBeenCalledOnce());
+  // The saved metadata is what the preview reads next.
+  await waitFor(() =>
+    expect(vi.mocked(readSeoPreview).mock.calls.length).toBeGreaterThan(before),
+  );
 });
 
 test("konflikt metadanych zachowuje lokalną wartość", async () => {

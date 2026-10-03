@@ -100,6 +100,7 @@ import {
   useTranslationOffer,
 } from "../translation/use-translation";
 import { TokenText, TokenTextField } from "./rich-text-token-field";
+import { SeoPreview } from "./seo-preview";
 import type { TokenMarks } from "./rich-text-tokens";
 import { slugFromTitle } from "./slug";
 
@@ -1427,6 +1428,16 @@ function LanguageMetadataDialog({
             </Button>
           </div>
         </form>
+        {/* What a search engine reads of this version after the next
+            publication (TL18); a version without an address has nothing. */}
+        {current && (
+          <SeoPreview
+            locale={locale}
+            pageId={page.id}
+            siteId={page.site_id}
+            version={current.version}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

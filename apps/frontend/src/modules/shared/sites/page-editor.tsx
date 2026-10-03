@@ -158,6 +158,7 @@ import { VersionHistory } from "./version-history";
 import { PageEditorContext } from "./page-editor-context";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
+import { SeoPreview } from "./seo-preview";
 import { OwnPageTemplates, SaveAsTemplate } from "./own-templates";
 import {
   PagePresentationFields,
@@ -2010,6 +2011,16 @@ export function PageEditor({
               </form>
             </CardContent>
           </Card>
+          {/* What a search engine reads after the next publication (TL18):
+              the saved metadata and draft, so it reads again after a save. */}
+          {selectedTranslation && (
+            <SeoPreview
+              locale={locale}
+              pageId={page.id}
+              siteId={page.site_id}
+              version={`${selectedTranslation.version}-${draft?.version ?? 0}`}
+            />
+          )}
         </DialogContent>
       </Dialog>
       <Dialog open={mediaOpen} onOpenChange={setMediaOpen}>
