@@ -18,6 +18,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
 
 from .models import Service, StaffChoice
+from .offer_settings import SLOT_STEPS
 from .serializers import (
     PersonHoursInputSerializer,
     ServiceInputSerializer,
@@ -28,8 +29,9 @@ from .setup import list_setup, save_service
 from .staff import person_detail, set_person_hours
 from .views import _place_payload, _resource_payload, _service_setup_payload
 
-#: What the assistant may set on a service; `active` and `materials` stay the
-#: person's (switching on is publishing, materials touch the warehouse).
+#: What the assistant may set on a service; `active`, `online` and `materials`
+#: stay the person's (switching on and showing online is publishing, materials
+#: touch the warehouse).
 _SERVICE_FIELDS = (
     "name",
     "duration_minutes",
@@ -38,6 +40,7 @@ _SERVICE_FIELDS = (
     "minimum_notice_minutes",
     "staff_count",
     "public_staff_choice",
+    "slot_step_minutes",
     "staff_ids",
     "location_ids",
     "resource_ids",
@@ -64,6 +67,11 @@ _SERVICE_PROPERTIES: dict[str, Any] = {
         "description": (
             "Whether a customer picks the person; picking a person fits a one-person service."
         ),
+    },
+    "slot_step_minutes": {
+        "type": ["integer", "null"],
+        "enum": [*SLOT_STEPS, None],
+        "description": "How often a visit may start, from the start of a person's hours.",
     },
     "staff_ids": {
         **_IDS,

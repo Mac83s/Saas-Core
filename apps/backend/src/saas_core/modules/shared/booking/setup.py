@@ -84,9 +84,11 @@ _SERVICE_FIELDS = (
     "minimum_notice_minutes",
     "staff_count",
     "public_staff_choice",
+    "slot_step_minutes",
+    "online",
     "active",
 )
-_PLACE_FIELDS = ("name", "address", "active")
+_PLACE_FIELDS = ("name", "address", "active", "online")
 _RESOURCE_FIELDS = ("name", "active", "capacity", "description", "group_id", "location_id")
 _GROUP_FIELDS = ("name", "description", "active")
 # `slugify` drops what NFKD cannot fold: "Łódź" would become "odz".

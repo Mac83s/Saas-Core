@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -28,7 +28,13 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
-from .company_settings import CONTACT, HORIZON_DAYS, online_last_day, online_paused
+from .company_settings import (
+    CONTACT,
+    HORIZON_DAYS,
+    online_last_day,
+    online_paused,
+    self_service_allows,
+)
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
@@ -402,6 +408,22 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "team_name": team,
         "person_name": person,
         **({"self_service_token": token} if token else {}),
+        "self_service": _self_service(value),
+    }
+
+
+def _self_service(value: Any) -> dict[str, Any]:
+    """What the link may still do, by the booking's own terms (B4)."""
+    now = timezone.now()
+    allows = {
+        action: value.status == "confirmed" and self_service_allows(value, action, now)
+        for action in ("reschedule", "cancel")
+    }
+    return {
+        **allows,
+        "until": value.starts_at - timedelta(hours=value.self_service_cutoff_hours)
+        if any(allows.values())
+        else None,
     }
 
 
@@ -1045,10 +1067,13 @@ class PublicBookingCatalogView(APIView):
             authorize_entitled("booking.public.read", BOOKING_ENABLED)
             org = route.organization_id
             value: dict[str, list[Any]] = {
-                "locations": list(Location.all_objects.filter(organization_id=org)),
+                # Only what the company offers online (B2); the panel sees all.
+                "locations": list(Location.all_objects.filter(organization_id=org, online=True)),
                 # Stays are booked on the website from phase 5 (ADR-072 §1).
                 "services": list(
-                    Service.all_objects.filter(organization_id=org, time_model=TimeModel.SLOT)
+                    Service.all_objects.filter(
+                        organization_id=org, time_model=TimeModel.SLOT, online=True
+                    )
                 ),
                 "resources": list(Resource.all_objects.filter(organization_id=org)),
             }
@@ -1886,6 +1911,8 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "minimum_notice_minutes": service.minimum_notice_minutes,
         "staff_count": service.staff_count,
         "public_staff_choice": service.public_staff_choice,
+        "slot_step_minutes": service.slot_step_minutes,
+        "online": service.online,
         "active": service.active,
         "staff_ids": value.staff_ids,
         "location_ids": value.location_ids,
@@ -1903,6 +1930,7 @@ def _place_payload(value: Location) -> dict[str, Any]:
         "name": value.name,
         "address": value.address,
         "active": value.active,
+        "online": value.online,
         "version": value.version,
     }
 

@@ -42,6 +42,8 @@ from .models import Appointment, AppointmentStatus
 BOOKING_ENABLED = "booking.enabled"
 
 
+SELF_SERVICE_MODE = "booking.self_service.mode"
+SELF_SERVICE_CUTOFF = "booking.self_service.cutoff_hours"
 HORIZON_DAYS = "booking.online.horizon_days"
 CONTACT = "booking.online.contact"
 OFFICE_NOTICES = "booking.notices.office"
@@ -265,6 +267,64 @@ ONLINE = SettingGroup(
     commands=("booking.settings_online.read@1", "booking.settings_online.update@1"),
 )
 
+SELF_SERVICE = SettingGroup(
+    key="booking.self_service",
+    module="shared.booking",
+    title={"pl": "Zmiana i odwołanie przez klienta", "en": "Changes by the customer"},
+    description={
+        "pl": "Co klient może zrobić linkiem z potwierdzenia rezerwacji. Obowiązuje dla "
+        "rezerwacji zrobionych po zmianie — wcześniejsze zostają na swoich zasadach.",
+        "en": "What the customer may do with the link in the booking confirmation. It "
+        "holds for bookings made after a change — earlier ones keep their terms.",
+    },
+    permission=SETTINGS_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    area="bookings",
+    settings=(
+        SettingSpec(
+            key=SELF_SERVICE_MODE,
+            type="enum",
+            default="change_and_cancel",
+            scopes=("organization",),
+            values=(
+                (
+                    "change_and_cancel",
+                    {"pl": "Zmiana terminu i odwołanie", "en": "Change the time and cancel"},
+                ),
+                ("cancel_only", {"pl": "Tylko odwołanie", "en": "Cancel only"}),
+                ("none", {"pl": "Nic — kontakt z firmą", "en": "Nothing — contact the company"}),
+            ),
+            label={"pl": "Klient linkiem może", "en": "With the link the customer may"},
+            model_description="What the customer's self-service link allows: change the "
+            "time and cancel, cancel only, or nothing (the customer contacts the company). "
+            "Frozen into each booking when it is made.",
+        ),
+        SettingSpec(
+            key=SELF_SERVICE_CUTOFF,
+            type="int",
+            minimum=0,
+            maximum=168,
+            unit="hour",
+            default=0,
+            scopes=("organization",),
+            label={
+                "pl": "Najpóźniej (godzin przed wizytą)",
+                "en": "At the latest (hours before the visit)",
+            },
+            help={
+                "pl": "0 — aż do rozpoczęcia wizyty. Później klient dzwoni do firmy.",
+                "en": "0 — until the visit starts. After that the customer phones the company.",
+            },
+            model_description="How many hours before the start the link stops allowing "
+            "changes (0 to 168; 0: until the start). Frozen into each booking.",
+        ),
+    ),
+    commands=(
+        "booking.settings_self_service.read@1",
+        "booking.settings_self_service.update@1",
+    ),
+)
+
 NOTICES = SettingGroup(
     key="booking.notices",
     module="shared.booking",
@@ -332,7 +392,7 @@ def register_company_settings() -> None:
 
     register_setting_area(SERVICES_AREA)
     register_setting_area(BOOKINGS_AREA)
-    for group in (REMINDERS, ONLINE, NOTICES):
+    for group in (REMINDERS, ONLINE, SELF_SERVICE, NOTICES):
         register_setting_group(group)
         for command in group_commands(group):
             register_command(command)
@@ -383,3 +443,20 @@ def refuse_missing_contact(customer: Mapping[str, Any]) -> None:
         missing["email"] = ["Podaj e-mail albo telefon."]
     if missing:
         raise ValidationError({"customer": missing})
+
+
+def self_service_terms() -> dict[str, Any]:
+    """The company's self-service terms now, for a booking being made (B4)."""
+    return {
+        "self_service_mode": setting(SELF_SERVICE_MODE),
+        "self_service_cutoff_hours": setting(SELF_SERVICE_CUTOFF),
+    }
+
+
+def self_service_allows(appointment: Any, action: str, now: Any) -> bool:
+    """Whether the booking's own terms let its link `cancel` or `reschedule`
+    now: never once it started, never past its cutoff."""
+    mode = appointment.self_service_mode
+    if mode == "none" or (action == "reschedule" and mode == "cancel_only"):
+        return False
+    return appointment.starts_at - timedelta(hours=appointment.self_service_cutoff_hours) > now

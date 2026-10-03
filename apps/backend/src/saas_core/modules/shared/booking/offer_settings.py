@@ -14,6 +14,10 @@ from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec, 
 
 from .models import RangeUnit, StaffChoice, TimeModel
 
+#: The starts a service may be offered at, in minutes (B6, ADR-058 §5): every
+#: one divides an hour, so a grid never drifts across a person's day.
+SLOT_STEPS = (5, 10, 15, 20, 30, 60)
+
 _BUFFER_HELP = {
     "pl": "Czas na dojazd, przygotowanie albo sprzątanie — blokuje kalendarz, klient go nie widzi.",
     "en": "Time to travel, prepare or tidy up — it blocks the calendar, customers don't see it.",
@@ -181,6 +185,41 @@ OFFER_SETTINGS: tuple[SettingSpec, ...] = (
         model_description=(
             "What a customer picks on the public booking form: nobody (the system "
             "picks), a team by name, or a person — `person` only when staff_count is 1."
+        ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.slot_step_minutes",
+        type="int",
+        minimum=5,
+        maximum=60,
+        unit="minute",
+        default=5,
+        label={"pl": "Wizyty zaczynają się co", "en": "Visits start every"},
+        help={
+            "pl": "5, 10, 15, 20, 30 albo 60 minut, licząc od początku godzin pracy osoby.",
+            "en": "5, 10, 15, 20, 30 or 60 minutes, counted from the start of a person's hours.",
+        },
+        model_description=(
+            "How often a visit of this service may start, counted from the start of a "
+            "person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a "
+            "booked start follow the same grid."
+        ),
+        depends_on="time_model == 'slot'",
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.online",
+        type="bool",
+        default=True,
+        label={"pl": "W rezerwacji online", "en": "In online booking"},
+        help={
+            "pl": "Wyłączona: nie ma jej w formularzu na stronie, zespół zapisuje na nią w panelu.",
+            "en": "Off: it is not on the site's form; the team books it in the panel.",
+        },
+        model_description=(
+            "Whether the service is on the booking form on the company's site. Off: only "
+            "the team books it, in the panel; its booked visits stay."
         ),
     ),
     SettingSpec(

@@ -187,3 +187,22 @@ EVALS.update({
         state=_values,
     ),
 })
+
+EVALS.update({
+    "booking.settings_self_service.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"mode": "none"},
+        wrong_field="mode",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_values,
+        prepare=_booking_plan,
+    ),
+    "booking.settings_self_service.update@1": CommandEval(
+        arguments=lambda _context: {"mode": "cancel_only", "cutoff_hours": None, "reset": None},
+        wrong_arguments={"mode": "sometimes", "cutoff_hours": None, "reset": None},
+        wrong_field="mode",
+        stale=_stale("booking.self_service.mode"),
+        state=_values,
+        prepare=_booking_plan,
+    ),
+})

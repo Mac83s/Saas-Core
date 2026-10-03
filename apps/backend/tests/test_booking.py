@@ -498,6 +498,8 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "status",
         "team_name",
         "person_name",
+        # What the customer's link may still do (B4): about the booking, not people.
+        "self_service",
     }
 
     listing = client.get(f"{url}/")

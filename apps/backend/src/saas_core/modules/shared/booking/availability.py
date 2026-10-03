@@ -29,7 +29,8 @@ from .models import (
     TimeOff,
 )
 
-#: Starts are offered every five minutes from the beginning of a rule.
+#: Starts are offered every five minutes from the beginning of a rule, unless
+#: the service says otherwise (`slot_step_minutes`, B6).
 _GRID = timedelta(minutes=5)
 
 
@@ -66,6 +67,8 @@ class _Schedule:
     resource_allocations: list[tuple[UUID, Any]]
     #: Local days the company or the place is closed (B11): no start on them.
     closed: frozenset[date] = frozenset()
+    #: How often a start is offered (the service's `slot_step_minutes`, B6).
+    grid: timedelta = _GRID
 
 
 def available_slots(
@@ -418,6 +421,7 @@ def _load(
             resource_allocations.values_list("resource_id", "occupied_range")
         ),
         closed=closed_days(context.organization_id, location_id, from_date, to_date),
+        grid=timedelta(minutes=service.slot_step_minutes),
     )
 
 
@@ -477,7 +481,7 @@ def _day_slots(schedule: _Schedule, day: date) -> Iterator[AvailableSlot]:
                             yield AvailableSlot(
                                 candidate, candidate + schedule.duration, rule.staff_id, resource_id
                             )
-                candidate += _GRID
+                candidate += schedule.grid
 
 
 def _within_day(schedule: _Schedule, day: date) -> _Schedule:
@@ -511,7 +515,7 @@ def _covers(schedule: _Schedule, rule: AvailabilityRule, day: date, starts_at: d
         bool(rule_ends)
         and starts_at + schedule.duration <= max(rule_ends)
         and any(
-            starts_at >= local_start and (starts_at - local_start) % _GRID == timedelta(0)
+            starts_at >= local_start and (starts_at - local_start) % schedule.grid == timedelta(0)
             for local_start in _valid_instants(day, rule.local_start, schedule.zone)
         )
     )

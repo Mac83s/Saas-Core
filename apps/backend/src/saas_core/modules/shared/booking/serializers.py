@@ -12,7 +12,7 @@ from saas_core.modules.core.organizations.options import (
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
 from .models import RangeUnit, StaffChoice, TimeModel, TimeOffSource
-from .offer_settings import offer_setting
+from .offer_settings import SLOT_STEPS, offer_setting
 
 
 def _changes() -> serializers.DictField:
@@ -306,6 +306,17 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     customer_notes = serializers.CharField()
 
 
+class PublicSelfServiceSerializer(serializers.Serializer[dict[str, Any]]):
+    """What the customer's link may still do, by the booking's own terms (B4)."""
+
+    reschedule = serializers.BooleanField()
+    cancel = serializers.BooleanField()
+    until = serializers.DateTimeField(
+        allow_null=True,
+        help_text="Until when the link allows changes; null when it allows none.",
+    )
+
+
 class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     """What the customer sees of their visit: no stock, and of the people
     only the team they chose or a name shown to customers (ADR-058 §8)."""
@@ -322,6 +333,7 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     #: „Przyjmie Cię”: the lead's name when it is shown to customers.
     person_name = serializers.CharField(allow_null=True)
     self_service_token = serializers.CharField(required=False)
+    self_service = PublicSelfServiceSerializer()
 
 
 class AppointmentListSerializer(serializers.Serializer[dict[str, Any]]):
@@ -436,6 +448,10 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     minimum_notice_minutes = serializers.IntegerField()
     staff_count = serializers.IntegerField()
     public_staff_choice = serializers.CharField()
+    slot_step_minutes = serializers.IntegerField(
+        help_text=offer_setting("slot_step_minutes").model_description
+    )
+    online = serializers.BooleanField(help_text=offer_setting("online").model_description)
     active = serializers.BooleanField()
     #: Who does it; the places it is offered at; the resources a visit takes
     #: one of.
@@ -466,6 +482,9 @@ class PlaceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
     address = serializers.CharField()
     active = serializers.BooleanField()
+    online = serializers.BooleanField(
+        help_text="Shown on the booking form on the company's site (B2)."
+    )
     version = serializers.IntegerField(
         help_text="The place's version; a change names it (`expected_version`)."
     )
@@ -632,6 +651,14 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     minimum_notice_minutes = _bounded("minimum_notice_minutes", required=False)
     staff_count = _bounded("staff_count", required=False)
     public_staff_choice = serializers.ChoiceField(choices=StaffChoice.choices, required=False)
+    slot_step_minutes = serializers.ChoiceField(
+        choices=SLOT_STEPS,
+        required=False,
+        help_text=offer_setting("slot_step_minutes").model_description,
+    )
+    online = serializers.BooleanField(
+        required=False, help_text=offer_setting("online").model_description
+    )
     active = serializers.BooleanField(required=False)
     #: A new service only: the kind of visit a module provides (ADR-050).
     appointment_kind = serializers.CharField(max_length=64, required=False, allow_blank=True)
@@ -659,6 +686,9 @@ class PlaceInputSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField(max_length=160)
     address = serializers.CharField(max_length=240, required=False, allow_blank=True)
     active = serializers.BooleanField(required=False)
+    online = serializers.BooleanField(
+        required=False, help_text="Shown on the booking form on the company's site (B2)."
+    )
 
 
 class PlaceUpdateSerializer(PlaceInputSerializer):

@@ -45,6 +45,8 @@ from .company_settings import (
     refuse_missing_contact,
     refuse_when_paused,
     reminder_due,
+    self_service_allows,
+    self_service_terms,
 )
 from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
 from .models import (
@@ -494,6 +496,11 @@ def create_appointment(
         person.id: person for person in StaffMember.all_objects.filter(pk__in=named, active=True)
     }
     location = Location.all_objects.filter(pk=location_id, active=True).first()
+    if context.role_key == PUBLIC_BOOKING_ROLE and not (
+        (service is None or service.online) and (location is None or location.online)
+    ):
+        # Not offered online (B2): as if it did not exist, like an inactive one.
+        service = location = None
     resource = (
         Resource.all_objects.filter(pk=resource_id, active=True).first() if resource_id else None
     )
@@ -616,6 +623,8 @@ def create_appointment(
                 timezone=organization.timezone,
                 service_name=service.name,
                 customer_service_name=_customer_service_name(service, customer.locale),
+                # What the customer's link may do, frozen at booking (B4).
+                **self_service_terms(),
                 materials=lines,
                 self_service_token_ciphertext=encrypt_secret(token),
                 self_service_expires_at=expires,
@@ -722,7 +731,7 @@ def reschedule_appointment(
     appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
     if not appointment or appointment.status != AppointmentStatus.CONFIRMED:
         raise NotFound("Aktywna rezerwacja nie istnieje.")
-    _refuse_customer_after_start(context.role_key, appointment)
+    _refuse_customer_change(context.role_key, appointment, "reschedule")
     request_hash = _hash({"starts_at": starts_at.isoformat()})
     existing = BookingMutation.all_objects.filter(
         action="reschedule", principal_ref=principal_ref, idempotency_key=idempotency_key
@@ -926,7 +935,7 @@ def cancel_appointment(
     if appointment.status in {AppointmentStatus.COMPLETED, AppointmentStatus.NO_SHOW}:
         # A visit that took place is not called off afterwards.
         raise AppointmentNotChangeable
-    _refuse_customer_after_start(context.role_key, appointment)
+    _refuse_customer_change(context.role_key, appointment, "cancel")
     if appointment.status != AppointmentStatus.CANCELED:
         old = appointment.status
         crew = crew_of(appointment)
@@ -1012,10 +1021,13 @@ def cancel_appointment(
     return appointment
 
 
-def _refuse_customer_after_start(role_key: str, appointment: Appointment) -> None:
+def _refuse_customer_change(role_key: str, appointment: Appointment, action: str) -> None:
     """A customer's self-service link moves or calls off a visit only before it
-    starts; once the provider is on site, changes go through the provider."""
-    if role_key == PUBLIC_BOOKING_ROLE and appointment.starts_at <= timezone.now():
+    starts — once the provider is on site, changes go through the provider —
+    and only as the booking's own terms allow (B4)."""
+    if role_key == PUBLIC_BOOKING_ROLE and not self_service_allows(
+        appointment, action, timezone.now()
+    ):
         raise AppointmentNotChangeable
 
 

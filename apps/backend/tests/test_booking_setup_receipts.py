@@ -187,7 +187,13 @@ def test_the_offer_options_declare_what_the_input_accepts() -> None:
     for setting in OFFER_SETTINGS:
         if setting.type == "int":
             field = fields[setting.field]
-            assert (field.min_value, field.max_value) == (setting.minimum, setting.maximum)
+            # A number from a closed list (the start grid) has its ends as the bounds.
+            bounds = (
+                (min(field.choices), max(field.choices))
+                if hasattr(field, "choices")
+                else (field.min_value, field.max_value)
+            )
+            assert bounds == (setting.minimum, setting.maximum)
             assert setting.minimum <= setting.default <= setting.maximum
         assert setting.key == f"booking.offer.{setting.field}"
         assert set(setting.label) == {"pl", "en"}

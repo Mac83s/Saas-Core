@@ -63,6 +63,9 @@ class Location(TenantScopedModel):
     public_slug = models.SlugField(max_length=80)
     address = models.CharField(max_length=240, blank=True)
     active = models.BooleanField(default=True)
+    #: Shown on the booking form on the company's site (B2); the team books
+    #: a place that is not in the panel as before.
+    online = models.BooleanField(default=True)
     #: Bumped by every setup write that changes the place (ADR-072 §11).
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -275,6 +278,12 @@ class Service(TenantScopedModel):
     public_staff_choice = models.CharField(
         max_length=8, choices=StaffChoice, default=StaffChoice.NONE
     )
+    #: How often a visit may start, in minutes from the start of a person's
+    #: hours (B6; ADR-058 §5): 5, 10, 15, 20, 30 or 60.
+    slot_step_minutes = models.PositiveSmallIntegerField(default=5)
+    #: On the booking form on the company's site (B2); off: the team books it
+    #: in the panel only.
+    online = models.BooleanField(default=True)
     active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -632,6 +641,12 @@ class Appointment(TenantScopedModel):
     #: it, frozen like `service_name`; empty: the same (TL12c). Customer-facing
     #: answers read it, the panel keeps the company's language.
     customer_service_name = models.CharField(max_length=160, blank=True)
+    #: What the customer's link may do, as the company had it at booking (B4,
+    #: UF-D1): `change_and_cancel`, `cancel_only` or `none`; and how many
+    #: hours before the start it stops (0: at the start). A later change of the
+    #: company's setting never changes a booking already made.
+    self_service_mode = models.CharField(max_length=24, default="change_and_cancel")
+    self_service_cutoff_hours = models.PositiveSmallIntegerField(default=0)
     #: Produkty tej wizyty: kopia z usługi albo wpisane ręcznie, z nazwą i
     #: ceną z chwili zapisu. Stan jest zarezerwowany do zakończenia wizyty.
     materials = models.JSONField(default=list, blank=True)

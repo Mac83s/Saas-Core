@@ -97,6 +97,7 @@ def _service_fields(**given: Any) -> dict[str, Any]:
         "minimum_notice_minutes",
         "staff_count",
         "public_staff_choice",
+        "slot_step_minutes",
         "staff_ids",
         "location_ids",
         "resource_ids",
