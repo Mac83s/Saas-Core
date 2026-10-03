@@ -10163,8 +10163,10 @@ export interface components {
             expected_version: string;
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["NotificationsCustomerMailSettingsChangeResetEnum"][];
-            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. */
-            note?: string | null;
+            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers, one text per language of the company: a mail carries the note of its own language or no note, never another language's. In a change, a language set to null keeps its text and an empty string removes it; only languages the company has are accepted. The same for every customer: never a customer's data. */
+            note?: {
+                [key: string]: string | null;
+            } | null;
         };
         /**
          * @description * `note` - note
@@ -10188,8 +10190,10 @@ export interface components {
             note: components["schemas"]["SettingSourceEnum"];
         };
         NotificationsCustomerMailSettingsValues: {
-            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. */
-            note: string;
+            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers, one text per language of the company: a mail carries the note of its own language or no note, never another language's. In a change, a language set to null keeps its text and an empty string removes it; only languages the company has are accepted. The same for every customer: never a customer's data. */
+            note: {
+                [key: string]: string | null;
+            };
         };
         NullEnum: null;
         /** @description The company's units against days (ADR-072 phase 2d). */
@@ -10940,8 +10944,10 @@ export interface components {
             expected_version?: string;
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["NotificationsCustomerMailSettingsChangeResetEnum"][];
-            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. */
-            note?: string | null;
+            /** @description A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers, one text per language of the company: a mail carries the note of its own language or no note, never another language's. In a change, a language set to null keeps its text and an empty string removes it; only languages the company has are accepted. The same for every customer: never a customer's data. */
+            note?: {
+                [key: string]: string | null;
+            } | null;
         };
         PatchedOrganizationSecuritySettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
@@ -11441,6 +11447,8 @@ export interface components {
             strategy: components["schemas"]["SettingStrategyEnum"];
             /** @description The longest a text may be. */
             max_length?: number | null;
+            /** @description For a `localized_text` key in the company's schema: the company's languages, in its order — one text box for each. */
+            locales?: components["schemas"]["SettingLocale"][] | null;
             /** @description The value in force for the platform. */
             value: unknown;
             /**
@@ -12628,6 +12636,12 @@ export interface components {
             resource_id: string;
             summary: components["schemas"]["LocalizedText"];
         };
+        SettingLocale: {
+            /** @description A language code of the registry, e.g. de. */
+            code: string;
+            /** @description The language's own name, e.g. Deutsch. */
+            name: string;
+        };
         /**
          * @description One setting a company may choose, with what it may choose; the shape of
          *     an entry of the settings registry's schema (ADR-078 pkt 11).
@@ -12657,6 +12671,8 @@ export interface components {
             strategy: components["schemas"]["SettingStrategyEnum"];
             /** @description The longest a text may be. */
             max_length?: number | null;
+            /** @description For a `localized_text` key in the company's schema: the company's languages, in its order — one text box for each. */
+            locales?: components["schemas"]["SettingLocale"][] | null;
         };
         SettingOptions: {
             keys: components["schemas"]["SettingOption"][];
@@ -12681,10 +12697,11 @@ export interface components {
          *     * `bool` - bool
          *     * `enum` - enum
          *     * `text` - text
+         *     * `localized_text` - localized_text
          *     * `date` - date
          * @enum {string}
          */
-        SettingTypeEnum: "int" | "decimal" | "bool" | "enum" | "text" | "date";
+        SettingTypeEnum: "int" | "decimal" | "bool" | "enum" | "text" | "localized_text" | "date";
         /**
          * @description * `minute` - minute
          *     * `hour` - hour

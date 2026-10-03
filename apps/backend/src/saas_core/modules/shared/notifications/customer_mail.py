@@ -68,28 +68,39 @@ CUSTOMER_MAIL = SettingGroup(
     },
     permission=SETTINGS_MANAGE,
     area="customer-emails",
+    # update@2: the note is a text per language, and the key set of a command
+    # version's input is frozen — @1 took one string. The read takes nothing.
     commands=(
         "notifications.settings_customer_mail.read@1",
-        "notifications.settings_customer_mail.update@1",
+        "notifications.settings_customer_mail.update@2",
     ),
     settings=(
         SettingSpec(
             key=NOTE,
-            type="text",
-            default="",
+            # One text per language of the company: a customer reads the note
+            # in the language of their mail or not at all (answer 36a, TL17c).
+            type="localized_text",
+            default={},
             max_length=300,
             no_links=True,
             scopes=("organization",),
             label={"pl": "Tekst firmy w e-mailach", "en": "The company's note in e-mails"},
             help={
-                "pl": "Np. „Prosimy o przybycie 10 minut wcześniej.” Bez linków i adresów; ten "
-                "sam tekst dostaje każdy klient, więc nie wpisuj danych żadnego z nich.",
-                "en": "E.g. “Please come 10 minutes early.” No links or addresses; every "
-                "customer gets the same note, so put no customer's details in it.",
+                "pl": "Np. „Prosimy o przybycie 10 minut wcześniej.” Osobno w każdym języku "
+                "firmy: klient dostaje tekst w języku swojego e-maila albo żadnego. Bez linków "
+                "i adresów; ten sam tekst dostaje każdy klient, więc nie wpisuj danych żadnego "
+                "z nich.",
+                "en": "E.g. “Please come 10 minutes early.” One per language of the company: "
+                "a customer gets the note in the language of their e-mail, or none. No links "
+                "or addresses; every customer gets the same note, so put no customer's details "
+                "in it.",
             },
             model_description="A short plain-text note (up to 300 characters, no links or "
-            "addresses) added at the end of every e-mail to the company's customers. The "
-            "same for every customer: never a customer's data. Empty: no note.",
+            "addresses) added at the end of every e-mail to the company's customers, one text "
+            "per language of the company: a mail carries the note of its own language or no "
+            "note, never another language's. In a change, a language set to null keeps its "
+            "text and an empty string removes it; only languages the company has are "
+            "accepted. The same for every customer: never a customer's data.",
         ),
     ),
 )
@@ -136,9 +147,12 @@ def customer_sender(organization_id: UUID) -> tuple[str, str]:
     return formataddr((" ".join(name.split()), address)), reply_to
 
 
-def with_company_note(html_body: str, organization_id: UUID) -> str:
-    """The body with the company's note under it, escaped, as it reads now."""
-    note = str(setting(NOTE, organization_id=organization_id) or "")
+def with_company_note(html_body: str, organization_id: UUID, locale: str) -> str:
+    """The body with the company's note in the mail's language under it,
+    escaped, as it reads now. No note in that language, no note: a German
+    customer never gets the Polish one."""
+    notes = setting(NOTE, organization_id=organization_id)
+    note = str(notes.get(locale) or "") if isinstance(notes, dict) and locale else ""
     if not note:
         return html_body
     lines = "<br>".join(escape(line) for line in note.splitlines())

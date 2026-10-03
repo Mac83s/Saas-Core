@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
@@ -152,7 +153,7 @@ def resolve(key: str, *, organization_id: UUID | None = None) -> Resolved:
         explicit = group.read_explicit().get(spec.field)
     else:
         row = _rows(organization_id).get(key)
-        explicit = row.value if row is not None else None
+        explicit = _presented(spec, row.value, organization_id) if row is not None else None
     if explicit is not None:
         return Resolved(explicit, "organization")
     product = live_product_value(spec)
@@ -274,7 +275,13 @@ def change_settings(
     before = _state(context, group)
     if before.version != expected_version:
         raise SettingsVersionConflict
-    after_explicit = _validated(group, given, resetting)
+    after_explicit = _validated(
+        group,
+        given,
+        resetting,
+        company_locales=tuple(organization.public_locales),
+        in_force={field: resolved.value for field, resolved in before.values.items()},
+    )
     after = {
         spec.field: (
             after_explicit[spec.field]
@@ -383,16 +390,54 @@ def group_locked(group: SettingGroup, *, write: bool = False) -> str:
 
 
 def _validated(
-    group: SettingGroup, given: Mapping[str, Any], reset: Sequence[str]
+    group: SettingGroup,
+    given: Mapping[str, Any],
+    reset: Sequence[str],
+    *,
+    company_locales: Sequence[str] | None = None,
+    in_force: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The company's explicit values after the change, by field: a value for
-    each one given, None for each one reset."""
+    each one given, None for each one reset.
+
+    A `localized_text` change is merged into the value in force, language by
+    language: one left out (or null) stays, an empty text removes that
+    language, and only `reset` clears the key — "set the German note" cannot
+    wipe the Polish one. With `company_locales`, a text in a language the
+    company does not have is refused (`locale_not_enabled`); a stored text of
+    a language the company later removed stays, unused (UF-T5)."""
     problems: dict[str, list[ErrorDetail]] = {}
     explicit: dict[str, Any] = {}
     for name, value in given.items():
         if name not in group.fields:
             problems[name] = [ErrorDetail("Nie ma takiego ustawienia.", code="unknown_setting")]
             continue
+        if group.spec(name).type == "localized_text" and isinstance(value, Mapping):
+            wanted = {str(code): text for code, text in value.items() if text is not None}
+            foreign = sorted(
+                code
+                for code, text in wanted.items()
+                if company_locales is not None
+                and code in settings.LOCALE_REGISTRY
+                and code not in company_locales
+                and isinstance(text, str)
+                and text.strip()
+            )
+            if foreign:
+                problems[name] = [
+                    ErrorDetail(
+                        f"Firma nie ma języka: {', '.join(foreign)}. Dodaj go w Ustawienia › "
+                        "Języki.",
+                        code="locale_not_enabled",
+                    )
+                ]
+                continue
+            if not wanted:
+                # Every language left as it is (the assistant's all-null): no
+                # change of this field, and no explicit empty map either.
+                continue
+            base = (in_force or {}).get(name)
+            value = {**(base if isinstance(base, Mapping) else {}), **wanted}
         checked = check_value(group.spec(name), value)
         if checked is None or checked[1]:
             message, code = (checked[1], checked[2]) if checked else ("Zła wartość.", "invalid")
@@ -424,7 +469,30 @@ def _inherited(spec: SettingSpec) -> Any:
 
 def _explicit(spec: SettingSpec) -> Any:
     row = _rows().get(spec.key)
-    return row.value if row is not None else None
+    return _presented(spec, row.value, None) if row is not None else None
+
+
+def _presented(spec: SettingSpec, value: Any, organization_id: UUID | None) -> Any:
+    """A stored value as its type reads it. A `localized_text` key that was a
+    plain `text` before keeps the company's one text: it reads as the text of
+    the company's first language, and is rewritten as a map on the next save —
+    no sweep across tenants, and no mail without its note in between."""
+    if spec.type != "localized_text" or not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text:
+        return {}
+    if organization_id is None:
+        context = current_tenant_context()
+        if context is None:
+            raise RuntimeError("Ustawienia firmy czyta się w kontekście firmy.")
+        organization_id = context.organization_id
+    locales = (
+        Organization.objects.filter(pk=organization_id)
+        .values_list("public_locales", flat=True)
+        .first()
+    )
+    return {locales[0]: text} if locales else {}
 
 
 def _save(
@@ -452,8 +520,7 @@ def _rows(organization_id: UUID | None = None) -> dict[str, OrganizationSetting]
     if snapshot is not None and organization_id in snapshot:
         return snapshot[organization_id]
     rows = {
-        row.key: row
-        for row in OrganizationSetting.objects.filter(organization_id=organization_id)
+        row.key: row for row in OrganizationSetting.objects.filter(organization_id=organization_id)
     }
     if snapshot is not None:
         snapshot[organization_id] = rows

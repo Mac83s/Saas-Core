@@ -106,7 +106,7 @@ def deliver_email(
             AUDIENCE_CUSTOMER
         ):
             from_email, reply_to = customer_sender(message.organization_id)
-            html_body = with_company_note(html_body, message.organization_id)
+            html_body = with_company_note(html_body, message.organization_id, message.locale)
         # Resolved in the tenant context the message was queued in, inside the
         # same transaction that read the message.
         attachments: list[Attachment] | None = []

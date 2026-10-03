@@ -1934,8 +1934,35 @@
           "values": {
             "properties": {
               "note": {
-                "maxLength": 300,
-                "type": "string",
+                "additionalProperties": false,
+                "properties": {
+                  "de": {
+                    "description": "German.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "en": {
+                    "description": "English.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "es": {
+                    "description": "Spanish.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "pl": {
+                    "description": "Polish.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "ru": {
+                    "description": "Russian.",
+                    "maxLength": 300,
+                    "type": "string"
+                  }
+                },
+                "type": "object",
                 "x-data-class": "public"
               }
             },
@@ -1966,7 +1993,7 @@
       "version_field": null
     },
     {
-      "command": "notifications.settings_customer_mail.update@1",
+      "command": "notifications.settings_customer_mail.update@2",
       "entitlement": null,
       "exposure": [
         "assistant"
@@ -1976,10 +2003,59 @@
         "additionalProperties": false,
         "properties": {
           "note": {
-            "description": "A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers. The same for every customer: never a customer's data. Empty: no note. Null keeps it as it is.",
-            "maxLength": 300,
+            "additionalProperties": false,
+            "description": "A short plain-text note (up to 300 characters, no links or addresses) added at the end of every e-mail to the company's customers, one text per language of the company: a mail carries the note of its own language or no note, never another language's. In a change, a language set to null keeps its text and an empty string removes it; only languages the company has are accepted. The same for every customer: never a customer's data. Null keeps it as it is.",
+            "properties": {
+              "de": {
+                "description": "German: null keeps the text as it is, an empty string removes it.",
+                "maxLength": 300,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "en": {
+                "description": "English: null keeps the text as it is, an empty string removes it.",
+                "maxLength": 300,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "es": {
+                "description": "Spanish: null keeps the text as it is, an empty string removes it.",
+                "maxLength": 300,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pl": {
+                "description": "Polish: null keeps the text as it is, an empty string removes it.",
+                "maxLength": 300,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ru": {
+                "description": "Russian: null keeps the text as it is, an empty string removes it.",
+                "maxLength": 300,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "pl",
+              "en",
+              "de",
+              "es",
+              "ru"
+            ],
             "type": [
-              "string",
+              "object",
               "null"
             ]
           },
@@ -2021,8 +2097,35 @@
           "values": {
             "properties": {
               "note": {
-                "maxLength": 300,
-                "type": "string",
+                "additionalProperties": false,
+                "properties": {
+                  "de": {
+                    "description": "German.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "en": {
+                    "description": "English.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "es": {
+                    "description": "Spanish.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "pl": {
+                    "description": "Polish.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "ru": {
+                    "description": "Russian.",
+                    "maxLength": 300,
+                    "type": "string"
+                  }
+                },
+                "type": "object",
                 "x-data-class": "public"
               }
             },
@@ -2048,8 +2151,8 @@
         "en": "Change settings: E-mails to customers",
         "pl": "Zmień ustawienia: E-maile do klientów"
       },
-      "tool_name": "notifications_settings_customer_mail_update_v1",
-      "undo": "command:notifications.settings_customer_mail.update@1",
+      "tool_name": "notifications_settings_customer_mail_update_v2",
+      "undo": "command:notifications.settings_customer_mail.update@2",
       "version_field": "expected_version"
     },
     {

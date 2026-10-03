@@ -6,7 +6,9 @@ from __future__ import annotations
 
 #: The registry's types and units (ADR-078 pkt 2) as an option entry names
 #: them — one enum name each in the contract, for every module's options.
-SETTING_TYPES = ("int", "decimal", "bool", "enum", "text", "date")
+#: `localized_text`: one text per language, `{locale: text}` — a text the
+#: company's customers read, so it exists per content language or not at all.
+SETTING_TYPES = ("int", "decimal", "bool", "enum", "text", "localized_text", "date")
 SETTING_UNITS = ("minute", "hour", "day", "percent")
 SETTING_STRATEGIES = ("override", "restrict")
 #: How a company gets the product's value (ADR-078 pkt 6): `live` reads it on

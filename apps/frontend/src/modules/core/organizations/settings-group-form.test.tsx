@@ -327,3 +327,151 @@ test("długi tekst pisze się w polu wieloliniowym, a wyczyszczony wraca do domy
     ),
   );
 });
+
+// --- a text per language (localized_text) -----------------------------------
+
+const NOTE_GROUP: SettingsGroupSchema = {
+  key: "notifications.customer_mail",
+  module: "shared.notifications",
+  area: "customer-emails",
+  title: { pl: "E-maile do klientów", en: "E-mails to customers" },
+  description: { pl: "Tekst firmy.", en: "The company's note." },
+  permission: "organization.settings.manage",
+  can_change: true,
+  locked: "",
+  api: null,
+  step_up: false,
+  keys: [
+    {
+      key: "notifications.customer_mail.note",
+      type: "localized_text",
+      minimum: null,
+      maximum: null,
+      unit: null,
+      values: null,
+      default: {},
+      label: {
+        pl: "Tekst firmy w e-mailach",
+        en: "The company's note in e-mails",
+      },
+      help: null,
+      description: "A note per language.",
+      scopes: ["organization"],
+      depends_on: null,
+      strategy: "override",
+      max_length: 300,
+      locales: [
+        { code: "pl", name: "Polski" },
+        { code: "de", name: "Deutsch" },
+      ],
+    },
+  ],
+};
+
+function noteState(note: Record<string, string>, version = "n1") {
+  return {
+    group: "notifications.customer_mail",
+    version,
+    values: { note },
+    sources: { note: "organization" },
+    can_change: true,
+    locked: "",
+  };
+}
+
+function renderNote(locale: "pl" | "en" = "pl") {
+  return render(
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "pl" ? messages : englishMessages}
+    >
+      <SettingsGroupForm group={NOTE_GROUP} />
+    </NextIntlClientProvider>,
+  );
+}
+
+test.each(["pl", "en"] as const)(
+  "a text per language has one box per company language (%s)",
+  async (locale) => {
+    getSettingsGroup.mockResolvedValue(
+      noteState({ pl: "Prosimy o punktualność." }),
+    );
+    const { container } = renderNote(locale);
+
+    const polish = (await screen.findByLabelText(
+      "Polski",
+    )) as HTMLTextAreaElement;
+    const german = screen.getByLabelText("Deutsch") as HTMLTextAreaElement;
+
+    await waitFor(() => expect(polish.value).toBe("Prosimy o punktualność."));
+    expect(german.value).toBe("");
+    expect(german.getAttribute("lang")).toBe("de");
+    expect(
+      screen.getByRole("group", {
+        name:
+          locale === "pl"
+            ? "Tekst firmy w e-mailach"
+            : "The company's note in e-mails",
+      }),
+    ).toBeTruthy();
+    expect((await axe.run(container)).violations).toEqual([]);
+  },
+);
+
+test("only the language that changed is sent, so the other one stays", async () => {
+  getSettingsGroup.mockResolvedValue(
+    noteState({ pl: "Prosimy o punktualność." }),
+  );
+  const after = noteState(
+    { pl: "Prosimy o punktualność.", de: "Bitte pünktlich." },
+    "n2",
+  );
+  previewSettingsGroup.mockResolvedValue({
+    version: "n1",
+    values: after.values,
+    changes: { note: { from: {}, to: {} } },
+    effects: [],
+  });
+  updateSettingsGroup.mockResolvedValue(after);
+  renderNote();
+
+  fireEvent.change(await screen.findByLabelText("Deutsch"), {
+    target: { value: "Bitte pünktlich." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+
+  await waitFor(() => expect(updateSettingsGroup).toHaveBeenCalled());
+  expect(updateSettingsGroup.mock.calls[0]?.[1]).toEqual({
+    expected_version: "n1",
+    reset: [],
+    note: { de: "Bitte pünktlich." },
+  });
+});
+
+test("an emptied box removes that language's text", async () => {
+  getSettingsGroup.mockResolvedValue(
+    noteState({ pl: "Prosimy o punktualność.", de: "Bitte pünktlich." }),
+  );
+  previewSettingsGroup.mockResolvedValue({
+    version: "n1",
+    values: { note: { pl: "Prosimy o punktualność." } },
+    changes: { note: { from: {}, to: {} } },
+    effects: [],
+  });
+  updateSettingsGroup.mockResolvedValue(
+    noteState({ pl: "Prosimy o punktualność." }, "n2"),
+  );
+  renderNote();
+
+  const german = (await screen.findByLabelText(
+    "Deutsch",
+  )) as HTMLTextAreaElement;
+  await waitFor(() => expect(german.value).toBe("Bitte pünktlich."));
+  fireEvent.change(german, { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+
+  await waitFor(() => expect(updateSettingsGroup).toHaveBeenCalled());
+  expect(updateSettingsGroup.mock.calls[0]?.[1]).toMatchObject({
+    note: { de: "" },
+  });
+});

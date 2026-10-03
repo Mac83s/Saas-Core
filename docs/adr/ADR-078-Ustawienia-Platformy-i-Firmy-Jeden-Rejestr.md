@@ -715,3 +715,48 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
   niczego nie deklarują i nie uczą się o magazynie.
 - **M6:** `inventory.lots.expired_sale` `block` (jak dotąd) albo `warn`; blokada pracy
   przy partii po terminie zostaje stałą z powodem (decyzje 21.09 i 25.09).
+
+## Uzupełnienie 2026-10-03 (8): typ `localized_text` — tekst firmy w każdym jej języku
+
+Powód: tekst firmy w e-mailach do klientów (36a) był jednym tekstem, więc klient
+z niemieckim e-mailem (TL17c) dostawał polski dopisek. Tekst czytany przez klientów
+firmy istnieje w języku treści albo wcale.
+
+- **Typ.** `localized_text` w `SETTING_TYPES`: wartość to `{kod języka: tekst}`.
+  `check_value` zostaje bez kontekstu firmy: kody z rejestru języków, każdy tekst
+  przycięty, `max_length` i `no_links` liczone na tekst, pusty tekst pominięty —
+  „brak tekstu po niemiecku” to brak klucza, nie `""`. Ta sama funkcja sprawdza
+  `settingsDefaults` profilu. Klucz tego typu ma dziś zasięg wyłącznie firmy:
+  rejestracja odrzuca `platform` w `scopes` („localized_text nie ma dziś wartości
+  platformy”), bo okno zmiany w panelu „Platforma” zapisuje każdą wartość jako jeden
+  tekst. Zasięg platformy dojdzie razem z polem na język w tym oknie.
+- **Reguła firmy w `change_settings`**, wspólna dla typu: tekst w języku, którego
+  firma nie ma w `public_locales`, jest odrzucany (`locale_not_enabled`), także w
+  podglądzie.
+- **Zmiana scala się w wartości.** Język pominięty (albo `null`) zostaje, pusty
+  tekst usuwa ten język, a cały klucz czyści tylko `reset`. Tak samo w `PATCH` i w
+  poleceniu asystenta — „ustaw notkę niemiecką” nie może skasować polskiej. Podstawą
+  scalenia jest wartość obowiązująca, nie sam wiersz firmy: pierwsza zmiana firmy
+  zapisuje więc teksty odziedziczone (z `settingsDefaults`) jako jej własne. Zmiana,
+  która nie nazywa żadnego języka (same `null`), nie zapisuje niczego.
+- **Polecenie asystenta jest ścisłe:** jedno pole `string|null` na język rejestru,
+  `additionalProperties: false`. Zestaw kluczy wersji polecenia jest zamrożony, więc
+  zmiana to `notifications.settings_customer_mail.update@2`; odczyt zostaje `@1` (nie przyjmuje
+  argumentów, a w wyniku pole `note` jest odtąd obiektem). To nie jest precedens:
+  kształt wyniku zmienił się, zanim odczyt miał jakiegokolwiek odbiorcę. Zmiana
+  kształtu wyniku polecenia, które ktoś już czyta, wymaga nowej wersji.
+- **Język usunięty przez firmę zachowuje tekst**, nieużywany: strona nie pokazuje
+  jego pola, a czytnik go nie wybiera (UF-T5: zmniejszenie niczego nie kasuje).
+- **Czytnik:** `setting(klucz).get(język wiadomości)`; nigdy inny język, a bez języka
+  — bez tekstu.
+- **Wartości sprzed zmiany bez przemiatania tenantów.** `organizations_organizationsetting`
+  ma wymuszone RLS, więc migracja czytająca ją bez tenanta widzi zero wierszy i
+  „kończy się sukcesem”. Zapisany zwykły tekst czyta się więc jako tekst pierwszego
+  języka firmy i staje się mapą przy następnym zapisie — bez operacji na VPS i bez
+  okna, w którym e-maile wychodzą bez dopisku.
+- **Schemat i panel.** `schema_entry` podaje typ; schemat firmy dopisuje kluczowi
+  `locales` — języki firmy z nazwami własnymi — a formularz ogólny rysuje po jednym
+  polu na język i wysyła tylko zmienione. Podgląd i historia pokazują `było → jest`
+  per język. OpenAPI: obiekt z tekstami i `maxLength` na tekst.
+- **Poza zakresem:** panel „Platforma” (klucz ma zasięg firmy); produkty dostają
+  typ przez `core:update` i dziś nie rejestrują żadnego klucza tego typu.

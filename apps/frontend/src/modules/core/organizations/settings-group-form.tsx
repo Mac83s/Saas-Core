@@ -85,6 +85,10 @@ function zodFor(option: SettingOption): z.ZodType {
     if (option.maximum !== null) number = number.max(option.maximum);
     return number;
   }
+  // A text per language: each language its own box; one left empty is no text
+  // in that language (ADR-078, localized_text).
+  if (option.type === "localized_text")
+    return z.record(z.string(), z.string().nullable()).nullable();
   // A date or a text left empty goes back to the default through `reset`.
   return z.string().nullable();
 }
@@ -225,17 +229,42 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
       )
       .filter((option) => !values[fieldOf(option)])
       .map(fieldOf);
+    // Of a text per language only the boxes that changed are sent: a language
+    // left out stays as it is, an emptied one is removed.
+    const localized = new Map(
+      group.keys
+        .filter((option) => option.type === "localized_text")
+        .map((option) => {
+          const field = fieldOf(option);
+          const touched = (form.formState.dirtyFields as Values)[field] as
+            | Record<string, boolean>
+            | undefined;
+          const texts = (values[field] ?? {}) as Record<string, string | null>;
+          return [
+            field,
+            Object.fromEntries(
+              Object.keys(touched ?? {})
+                .filter((code) => touched?.[code])
+                .map((code) => [code, texts[code] ?? ""]),
+            ),
+          ] as const;
+        }),
+    );
     const change: SettingsGroupChange = {
       expected_version: state.version,
       reset: [...new Set([...reset, ...cleared])],
       ...Object.fromEntries(
-        Object.entries(values).filter(
-          ([field, value]) =>
-            dirty[field] &&
-            !reset.includes(field) &&
-            value !== "" &&
-            value !== null,
-        ),
+        Object.entries(values)
+          .filter(
+            ([field, value]) =>
+              dirty[field] &&
+              !reset.includes(field) &&
+              value !== "" &&
+              value !== null &&
+              (!localized.has(field) ||
+                Object.keys(localized.get(field) ?? {}).length > 0),
+          )
+          .map(([field, value]) => [field, localized.get(field) ?? value]),
       ),
     };
     try {
@@ -309,6 +338,43 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
                         </label>
                       )}
                     />
+                  ) : option.type === "localized_text" ? (
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">
+                        {text(option.label, locale)}
+                      </legend>
+                      {(option.locales ?? []).map((language) => (
+                        <div className="space-y-1.5" key={language.code}>
+                          <FieldLabel
+                            className="font-normal"
+                            htmlFor={`${id}-${language.code}`}
+                          >
+                            {language.name}
+                          </FieldLabel>
+                          {(option.max_length ?? 0) > LONG_TEXT ? (
+                            <Textarea
+                              aria-invalid={Boolean(error)}
+                              disabled={readOnly}
+                              id={`${id}-${language.code}`}
+                              lang={language.code}
+                              maxLength={option.max_length ?? undefined}
+                              rows={3}
+                              {...form.register(`${field}.${language.code}`)}
+                            />
+                          ) : (
+                            <Input
+                              aria-invalid={Boolean(error)}
+                              disabled={readOnly}
+                              id={`${id}-${language.code}`}
+                              lang={language.code}
+                              maxLength={option.max_length ?? undefined}
+                              type="text"
+                              {...form.register(`${field}.${language.code}`)}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </fieldset>
                   ) : (
                     <>
                       <FieldLabel htmlFor={id}>

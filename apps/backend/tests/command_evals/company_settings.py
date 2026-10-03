@@ -146,20 +146,29 @@ EVALS.update({
     ),
 })
 
+
+def _note(polish: str) -> dict[str, str | None]:
+    """The note's change as the command takes it: Polish set, the rest kept."""
+    from django.conf import settings
+
+    return {code: (polish if code == "pl" else None) for code in settings.LOCALE_REGISTRY}
+
+
 EVALS.update({
     "notifications.settings_customer_mail.read@1": CommandEval(
         arguments=lambda _context: {},
-        wrong_arguments={"note": "Do zobaczenia"},
+        wrong_arguments={"note": {"pl": "Do zobaczenia"}},
         wrong_field="note",
         stale="nie dotyczy: odczyt nie sprawdza wersji",
         state=_values,
     ),
-    "notifications.settings_customer_mail.update@1": CommandEval(
+    # @2: a text per language. Every registry language is named; null keeps it.
+    "notifications.settings_customer_mail.update@2": CommandEval(
         arguments=lambda _context: {
-            "note": "Prosimy o przybycie 10 minut wcześniej.",
+            "note": _note("Prosimy o przybycie 10 minut wcześniej."),
             "reset": None,
         },
-        wrong_arguments={"note": "Zapisy na www.studio.test", "reset": None},
+        wrong_arguments={"note": _note("Zapisy na www.studio.test"), "reset": None},
         wrong_field="note",
         stale=_stale("notifications.customer_mail.note"),
         state=_values,

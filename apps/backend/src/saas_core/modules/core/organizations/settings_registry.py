@@ -328,6 +328,27 @@ def check_value(spec: SettingSpec, value: Any) -> tuple[Any, str, str] | None:
         if spec.no_links and _LINK.search(text):
             return None, "Bez linków i adresów stron ani e-maili.", "links"
         return text, "", ""
+    if kind == "localized_text":
+        # Context-free, like every type here: the codes are the registry's;
+        # whether a company has the language is its own rule (`change_settings`).
+        if not isinstance(value, Mapping):
+            return None, "Podaj tekst dla każdego języka osobno.", "invalid"
+        texts: dict[str, str] = {}
+        for code, raw in value.items():
+            if code not in settings.LOCALE_REGISTRY:
+                return None, f"Nie ma języka „{code}”.", "locale_not_in_registry"
+            if not isinstance(raw, str):
+                return None, f"{code}: podaj tekst.", "invalid"
+            text = raw.strip()
+            if not text:
+                # No text in a language is its absence, not an empty text.
+                continue
+            if spec.max_length is not None and len(text) > spec.max_length:
+                return None, f"{code}: najwyżej {spec.max_length} znaków.", "max_length"
+            if spec.no_links and _LINK.search(text):
+                return None, f"{code}: bez linków i adresów stron ani e-maili.", "links"
+            texts[str(code)] = text
+        return {code: texts[code] for code in settings.LOCALE_REGISTRY if code in texts}, "", ""
     return None, "Nieznany typ ustawienia.", "invalid"
 
 
@@ -625,8 +646,13 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         problems.append("strategia override albo restrict (restrict dla enum i int)")
     if spec.operator_level not in (1, 2):
         problems.append("poziom operatora 1 albo 2")
-    if spec.no_links and spec.type != "text":
-        problems.append("no_links tylko dla typu text")
+    if spec.no_links and spec.type not in {"text", "localized_text"}:
+        problems.append("no_links tylko dla typów text i localized_text")
+    if spec.type == "localized_text" and tuple(spec.scopes) != ("organization",):
+        # The texts are per content language of a company, and the platform's
+        # change dialog writes every other value as one string: until it has a
+        # box per language, a key of this type is the company's alone.
+        problems.append("localized_text nie ma dziś wartości platformy (zasięg: firma)")
     if spec.inheritance not in SETTING_INHERITANCE or (
         spec.inheritance == "copy_at_creation" and "organization" not in spec.scopes
     ):

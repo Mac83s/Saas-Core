@@ -28537,12 +28537,20 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         note:
           type:
-          - string
+          - object
           - 'null'
+          additionalProperties:
+            type:
+            - string
+            - 'null'
+            maxLength: 300
           description: 'A short plain-text note (up to 300 characters, no links or
-            addresses) added at the end of every e-mail to the company''s customers.
-            The same for every customer: never a customer''s data. Empty: no note.'
-          maxLength: 300
+            addresses) added at the end of every e-mail to the company''s customers,
+            one text per language of the company: a mail carries the note of its own
+            language or no note, never another language''s. In a change, a language
+            set to null keeps its text and an empty string removes it; only languages
+            the company has are accepted. The same for every customer: never a customer''s
+            data.'
       required:
       - expected_version
     NotificationsCustomerMailSettingsChangeResetEnum:
@@ -28586,11 +28594,19 @@ components:
       type: object
       properties:
         note:
-          type: string
+          type: object
+          additionalProperties:
+            type:
+            - string
+            - 'null'
+            maxLength: 300
           description: 'A short plain-text note (up to 300 characters, no links or
-            addresses) added at the end of every e-mail to the company''s customers.
-            The same for every customer: never a customer''s data. Empty: no note.'
-          maxLength: 300
+            addresses) added at the end of every e-mail to the company''s customers,
+            one text per language of the company: a mail carries the note of its own
+            language or no note, never another language''s. In a change, a language
+            set to null keeps its text and an empty string removes it; only languages
+            the company has are accepted. The same for every customer: never a customer''s
+            data.'
       required:
       - note
     NullEnum:
@@ -30322,12 +30338,20 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         note:
           type:
-          - string
+          - object
           - 'null'
+          additionalProperties:
+            type:
+            - string
+            - 'null'
+            maxLength: 300
           description: 'A short plain-text note (up to 300 characters, no links or
-            addresses) added at the end of every e-mail to the company''s customers.
-            The same for every customer: never a customer''s data. Empty: no note.'
-          maxLength: 300
+            addresses) added at the end of every e-mail to the company''s customers,
+            one text per language of the company: a mail carries the note of its own
+            language or no note, never another language''s. In a change, a language
+            set to null keeps its text and an empty string removes it; only languages
+            the company has are accepted. The same for every customer: never a customer''s
+            data.'
     PatchedOrganizationSecuritySettingsChange:
       type: object
       properties:
@@ -31505,6 +31529,14 @@ components:
           - integer
           - 'null'
           description: The longest a text may be.
+        locales:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/SettingLocale'
+          description: 'For a `localized_text` key in the company''s schema: the company''s
+            languages, in its order — one text box for each.'
         value:
           description: The value in force for the platform.
         source:
@@ -34202,6 +34234,18 @@ components:
       - resource
       - resource_id
       - summary
+    SettingLocale:
+      type: object
+      properties:
+        code:
+          type: string
+          description: A language code of the registry, e.g. de.
+        name:
+          type: string
+          description: The language's own name, e.g. Deutsch.
+      required:
+      - code
+      - name
     SettingOption:
       type: object
       description: |-
@@ -34263,6 +34307,14 @@ components:
           - integer
           - 'null'
           description: The longest a text may be.
+        locales:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/SettingLocale'
+          description: 'For a `localized_text` key in the company''s schema: the company''s
+            languages, in its order — one text box for each.'
       required:
       - default
       - depends_on
@@ -34313,6 +34365,7 @@ components:
       - bool
       - enum
       - text
+      - localized_text
       - date
       type: string
       description: |-
@@ -34321,6 +34374,7 @@ components:
         * `bool` - bool
         * `enum` - enum
         * `text` - text
+        * `localized_text` - localized_text
         * `date` - date
     SettingUnitEnum:
       enum:

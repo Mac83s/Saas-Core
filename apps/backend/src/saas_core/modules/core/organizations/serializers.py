@@ -62,9 +62,9 @@ class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
         if chosen is None and len(offered) == 1:
             attrs["organization_type"] = offered[0]
         elif chosen not in offered:
-            raise serializers.ValidationError(
-                {"organization_type": "Wybierz typ organizacji spośród dostępnych."}
-            )
+            raise serializers.ValidationError({
+                "organization_type": "Wybierz typ organizacji spośród dostępnych."
+            })
         return attrs
 
 
@@ -295,6 +295,11 @@ class SettingValueOptionSerializer(serializers.Serializer[dict[str, Any]]):
     label = LocalizedTextSerializer()  # type: ignore[assignment]
 
 
+class SettingLocaleSerializer(serializers.Serializer[dict[str, Any]]):
+    code = serializers.CharField(help_text="A language code of the registry, e.g. de.")
+    name = serializers.CharField(help_text="The language's own name, e.g. Deutsch.")
+
+
 class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
     """One setting a company may choose, with what it may choose; the shape of
     an entry of the settings registry's schema (ADR-078 pkt 11)."""
@@ -318,6 +323,13 @@ class SettingOptionSerializer(serializers.Serializer[dict[str, Any]]):
     )
     max_length = serializers.IntegerField(
         allow_null=True, required=False, help_text="The longest a text may be."
+    )
+    locales = SettingLocaleSerializer(
+        many=True,
+        allow_null=True,
+        required=False,
+        help_text="For a `localized_text` key in the company's schema: the company's "
+        "languages, in its order — one text box for each.",
     )
 
 

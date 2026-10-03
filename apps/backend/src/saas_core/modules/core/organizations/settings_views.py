@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from django.conf import settings
 from django.urls import URLPattern, path
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -24,6 +25,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .authorization import authorize
+from .models import Organization
 from .permissions import ORGANIZATION_READ
 from .serializers import LocalizedTextSerializer, SettingOptionSerializer
 from .settings_registry import (
@@ -125,6 +127,23 @@ class SettingsSchemaView(APIView):
         def words(address: str, texts: Any) -> dict[str, str]:
             return dict(typed_text(address, texts, kind) or texts)
 
+        # A text per language is written in the company's languages: the
+        # schema names them, so the form asks for nothing more.
+        company = Organization.objects.filter(pk=context.organization_id).values_list(
+            "public_locales", flat=True
+        )
+        locales = [
+            {"code": code, "name": settings.LOCALE_REGISTRY[code].native_name}
+            for code in (company.first() or ())
+            if code in settings.LOCALE_REGISTRY
+        ]
+
+        def entry(spec: SettingSpec) -> dict[str, Any]:
+            described = schema_entry(spec, kind)
+            if spec.type == "localized_text":
+                described["locales"] = locales
+            return described
+
         return Response({
             "areas": [
                 {
@@ -146,7 +165,7 @@ class SettingsSchemaView(APIView):
                     "permission": group.permission,
                     "can_change": can_change,
                     "locked": locked,
-                    "keys": [schema_entry(spec, kind) for spec in group.settings],
+                    "keys": [entry(spec) for spec in group.settings],
                     "api": group.api,
                     "step_up": bool(group.step_up_reason),
                 }
@@ -336,6 +355,13 @@ def _field(spec: SettingSpec, **options: Any) -> serializers.Field[Any, Any, Any
         return serializers.DateField(**options)
     if spec.type == "enum":
         return serializers.ChoiceField(choices=[value for value, _ in spec.values], **options)
+    if spec.type == "localized_text":
+        # `{locale: text}`. In a change: a language left out stays, an empty
+        # text removes that language (ADR-078, localized_text).
+        text: dict[str, Any] = {"allow_blank": True, "allow_null": True}
+        if spec.max_length is not None:
+            text["max_length"] = spec.max_length
+        return serializers.DictField(child=serializers.CharField(**text), **options)
     if spec.max_length is not None:
         options["max_length"] = spec.max_length
     return serializers.CharField(allow_blank=True, **options)

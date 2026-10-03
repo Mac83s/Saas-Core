@@ -13,6 +13,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from django.conf import settings
+
 from .command_registry import CommandSpec, Effect, Preview
 from .context import TenantContext, require_tenant_context
 from .permissions import ORGANIZATION_READ
@@ -155,6 +157,8 @@ def group_commands(group: SettingGroup) -> tuple[CommandSpec, CommandSpec]:
 
 
 def _changes(group: SettingGroup, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    # A `localized_text` field arrives as {locale: text | null}; the service
+    # reads null as "leave that language" and "" as "remove it".
     return {field: arguments[field] for field in group.fields if arguments.get(field) is not None}
 
 
@@ -203,7 +207,7 @@ def _output_schema(group: SettingGroup) -> dict[str, Any]:
                 "type": "object",
                 "properties": {
                     spec.field: {
-                        **_json_type(spec, nullable=spec.default is None),
+                        **_json_type(spec, nullable=spec.default is None, output=True),
                         "x-data-class": spec.data_class,
                     }
                     for spec in group.settings
@@ -218,9 +222,37 @@ def _output_schema(group: SettingGroup) -> dict[str, Any]:
     }
 
 
-def _json_type(spec: SettingSpec, *, nullable: bool = False) -> dict[str, Any]:
+def _json_type(
+    spec: SettingSpec, *, nullable: bool = False, output: bool = False
+) -> dict[str, Any]:
     kind: dict[str, Any]
-    if spec.type == "bool":
+    if spec.type == "localized_text":
+        # Strict: one property per registry language, so the key set is frozen
+        # per command version. In a change every language is named — null
+        # keeps it, an empty string removes it; a read lists those that exist.
+        text: dict[str, Any] = {"type": "string" if output else ["string", "null"]}
+        if spec.max_length is not None:
+            text["maxLength"] = spec.max_length
+        codes = list(settings.LOCALE_REGISTRY)
+        kind = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                code: {
+                    **text,
+                    "description": settings.LOCALE_REGISTRY[code].english_name
+                    + (
+                        "."
+                        if output
+                        else ": null keeps the text as it is, an empty string removes it."
+                    ),
+                }
+                for code in codes
+            },
+        }
+        if not output:
+            kind["required"] = codes
+    elif spec.type == "bool":
         kind = {"type": "boolean"}
     elif spec.type == "int":
         kind = {"type": "integer"}

@@ -109,6 +109,13 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
     if (typeof raw === "boolean") return raw ? t("yes") : t("no");
     if (Array.isArray(raw))
       return raw.map((item) => value(item, field)).join(", ") || t("empty");
+    // A text per language (`localized_text`): each language with its text.
+    if (typeof raw === "object")
+      return (
+        Object.entries(raw as Record<string, unknown>)
+          .map(([code, item]) => `${code}: ${value(item)}`)
+          .join("; ") || t("empty")
+      );
     if (field === "category")
       return (
         dictionary?.categories.find((item) => item.key === raw)?.labels[
