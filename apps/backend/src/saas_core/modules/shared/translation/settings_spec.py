@@ -13,6 +13,7 @@ profile gives only the starting value, never a ceiling (ADR-069 pkt 12).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -205,26 +206,6 @@ def strictest(*modes: str) -> str:
     return max(modes, key=MODE_ORDER.index)
 
 
-def below_company(spec: SettingSpec) -> tuple[Any, str]:
-    """The value and its source where the company has none of its own, in the
-    registry's order (ADR-078 pkt 3): the product's `settingsDefaults`, then
-    the platform's value (an operator's, else the deployment's), then the
-    code's. A product's default stands above the operator's on purpose: a
-    platform-wide change must not move a product off what it chose."""
-    from saas_core.modules.core.organizations.settings_registry import (  # noqa: PLC0415
-        live_product_value,
-        platform_value,
-    )
-
-    product = live_product_value(spec)
-    if product is not None:
-        return product, "product"
-    platform = platform_value(spec)
-    if platform is not None:
-        return platform, "platform"
-    return spec.default, "code"
-
-
 # --- The engine's own values (TL22) ------------------------------------------------
 #
 # Class A: only the platform sets them, in the „Platforma” panel or with
@@ -372,6 +353,31 @@ PLATFORM_CONFIRM_USD = SettingSpec(
     },
 )
 
+
+def _waits_in_order(
+    before: Mapping[str, Any], after: Mapping[str, Any]
+) -> Mapping[str, tuple[str, str]]:
+    """The longest wait is never below the wait: refused at the change, on
+    the key the operator was changing, not corrected at read."""
+    wait, longest = DEMAND_WAIT_MINUTES.field, DEMAND_MAX_WAIT_MINUTES.field
+    if after[longest] >= after[wait]:
+        return {}
+    if after[wait] != before[wait]:
+        return {
+            wait: (
+                "Odczekanie nie może być dłuższe niż najdłuższe odczekanie "
+                f"({after[longest]} min).",
+                "above_longest_wait",
+            )
+        }
+    return {
+        longest: (
+            f"Najdłuższe odczekanie nie może być krótsze niż odczekanie ({after[wait]} min).",
+            "below_wait",
+        )
+    }
+
+
 ENGINE = SettingGroup(
     key="translation.engine",
     module="shared.translation",
@@ -384,6 +390,7 @@ ENGINE = SettingGroup(
     },
     permission=TRANSLATION_MANAGE,
     area="ai",
+    platform_check=_waits_in_order,
     settings=(
         DEMAND_WAIT_MINUTES,
         DEMAND_MAX_WAIT_MINUTES,
@@ -406,10 +413,7 @@ def demand_wait() -> timedelta:
 
 
 def demand_max_wait() -> timedelta:
-    # Never shorter than the wait itself, whatever order the two were changed in.
-    return timedelta(
-        minutes=max(_platform(DEMAND_MAX_WAIT_MINUTES), _platform(DEMAND_WAIT_MINUTES))
-    )
+    return timedelta(minutes=_platform(DEMAND_MAX_WAIT_MINUTES))
 
 
 def mass_publication_cap() -> int:

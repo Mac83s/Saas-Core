@@ -275,3 +275,28 @@ def test_the_deployments_switch_still_locks_whatever_the_default_says(
 
     assert (mode["effective"], mode["locked"]) == ("review", True)
     assert mode["lock_reason"] is not None
+
+
+def test_the_longest_wait_is_never_set_below_the_wait() -> None:
+    """Refused at the change, on whichever key the operator moves — not
+    corrected when the engine reads it."""
+    from rest_framework.exceptions import ValidationError
+
+    from saas_core.modules.core.organizations.platform_settings import (
+        change_platform_setting,
+        checked_platform_value,
+    )
+    from saas_core.modules.shared.translation import settings_spec as engine
+    from test_sites_ai_badge import operator
+
+    cache.clear()
+    staff = operator()
+    wait, longest = engine.DEMAND_WAIT_MINUTES.key, engine.DEMAND_MAX_WAIT_MINUTES.key
+
+    # The wait raised above the longest wait (30).
+    with pytest.raises(ValidationError) as raised:
+        change_platform_setting(wait, 40, operator=staff, reason="Próba")
+    assert raised.value.get_codes() == {"value": ["above_longest_wait"]}
+    # The longest wait cannot go below the wait (5): its own lower bound is 5.
+    assert checked_platform_value(longest, 5) == 5
+    assert checked_platform_value(wait, 30) == 30

@@ -18,11 +18,12 @@ from saas_core.content_protocol.policy import (
     REASON_OPERATOR_FORCED_REVIEW,
     TranslationPolicy,
 )
+from saas_core.modules.core.organizations.api import inherited
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 
 from .models import TranslationCeiling, TranslationOverride, TranslationSettings
-from .settings_spec import MODE, below_company, mass_publication_cap, strictest
+from .settings_spec import MODE, mass_publication_cap, strictest
 
 REASON_KILL_SWITCH = "kill_switch"
 REASON_ORGANIZATION_PAUSED = "organization_paused"
@@ -56,8 +57,9 @@ def company_mode(organization_id: UUID) -> tuple[str, str]:
     row = TranslationSettings.all_objects.filter(organization_id=organization_id).first()
     if row is not None and row.mode:
         return row.mode, "organization"
-    mode, source = below_company(MODE)
-    return str(mode), source
+    # Below the company the order is the registry's (ADR-078 pkt 3).
+    default = inherited(MODE.key)
+    return str(default.value), default.source
 
 
 def effective_mode(organization_id: UUID) -> EffectiveMode:

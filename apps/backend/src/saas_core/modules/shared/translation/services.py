@@ -31,7 +31,7 @@ from rest_framework.exceptions import (
 )
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.api import schema_entry
+from saas_core.modules.core.organizations.api import inherited, schema_entry
 from saas_core.modules.core.organizations.audit import field_changes, record_audit
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.canonical import canonical_json_hash
@@ -57,7 +57,6 @@ from .settings_spec import (
     DECLARATIONS,
     MODE,
     SETTINGS,
-    below_company,
 )
 
 SETTINGS_GROUP = SETTINGS.key
@@ -219,8 +218,9 @@ def settings_state(organization_id: UUID) -> dict[str, Any]:
     override = operator_override(organization_id)
     effective = effective_mode(organization_id)
     limit_own = row.auto_monthly_limit if row is not None else None
-    limit_default, limit_source = below_company(AUTO_MONTHLY_LIMIT)
-    limit = limit_own if limit_own is not None else int(limit_default)
+    # Below the company the order is the registry's (ADR-078 pkt 3).
+    limit_default = inherited(AUTO_MONTHLY_LIMIT.key)
+    limit = limit_own if limit_own is not None else int(limit_default.value)
     limit_cap = override.auto_monthly_limit_cap if override is not None else None
     if limit_cap is not None:
         limit = min(limit, limit_cap)
@@ -256,7 +256,7 @@ def settings_state(organization_id: UUID) -> dict[str, Any]:
                 "effective": limit,
                 "source": "operator"
                 if limit_cap is not None and limit == limit_cap
-                else ("organization" if limit_own is not None else limit_source),
+                else ("organization" if limit_own is not None else limit_default.source),
                 "locked": limit_cap is not None,
                 "lock_reason": "operator_cap" if limit_cap is not None else None,
                 "operator_reason": override.reason
