@@ -218,6 +218,25 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
 - ADR-050 i 051 mają status „proponowana”, choć są wdrożone (ADR-052
   przyjęta 24.09).
 
+## Stałe kontrole odbioru ekranów panelu
+
+Zanim podasz ścieżkę klikania (adres, konto, miejsce), po przebudowie stosu:
+
+- **Kod odpowiedzi przed treścią** — `curl -w '%{http_code}'` każdej strony i wywołania;
+  szukanie tekstu przechodzi także na stronie z błędem.
+- **Przejście w prawdziwej przeglądarce** (Playwright przez kolejkę `heavy`) kontem, które
+  podaje ścieżka. Curl, render serwera i testy komponentów nie uruchamiają kodu
+  powłoki panelu w przeglądarce.
+- **Konto bez firmy** przy każdej zmianie powłoki panelu (layout, nagłówek, menu, dzwonek,
+  nazwa karty, „Dziś”): `operator@saas.test` na :8080 (operator platformy, bez członkostwa;
+  `~/DEVELOPMENT/.local-dev/KONTA-TESTOWE.md`). Skrypt
+  `~/DEVELOPMENT/.local-dev/check-shell-no-company.cjs` loguje się tym kontem, otwiera
+  `/panel`, `/panel/platform` i `/panel/settings/account` (albo strony z argumentów) i
+  kończy się błędem, gdy strona się zawiesi, żądanie odpowie 5xx albo konsola zgłosi błąd.
+  Powód: obie usterki z 03.10 — nieskończone przepisywanie nazwy karty (`365075ac`) i 500
+  z dzwonka powiadomień (`fe0cb5a9`) — wyszły tylko na tym koncie i tylko w przeglądarce.
+  To samo konto istnieje w życiu: osoba przed wyborem aktywnej firmy.
+
 ## Praca na tym VPS
 
 - `pnpm` przez corepack: `export PATH="/usr/lib/node_modules/corepack/shims:$PATH"`;
