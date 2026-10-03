@@ -34,6 +34,9 @@ collect_ignore_glob = [
     ),
     # MedPlano does not compose the farm register.
     *([] if "shared.farms" in settings.ACTIVE_MODULES else ["test_farms_today.py"]),
+    # Nor, for its pilot, the warehouse (owner's answer 44a): the demo seed's
+    # test counts stock rows and imports the warehouse's models at the top.
+    *([] if "shared.inventory" in settings.ACTIVE_MODULES else ["test_seed_demo.py"]),
     *(
         []
         if "shared.translation" in settings.ACTIVE_MODULES
