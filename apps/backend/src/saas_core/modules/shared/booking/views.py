@@ -57,6 +57,7 @@ from .occupancy import Held, books_stays, occupancy
 from .passing import closes_explicitly, has_passed
 from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
+from .presets import Preset, list_presets
 from .public import public_choices, public_people, shown_to_customer
 from .rules import (
     copy_closures_to_next_year,
@@ -116,6 +117,7 @@ from .serializers import (
     PlaceSetupPreviewSerializer,
     PlaceSetupSerializer,
     PlaceUpdateSerializer,
+    PresetListSerializer,
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
@@ -1417,21 +1419,21 @@ class StaffListView(APIView):
         return Response({"items": [_person_payload(person) for person in people]})
 
     @extend_schema(
+        operation_id="booking_staff_create",
+        summary="Add a person to the team",
+        description="The entry, the invitation when an e-mail is given, the services and "
+        "hours when the person takes visits, and the teams they join — all or nothing."
+        + _WRITE_NOTE,
         tags=["booking"],
+        parameters=[IDEMPOTENCY],
         request=PersonCreateSerializer,
-        responses={
-            201: PersonDetailSerializer,
-            400: ProblemDetailsSerializer,
-            403: ProblemDetailsSerializer,
-            409: ProblemDetailsSerializer,
-        },
+        responses={201: PersonDetailSerializer, 200: PersonDetailSerializer, **_SETUP_PROBLEMS},
     )
     def post(self, request: Request) -> Response:
         serializer = PersonCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        staff = add_person(
-            request=cast(HttpRequest, request),
+        saved = add_person(
             name=data["name"],
             phone=data["phone"],
             invitation=data.get("invitation"),
@@ -1440,8 +1442,12 @@ class StaffListView(APIView):
             hours=data.get("hours"),
             copy_hours_from=data.get("copy_hours_from"),
             team_ids=data.get("team_ids"),
+            idempotency_key=_idem(request),
         )
-        return Response(_person_detail_payload(person_detail(staff.id)), status=201)
+        return Response(
+            _person_detail_payload(person_detail(saved.item_id)),
+            status=200 if saved.replayed else 201,
+        )
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -1914,6 +1920,9 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "slot_step_minutes": service.slot_step_minutes,
         "online": service.online,
         "active": service.active,
+        "draft": service.draft,
+        "preset_id": service.preset_id or None,
+        "preset_version": service.preset_version,
         "staff_ids": value.staff_ids,
         "location_ids": value.location_ids,
         "resource_ids": value.resource_ids,
@@ -2018,6 +2027,38 @@ class BookingSetupOptionsView(APIView):
     def get(self, request: Request) -> Response:
         del request
         return Response({"keys": setup_options()})
+
+
+def _preset_payload(item: Preset) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "version": item.version,
+        "readiness": item.readiness,
+        "labels": item.labels,
+        "time_model": item.time_model,
+        "booked_subject": item.booked_subject,
+        "booked_staff": item.booked_staff,
+        "place": item.place,
+        "required_inputs": list(item.required_inputs),
+        "catalog_category": item.catalog_category,
+    }
+
+
+class BookingPresetListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_presets_list",
+        summary="List what the company may start an offer from",
+        description="The presets of ADR-072 §10 in the order a company sees them, each in "
+        "its latest version: ready ones can be applied, the rest are announced. This list "
+        "is the only source a panel, a site or the assistant chooses from.",
+        tags=["booking"],
+        responses={200: PresetListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"presets": [_preset_payload(item) for item in list_presets()]})
 
 
 @method_decorator(csrf_protect, name="dispatch")

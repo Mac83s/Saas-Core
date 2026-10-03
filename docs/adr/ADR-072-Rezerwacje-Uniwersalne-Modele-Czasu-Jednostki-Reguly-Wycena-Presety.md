@@ -394,3 +394,35 @@ trafiają do e-maili, logów ani historii zmian, a anonimizacja je czyści.
 - Presety w kodzie albo jako `serviceTemplates` — 5–1440 min nie opisze okresu,
   a szablonów usług żadne API nie zwraca, więc asystent ich nie widzi.
 - Preset jako odwołanie — jego zmiana przepisałaby oferty firm.
+
+## Uzupełnienie 2026-10-03: zastosowanie presetu i szkic oferty (faza 3.0)
+
+Pierwszym czytelnikiem presetów jest konfigurator asystenta (A2), więc loader,
+`GET /api/v1/booking/presets/` i zastosowanie powstały przed cennikiem.
+
+- **Zastosowanie tworzy samą ofertę** (`presets.apply_preset`, polecenie
+  `booking.preset.apply@1`): firma podaje nazwę i — dla modelu `slot` — czas
+  trwania, resztę daje preset. Osób ani miejsc nikt za firmę nie dobiera: bez
+  `staff_ids` i `location_ids` oferta ich nie ma. Stosuje się tylko preset
+  `ready`; odmowa ma kod na polu `preset_id`: `preset_unknown`,
+  `preset_not_ready`, a `preset_not_allowed` jest zarezerwowany dla presetów
+  typu organizacji (faza 5). Pokwitowanie to `service.create`, jak przy
+  zwykłej nowej usłudze.
+- **Pochodzenie** (§11) to pola oferty: `preset_id`, `preset_version` i
+  `origin_ref` — rozmowa (`conversation:<uuid>`), gdy ofertę założył asystent,
+  także poleceniem `booking.offer.create@1`.
+- **Szkic** (`Service.draft`) to oferta, której od założenia nikt nie włączył.
+  Tylko szkic bez rezerwacji można usunąć (`setup.discard_draft`, pokwitowanie
+  `service.discard`; odmowy `not_a_draft`, `service_has_bookings`) — razem z
+  powiązaniami, własnymi sezonami i tłumaczeniami. To jest cofnięcie
+  `discard_run` poleceń, które zakładają szkice. Oferta choć raz włączona
+  zostaje na zawsze i można ją tylko wyłączyć: mogła trafić na stronę, do
+  odnośników i do historii. Oferty sprzed migracji `booking` 0024 szkicami nie
+  są, bo nie wiadomo, czy były włączone.
+- **Słownictwo etapami.** Zastosowanie kopiuje słowa presetu w języku
+  źródłowym firmy (łańcuch z §10: pierwszy język firmy, potem en, potem pl) do
+  `Service.vocabulary`. Wiersze tłumaczeń słownictwa w pozostałych językach
+  firmy, o których mówi §10, powstaną z pierwszym czytelnikiem tych słów —
+  formularzem publicznym presetów w fazie 5, gdy słownictwo stanie się polem
+  źródła `booking.service`. Do tego czasu nikt by ich nie czytał, a oferta
+  wskazuje niezmienną wersję presetu, z której faza 5 je dopisze.

@@ -430,20 +430,24 @@ test("dodaje podwykonawcę bez konta z usługami i godzinami w jednym kroku", as
     within(dialog).getByRole("button", { name: "Dodaj pracownika" }),
   );
   await waitFor(() =>
-    expect(api.addPerson).toHaveBeenCalledWith({
-      name: "Krzysztof Nowak",
-      phone: "604 567 890",
-      invitation: null,
-      service_ids: [SERVICE],
-      hours: {
-        weekdays: [0, 1, 2, 3],
-        local_start: "06:00",
-        local_end: "16:00",
-        location_id: PLACE,
+    expect(api.addPerson).toHaveBeenCalledWith(
+      {
+        name: "Krzysztof Nowak",
+        phone: "604 567 890",
+        invitation: null,
+        service_ids: [SERVICE],
+        hours: {
+          weekdays: [0, 1, 2, 3],
+          local_start: "06:00",
+          local_end: "16:00",
+          location_id: PLACE,
+        },
+        copy_hours_from: null,
+        team_ids: [],
       },
-      copy_hours_from: null,
-      team_ids: [],
-    }),
+      // One key for the dialog (ADR-072 §11).
+      expect.any(String),
+    ),
   );
   expect(
     await screen.findByText("Dodano do zespołu: Krzysztof Nowak."),
@@ -496,6 +500,7 @@ test("zespoły: kolumna, filtr i wybór przy dodawaniu osoby", async () => {
         name: "Piotr Wiśniewski",
         team_ids: ["t-north"],
       }),
+      expect.any(String),
     ),
   );
 });
@@ -558,11 +563,32 @@ test("z kontem: rola robocza domyślnie, zaproszenie i czytelny konflikt", async
         invitation: { email: "kamil@example.com", role: "staff" },
         service_ids: [SERVICE],
       }),
+      expect.any(String),
     ),
   );
   expect(
     await screen.findByText("Wysłano zaproszenie: kamil@example.com."),
   ).toBeInTheDocument();
+
+  // The retry carried the refused attempt's key; the next person gets a new
+  // one, though the dialog never unmounted (ADR-072 §11).
+  const [first, retry] = api.addPerson.mock.calls.map((call) => call[1]);
+  expect(retry).toBe(first);
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj pracownika" }));
+  const again = await screen.findByRole("dialog", {
+    name: "Dodaj pracownika",
+  });
+  fireEvent.change(within(again).getByLabelText("Imię i nazwisko"), {
+    target: { value: "Ewa Lis" },
+  });
+  fireEvent.change(within(again).getByLabelText("E-mail"), {
+    target: { value: "ewa@example.com" },
+  });
+  fireEvent.click(
+    within(again).getByRole("button", { name: "Dodaj i wyślij zaproszenie" }),
+  );
+  await waitFor(() => expect(api.addPerson).toHaveBeenCalledTimes(3));
+  expect(api.addPerson.mock.calls[2][1]).not.toBe(first);
 });
 
 test("zmiana roli w grupach Zarządzanie i Praca działa od razu", async () => {

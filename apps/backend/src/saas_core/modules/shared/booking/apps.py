@@ -1,4 +1,7 @@
 from django.apps import AppConfig
+from django.conf import settings
+from django.core.checks import Error, register
+from django.core.exceptions import ImproperlyConfigured
 
 
 class BookingConfig(AppConfig):
@@ -20,6 +23,7 @@ class BookingConfig(AppConfig):
         from .notify import register_templates
         from .staff import link_on_join
 
+        register(check_preset_contracts, "booking")
         # The person the office added is the one who accepts the invitation.
         register_invitation_accepted(link_on_join)
         # A demo day board on a staging stack (seed_demo).
@@ -69,3 +73,29 @@ class BookingConfig(AppConfig):
             ("reminder_route", ReminderRoute),
         ):
             register_erasure_rows(f"shared.booking.{name}", model, "organization_id")
+
+
+def check_preset_contracts(**_kwargs: object) -> list[Error]:
+    """Fails the deploy when the booking presets did not reach the image.
+
+    They are read from disk on first use, so a missing directory or a version
+    the manifest names without its file would surface as a 500 the first time
+    somebody starts an offer — long after the deploy reported success.
+    """
+    from .presets import latest_presets
+
+    try:
+        latest_presets()
+    except ImproperlyConfigured as error:
+        return [
+            Error(
+                str(error),
+                hint=(
+                    "Skopiuj packages/contracts/booking-presets do obrazu i ustaw zmienną "
+                    "środowiskową BOOKING_PRESET_CONTRACTS_PATH."
+                ),
+                obj=str(settings.BOOKING_PRESET_CONTRACTS_PATH),
+                id="booking.E010",
+            )
+        ]
+    return []

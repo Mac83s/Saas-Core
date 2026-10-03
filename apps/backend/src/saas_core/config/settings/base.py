@@ -304,6 +304,15 @@ CATALOG_CONTRACTS_PATH = Path(
         BASE_DIR.parent.parent / "packages" / "contracts" / "catalog",
     )
 )
+#: ADR-072 §10: the booking presets a company starts an offer from — data, not
+#: code. Read from disk at first use, so the image carries a copy and a system
+#: check answers for the path (the default in the image needs no `.env` line).
+BOOKING_PRESET_CONTRACTS_PATH = Path(
+    os.environ.get(
+        "BOOKING_PRESET_CONTRACTS_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "booking-presets",
+    )
+)
 #: How long an approval digest stands. Long enough for a person to look at the
 #: diff and decide, short enough that an approval cannot be banked and spent
 #: against a site that has moved on since.

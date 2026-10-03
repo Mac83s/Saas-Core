@@ -10,7 +10,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from command_evals.booking import _first, _service_fields, _week
+from command_evals.booking import _first, _preset_fields, _service_fields, _week
 from saas_core.modules.core.organizations import command_executor
 from saas_core.modules.core.organizations.command_executor import execute_plan, preview_plan
 from saas_core.modules.core.organizations.context import activate_tenant_context
@@ -121,3 +121,28 @@ def test_a_week_read_and_sent_back_changes_nothing() -> None:
     assert done.status == "done", done
     assert read.output["staff"][0]["hours"] == _week(person, "09:00", "17:00")["rules"]
     assert StaffMember.all_objects.get(pk=staff["id"]).hours_version == done.output["hours_version"]
+
+
+def test_a_preset_the_assistant_applies_is_a_draft_that_names_its_conversation() -> None:
+    person = owner("preset-apply", "booking.preset.apply@1")
+    acting = assistant(person)
+    plan = [
+        invocation(
+            "booking.preset.apply@1", _preset_fields(name="Masaż klasyczny", duration_minutes=60)
+        )
+    ]
+    tokens = clicked(person, acting, plan)
+    with activate_tenant_context(acting):
+        (result,) = execute_plan(plan, tokens)
+
+    assert result.status == "done", result
+    created = Service.all_objects.get(pk=result.output["service_id"])
+    assert result.output == {
+        "service_id": str(created.id),
+        "name": "Masaż klasyczny",
+        "active": False,
+        "version": 1,
+        "preset_id": "core.specialist_visit",
+        "preset_version": 1,
+    }
+    assert (created.active, created.draft, created.origin_ref) == (False, True, acting.acting_ref)

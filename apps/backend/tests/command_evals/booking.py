@@ -110,6 +110,17 @@ def _service_fields(**given: Any) -> dict[str, Any]:
     return {**fields, **given}
 
 
+def _preset_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys((
+        "version",
+        "name",
+        "duration_minutes",
+        "staff_ids",
+        "location_ids",
+    ))
+    return {"preset_id": "core.specialist_visit", **fields, **given}
+
+
 def _week(context: TenantContext, start: str, end: str) -> dict[str, Any]:
     return {
         "staff_id": str(_first(StaffMember, context).id),
@@ -196,6 +207,28 @@ EVALS = {
             )
             and None
         ),
+        state=_state,
+        prepare=_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.preset.list@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"presets": True},
+        wrong_field="presets",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_state,
+        prepare=_company,
+    ),
+    "booking.preset.apply@1": CommandEval(
+        arguments=lambda context: _preset_fields(
+            name="Masaż",
+            duration_minutes=60,
+            location_ids=[str(_first(Location, context).id)],
+        ),
+        # Refused by the service, not the schema: the preset is announced, not ready.
+        wrong_arguments=_preset_fields(preset_id="core.lodging", name="Domek"),
+        wrong_field="preset_id",
+        stale="nie dotyczy: nowa usługa nie ma jeszcze wersji",
         state=_state,
         prepare=_company,
         preview_rolls_back=ROLLED_BACK,

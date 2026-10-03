@@ -242,6 +242,8 @@ export function EditPersonDialog({
   const [services, setServices] = useState(new Set(person.serviceIds));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
+  // One key for the dialog: a retry adds the entry once (ADR-072 §11).
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   async function save() {
     setBusy(true);
@@ -249,12 +251,15 @@ export function EditPersonDialog({
     try {
       const trimmed = name.trim();
       if (!person.staffId)
-        await addPerson({
-          name: trimmed,
-          phone: phone.trim(),
-          membership_id: person.membershipId,
-          service_ids: [...services],
-        });
+        await addPerson(
+          {
+            name: trimmed,
+            phone: phone.trim(),
+            membership_id: person.membershipId,
+            service_ids: [...services],
+          },
+          idempotencyKey,
+        );
       else {
         await updatePerson(
           person.staffId,

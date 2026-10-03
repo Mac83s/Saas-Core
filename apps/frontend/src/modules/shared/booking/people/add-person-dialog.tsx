@@ -215,6 +215,13 @@ export function AddPersonDialog({
     );
   }
 
+  // One key until a person is added: a double click or a retry adds one
+  // person (ADR-072 §11). The dialog stays mounted, so the next person gets
+  // a new key.
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    crypto.randomUUID(),
+  );
+
   const submit = form.handleSubmit(async (values) => {
     setProblem(undefined);
     const invitation =
@@ -224,26 +231,30 @@ export function AddPersonDialog({
     try {
       if (calendar) {
         const visits = values.takesVisits;
-        await addPerson({
-          name: values.name.trim(),
-          phone: values.phone.trim(),
-          invitation,
-          service_ids: visits ? values.serviceIds : [],
-          hours:
-            visits && !values.copyFrom
-              ? {
-                  weekdays: values.weekdays,
-                  local_start: values.from,
-                  local_end: values.to,
-                  location_id: values.locationId || null,
-                }
-              : null,
-          copy_hours_from: visits && values.copyFrom ? values.copyFrom : null,
-          team_ids: values.teamIds,
-        });
+        await addPerson(
+          {
+            name: values.name.trim(),
+            phone: values.phone.trim(),
+            invitation,
+            service_ids: visits ? values.serviceIds : [],
+            hours:
+              visits && !values.copyFrom
+                ? {
+                    weekdays: values.weekdays,
+                    local_start: values.from,
+                    local_end: values.to,
+                    location_id: values.locationId || null,
+                  }
+                : null,
+            copy_hours_from: visits && values.copyFrom ? values.copyFrom : null,
+            team_ids: values.teamIds,
+          },
+          idempotencyKey,
+        );
       } else if (invitation) {
         await createInvitation(invitation);
       }
+      setIdempotencyKey(crypto.randomUUID());
       onOpenChange(false);
       onAdded({ name: values.name.trim(), email: invitation?.email });
     } catch (error) {

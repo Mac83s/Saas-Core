@@ -130,18 +130,22 @@ def list_invitations() -> list[Invitation]:
 @transaction.atomic
 def create_invitation(
     *,
-    request: HttpRequest,
+    request: HttpRequest | None = None,
     email: str,
     role_key: str,
+    actor: User | None = None,
 ) -> Invitation:
+    """`actor` instead of `request` where there is no request: a command or a
+    service that has only the tenant's context (ADR-076, ADR-072 §11)."""
     context = _authorize_member_management()
     # Nobody is invited into the platform's own workspace. Its members are put
     # there deliberately by an operator, which is also the only way the MFA
     # requirement below can be relied on.
-    assert_not_platform(
-        Organization.objects.get(pk=context.organization_id)
-    )
-    actor = cast(User, request.user)
+    assert_not_platform(Organization.objects.get(pk=context.organization_id))
+    if actor is None:
+        if request is None:
+            raise ValueError("create_invitation needs a request or an actor.")
+        actor = cast(User, request.user)
     normalized_email = User.objects.normalize_email(email)
     role = _assignable_role(
         organization_id=context.organization_id,
@@ -230,8 +234,7 @@ def accept_invitation(*, request: HttpRequest, token: str) -> Membership:
     if (
         invitation is None
         or not invitation.is_usable(at=now)
-        or invitation.organization.status
-        not in WORKING_ORGANIZATION_STATUSES
+        or invitation.organization.status not in WORKING_ORGANIZATION_STATUSES
         or invitation.role.key == "owner"
         or invitation.role.organization_id not in {None, invitation.organization_id}
     ):

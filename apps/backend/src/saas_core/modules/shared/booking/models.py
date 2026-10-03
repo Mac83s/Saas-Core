@@ -285,6 +285,17 @@ class Service(TenantScopedModel):
     #: in the panel only.
     online = models.BooleanField(default=True)
     active = models.BooleanField(default=True)
+    #: Never switched on since it was made. Only a draft can be discarded
+    #: (`setup.discard_draft`); switching the offer on ends it for good.
+    draft = models.BooleanField(default=False)
+    #: Where the offer came from (ADR-072 §11): the preset it was copied from
+    #: and, when the assistant made it, its conversation (`conversation:<uuid>`).
+    preset_id = models.CharField(max_length=80, blank=True)
+    preset_version = models.PositiveSmallIntegerField(null=True, blank=True)
+    origin_ref = models.CharField(max_length=64, blank=True)
+    #: The preset's words for a booking and for who comes, in the company's
+    #: first language (§10): `{booking, bookings, participant, participants}`.
+    vocabulary = models.JSONField(default=dict, blank=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -837,8 +848,9 @@ class BookingSetupMutation(TenantScopedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    #: `service.create`, `service.update`, `location.create`, `location.update`,
-    #: `resource.create`, `resource.update`, `staff.hours.set`.
+    #: `service.create`, `service.update`, `service.discard`, `location.create`,
+    #: `location.update`, `resource.create`, `resource.update`, `staff.hours.set`,
+    #: `staff.add`.
     action = models.CharField(max_length=40)
     principal_ref = models.CharField(max_length=80)
     idempotency_key = models.CharField(max_length=160)

@@ -538,12 +538,16 @@ test("moja karta zarządu bez wpisu: konto z członkostwa, do grafiku dodaje si�
   fireEvent.click(within(dialog).getByLabelText("Korekcja stada"));
   fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
   await waitFor(() =>
-    expect(api.addPerson).toHaveBeenCalledWith({
-      name: "Jan Wójcik",
-      phone: "",
-      membership_id: "owner",
-      service_ids: [SERVICE],
-    }),
+    expect(api.addPerson).toHaveBeenCalledWith(
+      {
+        name: "Jan Wójcik",
+        phone: "",
+        membership_id: "owner",
+        service_ids: [SERVICE],
+      },
+      // One key for the dialog (ADR-072 §11).
+      expect.any(String),
+    ),
   );
 });
 

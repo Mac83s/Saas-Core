@@ -15,18 +15,6 @@
       "owner": "plan wielojęzyczności, TL9c"
     },
     {
-      "command": "booking.preset.list@1",
-      "risk": "read",
-      "modifiers": [],
-      "owner": "plan rezerwacji, faza 3"
-    },
-    {
-      "command": "booking.preset.apply@1",
-      "risk": "draft",
-      "modifiers": [],
-      "owner": "plan rezerwacji, faza 3"
-    },
-    {
       "command": "booking.staff.add@1",
       "risk": "apply",
       "modifiers": [],

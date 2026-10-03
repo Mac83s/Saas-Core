@@ -510,11 +510,7 @@ REPORT_FILE = CONTRACTS.parent.parent / "docs" / "assistant" / "co-asystent-zalo
 #: What stands between the four examples and a finished setup, today. Every
 #: line is somebody's work in progress: when it lands, this is where it shows.
 TODAY = {
-    "commands_missing": [
-        "booking.preset.apply@1",
-        "booking.preset.list@1",
-        "booking.staff.add@1",
-    ],
+    "commands_missing": ["booking.staff.add@1"],
     "presets_not_ready": ["core.lodging", "core.rental", "core.service_at_customer"],
     "no_price_list": ["hairdresser:offers.cut.price"],
     "cities_not_in_catalog": ["Mikołajki"],

@@ -25,6 +25,7 @@ from .views import (
     BookingOccupancyView,
     BookingOverviewView,
     BookingPlacesView,
+    BookingPresetListView,
     BookingQueueView,
     BookingRuleCopyYearPreviewView,
     BookingRuleCopyYearView,
@@ -134,6 +135,7 @@ urlpatterns = [
     path("schedule/", BookingScheduleView.as_view(), name="schedule"),
     path("setup/", BookingSetupView.as_view(), name="setup"),
     path("setup/options/", BookingSetupOptionsView.as_view(), name="setup-options"),
+    path("presets/", BookingPresetListView.as_view(), name="presets"),
     path(
         "setup/translations/<str:kind>/<uuid:item_id>/",
         ItemTranslationListView.as_view(),

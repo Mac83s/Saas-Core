@@ -2396,6 +2396,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/presets/:
+    get:
+      operationId: booking_presets_list
+      description: 'The presets of ADR-072 §10 in the order a company sees them, each
+        in its latest version: ready ones can be applied, the rest are announced.
+        This list is the only source a panel, a site or the assistant chooses from.'
+      summary: List what the company may start an offer from
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresetList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/public/{public_slug}/:
     get:
       operationId: public_booking_catalog
@@ -5295,10 +5319,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
     post:
-      operationId: api_v1_booking_staff_create
-      description: |-
-        The company's people (ADR-058 §1). The team screen joins them with the
-        organization's memberships and invitations; nobody drops off the list.
+      operationId: booking_staff_create
+      description: The entry, the invitation when an e-mail is given, the services
+        and hours when the person takes visits, and the teams they join — all or nothing.
+        A repeated Idempotency-Key answers the first result again; the key reused
+        on another request is 409 `booking_idempotency_conflict`.
+      summary: Add a person to the team
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
       tags:
       - booking
       requestBody:
@@ -5322,6 +5354,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersonDetail'
           description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
         '400':
           content:
             application/json:
@@ -5329,6 +5367,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -21357,7 +21401,7 @@ components:
           format: uuid
         time_model:
           allOf:
-          - $ref: '#/components/schemas/TimeModelEnum'
+          - $ref: '#/components/schemas/TimeModel665Enum'
           description: |-
             `slot` — a visit; `range` — a stay or rental from–to.
 
@@ -22772,6 +22816,28 @@ components:
       - labels
       - slots
       - version
+    BookedStaffEnum:
+      enum:
+      - required
+      - optional
+      - none
+      type: string
+      description: |-
+        * `required` - required
+        * `optional` - optional
+        * `none` - none
+    BookedSubjectEnum:
+      enum:
+      - staff
+      - unit
+      - unit_group
+      - seat
+      type: string
+      description: |-
+        * `staff` - staff
+        * `unit` - unit
+        * `unit_group` - unit_group
+        * `seat` - seat
     BookingClosure:
       type: object
       properties:
@@ -31623,7 +31689,7 @@ components:
           maxLength: 160
         time_model:
           allOf:
-          - $ref: '#/components/schemas/TimeModelEnum'
+          - $ref: '#/components/schemas/TimeModel665Enum'
           description: |-
             `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
 
@@ -32413,6 +32479,18 @@ components:
             format: uuid
       required:
       - service_ids
+    PlaceEnum:
+      enum:
+      - business
+      - customer
+      - online
+      - pickup_return
+      type: string
+      description: |-
+        * `business` - business
+        * `customer` - customer
+        * `online` - online
+        * `pickup_return` - pickup_return
     PlaceInput:
       type: object
       description: A new place where the company works.
@@ -32871,6 +32949,117 @@ components:
       required:
       - locale
       - marketing_enabled
+    Preset:
+      type: object
+      description: What a company may start an offer from (ADR-072 §10).
+      properties:
+        id:
+          type: string
+          description: '`core.<key>`, or a product''s own namespace.'
+        version:
+          type: integer
+          description: The latest version; applying names it.
+        readiness:
+          allOf:
+          - $ref: '#/components/schemas/ReadinessEnum'
+          description: |-
+            `ready` can be applied now; `soon` is shown and refused with `preset_not_ready`.
+
+            * `ready` - ready
+            * `soon` - soon
+        labels:
+          $ref: '#/components/schemas/PresetLabels'
+        time_model:
+          allOf:
+          - $ref: '#/components/schemas/PresetTimeModelEnum'
+          description: |-
+            `slot`: a start from the grid; `range`: a period from–to; `session`: seats in an occurrence.
+
+            * `slot` - slot
+            * `range` - range
+            * `session` - session
+        booked_subject:
+          allOf:
+          - $ref: '#/components/schemas/BookedSubjectEnum'
+          description: |-
+            What a booking takes.
+
+            * `staff` - staff
+            * `unit` - unit
+            * `unit_group` - unit_group
+            * `seat` - seat
+        booked_staff:
+          allOf:
+          - $ref: '#/components/schemas/BookedStaffEnum'
+          description: |-
+            Whether a person does it.
+
+            * `required` - required
+            * `optional` - optional
+            * `none` - none
+        place:
+          $ref: '#/components/schemas/PlaceEnum'
+        required_inputs:
+          type: array
+          items:
+            type: string
+          description: What the preset needs from the company before the offer can
+            run, as keys.
+        catalog_category:
+          type:
+          - string
+          - 'null'
+          description: A suggested category of the public catalogue.
+      required:
+      - booked_staff
+      - booked_subject
+      - catalog_category
+      - id
+      - labels
+      - place
+      - readiness
+      - required_inputs
+      - time_model
+      - version
+    PresetLabels:
+      type: object
+      properties:
+        pl:
+          $ref: '#/components/schemas/PresetText'
+        en:
+          $ref: '#/components/schemas/PresetText'
+      required:
+      - en
+      - pl
+    PresetList:
+      type: object
+      properties:
+        presets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Preset'
+      required:
+      - presets
+    PresetText:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+      required:
+      - description
+      - name
+    PresetTimeModelEnum:
+      enum:
+      - slot
+      - range
+      - session
+      type: string
+      description: |-
+        * `slot` - slot
+        * `range` - range
+        * `session` - session
     ProblemDetails:
       type: object
       properties:
@@ -34113,7 +34302,7 @@ components:
           format: uuid
         time_model:
           allOf:
-          - $ref: '#/components/schemas/TimeModelEnum'
+          - $ref: '#/components/schemas/TimeModel665Enum'
           description: |-
             `slot` — a visit; `range` — a stay or rental from–to.
 
@@ -34374,6 +34563,14 @@ components:
       description: |-
         * `night` - night
         * `day` - day
+    ReadinessEnum:
+      enum:
+      - ready
+      - soon
+      type: string
+      description: |-
+        * `ready` - ready
+        * `soon` - soon
     RecipientsB39Enum:
       enum:
       - managers
@@ -35133,7 +35330,7 @@ components:
           maxLength: 160
         time_model:
           allOf:
-          - $ref: '#/components/schemas/TimeModelEnum'
+          - $ref: '#/components/schemas/TimeModel665Enum'
           description: |-
             `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
 
@@ -35258,7 +35455,7 @@ components:
         appointment_kind:
           type: string
         time_model:
-          $ref: '#/components/schemas/TimeModelEnum'
+          $ref: '#/components/schemas/TimeModel665Enum'
         range_unit:
           type: string
           description: '`night`, `day`; empty for a `slot` service.'
@@ -35302,6 +35499,18 @@ components:
             site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
+        draft:
+          type: boolean
+          description: Never switched on since it was made; only a draft can be discarded.
+        preset_id:
+          type:
+          - string
+          - 'null'
+          description: The preset the offer was started from, if any.
+        preset_version:
+          type:
+          - integer
+          - 'null'
         staff_ids:
           type: array
           items:
@@ -35336,6 +35545,7 @@ components:
       - appointment_kind
       - buffer_after_minutes
       - buffer_before_minutes
+      - draft
       - duration_minutes
       - future_bookings
       - group_ids
@@ -35345,6 +35555,8 @@ components:
       - minimum_notice_minutes
       - name
       - online
+      - preset_id
+      - preset_version
       - public_staff_choice
       - range_end_local
       - range_start_local
@@ -35368,7 +35580,7 @@ components:
         appointment_kind:
           type: string
         time_model:
-          $ref: '#/components/schemas/TimeModelEnum'
+          $ref: '#/components/schemas/TimeModel665Enum'
         range_unit:
           type: string
           description: '`night`, `day`; empty for a `slot` service.'
@@ -35412,6 +35624,18 @@ components:
             site. Off: only the team books it, in the panel; its booked visits stay.'
         active:
           type: boolean
+        draft:
+          type: boolean
+          description: Never switched on since it was made; only a draft can be discarded.
+        preset_id:
+          type:
+          - string
+          - 'null'
+          description: The preset the offer was started from, if any.
+        preset_version:
+          type:
+          - integer
+          - 'null'
         staff_ids:
           type: array
           items:
@@ -35453,6 +35677,7 @@ components:
       - buffer_after_minutes
       - buffer_before_minutes
       - changes
+      - draft
       - duration_minutes
       - future_bookings
       - group_ids
@@ -35462,6 +35687,8 @@ components:
       - minimum_notice_minutes
       - name
       - online
+      - preset_id
+      - preset_version
       - public_staff_choice
       - range_end_local
       - range_start_local
@@ -35482,7 +35709,7 @@ components:
           maxLength: 160
         time_model:
           allOf:
-          - $ref: '#/components/schemas/TimeModelEnum'
+          - $ref: '#/components/schemas/TimeModel665Enum'
           description: |-
             `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
 
@@ -38349,7 +38576,7 @@ components:
       required:
       - html_body
       - subject
-    TimeModelEnum:
+    TimeModel665Enum:
       enum:
       - slot
       - range

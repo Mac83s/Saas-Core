@@ -374,7 +374,6 @@ def _set_hours(staff: StaffMember, rules: list[Hours], at: RulePath = _rule_path
 @transaction.atomic
 def add_person(
     *,
-    request: HttpRequest,
     name: str,
     phone: str = "",
     invitation: dict[str, str] | None = None,
@@ -383,10 +382,18 @@ def add_person(
     hours: dict[str, Any] | None = None,
     copy_hours_from: UUID | None = None,
     team_ids: list[UUID] | None = None,
-) -> StaffMember:
+    idempotency_key: str = "",
+    preview: bool = False,
+) -> Saved[StaffMember]:
     """Adds an employee: the entry, the invitation when there is an e-mail, the
     services and hours when the person takes visits, and the teams they join —
     all of it or nothing.
+
+    A setup write (ADR-072 §11): the same key again answers the first person
+    instead of adding a second, and `preview` runs it and rolls it back — the
+    invitation's e-mail leaves only after a commit, so a preview sends none.
+    No request: the actor is the tenant context's, so the panel and the
+    assistant's command come the same way.
 
     The invitation goes through the organization's own rules (who may invite
     whom, the plan's accounts), so a dispatcher adds a subcontractor without
@@ -394,11 +401,54 @@ def add_person(
     """
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
     organization = Organization.objects.get(pk=context.organization_id)
+    data: dict[str, Any] = {
+        "name": name,
+        "phone": phone,
+        "invitation": invitation,
+        "membership_id": membership_id,
+        "service_ids": service_ids,
+        "hours": hours,
+        "copy_hours_from": copy_hours_from,
+        "team_ids": team_ids,
+    }
+    return setup_write(
+        context=context,
+        action="staff.add",
+        target_id=None,
+        request=data,
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _added(_write_person(context, organization, **data)),
+        replay=lambda item_id: _added(
+            StaffMember.all_objects.get(organization=organization, pk=item_id), replayed=True
+        ),
+    )
+
+
+def _added(staff: StaffMember, *, replayed: bool = False) -> Saved[StaffMember]:
+    return Saved(staff, staff.id, staff.hours_version, True, {}, replayed)
+
+
+def _write_person(
+    context: TenantContext,
+    organization: Organization,
+    *,
+    name: str,
+    phone: str,
+    invitation: dict[str, str] | None,
+    membership_id: UUID | None,
+    service_ids: list[UUID] | None,
+    hours: dict[str, Any] | None,
+    copy_hours_from: UUID | None,
+    team_ids: list[UUID] | None,
+) -> StaffMember:
     if invitation and membership_id:
         raise ValidationError({"invitation": "Ta osoba ma już konto."})
     _assert_member_of(organization, membership_id)
     invited = (
-        create_invitation(request=request, email=invitation["email"], role_key=invitation["role"])
+        create_invitation(
+            actor=_actor(context), email=invitation["email"], role_key=invitation["role"]
+        )
         if invitation
         else None
     )

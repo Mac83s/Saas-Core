@@ -2635,14 +2635,17 @@ export async function getPerson(staffId: string): Promise<PersonDetail> {
   return data;
 }
 
-/** "Add employee": entry, invitation, services and hours — all or nothing. */
+/** "Add employee": entry, invitation, services and hours — all or nothing.
+ *  One key per dialog: a double click or a retry adds one person (ADR-072 §11). */
 export async function addPerson(
   input: PersonCreateInput,
+  idempotencyKey: string,
 ): Promise<PersonDetail> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/booking/staff/",
     {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },

@@ -23,8 +23,6 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 
 ## Czego dziś brakuje w produkcie
 
-- polecenie `booking.preset.apply@1` — plan rezerwacji, faza 3 (zastosowanie rodzaju rezerwacji)
-- polecenie `booking.preset.list@1` — plan rezerwacji, faza 3 (odczyt rodzajów rezerwacji)
 - polecenie `booking.staff.add@1` — plan rezerwacji, faza 3 (dodanie osoby jako polecenie asystenta)
 - rodzaj rezerwacji „Nocleg” jest w przygotowaniu — silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)
 - rodzaj rezerwacji „Wypożyczalnia” jest w przygotowaniu — silnik pobytów i wynajmu już jest, a rodzaj rezerwacji będzie gotowy po cenniku (plan rezerwacji, faza 3) albo dopiero z formularzem publicznym (faza 5) — decyzja właściciela w toku (pytanie 67)

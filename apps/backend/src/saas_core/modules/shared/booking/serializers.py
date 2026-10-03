@@ -453,6 +453,13 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     )
     online = serializers.BooleanField(help_text=offer_setting("online").model_description)
     active = serializers.BooleanField()
+    draft = serializers.BooleanField(
+        help_text="Never switched on since it was made; only a draft can be discarded."
+    )
+    preset_id = serializers.CharField(
+        allow_null=True, help_text="The preset the offer was started from, if any."
+    )
+    preset_version = serializers.IntegerField(allow_null=True)
     #: Who does it; the places it is offered at; the resources a visit takes
     #: one of.
     staff_ids = serializers.ListField(child=serializers.UUIDField())
@@ -580,6 +587,52 @@ class SetupOptionsSerializer(serializers.Serializer[dict[str, Any]]):
     keys = SetupOptionSerializer(many=True)
 
 
+class PresetTextSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField()
+    description = serializers.CharField()
+
+
+class PresetLabelsSerializer(serializers.Serializer[dict[str, Any]]):
+    pl = PresetTextSerializer()
+    en = PresetTextSerializer()
+
+
+class PresetSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a company may start an offer from (ADR-072 §10)."""
+
+    id = serializers.CharField(help_text="`core.<key>`, or a product's own namespace.")
+    version = serializers.IntegerField(help_text="The latest version; applying names it.")
+    readiness = serializers.ChoiceField(
+        choices=("ready", "soon"),
+        help_text="`ready` can be applied now; `soon` is shown and refused with "
+        "`preset_not_ready`.",
+    )
+    labels = PresetLabelsSerializer()
+    time_model = serializers.ChoiceField(
+        choices=("slot", "range", "session"),
+        help_text="`slot`: a start from the grid; `range`: a period from–to; `session`: "
+        "seats in an occurrence.",
+    )
+    booked_subject = serializers.ChoiceField(
+        choices=("staff", "unit", "unit_group", "seat"), help_text="What a booking takes."
+    )
+    booked_staff = serializers.ChoiceField(
+        choices=("required", "optional", "none"), help_text="Whether a person does it."
+    )
+    place = serializers.ChoiceField(choices=("business", "customer", "online", "pickup_return"))
+    required_inputs = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="What the preset needs from the company before the offer can run, as keys.",
+    )
+    catalog_category = serializers.CharField(
+        allow_null=True, help_text="A suggested category of the public catalogue."
+    )
+
+
+class PresetListSerializer(serializers.Serializer[dict[str, Any]]):
+    presets = PresetSerializer(many=True)
+
+
 class SetupSerializer(serializers.Serializer[dict[str, Any]]):
     services = ServiceSetupSerializer(many=True)
     locations = PlaceSetupSerializer(many=True)
@@ -670,6 +723,33 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
         child=serializers.UUIDField(), max_length=50, required=False
     )
     materials = MaterialInputSerializer(many=True, required=False)
+
+
+class PresetApplyInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """An offer started from a preset (ADR-072 §10): the offer only, switched off."""
+
+    preset_id = serializers.CharField(
+        max_length=80, help_text="A preset's id from the presets list; only `ready` ones apply."
+    )
+    version = serializers.IntegerField(
+        min_value=1, required=False, allow_null=True, help_text="Null takes the latest version."
+    )
+    name = serializers.CharField(max_length=160)
+    duration_minutes = _bounded("duration_minutes", required=False, allow_null=True)
+    staff_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        max_length=100,
+        required=False,
+        allow_null=True,
+        help_text="Who does it; null leaves the offer with nobody yet — nobody is picked.",
+    )
+    location_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        max_length=50,
+        required=False,
+        allow_null=True,
+        help_text="Where it is offered; null leaves the offer without a place yet.",
+    )
 
 
 class ServiceUpdateSerializer(ServiceInputSerializer):

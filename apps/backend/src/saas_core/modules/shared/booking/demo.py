@@ -150,10 +150,10 @@ def _seed_organization(run: DemoRun, key: str, data: dict[str, Any]) -> None:
             person = people.get(membership.id)
             if person is None:
                 entry = add_person(
-                    request=request,
                     name=f"{user.first_name} {user.last_name}".strip(),
                     membership_id=membership.id,
-                )
+                    idempotency_key=str(uuid.uuid4()),
+                ).value
                 run.log(f"+ osoba w kalendarzu {entry.display_name}")
                 people = {item.staff.membership_id: item for item in list_people()}
                 person = people[membership.id]

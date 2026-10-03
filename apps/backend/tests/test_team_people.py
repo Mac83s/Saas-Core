@@ -100,6 +100,11 @@ def member_of(owner: Membership, email: str, role_key: str) -> Membership:
     )
 
 
+def add_staff(**data: Any) -> StaffMember:
+    """A person added the way the panel does it: one key per dialog (§11)."""
+    return add_person(idempotency_key=str(uuid4()), **data).value
+
+
 def acting(member: Membership) -> HttpRequest:
     request = RequestFactory().post("/")
     request.user = member.user
@@ -157,8 +162,7 @@ def test_a_subcontractor_is_added_with_services_and_hours_and_no_account() -> No
     service = configured["service"]
     with tenant(owner):
         ServiceLocation.all_objects.filter(service=service).delete()
-        staff = add_person(
-            request=acting(owner),
+        staff = add_staff(
             name="Łukasz Nowak",
             phone="604 567 890",
             service_ids=[service.id],
@@ -182,7 +186,7 @@ def test_a_subcontractor_is_added_with_services_and_hours_and_no_account() -> No
         person = {item.staff.id: item for item in list_people()}[staff.id]
         assert (person.service_ids, person.has_hours) == ([service.id], True)
 
-        copy = add_person(request=acting(owner), name="Łukasz Nowak", copy_hours_from=staff.id)
+        copy = add_staff(name="Łukasz Nowak", copy_hours_from=staff.id)
         assert copy.public_slug == "lukasz-nowak-2"
         assert AvailabilityRule.all_objects.filter(staff=copy, active=True).count() == 3
     entry = OrganizationAuditEntry.objects.get(action="booking.staff.added", target_id=staff.id)
@@ -254,8 +258,7 @@ def test_hours_replace_the_week_and_refuse_what_cannot_be_worked() -> None:
         assert before.active is False
         # The add dialog sends one set of hours: its refusal points there.
         with pytest.raises(ValidationError) as refused:
-            add_person(
-                request=acting(owner),
+            add_staff(
                 name="Bez miejsca",
                 hours={
                     "weekdays": [1],
@@ -267,23 +270,60 @@ def test_hours_replace_the_week_and_refuse_what_cannot_be_worked() -> None:
         assert [error["field"] for error in problem_errors(refused.value)] == ["hours.location_id"]
 
 
+def test_adding_a_person_is_a_setup_write_with_a_preview_and_a_key(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """ADR-072 §11, for the assistant's `booking.staff.add`: a preview adds
+    nobody and invites nobody, a key adds one person however often it comes,
+    and the same key on another request is refused."""
+    from rest_framework.exceptions import ParseError  # noqa: PLC0415
+
+    from saas_core.modules.shared.booking.services import (  # noqa: PLC0415
+        BookingIdempotencyConflict,
+    )
+
+    owner = membership("osoba-klucz")
+    seats(owner, 5)
+    invited = {"name": "Ewa", "invitation": {"email": "ewa@example.test", "role": "staff"}}
+
+    with django_capture_on_commit_callbacks() as mails, tenant(owner):
+        shown = add_person(**invited, preview=True)
+        assert (shown.value.display_name, shown.created, shown.replayed) == ("Ewa", True, False)
+    # Nothing stays of a preview: no entry, no invitation, no e-mail to send.
+    assert not StaffMember.all_objects.filter(display_name="Ewa").exists()
+    assert not Invitation.objects.filter(email="ewa@example.test").exists()
+    assert mails == []
+
+    with django_capture_on_commit_callbacks() as mails, tenant(owner):
+        first = add_person(**invited, idempotency_key="dialog-1")
+        again = add_person(**invited, idempotency_key="dialog-1")
+        assert (first.replayed, again.replayed) == (False, True)
+        assert again.item_id == first.item_id
+        with pytest.raises(BookingIdempotencyConflict):
+            add_person(name="Ktoś inny", idempotency_key="dialog-1")
+        with pytest.raises(ParseError):
+            add_person(name="Bez klucza")
+    assert StaffMember.all_objects.filter(display_name="Ewa").count() == 1
+    assert Invitation.objects.filter(email="ewa@example.test").count() == 1
+    # One invitation, one e-mail — the repeated key sent none.
+    assert len(mails) == 1
+
+
 def test_an_account_takes_a_seat_of_the_plan_and_a_subcontractor_does_not() -> None:
     owner = membership("miejsca")
     seats(owner, 2)
     with tenant(owner):
-        anna = add_person(
-            request=acting(owner),
+        anna = add_staff(
             name="Anna",
             invitation={"email": "anna@example.test", "role": "staff"},
         )
         assert Invitation.objects.get(pk=anna.invitation_id).email == "anna@example.test"
         with pytest.raises(SeatLimitReached):
-            add_person(
-                request=acting(owner),
+            add_staff(
                 name="Piotr",
                 invitation={"email": "piotr@example.test", "role": "staff"},
             )
-        add_person(request=acting(owner), name="Krzysztof")
+        add_staff(name="Krzysztof")
         assert current_seat_usage() == (2, 2)
     # All or nothing: the refused invitation left no entry behind.
     assert not StaffMember.all_objects.filter(display_name="Piotr").exists()
@@ -307,8 +347,7 @@ def test_a_suspended_account_frees_its_seat_and_coming_back_takes_one() -> None:
         update_membership(
             request=acting(owner), membership_id=worker.id, membership_status="suspended"
         )
-        add_person(
-            request=acting(owner),
+        add_staff(
             name="Nowy",
             invitation={"email": "nowy@example.test", "role": "staff"},
         )
@@ -332,6 +371,7 @@ def test_the_person_the_office_added_is_the_one_who_accepts_the_invitation() -> 
         },
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(owner_client),
+        HTTP_IDEMPOTENCY_KEY="dodaj-kamila",
     )
     assert added.status_code == 201, added.data
     staff = StaffMember.all_objects.get(pk=added.data["id"])
@@ -408,7 +448,7 @@ def test_the_team_sees_everyone_but_only_management_and_the_person_see_the_phone
     worker = member_of(owner, "pracownik@example.test", "staff")
     viewer = member_of(owner, "podglad@example.test", "viewer")
     with tenant(owner):
-        mine = add_person(request=acting(owner), name="Pracownik", membership_id=worker.id)
+        mine = add_staff(name="Pracownik", membership_id=worker.id)
         update_staff(staff_id=mine.id, data={"phone": "601 234 567"})
         update_staff(staff_id=configured["staff"].id, data={"phone": "602 345 678"})
         assert {item.staff.id: item.private for item in list_people()} == {
@@ -431,7 +471,7 @@ def test_a_person_changes_their_own_phone_and_nothing_else_of_anyone() -> None:
     configured = catalog(owner)
     worker = member_of(owner, "sam@example.test", "staff")
     with tenant(owner):
-        mine = add_person(request=acting(owner), name="Sam", membership_id=worker.id)
+        mine = add_staff(name="Sam", membership_id=worker.id)
     with tenant(worker):
         update_staff(staff_id=mine.id, data={"phone": "605 000 111"})
         with pytest.raises(OrganizationPermissionDenied):
@@ -450,8 +490,8 @@ def test_own_hours_and_time_off_need_the_products_permission() -> None:
     worker = member_of(owner, "grafik-sam@example.test", "staff")
     viewer = member_of(owner, "grafik-podglad@example.test", "viewer")
     with tenant(owner):
-        mine = add_person(request=acting(owner), name="Ja", membership_id=worker.id)
-        theirs = add_person(request=acting(owner), name="Oni", membership_id=viewer.id)
+        mine = add_staff(name="Ja", membership_id=worker.id)
+        theirs = add_staff(name="Oni", membership_id=viewer.id)
     week = [
         {"weekday": 3, "local_start": time(9), "local_end": time(17), "location_id": location.id}
     ]
@@ -566,8 +606,7 @@ def test_removing_a_person_leaves_their_visits_as_vacancies_and_takes_the_accoun
 def test_inviting_a_person_again_replaces_the_invitation_still_waiting() -> None:
     owner = membership("ponownie")
     with tenant(owner):
-        staff = add_person(
-            request=acting(owner),
+        staff = add_staff(
             name="Literówka",
             invitation={"email": "zly@example.test", "role": "staff"},
         )
@@ -652,6 +691,7 @@ def test_the_people_api_answers_with_the_card_and_refuses_a_stranger() -> None:
             "hours": {"weekdays": [0, 1, 2, 3, 4], "local_start": "06:00", "local_end": "16:00"},
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY="dodaj-krzysztofa",
         **headers,
     )
     assert added.status_code == 201, added.data

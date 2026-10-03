@@ -22,17 +22,19 @@ from saas_core.modules.core.organizations.api import CommandSpec, Effect, Previe
 
 from .models import AvailabilityRule, Location, Service, StaffChoice
 from .offer_settings import SLOT_STEPS
+from .presets import apply_preset, list_presets
 from .serializers import (
     PersonHoursInputSerializer,
     PlaceInputSerializer,
     PlaceUpdateSerializer,
+    PresetApplyInputSerializer,
     ServiceInputSerializer,
     ServiceUpdateSerializer,
 )
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
 from .setup import list_setup, save_location, save_service
 from .staff import person_detail, set_person_hours
-from .views import _place_payload, _resource_payload, _service_setup_payload
+from .views import _place_payload, _preset_payload, _resource_payload, _service_setup_payload
 
 #: What the assistant may set on a service; `active`, `online` and `materials`
 #: stay the person's (switching on and showing online is publishing, materials
@@ -88,15 +90,16 @@ _SERVICE_PROPERTIES: dict[str, Any] = {
     "location_ids": {**_IDS, "description": "Where it is offered (place ids); replaces the list."},
     "resource_ids": {**_IDS, "description": "Resources a visit takes one of; replaces the list."},
 }
+_SERVICE_OUTPUT_PROPERTIES = {
+    "service_id": {"type": "string"},
+    "name": {"type": "string"},
+    "active": {"type": "boolean"},
+    "version": {"type": "integer"},
+}
 _SERVICE_OUTPUT = {
     "type": "object",
     "x-data-class": "public",
-    "properties": {
-        "service_id": {"type": "string"},
-        "name": {"type": "string"},
-        "active": {"type": "boolean"},
-        "version": {"type": "integer"},
-    },
+    "properties": _SERVICE_OUTPUT_PROPERTIES,
 }
 
 
@@ -640,6 +643,161 @@ STAFF_HOURS_SET = CommandSpec(
 )
 
 
+# booking.preset.list@1
+
+
+def _read_presets(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    return {"presets": [_preset_payload(item) for item in list_presets()]}
+
+
+PRESET_LIST = CommandSpec(
+    name="booking.preset.list",
+    version=1,
+    module="shared.booking",
+    title={"pl": "Odczytaj wzorce ofert", "en": "Read offer presets"},
+    summary={
+        "pl": "Wzorce, od których firma może zacząć ofertę: gotowe i zapowiedziane.",
+        "en": "The presets a company may start an offer from: ready and announced.",
+    },
+    model_description=(
+        "Returns the booking presets this company may start an offer from, in the order "
+        "the company sees them, each in its latest version: id, readiness, names and "
+        "descriptions in pl and en, the time model (slot, range or session), what a "
+        "booking takes, whether a person does it, where it happens, and the inputs the "
+        "preset needs from the company. Only a preset with readiness `ready` can be "
+        "applied; one marked `soon` is announced and cannot be used yet — say so instead "
+        "of substituting another. This list is the only source of preset ids."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": [],
+        "properties": {},
+    },
+    output_schema={
+        "type": "object",
+        "x-data-class": "public",
+        "properties": {"presets": {"type": "array"}},
+    },
+    permission=BOOKING_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    risk="read",
+    run=_read_presets,
+    undo="none:a read changes nothing",
+    no_preview_reason="A read changes nothing, so there is nothing to show first.",
+    no_version_reason="A read checks no version.",
+)
+
+
+# booking.preset.apply@1
+
+_PRESET_FIELDS = ("preset_id", "version", "name", "duration_minutes", "staff_ids", "location_ids")
+
+
+def _from_preset(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    serializer = PresetApplyInputSerializer(data=_given(arguments, _PRESET_FIELDS))
+    serializer.is_valid(raise_exception=True)
+    return dict(serializer.validated_data)
+
+
+def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
+    data = _from_preset(arguments)
+    apply_preset(**data, preview=True)
+    name = data["name"]
+    # No id before the save, as for booking.offer.create@1.
+    return Preview(
+        effects=(
+            _effect(
+                "created",
+                "booking.service",
+                "",
+                f"Nowa usługa „{name}” ze wzorca — wyłączona, dopóki jej nie włączysz",
+                f"New service “{name}” from a preset — switched off until you switch it on",
+            ),
+        ),
+        observed_versions={},
+    )
+
+
+def _apply(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    saved = apply_preset(**_from_preset(arguments), idempotency_key=call.idempotency_key)
+    service = saved.value.service
+    return {
+        "service_id": str(service.id),
+        "name": service.name,
+        "active": service.active,
+        "version": service.version,
+        "preset_id": service.preset_id,
+        "preset_version": service.preset_version,
+    }
+
+
+PRESET_APPLY = CommandSpec(
+    name="booking.preset.apply",
+    version=1,
+    module="shared.booking",
+    title={"pl": "Zacznij usługę od wzorca", "en": "Start a service from a preset"},
+    summary={
+        "pl": "Nowa usługa ze wzorca, wyłączona do czasu, aż ją włączysz.",
+        "en": "A new service from a preset, switched off until you switch it on.",
+    },
+    model_description=(
+        "Creates one service from a booking preset: the preset decides how it is booked, "
+        "you give its name and, for a preset with time model `slot`, how long a visit "
+        "takes. Take the preset id from booking.preset.list; only a preset with readiness "
+        "`ready` applies — `preset_not_ready` and `preset_unknown` come back on the field "
+        "preset_id, and then say so instead of trying another preset. It creates the "
+        "service only, always switched off: no place, person, price or working hours are "
+        "made. Pass staff_ids and location_ids only for people and places that exist "
+        "(ids from booking.setup.read); null leaves the service without them, none is "
+        "picked for you. Pass null for version to take the latest. Tell the person to "
+        "switch the service on in the panel when it is complete."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": list(_PRESET_FIELDS),
+        "properties": {
+            "preset_id": {"type": "string", "description": "From booking.preset.list."},
+            "version": _nullable("integer", "The preset's version; null takes the latest."),
+            "name": {
+                "type": "string",
+                "description": "The service's name as customers see it, up to 160 characters.",
+            },
+            "duration_minutes": _nullable(
+                "integer", "How long one visit takes, in minutes; required for a `slot` preset."
+            ),
+            "staff_ids": {**_IDS, "description": "Who does it; null means nobody yet."},
+            "location_ids": {**_IDS, "description": "Where it is offered; null means nowhere yet."},
+        },
+    },
+    output_schema={
+        "type": "object",
+        "x-data-class": "public",
+        "properties": {
+            **_SERVICE_OUTPUT_PROPERTIES,
+            "preset_id": {"type": "string"},
+            "preset_version": {"type": "integer"},
+        },
+    },
+    permission=BOOKING_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    risk="draft",
+    run=_apply,
+    undo="discard_run",
+    preview=_preview_apply,
+    no_version_reason="A new service has no version yet.",
+)
+
+
 def register_booking_commands() -> None:
-    for spec in (SETUP_READ, OFFER_CREATE, OFFER_UPDATE, LOCATION_SAVE, STAFF_HOURS_SET):
+    for spec in (
+        SETUP_READ,
+        OFFER_CREATE,
+        OFFER_UPDATE,
+        LOCATION_SAVE,
+        STAFF_HOURS_SET,
+        PRESET_LIST,
+        PRESET_APPLY,
+    ):
         register_command(spec)

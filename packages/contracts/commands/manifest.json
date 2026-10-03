@@ -425,6 +425,159 @@
       "version_field": "expected_version"
     },
     {
+      "command": "booking.preset.apply@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_minutes": {
+            "description": "How long one visit takes, in minutes; required for a `slot` preset.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "location_ids": {
+            "description": "Where it is offered; null means nowhere yet.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The service's name as customers see it, up to 160 characters.",
+            "type": "string"
+          },
+          "preset_id": {
+            "description": "From booking.preset.list.",
+            "type": "string"
+          },
+          "staff_ids": {
+            "description": "Who does it; null means nobody yet.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "The preset's version; null takes the latest.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "preset_id",
+          "version",
+          "name",
+          "duration_minutes",
+          "staff_ids",
+          "location_ids"
+        ],
+        "type": "object"
+      },
+      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, price or working hours are made. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": "A new service has no version yet.",
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "preset_id": {
+            "type": "string"
+          },
+          "preset_version": {
+            "type": "integer"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "A new service from a preset, switched off until you switch it on.",
+        "pl": "Nowa usługa ze wzorca, wyłączona do czasu, aż ją włączysz."
+      },
+      "title": {
+        "en": "Start a service from a preset",
+        "pl": "Zacznij usługę od wzorca"
+      },
+      "tool_name": "booking_preset_apply_v1",
+      "undo": "discard_run",
+      "version_field": null
+    },
+    {
+      "command": "booking.preset.list@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the booking presets this company may start an offer from, in the order the company sees them, each in its latest version: id, readiness, names and descriptions in pl and en, the time model (slot, range or session), what a booking takes, whether a person does it, where it happens, and the inputs the preset needs from the company. Only a preset with readiness `ready` can be applied; one marked `soon` is announced and cannot be used yet — say so instead of substituting another. This list is the only source of preset ids.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "presets": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The presets a company may start an offer from: ready and announced.",
+        "pl": "Wzorce, od których firma może zacząć ofertę: gotowe i zapowiedziane."
+      },
+      "title": {
+        "en": "Read offer presets",
+        "pl": "Odczytaj wzorce ofert"
+      },
+      "tool_name": "booking_preset_list_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
       "command": "booking.settings_notices.read@1",
       "entitlement": "booking.enabled",
       "exposure": [

@@ -944,6 +944,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/presets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List what the company may start an offer from
+         * @description The presets of ADR-072 §10 in the order a company sees them, each in its latest version: ready ones can be applied, the rest are announced. This list is the only source a panel, a site or the assistant chooses from.
+         */
+        get: operations["booking_presets_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/public/{public_slug}/": {
         parameters: {
             query?: never;
@@ -1919,10 +1939,10 @@ export interface paths {
         get: operations["api_v1_booking_staff_list"];
         put?: never;
         /**
-         * @description The company's people (ADR-058 §1). The team screen joins them with the
-         *     organization's memberships and invitations; nobody drops off the list.
+         * Add a person to the team
+         * @description The entry, the invitation when an e-mail is given, the services and hours when the person takes visits, and the teams they join — all or nothing. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
          */
-        post: operations["api_v1_booking_staff_create"];
+        post: operations["booking_staff_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7070,7 +7090,7 @@ export interface components {
              *     * `slot` - slot
              *     * `range` - range
              */
-            time_model: components["schemas"]["TimeModelEnum"];
+            time_model: components["schemas"]["TimeModel665Enum"];
             location_name: string;
             /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
@@ -7683,6 +7703,21 @@ export interface components {
             };
             slots: components["schemas"]["BlueprintSlot"][];
         };
+        /**
+         * @description * `required` - required
+         *     * `optional` - optional
+         *     * `none` - none
+         * @enum {string}
+         */
+        BookedStaffEnum: "required" | "optional" | "none";
+        /**
+         * @description * `staff` - staff
+         *     * `unit` - unit
+         *     * `unit_group` - unit_group
+         *     * `seat` - seat
+         * @enum {string}
+         */
+        BookedSubjectEnum: "staff" | "unit" | "unit_group" | "seat";
         BookingClosure: {
             /** Format: uuid */
             id: string;
@@ -11515,7 +11550,7 @@ export interface components {
              *     * `slot` - slot
              *     * `range` - range
              */
-            time_model?: components["schemas"]["TimeModelEnum"];
+            time_model?: components["schemas"]["TimeModel665Enum"];
             /**
              * @description For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
              *
@@ -11826,6 +11861,14 @@ export interface components {
         PersonServicesInput: {
             service_ids: string[];
         };
+        /**
+         * @description * `business` - business
+         *     * `customer` - customer
+         *     * `online` - online
+         *     * `pickup_return` - pickup_return
+         * @enum {string}
+         */
+        PlaceEnum: "business" | "customer" | "online" | "pickup_return";
         /** @description A new place where the company works. */
         PlaceInput: {
             name: string;
@@ -12035,6 +12078,69 @@ export interface components {
             locale: components["schemas"]["LocaleEnum"];
             marketing_enabled: boolean;
         };
+        /** @description What a company may start an offer from (ADR-072 §10). */
+        Preset: {
+            /** @description `core.<key>`, or a product's own namespace. */
+            id: string;
+            /** @description The latest version; applying names it. */
+            version: number;
+            /**
+             * @description `ready` can be applied now; `soon` is shown and refused with `preset_not_ready`.
+             *
+             *     * `ready` - ready
+             *     * `soon` - soon
+             */
+            readiness: components["schemas"]["ReadinessEnum"];
+            labels: components["schemas"]["PresetLabels"];
+            /**
+             * @description `slot`: a start from the grid; `range`: a period from–to; `session`: seats in an occurrence.
+             *
+             *     * `slot` - slot
+             *     * `range` - range
+             *     * `session` - session
+             */
+            time_model: components["schemas"]["PresetTimeModelEnum"];
+            /**
+             * @description What a booking takes.
+             *
+             *     * `staff` - staff
+             *     * `unit` - unit
+             *     * `unit_group` - unit_group
+             *     * `seat` - seat
+             */
+            booked_subject: components["schemas"]["BookedSubjectEnum"];
+            /**
+             * @description Whether a person does it.
+             *
+             *     * `required` - required
+             *     * `optional` - optional
+             *     * `none` - none
+             */
+            booked_staff: components["schemas"]["BookedStaffEnum"];
+            place: components["schemas"]["PlaceEnum"];
+            /** @description What the preset needs from the company before the offer can run, as keys. */
+            required_inputs: string[];
+            /** @description A suggested category of the public catalogue. */
+            catalog_category: string | null;
+        };
+        PresetLabels: {
+            pl: components["schemas"]["PresetText"];
+            en: components["schemas"]["PresetText"];
+        };
+        PresetList: {
+            presets: components["schemas"]["Preset"][];
+        };
+        PresetText: {
+            name: string;
+            description: string;
+        };
+        /**
+         * @description * `slot` - slot
+         *     * `range` - range
+         *     * `session` - session
+         * @enum {string}
+         */
+        PresetTimeModelEnum: "slot" | "range" | "session";
         ProblemDetails: {
             /** @description Always `about:blank`; `code` names the problem. */
             type: string;
@@ -12585,7 +12691,7 @@ export interface components {
              *     * `slot` - slot
              *     * `range` - range
              */
-            time_model: components["schemas"]["TimeModelEnum"];
+            time_model: components["schemas"]["TimeModel665Enum"];
             location_name: string;
             /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
@@ -12687,6 +12793,12 @@ export interface components {
          * @enum {string}
          */
         RangeUnitEnum: "night" | "day";
+        /**
+         * @description * `ready` - ready
+         *     * `soon` - soon
+         * @enum {string}
+         */
+        ReadinessEnum: "ready" | "soon";
         /**
          * @description * `managers` - managers
          *     * `owner` - owner
@@ -13049,7 +13161,7 @@ export interface components {
              *     * `slot` - slot
              *     * `range` - range
              */
-            time_model?: components["schemas"]["TimeModelEnum"];
+            time_model?: components["schemas"]["TimeModel665Enum"];
             /**
              * @description For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
              *
@@ -13106,7 +13218,7 @@ export interface components {
             id: string;
             name: string;
             appointment_kind: string;
-            time_model: components["schemas"]["TimeModelEnum"];
+            time_model: components["schemas"]["TimeModel665Enum"];
             /** @description `night`, `day`; empty for a `slot` service. */
             range_unit: string;
             /** Format: time */
@@ -13125,6 +13237,11 @@ export interface components {
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online: boolean;
             active: boolean;
+            /** @description Never switched on since it was made; only a draft can be discarded. */
+            draft: boolean;
+            /** @description The preset the offer was started from, if any. */
+            preset_id: string | null;
+            preset_version: number | null;
             staff_ids: string[];
             location_ids: string[];
             resource_ids: string[];
@@ -13141,7 +13258,7 @@ export interface components {
             id: string;
             name: string;
             appointment_kind: string;
-            time_model: components["schemas"]["TimeModelEnum"];
+            time_model: components["schemas"]["TimeModel665Enum"];
             /** @description `night`, `day`; empty for a `slot` service. */
             range_unit: string;
             /** Format: time */
@@ -13160,6 +13277,11 @@ export interface components {
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online: boolean;
             active: boolean;
+            /** @description Never switched on since it was made; only a draft can be discarded. */
+            draft: boolean;
+            /** @description The preset the offer was started from, if any. */
+            preset_id: string | null;
+            preset_version: number | null;
             staff_ids: string[];
             location_ids: string[];
             resource_ids: string[];
@@ -13183,7 +13305,7 @@ export interface components {
              *     * `slot` - slot
              *     * `range` - range
              */
-            time_model?: components["schemas"]["TimeModelEnum"];
+            time_model?: components["schemas"]["TimeModel665Enum"];
             /**
              * @description For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
              *
@@ -14439,7 +14561,7 @@ export interface components {
          *     * `range` - range
          * @enum {string}
          */
-        TimeModelEnum: "slot" | "range";
+        TimeModel665Enum: "slot" | "range";
         TimeOff: {
             /** Format: uuid */
             id: string;
@@ -17300,6 +17422,33 @@ export interface operations {
             };
         };
     };
+    booking_presets_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     public_booking_catalog: {
         parameters: {
             query?: {
@@ -19974,10 +20123,12 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_staff_create: {
+    booking_staff_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -19989,6 +20140,14 @@ export interface operations {
             };
         };
         responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -20006,6 +20165,14 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

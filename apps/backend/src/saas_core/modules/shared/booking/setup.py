@@ -20,7 +20,7 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import time
-from typing import Any
+from typing import Any, NoReturn
 from uuid import UUID
 
 from django.core.serializers.json import DjangoJSONEncoder
@@ -28,7 +28,7 @@ from django.db import connection, transaction
 from django.db.models import Count, QuerySet
 from django.utils import timezone
 from django.utils.text import slugify
-from rest_framework.exceptions import NotFound, ParseError, ValidationError
+from rest_framework.exceptions import ErrorDetail, NotFound, ParseError, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import (
@@ -46,6 +46,7 @@ from . import materials as stock
 from .models import (
     Appointment,
     AppointmentStatus,
+    BookingRule,
     BookingSetupMutation,
     Location,
     PublicBookingRoute,
@@ -413,6 +414,65 @@ def save_service(
     )
 
 
+def discard_draft(
+    *, service_id: UUID, idempotency_key: str = "", preview: bool = False
+) -> Saved[UUID]:
+    """Removes an offer that was never switched on and has no bookings, with
+    its links, its own rules and its translations — the undo of a draft.
+
+    An offer that was ever bookable is not removed: customers, the site and
+    the history may name it, so it is switched off instead (`not_a_draft`).
+    """
+    context, organization = _manage()
+    return setup_write(
+        context=context,
+        action="service.discard",
+        target_id=service_id,
+        request={},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _discard_draft(context, organization, service_id),
+        replay=lambda item_id: Saved(item_id, item_id, 0, False, {}, True),
+    )
+
+
+def _discard_draft(
+    context: TenantContext, organization: Organization, service_id: UUID
+) -> Saved[UUID]:
+    service = (
+        Service.all_objects.select_for_update()
+        .filter(organization=organization, pk=service_id)
+        .first()
+    )
+    if service is None:
+        raise NotFound("Nie ma takiej usługi.")
+    if not service.draft:
+        _refuse_discard("Tę usługę już włączano: można ją tylko wyłączyć.", "not_a_draft")
+    if Appointment.all_objects.filter(organization=organization, service=service).exists():
+        _refuse_discard("Usługa ma rezerwacje.", "service_has_bookings")
+    for model in (ServiceStaff, ServiceLocation, ServiceResource, ServiceGroup, BookingRule):
+        model.all_objects.filter(organization=organization, service=service).delete()
+    # The keys that made or changed it answer with an item that is gone: the
+    # same key sent again makes a new draft instead of failing on the old one.
+    BookingSetupMutation.all_objects.filter(
+        organization=organization, result_kind="service", result_id=service.id
+    ).delete()
+    _audit(
+        organization,
+        context,
+        "service",
+        service.id,
+        {"name": {"from": service.name, "to": None}},
+        created=False,
+    )
+    service.delete()
+    return Saved(service_id, service_id, 0, False, {"discarded": True})
+
+
+def _refuse_discard(message: str, code: str) -> NoReturn:
+    raise ValidationError({"service_id": [ErrorDetail(message, code=code)]})
+
+
 #: A stay's default times when the offer names none: check-in 16:00 and
 #: check-out 11:00 as in the „Nocleg” preset; pickup 9:00 and return 18:00.
 _RANGE_TIMES = {
@@ -498,6 +558,8 @@ def _write_service(
         service = Service(
             organization=organization,
             public_slug=_free_slug(Service, organization, values.get("name", "")),
+            # The conversation, when the assistant made it (ADR-072 §11).
+            origin_ref=context.acting_ref if context.acting_via == "assistant" else "",
             **values,
         )
         before: dict[str, Any] = {}
@@ -520,6 +582,8 @@ def _write_service(
             "public_staff_choice": "Osobę klient wybiera tylko przy usłudze dla jednej osoby."
         })
     _check_offer(service, before)
+    # Made switched off, it is a draft until somebody switches it on.
+    service.draft = not service.active and (service.draft or not before)
     service.save()
     changes = field_changes(before, audit_snapshot(service, _SERVICE_FIELDS)) if before else {}
     for key, name, target, model, column, extra, ids in (
