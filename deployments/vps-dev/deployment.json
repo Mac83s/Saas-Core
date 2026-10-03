@@ -5,7 +5,7 @@
   "product": {
     "name": "SaaS Core Business (dev VPS)",
     "defaultLocale": "pl",
-    "supportedLocales": ["pl", "en"],
+    "supportedLocales": ["pl", "en", "de"],
     "platformDomain": "saas.goldenstar.cloud"
   },
   "modules": [

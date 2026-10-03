@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:845cef72527431855af8e710f5df1ad4c057cfef25b74d6020d01967633dc243",
+  "profileHash": "sha256:75afaeb94f2fc3c7cad6896c972fe0e3d33f79587cf9b44dee53a41e2cd03ec4",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -7,7 +7,8 @@
     "defaultLocale": "pl",
     "supportedLocales": [
       "pl",
-      "en"
+      "en",
+      "de"
     ],
     "platformDomain": "business.localhost"
   },

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:068d2442ccc4b252b64573c1ef7cc6eaeb348fcf0aff7f5ec5bb151331cef9e8",
+  "profileHash": "sha256:58886ca279997ccc0f7bbe28218c02b79ef188d6b2f2aa5150f6f7ea18797d2f",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -7,7 +7,8 @@
     "defaultLocale": "pl",
     "supportedLocales": [
       "pl",
-      "en"
+      "en",
+      "de"
     ],
     "platformDomain": "saas.goldenstar.cloud"
   },

@@ -5,7 +5,7 @@
   "product": {
     "name": "SaaS Core Business",
     "defaultLocale": "pl",
-    "supportedLocales": ["pl", "en"],
+    "supportedLocales": ["pl", "en", "de"],
     "platformDomain": "business.localhost"
   },
   "modules": [
