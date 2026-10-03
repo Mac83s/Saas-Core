@@ -3,6 +3,7 @@
 from dataclasses import replace
 from typing import Any
 
+import pytest
 from django.conf import settings as django_settings
 from rest_framework.test import APIClient
 
@@ -10,6 +11,8 @@ from saas_core.config.composition import organization_types_from
 from saas_core.modules.shared.profiles.catalog_contract import categories
 
 
+# The dictionary also names the catalogue's languages, read from its rows (TL20).
+@pytest.mark.django_db
 def test_product_categories_reach_the_public_dictionary_without_cross_type_fallback(
     settings: Any,
 ) -> None:
