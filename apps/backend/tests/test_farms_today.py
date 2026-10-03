@@ -217,7 +217,9 @@ def test_the_consent_to_the_schedule_brings_what_the_company_already_planned(
 ) -> None:
     """For the keeper the consent means „show me the company's plan": a visit
     planned while it was off reaches the register once it is on, and turning
-    it off and on again adds nothing (UX-078, coordinator's decision of 03.10)."""
+    it off and on again adds nothing (UX-078, coordinator's decision of 03.10).
+    The source hears which of its visits the register still calls planned, so
+    it can correct one called off or moved while the consent was off."""
     farmer = membership("rolnik-plan-firmy")
     company = membership("firma-plan-firmy")
     with tenant(farmer) as request:
@@ -226,18 +228,19 @@ def test_the_consent_to_the_schedule_brings_what_the_company_already_planned(
     tomorrow = timezone.localdate(timezone=WARSAW) + timedelta(days=1)
 
     # The company's own calendar, which only the vertical can read.
-    asked: list[tuple[Any, Any]] = []
+    asked: list[tuple[Any, Any, frozenset[str]]] = []
 
-    def plan(company_organization_id: Any, company_farm_id: Any) -> int:
-        asked.append((company_organization_id, company_farm_id))
+    def plan(company_organization_id: Any, company_farm_id: Any, still: frozenset[str]) -> int:
+        asked.append((company_organization_id, company_farm_id, still))
         visit(company, card, "plan-jutro", VisitStatus.PLANNED, tomorrow)
         return 1
 
-    def broken(company_organization_id: Any, company_farm_id: Any) -> int:
+    def broken(company_organization_id: Any, company_farm_id: Any, still: frozenset[str]) -> int:
         raise RuntimeError("a vertical's bug")
 
     monkeypatch.setitem(herd_sync._schedule_sources, "test.broken", broken)
-    monkeypatch.setitem(herd_sync._schedule_sources, "test.plan", plan)
+    # Registered under the `source` its rows carry: that is what it is told about.
+    monkeypatch.setitem(herd_sync._schedule_sources, "hoofcare.visit", plan)
 
     # Planned while the consent is off: the register learns nothing.
     visit(company, card, "plan-jutro", VisitStatus.PLANNED, tomorrow)
@@ -255,7 +258,7 @@ def test_the_consent_to_the_schedule_brings_what_the_company_already_planned(
     # Turned on: after commit the job asks the company's plan for this card;
     # a broken source does not keep the others from publishing.
     assert turn(True) == 1
-    assert asked == [(company.organization_id, card.id)]
+    assert asked == [(company.organization_id, card.id, frozenset())]
     with tenant(farmer):
         assert [item.summary for item in list_register_visits()] == ["plan-jutro"]
 
@@ -264,9 +267,23 @@ def test_the_consent_to_the_schedule_brings_what_the_company_already_planned(
     with tenant(farmer):
         assert list_register_visits() == []
     assert turn(True) == 1
+    assert asked[-1][2] == frozenset({"plan-jutro"})
     with tenant(farmer):
         assert [item.summary for item in list_register_visits()] == ["plan-jutro"]
     assert FarmVisitEntry.all_objects.filter(farm_id=farm.id).count() == 1
+
+    # The job has no tenant of its own: the register's is set before its rows
+    # are read. The test database ignores RLS, so the order is the assertion.
+    with CaptureQueriesContext(connection) as captured:
+        republish_schedule(share.id)
+    statements = [query["sql"] for query in captured.captured_queries]
+    tenant_set = next(
+        index
+        for index, sql in enumerate(statements)
+        if "app.organization_id" in sql and str(farmer.organization_id) in sql
+    )
+    read = next(index for index, sql in enumerate(statements) if "farms_farmvisitentry" in sql)
+    assert tenant_set < read
 
     # A consent taken back before the job runs publishes nothing.
     FarmShare.objects.filter(pk=share.pk).update(can_publish_schedule=False)

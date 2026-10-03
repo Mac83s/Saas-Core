@@ -183,3 +183,8 @@ może je zmienić):
    publikuje je zwykłym `publish_farm_visit`. Tylko nadchodzące — nic, co już
    minęło, nie jest dopisywane wstecz — i idempotentnie: ponowne
    wyłączenie i włączenie zgody nie dokłada wierszy. Wyłączenie działa jak w pkt 2.
+   Źródło dostaje też listę wizyt tej karty, które rejestr wciąż pokazuje jako
+   zaplanowane, i publikuje ich stan obecny: odwołana lub nieodbyta w czasie
+   wyłączonej zgody staje się odwołaną, przełożona — zaplanowaną na prawdziwy
+   termin, także miniony. Odwołana wizyta pokazana jako zaplanowana to błędne
+   dane, nie przypadek brzegowy (koordynator, 03.10).

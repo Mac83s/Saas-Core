@@ -668,14 +668,19 @@ def publish_farm_visit(
 
 #: Who knows a company's planned visits to a card. A vertical registers one
 #: (HoofCare's herd visits); core names none (ADR-049).
-_schedule_sources: dict[str, Callable[[UUID, UUID], int]] = {}
+_schedule_sources: dict[str, Callable[[UUID, UUID, frozenset[str]], int]] = {}
 
 
-def register_schedule_source(name: str, source: Callable[[UUID, UUID], int]) -> None:
-    """`source(company_organization_id, company_farm_id)` publishes that
-    company's upcoming planned visits to the card through `publish_farm_visit`
-    and returns how many it handed over. It runs after commit, outside any
-    tenant, so it sets the company's own — the way an appointment observer does.
+def register_schedule_source(
+    name: str, source: Callable[[UUID, UUID, frozenset[str]], int]
+) -> None:
+    """`source(company_organization_id, company_farm_id, still_planned)`
+    publishes, through `publish_farm_visit`, that company's upcoming planned
+    visits to the card and the present state of every visit in `still_planned`
+    — the references the register still shows as planned from this card — and
+    returns how many it handed over. `name` is the `source` its rows carry.
+    It runs after commit, outside any tenant, so it sets the company's own — the
+    way an appointment observer does.
     """
     _schedule_sources[name] = source
 
@@ -684,13 +689,15 @@ def republish_schedule(share_id: UUID) -> int:
     """The keeper turned the schedule consent on (UX-078): what the company has
     already planned for this farm reaches the register now, not at its next
     move. For the keeper the consent means „show me the company's plan", so a
-    visit planned the day before must not stay invisible.
+    visit planned the day before must not stay invisible — and one called off
+    or moved while the consent was off must not stay „planned" on its old date:
+    that would be wrong data, so the source hears which rows still say planned.
 
-    Upcoming visits only — nothing that already happened is backfilled — and
-    idempotent: `publish_farm_visit` rewrites the one row of a visit, so
-    turning the consent off and on again adds nothing. A consent taken back
-    before this runs publishes nothing. A failing source is logged, not
-    raised: the consent is committed and the calendar stays the source of truth.
+    Nothing that already happened is backfilled, and it is idempotent:
+    `publish_farm_visit` rewrites the one row of a visit, so turning the
+    consent off and on again adds nothing. A consent taken back before this
+    runs publishes nothing. A failing source is logged, not raised: the
+    consent is committed and the calendar stays the source of truth.
     """
     # `FarmShare` has no organization key and no RLS: readable without a tenant.
     share = FarmShare.objects.filter(
@@ -701,12 +708,29 @@ def republish_schedule(share_id: UUID) -> int:
     published = 0
     for name, source in _schedule_sources.items():
         try:
-            published += source(share.company_organization_id, share.company_farm_id)
+            still_planned = _still_planned(share, name)
+            published += source(share.company_organization_id, share.company_farm_id, still_planned)
         except Exception:
             logger.exception(
                 "Źródło grafiku zawiodło.", extra={"source": name, "share_id": str(share_id)}
             )
     return published
+
+
+def _still_planned(share: FarmShare, source: str) -> frozenset[str]:
+    """The visits of this card the register still shows as planned."""
+    with transaction.atomic():
+        # The job has no tenant: the register's comes from the share, first.
+        set_local_organization_id(share.registry_organization_id)
+        return frozenset(
+            FarmVisitEntry.all_objects.filter(
+                organization_id=share.registry_organization_id,
+                farm_id=share.registry_farm_id,
+                company_organization_id=share.company_organization_id,
+                source=source,
+                status=VisitStatus.PLANNED,
+            ).values_list("source_reference", flat=True)
+        )
 
 
 def _visible_visits(organization_id: UUID) -> Q:
