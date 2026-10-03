@@ -278,10 +278,17 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
 });
 
 test("a saved draft says what follows for the other languages, until the next edit", async () => {
-  const notice = "Zapisano. Po publikacji tłumaczenia (English) zaktualizują się same.";
-  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined), false, {
-    afterSaveNotice: notice,
-  });
+  const notice =
+    "Zapisano. Po publikacji tłumaczenia (English) zaktualizują się same.";
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    false,
+    {
+      afterSaveNotice: notice,
+    },
+  );
 
   const heading = await screen.findByLabelText("Nagłówek");
   expect(screen.queryByText(notice)).toBeNull();

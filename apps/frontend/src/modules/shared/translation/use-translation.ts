@@ -17,11 +17,17 @@ import {
 export type TranslationOfferState =
   | { state: "loading" }
   | { state: "absent" }
-  | { state: "unavailable"; reasons: readonly string[]; offer: TranslationOffer }
+  | {
+      state: "unavailable";
+      reasons: readonly string[];
+      offer: TranslationOffer;
+    }
   | { state: "available"; offer: TranslationOffer };
 
 export function useTranslationOffer(): TranslationOfferState {
-  const [offer, setOffer] = useState<TranslationOfferState>({ state: "loading" });
+  const [offer, setOffer] = useState<TranslationOfferState>({
+    state: "loading",
+  });
   useEffect(() => {
     let alive = true;
     getTranslationOffer()
@@ -45,7 +51,9 @@ export function useTranslationOffer(): TranslationOfferState {
 
 const TERMINAL = new Set(["succeeded", "partial", "failed", "canceled"]);
 
-export function translationJobFinished(job: TranslationJob | undefined): boolean {
+export function translationJobFinished(
+  job: TranslationJob | undefined,
+): boolean {
   return job !== undefined && TERMINAL.has(job.state);
 }
 

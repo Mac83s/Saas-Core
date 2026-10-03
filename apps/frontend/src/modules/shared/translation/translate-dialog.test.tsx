@@ -103,8 +103,12 @@ test("says how much, what it costs against the balance and where it lands, then 
   api.orderTranslation.mockResolvedValue({ id: "job-1", state: "queued" });
   const ordered = show();
 
-  expect(await screen.findByText(/Do przetłumaczenia: 1840 znaków/)).not.toBeNull();
-  expect(screen.getByText(/Koszt: 2 kredyty\. Masz 10 kredytów\./)).not.toBeNull();
+  expect(
+    await screen.findByText(/Do przetłumaczenia: 1840 znaków/),
+  ).not.toBeNull();
+  expect(
+    screen.getByText(/Koszt: 2 kredyty\. Masz 10 kredytów\./),
+  ).not.toBeNull();
   expect(
     screen.getByText("Gotowe tłumaczenie trafi na stronę od razu."),
   ).not.toBeNull();
@@ -126,10 +130,13 @@ test("too few credits says how many are missing and does not order", async () =>
   show();
 
   expect(
-    await screen.findByText(/Brakuje 4 kredytów\. Dokupisz je w Abonament › Kredyty\./),
+    await screen.findByText(
+      /Brakuje 4 kredytów\. Dokupisz je w Abonament › Kredyty\./,
+    ),
   ).not.toBeNull();
   expect(
-    (screen.getByRole("button", { name: "Przetłumacz" }) as HTMLButtonElement).disabled,
+    (screen.getByRole("button", { name: "Przetłumacz" }) as HTMLButtonElement)
+      .disabled,
   ).toBe(true);
 });
 
@@ -138,7 +145,13 @@ test("the person's corrections stay unless they choose to overwrite them", async
     .mockResolvedValueOnce(
       quote({
         waiting: { overwrites_human: 1 },
-        lines: [line({ proposals: 3, outcome: "pending", reason: "overwrites_human" })],
+        lines: [
+          line({
+            proposals: 3,
+            outcome: "pending",
+            reason: "overwrites_human",
+          }),
+        ],
       }),
     )
     .mockResolvedValueOnce(quote({ protected: "overwrite" }));
@@ -165,24 +178,28 @@ test("a page never published is translated from the editor's version", async () 
         lines: [line({ characters: 0, excluded: "source_unpublished" })],
       }),
     )
-    .mockResolvedValueOnce(quote({ lines: [line({ basis: "working", outcome: "draft" })] }));
+    .mockResolvedValueOnce(
+      quote({ lines: [line({ basis: "working", outcome: "draft" })] }),
+    );
   show({ allowWorking: true });
 
-  expect(
-    await screen.findByText(/tłumaczę wersję z edytora/),
-  ).not.toBeNull();
+  expect(await screen.findByText(/tłumaczę wersję z edytora/)).not.toBeNull();
   expect(api.quoteTranslation.mock.calls[1]?.[0]).toEqual([
     { ...TARGET, basis: "working" },
   ]);
   expect(
-    screen.getByText(/zostanie w edytorze — na stronę trafi z Twoją publikacją/),
+    screen.getByText(
+      /zostanie w edytorze — na stronę trafi z Twoją publikacją/,
+    ),
   ).not.toBeNull();
 });
 
 test("a quote that went stale is asked for again, and nothing to do is said so", async () => {
   api.quoteTranslation
     .mockResolvedValueOnce(quote())
-    .mockResolvedValueOnce(quote({ characters: 0, units: 0, credits: 0, lines: [] }));
+    .mockResolvedValueOnce(
+      quote({ characters: 0, units: 0, credits: 0, lines: [] }),
+    );
   api.orderTranslation.mockRejectedValue(
     new ApiProblemError({
       type: "about:blank",
@@ -197,7 +214,9 @@ test("a quote that went stale is asked for again, and nothing to do is said so",
 
   fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz" }));
   expect(
-    await screen.findByText("Nie ma nic do przetłumaczenia — wszystko jest aktualne."),
+    await screen.findByText(
+      "Nie ma nic do przetłumaczenia — wszystko jest aktualne.",
+    ),
   ).not.toBeNull();
   expect(screen.getByText(/Treść zmieniła się od wyceny/)).not.toBeNull();
   expect(screen.queryByRole("button", { name: "Przetłumacz" })).toBeNull();
@@ -242,7 +261,9 @@ test("a running order says the window may be closed, a finished one how it ended
 test("an engine that takes no orders says why in the customer's words", () => {
   render(
     <NextIntlClientProvider locale="pl" messages={messages}>
-      <TranslationUnavailable reasons={["operation_unpriced", "model_not_selected"]} />
+      <TranslationUnavailable
+        reasons={["operation_unpriced", "model_not_selected"]}
+      />
     </NextIntlClientProvider>,
   );
   expect(

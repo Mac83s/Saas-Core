@@ -5656,7 +5656,9 @@ export async function orderTranslation(
 }
 
 /** One translation order with its parts and items, to follow its progress. */
-export async function getTranslationJob(jobId: string): Promise<TranslationJob> {
+export async function getTranslationJob(
+  jobId: string,
+): Promise<TranslationJob> {
   const { data, error, response } = await client.GET(
     "/api/v1/translation/jobs/{job_id}/",
     {

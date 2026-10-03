@@ -440,12 +440,21 @@ test("an order from the empty state is followed and the page reloads when it end
   api.getTranslationJob.mockResolvedValue({ id: "job-1", state: "succeeded" });
   show();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz (AI)" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Przetłumacz (AI)" }),
+  );
   fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz" }));
 
   await waitFor(() =>
     expect(api.orderTranslation).toHaveBeenCalledWith(
-      [{ source_key: "sites.page", object_id: PAGE.id, locale: "de", basis: "published" }],
+      [
+        {
+          source_key: "sites.page",
+          object_id: PAGE.id,
+          locale: "de",
+          basis: "published",
+        },
+      ],
       expect.anything(),
       expect.any(String),
       "propose",
@@ -499,7 +508,9 @@ test("an order that ended is history: asking again quotes anew", async () => {
 
   fireEvent.click(await again());
   // The dialog asks what it would cost now; it does not show the old order.
-  expect(await screen.findByRole("button", { name: "Przetłumacz" })).not.toBeNull();
+  expect(
+    await screen.findByRole("button", { name: "Przetłumacz" }),
+  ).not.toBeNull();
   expect(api.quoteTranslation).toHaveBeenCalledTimes(2);
   expect(
     screen.queryByText(

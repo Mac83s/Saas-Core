@@ -555,7 +555,12 @@ test("a machine's version says so and says when it waits for a person", async ()
 });
 
 test("translates an article into the missing languages and lists them when the order ends", async () => {
-  const german = { ...entry, id: "german", locale: "de", title: "Erster Beitrag" };
+  const german = {
+    ...entry,
+    id: "german",
+    locale: "de",
+    title: "Erster Beitrag",
+  };
   getPublicLocales.mockResolvedValue(companyLanguages(["pl", "en", "de"]));
   getTranslationOffer.mockResolvedValue({
     available: true,
@@ -629,7 +634,9 @@ test("a machine's version is not translated onward, and no engine offers nothing
     billing: { mode: "credits" },
   });
   listContentEntries.mockResolvedValue({
-    items: [{ ...entry, translation_of: "019ff20d-a000-7000-8000-000000000099" }],
+    items: [
+      { ...entry, translation_of: "019ff20d-a000-7000-8000-000000000099" },
+    ],
     next_cursor: null,
   });
   renderPanel();

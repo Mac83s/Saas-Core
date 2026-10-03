@@ -86,7 +86,9 @@ export function TranslateDialog({
   const [message, setMessage] = useState("");
   // A quote that went stale is asked for again.
   const [round, setRound] = useState(0);
-  const protectedTexts: TranslationProtected = overwrite ? "overwrite" : "propose";
+  const protectedTexts: TranslationProtected = overwrite
+    ? "overwrite"
+    : "propose";
   const key = targets
     .map((item) => `${item.source_key}:${item.object_id}:${item.locale}`)
     .join("|");
@@ -221,7 +223,10 @@ export function TranslateDialog({
         {lines
           .filter((line) => line.excluded)
           .map((line) => (
-            <p key={`${line.object_id}-${line.locale}`} className="text-muted-foreground">
+            <p
+              key={`${line.object_id}-${line.locale}`}
+              className="text-muted-foreground"
+            >
               {t("excluded.line", {
                 language: languageName(line.locale),
                 reason: t.has(`excluded.${line.excluded}`)
@@ -258,11 +263,17 @@ export function TranslateDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription className="sr-only">{t("title")}</DialogDescription>
+          <DialogDescription className="sr-only">
+            {t("title")}
+          </DialogDescription>
         </DialogHeader>
         {content}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             {job || nothing ? t("close") : t("cancel")}
           </Button>
           {!job && !nothing && (

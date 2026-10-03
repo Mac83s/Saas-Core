@@ -1152,7 +1152,12 @@ export function PageLanguageEditor({
           open={translating}
           onOpenChange={setTranslating}
           targets={[
-            { source_key: "sites.page", object_id: page.id, locale, basis: "published" },
+            {
+              source_key: "sites.page",
+              object_id: page.id,
+              locale,
+              basis: "published",
+            },
           ]}
           languageName={() => languageName}
           reasonText={(reason) =>

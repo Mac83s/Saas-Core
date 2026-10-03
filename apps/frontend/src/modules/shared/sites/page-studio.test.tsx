@@ -340,7 +340,9 @@ test("a saved source says what follows for its live languages, only with the aut
   first.unmount();
 
   vi.mocked(getTranslationOffer).mockClear();
-  vi.mocked(getTranslationOffer).mockResolvedValueOnce(offer(false, "automatic"));
+  vi.mocked(getTranslationOffer).mockResolvedValueOnce(
+    offer(false, "automatic"),
+  );
   setup("pl", "site");
   expect(await screen.findByText("Editing Home")).not.toBeNull();
   await waitFor(() => expect(getTranslationOffer).toHaveBeenCalledTimes(1));
