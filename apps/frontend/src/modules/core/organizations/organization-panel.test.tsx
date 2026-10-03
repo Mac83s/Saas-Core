@@ -55,7 +55,7 @@ test("ładuje organizacje; zespołem zajmuje się TeamPanel", async () => {
     </NextIntlClientProvider>,
   );
 
-  expect(await screen.findByText("Aktywna: acme")).toBeInTheDocument();
+  expect(await screen.findByText("Aktywna: Acme")).toBeInTheDocument();
   expect(
     (screen.getByLabelText("Wybierz organizację") as HTMLInputElement).value,
   ).toBe("Acme");

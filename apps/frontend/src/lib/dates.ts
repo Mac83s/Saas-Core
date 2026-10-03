@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 /**
  * One way to write a date in the panel (UX-011): a day is „30 wrz 2026”, a
  * moment „30 wrz 2026, 14:00”, a visit „czw., 1.10, 08:00–09:00”. A range of
@@ -114,6 +116,35 @@ export function formatDateRange(
       ...DAY,
       timeZone: start.timeZone ?? timeZone,
     }).formatRange(start.date, end.date),
+  );
+}
+
+/**
+ * „czas środkowoeuropejski, UTC+02:00” — a zone the way people know it,
+ * never „Europe/Warsaw” (UX-019).
+ */
+export function formatZone(timeZone: string, locale: string): string {
+  const part = (timeZoneName: "longGeneric" | "longOffset") =>
+    dateFormat(locale, { timeZone, timeZoneName })
+      .formatToParts(new Date())
+      .find((item) => item.type === "timeZoneName")?.value;
+  const offset = part("longOffset")?.replace(/^GMT/, "UTC");
+  return [part("longGeneric"), offset].filter(Boolean).join(", ");
+}
+
+function viewerZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
+ * Whether the viewer's browser is in another zone than `timeZone`: only then
+ * is the zone worth a word. The server render assumes the same zone.
+ */
+export function useOtherZone(timeZone: string): boolean {
+  return useSyncExternalStore(
+    () => () => undefined,
+    () => viewerZone() !== timeZone,
+    () => false,
   );
 }
 

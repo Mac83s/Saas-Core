@@ -175,10 +175,11 @@ export function SitePagesTable({
 
   const status = (page: PageListItem) => {
     if (page.published_version == null)
-      return <Badge variant="secondary">{t("statusDraft")}</Badge>;
+      return <Badge variant="neutral">{t("statusDraft")}</Badge>;
+    // Changes waiting for publication ask for it (UX-018).
     if (page.version > page.published_version)
-      return <Badge variant="outline">{t("statusChanged")}</Badge>;
-    return <Badge>{t("statusPublished")}</Badge>;
+      return <Badge variant="warning">{t("statusChanged")}</Badge>;
+    return <Badge variant="success">{t("statusPublished")}</Badge>;
   };
 
   const liveColumns: ColumnDef<PageListItem, unknown>[] = [

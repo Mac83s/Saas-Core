@@ -263,7 +263,21 @@ export function TeamsPanel({
             columns={columns}
             data={rows}
             getRowId={(row) => row.team.id}
-            labels={{ ...labels, empty: t("empty") }}
+            emptyAction={
+              canManage ? (
+                <Button
+                  onClick={(event) => {
+                    setReturnTo(event.currentTarget);
+                    setEditing("new");
+                  }}
+                  variant="outline"
+                >
+                  <UsersIcon aria-hidden="true" />
+                  {t("add")}
+                </Button>
+              ) : null
+            }
+            labels={{ ...labels, empty: t(canManage ? "empty" : "emptyAsk") }}
             loading={!data}
             searchText={(row) =>
               [row.team.name, ...row.members.map((person) => person.name)].join(

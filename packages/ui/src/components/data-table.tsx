@@ -292,12 +292,18 @@ export function DataTable<TData, TValue>({
   }, [manual, current.pageIndex, lastPage]);
   const rows = table.getRowModel().rows;
   const width = table.getVisibleLeafColumns().length;
+  // A list with nothing in it and nothing narrowing it shows no search, no
+  // filters and no column names over nothing — only its empty state and the
+  // way out (UX-021). `toolbar` stays: a period or a warehouse is the page's
+  // scope, and another one may have rows.
+  const bare =
+    !loading && data.length === 0 && !current.search && activeFilters === 0;
 
   return (
     <div className={cn("space-y-3", className)}>
-      {searchable || toolbar || filters ? (
+      {((searchable || filters) && !bare) || toolbar ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {searchable ? (
+          {searchable && !bare ? (
             <DataTableSearch
               label={labels.search}
               onChange={search}
@@ -305,7 +311,7 @@ export function DataTable<TData, TValue>({
             />
           ) : null}
           {toolbar}
-          {filters ? (
+          {filters && !bare ? (
             <ListFilters active={activeFilters} labels={labels}>
               {filters}
             </ListFilters>
@@ -324,7 +330,10 @@ export function DataTable<TData, TValue>({
           role="table"
         >
           <TableCaption className="sr-only">{caption}</TableCaption>
-          <TableHeader className="max-md:sr-only" role="rowgroup">
+          <TableHeader
+            className={bare ? "sr-only" : "max-md:sr-only"}
+            role="rowgroup"
+          >
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} role="row">
                 {group.headers.map((header) => {

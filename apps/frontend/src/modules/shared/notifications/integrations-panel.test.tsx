@@ -183,8 +183,11 @@ test("pusta lista mówi, że nie ma jeszcze kluczy ani webhooków", async () => 
   api.listIntegrationWebhooks.mockResolvedValue([]);
   renderPanel("en");
 
-  expect(await screen.findByText("There are no API keys yet.")).toBeVisible();
-  expect(screen.getByText("There are no webhooks yet.")).toBeVisible();
+  // An empty list says what the thing is for (UX-019).
+  expect(
+    await screen.findByText(/^No API keys yet\. A key lets/),
+  ).toBeVisible();
+  expect(screen.getByText(/^No webhooks yet\. A webhook tells/)).toBeVisible();
 });
 
 test("błąd odczytu pokazuje komunikat zamiast pustych list", async () => {
@@ -195,5 +198,5 @@ test("błąd odczytu pokazuje komunikat zamiast pustych list", async () => {
     "Nie udało się pobrać integracji.",
   );
   expect(screen.queryByRole("table")).toBeNull();
-  expect(screen.queryByText("Nie ma jeszcze kluczy API.")).toBeNull();
+  expect(screen.queryByText(/^Nie ma jeszcze kluczy API/)).toBeNull();
 });

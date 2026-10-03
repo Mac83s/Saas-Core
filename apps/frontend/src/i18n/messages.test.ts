@@ -33,3 +33,20 @@ test("produkt dokłada klucze na każdej głębokości i nie gubi kluczy rdzenia
     Product: { x: "X" },
   });
 });
+
+function strings(value: object, prefix = ""): [string, string][] {
+  return Object.entries(value).flatMap(([key, entry]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    return typeof entry === "object" && entry !== null
+      ? strings(entry, path)
+      : [[path, String(entry)] as [string, string]];
+  });
+}
+
+test("polski nie zgaduje rodzaju osoby, która czyta panel (UX-020)", () => {
+  // „dokupiłeś”, „jesteś zalogowany”, „gdy będziesz gotowy”: the panel does
+  // not know who reads it, so it says what happened, not who did it.
+  const gendered =
+    /\p{L}+(?:łeś|łaś)(?![\p{L}])|\b(?:jesteś|będziesz)\s+(?:zalogowan|gotow|pewn)\p{L}*/iu;
+  expect(strings(pl).filter(([, text]) => gendered.test(text))).toEqual([]);
+});

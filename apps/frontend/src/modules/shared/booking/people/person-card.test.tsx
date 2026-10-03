@@ -315,7 +315,7 @@ test("karta: dane, dziś, grafik i najbliższe wizyty z drogą do kalendarza", a
     "tel:601234567",
   );
   expect(facts.getByText("marcin@example.com")).toBeInTheDocument();
-  expect(facts.getByText("Na wizycie do 12:00")).toBeInTheDocument();
+  expect(facts.getByText("Wizyta do 12:00")).toBeInTheDocument();
   expect(facts.getByText("Brygada Północ")).toBeInTheDocument();
   expect(facts.queryByText("Brygada Południe")).toBeNull();
   expect(facts.getByText("Korekcja stada")).toBeInTheDocument();
@@ -355,9 +355,9 @@ test("grafik: tydzień zapisuje się w całości, nieobecność to całe dni w s
     await screen.findByRole("heading", { name: "Godziny pracy" }),
   ).toBeInTheDocument();
   const today = () =>
-    screen.getByText("Dziś", { selector: "dt" }).nextElementSibling
+    screen.getByText("Teraz", { selector: "dt" }).nextElementSibling
       ?.textContent;
-  expect(today()).toBe("Na wizycie do 12:00");
+  expect(today()).toBe("Wizyta do 12:00");
   // The visit moved meanwhile: a saved week asks for today again.
   api.getPeopleDay.mockResolvedValue({
     date: "2026-09-24",
@@ -414,7 +414,7 @@ test("grafik: tydzień zapisuje się w całości, nieobecność to całe dni w s
   expect(
     await screen.findByText("Zapisano godziny pracy."),
   ).toBeInTheDocument();
-  await waitFor(() => expect(today()).toBe("Wolne"));
+  await waitFor(() => expect(today()).toBe("Teraz bez wizyty"));
   expect(screen.getByText("Urlop")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Dodaj nieobecność" }));
@@ -588,7 +588,8 @@ test("„Pokazuj klientom”: nazwa dla klientów na karcie i jej zmiana", async
   const facts = within(
     await screen.findByRole("region", { name: "Dane pracownika" }),
   );
-  expect(facts.getByText("Nie pokazujemy")).toBeInTheDocument();
+  expect(facts.getByText("Widoczna dla klientów")).toBeInTheDocument();
+  expect(facts.getByText("nie")).toBeInTheDocument();
   fireEvent.click(facts.getByRole("button", { name: "Zmień" }));
   const dialog = await screen.findByRole("dialog", {
     name: "Pokazuj klientom: Marcin Kowalski",

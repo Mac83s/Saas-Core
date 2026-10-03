@@ -276,7 +276,7 @@ export function OrganizationPanel() {
           </Field>
           {active && (
             <Badge variant="secondary">
-              {t("active")}: {active.slug}
+              {t("active")}: {active.name}
             </Badge>
           )}
         </CardContent>

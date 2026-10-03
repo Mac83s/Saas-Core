@@ -142,7 +142,7 @@ export function useUntil(zone: string) {
   };
 }
 
-/** The "Dziś" words for a state; the list and the card say it the same way. */
+/** The "Teraz" words for a state; the list and the card say it the same way. */
 export function useTodayText(zone: string) {
   const t = useTranslations("People");
   const until = useUntil(zone);
@@ -154,6 +154,14 @@ export function useTodayText(zone: string) {
         return t("today_busy", { until: until(state.until, now) });
       case "freeFrom":
         return t("today_freeFrom", { from: wallClock(state.from, zone).time });
+      case "free":
+        return state.next
+          ? t("today_freeNext", { next: wallClock(state.next, zone).time })
+          : t("today_free");
+      case "after":
+        return t("today_after", {
+          hours: `${wallClock(state.from, zone).time}–${wallClock(state.to, zone).time}`,
+        });
       default:
         return t(`today_${state.kind}`);
     }

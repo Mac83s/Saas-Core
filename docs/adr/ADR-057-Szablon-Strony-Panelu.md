@@ -92,6 +92,14 @@ zawijały się w dwa rzędy.
    strzałki, wybór widoku) to `PanelToolbar` z tą samą linią pod spodem;
    legenda statusów kalendarza na telefonie znika, bo karty piszą status
    słowem.
+9. **Status ma ton, nie kolor głównej akcji** (UX-018, 03.10). `Badge` ma
+   warianty `success` (opublikowane, aktywne), `warning` (czeka na działanie:
+   zmiany do publikacji, płatność), `info` (fakt: nieprzeczytane), `neutral`
+   (stan, który niczego nie wymaga: szkic, ukryte, standardowa) i
+   `destructive`. Status pisze się wielką literą; `default` (turkus
+   przycisku) nie jest statusem. Pusta lista bez wyszukiwania i filtrów nie
+   pokazuje paska ani nagłówków kolumn — tylko pusty stan i wyjście z niego dla
+   tych, którzy mogą coś dodać; pozostali dowiadują się, kto dodaje (UX-021).
 
 ## Konsekwencje
 

@@ -19,6 +19,13 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Status tones (UX-018): never the main action's colour. What needs
+        // doing is amber; what is done or live is green; a fact is blue; a
+        // state that asks nothing is muted.
+        success: "bg-success text-success-foreground",
+        warning: "bg-warning text-warning-foreground",
+        info: "bg-info text-info-foreground",
+        neutral: "bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {

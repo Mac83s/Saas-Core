@@ -372,3 +372,38 @@ test("on a phone the filters wait under one button; one copy at a time", async (
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(screen.getAllByRole("combobox", { name: "City" })).toHaveLength(1);
 });
+
+test("an empty list with nothing narrowing it shows its empty state, not a toolbar over nothing", () => {
+  const { rerender } = render(
+    <DataTable
+      caption="People"
+      columns={columns}
+      data={[]}
+      emptyAction={<button type="button">Add the first person</button>}
+      labels={labels}
+      searchable
+      toolbar={<span>Period</span>}
+    />,
+  );
+  expect(screen.queryByRole("searchbox")).toBeNull();
+  // The page's scope stays: another period may have rows.
+  screen.getByText("Period");
+  // The column names stay for a screen reader only.
+  expect(screen.getAllByRole("rowgroup")[0].className).toContain("sr-only");
+  screen.getByText("Nothing here");
+  screen.getByRole("button", { name: "Add the first person" });
+
+  // A filter that leaves nothing keeps the bar, so it can be undone.
+  rerender(
+    <DataTable
+      activeFilters={1}
+      caption="People"
+      columns={columns}
+      data={[]}
+      filters={<span>City filter</span>}
+      labels={labels}
+      searchable
+    />,
+  );
+  screen.getByRole("searchbox", { name: "Search" });
+});

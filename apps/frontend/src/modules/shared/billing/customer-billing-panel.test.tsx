@@ -587,7 +587,7 @@ test("plan anulowany na koniec okresu mówi, kiedy wygaśnie, bez następnej pł
       "Do tego dnia wszystko działa bez zmian. Plan możesz wznowić w portalu płatności.",
     ),
   ).not.toBeNull();
-  expect(screen.getByText("wygasa z końcem okresu")).not.toBeNull();
+  expect(screen.getByText("Wygasa z końcem okresu")).not.toBeNull();
   expect(screen.getByText("Plan wygasa")).not.toBeNull();
   expect(screen.queryByText("Następna płatność")).toBeNull();
 });

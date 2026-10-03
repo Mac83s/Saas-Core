@@ -1573,7 +1573,7 @@ test("public booking picks a day, then a time, and names nobody", async () => {
   fireEvent.change(screen.getByLabelText("Service"), {
     target: { value: catalog.services[0].id },
   });
-  fireEvent.change(screen.getByLabelText("Location"), {
+  fireEvent.change(screen.getByLabelText("Place"), {
     target: { value: catalog.locations[0].id },
   });
   fireEvent.click(screen.getByRole("button", { name: "Show times" }));
@@ -1654,7 +1654,7 @@ async function searchPublic(service = catalog.services[0].id) {
   fireEvent.change(screen.getByLabelText(/Service|Usługa/), {
     target: { value: service },
   });
-  fireEvent.change(screen.getByLabelText(/Location|Lokalizacja/), {
+  fireEvent.change(screen.getByLabelText(/Place|Miejsce/), {
     target: { value: catalog.locations[0].id },
   });
   fireEvent.click(screen.getByRole("button", { name: /Show times|Pokaż/ }));
@@ -1799,7 +1799,7 @@ test("„Do kogo?”: a chosen team narrows the times and goes with the booking 
   fireEvent.change(screen.getByLabelText("Usługa"), {
     target: { value: catalog.services[0].id },
   });
-  fireEvent.change(screen.getByLabelText("Lokalizacja"), {
+  fireEvent.change(screen.getByLabelText("Miejsce"), {
     target: { value: catalog.locations[0].id },
   });
   fireEvent.click(screen.getByLabelText("Wybrany zespół"));

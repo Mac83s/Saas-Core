@@ -290,7 +290,7 @@ function SiteInbox({ siteId }: { siteId: string }) {
       header: t("state"),
       cell: ({ row: { original: item } }) =>
         !item.read_at ? (
-          <Badge>{t("unread")}</Badge>
+          <Badge variant="info">{t("unread")}</Badge>
         ) : (
           <span className="text-muted-foreground">{t("read")}</span>
         ),

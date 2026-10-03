@@ -190,8 +190,9 @@ export type TodayState =
   | { kind: "noVisits" }
   | { kind: "away"; until: string }
   | { kind: "busy"; until: string }
-  | { kind: "free" }
+  | { kind: "free"; next?: string }
   | { kind: "freeFrom"; from: string }
+  | { kind: "after"; from: string; to: string }
   | { kind: "off" };
 
 type Span = { from: number; to: number };
@@ -217,9 +218,11 @@ function merged(items: Span[]): Span[] {
 }
 
 /**
- * The "Dziś" column at `now`: away, on a visit, free, or free from when.
+ * The "Teraz" column at `now`: away, on a visit, without one (and when the
+ * next starts), the schedule's start, after the day's work, or no work today.
  * Worked out in the browser from one read of the day, so the same answer
- * serves the list, the card and, later, the assignment dialog.
+ * serves the list, the card and the day board. A shift that has ended is not
+ * „Nie pracuje dziś” (UX-016).
  */
 export function todayState(
   day: PeopleDay["items"][number] | undefined,
@@ -244,11 +247,22 @@ export function todayState(
     let start = Math.max(work.from, at);
     for (const block of blocked)
       if (block.from <= start && block.to > start) start = block.to;
-    if (start < work.to)
-      return start <= at
-        ? { kind: "free" }
-        : { kind: "freeFrom", from: new Date(start).toISOString() };
+    if (start < work.to) {
+      if (start > at)
+        return { kind: "freeFrom", from: new Date(start).toISOString() };
+      const next = busy.find((item) => item.from > at && item.from < work.to);
+      return next
+        ? { kind: "free", next: new Date(next.from).toISOString() }
+        : { kind: "free" };
+    }
   }
+  const works = spans(day?.works ?? []);
+  if (works.length && works.every((work) => work.to <= at))
+    return {
+      kind: "after",
+      from: new Date(works[0]!.from).toISOString(),
+      to: new Date(Math.max(...works.map((work) => work.to))).toISOString(),
+    };
   return { kind: "off" };
 }
 

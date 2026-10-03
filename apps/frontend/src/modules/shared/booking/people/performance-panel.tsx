@@ -36,6 +36,9 @@ type Row = TeamPerformance["items"][number];
  * period, a column per number of every module that counts. The owner's and
  * administrator's view (owner's answer 3); the API refuses anybody else.
  */
+/** The facts core itself counts; any other provider is a product's. */
+const CORE_PROVIDERS = new Set(["calendar", "inventory", "account"]);
+
 export function PerformancePanel({
   organization,
 }: {
@@ -191,7 +194,19 @@ export function PerformancePanel({
       )}
       <PanelSection title={t("howTitle")}>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          {(["visits", "hours", "used", "product"] as const).map((key) => (
+          {(
+            [
+              "visits",
+              "hours",
+              "used",
+              // „Liczby produktu” only where a product counts something (UX-019).
+              ...(data?.columns.some(
+                (group) => !CORE_PROVIDERS.has(group.provider),
+              )
+                ? (["product"] as const)
+                : []),
+            ] as const
+          ).map((key) => (
             <div key={key}>
               <dt className="font-medium">{t(`how.${key}.term`)}</dt>
               <dd className="text-muted-foreground">{t(`how.${key}.text`)}</dd>

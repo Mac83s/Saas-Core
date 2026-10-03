@@ -86,7 +86,7 @@ test.each([
     "pl",
     "250 z 1000",
     "Odnawia się 30 wrz 2026",
-    "Nie kupiłeś jeszcze żadnego pakietu.",
+    "Firma nie ma jeszcze zakupionych pakietów.",
   ],
   [
     "en",

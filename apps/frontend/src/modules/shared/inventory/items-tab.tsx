@@ -148,13 +148,13 @@ export function ItemsTab({
           <p className="font-medium wrap-anywhere">
             {item.name}{" "}
             {item.system_key ? (
-              <Badge variant="secondary">{t("standard")}</Badge>
+              <Badge variant="neutral">{t("standard")}</Badge>
             ) : null}{" "}
             {item.tracks_lots ? (
-              <Badge variant="outline">{t("lotsBadge")}</Badge>
+              <Badge variant="neutral">{t("lotsBadge")}</Badge>
             ) : null}{" "}
             {item.active ? null : (
-              <Badge variant="outline">{t("hidden")}</Badge>
+              <Badge variant="neutral">{t("hidden")}</Badge>
             )}
           </p>
           {item.sku || item.ean ? (
@@ -256,7 +256,19 @@ export function ItemsTab({
             : data.items
         }
         getRowId={(item) => item.id}
-        labels={{ ...labels, empty: t("itemsEmpty") }}
+        // Who may add gets the way to; everybody else learns who adds (UX-021).
+        emptyAction={
+          canManage ? (
+            <Button onClick={() => open("new")} variant="outline">
+              <PlusIcon aria-hidden="true" />
+              {t("addItem")}
+            </Button>
+          ) : null
+        }
+        labels={{
+          ...labels,
+          empty: t(canManage ? "itemsEmpty" : "itemsEmptyAsk"),
+        }}
         searchable
         searchText={(item) =>
           [item.name, item.sku, item.ean, item.category_name].join(" ")

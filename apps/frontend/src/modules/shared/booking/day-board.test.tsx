@@ -203,9 +203,9 @@ test("a row per person: where they are, their visits, and the day's vacancies ab
   expect(
     within(alex).getByRole("button", { name: /13:00–13:30, Jan Kowalski/ }),
   ).not.toBeNull();
-  // Now is 12:00: Alex is free now, Bea from 14:00.
-  expect(within(board).getByText("Free")).not.toBeNull();
-  expect(within(board).getByText("Free from 14:00")).not.toBeNull();
+  // Now is 12:00: Alex has no visit until the 13:00 one, Bea's shift starts at 14:00.
+  expect(within(board).getByText("No visit · next 13:00")).not.toBeNull();
+  expect(within(board).getByText("Shift from 14:00")).not.toBeNull();
   expect(within(board).getAllByText("North")).toHaveLength(2);
 
   expect(within(board).getByText("To assign · 1")).not.toBeNull();

@@ -350,12 +350,12 @@ test("jedna lista ludzi: z kontem i bez, rola, konto i to, co robią dziś", asy
     "/panel/team/s-marcin",
   );
   expect(marcin.getByText("Konto aktywne")).toBeInTheDocument();
-  expect(marcin.getByText("Na wizycie do 12:00")).toBeInTheDocument();
+  expect(marcin.getByText("Wizyta do 12:00")).toBeInTheDocument();
   expect(
     marcin.getByRole("link", { name: "Zadzwoń: Marcin Kowalski" }),
   ).toHaveAttribute("href", "tel:601234567");
   expect(within(rows[3]).getByText("Bez konta")).toBeInTheDocument();
-  expect(within(rows[3]).getByText("Wolne od 13:00")).toBeInTheDocument();
+  expect(within(rows[3]).getByText("Grafik od 13:00")).toBeInTheDocument();
   expect(
     within(rows[4]).getByText(/Zaproszenie · ważne do/),
   ).toBeInTheDocument();
@@ -363,7 +363,7 @@ test("jedna lista ludzi: z kontem i bez, rola, konto i to, co robią dziś", asy
   expect(within(rows[5]).getByText("Zaproszenie wygasło")).toBeInTheDocument();
   expect(
     screen.getByText(
-      "Konta w planie: 4 z 25 · pracownicy bez konta nie wliczają się do limitu",
+      "Konta w zespole: 4 z 25 · pracownicy bez konta nie wliczają się do limitu",
     ),
   ).toBeInTheDocument();
   await expectAccessible(container);
@@ -528,7 +528,9 @@ test("z kontem: rola robocza domyślnie, zaproszenie i czytelny konflikt", async
     "Podgląd",
   ]);
   expect(
-    within(dialog).getByText("Konta w planie: 5 z 25 po wysłaniu zaproszenia."),
+    within(dialog).getByText(
+      "Konta w zespole: 5 z 25 po wysłaniu zaproszenia.",
+    ),
   ).toBeInTheDocument();
 
   api.addPerson.mockRejectedValueOnce(problem(409, "invitation_conflict"));
@@ -735,7 +737,7 @@ test("bez kalendarza w planie: lista kont i samo zaproszenie", async () => {
   renderPanel();
   const table = await screen.findByRole("table", { name: "Pracownicy firmy" });
   expect(
-    within(table).queryByRole("columnheader", { name: "Dziś" }),
+    within(table).queryByRole("columnheader", { name: "Teraz" }),
   ).toBeNull();
   expect(within(table).getByText("Marcin Kowalski")).toBeInTheDocument();
   // Installed is not bought: nothing edits an entry the plan has no calendar for.
@@ -775,6 +777,6 @@ test("the list is accessible in English too", async () => {
     "en",
   );
   await screen.findByRole("table", { name: "The company's people" });
-  expect(screen.getByText("On a visit until 12:00")).toBeInTheDocument();
+  expect(screen.getByText("Visit until 12:00")).toBeInTheDocument();
   await expectAccessible(container);
 });

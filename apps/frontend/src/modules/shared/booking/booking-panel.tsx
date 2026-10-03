@@ -37,7 +37,7 @@ import { cn } from "@saas-core/ui/lib/utils";
 import { PanelPage, PanelToolbar } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
-import { formatHours, formatVisit } from "#lib/dates";
+import { formatHours, formatVisit, formatZone, useOtherZone } from "#lib/dates";
 import type { PanelAccess } from "#lib/panel-navigation";
 import {
   AppointmentDialog,
@@ -144,6 +144,7 @@ export function BookingPanel({
   const labels = useDataTableLabels();
   const appZone = useTimeZone();
   const zone = timeZone ?? appZone ?? "UTC";
+  const otherZone = useOtherZone(zone);
   const today = wallClock(new Date(), zone).day;
   // The view, the day and the filters live in the address (plan: phase 2):
   // a person's card links to their visits, and back or a refresh keeps them.
@@ -854,7 +855,7 @@ export function BookingPanel({
           </>
         ) : null
       }
-      description={t("description", { zone: zone.replaceAll("_", " ") })}
+      description={t("description")}
       eyebrow={t("eyebrow")}
       notice={notice}
       title={t("title")}
@@ -880,10 +881,12 @@ export function BookingPanel({
           >
             <ChevronRightIcon aria-hidden="true" />
           </Button>
-          {/* On a phone the page's description gives way; its zone stays here. */}
-          <p className="w-full text-xs text-muted-foreground sm:hidden">
-            {t("zoneNote", { zone: zone.replaceAll("_", " ") })}
-          </p>
+          {/* The zone only when the browser is in another one (UX-019). */}
+          {otherZone ? (
+            <p className="w-full text-xs text-muted-foreground sm:order-last">
+              {t("zoneNote", { zone: formatZone(zone, locale) })}
+            </p>
+          ) : null}
           <h2
             aria-live="polite"
             className="ml-1 text-lg font-semibold outline-none first-letter:uppercase sm:text-xl"

@@ -208,7 +208,7 @@ export function BookingSettings({
   const inactive = (
     key: "inactiveService" | "inactivePlace" | "inactiveResource",
   ) => (
-    <Badge className="ml-2" variant="outline">
+    <Badge className="ml-2" variant="neutral">
       {t(key)}
     </Badge>
   );

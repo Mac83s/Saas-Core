@@ -870,13 +870,15 @@ function stateLabel(state: string, t: Translator, isSimulated = false) {
   return known.has(state) ? t(`states.${state}`) : state;
 }
 
+/** A plan's state in the status tones (UX-018): what asks for action is amber. */
 function stateBadge(
   state: string,
   ending: string | null,
-): "default" | "destructive" | "outline" {
-  if (state === "grace_period" || state === "suspended") return "destructive";
-  if (!ending && (state === "active" || state === "trialing")) return "default";
-  return "outline";
+): "success" | "warning" | "destructive" | "neutral" {
+  if (state === "suspended") return "destructive";
+  if (state === "grace_period" || ending) return "warning";
+  if (state === "active" || state === "trialing") return "success";
+  return "neutral";
 }
 
 function accessModeLabel(

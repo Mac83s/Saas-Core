@@ -210,9 +210,12 @@ test("zmiana witryny usuwa poprzednią treść i ignoruje spóźniony odczyt", a
     await screen.findByRole("button", { name: /Example Visitor/ }),
   );
   await screen.findByText(first.message);
-  fireEvent.change(screen.getByRole("combobox", { name: "Witryna" }), {
-    target: { value: "site-2" },
-  });
+  fireEvent.change(
+    screen.getByRole("combobox", { name: "Strona internetowa" }),
+    {
+      target: { value: "site-2" },
+    },
+  );
   await screen.findByText("Nie ma jeszcze zapytań z tej witryny.");
   finishRead({ ...first, read_at: "2026-09-21T13:00:00Z" });
   expect(screen.queryByText(first.message)).toBeNull();

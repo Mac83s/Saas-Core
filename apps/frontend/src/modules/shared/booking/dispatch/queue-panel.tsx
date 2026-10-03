@@ -303,9 +303,13 @@ export function QueuePanel({
         </div>
       ) : (
         <div className="space-y-4">
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {t("legend")}
-          </p>
+          {/* How the queue works, folded: the list comes first (UX-019). */}
+          <details className="max-w-3xl text-sm text-muted-foreground">
+            <summary className="w-fit cursor-pointer rounded-sm font-medium text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              {t("legendTitle")}
+            </summary>
+            <p className="mt-1">{t("legend")}</p>
+          </details>
           {problem ? (
             <p className="text-sm text-destructive" role="alert">
               {problem}

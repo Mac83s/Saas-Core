@@ -160,7 +160,7 @@ const day = (over: Partial<PeopleDay["items"][number]> = {}) => ({
   ...over,
 });
 
-test("today: away, on a visit until the end of back-to-back ones, free, free from", () => {
+test("now: away, on a visit until the end of back-to-back ones, free until the next, the shift's start, after it", () => {
   const at = (iso: string) => new Date(iso);
   expect(todayState(day(), false, at("2026-09-24T08:00:00Z"))).toEqual({
     kind: "noVisits",
@@ -192,14 +192,24 @@ test("today: away, on a visit until the end of back-to-back ones, free, free fro
   });
   expect(todayState(busy, true, at("2026-09-24T05:00:00Z"))).toEqual({
     kind: "free",
+    next: "2026-09-24T06:00:00.000Z",
+  });
+  expect(todayState(busy, true, at("2026-09-24T11:00:00Z"))).toEqual({
+    kind: "free",
   });
   expect(todayState(day(), true, at("2026-09-24T02:00:00Z"))).toEqual({
     kind: "freeFrom",
     from: "2026-09-24T04:00:00.000Z",
   });
+  // A shift that has ended is not „Nie pracuje dziś” (UX-016).
   expect(todayState(day(), true, at("2026-09-24T15:00:00Z"))).toEqual({
-    kind: "off",
+    kind: "after",
+    from: "2026-09-24T04:00:00.000Z",
+    to: "2026-09-24T14:00:00.000Z",
   });
+  expect(
+    todayState(day({ works: [] }), true, at("2026-09-24T08:00:00Z")),
+  ).toEqual({ kind: "off" });
 });
 
 test("a week reads the way people say it", () => {
