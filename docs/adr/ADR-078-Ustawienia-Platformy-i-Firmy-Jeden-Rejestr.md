@@ -560,3 +560,33 @@ wejścia API i poleceń.
   ta ostatnia działa już przez stronę ogólną, gdy produkt zadeklaruje obszar bez
   strony.
 
+## Uzupełnienie 2026-10-03 (4): R3a — rezerwacje online, samoobsługa, zespół, zapytania
+
+- **Rezerwacja online (B3, B9):** `booking.online.horizon_days` (1–62, domyślnie 15 z
+  dzisiejszym; górna granica to jedno okno wyszukiwania terminów,
+  `BOOKING_SLOT_HORIZON_DAYS`) i `booking.online.contact` (e-mail, telefon, jedno z
+  dwóch, oba; domyślnie e-mail). Publiczne terminy kończą się na ostatnim dniu
+  horyzontu, start dalej → 409 `beyond_booking_horizon`; brak wymaganego kontaktu →
+  400 na `customer.<pole>`. Panel nie ma tych ograniczeń.
+- **Samoobsługa (B4, UF-D1):** grupa `booking.self_service` — `mode`
+  (`change_and_cancel` / `cancel_only` / `none`) i `cutoff_hours` (0–168). Obie
+  wartości zapisują się w wizycie przy jej tworzeniu (`Appointment.self_service_mode`,
+  `self_service_cutoff_hours`) i tylko one decydują o tym, co może link klienta —
+  zmiana ustawienia firmy nie zmienia warunków umówionych wizyt. Odmowa zostaje
+  409 `appointment_not_changeable`; publiczna odpowiedź wizyty mówi, co link jeszcze
+  może (`self_service`). Na razie zasięg firmy; poziom oferty — gdy firma o niego
+  poprosi.
+- **Oferta i miejsce na stronie (B2) i siatka startów (B6):** klucze oferty
+  `booking.offer.online` i `booking.offer.slot_step_minutes` (5, 10, 15, 20, 30, 60;
+  domyślnie 5; zmienia ADR-058 §5 zgodnie z pkt 18 — dolna granica 5 minut zostaje)
+  oraz `Location.online`. Publiczny katalog pomija to, czego firma nie pokazuje
+  online, a publiczny zapis traktuje to jak nieistniejące; panel widzi wszystko.
+  Okno usługi ma oba pola — to „sekcja ustawień w oknie usługi” z R4.
+- **Zespół (W8):** `booking.notices.office` (wył.) — każdy z
+  `booking.appointment.manage` dostaje powiadomienie i e-mail o nowej rezerwacji
+  online, wizycie czekającej na przydział i odwołaniu przez klienta; przypisani nie
+  dostają drugi raz.
+- **Zapytania ze strony (W2):** `sites.inquiries.recipients` — właściciel albo każdy,
+  kto redaguje stronę; każdy w języku swojego panelu. Wybór konkretnych osób i
+  zweryfikowanego e-maila czeka na typ „lista” w rejestrze.
+
