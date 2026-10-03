@@ -632,3 +632,31 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
    potrzebował, dostaną własny mechanizm. Teksty pomocy w kontrakcie OpenAPI
    (serializery biorą je ze stałych) zostają słowami rdzenia — to opis API, nie
    ekranu.
+
+## Uzupełnienie 2026-10-03 (5): faza 1 ustawień platformy (zmienia pkt 16)
+
+- **Wartość platformy w bazie.** `PlatformSettingEntry` (klucz, wartość albo null =
+  z powrotem do `.env`/kodu, operator, powód, chwila) — tylko dopisywanie; najnowszy
+  wpis klucza jest jego wartością, „Przywróć” to kolejny wpis, a wiersze są historią.
+  Zmiana działa od zapisu; „data wejścia w życie” z pkt 16 przyjdzie, gdy pierwszy
+  klucz jej potrzebuje. `platform_value()` czyta najpierw wartość operatora, potem
+  `platform_env`; mapa wartości jest w pamięci podręcznej pod numerem wersji, który
+  każdy zapis podbija po zatwierdzeniu transakcji, więc każdy proces widzi zmianę od
+  następnego odczytu. Źródła w odpowiedzi: `platform`, `deployment`, `code`.
+- **Grupa platformy.** Grupa, której wszystkie klucze mają `scopes=("platform",)`, nie
+  potrzebuje `api`: nie ma jej w schemacie firmy, w jej Ustawieniach ani w adresach
+  `current/settings/<grupa>/`, firma jej nie zapisze, a `resolve()` czyta ją bez
+  tenanta. Grupa mieszana (klucze firmy i klucze tylko platformy) zostaje odrzucona.
+  Moduł czyta wartość przez `platform_setting(key)` (z `core.organizations.api`).
+- **Dwa poziomy operatora (S-T7).** `operator_level(user)`: 0, 1 (konto `is_staff` z
+  potwierdzonym MFA), 2 (do tego aktywne `OperatorGrant`). Poziom 2 nadaje i odbiera
+  wyłącznie komenda `operator_level --grant/--revoke --operator --reason` — pierwsze
+  nadanie na wdrożeniu daje operator poziomu 1 (dostęp do serwera jest tu
+  uprawnieniem), każde następne tylko poziom 2; nadanie i odebranie kończą sesje tej
+  osoby. `SettingSpec.operator_level` (domyślnie 2) mówi, kto zmienia wartość
+  platformy. Bramka sieci (`require_operator`) to sesja zalogowana przez MFA — panel
+  „Platforma” (faza 2) wywoła ją i dla poziomu 2 `require_step_up`, jak zmiany
+  rozliczeń.
+- **Do czasu panelu** wartości zmienia `platform_setting list|get|set|reset|history`
+  z `--operator` i `--reason`.
+
