@@ -296,6 +296,20 @@ test("more than three sections to finish fold into a list that opens on demand",
   expect(folded).not.toBeNull();
   expect(folded!.querySelector("summary")).toHaveTextContent("Pokaż 4 sekcje");
   expect(within(list).getAllByRole("button")).toHaveLength(4);
+
+  // A phone reads one line and opens the rest; anyone may close it (UX-039).
+  const more = screen.getByRole("button", { name: "Pokaż" });
+  expect(more).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByText("4 miejsca do uzupełnienia")).toBeInTheDocument();
+  fireEvent.click(more);
+  expect(screen.getByRole("button", { name: "Zwiń" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Zamknij komunikat" }));
+  expect(
+    screen.queryByText("Na tej stronie zostały 4 miejsca do uzupełnienia."),
+  ).toBeNull();
 });
 
 test.each([

@@ -547,7 +547,7 @@ test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () 
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
 
-  fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
+  await fromMore("Page settings", "More");
   const localeSelect = screen.getByRole("combobox", { name: "Language" });
   fireEvent.click(localeSelect);
   const englishOption = await screen.findByRole("option", { name: "English" });
@@ -594,7 +594,7 @@ test("konflikt metadanych zachowuje lokalną wartość", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Nagłówek");
 
-  fireEvent.click(screen.getByRole("button", { name: "Ustawienia strony" }));
+  await fromMore("Ustawienia strony");
   fireEvent.change(screen.getByLabelText("Tytuł strony"), {
     target: { value: "Moja lokalna metadata" },
   });
@@ -617,7 +617,7 @@ test("the page's settings mark what it is without changing how it looks", async 
   renderEditor("pl", polishMessages, onChanged);
   await screen.findByLabelText("Nagłówek");
 
-  fireEvent.click(screen.getByRole("button", { name: "Ustawienia strony" }));
+  await fromMore("Ustawienia strony");
   fireEvent.change(await screen.findByLabelText("Rodzaj podstrony"), {
     target: { value: "contact" },
   });
@@ -664,9 +664,7 @@ test("przesyła obraz przez signed PUT i odświeża listę mediów", async () =>
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Nagłówek");
 
-  fireEvent.click(
-    screen.getByRole("button", { name: polishMessages.Sites.media }),
-  );
+  await fromMore(polishMessages.Sites.media);
   const file = new File([new Uint8Array(12)], "hero.png", {
     type: "image/png",
   });
@@ -743,6 +741,12 @@ test("edytor PL nie ma automatycznie wykrywalnych naruszeń axe", async () => {
   });
   expect(result.violations).toEqual([]);
 });
+
+/** „Więcej” holds the page's settings, files and history (UX-039). */
+async function fromMore(item: string, more = "Więcej") {
+  fireEvent.click(screen.getByRole("button", { name: more }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: item }));
+}
 
 function renderEditor(
   locale: "pl" | "en",
@@ -960,7 +964,7 @@ test("historia wersji pokazuje pochodzenie, podgląd i przywraca wersję jako no
   renderEditor("pl", polishMessages, onChanged);
   await screen.findByLabelText("Nagłówek");
   const versions = polishMessages.Sites.versions;
-  fireEvent.click(screen.getByRole("button", { name: versions.open }));
+  await fromMore(versions.open);
   const dialog = await screen.findByRole("dialog", { name: versions.title });
   expect(
     await within(dialog).findByText("Szablon: Poradnik krok po kroku"),
@@ -1709,7 +1713,7 @@ test("metadata errors stay visible in the dialog and retry keeps the same reques
   const onChanged = vi.fn().mockResolvedValue(undefined);
   renderEditor("en", englishMessages, onChanged);
   await screen.findByLabelText("Heading");
-  fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
+  await fromMore("Page settings", "More");
   const dialog = screen.getByRole("dialog", {
     name: englishMessages.Sites.metadata,
   });
@@ -1742,7 +1746,7 @@ test("a pending metadata save disables fields, locale changes and repeat submiss
   );
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
-  fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
+  await fromMore("Page settings", "More");
   const dialog = screen.getByRole("dialog", {
     name: englishMessages.Sites.metadata,
   });

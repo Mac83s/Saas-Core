@@ -1802,7 +1802,9 @@
         "deadAnchors": "{count, plural, one {A link leads to a place this page does not have: {anchors}.} other {# links lead to places this page does not have: {anchors}.}}",
         "deadAnchorsHint": "Add a section with that anchor (e.g. a form with the anchor “contact”) or change the link's address.",
         "deadAnchorsSections": "Sections with links to nowhere",
-        "sampleChip": "template sample: {values}"
+        "sampleChip": "template sample: {values}",
+        "samplesShort": "template contact",
+        "deadAnchorsShort": "{count, plural, one {# link to nowhere} other {# links to nowhere}}"
       },
       "tab": {
         "outline": "Sections",
@@ -1810,6 +1812,13 @@
         "templates": "Templates",
         "appearance": "Design",
         "pages": "Pages"
+      },
+      "mode": "Editing mode",
+      "more": "More",
+      "banner": {
+        "more": "Show",
+        "less": "Hide",
+        "close": "Close the notice"
       }
     },
     "uploadAndCrop": "Upload and crop",

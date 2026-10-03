@@ -250,7 +250,9 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
     });
 
     await test.step("sets the page's address, title and description", async () => {
-      await studio.getByRole("button", { name: "Ustawienia strony" }).click();
+      // The page's settings sit under „Więcej” (UX-039).
+      await studio.getByRole("button", { name: "Więcej" }).click();
+      await page.getByRole("menuitem", { name: "Ustawienia strony" }).click();
       const metadata = page.getByRole("dialog", {
         name: "Locale i metadane SEO",
       });

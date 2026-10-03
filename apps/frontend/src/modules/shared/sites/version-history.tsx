@@ -36,8 +36,14 @@ export function VersionHistory({
   disabled,
   onPreview,
   onRestore,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   pageId: string;
+  /** Opened from elsewhere, e.g. the toolbar's „Więcej” (UX-039): no
+   *  trigger of its own then. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** Unsaved edits: restoring replaces them, so the button says so. */
   dirty: boolean;
   disabled: boolean;
@@ -48,7 +54,11 @@ export function VersionHistory({
   const common = useTranslations("Common");
   const locale = useLocale();
   const labels = useDataTableLabels();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
   const [items, setItems] = useState<PageVersionSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [next, setNext] = useState<string | null>(null);
@@ -199,12 +209,14 @@ export function VersionHistory({
         }
       }}
     >
-      <DialogTrigger
-        render={<Button type="button" variant="ghost" disabled={disabled} />}
-      >
-        <HistoryIcon aria-hidden="true" />
-        {t("versions.open")}
-      </DialogTrigger>
+      {controlled ? null : (
+        <DialogTrigger
+          render={<Button type="button" variant="ghost" disabled={disabled} />}
+        >
+          <HistoryIcon aria-hidden="true" />
+          {t("versions.open")}
+        </DialogTrigger>
+      )}
       <DialogContent
         className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl"
         closeLabel={common("close")}

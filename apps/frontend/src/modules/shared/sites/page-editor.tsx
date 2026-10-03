@@ -18,15 +18,21 @@ import {
   type SubmitHandler,
 } from "react-hook-form";
 import {
+  EllipsisIcon,
   MonitorIcon,
   EyeIcon,
+  HistoryIcon,
+  ImageIcon,
   ImagePlusIcon,
   PlusIcon,
+  Redo2Icon,
   RefreshCwIcon,
   SaveIcon,
+  Settings2Icon,
   SmartphoneIcon,
   TabletIcon,
   Trash2Icon,
+  Undo2Icon,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -62,7 +68,17 @@ import {
   type TemplateSwap,
 } from "@saas-core/site-blocks";
 import { Badge } from "@saas-core/ui/components/badge";
-import { Button } from "@saas-core/ui/components/button";
+import { Button, buttonVariants } from "@saas-core/ui/components/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@saas-core/ui/components/dropdown-menu";
 import {
   Card,
   CardContent,
@@ -338,6 +354,7 @@ export function PageEditor({
   navigation,
   page,
   previewOnOpen = false,
+  languageSwitch,
 }: {
   onChanged: () => Promise<void>;
   onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
@@ -350,6 +367,9 @@ export function PageEditor({
   appearanceControls?: ReactNode;
   /** The list's "Preview": the draft opens in the preview once loaded. */
   previewOnOpen?: boolean;
+  /** The page's language (TL15, development-51): beside „Zapisz” on every
+   *  screen; the toolbar keeps its place either way. */
+  languageSwitch?: ReactNode;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
@@ -458,6 +478,7 @@ export function PageEditor({
     request: number;
   }>();
   const [metadataOpen, setMetadataOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // The template chosen for a page with content, and the sections the swap
   // preview was drawn from — the same ones the import then sends (F4-C).
   const [replacement, setReplacement] = useState<{
@@ -1065,65 +1086,128 @@ export function PageEditor({
                   disabled={loading || draftForm.formState.isSubmitting}
                   className="studio-editor-fieldset"
                 >
+                  {/* The way of editing as segments, undo and redo as icons,
+                      save and preview on the right, the rest under „Więcej”;
+                      a phone keeps one row: save, preview and „…” (UX-039). */}
                   <div className="studio-toolbar">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-pressed={visual}
-                      onClick={() => setVisual(true)}
+                    <div
+                      aria-label={t("studio.mode")}
+                      className="studio-mode max-sm:hidden"
+                      role="group"
                     >
-                      {t("studio.visual")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-pressed={!visual}
-                      onClick={() => setVisual(false)}
-                    >
-                      {t("studio.forms")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!history.canUndo}
-                      onClick={history.undo}
-                    >
-                      {t("studio.undo")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!history.canRedo}
-                      onClick={history.redo}
-                    >
-                      {t("studio.redo")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setMediaOpen(true)}
-                    >
-                      {t("media")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setMetadataOpen(true)}
-                    >
-                      {t("studio.pageSettings")}
-                    </Button>
-                    <VersionHistory
-                      pageId={page.id}
-                      dirty={draftForm.formState.isDirty}
-                      disabled={loading || !draft?.draft_id}
-                      onPreview={(version) => void showPreview(version.id)}
-                      onRestore={restoreVersion}
-                    />
-                    <div className="studio-save-actions">
-                      <Button disabled={loading || draftConflict} type="submit">
-                        <SaveIcon aria-hidden="true" />
-                        {t("studio.save")}
+                      <Button
+                        type="button"
+                        variant={visual ? "secondary" : "ghost"}
+                        size="sm"
+                        aria-pressed={visual}
+                        onClick={() => setVisual(true)}
+                      >
+                        {t("studio.visual")}
                       </Button>
+                      <Button
+                        type="button"
+                        variant={visual ? "ghost" : "secondary"}
+                        size="sm"
+                        aria-pressed={!visual}
+                        onClick={() => setVisual(false)}
+                      >
+                        {t("studio.forms")}
+                      </Button>
+                    </div>
+                    <div className="flex gap-1 max-sm:hidden">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("studio.undo")}
+                        title={t("studio.undo")}
+                        disabled={!history.canUndo}
+                        onClick={history.undo}
+                      >
+                        <Undo2Icon aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("studio.redo")}
+                        title={t("studio.redo")}
+                        disabled={!history.canRedo}
+                        onClick={history.redo}
+                      >
+                        <Redo2Icon aria-hidden="true" />
+                      </Button>
+                    </div>
+                    <div className="studio-save-actions">
+                      {languageSwitch}
+                      <span className="text-xs text-muted-foreground max-md:hidden">
+                        {t("versionValue", { version: draft?.version ?? 0 })}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          aria-label={t("studio.more")}
+                          className={buttonVariants({
+                            variant: "ghost",
+                            className: "max-sm:px-2.5",
+                          })}
+                        >
+                          <EllipsisIcon aria-hidden="true" />
+                          <span className="max-sm:hidden">
+                            {t("studio.more")}
+                          </span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {/* What a wide screen shows in the row. */}
+                          <DropdownMenuRadioGroup
+                            className="sm:hidden"
+                            onValueChange={(value) =>
+                              setVisual(value === "visual")
+                            }
+                            value={visual ? "visual" : "forms"}
+                          >
+                            <DropdownMenuRadioItem value="visual">
+                              {t("studio.visual")}
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="forms">
+                              {t("studio.forms")}
+                            </DropdownMenuRadioItem>
+                          </DropdownMenuRadioGroup>
+                          <DropdownMenuGroup className="sm:hidden">
+                            <DropdownMenuItem
+                              disabled={!history.canUndo}
+                              onClick={history.undo}
+                            >
+                              <Undo2Icon aria-hidden="true" />
+                              {t("studio.undo")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!history.canRedo}
+                              onClick={history.redo}
+                            >
+                              <Redo2Icon aria-hidden="true" />
+                              {t("studio.redo")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator className="sm:hidden" />
+                          <DropdownMenuItem onClick={() => setMediaOpen(true)}>
+                            <ImageIcon aria-hidden="true" />
+                            {t("media")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setMetadataOpen(true)}
+                          >
+                            <Settings2Icon aria-hidden="true" />
+                            {t("studio.pageSettings")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={loading || !draft?.draft_id}
+                            onClick={() => setHistoryOpen(true)}
+                          >
+                            <HistoryIcon aria-hidden="true" />
+                            {t("versions.open")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button
                         disabled={loading || !draft?.draft_id}
                         onClick={() => void showPreview()}
@@ -1133,12 +1217,22 @@ export function PageEditor({
                         title={t("preview")}
                       >
                         <EyeIcon aria-hidden="true" />
-                        <span className="hidden sm:inline">{t("preview")}</span>
+                        <span className="max-sm:hidden">{t("preview")}</span>
                       </Button>
-                      <Badge variant="outline">
-                        {t("versionValue", { version: draft?.version ?? 0 })}
-                      </Badge>
+                      <Button disabled={loading || draftConflict} type="submit">
+                        <SaveIcon aria-hidden="true" />
+                        {t("studio.save")}
+                      </Button>
                     </div>
+                    <VersionHistory
+                      pageId={page.id}
+                      dirty={draftForm.formState.isDirty}
+                      disabled={loading || !draft?.draft_id}
+                      onPreview={(version) => void showPreview(version.id)}
+                      onRestore={restoreVersion}
+                      open={historyOpen}
+                      onOpenChange={setHistoryOpen}
+                    />
                   </div>
                   <PlaceholderBanner
                     blocks={liveBlocks}

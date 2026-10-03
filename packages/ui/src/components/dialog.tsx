@@ -36,7 +36,8 @@ function DialogContent({
           data-slot="dialog-content"
           className={cn(
             "relative grid w-full max-w-lg gap-4 rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10 duration-150 dark:bg-card dark:ring-border data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            fullScreen && "h-dvh w-screen max-w-none rounded-none p-0",
+            // A full screen has no frame around it (UX-039).
+            fullScreen && "h-dvh w-screen max-w-none rounded-none p-0 ring-0",
             className,
           )}
           {...props}

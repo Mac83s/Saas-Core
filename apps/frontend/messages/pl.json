@@ -1802,7 +1802,9 @@
         "deadAnchors": "{count, plural, one {Link prowadzi do miejsca, którego nie ma na tej stronie: {anchors}.} few {# linki prowadzą do miejsc, których nie ma na tej stronie: {anchors}.} many {# linków prowadzi do miejsc, których nie ma na tej stronie: {anchors}.} other {# linku prowadzi do miejsc, których nie ma na tej stronie: {anchors}.}}",
         "deadAnchorsHint": "Dodaj sekcję z tą kotwicą (np. formularz z kotwicą „kontakt”) albo zmień adres linku.",
         "deadAnchorsSections": "Sekcje z linkami donikąd",
-        "sampleChip": "przykład z szablonu: {values}"
+        "sampleChip": "przykład z szablonu: {values}",
+        "samplesShort": "kontakt z szablonu",
+        "deadAnchorsShort": "{count, plural, one {# link donikąd} few {# linki donikąd} many {# linków donikąd} other {# linku donikąd}}"
       },
       "tab": {
         "outline": "Sekcje",
@@ -1810,6 +1812,13 @@
         "templates": "Całe strony",
         "appearance": "Wygląd",
         "pages": "Podstrony"
+      },
+      "mode": "Sposób edycji",
+      "more": "Więcej",
+      "banner": {
+        "more": "Pokaż",
+        "less": "Zwiń",
+        "close": "Zamknij komunikat"
       }
     },
     "uploadAndCrop": "Wgraj i skadruj",
