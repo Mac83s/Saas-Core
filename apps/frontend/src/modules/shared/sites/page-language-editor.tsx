@@ -841,7 +841,13 @@ export function PageLanguageEditor({
         {lines.map((line) => (
           <span key={line.text} className="flex flex-wrap items-center gap-2">
             {line.text}
-            {line.action}
+            {/* The line's actions stay together: under a long sentence they
+                wrap as one row, not accept here and reject below. */}
+            {line.action && (
+              <span className="flex flex-wrap items-center gap-2">
+                {line.action}
+              </span>
+            )}
           </span>
         ))}
       </div>
@@ -1235,7 +1241,10 @@ export function PageLanguageEditor({
                     {new Date(version.created_at).toLocaleString(
                       interfaceLocale,
                     )}
-                  </span>
+                  </span>{" "}
+                  {version.id === body?.pending?.version_id && (
+                    <Badge variant="warning">{t("historyWaitingMark")}</Badge>
+                  )}
                 </span>
                 {version.number !== body?.version && !waiting && (
                   <Button

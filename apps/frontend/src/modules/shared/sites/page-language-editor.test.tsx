@@ -774,6 +774,9 @@ test("a version that waits beside the language's own is read with what it change
   );
   const history = await screen.findByRole("dialog");
   expect(await within(history).findByText("Wersja 1")).not.toBeNull();
+  // The version that waits is named as what it is, not as a „Zapis”.
+  expect(history.textContent).toContain("Tłumaczenie AI");
+  expect(within(history).getAllByText("Czeka na decyzję")).toHaveLength(1);
   expect(history.textContent).toContain(
     "Wcześniejszą wersję przywrócisz po decyzji o tłumaczeniu, które czeka.",
   );

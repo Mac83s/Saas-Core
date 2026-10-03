@@ -2647,6 +2647,7 @@
       "historyTitle": "Version history: {language}",
       "historyEmpty": "This version has no saved versions yet.",
       "historyWaiting": "You can restore an earlier version once you decide on the translation that waits.",
+      "historyWaitingMark": "Waiting for a decision",
       "versionNamed": "Version {number}",
       "versionWaiting": "Version {number} — waiting for your decision",
       "restore": "Restore",
@@ -2658,7 +2659,8 @@
         "copy": "Copy of the source text",
         "restore": "Restored version",
         "rebase": "Moved to a new source version",
-        "job": "AI translation",
+        "translation_job": "AI translation",
+        "translation_pending": "AI translation",
         "unknown": "Saved"
       },
       "actions": {

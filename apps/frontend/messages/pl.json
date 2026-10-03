@@ -2647,6 +2647,7 @@
       "historyTitle": "Historia wersji: {language}",
       "historyEmpty": "Ta wersja nie ma jeszcze zapisanych wersji.",
       "historyWaiting": "Wcześniejszą wersję przywrócisz po decyzji o tłumaczeniu, które czeka.",
+      "historyWaitingMark": "Czeka na decyzję",
       "versionNamed": "Wersja {number}",
       "versionWaiting": "Wersja {number} — czeka na Twoją decyzję",
       "restore": "Przywróć",
@@ -2658,7 +2659,8 @@
         "copy": "Kopia tekstu źródłowego",
         "restore": "Przywrócona wersja",
         "rebase": "Przeniesienie na nową wersję źródła",
-        "job": "Tłumaczenie AI",
+        "translation_job": "Tłumaczenie AI",
+        "translation_pending": "Tłumaczenie AI",
         "unknown": "Zapis"
       },
       "actions": {
