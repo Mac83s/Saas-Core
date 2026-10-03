@@ -13,7 +13,11 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { ApiProblemError } from "@saas-core/api-client";
-import { markSamples, NotificationsPanel } from "./notifications-panel";
+import {
+  markSamples,
+  NotificationPreferences,
+  NotificationsPanel,
+} from "./notifications-panel";
 
 const {
   listSites,
@@ -94,8 +98,13 @@ function renderPanel(locale: "pl" | "en" = "pl", canManageBilling = true) {
 }
 
 test.each([
-  ["pl", "Przypomnienie o rezerwacji", "Nazwa firmy", "Twoje powiadomienia"],
-  ["en", "Booking reminder", "Business name", "Your notifications"],
+  [
+    "pl",
+    "Przypomnienie o rezerwacji",
+    "Nazwa firmy",
+    "Twoje ustawienia powiadomień",
+  ],
+  ["en", "Booking reminder", "Business name", "Your notification settings"],
 ] as const)(
   "pokazuje szablony z nazwami, zmiennymi i podglądem w locale %s",
   async (locale, templateName, variable, preferences) => {
@@ -107,7 +116,11 @@ test.each([
     expect(screen.getByText("{organization_name}")).not.toBeNull();
     expect(screen.getByText(variable)).not.toBeNull();
     expect(await screen.findByText(`Temat z API (${locale})`)).not.toBeNull();
-    expect(screen.getByRole("heading", { name: preferences })).not.toBeNull();
+    // One's own settings are in „Twoje konto”; the company's page links there.
+    expect(screen.getByRole("link", { name: preferences })).toHaveAttribute(
+      "href",
+      "/panel/settings/account#notifications",
+    );
     expect((await axe.run(rendered.container)).violations).toHaveLength(0);
   },
 );
@@ -168,7 +181,11 @@ test("podgląd podstawia zmienne szablonu i zmienia język bez wysyłania", asyn
 });
 
 test("zapisuje zgodę marketingową we własnych preferencjach", async () => {
-  renderPanel();
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <NotificationPreferences />
+    </NextIntlClientProvider>,
+  );
 
   const consent = await screen.findByRole("checkbox", {
     name: /Wiadomości marketingowe/,
@@ -199,11 +216,16 @@ test("bez wiadomości w planie właściciel dostaje drogę do planów", async ()
   expect(
     screen.getByRole("link", { name: "Porównaj plany" }).getAttribute("href"),
   ).toBe("/panel/settings/billing?feature=notifications.enabled");
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("heading", { name: "Twoje powiadomienia" }),
-    ).toBeNull(),
+});
+
+test("rola bez prawa do własnych ustawień nie widzi karty w Twoim koncie", async () => {
+  getNotificationPreferences.mockRejectedValue(problem("permission_denied"));
+  const { container } = render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <NotificationPreferences />
+    </NextIntlClientProvider>,
   );
+  await waitFor(() => expect(container.textContent).toBe(""));
 });
 
 test("bez wiadomości w planie pozostali dostają prośbę do właściciela", async () => {
@@ -217,16 +239,13 @@ test("bez wiadomości w planie pozostali dostają prośbę do właściciela", as
   expect(screen.queryByRole("link", { name: "Porównaj plany" })).toBeNull();
 });
 
-test("po błędzie szablonów pozwala ponowić, a preferencje działają dalej", async () => {
+test("po błędzie szablonów pozwala ponowić", async () => {
   getNotificationTemplates.mockRejectedValueOnce(new Error("offline"));
 
   renderPanel();
 
   expect(
     await screen.findByText("Nie udało się pobrać szablonów wiadomości."),
-  ).not.toBeNull();
-  expect(
-    await screen.findByRole("button", { name: "Zapisz preferencje" }),
   ).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
   expect(

@@ -36,6 +36,7 @@ import {
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { PlanGate } from "#components/panel/plan-gate";
+import { Link } from "#i18n/navigation";
 import { useMedia } from "#lib/use-media";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { SiteInquiries } from "../sites/site-inquiries";
@@ -153,10 +154,21 @@ export function NotificationsPanel({
   /** The page's title, which names the inquiries instead of their own. */
   titleId?: string;
 }) {
+  const t = useTranslations("Notifications");
   const notifications = canManageNotifications ? (
     <div className="space-y-8">
       <TemplatesSection canManageBilling={canManageBilling} />
-      <PreferencesSection />
+      {/* One's own settings live in „Twoje konto”, which every role can
+          open; the company's page only points there (UX-051). */}
+      <p className="text-sm text-muted-foreground">
+        {t("ownSettingsHint")}{" "}
+        <Link
+          className="font-medium text-primary hover:underline"
+          href="/panel/settings/account#notifications"
+        >
+          {t("ownSettingsLink")}
+        </Link>
+      </p>
     </div>
   ) : null;
   if (section === "automation" || !canReadSiteInquiries) return notifications;
@@ -522,7 +534,9 @@ function TemplateDetail({
   );
 }
 
-function PreferencesSection() {
+/** One's own messages from this company: their language and marketing
+ *  consent. In „Twoje konto” for every role (UX-051). */
+export function NotificationPreferences() {
   const t = useTranslations("Notifications");
   const [state, setState] = useState<"loading" | "ready" | "error" | "hidden">(
     "loading",
@@ -539,10 +553,10 @@ function PreferencesSection() {
       form.reset(await getNotificationPreferences());
       setState("ready");
     } catch (error) {
-      // Without messages in the plan the templates above already say so.
+      // Without messages in the plan or a role that has no say, there is
+      // nothing of one's own to set here.
       setState(
-        error instanceof ApiProblemError &&
-          error.problem.code === "entitlement_required"
+        error instanceof ApiProblemError && error.problem.status === 403
           ? "hidden"
           : "error",
       );
@@ -573,7 +587,7 @@ function PreferencesSection() {
 
   if (state === "hidden") return null;
   return (
-    <section aria-labelledby="preferences-heading">
+    <section aria-labelledby="preferences-heading" id="notifications">
       <Card>
         <CardHeader>
           <CardTitle>

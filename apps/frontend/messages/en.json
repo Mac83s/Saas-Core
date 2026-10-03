@@ -3128,7 +3128,9 @@
     },
     "unnamedTemplate": "Unnamed template",
     "samplesNote": "Highlighted places are example values — the real ones appear in the message sent.",
-    "close": "Close"
+    "close": "Close",
+    "ownSettingsHint": "The language of your messages and your marketing consent are in your account.",
+    "ownSettingsLink": "Your notification settings"
   },
   "Integrations": {
     "navigation": "Integrations",

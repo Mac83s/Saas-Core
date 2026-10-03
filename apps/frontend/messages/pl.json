@@ -3128,7 +3128,9 @@
     },
     "unnamedTemplate": "Szablon bez nazwy",
     "samplesNote": "Wyróżnione miejsca to przykładowe wartości — w wysłanej wiadomości pojawią się prawdziwe.",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "ownSettingsHint": "Język Twoich wiadomości i zgoda na wiadomości marketingowe są w Twoim koncie.",
+    "ownSettingsLink": "Twoje ustawienia powiadomień"
   },
   "Integrations": {
     "navigation": "Integracje",
