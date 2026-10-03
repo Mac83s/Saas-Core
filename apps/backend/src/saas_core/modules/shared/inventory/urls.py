@@ -28,6 +28,12 @@ urlpatterns = [
     path("balances/", views.InventoryBalanceView.as_view(), name="balances"),
     path("minimums/", views.InventoryPlaceMinimumView.as_view(), name="minimums"),
     path("low-stock/", views.InventoryLowStockView.as_view(), name="low-stock"),
+    path(
+        "reports/stock-value/",
+        views.InventoryStockValueReportView.as_view(),
+        name="report-stock-value",
+    ),
+    path("reports/usage/", views.InventoryUsageReportView.as_view(), name="report-usage"),
     path("movements/", views.InventoryMovementView.as_view(), name="movements"),
     path("lots/", views.InventoryLotView.as_view(), name="lots"),
     path("documents/", views.StockDocumentListView.as_view(), name="document-list"),

@@ -27,6 +27,8 @@ SOURCE = "booking.appointment"
 CONSUME = "consume"
 SALE = "sale"
 MODES = (CONSUME, SALE)
+#: The customer key of a visit whose customer this reader may not see.
+HIDDEN_CUSTOMER = "hidden"
 MAX_LINES = 50
 
 
@@ -189,6 +191,13 @@ def settle(
         organization_id=organization_id, source=SOURCE, source_reference=reference
     )
     place = _place(api, organization_id, appointment_id)
+    # What each sold product was priced at when the visit was agreed: the
+    # warehouse keeps it on the WZ, and its usage report says the sale's value.
+    prices = {
+        UUID(line["item_id"]): int(line["unit_price_minor"])
+        for line in lines
+        if line["mode"] == SALE and line.get("unit_price_minor") is not None
+    }
     for mode, kind in ((CONSUME, "RW"), (SALE, "WZ")):
         totals = _totals(lines, mode)
         if totals:
@@ -200,4 +209,58 @@ def settle(
                 location_id=place.id,
                 actor_id=actor_id,
                 kind=kind,
+                unit_prices=prices if mode == SALE else None,
             )
+
+
+def describe_usage(organization_id: UUID, references: Any) -> dict[str, Any]:
+    """What the warehouse's reports learn about visits (`register_usage_source`):
+    the service, the customer, the lead and the time of each appointment whose
+    products it took. The customer's name only for a reader who sees everybody's
+    visits (UX-023) — otherwise the visit is there without whose it was."""
+    from saas_core.modules.core.organizations.context import (  # noqa: PLC0415
+        require_tenant_context,
+    )
+    from saas_core.modules.shared.inventory.api import UsageContext  # noqa: PLC0415
+
+    from .models import Appointment  # noqa: PLC0415
+    from .visibility import sees_others  # noqa: PLC0415
+
+    ids = []
+    for reference in references:
+        try:
+            ids.append(UUID(reference))
+        except ValueError:
+            continue
+    named = sees_others(require_tenant_context())
+    return {
+        str(appointment.id): UsageContext(
+            visit_id=str(appointment.id),
+            visit_at=appointment.starts_at,
+            service_id=str(appointment.service_id),
+            service_name=appointment.service_name,
+            customer_id=str(appointment.customer_id) if named else HIDDEN_CUSTOMER,
+            customer_name=(
+                appointment.customer.display_name
+                if named and not appointment.customer.anonymized_at
+                else ""
+            ),
+            person_user_id=(
+                appointment.staff.membership.user_id
+                if appointment.staff is not None and appointment.staff.membership is not None
+                else None
+            ),
+        )
+        for appointment in Appointment.all_objects.filter(
+            organization_id=organization_id, pk__in=ids
+        ).select_related("customer", "staff__membership")
+    }
+
+
+def register_usage() -> None:
+    """From `ready()`, only where the warehouse is composed."""
+    if not enabled():
+        return
+    from saas_core.modules.shared.inventory.api import register_usage_source  # noqa: PLC0415
+
+    register_usage_source(SOURCE, describe_usage)

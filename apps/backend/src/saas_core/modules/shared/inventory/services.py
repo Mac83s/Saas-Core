@@ -9,7 +9,7 @@ dostępie — z deklaracji produktu dla typu organizacji albo z zestawu rdzenia.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -1470,6 +1470,7 @@ def consume(
     location_id: UUID | None = None,
     actor_id: UUID | None = None,
     kind: str = DocumentKind.RW,
+    unit_prices: Mapping[UUID, int] | None = None,
 ) -> StockDocument | None:
     """Zużycie przy pracy: jeden dokument na źródło i rodzaj.
 
@@ -1481,7 +1482,9 @@ def consume(
     istniejący dokument: wpis zapisany dwa razy to jeden klocek.
 
     Wiersz może wskazać partię (trzeci element); nieznana partia nie zatrzymuje
-    pracy — wtedy partie idą wg ważności.
+    pracy — wtedy partie idą wg ważności. `unit_prices` to ceny sprzedaży
+    pozycji (WZ): zostają na wierszach dokumentu, a raport zużycia liczy z nich
+    wartość sprzedaży.
     """
     if kind not in (DocumentKind.RW, DocumentKind.WZ):
         raise ValueError(f"Zużycie wystawia RW albo WZ, nie {kind}.")
@@ -1508,7 +1511,14 @@ def consume(
             ).exists()
         ):
             lot_id = None
-        rows.append(LineInput(item_id=item_id, quantity=quantity, lot_id=lot_id))
+        rows.append(
+            LineInput(
+                item_id=item_id,
+                quantity=quantity,
+                lot_id=lot_id,
+                unit_price_minor=(unit_prices or {}).get(item_id),
+            )
+        )
     if not rows:
         return None
     actor = actor_id or holder_id

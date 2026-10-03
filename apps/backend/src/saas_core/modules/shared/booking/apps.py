@@ -32,6 +32,10 @@ class BookingConfig(AppConfig):
         register_templates()
         # A person's results and history: the calendar's and the account's (phase 5).
         register_core_facts()
+        # What the warehouse's usage reports learn about visits (phase 10b).
+        from .materials import register_usage
+
+        register_usage()
         # Services and working hours for the assistant (ADR-076, A1b-12).
         from .command_declarations import register_booking_commands
 

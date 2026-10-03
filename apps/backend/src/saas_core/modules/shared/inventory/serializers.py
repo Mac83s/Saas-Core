@@ -372,3 +372,125 @@ class PlaceMinimumInputSerializer(serializers.Serializer[Any]):
         help_text="The minimum in this place; 0: no minimum here; null: back to the item's "
         "minimum (a warehouse) or none (a person's stock).",
     )
+
+
+# --- reports (phase 10b) -----------------------------------------------------------------
+
+STOCK_VALUE_GROUPS = (
+    ("item", "By item"),
+    ("category", "By category"),
+    ("location", "By place"),
+)
+USAGE_GROUPS = (
+    ("item", "By item"),
+    ("person", "By person"),
+    ("service", "By service"),
+    ("customer", "By customer"),
+    ("visit", "Visit by visit"),
+)
+
+
+class StockValueQuerySerializer(serializers.Serializer[Any]):
+    group = serializers.ChoiceField(
+        choices=STOCK_VALUE_GROUPS, default="item", help_text="What a row is."
+    )
+    location_id = serializers.UUIDField(
+        required=False, default=None, help_text="Only this place; without it, the whole company."
+    )
+
+
+class StockValueRowSerializer(serializers.Serializer[Any]):
+    key = serializers.CharField(
+        allow_blank=True,
+        help_text="The item's, category's or place's id; empty: items without a category.",
+    )
+    name = serializers.CharField(
+        allow_blank=True, help_text="The row's name; empty with an empty key."
+    )
+    kind = serializers.CharField(
+        allow_blank=True, help_text="For a place: warehouse or person; else empty."
+    )
+    quantity = _quantity(allow_null=True, help_text="Only when grouped by item.")
+    unit = serializers.CharField(allow_blank=True)
+    average_cost_minor = serializers.IntegerField(
+        allow_null=True, help_text="The item's average purchase cost; only by item."
+    )
+    value_minor = serializers.IntegerField(help_text="Quantity × average cost, minor units.")
+    currency = serializers.CharField()
+
+
+class StockValueTotalSerializer(serializers.Serializer[Any]):
+    currency = serializers.CharField()
+    value_minor = serializers.IntegerField()
+
+
+class StockValueReportSerializer(serializers.Serializer[Any]):
+    group = serializers.ChoiceField(choices=STOCK_VALUE_GROUPS)
+    rows = StockValueRowSerializer(many=True)
+    totals = StockValueTotalSerializer(many=True)
+
+
+class UsageQuerySerializer(serializers.Serializer[Any]):
+    group = serializers.ChoiceField(
+        choices=USAGE_GROUPS, default="item", help_text="What a row is."
+    )
+    # `from` is a keyword: declared in get_fields.
+    to = serializers.DateField(help_text="The last day of the period, the company's day.")
+    page = serializers.IntegerField(min_value=1, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=200, default=50)
+
+    def get_fields(self) -> dict[str, Any]:
+        fields = super().get_fields()
+        fields["from"] = serializers.DateField(
+            help_text="The first day of the period, the company's day."
+        )
+        return fields
+
+
+class UsageRowSerializer(serializers.Serializer[Any]):
+    key = serializers.CharField(
+        allow_blank=True,
+        help_text="The id of the item, person, service, customer or visit. Empty: usage "
+        "outside any visit (adjustments, losses); `hidden` for a customer this reader may "
+        "not see.",
+    )
+    name = serializers.CharField(
+        allow_blank=True, help_text="The row's name; empty with an empty key."
+    )
+    quantity = _quantity(allow_null=True, help_text="Only when grouped by item.")
+    unit = serializers.CharField(allow_blank=True)
+    cost_minor = serializers.IntegerField(
+        help_text="What it cost the company: each movement at the cost it carried."
+    )
+    sold_minor = serializers.IntegerField(
+        help_text="What sales to customers (WZ) were priced at, net."
+    )
+    currency = serializers.CharField()
+    documents = serializers.IntegerField(help_text="How many stock documents make the row.")
+    at = serializers.DateTimeField(allow_null=True, help_text="A visit's start; else null.")
+    service_name = serializers.CharField(allow_blank=True, help_text="A visit's service.")
+    customer_name = serializers.CharField(
+        allow_blank=True, help_text="A visit's customer, for a reader who may see it."
+    )
+    person_name = serializers.CharField(allow_blank=True, help_text="Who led the visit.")
+
+
+class UsageTotalSerializer(serializers.Serializer[Any]):
+    currency = serializers.CharField()
+    cost_minor = serializers.IntegerField()
+    sold_minor = serializers.IntegerField()
+
+
+class UsageReportSerializer(serializers.Serializer[Any]):
+    group = serializers.ChoiceField(choices=USAGE_GROUPS)
+    total = serializers.IntegerField(help_text="How many rows the report has in all.")
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    rows = UsageRowSerializer(many=True)
+    totals = UsageTotalSerializer(many=True, help_text="The whole period, every row, per currency.")
+
+    def get_fields(self) -> dict[str, Any]:
+        fields = super().get_fields()
+        fields["from"] = serializers.DateField()
+        fields["to"] = serializers.DateField()
+        return fields

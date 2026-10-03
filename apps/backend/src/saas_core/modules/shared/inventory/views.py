@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.context import current_tenant_context
 
-from . import services
+from . import reports, services
 from .permissions import INVENTORY_MANAGE
 from .serializers import (
     InventoryAdjustInputSerializer,
@@ -35,7 +35,11 @@ from .serializers import (
     StockDocumentInputSerializer,
     StockDocumentSerializer,
     StockLocationSerializer,
+    StockValueQuerySerializer,
+    StockValueReportSerializer,
     SupplierSerializer,
+    UsageQuerySerializer,
+    UsageReportSerializer,
 )
 
 #: Why an operation setting values needs no Idempotency-Key (the floor's waiver).
@@ -648,3 +652,59 @@ class InventoryPlaceMinimumView(APIView):
                 balance, context={"nearest": services.nearest_expiry([balance])}
             ).data
         )
+
+
+class InventoryStockValueReportView(APIView):
+    """What the stock is worth now (phase 10b)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[StockValueQuerySerializer],
+        responses={200: StockValueReportSerializer, **ERRORS},
+        operation_id="inventory_report_stock_value",
+        summary="Stock value now",
+        description="What lies in the company's places now, valued at each item's average "
+        "purchase cost: by item (with quantity), by category or by place, the most valuable "
+        "first, with a total per currency. Needs inventory.manage — it shows what the "
+        "company paid.",
+        tags=TAGS,
+    )
+    def get(self, request: Request) -> Response:
+        query = StockValueQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        report = reports.stock_value(**query.validated_data)
+        return Response(StockValueReportSerializer(report).data)
+
+
+class InventoryUsageReportView(APIView):
+    """What went out in a period, and what a visit cost (phase 10b)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[UsageQuerySerializer],
+        responses={200: UsageReportSerializer, **ERRORS},
+        operation_id="inventory_report_usage",
+        summary="Usage in a period",
+        description="Consumption (RW) and sales to customers (WZ) between two days of the "
+        "company, each movement at the cost it carried when posted; a correction nets out "
+        "in the period it was made in. Grouped by item, by person (the visit's lead, else "
+        "whose stock it left, else who posted it), by service, by customer, or visit by "
+        "visit — the cost of a visit, the latest first. An empty `key` is usage outside "
+        "any visit. Customer names only for a reader who may see everybody's visits. Needs "
+        "inventory.manage; a period is at most 366 days.",
+        tags=TAGS,
+    )
+    def get(self, request: Request) -> Response:
+        query = UsageQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        data = query.validated_data
+        report = reports.usage(
+            first=data["from"],
+            last=data["to"],
+            group=data["group"],
+            page=data["page"],
+            page_size=data["page_size"],
+        )
+        return Response(UsageReportSerializer(report).data)
