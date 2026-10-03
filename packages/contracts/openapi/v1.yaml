@@ -38020,6 +38020,8 @@ components:
           type: array
           items:
             type: string
+          description: 'What the role may do. In the catalogue: only permissions of
+            core and of the modules this kind of organization has in this deployment.'
         limited:
           type: boolean
         version:

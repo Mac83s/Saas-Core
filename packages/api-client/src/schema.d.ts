@@ -14217,6 +14217,7 @@ export interface components {
             key: string;
             name: string;
             scope: components["schemas"]["ScopeEnum"];
+            /** @description What the role may do. In the catalogue: only permissions of core and of the modules this kind of organization has in this deployment. */
             permissions: string[];
             limited: boolean;
             version: number;

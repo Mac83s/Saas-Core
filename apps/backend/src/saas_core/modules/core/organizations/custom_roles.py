@@ -51,6 +51,9 @@ class RoleCatalog:
     roles: list[Role]
     limited: frozenset[str]
     grantable: tuple[str, ...]
+    #: What a role is described with: a role keeps the permissions of a module
+    #: that left the profile, and they open nothing here.
+    meaningful: frozenset[str]
 
 
 def _organization_type(organization_id: uuid.UUID) -> str:
@@ -62,17 +65,26 @@ def _organization_type(organization_id: uuid.UUID) -> str:
     )
 
 
-def grantable_permissions(organization_type: str) -> tuple[str, ...]:
-    """Permissions an own role may hold: those of core and of the type's modules."""
+def meaningful_permissions(organization_type: str) -> tuple[str, ...]:
+    """Permissions that open something for this kind of organization in this
+    deployment: those of core and of the type's modules in the profile."""
     known = settings.ORGANIZATION_TYPES.get(organization_type)
     allowed_modules = known.modules if known is not None else frozenset()
     permissions: dict[str, None] = {}
     for module_id in settings.ACTIVE_MODULES:
         if module_id.startswith("core.") or module_id in allowed_modules:
             for permission in settings.MODULE_CATALOG[module_id].permissions:
-                if permission not in NEVER_GRANTABLE:
-                    permissions[permission] = None
+                permissions[permission] = None
     return tuple(permissions)
+
+
+def grantable_permissions(organization_type: str) -> tuple[str, ...]:
+    """Permissions an own role may hold: those of core and of the type's modules."""
+    return tuple(
+        permission
+        for permission in meaningful_permissions(organization_type)
+        if permission not in NEVER_GRANTABLE
+    )
 
 
 def list_roles() -> RoleCatalog:
@@ -82,10 +94,12 @@ def list_roles() -> RoleCatalog:
         *system_roles(organization_type).order_by("key"),
         *Role.objects.filter(organization_id=context.organization_id).order_by("name"),
     ]
+    meaningful = meaningful_permissions(organization_type)
     return RoleCatalog(
         roles=roles,
         limited=limited_role_keys(organization_type),
-        grantable=grantable_permissions(organization_type),
+        grantable=tuple(p for p in meaningful if p not in NEVER_GRANTABLE),
+        meaningful=frozenset(meaningful),
     )
 
 

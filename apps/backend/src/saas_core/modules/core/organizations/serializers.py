@@ -195,7 +195,11 @@ class RoleSummarySerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.CharField()
     name = serializers.CharField()
     scope = serializers.ChoiceField(choices=["system", "organization"])
-    permissions = serializers.ListField(child=serializers.CharField())
+    permissions = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="What the role may do. In the catalogue: only permissions of core and of "
+        "the modules this kind of organization has in this deployment.",
+    )
     limited = serializers.BooleanField()
     version = serializers.IntegerField()
 

@@ -170,3 +170,53 @@ def test_an_organization_defines_its_own_role_within_its_modules() -> None:
         ROLES_URL, {"name": "Tymczasowa", "permissions": []}, format="json", **headers
     )
     assert client.delete(f"{ROLES_URL}{unused.data['key']}/", **headers).status_code == 204
+
+
+def test_a_role_is_described_without_permissions_of_modules_outside_the_profile(
+    settings: Any,
+) -> None:
+    """A module that left the profile leaves its permissions on the roles
+    (MedPlano without the warehouse still had „Podgląd magazynu” under every
+    role). The catalogue lists what a role opens here; the role keeps the rest."""
+    client = APIClient()
+    owner = active_user()
+    membership = membership_for(owner)
+    login(client, owner)
+    own = Role.objects.create(
+        organization_id=membership.organization_id,
+        key="custom-old",
+        name="Magazynier",
+        scope="organization",
+        permissions=["organization.read", "left_module.read"],
+    )
+
+    listed = {item["key"]: item["permissions"] for item in client.get(ROLES_URL).data["roles"]}
+
+    assert listed["custom-old"] == ["organization.read"]
+    own.refresh_from_db()
+    assert own.permissions == ["organization.read", "left_module.read"]
+    # Of the system roles nothing is hidden but what a module outside this
+    # organization's reach declares.
+    organization_type = Organization.objects.get(pk=membership.organization_id).organization_type
+    reach = settings.ORGANIZATION_TYPES[organization_type].modules
+    outside = {
+        permission
+        for module_id, module in settings.MODULE_CATALOG.items()
+        if not module_id.startswith("core.")
+        and (module_id not in settings.ACTIVE_MODULES or module_id not in reach)
+        for permission in module.permissions
+    }
+    for system_role in Role.objects.filter(organization__isnull=True, organization_type=""):
+        assert set(system_role.permissions) - set(listed[system_role.key]) <= outside
+    # With a module taken out of the profile its permissions leave every description.
+    module_id = next(
+        module_id
+        for module_id in settings.ACTIVE_MODULES
+        if not module_id.startswith("core.")
+        and set(settings.MODULE_CATALOG[module_id].permissions) & set(listed["owner"])
+    )
+    gone = set(settings.MODULE_CATALOG[module_id].permissions)
+    settings.ACTIVE_MODULES = tuple(m for m in settings.ACTIVE_MODULES if m != module_id)
+    after = client.get(ROLES_URL).data
+    assert not gone & {p for item in after["roles"] for p in item["permissions"]}
+    assert not gone & set(after["grantable_permissions"])

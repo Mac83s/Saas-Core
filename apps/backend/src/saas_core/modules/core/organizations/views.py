@@ -432,12 +432,21 @@ def _membership_summary(
     }
 
 
-def _role_summary(role: Role, limited: frozenset[str]) -> dict[str, object]:
+def _role_summary(
+    role: Role, limited: frozenset[str], meaningful: frozenset[str] | None = None
+) -> dict[str, object]:
     return {
         "key": role.key,
         "name": role.name,
         "scope": role.scope,
-        "permissions": list(role.permissions),
+        # In the catalogue a role is described by what it opens here: the
+        # permissions of a module outside the profile stay on the role (the
+        # module may come back) and are not listed.
+        "permissions": [
+            permission
+            for permission in role.permissions
+            if meaningful is None or permission in meaningful
+        ],
         "limited": role.organization_id is None and role.key in limited,
         "version": role.version,
     }
@@ -452,7 +461,10 @@ class RoleListCreateView(ProtectedOrganizationView):
         catalog = list_roles()
         return Response(
             {
-                "roles": [_role_summary(role, catalog.limited) for role in catalog.roles],
+                "roles": [
+                    _role_summary(role, catalog.limited, catalog.meaningful)
+                    for role in catalog.roles
+                ],
                 "grantable_permissions": list(catalog.grantable),
             }
         )
