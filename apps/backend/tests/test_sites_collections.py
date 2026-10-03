@@ -2175,6 +2175,62 @@ def test_a_scheduled_article_publishes_when_its_moment_arrives() -> None:
     assert published.scheduled_publish_at is None
 
 
+def _tenant_set_before(statements: list[str], table: str) -> list[bool]:
+    """For each statement reading `table`: whether its own transaction set the
+    tenant first.
+
+    On the stack every outermost `atomic()` is a transaction, and `SET LOCAL`
+    ends with it; a test runs inside one transaction, where an earlier block's
+    setting lingers and hides a missing one. So the blocks are followed by
+    their savepoints, as the stack would see them.
+    """
+    depth, tenant, verdicts = 0, False, []
+    for sql in statements:
+        if sql.startswith("SAVEPOINT"):
+            depth += 1
+        elif sql.startswith(("RELEASE SAVEPOINT", "ROLLBACK TO SAVEPOINT")):
+            depth -= 1
+            if depth == 0:
+                tenant = False
+        elif "SET LOCAL app.organization_id" in sql:
+            tenant = depth > 0
+        elif f'FROM "{table}"' in sql:
+            verdicts.append(depth > 0 and tenant)
+    return verdicts
+
+
+def test_a_person_s_schedule_reads_their_membership_as_the_tenant() -> None:
+    """The test database bypasses RLS: a person's scheduled article published
+    here while on the stack their membership was invisible, the schedule was
+    closed as "no longer has access" and the article never appeared (03.10).
+    The order of the statements is what proves it without a stack."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from django.utils import timezone
+
+    from saas_core.modules.shared.sites.models import EntryScheduleState
+    from saas_core.modules.shared.sites.tasks import publish_due_entries
+
+    client, _, _ = sites_client(slug="schedule-rls", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "wtorek")
+    schedule(client, entry.data["id"], (timezone.now() + timedelta(hours=1)).isoformat())
+    ContentEntry.all_objects.filter(pk=entry.data["id"]).update(
+        scheduled_publish_at=timezone.now() - timedelta(minutes=1)
+    )
+
+    with CaptureQueriesContext(connection) as queries:
+        assert publish_due_entries() == 1
+
+    published = ContentEntry.all_objects.get(pk=entry.data["id"])
+    assert published.state == ContentEntryState.PUBLISHED
+    assert published.schedule_state == EntryScheduleState.NONE
+    statements = [query["sql"] for query in queries.captured_queries]
+    verdicts = _tenant_set_before(statements, "organizations_membership")
+    assert verdicts and all(verdicts), statements
+
+
 def test_running_the_scan_twice_publishes_the_article_once() -> None:
     """At-least-once delivery is the normal case for a queue, so publishing has
     to be idempotent rather than merely rare-to-repeat."""

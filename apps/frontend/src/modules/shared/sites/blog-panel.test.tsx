@@ -534,11 +534,15 @@ test("pokazuje, że zaplanowana publikacja się nie udała", async () => {
     next_cursor: null,
   });
   const rendered = renderPanel();
+  // In the list already, before anybody opens the article: one that did not
+  // publish at its time must not pass unnoticed.
+  expect(await screen.findByText("Publikacja się nie udała")).not.toBeNull();
   fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
 
   // A failed publication has to look different from one nobody scheduled, or
   // the operator learns about it from a reader.
-  expect(await screen.findByText("Publikacja się nie udała")).not.toBeNull();
+  await screen.findByLabelText("Opublikuj o godzinie");
+  expect(screen.getAllByText("Publikacja się nie udała")).toHaveLength(2);
   expect(
     screen.getByText("Powód: Plan nie obejmuje publikacji."),
   ).not.toBeNull();

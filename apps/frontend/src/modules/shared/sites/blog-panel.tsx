@@ -310,9 +310,19 @@ export function BlogPanel({
       accessorFn: stateLabel,
       header: t("lists.state"),
       cell: ({ row: { original: item } }) => (
-        <Badge variant={item.state === "published" ? "default" : "secondary"}>
-          {stateLabel(item)}
-        </Badge>
+        <span className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={item.state === "published" ? "default" : "secondary"}>
+            {stateLabel(item)}
+          </Badge>
+          {/* A schedule shows in the list, not only inside the opened article:
+              one that did not publish must not pass unnoticed (03.10). */}
+          {item.state !== "published" && item.schedule_state === "pending" && (
+            <Badge variant="neutral">{t("scheduleStatePending")}</Badge>
+          )}
+          {item.state !== "published" && item.schedule_state === "failed" && (
+            <Badge variant="destructive">{t("scheduleStateFailed")}</Badge>
+          )}
+        </span>
       ),
     },
     {
