@@ -279,7 +279,10 @@ def test_a_paused_company_refuses_online_bookings_and_the_team_books_on(
         HTTP_IDEMPOTENCY_KEY="wstrzymane-1",
     )
 
-    assert listing.json()["online"] == {"paused": True, "resume_on": None}
+    assert {key: listing.json()["online"][key] for key in ("paused", "resume_on")} == {
+        "paused": True,
+        "resume_on": None,
+    }
     assert (refused.status_code, refused.json()["code"]) == (409, "booking_paused")
     assert create(member, configured).appointment.id
     assert Appointment.all_objects.count() == 1
@@ -288,7 +291,8 @@ def test_a_paused_company_refuses_online_bookings_and_the_team_books_on(
     with tenant(member):
         yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
         _change(ONLINE, read_group(ONLINE).version, "k-2", resume_on=yesterday)
-    assert client.get(f"{url}/").json()["online"] == {"paused": False, "resume_on": None}
+    online = client.get(f"{url}/").json()["online"]
+    assert (online["paused"], online["resume_on"]) == (False, None)
 
 
 def test_the_api_reads_previews_and_changes_a_group_with_a_key() -> None:

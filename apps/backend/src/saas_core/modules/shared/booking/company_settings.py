@@ -20,7 +20,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 
 from saas_core.modules.core.organizations.api import (
     Effect,
@@ -40,6 +40,11 @@ from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
 from .models import Appointment, AppointmentStatus
 
 BOOKING_ENABLED = "booking.enabled"
+
+
+HORIZON_DAYS = "booking.online.horizon_days"
+CONTACT = "booking.online.contact"
+OFFICE_NOTICES = "booking.notices.office"
 
 
 class BookingPaused(APIException):
@@ -211,8 +216,91 @@ ONLINE = SettingGroup(
             model_description="The day online booking resumes by itself, in the company's "
             "time zone (YYYY-MM-DD). Empty: paused until switched off.",
         ),
+        SettingSpec(
+            key=HORIZON_DAYS,
+            type="int",
+            minimum=1,
+            # One search window of the public form (BOOKING_SLOT_HORIZON_DAYS).
+            maximum=62,
+            unit="day",
+            default=15,
+            scopes=("organization",),
+            label={"pl": "Na ile dni naprzód", "en": "How many days ahead"},
+            help={
+                "pl": "Licząc z dzisiejszym: 15 to dziś i dwa kolejne tygodnie. Zespół w panelu "
+                "zapisuje na dowolny termin.",
+                "en": "Counting today: 15 is today and the next two weeks. The team books any "
+                "date in the panel.",
+            },
+            model_description="How many days of the calendar, today included, the booking "
+            "form on the company's site offers (1 to 62); a start beyond them is refused "
+            "online. The panel is not limited.",
+        ),
+        SettingSpec(
+            key=CONTACT,
+            type="enum",
+            default="email",
+            scopes=("organization",),
+            values=(
+                ("email", {"pl": "E-mail", "en": "E-mail"}),
+                ("phone", {"pl": "Telefon", "en": "Phone"}),
+                ("email_or_phone", {"pl": "E-mail albo telefon", "en": "E-mail or phone"}),
+                ("email_and_phone", {"pl": "E-mail i telefon", "en": "E-mail and phone"}),
+            ),
+            label={
+                "pl": "Kontakt wymagany od klienta",
+                "en": "Contact required from the customer",
+            },
+            help={
+                "pl": "Bez e-maila klient nie dostanie potwierdzenia ani linku do zmiany "
+                "terminu — firma zadzwoni.",
+                "en": "Without an e-mail the customer gets no confirmation and no link to "
+                "change the time — the company phones.",
+            },
+            model_description="What the booking form on the company's site requires: an "
+            "e-mail, a phone, either, or both. Without an e-mail the customer gets no "
+            "confirmation or self-service link.",
+        ),
     ),
     commands=("booking.settings_online.read@1", "booking.settings_online.update@1"),
+)
+
+NOTICES = SettingGroup(
+    key="booking.notices",
+    module="shared.booking",
+    title={"pl": "Powiadomienia zespołu", "en": "Team notices"},
+    description={
+        "pl": "Kto w firmie dowiaduje się o nowej rezerwacji online, wizycie czekającej na "
+        "przydział i odwołaniu przez klienta. Przypisane osoby wiedzą zawsze.",
+        "en": "Who in the company hears about a new online booking, a visit waiting for "
+        "someone and a customer's cancellation. The people on the visit always do.",
+    },
+    permission=SETTINGS_MANAGE,
+    entitlement=BOOKING_ENABLED,
+    area="bookings",
+    settings=(
+        SettingSpec(
+            key=OFFICE_NOTICES,
+            type="bool",
+            default=False,
+            scopes=("organization",),
+            label={
+                "pl": "Powiadamiaj też osoby zarządzające rezerwacjami",
+                "en": "Also tell the people who manage bookings",
+            },
+            help={
+                "pl": "Np. recepcję albo biuro: każdy z prawem zarządzania wizytami dostaje "
+                "e-mail i powiadomienie w panelu.",
+                "en": "E.g. the front desk or the office: everyone allowed to manage visits "
+                "gets an e-mail and a notice in the panel.",
+            },
+            model_description="On: everyone who may manage visits (booking.appointment."
+            "manage) also hears about a new online booking, a visit waiting for someone to "
+            "be assigned and a customer's cancellation by link. Off: only the people on the "
+            "visit, as before.",
+        ),
+    ),
+    commands=("booking.settings_notices.read@1", "booking.settings_notices.update@1"),
 )
 
 
@@ -244,7 +332,7 @@ def register_company_settings() -> None:
 
     register_setting_area(SERVICES_AREA)
     register_setting_area(BOOKINGS_AREA)
-    for group in (REMINDERS, ONLINE):
+    for group in (REMINDERS, ONLINE, NOTICES):
         register_setting_group(group)
         for command in group_commands(group):
             register_command(command)
@@ -261,3 +349,37 @@ def reminder_due(starts_at: Any) -> Any:
     if starts_at - now < timedelta(hours=setting("booking.reminders.min_notice_hours")):
         return None
     return max(now, starts_at - timedelta(hours=setting("booking.reminders.lead_hours")))
+
+
+class BeyondHorizon(APIException):
+    status_code = 409
+    default_detail = "Tak odległego terminu nie można zarezerwować online. Skontaktuj się z firmą."
+    default_code = "beyond_booking_horizon"
+
+
+def online_last_day(zone: str) -> date:
+    """The last day the company's online form offers (B3): today counts."""
+    today = timezone.localdate(timezone=ZoneInfo(zone))
+    return today + timedelta(days=int(setting(HORIZON_DAYS)) - 1)
+
+
+def refuse_beyond_horizon(starts_at: Any, zone: str) -> None:
+    if timezone.localtime(starts_at, ZoneInfo(zone)).date() > online_last_day(zone):
+        raise BeyondHorizon
+
+
+def refuse_missing_contact(customer: Mapping[str, Any]) -> None:
+    """What the company requires of an online customer (B9); the panel books
+    whoever the team knows."""
+    rule = setting(CONTACT)
+    email = bool((customer.get("email") or "").strip())
+    phone = bool((customer.get("phone") or "").strip())
+    missing: dict[str, list[str]] = {}
+    if rule in {"email", "email_and_phone"} and not email:
+        missing["email"] = ["Podaj e-mail."]
+    if rule in {"phone", "email_and_phone"} and not phone:
+        missing["phone"] = ["Podaj telefon."]
+    if rule == "email_or_phone" and not (email or phone):
+        missing["email"] = ["Podaj e-mail albo telefon."]
+    if missing:
+        raise ValidationError({"customer": missing})

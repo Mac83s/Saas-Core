@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 
 from saas_core.modules.core.identity.models import UserStatus
+from saas_core.modules.core.organizations.api import setting
 from saas_core.modules.core.organizations.context import (
     TenantContext,
     activate_tenant_context,
@@ -52,6 +53,14 @@ ASSIGNED = "booking.assigned"
 UNASSIGNED = "booking.unassigned"
 MOVED = "booking.moved"
 CANCELED = "booking.canceled"
+
+#: What the people who manage bookings hear when the company wants them told
+#: (W8, `booking.notices.office`).
+OFFICE_NEW = "booking.office_new"
+OFFICE_WAITING = "booking.office_waiting"
+OFFICE_CANCELED = "booking.office_canceled"
+#: Who manages bookings: the queue and the calendar of everybody.
+MANAGE_BOOKINGS = "booking.appointment.manage"
 
 #: The role of the context the mails are signed with: the organization's own
 #: job, not the office member who clicked — that membership may be gone by the
@@ -125,6 +134,32 @@ def customer_person_changed(appointment: Appointment, *, previous_lead_id: UUID)
         )
 
 
+def office_told(appointment: Appointment, kind: str, *, crew: Iterable[UUID] = ()) -> None:
+    """Everyone who manages bookings hears about a new online booking, a visit
+    waiting for someone or a customer's cancellation — when the company says
+    so (W8). The people on the visit heard already; nobody hears twice."""
+    from .company_settings import OFFICE_NOTICES  # noqa: PLC0415 — it imports services
+
+    if not setting(OFFICE_NOTICES):
+        return
+    told = set(
+        StaffMember.all_objects.filter(pk__in=list(crew), membership__isnull=False).values_list(
+            "membership_id", flat=True
+        )
+    )
+    managers = [
+        membership
+        for membership in Membership.objects.select_related("role", "user").filter(
+            organization_id=appointment.organization_id,
+            status=MembershipStatus.ACTIVE,
+            user__status=UserStatus.ACTIVE,
+        )
+        if MANAGE_BOOKINGS in (membership.role.permissions or ())
+        and membership.id not in told
+    ]
+    _send(appointment, managers, kind, key="office", template=kind)
+
+
 def _tell(
     appointment: Appointment,
     staff_ids: Iterable[UUID],
@@ -136,9 +171,6 @@ def _tell(
     people = list(staff_ids)
     if not people:
         return
-    context = require_tenant_context()
-    actor_id = context.actor_id
-    organization = Organization.objects.get(pk=appointment.organization_id)
     memberships = Membership.objects.filter(
         pk__in=StaffMember.all_objects.filter(pk__in=people, membership__isnull=False).values(
             "membership_id"
@@ -146,6 +178,31 @@ def _tell(
         status=MembershipStatus.ACTIVE,
         user__status=UserStatus.ACTIVE,
     ).select_related("user")
+    _send(
+        appointment,
+        list(memberships),
+        kind,
+        key=key,
+        template=f"booking.staff_{kind.removeprefix('booking.')}",
+        previous_starts_at=previous_starts_at,
+    )
+
+
+def _send(
+    appointment: Appointment,
+    memberships: list[Membership],
+    kind: str,
+    *,
+    key: str,
+    template: str,
+    previous_starts_at: datetime | None = None,
+) -> None:
+    """The notice in the app and the mail, to each of these people but the
+    one who made the change."""
+    if not memberships:
+        return
+    actor_id = require_tenant_context().actor_id
+    organization = Organization.objects.get(pk=appointment.organization_id)
     payload: dict[str, Any] = {
         "appointment_id": str(appointment.id),
         "starts_at": appointment.starts_at.isoformat(),
@@ -174,7 +231,7 @@ def _tell(
             day = appointment.starts_at.astimezone(ZoneInfo(appointment.timezone)).date()
             queue_email(
                 recipient_email=user.email,
-                template_key=f"booking.staff_{kind.removeprefix('booking.')}",
+                template_key=template,
                 template_version=1,
                 locale=locale,
                 template_context={
@@ -301,6 +358,41 @@ def register_templates() -> None:
         },
         {"organization_name", "starts_at", "panel_url"},
     )
+    for key, subject, body in (
+        (
+            OFFICE_NEW,
+            {"pl": "Nowa rezerwacja online", "en": "A new online booking"},
+            {
+                "pl": "<p>{organization_name}: nowa rezerwacja online na {starts_at}.</p>",
+                "en": "<p>{organization_name}: a new online booking for {starts_at}.</p>",
+            },
+        ),
+        (
+            OFFICE_WAITING,
+            {"pl": "Wizyta czeka na przydzielenie", "en": "A visit waits for someone"},
+            {
+                "pl": "<p>{organization_name}: wizyta {starts_at} czeka na przydzielenie "
+                "osoby.</p>",
+                "en": "<p>{organization_name}: the visit at {starts_at} waits for someone "
+                "to be assigned.</p>",
+            },
+        ),
+        (
+            OFFICE_CANCELED,
+            {"pl": "Klient odwołał wizytę", "en": "A customer called a visit off"},
+            {
+                "pl": "<p>{organization_name}: klient odwołał wizytę {starts_at}.</p>",
+                "en": "<p>{organization_name}: a customer called off the visit at "
+                "{starts_at}.</p>",
+            },
+        ),
+    ):
+        _template(
+            key,
+            subject,
+            {"pl": body["pl"] + look_pl, "en": body["en"] + look_en},
+            {"organization_name", "starts_at", "panel_url"},
+        )
     _template(
         "booking.person_changed",
         {"pl": "Zmiana osoby przy Twojej wizycie", "en": "A change to your visit"},

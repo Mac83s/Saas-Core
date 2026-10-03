@@ -21,13 +21,14 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.organizations.api import setting
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
-from .company_settings import online_paused
+from .company_settings import CONTACT, HORIZON_DAYS, online_last_day, online_paused
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
@@ -1083,7 +1084,13 @@ class PublicBookingCatalogView(APIView):
                 "teams": [{"id": key, "name": name} for key, name in team_names.items()],
                 "people": [{"id": key, "name": name} for key, name in choices.people],
                 "timezone": _zone().key,
-                "online": {"paused": paused, "resume_on": resume_on},
+                "online": {
+                    "paused": paused,
+                    "resume_on": resume_on,
+                    "horizon_days": setting(HORIZON_DAYS),
+                    "last_day": online_last_day(_zone().key),
+                    "contact": setting(CONTACT),
+                },
                 "locales": list(organization_content_locales(organization)),
             })
 
@@ -1118,8 +1125,14 @@ class PublicBookingSlotsView(APIView):
             raise ParseError("Nieprawidłowe parametry terminów.") from error
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.read", BOOKING_ENABLED)
-            slots = available_slots(
-                service_id=service, location_id=location, from_date=start, to_date=end
+            # Online, nothing past the company's horizon (B3).
+            end = min(end, online_last_day(_zone().key))
+            slots = (
+                available_slots(
+                    service_id=service, location_id=location, from_date=start, to_date=end
+                )
+                if start <= end
+                else []
             )
             return Response({
                 "items": [
@@ -1148,6 +1161,7 @@ class PublicBookingDaysView(APIView):
             staff, need = public_people(
                 route.organization_id, service, team_id=team, person_id=person
             )
+            end = min(end, online_last_day(_zone().key))
             return Response({
                 "items": available_days(
                     service_id=service,
@@ -1157,6 +1171,8 @@ class PublicBookingDaysView(APIView):
                     staff_ids=staff,
                     need=need,
                 )
+                if start <= end
+                else []
             })
 
 
@@ -1181,6 +1197,8 @@ class PublicBookingTimesView(APIView):
             staff, need = public_people(
                 route.organization_id, service, team_id=team, person_id=person
             )
+            if day > online_last_day(_zone().key):
+                return Response({"items": []})
             return Response({
                 "items": [
                     {"starts_at": item.starts_at, "ends_at": item.ends_at}

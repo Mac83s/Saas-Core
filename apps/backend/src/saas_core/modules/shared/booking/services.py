@@ -40,7 +40,12 @@ from saas_core.modules.shared.notifications.services import queue_email
 from . import materials as stock
 from . import notify
 from .availability import _zone, free_at, validate_start
-from .company_settings import refuse_when_paused, reminder_due
+from .company_settings import (
+    refuse_beyond_horizon,
+    refuse_missing_contact,
+    refuse_when_paused,
+    reminder_due,
+)
 from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
 from .models import (
     Appointment,
@@ -476,6 +481,9 @@ def create_appointment(
     if context.role_key == PUBLIC_BOOKING_ROLE:
         # Online booking paused (ADR-078, B1): the form refuses, the team books on.
         refuse_when_paused(_zone().key)
+        # How far ahead and which contact the company takes online (B3, B9).
+        refuse_beyond_horizon(starts_at, _zone().key)
+        refuse_missing_contact(customer_data)
     service = Service.all_objects.filter(pk=service_id, active=True).first()
     if service is not None and service.time_model != TimeModel.SLOT:
         raise ValidationError(
@@ -690,6 +698,12 @@ def create_appointment(
         metadata={"starts_at": starts_at.isoformat(), "staff": [str(person) for person in taken]},
     )
     notify.staff_assigned(appointment, taken)
+    # The office, when the company wants it told (W8): what waits for someone
+    # first, else what came in online.
+    if appointment.needs_assignment:
+        notify.office_told(appointment, notify.OFFICE_WAITING, crew=taken)
+    elif context.role_key == PUBLIC_BOOKING_ROLE:
+        notify.office_told(appointment, notify.OFFICE_NEW, crew=taken)
     return CreatedAppointment(appointment, token, True)
 
 
@@ -966,6 +980,8 @@ def cancel_appointment(
                 causation_id=f"booking:{appointment.id}",
             )
         notify.staff_canceled(appointment, crew)
+        if context.role_key == PUBLIC_BOOKING_ROLE:
+            notify.office_told(appointment, notify.OFFICE_CANCELED, crew=crew)
         _announce(
             AppointmentChange(
                 change=CANCELED,

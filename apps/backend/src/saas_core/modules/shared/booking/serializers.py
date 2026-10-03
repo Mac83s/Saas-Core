@@ -996,6 +996,14 @@ class CatalogSerializer(serializers.Serializer[dict[str, Any]]):
 class PublicOnlineSerializer(serializers.Serializer[dict[str, Any]]):
     paused = serializers.BooleanField()
     resume_on = serializers.DateField(allow_null=True, help_text="The day booking resumes.")
+    horizon_days = serializers.IntegerField(
+        help_text="How many days, today included, the form offers (booking.online.horizon_days)."
+    )
+    last_day = serializers.DateField(help_text="The last day a customer may book online.")
+    contact = serializers.ChoiceField(
+        choices=["email", "phone", "email_or_phone", "email_and_phone"],
+        help_text="What the form requires of the customer (booking.online.contact).",
+    )
 
 
 class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
