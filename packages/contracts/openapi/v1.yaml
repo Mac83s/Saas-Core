@@ -12743,9 +12743,10 @@ paths:
   /api/v1/organizations/current/settings/sites.retention/:
     get:
       operationId: organization_settings_sites_retention_retrieve
-      description: How long the company keeps messages from the contact form on its
-        site. A removal cannot be undone. The values that apply, where each comes
-        from (code, platform or the company) and the group's version token.
+      description: How long the company keeps the personal data in messages from the
+        contact form on its site. A removal cannot be undone. The site's statistics
+        keep only the fact that an enquiry was made. The values that apply, where
+        each comes from (code, platform or the company) and the group's version token.
       summary: 'Read the company''s settings: Website enquiries'
       tags:
       - organizations
@@ -31495,7 +31496,7 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         inquiries:
           description: |-
-            After how many months an enquiry from the site's contact form is removed for good, with every copy the system stores; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -36882,7 +36883,7 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         inquiries:
           description: |-
-            After how many months an enquiry from the site's contact form is removed for good, with every copy the system stores; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -36937,7 +36938,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/Inquiries1e2Enum'
           description: |-
-            After how many months an enquiry from the site's contact form is removed for good, with every copy the system stores; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12

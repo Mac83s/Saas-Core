@@ -3916,7 +3916,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's settings 'Website enquiries' (inquiries): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
+      "model_description": "Returns the company's settings 'Website enquiries' (inquiries): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. How long the company keeps the personal data in messages from the contact form on its site. A removal cannot be undone. The site's statistics keep only the fact that an enquiry was made.",
       "modifiers": [],
       "module": "shared.sites",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -3959,8 +3959,8 @@
       "preview": false,
       "risk": "read",
       "summary": {
-        "en": "How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
-        "pl": "Po jakim czasie firma usuwa zapytania z formularza kontaktowego. Usunięcia nie da się cofnąć."
+        "en": "How long the company keeps the personal data in messages from the contact form on its site. A removal cannot be undone. The site's statistics keep only the fact that an enquiry was made.",
+        "pl": "Po jakim czasie firma usuwa dane osób z zapytań z formularza kontaktowego. Usunięcia nie da się cofnąć. W statystykach strony zostaje samo to, że zapytanie było."
       },
       "title": {
         "en": "Read settings: Website enquiries",
@@ -3981,7 +3981,7 @@
         "additionalProperties": false,
         "properties": {
           "inquiries": {
-            "description": "After how many months an enquiry from the site's contact form is removed for good, with every copy the system stores; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
+            "description": "After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
             "enum": [
               "off",
               "12",
@@ -4014,7 +4014,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Changes the company's settings 'Website enquiries'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
+      "model_description": "Changes the company's settings 'Website enquiries'. Pass null for every field that should stay as it is; list in `reset` the fields to give back to the default (the platform's or the code's). How long the company keeps the personal data in messages from the contact form on its site. A removal cannot be undone. The site's statistics keep only the fact that an enquiry was made.",
       "modifiers": [],
       "module": "shared.sites",
       "no_preview_reason": null,
@@ -4057,8 +4057,8 @@
       "preview": true,
       "risk": "irreversible",
       "summary": {
-        "en": "How long the company keeps messages from the contact form on its site. A removal cannot be undone.",
-        "pl": "Po jakim czasie firma usuwa zapytania z formularza kontaktowego. Usunięcia nie da się cofnąć."
+        "en": "How long the company keeps the personal data in messages from the contact form on its site. A removal cannot be undone. The site's statistics keep only the fact that an enquiry was made.",
+        "pl": "Po jakim czasie firma usuwa dane osób z zapytań z formularza kontaktowego. Usunięcia nie da się cofnąć. W statystykach strony zostaje samo to, że zapytanie było."
       },
       "title": {
         "en": "Change settings: Website enquiries",

@@ -3943,6 +3943,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/settings/booking.retention/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Customers' data
+         * @description How long after a customer's last visit the company removes their personal data. A removal cannot be undone. The visits stay in the calendar and the statistics, without the person's data. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_booking_retention_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Customers' data
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_booking_retention_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/booking.retention/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Customers' data
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_booking_retention_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/settings/booking.self_service/": {
         parameters: {
             query?: never;
@@ -4265,6 +4309,50 @@ export interface paths {
          * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
          */
         post: operations["organization_settings_sites_inquiries_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/sites.retention/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Website enquiries
+         * @description How long the company keeps the personal data in messages from the contact form on its site. A removal cannot be undone. The site's statistics keep only the fact that an enquiry was made. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_sites_retention_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Website enquiries
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_sites_retention_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/sites.retention/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Website enquiries
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_sites_retention_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7695,6 +7783,64 @@ export interface components {
             /** @description A visit less than this many hours away when its reminder is planned gets none (a booking for this afternoon needs no reminder). 0 keeps today's behaviour: the reminder goes out at once. */
             min_notice_hours: number;
         };
+        BookingRetentionSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["BookingRetentionSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["BookingRetentionSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        BookingRetentionSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingRetentionSettingsChangeResetEnum"][];
+            /**
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own.
+             *
+             *     * `off` - off
+             *     * `12` - 12
+             *     * `24` - 24
+             *     * `36` - 36
+             */
+            customers?: components["schemas"]["Customers1e2Enum"] | components["schemas"]["NullEnum"];
+        };
+        /**
+         * @description * `customers` - customers
+         * @enum {string}
+         */
+        BookingRetentionSettingsChangeResetEnum: "customers";
+        BookingRetentionSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["BookingRetentionSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        BookingRetentionSettingsSources: {
+            customers: components["schemas"]["SettingSourceEnum"];
+        };
+        BookingRetentionSettingsValues: {
+            /**
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own.
+             *
+             *     * `off` - off
+             *     * `12` - 12
+             *     * `24` - 24
+             *     * `36` - 36
+             */
+            customers: components["schemas"]["Customers1e2Enum"];
+        };
         BookingRule: {
             /** Format: uuid */
             id: string;
@@ -8584,6 +8730,14 @@ export interface components {
             cancel_at_period_end: boolean;
         };
         /**
+         * @description * `off` - off
+         *     * `12` - 12
+         *     * `24` - 24
+         *     * `36` - 36
+         * @enum {string}
+         */
+        Customers1e2Enum: "off" | "12" | "24" | "36";
+        /**
          * @description * `public` - public
          *     * `public_personal` - public_personal
          * @enum {string}
@@ -9332,6 +9486,14 @@ export interface components {
             max_rows: number;
             max_bytes: number;
         };
+        /**
+         * @description * `off` - off
+         *     * `12` - 12
+         *     * `24` - 24
+         *     * `36` - 36
+         * @enum {string}
+         */
+        Inquiries1e2Enum: "off" | "12" | "24" | "36";
         Interval: {
             /** Format: date-time */
             starts_at: string;
@@ -10930,6 +11092,21 @@ export interface components {
             /** @description A visit less than this many hours away when its reminder is planned gets none (a booking for this afternoon needs no reminder). 0 keeps today's behaviour: the reminder goes out at once. */
             min_notice_hours?: number | null;
         };
+        PatchedBookingRetentionSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["BookingRetentionSettingsChangeResetEnum"][];
+            /**
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Irreversible: a person in the company must decide, never the assistant on its own.
+             *
+             *     * `off` - off
+             *     * `12` - 12
+             *     * `24` - 24
+             *     * `36` - 36
+             */
+            customers?: components["schemas"]["Customers1e2Enum"] | components["schemas"]["NullEnum"];
+        };
         /** @description A season's rules for exactly one of an offer, a group or a unit. */
         PatchedBookingRuleUpdate: {
             name?: string;
@@ -11260,6 +11437,21 @@ export interface components {
              *     * `editors` - editors
              */
             recipients?: components["schemas"]["RecipientsD00Enum"] | components["schemas"]["NullEnum"];
+        };
+        PatchedSitesRetentionSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["SitesRetentionSettingsChangeResetEnum"][];
+            /**
+             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+             *
+             *     * `off` - off
+             *     * `12` - 12
+             *     * `24` - 24
+             *     * `36` - 36
+             */
+            inquiries?: components["schemas"]["Inquiries1e2Enum"] | components["schemas"]["NullEnum"];
         };
         PatchedStockDocumentInput: {
             /** Format: uuid */
@@ -13530,6 +13722,64 @@ export interface components {
              *     * `editors` - editors
              */
             recipients: components["schemas"]["RecipientsD00Enum"];
+        };
+        SitesRetentionSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["SitesRetentionSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["SitesRetentionSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        SitesRetentionSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["SitesRetentionSettingsChangeResetEnum"][];
+            /**
+             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+             *
+             *     * `off` - off
+             *     * `12` - 12
+             *     * `24` - 24
+             *     * `36` - 36
+             */
+            inquiries?: components["schemas"]["Inquiries1e2Enum"] | components["schemas"]["NullEnum"];
+        };
+        /**
+         * @description * `inquiries` - inquiries
+         * @enum {string}
+         */
+        SitesRetentionSettingsChangeResetEnum: "inquiries";
+        SitesRetentionSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["SitesRetentionSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        SitesRetentionSettingsSources: {
+            inquiries: components["schemas"]["SettingSourceEnum"];
+        };
+        SitesRetentionSettingsValues: {
+            /**
+             * @description After how many months an enquiry from the site's contact form loses its personal data for good (name, e-mail, phone, text), in every copy the system stores; its date and page stay for the statistics; `off` removes nothing. The e-mail already delivered to the company's mailbox is outside the system and stays. Irreversible: a person in the company must decide, never the assistant on its own.
+             *
+             *     * `off` - off
+             *     * `12` - 12
+             *     * `24` - 24
+             *     * `36` - 36
+             */
+            inquiries: components["schemas"]["Inquiries1e2Enum"];
         };
         /**
          * @description * `metadata_incomplete` - metadata_incomplete
@@ -26118,6 +26368,158 @@ export interface operations {
             };
         };
     };
+    organization_settings_booking_retention_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRetentionSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_retention_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBookingRetentionSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBookingRetentionSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedBookingRetentionSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRetentionSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_booking_retention_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingRetentionSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["BookingRetentionSettingsChange"];
+                "multipart/form-data": components["schemas"]["BookingRetentionSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRetentionSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     organization_settings_booking_self_service_retrieve: {
         parameters: {
             query?: never;
@@ -27173,6 +27575,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SitesInquiriesSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_sites_retention_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesRetentionSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_sites_retention_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSitesRetentionSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSitesRetentionSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedSitesRetentionSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesRetentionSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_sites_retention_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SitesRetentionSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["SitesRetentionSettingsChange"];
+                "multipart/form-data": components["schemas"]["SitesRetentionSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesRetentionSettingsPreview"];
                 };
             };
             400: {
