@@ -872,6 +872,32 @@ test("a change the server refuses is said plainly and nothing is read again", as
   expect(row("City").getByText("Olsztyn")).toBeInTheDocument();
 });
 
+test("beside the conversation the notes are as tall as the room under them", async () => {
+  // jsdom has no layout: the block says where it sits, as a browser would.
+  let top = 210;
+  const rect = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(() => ({ top }) as DOMRect);
+  const height = vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
+  try {
+    view();
+    const title = await screen.findByText(
+      "Notatki o firmie — co już wiadomo i czego brakuje",
+    );
+    const block = title.parentElement as HTMLElement;
+
+    // In its place in the page, 210 px down: whole in the window, 16 px clear.
+    expect(block.style.maxHeight).toBe("574px");
+    // The page scrolled and the block sticks under the panel's header.
+    top = 84;
+    fireEvent.scroll(window);
+    expect(block.style.maxHeight).toBe("700px");
+  } finally {
+    rect.mockRestore();
+    height.mockRestore();
+  }
+});
+
 test("the notes are read again when the conversation settles", async () => {
   const page = view();
 
