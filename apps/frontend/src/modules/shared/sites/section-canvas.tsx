@@ -37,6 +37,7 @@ import {
   PanelRightIcon,
   ImageIcon,
   FilesIcon,
+  CircleAlertIcon,
 } from "lucide-react";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -45,6 +46,7 @@ import {
   blockOptions,
   blockPayload,
   registry,
+  useSectionTypeName,
   type BlockFormValues,
 } from "./block-form";
 
@@ -70,6 +72,7 @@ export function SectionCanvas({
   selected,
   onSelect,
   inspector,
+  inspectorActions,
   library,
   pagesPanel,
   appearanceControls,
@@ -112,6 +115,8 @@ export function SectionCanvas({
   selected: number;
   onSelect: (index: number) => void;
   inspector: ReactNode;
+  /** Up, down and remove for the selected section, beside its name. */
+  inspectorActions?: ReactNode;
   library: ReactNode;
   /** The site's pages, to switch without leaving the studio. */
   pagesPanel?: ReactNode;
@@ -125,6 +130,7 @@ export function SectionCanvas({
   navigation?: readonly NavigationLink[];
 }) {
   const t = useTranslations("Sites");
+  const placeholders = useTranslations("Sites.studio.placeholders");
   const canvasRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
   const [leftPanel, setLeftPanel] = useState<
@@ -182,11 +188,9 @@ export function SectionCanvas({
     );
     return () => cancelAnimationFrame(frame);
   }, [inspectorRequest]);
+  const typeName = useSectionTypeName();
   const sectionLabel = (index: number) =>
-    t(
-      blockOptions.find((option) => option.type === blocks[index]?.block_type)
-        ?.labelKey ?? "addBlock",
-    );
+    blocks[index] ? typeName(blocks[index].block_type) : t("addBlock");
   const chooseSection = (index: number) => {
     onSelect(index);
     setMobilePanel("canvas");
@@ -229,7 +233,9 @@ export function SectionCanvas({
         aria-label={t("studio.pageNavigation")}
       >
         <div className="studio-sidebar-header">
-          <h3>{t("studio.pageNavigation")}</h3>
+          {/* The tabs name what is here; the heading stays for a screen
+              reader's list of headings (UX-040). */}
+          <h3 className="sr-only">{t("studio.pageNavigation")}</h3>
           <div
             className="studio-sidebar-tabs"
             role="group"
@@ -250,18 +256,22 @@ export function SectionCanvas({
                   (key !== "pages" || pagesPanel),
               )
               .map(([key, Icon, label]) => (
+                // One row, an icon over a short word: five tools no longer
+                // break into 2 + 2 + 1 (UX-040).
                 <Button
                   key={key}
                   type="button"
                   size="sm"
                   variant={leftPanel === key ? "secondary" : "ghost"}
                   aria-pressed={leftPanel === key}
+                  // The short word is the start of the full name (WCAG 2.5.3).
                   aria-label={t(label)}
                   disabled={disabled}
                   onClick={() => setLeftPanel(key)}
+                  title={t(label)}
                 >
                   <Icon aria-hidden="true" />
-                  {t(key === "library" ? "studio.libraryTool" : label)}
+                  {t(`studio.tab.${key}`)}
                 </Button>
               ))}
           </div>
@@ -289,12 +299,17 @@ export function SectionCanvas({
                         <span className="block truncate font-medium">
                           {outlineTitle(block) || sectionLabel(index)}
                         </span>
-                      </span>{" "}
-                      {unfilled?.[index] ? (
-                        <span className="ml-auto">
-                          <UnfilledBadge count={unfilled[index]} />
-                        </span>
-                      ) : null}
+                        {/* Said in words, not a bare yellow number (UX-040). */}
+                        {unfilled?.[index] ? (
+                          <span className="mt-0.5 flex items-center gap-1 text-xs text-warning-foreground">
+                            <CircleAlertIcon
+                              aria-hidden="true"
+                              className="size-3.5 shrink-0"
+                            />
+                            {placeholders("count", { count: unfilled[index] })}
+                          </span>
+                        ) : null}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -466,11 +481,7 @@ export function SectionCanvas({
                     </p>
                   );
                 }
-                const label = t(
-                  blockOptions.find(
-                    (option) => option.type === block.block_type,
-                  )?.labelKey ?? "addBlock",
-                );
+                const label = typeName(block.block_type);
                 return (
                   <div
                     data-section-index={index}
@@ -541,15 +552,18 @@ export function SectionCanvas({
         className="studio-sidebar studio-sidebar--right"
         aria-label={t("studio.inspector")}
       >
-        <div className="studio-sidebar-header">
-          <p className="text-xs text-muted-foreground">
-            {t("studio.inspector")}
-          </p>
-          <h3>
-            {blocks.length
-              ? sectionLabel(selected)
-              : t("studio.nothingSelected")}
-          </h3>
+        <div className="studio-sidebar-header flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">
+              {t("studio.inspector")}
+            </p>
+            <h3>
+              {blocks.length
+                ? sectionLabel(selected)
+                : t("studio.nothingSelected")}
+            </h3>
+          </div>
+          {blocks.length ? inspectorActions : null}
         </div>
         <div className="studio-sidebar-scroll">
           {blocks.length ? (
@@ -661,6 +675,7 @@ export function UnfilledBadge({ count }: { count: number }) {
       className="border-warning-foreground/30 bg-warning text-warning-foreground"
       title={label}
     >
+      <CircleAlertIcon aria-hidden="true" />
       <span aria-hidden="true">{count}</span>
       <span className="sr-only">{label}</span>
     </Badge>

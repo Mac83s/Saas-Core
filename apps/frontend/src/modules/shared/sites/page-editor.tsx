@@ -111,6 +111,7 @@ import {
   mediaIdsInBlocks,
   emptyBlock,
   registry,
+  SectionMoveButtons,
   toSiteBlock,
   withUniqueAnchors,
   type BlockFormValues,
@@ -1196,6 +1197,25 @@ export function PageEditor({
                           ref={canvas}
                           revision={canvasRevision}
                           unfilled={unfilled}
+                          inspectorActions={
+                            blocks.fields.length > 0 ? (
+                              <SectionMoveButtons
+                                isFirst={activeSection === 0}
+                                isLast={
+                                  activeSection === blocks.fields.length - 1
+                                }
+                                moveUp={() => {
+                                  blocks.swap(activeSection, activeSection - 1);
+                                  setSelectedSection(activeSection - 1);
+                                }}
+                                moveDown={() => {
+                                  blocks.swap(activeSection, activeSection + 1);
+                                  setSelectedSection(activeSection + 1);
+                                }}
+                                onRemove={() => blocks.remove(activeSection)}
+                              />
+                            ) : null
+                          }
                           inspectorRequest={inspectorRequest}
                           appearance={appearance}
                           navigation={navigation}
@@ -1380,6 +1400,7 @@ export function PageEditor({
                                   form={draftForm}
                                   index={activeSection}
                                   key={blocks.fields[activeSection].id}
+                                  titled
                                   type={blocks.fields[activeSection].block_type}
                                   isFirst={activeSection === 0}
                                   isLast={

@@ -167,7 +167,7 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
 
     const publish = async (sequence: number) => {
       await page.goto("/panel/sites/publication");
-      await page.getByRole("button", { name: "Opublikuj snapshot" }).click();
+      await page.getByRole("button", { name: "Opublikuj zmiany" }).click();
       await expect(
         page.getByText(`Opublikowano sekwencję ${sequence}.`),
       ).toBeVisible();
@@ -237,12 +237,12 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       // The import copies the template's photo into the library first.
       await expect(sections).toHaveCount(7, { timeout: 90_000 });
       await expect(outline).toHaveText([
-        "1. Hero",
+        "1. Baner powitalny",
         "2. Tekst",
         "3. Tekst",
         "4. Oferta",
         "5. Tekst",
-        "6. FAQ",
+        "6. Pytania i odpowiedzi",
         "7. Formularz kontaktowy",
       ]);
       // A new page has no history to go back to.
@@ -278,10 +278,15 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
 
     await test.step("edits the selected section's heading on the canvas", async () => {
       await canvas
-        .getByRole("button", { name: "Edytuj sekcję 1: Hero", exact: true })
+        .getByRole("button", {
+          name: "Edytuj sekcję 1: Baner powitalny",
+          exact: true,
+        })
         .click();
       await expect(
-        canvas.getByRole("button", { name: "Edytuj sekcję 1: Hero" }),
+        canvas.getByRole("button", {
+          name: "Edytuj sekcję 1: Baner powitalny",
+        }),
       ).toHaveAttribute("aria-pressed", "true");
       await editHeading(FIRST_HEADING);
       await expect(undo).toBeEnabled();
@@ -294,12 +299,12 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       await settle(page);
       await page.keyboard.press("ArrowUp");
       await expect(outline).toHaveText([
-        "1. Hero",
+        "1. Baner powitalny",
         "2. Tekst",
         "3. Oferta",
         "4. Tekst",
         "5. Tekst",
-        "6. FAQ",
+        "6. Pytania i odpowiedzi",
         "7. Formularz kontaktowy",
       ]);
       await expect(
@@ -320,17 +325,19 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
         .click();
       await addFromLibrary("Klasyczne FAQ");
       await expect(outline).toHaveText([
-        "1. FAQ",
-        "2. Hero",
+        "1. Pytania i odpowiedzi",
+        "2. Baner powitalny",
         "3. Tekst",
         "4. Oferta",
         "5. Tekst",
         "6. Tekst",
-        "7. FAQ",
+        "7. Pytania i odpowiedzi",
         "8. Formularz kontaktowy",
       ]);
       await expect(
-        canvas.getByRole("button", { name: "Edytuj sekcję 1: FAQ" }),
+        canvas.getByRole("button", {
+          name: "Edytuj sekcję 1: Pytania i odpowiedzi",
+        }),
       ).toHaveAttribute("aria-pressed", "true");
 
       await canvas
@@ -362,7 +369,7 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
         // Only the last insert moves: the one above, the move and the
         // heading stay.
         await expect(undo).toBeEnabled();
-        await expect(outline.first()).toHaveText("1. FAQ");
+        await expect(outline.first()).toHaveText("1. Pytania i odpowiedzi");
         await expect(canvas).toBeFocused();
         await settle(page);
       };
@@ -392,7 +399,10 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       // Only the selected section offers it: the separator has no photo.
       await expect(change).toHaveCount(0);
       await canvas
-        .getByRole("button", { name: "Edytuj sekcję 2: Hero", exact: true })
+        .getByRole("button", {
+          name: "Edytuj sekcję 2: Baner powitalny",
+          exact: true,
+        })
         .click();
       await expect(change).toHaveCount(1);
       await expect(change).toHaveAccessibleName(`Zmień zdjęcie: ${PHOTO_ALT}`);
@@ -495,7 +505,10 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
         await expect(studio).toBeVisible();
         await expect(sections).toHaveCount(9);
         await canvas
-          .getByRole("button", { name: "Edytuj sekcję 2: Hero", exact: true })
+          .getByRole("button", {
+            name: "Edytuj sekcję 2: Baner powitalny",
+            exact: true,
+          })
           .click();
         await editHeading(SECOND_HEADING);
         await save();
@@ -506,9 +519,12 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
 
       await test.step("rolls back to the first publication without losing the draft", async () => {
         const history = page.locator("article");
-        await history
-          .filter({ has: page.getByText("Publikacja #1", { exact: true }) })
-          .getByRole("button", { name: "Przywróć jako nową publikację" })
+        // Restoring sits in the row's „…” and says what it does (UX-044).
+        await page
+          .getByRole("button", { name: "Działania dla publikacji #1" })
+          .click();
+        await page
+          .getByRole("menuitem", { name: "Przywróć jako nową publikację" })
           .click();
         await expect(page.getByText("Opublikowano sekwencję 3.")).toBeVisible();
         const restored = history.filter({

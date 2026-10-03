@@ -1242,10 +1242,10 @@
     "searchBlocks": "Search blocks…",
     "openOptions": "Open options",
     "noBlocks": "No matching block types.",
-    "heroBlock": "Hero",
+    "heroBlock": "Welcome banner",
     "richTextBlock": "Rich text",
     "featureListBlock": "Services",
-    "faqBlock": "FAQ",
+    "faqBlock": "Questions and answers",
     "contactBlock": "Contact",
     "testimonialsBlock": "Testimonials",
     "pricingBlock": "Pricing",
@@ -1775,7 +1775,7 @@
       "insertAtEnd": "Add a section at the end of the page",
       "changeImage": "Change photo",
       "changeImageNamed": "Change photo: {alt}",
-      "pageNavigation": "Page navigation",
+      "pageNavigation": "Page building",
       "pageTemplates": "Page templates",
       "design": "Design",
       "outlineHint": "Choose a section to edit its content. Use the handles on the canvas to reorder.",
@@ -1803,6 +1803,13 @@
         "deadAnchorsHint": "Add a section with that anchor (e.g. a form with the anchor “contact”) or change the link's address.",
         "deadAnchorsSections": "Sections with links to nowhere",
         "sampleChip": "template sample: {values}"
+      },
+      "tab": {
+        "outline": "Sections",
+        "library": "Library",
+        "templates": "Templates",
+        "appearance": "Design",
+        "pages": "Pages"
       }
     },
     "uploadAndCrop": "Upload and crop",

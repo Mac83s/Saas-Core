@@ -1242,10 +1242,10 @@
     "searchBlocks": "Szukaj bloków…",
     "openOptions": "Otwórz opcje",
     "noBlocks": "Brak pasujących typów bloków.",
-    "heroBlock": "Hero",
+    "heroBlock": "Baner powitalny",
     "richTextBlock": "Tekst",
     "featureListBlock": "Oferta",
-    "faqBlock": "FAQ",
+    "faqBlock": "Pytania i odpowiedzi",
     "contactBlock": "Kontakt",
     "testimonialsBlock": "Opinie klientów",
     "pricingBlock": "Cennik",
@@ -1775,7 +1775,7 @@
       "insertAtEnd": "Dodaj sekcję na końcu strony",
       "changeImage": "Zmień zdjęcie",
       "changeImageNamed": "Zmień zdjęcie: {alt}",
-      "pageNavigation": "Nawigacja strony",
+      "pageNavigation": "Budowa strony",
       "pageTemplates": "Całe strony",
       "design": "Wygląd",
       "outlineHint": "Wybierz sekcję, aby edytować jej treść. Kolejność zmienisz uchwytem na podglądzie.",
@@ -1803,6 +1803,13 @@
         "deadAnchorsHint": "Dodaj sekcję z tą kotwicą (np. formularz z kotwicą „kontakt”) albo zmień adres linku.",
         "deadAnchorsSections": "Sekcje z linkami donikąd",
         "sampleChip": "przykład z szablonu: {values}"
+      },
+      "tab": {
+        "outline": "Sekcje",
+        "library": "Biblioteka",
+        "templates": "Całe strony",
+        "appearance": "Wygląd",
+        "pages": "Podstrony"
       }
     },
     "uploadAndCrop": "Wgraj i skadruj",

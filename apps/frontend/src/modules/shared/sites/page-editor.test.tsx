@@ -311,9 +311,11 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   // offered here without the editor knowing its name.
   const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
   picker.focus();
-  fireEvent.change(picker, { target: { value: "FAQ" } });
+  fireEvent.change(picker, { target: { value: "Pytania" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
-  fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
+  fireEvent.click(
+    await screen.findByRole("option", { name: "Pytania i odpowiedzi" }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
 
   fireEvent.click(await screen.findByRole("button", { name: "Dodaj pozycję" }));
@@ -342,9 +344,11 @@ test("przestawia pozycje listy strzałkami i zapisuje nową kolejność", async 
 
   const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
   picker.focus();
-  fireEvent.change(picker, { target: { value: "FAQ" } });
+  fireEvent.change(picker, { target: { value: "Pytania" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
-  fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
+  fireEvent.click(
+    await screen.findByRole("option", { name: "Pytania i odpowiedzi" }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
 
   for (const question of ["Pierwsze?", "Drugie?"]) {
@@ -458,9 +462,11 @@ test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
 
   const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
   picker.focus();
-  fireEvent.change(picker, { target: { value: "FAQ" } });
+  fireEvent.change(picker, { target: { value: "Pytania" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
-  fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
+  fireEvent.click(
+    await screen.findByRole("option", { name: "Pytania i odpowiedzi" }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
   fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
@@ -1298,12 +1304,14 @@ test("the canvas's + inserts above the first section and at the end, each one un
       .map((button) => button.getAttribute("aria-label"));
   await waitFor(() => expect(sections()).toHaveLength(3));
   expect(sections()[0]).toMatch(/^Edytuj sekcję 1: Oferta/);
-  expect(sections()[1]).toMatch(/^Edytuj sekcję 2: Hero/);
-  expect(sections()[2]).toMatch(/^Edytuj sekcję 3: FAQ/);
+  expect(sections()[1]).toMatch(/^Edytuj sekcję 2: Baner powitalny/);
+  expect(sections()[2]).toMatch(/^Edytuj sekcję 3: Pytania i odpowiedzi/);
   fireEvent.click(screen.getByRole("button", { name: studio.undo }));
   expect(sections()).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: studio.undo }));
-  expect(sections()).toEqual([expect.stringMatching(/^Edytuj sekcję 1: Hero/)]);
+  expect(sections()).toEqual([
+    expect.stringMatching(/^Edytuj sekcję 1: Baner powitalny/),
+  ]);
 });
 
 test("„Zmień zdjęcie” on the canvas opens the inspector at the section's photo", async () => {

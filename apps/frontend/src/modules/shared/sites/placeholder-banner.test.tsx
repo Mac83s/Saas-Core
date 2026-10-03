@@ -193,7 +193,8 @@ test.each([
     expect(
       outline.getByRole("button", { name: new RegExp(names.secondBadge) }),
     ).toHaveAttribute("aria-current", "true");
-    expect(outline.getByTitle(names.firstBadge)).toHaveTextContent("2");
+    // In words, not a bare yellow number (UX-040).
+    expect(outline.getByText(names.firstBadge)).toBeInTheDocument();
 
     expect(
       (

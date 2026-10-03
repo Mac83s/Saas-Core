@@ -57,6 +57,7 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import { cn } from "@saas-core/ui/lib/utils";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
@@ -101,6 +102,66 @@ export type BlockOption = (typeof blockOptions)[number];
 
 export function blockOption(blockType: string): BlockOption | undefined {
   return blockOptions.find((option) => option.type === blockType);
+}
+
+/** A section type as people call it — „Baner powitalny”, never core.hero
+ *  (UX-040). One name for the outline, the inspector and TL15's fragments. */
+export function useSectionTypeName(): (blockType: string) => string {
+  const t = useTranslations("Sites");
+  return (blockType) => {
+    const option = blockOption(blockType);
+    return option ? t(option.labelKey) : blockType;
+  };
+}
+
+/** Up, down and remove for one section, in one row with its name. */
+export function SectionMoveButtons({
+  isFirst,
+  isLast,
+  moveDown,
+  moveUp,
+  onRemove,
+}: {
+  isFirst: boolean;
+  isLast: boolean;
+  moveDown: () => void;
+  moveUp: () => void;
+  onRemove: () => void;
+}) {
+  const t = useTranslations("Sites");
+  return (
+    <div className="flex shrink-0 gap-1">
+      <Button
+        aria-label={t("moveBlockUp")}
+        disabled={isFirst}
+        onClick={moveUp}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <ArrowUpIcon aria-hidden="true" />
+      </Button>
+      <Button
+        aria-label={t("moveBlockDown")}
+        disabled={isLast}
+        onClick={moveDown}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <ArrowDownIcon aria-hidden="true" />
+      </Button>
+      <Button
+        aria-label={t("removeBlock")}
+        onClick={onRemove}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <Trash2Icon aria-hidden="true" />
+      </Button>
+    </div>
+  );
 }
 
 const MESSAGE_BY_KEYWORD: Record<string, string> = {
@@ -217,10 +278,14 @@ export function BlockFields<TValues extends FieldValues>({
   onRemove,
   onReplace,
   type,
+  titled = false,
 }: {
   assets?: readonly MediaAsset[];
   form: UseFormReturn<TValues>;
   index: number;
+  /** The inspector names the section and holds its buttons already: no
+   *  second „Baner powitalny” over a row of three icons (UX-040). */
+  titled?: boolean;
   isFirst: boolean;
   isLast: boolean;
   moveDown: () => void;
@@ -235,6 +300,7 @@ export function BlockFields<TValues extends FieldValues>({
   const t = useTranslations("Sites");
   const prefix = `blocks.${index}` as const;
   const option = blockOption(type);
+  const typeName = useSectionTypeName()(type);
   const decoration = useWatch({
     control: form.control,
     name: `${prefix}.decoration` as Path<TValues>,
@@ -285,41 +351,22 @@ export function BlockFields<TValues extends FieldValues>({
     (template) => template.layout === selectedLayout,
   );
   return (
-    <fieldset className="space-y-4 rounded-lg border p-4">
-      <legend className="px-1 font-medium">
-        {option ? t(option.labelKey) : type}
-      </legend>
-      <div className="flex justify-end gap-1">
-        <Button
-          aria-label={t("moveBlockUp")}
-          disabled={isFirst}
-          onClick={moveUp}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <ArrowUpIcon aria-hidden="true" />
-        </Button>
-        <Button
-          aria-label={t("moveBlockDown")}
-          disabled={isLast}
-          onClick={moveDown}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <ArrowDownIcon aria-hidden="true" />
-        </Button>
-        <Button
-          aria-label={t("removeBlock")}
-          onClick={onRemove}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <Trash2Icon aria-hidden="true" />
-        </Button>
-      </div>
+    <fieldset className={cn("space-y-4", !titled && "rounded-lg border p-4")}>
+      <legend className="sr-only">{typeName}</legend>
+      {titled ? null : (
+        <div className="flex items-center justify-between gap-2">
+          <p aria-hidden="true" className="min-w-0 font-medium">
+            {typeName}
+          </p>
+          <SectionMoveButtons
+            isFirst={isFirst}
+            isLast={isLast}
+            moveDown={moveDown}
+            moveUp={moveUp}
+            onRemove={onRemove}
+          />
+        </div>
+      )}
       {onReplace && data && (
         <SectionTypeChooser
           block={blockPayload({
