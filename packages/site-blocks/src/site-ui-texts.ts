@@ -36,6 +36,8 @@ export interface SiteUiTexts {
     readonly position: (current: number, total: number) => string;
   };
   readonly contents: string;
+  /** Before the day an article's text last changed. */
+  readonly updated: string;
   /** Appended to an AI image's `alt`. */
   readonly aiImage: string;
   readonly pauseMotion: string;
@@ -58,6 +60,7 @@ const TEXTS = {
       position: (current, total) => `Strona ${current} z ${total}`,
     },
     contents: "Spis treści",
+    updated: "Zaktualizowano",
     aiImage: " — obraz wygenerowany przez AI",
     pauseMotion: "Wstrzymaj animację dekoracji",
     contactForm: {
@@ -100,6 +103,7 @@ const TEXTS = {
       position: (current, total) => `Page ${current} of ${total}`,
     },
     contents: "Contents",
+    updated: "Updated",
     aiImage: " — AI-generated image",
     pauseMotion: "Pause decorative animation",
     contactForm: {
@@ -142,6 +146,7 @@ const TEXTS = {
       position: (current, total) => `Seite ${current} von ${total}`,
     },
     contents: "Inhalt",
+    updated: "Aktualisiert",
     aiImage: " — KI-generiertes Bild",
     pauseMotion: "Dekorative Animation anhalten",
     contactForm: {
@@ -185,6 +190,7 @@ const TEXTS = {
       position: (current, total) => `Página ${current} de ${total}`,
     },
     contents: "Índice",
+    updated: "Actualizado",
     aiImage: " — imagen generada por IA",
     pauseMotion: "Pausar la animación decorativa",
     contactForm: {
@@ -227,6 +233,7 @@ const TEXTS = {
       position: (current, total) => `Страница ${current} из ${total}`,
     },
     contents: "Содержание",
+    updated: "Обновлено",
     aiImage: " — изображение создано ИИ",
     pauseMotion: "Остановить декоративную анимацию",
     contactForm: {

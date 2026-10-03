@@ -79,6 +79,7 @@ export {
 } from "./appearance";
 export type { SiteAppearance } from "./appearance";
 export {
+  renderArticleByline,
   renderLanguageSwitcher,
   renderSiteHeader,
   renderSiteFooter,

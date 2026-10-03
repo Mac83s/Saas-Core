@@ -9,6 +9,7 @@ import {
   type SiteAppearance,
 } from "./appearance";
 import {
+  renderArticleByline,
   renderLanguageSwitcher,
   renderSiteHeader,
   renderSiteFooter,
@@ -197,6 +198,7 @@ function renderDocument(
   pagePresentation?: PagePresentationV1 | PagePresentationV2 | null,
   appearanceLang?: AppearanceLang,
   languageSwitch?: ReactElement | null,
+  byline?: ReactElement | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -216,6 +218,7 @@ function renderDocument(
     createElement(
       contentElement,
       null,
+      byline ?? null,
       ...blocks.map((block, index) =>
         registry.render(
           block,
@@ -318,6 +321,11 @@ export function renderPublishedPage(
     renderLanguageSwitcher(
       document.languageLinks,
       siteUiTexts(document.locale).languages,
+    ),
+    renderArticleByline(
+      document.article,
+      document.locale ?? "pl",
+      siteUiTexts(document.locale).updated,
     ),
   );
 }

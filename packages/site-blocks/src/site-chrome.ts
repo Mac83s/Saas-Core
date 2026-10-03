@@ -1,6 +1,11 @@
 import { createElement as h, type ReactNode } from "react";
 import type { SiteAppearance } from "./appearance";
-import type { AppearanceLang, LanguageLink, NavigationLink } from "./types";
+import type {
+  AppearanceLang,
+  ArticleByline,
+  LanguageLink,
+  NavigationLink,
+} from "./types";
 
 /** Plain links, so the switch works without JavaScript: each language at the
  *  page's own version there, or at its home (TL14). The current one is
@@ -33,6 +38,55 @@ export function renderLanguageSwitcher(
         ),
       ),
     ),
+  );
+}
+
+/** An article's author and day, in the page's language and the company's
+ *  zone. The day the text changed is added once it is a later one. */
+export function renderArticleByline(
+  article: ArticleByline | null | undefined,
+  locale: string,
+  updatedLabel: string,
+) {
+  if (!article) return null;
+  const day = (moment: string | null | undefined) => {
+    const date = moment ? new Date(moment) : null;
+    if (!date || Number.isNaN(date.getTime())) return null;
+    const format = (timeZone: string) =>
+      new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone }).format(
+        date,
+      );
+    try {
+      return { moment: date, text: format(article.timeZone || "UTC") };
+    } catch {
+      // A zone this runtime does not know.
+      return { moment: date, text: format("UTC") };
+    }
+  };
+  const published = day(article.publishedAt);
+  const changed = day(article.updatedAt);
+  const updated =
+    changed &&
+    (!published ||
+      (changed.moment > published.moment && changed.text !== published.text))
+      ? changed
+      : null;
+  if (!article.authorName && !published && !updated) return null;
+  return h(
+    "p",
+    { className: "site-article-byline" },
+    article.authorName ? h("span", null, article.authorName) : null,
+    published
+      ? h("time", { dateTime: published.moment.toISOString() }, published.text)
+      : null,
+    updated
+      ? h(
+          "span",
+          null,
+          `${updatedLabel} `,
+          h("time", { dateTime: updated.moment.toISOString() }, updated.text),
+        )
+      : null,
   );
 }
 

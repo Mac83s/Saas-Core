@@ -322,3 +322,14 @@
   font-weight: 600;
   text-decoration: none;
 }
+
+/* An article's author and day, above its text and in line with it. */
+.site-article-byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 2rem 1.5rem 0;
+  font-size: 0.875rem;
+  opacity: 0.85;
+}

@@ -139,6 +139,7 @@ interface PublishedArticle {
   readonly author_name?: string;
   readonly published_at?: string | null;
   readonly updated_at?: string;
+  readonly timezone?: string;
   readonly tags?: readonly { readonly name?: string }[];
 }
 
@@ -196,10 +197,17 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
 
 export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
   const texts = siteUiTexts(page.locale);
+  const article = page.article as PublishedArticle | null;
   return renderPublishedPage(
     {
       kind: "publication",
       locale: page.locale,
+      article: article && {
+        authorName: article.author_name,
+        publishedAt: article.published_at,
+        updatedAt: article.updated_at,
+        timeZone: article.timezone,
+      },
       publicationId: page.publication_id,
       snapshotHash: page.snapshot_hash,
       blocks: page.blocks as unknown as SiteBlock[],

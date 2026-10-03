@@ -734,12 +734,27 @@ def _find_entry(
                         for tag in snapshot.get("tags", [])
                         if isinstance(tag, dict) and tag.get("slug")
                     ],
+                    # The day a reader sees is the day it was in the company's
+                    # zone: an article out at 00:30 is not yesterday's.
+                    "timezone": _company_timezone(organization_id),
                 },
             },
             locale_document,
             publication,
         )
     raise PublicSiteNotFound
+
+
+def _company_timezone(organization_id: Any) -> str:
+    # The organization's row is read as the tenant the host named.
+    with transaction.atomic():
+        set_local_organization_id(organization_id)
+        zone = (
+            Organization.objects.filter(pk=organization_id)
+            .values_list("timezone", flat=True)
+            .first()
+        )
+    return str(zone or "UTC")
 
 
 def published_entries(

@@ -151,6 +151,12 @@ def test_the_head_says_the_language_the_site_and_the_article() -> None:
 
     entry = ContentEntry.all_objects.get(translation_group__isnull=False, slug="in-english")
     assert english["article"]["updated_at"] == entry.current_draft.created_at.isoformat()
+    # The zone the byline's day is counted in is the company's.
+    assert english["article"]["timezone"] == "Europe/Warsaw"
+    Organization.objects.filter(pk=entry.organization_id).update(timezone="America/New_York")
+    assert _get(blog.host, "/en/blog/in-english/").data["article"]["timezone"] == (
+        "America/New_York"
+    )
     assert home["social"]["locale"] == "en_US"
     assert home["article"] is None
 
