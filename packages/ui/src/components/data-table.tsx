@@ -127,6 +127,37 @@ const localeSort: SortingFn<unknown> = (a, b, id) => {
 };
 
 /**
+ * Which ends of a wide table are scrolled out of sight. A table wider than
+ * the page keeps its first column and shows a shadow where more is (R6).
+ */
+function useHiddenEdges() {
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const rest = box.scrollWidth - box.clientWidth - box.scrollLeft;
+      const next = { start: box.scrollLeft > 1, end: rest > 1 };
+      setEdges((current) =>
+        current.start === next.start && current.end === next.end
+          ? current
+          : next,
+      );
+    };
+    // The observer measures once on its own when it starts.
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    if (box.firstElementChild) observer.observe(box.firstElementChild);
+    box.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      observer.disconnect();
+      box.removeEventListener("scroll", measure);
+    };
+  }, [box]);
+  return [setBox, edges] as const;
+}
+
+/**
  * Calls a header or cell renderer as a plain function. TanStack's `flexRender`
  * mounts it as a component, so a page that rebuilds its columns on every
  * render (the usual case) remounts every cell — and a dialog can no longer
@@ -292,6 +323,19 @@ export function DataTable<TData, TValue>({
   }, [manual, current.pageIndex, lastPage]);
   const rows = table.getRowModel().rows;
   const width = table.getVisibleLeafColumns().length;
+  const [frame, edges] = useHiddenEdges();
+  // A table wider than the page keeps its first column, the row's name, in
+  // sight while the rest scrolls under it (R6, UX-036).
+  const first = table.getVisibleLeafColumns()[0];
+  const pinned = (id: string) =>
+    (edges.start || edges.end) &&
+    id === first?.id &&
+    Boolean(first.columnDef.meta?.primary);
+  const pin = cn(
+    "md:sticky md:left-0 md:z-10 md:bg-background",
+    edges.start &&
+      "md:shadow-[8px_0_8px_-8px_color-mix(in_oklab,var(--foreground)_30%,transparent)]",
+  );
   // A list with nothing in it and nothing narrowing it shows no search, no
   // filters and no column names over nothing — only its empty state and the
   // way out (UX-021). `toolbar` stays: a period or a warehouse is the page's
@@ -327,6 +371,11 @@ export function DataTable<TData, TValue>({
         <Table
           aria-busy={loading || undefined}
           className="max-md:block"
+          containerClassName={cn(
+            edges.end &&
+              "md:shadow-[inset_-16px_0_12px_-12px_color-mix(in_oklab,var(--foreground)_30%,transparent)]",
+          )}
+          containerRef={frame}
           role="table"
         >
           <TableCaption className="sr-only">{caption}</TableCaption>
@@ -334,17 +383,22 @@ export function DataTable<TData, TValue>({
             className={bare ? "sr-only" : "max-md:sr-only"}
             role="rowgroup"
           >
-            {table.getHeaderGroups().map((group) => (
+            {table.getHeaderGroups().map((group, row, groups) => (
               <TableRow key={group.id} role="row">
                 {group.headers.map((header) => {
+                  // Columns under a group heading („Magazyn”): a column
+                  // outside any group spans the rows, named in the first.
+                  // TanStack's header depth counts from 1, a column's from 0.
+                  if (header.depth - 1 !== header.column.depth) return null;
                   const meta = header.column.columnDef.meta;
                   const sorted = header.column.getIsSorted();
-                  const content = header.isPlaceholder
-                    ? null
-                    : renderSlot(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      );
+                  const content = renderSlot(
+                    header.column.columnDef.header,
+                    header.getContext(),
+                  );
+                  const rows = header.column.columns.length
+                    ? 1
+                    : groups.length - row;
                   return (
                     <TableHead
                       aria-sort={
@@ -359,10 +413,13 @@ export function DataTable<TData, TValue>({
                         meta?.actions && "w-px",
                         meta?.numeric && "text-right",
                         meta?.className,
+                        pinned(header.column.id) && pin,
                       )}
+                      colSpan={header.colSpan > 1 ? header.colSpan : undefined}
+                      rowSpan={rows > 1 ? rows : undefined}
                       key={header.id}
                       role="columnheader"
-                      scope="col"
+                      scope={header.column.columns.length ? "colgroup" : "col"}
                     >
                       {meta?.actions ? (
                         <span className="sr-only">{meta.label ?? content}</span>
@@ -451,6 +508,11 @@ export function DataTable<TData, TValue>({
                           blank && !meta?.actions && "max-md:hidden",
                           meta?.numeric && "tabular-nums md:text-right",
                           meta?.className,
+                          pinned(cell.column.id) &&
+                            cn(
+                              pin,
+                              "md:group-hover/row:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))]",
+                            ),
                         )}
                         key={cell.id}
                         role="cell"
