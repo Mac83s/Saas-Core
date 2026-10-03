@@ -9,11 +9,13 @@ import { MobileTabBar } from "#components/panel/mobile-tab-bar";
 import { PanelHeader } from "#components/panel/panel-header";
 import { PanelMain, PanelWidthProvider } from "#components/panel/panel-width";
 import { SectionTabs } from "#components/panel/section-tabs";
+import { OrganizationMfaRequired } from "../../../modules/core/organizations/organization-mfa-required";
 import { billingAttention } from "#lib/billing-attention";
 import {
   getServerBookingOverview,
   getServerCurrentOrganization,
   getServerCustomerBillingOverview,
+  getServerOrganizationRequiresMfa,
   getServerOrganizations,
   getServerUser,
 } from "#lib/server-auth";
@@ -43,6 +45,12 @@ export default async function PanelLayout({
       getTranslations("Organizations"),
       cookies(),
     ]);
+  // A company that requires 2FA of this account refuses it until it is on
+  // (35a): the panel then shows how to turn it on, whatever page was asked.
+  const mfaRequired =
+    !organization && organizations.some((item) => item.active)
+      ? await getServerOrganizationRequiresMfa()
+      : false;
   const prefix = locale === "pl" ? "" : `/${locale}`;
   if (!user) redirect(`${prefix}/login`);
   // An account without an organization has nothing to show yet: it starts by
@@ -81,7 +89,13 @@ export default async function PanelLayout({
             {/* On a phone the menu is a drawer away; the section's pages
                 stay one tap apart above the content. */}
             <SectionTabs access={access} />
-            {children}
+            {mfaRequired ? (
+              <OrganizationMfaRequired
+                company={organizations.find((item) => item.active)?.name ?? ""}
+              />
+            ) : (
+              children
+            )}
           </PanelMain>
         </PanelWidthProvider>
         <MobileTabBar access={access} />

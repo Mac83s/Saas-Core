@@ -859,6 +859,13 @@
     "tabHistory": "Historia",
     "tabStock": "Magazyn"
   },
+  "OrganizationMfa": {
+    "title": "Ta firma wymaga weryfikacji dwuetapowej",
+    "description": "Firma {company} chroni dostęp do panelu kodem z aplikacji uwierzytelniającej. Włącz weryfikację dwuetapową poniżej, aby dalej pracować w tej firmie.",
+    "descriptionNoName": "Ta firma chroni dostęp do panelu kodem z aplikacji uwierzytelniającej. Włącz weryfikację dwuetapową poniżej, aby dalej w niej pracować.",
+    "otherCompany": "Do innej firmy, która tego nie wymaga, możesz przełączyć się w menu po lewej.",
+    "continue": "Weryfikacja włączona — przejdź do firmy"
+  },
   "AccountSettings": {
     "eyebrow": "Ustawienia",
     "title": "Twoje konto",

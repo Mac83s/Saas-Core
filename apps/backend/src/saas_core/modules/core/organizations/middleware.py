@@ -4,7 +4,7 @@ from uuid import UUID
 
 from django.db import transaction
 from django.db.models import F, Q
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from saas_core.modules.core.identity.mfa import has_confirmed_mfa
 from saas_core.modules.core.identity.models import User
@@ -22,6 +22,7 @@ from .models import (
     WorkspaceKind,
 )
 from .pre_tenant import PRE_TENANT_DB
+from .security_settings import membership_requires_mfa
 
 ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
 TENANT_CONTEXT_EXEMPT_PATHS = {
@@ -29,6 +30,17 @@ TENANT_CONTEXT_EXEMPT_PATHS = {
     "/api/v1/invitations/accept/",
     "/api/v1/session/active-organization/",
 }
+#: What a person must still reach when their company requires two-factor
+#: sign-in and they have none (answer 35a): turning it on, signing out, their
+#: own account. Switching to another company is exempt above.
+MFA_SETUP_PATHS = ("/api/v1/auth/",)
+
+
+class _MfaMissing:
+    """The company requires 2FA of this membership and the account has none."""
+
+
+MFA_MISSING = _MfaMissing()
 
 
 class TenantContextMiddleware:
@@ -45,15 +57,20 @@ class TenantContextMiddleware:
 
         with transaction.atomic():
             context = self._resolve_context(request)
+            if context is MFA_MISSING:
+                if request.path.startswith(MFA_SETUP_PATHS):
+                    return self.get_response(request)
+                return _mfa_required()
             if context is None:
                 return self.get_response(request)
+            assert isinstance(context, TenantContext)
 
             cast(Any, request).tenant_context = context
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)
                 return self.get_response(request)
 
-    def _resolve_context(self, request: HttpRequest) -> TenantContext | None:
+    def _resolve_context(self, request: HttpRequest) -> TenantContext | _MfaMissing | None:
         raw_organization_id = request.session.get(ACTIVE_ORGANIZATION_SESSION_KEY)
         try:
             organization_id = UUID(raw_organization_id)
@@ -82,6 +99,12 @@ class TenantContextMiddleware:
         ):
             request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
             return None
+        # A company may require two-factor sign-in of its people (35a). The
+        # requirement is read under the company's tenant, and the account's
+        # 2FA only when the requirement covers this membership.
+        set_local_organization_id(membership.organization_id)
+        if membership_requires_mfa(membership) and not has_confirmed_mfa(user):
+            return MFA_MISSING
         return context_from_membership(membership)
 
     def _membership_for(
@@ -103,3 +126,21 @@ class TenantContextMiddleware:
             )
             .first()
         )
+
+
+def _mfa_required() -> JsonResponse:
+    """The same shape as every other refusal; the panel shows the 2FA setup."""
+    return JsonResponse(
+        {
+            "type": "about:blank",
+            "title": "Wymagana weryfikacja dwuetapowa",
+            "status": 403,
+            "detail": (
+                "Ta firma wymaga weryfikacji dwuetapowej. Włącz ją w ustawieniach konta, "
+                "aby pracować w tej firmie."
+            ),
+            "code": "organization_mfa_required",
+        },
+        status=403,
+        content_type="application/problem+json",
+    )

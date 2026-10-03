@@ -21,6 +21,24 @@ export async function getServerCurrentOrganization(): Promise<OrganizationSummar
   return serverGet<OrganizationSummary>("/api/v1/organizations/current/");
 }
 
+/**
+ * Whether the active company refuses this account until it turns on
+ * two-factor sign-in (owner answer 35a): the API answers every company request
+ * with `organization_mfa_required` until then.
+ */
+export async function getServerOrganizationRequiresMfa(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const response = await fetch(`${backendUrl}/api/v1/organizations/current/`, {
+    headers: { cookie: cookieStore.toString() },
+    cache: "no-store",
+  });
+  if (response.status !== 403) return false;
+  const problem = (await response.json().catch(() => null)) as {
+    code?: string;
+  } | null;
+  return problem?.code === "organization_mfa_required";
+}
+
 /** Every settings group the company has, with what it may choose (ADR-078). */
 export async function getServerSettingsSchema(): Promise<SettingsSchema | null> {
   return serverGet<SettingsSchema>(
