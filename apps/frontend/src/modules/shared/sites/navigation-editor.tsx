@@ -10,6 +10,7 @@ import {
   EyeIcon,
   EyeOffIcon,
   SaveIcon,
+  Trash2Icon,
   Undo2Icon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
+import { RowActions } from "@saas-core/ui/components/data-table";
 import {
   Card,
   CardContent,
@@ -193,101 +195,120 @@ export function NavigationEditor({
                 className={entry.parent_page_id === null ? "" : "ml-6"}
                 key={entry.page_id}
               >
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
-                  <span className="flex-1 truncate font-medium">
-                    {pageName(entry.page_id)}
+                {/* The name gets the width; up and down stay in sight, the
+                    rest is named in „…” on a phone and kept as icons with
+                    their names on hover on a wide screen (UX-042). */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border p-2">
+                  <span className="flex min-w-0 flex-1 items-center gap-2 max-sm:basis-full">
+                    <span className="truncate font-medium">
+                      {pageName(entry.page_id)}
+                    </span>
+                    {!entry.visible && (
+                      <Badge variant="secondary">{t("navigationHidden")}</Badge>
+                    )}
                   </span>
-                  {!entry.visible && (
-                    <Badge variant="secondary">{t("navigationHidden")}</Badge>
-                  )}
-                  <Button
-                    aria-label={t("navigationMoveUp", {
-                      name: pageName(entry.page_id),
-                    })}
-                    disabled={index === 0}
-                    onClick={() => setEntries(move(entries, index, -1))}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ArrowUpIcon aria-hidden="true" />
-                  </Button>
-                  <Button
-                    aria-label={t("navigationMoveDown", {
-                      name: pageName(entry.page_id),
-                    })}
-                    disabled={index === entries.length - 1}
-                    onClick={() => setEntries(move(entries, index, 1))}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ArrowDownIcon aria-hidden="true" />
-                  </Button>
-                  <Button
-                    aria-label={t("navigationIndent", {
-                      name: pageName(entry.page_id),
-                    })}
-                    disabled={entry.parent_page_id !== null || index === 0}
-                    onClick={() => setEntries(indent(entries, index))}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ArrowRightIcon aria-hidden="true" />
-                  </Button>
-                  <Button
-                    aria-label={t("navigationOutdent", {
-                      name: pageName(entry.page_id),
-                    })}
-                    disabled={entry.parent_page_id === null}
-                    onClick={() => setEntries(outdent(entries, index))}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ArrowLeftIcon aria-hidden="true" />
-                  </Button>
-                  <Button
-                    aria-label={t(
-                      entry.visible ? "navigationHide" : "navigationShow",
-                      { name: pageName(entry.page_id) },
-                    )}
-                    onClick={() =>
-                      setEntries(
-                        entries.map((candidate, candidateIndex) =>
-                          candidateIndex === index
-                            ? { ...candidate, visible: !candidate.visible }
-                            : candidate,
-                        ),
-                      )
-                    }
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {entry.visible ? (
-                      <EyeIcon aria-hidden="true" />
-                    ) : (
-                      <EyeOffIcon aria-hidden="true" />
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      setEntries(
-                        entries.filter(
-                          (candidate) =>
-                            candidate.page_id !== entry.page_id &&
-                            candidate.parent_page_id !== entry.page_id,
-                        ),
-                      )
-                    }
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {t("navigationRemove")}
-                  </Button>
+                  <div className="flex items-center gap-0.5 max-sm:ml-auto">
+                    <Button
+                      aria-label={t("navigationMoveUp", {
+                        name: pageName(entry.page_id),
+                      })}
+                      disabled={index === 0}
+                      onClick={() => setEntries(move(entries, index, -1))}
+                      size="icon"
+                      title={t("navigationMoveUp", {
+                        name: pageName(entry.page_id),
+                      })}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ArrowUpIcon aria-hidden="true" />
+                    </Button>
+                    <Button
+                      aria-label={t("navigationMoveDown", {
+                        name: pageName(entry.page_id),
+                      })}
+                      disabled={index === entries.length - 1}
+                      onClick={() => setEntries(move(entries, index, 1))}
+                      size="icon"
+                      title={t("navigationMoveDown", {
+                        name: pageName(entry.page_id),
+                      })}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ArrowDownIcon aria-hidden="true" />
+                    </Button>
+                    <RowActions
+                      items={[
+                        // Nested or not: one of the two applies, if any.
+                        ...(entry.parent_page_id !== null
+                          ? [
+                              {
+                                label: t("navigationOutdent", {
+                                  name: pageName(entry.page_id),
+                                }),
+                                icon: <ArrowLeftIcon aria-hidden="true" />,
+                                inline: true,
+                                onSelect: () =>
+                                  setEntries(outdent(entries, index)),
+                              },
+                            ]
+                          : index > 0
+                            ? [
+                                {
+                                  label: t("navigationIndent", {
+                                    name: pageName(entry.page_id),
+                                  }),
+                                  icon: <ArrowRightIcon aria-hidden="true" />,
+                                  inline: true,
+                                  onSelect: () =>
+                                    setEntries(indent(entries, index)),
+                                },
+                              ]
+                            : []),
+                        {
+                          label: t(
+                            entry.visible ? "navigationHide" : "navigationShow",
+                            { name: pageName(entry.page_id) },
+                          ),
+                          icon: entry.visible ? (
+                            <EyeOffIcon aria-hidden="true" />
+                          ) : (
+                            <EyeIcon aria-hidden="true" />
+                          ),
+                          inline: true,
+                          onSelect: () =>
+                            setEntries(
+                              entries.map((candidate, candidateIndex) =>
+                                candidateIndex === index
+                                  ? {
+                                      ...candidate,
+                                      visible: !candidate.visible,
+                                    }
+                                  : candidate,
+                              ),
+                            ),
+                        },
+                        {
+                          label: t("navigationRemove"),
+                          icon: <Trash2Icon aria-hidden="true" />,
+                          destructive: true,
+                          separated: true,
+                          onSelect: () =>
+                            setEntries(
+                              entries.filter(
+                                (candidate) =>
+                                  candidate.page_id !== entry.page_id &&
+                                  candidate.parent_page_id !== entry.page_id,
+                              ),
+                            ),
+                        },
+                      ]}
+                      label={t("navigationActions", {
+                        name: pageName(entry.page_id),
+                      })}
+                    />
+                  </div>
                 </div>
               </li>
             ))}

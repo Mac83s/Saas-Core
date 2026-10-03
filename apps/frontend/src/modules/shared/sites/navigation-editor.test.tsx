@@ -87,7 +87,11 @@ test("removing a parent takes its children with it", async () => {
   fireEvent.click(
     screen.getByRole("button", { name: "Zagnieźdź Oferta pod pozycją wyżej" }),
   );
-  fireEvent.click(screen.getAllByRole("button", { name: "Usuń z menu" })[0]);
+  // Removing sits in the row's „…” (UX-042).
+  fireEvent.click(
+    screen.getByRole("button", { name: "Działania dla pozycji Start" }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Usuń z menu" }));
 
   // Leaving the child behind would publish an entry whose parent is gone. Both
   // return to the "add to menu" list, so the check is on the menu itself.

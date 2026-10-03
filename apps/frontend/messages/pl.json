@@ -1118,6 +1118,7 @@
     "navigationEmpty": "Menu jest puste — odwiedzający nie znajdą podstron inaczej niż przez adres.",
     "navigationAddTitle": "Dodaj do menu",
     "navigationRemove": "Usuń z menu",
+    "navigationActions": "Działania dla pozycji {name}",
     "navigationHidden": "Ukryta",
     "navigationHide": "Ukryj pozycję {name}",
     "navigationShow": "Pokaż pozycję {name}",
