@@ -9,7 +9,6 @@ from typing import Any
 
 import pytest
 from django.core.cache import cache
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -101,9 +100,10 @@ def test_the_form_offers_only_the_company_s_horizon(monkeypatch: pytest.MonkeyPa
     with tenant(member):
         _change(ONLINE, "h-1", horizon_days=3)
     online = client.get(f"{url}/").json()["online"]
-    days = client.get(
-        f"{url}/days/", {**configured["query"], "from": str(timezone.localdate()), "to": day}
-    )
+    # The company's day, not the server's: between midnight in Warsaw and
+    # midnight UTC they are two different dates.
+    today = member.organization.local_today()
+    days = client.get(f"{url}/days/", {**configured["query"], "from": str(today), "to": day})
     later = client.get(f"{url}/times/", {**configured["query"], "date": day})
     refused = client.post(
         f"{url}/appointments/",
@@ -116,7 +116,7 @@ def test_the_form_offers_only_the_company_s_horizon(monkeypatch: pytest.MonkeyPa
         HTTP_IDEMPOTENCY_KEY="horyzont-1",
     )
 
-    assert online["last_day"] == str(timezone.localdate() + timedelta(days=2))
+    assert online["last_day"] == str(today + timedelta(days=2))
     assert all(item <= online["last_day"] for item in days.json()["items"])
     assert later.json()["items"] == []
     assert (refused.status_code, refused.json()["code"]) == (409, "beyond_booking_horizon")

@@ -166,7 +166,9 @@ def test_the_customer_who_did_not_come_frees_the_people_and_counts_apart(
         with pytest.raises(AppointmentNotChangeable):
             cancel_appointment(appointment_id=absent.id, idempotency_key="c", principal_ref="t")
 
-    today = timezone.localdate(timezone=WARSAW)
+    # The day the visit began on: twenty minutes ago is still yesterday for
+    # the first twenty minutes after midnight.
+    today = timezone.localtime(absent.starts_at, WARSAW).date()
     after(monkeypatch, timezone.now() + timedelta(days=1))
     counted = numbers(owner, first.id, today)
     assert counted["visits_done"]["value"] == 0
