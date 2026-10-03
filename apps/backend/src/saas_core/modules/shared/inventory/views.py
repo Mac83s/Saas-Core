@@ -16,9 +16,12 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.context import current_tenant_context
 
-from . import reports, services
+from . import imports, reports, services
 from .permissions import INVENTORY_MANAGE
 from .serializers import (
+    ImportInputSerializer,
+    ImportResultSerializer,
+    ImportTemplateSerializer,
     InventoryAdjustInputSerializer,
     InventoryBalanceSerializer,
     InventoryCategorySerializer,
@@ -708,3 +711,93 @@ class InventoryUsageReportView(APIView):
             page_size=data["page_size"],
         )
         return Response(UsageReportSerializer(report).data)
+
+
+IDEMPOTENCY = OpenApiParameter(
+    "Idempotency-Key",
+    str,
+    OpenApiParameter.HEADER,
+    required=True,
+    description="One key per save; a repeat answers the first result.",
+)
+
+
+class InventoryImportTemplateView(APIView):
+    """What a CSV of items looks like (phase 10c)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: ImportTemplateSerializer, 403: ProblemDetailsSerializer},
+        operation_id="inventory_import_template",
+        summary="The CSV import's columns and a starting file",
+        description="The columns the import knows, with the headers it accepts, what each "
+        "means and an example; a CSV to start from (a header and one example row, no "
+        "formulas); the limits on rows and size.",
+        tags=TAGS,
+    )
+    def get(self, request: Request) -> Response:
+        services._read_context()
+        return Response(ImportTemplateSerializer(imports.template()).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class InventoryImportPreviewView(APIView):
+    """What a CSV would do to the catalogue — nothing is saved."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=ImportInputSerializer,
+        responses={200: ImportResultSerializer, **ERRORS},
+        operation_id="inventory_import_preview",
+        summary="Preview a CSV import of items",
+        description="Reads the CSV and says, row by row, what a save would do: create an "
+        "item, change one (matched by SKU, then by name), leave it, or why the row is "
+        "wrong (`errors` with the column and a code); warnings include cells that start "
+        "like a spreadsheet formula. Nothing is saved and the file is not kept. Needs "
+        "inventory.manage.",
+        extensions={"x-dry-run": True},
+        tags=TAGS,
+    )
+    def post(self, request: Request) -> Response:
+        data = _valid(ImportInputSerializer, request)
+        result = imports.import_items(
+            request=_http(request),
+            content=data["content"],
+            location_id=data["location_id"],
+            preview=True,
+        )
+        return Response(ImportResultSerializer(result).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class InventoryImportView(APIView):
+    """Items — and their opening stock — from a CSV, all rows or none."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[IDEMPOTENCY],
+        request=ImportInputSerializer,
+        responses={200: ImportResultSerializer, **ERRORS},
+        operation_id="inventory_import_apply",
+        summary="Import items from a CSV",
+        description="Saves what the preview showed: new items, changes to existing ones "
+        "and, for rows with a quantity, one posted PW with the opening stock in the chosen "
+        "warehouse. A problem in any row saves nothing and answers 400 with "
+        "`errors[].field` = `rows[<line>].<column>`. The history records the counts and a "
+        "hash of the text, never the file. A repeated Idempotency-Key answers the first "
+        "save's summary (`replayed`); the key with another file is 409 "
+        "`import_idempotency_conflict`. Needs inventory.manage.",
+        tags=TAGS,
+    )
+    def post(self, request: Request) -> Response:
+        data = _valid(ImportInputSerializer, request)
+        result = imports.import_items(
+            request=_http(request),
+            content=data["content"],
+            location_id=data["location_id"],
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(ImportResultSerializer(result).data)

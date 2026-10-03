@@ -494,3 +494,113 @@ class UsageReportSerializer(serializers.Serializer[Any]):
         fields["from"] = serializers.DateField()
         fields["to"] = serializers.DateField()
         return fields
+
+
+# --- CSV import (phase 10c) ----------------------------------------------------------------
+
+IMPORT_ACTIONS = (
+    ("create", "A new item"),
+    ("update", "An existing item changes"),
+    ("unchanged", "An existing item stays as it is"),
+    ("error", "The row has a problem; nothing is saved while any row has one"),
+)
+
+
+class ImportInputSerializer(serializers.Serializer[Any]):
+    content = serializers.CharField(
+        trim_whitespace=False,
+        help_text="The CSV as text: a header row, then one item per row. Columns by header "
+        "(Polish or English, see the template), `;`, `,` or a tab between cells, a decimal "
+        "comma or point. A cell starting with = + - or @ is kept as plain text.",
+    )
+    location_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text="The warehouse that receives rows with a quantity; null: the main one.",
+    )
+
+
+class ImportProblemSerializer(serializers.Serializer[Any]):
+    field = serializers.CharField(help_text="The column's key, e.g. unit.")
+    code = serializers.CharField()
+    message = serializers.CharField()
+
+
+class ImportRowSerializer(serializers.Serializer[Any]):
+    line = serializers.IntegerField(help_text="The row's line in the file; the header is 1.")
+    action = serializers.ChoiceField(choices=IMPORT_ACTIONS)
+    name = serializers.CharField(allow_blank=True)
+    sku = serializers.CharField(allow_blank=True)
+    item_id = serializers.UUIDField(
+        allow_null=True, help_text="The catalogue item the row matched or created."
+    )
+    changes = serializers.ListField(
+        child=serializers.CharField(), help_text="The item's fields the row sets or changes."
+    )
+    quantity = _quantity(allow_null=True, help_text="Opening stock the row receives; null: none.")
+    problems = ImportProblemSerializer(
+        many=True, help_text="Why the row cannot be saved; empty when it can."
+    )
+    warnings = ImportProblemSerializer(
+        many=True, help_text="What to look at before saving; they do not stop the save."
+    )
+
+
+class ImportSummarySerializer(serializers.Serializer[Any]):
+    rows = serializers.IntegerField()
+    created = serializers.IntegerField(help_text="New items.")
+    updated = serializers.IntegerField(help_text="Existing items the file changes.")
+    unchanged = serializers.IntegerField()
+    invalid = serializers.IntegerField(help_text="Rows with a problem.")
+    stock_lines = serializers.IntegerField(help_text="Rows that receive opening stock.")
+    new_categories = serializers.ListField(
+        child=serializers.CharField(), help_text="Categories the import creates."
+    )
+
+
+class ImportDocumentSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    number = serializers.CharField()
+
+
+class ImportResultSerializer(serializers.Serializer[Any]):
+    applied = serializers.BooleanField(help_text="False for a preview: nothing was saved.")
+    replayed = serializers.BooleanField(
+        help_text="True when this Idempotency-Key was already saved: the first save's "
+        "summary, without rows."
+    )
+    summary = ImportSummarySerializer()
+    columns = serializers.ListField(
+        child=serializers.CharField(), help_text="The columns recognised in the header."
+    )
+    unknown_columns = serializers.ListField(
+        child=serializers.CharField(), help_text="Headers the import does not know; ignored."
+    )
+    delimiter = serializers.CharField()
+    location_id = serializers.UUIDField()
+    document = ImportDocumentSerializer(
+        allow_null=True, help_text="The posted PW with the opening stock, once saved."
+    )
+    rows = ImportRowSerializer(many=True)
+
+
+class ImportColumnSerializer(serializers.Serializer[Any]):
+    key = serializers.CharField()
+    header = serializers.CharField(help_text="The header the template uses.")
+    headers = serializers.ListField(
+        child=serializers.CharField(), help_text="Every header the import accepts for it."
+    )
+    title = serializers.DictField(child=serializers.CharField(), help_text="pl and en.")
+    description = serializers.DictField(child=serializers.CharField(), help_text="pl and en.")
+    mandatory = serializers.BooleanField()
+    example = serializers.CharField(allow_blank=True)
+
+
+class ImportTemplateSerializer(serializers.Serializer[Any]):
+    columns = ImportColumnSerializer(many=True)
+    filename = serializers.CharField()
+    csv = serializers.CharField(help_text="A file to start from: the header and one example row.")
+    delimiter = serializers.CharField()
+    max_rows = serializers.IntegerField()
+    max_bytes = serializers.IntegerField()
