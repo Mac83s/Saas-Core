@@ -552,6 +552,30 @@ test("pobiera jawną wersję i renderuje chroniony preview", async () => {
   expect(viewport).toHaveStyle({ width: "390px" });
 });
 
+test("the top bar names the draft and resizes the canvas from its middle", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  const canvas = await screen.findByTestId("live-canvas");
+  expect(await screen.findByText("Szkic, wersja 1")).toBeDefined();
+  const devices = screen.getByRole("group", { name: "Rozmiar podglądu" });
+  expect(
+    within(devices).getByRole("button", { name: "Komputer" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(within(devices).getByRole("button", { name: "Telefon" }));
+  expect(canvas).toHaveAttribute("data-viewport", "mobile");
+  expect(canvas).toHaveStyle({ width: "390px" });
+  expect(
+    within(devices).getByRole("button", { name: "Telefon" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  // The forms have no canvas to resize.
+  fireEvent.click(screen.getByRole("button", { name: "Formularze" }));
+  expect(screen.queryByRole("group", { name: "Rozmiar podglądu" })).toBeNull();
+});
+
 test("the page list's preview opens the saved draft once it is loaded", async () => {
   renderEditor(
     "en",

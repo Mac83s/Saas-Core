@@ -53,6 +53,7 @@ vi.mock("./page-editor", () => ({
     onExitStateChange,
     appearanceControls,
     pagesPanel,
+    leading,
     page,
     previewOnOpen,
     afterSaveNotice,
@@ -60,6 +61,7 @@ vi.mock("./page-editor", () => ({
     afterSaveNotice?: string;
     appearanceControls?: ReactNode;
     pagesPanel?: ReactNode;
+    leading?: ReactNode;
     page: PageSummary;
     previewOnOpen?: boolean;
     onExitStateChange: (state: { dirty: boolean; busy: boolean }) => void;
@@ -72,6 +74,7 @@ vi.mock("./page-editor", () => ({
     );
     return (
       <>
+        {leading}
         <p>Editing {page.name}</p>
         {previewOnOpen ? <p>Preview first</p> : null}
         {afterSaveNotice ? <p>After a save: {afterSaveNotice}</p> : null}

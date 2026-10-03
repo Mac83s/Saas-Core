@@ -1856,7 +1856,7 @@
       "design": "Wygląd",
       "outlineHint": "Wybierz sekcję, aby edytować jej treść. Kolejność zmienisz uchwytem na podglądzie.",
       "addSection": "Dodaj sekcję",
-      "liveCanvasLabel": "Podgląd na żywo",
+      "draftVersion": "Szkic, wersja {version}",
       "nothingSelected": "Zacznij od sekcji",
       "selectHint": "Dodaj lub wybierz sekcję. Tutaj pojawią się jej treść i ustawienia.",
       "save": "Zapisz stronę",

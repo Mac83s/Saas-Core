@@ -1856,7 +1856,7 @@
       "design": "Design",
       "outlineHint": "Choose a section to edit its content. Use the handles on the canvas to reorder.",
       "addSection": "Add section",
-      "liveCanvasLabel": "Live preview",
+      "draftVersion": "Draft, version {version}",
       "nothingSelected": "Start with a section",
       "selectHint": "Add or select a section to see its content and settings here.",
       "save": "Save page",
