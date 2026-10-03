@@ -29,14 +29,22 @@ from .item_translations import (
 )
 from .models import ItemTranslation
 
-KINDS = ["service", "location", "resource", "group", "team", "participant_category"]
+KINDS = [
+    "service",
+    "location",
+    "resource",
+    "group",
+    "team",
+    "participant_category",
+    "extra",
+]
 KIND = OpenApiParameter(
     "kind",
     str,
     OpenApiParameter.PATH,
     enum=KINDS,
-    description="service, location, resource (a unit), group (of units), team or "
-    "participant_category.",
+    description="service, location, resource (a unit), group (of units), team, "
+    "participant_category or extra.",
 )
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
 _PROBLEMS = {

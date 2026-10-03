@@ -462,3 +462,11 @@ Ustalenia, których §6–§7 nie rozstrzygały, przyjęte przy budowie cennika
   albo pobytu, który ma wycenę, liczy ją od nowa dla tych samych osób.
 - **Pojemność jednostki** sprawdza wycena (`unit_capacity_exceeded` na polu
   `participants`), bo to ona zna uczestników.
+- **Dopłaty i kaucja (faza 3c).** `Extra` należy do oferty: obowiązkowa jest na
+  każdej rezerwacji, wybieraną klient bierze do `max_quantity` razy. Dopłata
+  „za osobę” liczy osoby liczone do pojemności. Rabat za długość nie obejmuje
+  dopłat. Kaucja to dopłata rodzaju `security_deposit`: jedna kwota na
+  rezerwację, bez VAT (`np`), poza sumami wyceny (`security_deposit_minor`) —
+  pobraną i zwracaną opisze zamówienie (ADR-073). Dopłaty się nie usuwa, tylko
+  wyłącza; rezerwacja przekładana zachowuje dopłatę, którą wzięła, także gdy
+  firma ją potem wyłączyła, a nowa rezerwacja wziąć jej już nie może.

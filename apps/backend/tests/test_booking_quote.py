@@ -424,6 +424,7 @@ def test_the_quote_api_prices_and_a_booking_answers_a_changed_price() -> None:
         "category_id": None,
         "price_rule_id": quote["lines"][1]["price_rule_id"],
         "percent": None,
+        "extra_id": None,
     }
     crowded = client.post(
         "/api/v1/booking/quote/",

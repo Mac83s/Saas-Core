@@ -257,6 +257,7 @@ def book_stay(
     group_id: UUID | None = None,
     customer_notes: str = "",
     participants: Sequence[Mapping[str, Any]] | None = None,
+    extras: Sequence[Mapping[str, Any]] | None = None,
     quote_digest: str = "",
     preview: bool = False,
 ) -> CreatedAppointment | StayPlan:
@@ -264,7 +265,9 @@ def book_stay(
     take and refuses what the booking would, with nothing written.
 
     `participants` — who comes (`[{"category_id", "count"}]`; one standard
-    person when empty). The price is worked out here and frozen in the booking;
+    person when empty); `extras` — the optional extras picked
+    (`[{"extra_id", "quantity"}]`). The price is worked out here and frozen in
+    the booking;
     `quote_digest` is the digest of the quote the caller showed, and another
     price by now is 409 `quote_changed` (ADR-072 §7)."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
@@ -279,7 +282,10 @@ def book_stay(
         return replace(
             plan,
             quote=stay_quote(
-                plan, participants=participants, locale=customer_data.get("locale") or None
+                plan,
+                participants=participants,
+                extras=extras,
+                locale=customer_data.get("locale") or None,
             ),
         )
     request_hash = _hash({
@@ -299,6 +305,11 @@ def book_stay(
                 ]
             }
             if participants
+            else {}
+        ),
+        **(
+            {"extras": [[str(line["extra_id"]), int(line.get("quantity") or 1)] for line in extras]}
+            if extras
             else {}
         ),
     })
@@ -359,7 +370,7 @@ def book_stay(
     )
     unit = _hold(appointment, plan)
     # The unit that was held, not the one planned: a lost race takes another.
-    _freeze(appointment, unit, plan.stay, participants, quote_digest)
+    _freeze(appointment, unit, plan.stay, participants, extras, quote_digest)
     record_new_booking(
         organization,
         appointment,
@@ -442,7 +453,9 @@ def move_stay(
             quote=stay_quote(
                 plan,
                 participants=appointment.quote.get("participants"),
+                extras=appointment.quote.get("extras"),
                 locale=appointment.customer.locale,
+                kept=True,
             ),
         )
     AppointmentResourceAllocation.all_objects.filter(appointment=appointment, active=True).update(
@@ -472,7 +485,15 @@ def move_stay(
     )
     unit = _hold(appointment, plan)
     if appointment.quote is not None:
-        _freeze(appointment, unit, plan.stay, appointment.quote.get("participants"), quote_digest)
+        _freeze(
+            appointment,
+            unit,
+            plan.stay,
+            appointment.quote.get("participants"),
+            appointment.quote.get("extras"),
+            quote_digest,
+            kept=True,
+        )
     mutation = BookingMutation.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -848,7 +869,9 @@ def stay_quote(
     plan: StayPlan,
     *,
     participants: Sequence[Mapping[str, Any]] | None = None,
+    extras: Sequence[Mapping[str, Any]] | None = None,
     locale: str | None = None,
+    kept: bool = False,
 ) -> Quote:
     """What the planned stay costs; nothing is written (ADR-072 §7)."""
     from .quote import quote_stay
@@ -858,7 +881,9 @@ def stay_quote(
         unit=plan.unit,
         days=plan.stay.days(plan.service.range_unit),
         participants=participants,
+        extras=extras,
         locale=locale,
+        kept=kept,
     )
 
 
@@ -867,7 +892,10 @@ def _freeze(
     unit: Resource,
     stay: Stay,
     participants: Sequence[Mapping[str, Any]] | None,
+    extras: Sequence[Mapping[str, Any]] | None,
     shown: str,
+    *,
+    kept: bool = False,
 ) -> None:
     """Works the stay's price out inside the booking's transaction and keeps it."""
     from .quote import assert_shown, quote_stay
@@ -877,7 +905,9 @@ def _freeze(
         unit=unit,
         days=stay.days(appointment.service.range_unit),
         participants=participants,
+        extras=extras,
         locale=appointment.customer.locale,
+        kept=kept,
     )
     assert_shown(quote, shown)
     appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest

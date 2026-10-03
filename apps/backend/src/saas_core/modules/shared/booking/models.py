@@ -49,6 +49,22 @@ class PriceBasis(models.TextChoices):
     PER_GROUP = "per_group", "Za grupę"
 
 
+class ExtraBasis(models.TextChoices):
+    """What an extra is charged for (ADR-072 §6)."""
+
+    PER_BOOKING = "per_booking", "Za rezerwację"
+    PER_TIME_UNIT = "per_time_unit", "Za jednostkę czasu"
+    PER_PERSON = "per_person", "Za osobę"
+    PER_PERSON_PER_TIME_UNIT = "per_person_per_time_unit", "Za osobę i jednostkę czasu"
+
+
+class ExtraKind(models.TextChoices):
+    #: Something the customer pays for: cleaning, bed linen, a local tax.
+    CHARGE = "charge", "Dopłata"
+    #: Money held and given back: its own amount, never a line or revenue.
+    SECURITY_DEPOSIT = "security_deposit", "Kaucja"
+
+
 class VatCode(models.TextChoices):
     """A tax rate as a code, because an exemption is not 0% (ADR-072 §6).
     The warehouse keeps the same codes for products (`inventory.VatRate`)."""
@@ -746,6 +762,58 @@ class PriceRule(TenantScopedModel):
         ]
 
 
+class Extra(TenantScopedModel):
+    """What an offer adds to its price — „Sprzątanie końcowe”, „Pościel”,
+    „Opłata miejscowa” — or the deposit it holds (ADR-072 §6).
+
+    A mandatory one is on every booking of the offer; an optional one the
+    customer picks, up to `max_quantity`. Amounts are read gross or net like
+    the price list's (`pricing.entry.amounts`). A security deposit is not a
+    charge: the quote names it beside the total, without tax.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="extras")
+    name = models.CharField(max_length=160)
+    kind = models.CharField(max_length=16, choices=ExtraKind, default=ExtraKind.CHARGE)
+    basis = models.CharField(max_length=24, choices=ExtraBasis, default=ExtraBasis.PER_BOOKING)
+    amount_minor = models.PositiveIntegerField()
+    #: The company's currency when it was made (`Organization.currency`).
+    currency = models.CharField(max_length=3)
+    vat_code = models.CharField(max_length=2, choices=VatCode, default=VatCode.STANDARD)
+    mandatory = models.BooleanField(default=False)
+    #: How many of an optional one a booking may take.
+    max_quantity = models.PositiveSmallIntegerField(default=1)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "name", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(max_quantity__gte=1), name="booking_extra_quantity_ck"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(currency__regex=r"^[A-Z]{3}$"),
+                name="booking_extra_currency_ck",
+            ),
+            # A deposit is one amount held for the booking, outside VAT.
+            models.CheckConstraint(
+                condition=~models.Q(kind=ExtraKind.SECURITY_DEPOSIT)
+                | models.Q(
+                    basis=ExtraBasis.PER_BOOKING,
+                    vat_code=VatCode.OUTSIDE,
+                    mandatory=True,
+                    max_quantity=1,
+                ),
+                name="booking_extra_deposit_ck",
+            ),
+        ]
+
+
 class Customer(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     display_name = models.CharField(max_length=160)
@@ -1162,6 +1230,20 @@ class ParticipantCategoryTranslation(ItemTranslation):
             models.CheckConstraint(
                 condition=models.Q(locale__regex=r"^[a-z]{2}$"),
                 name="booking_category_tr_locale_ck",
+            ),
+        ]
+
+
+class ExtraTranslation(ItemTranslation):
+    extra = models.ForeignKey(Extra, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "extra", "locale"], name="booking_extra_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_extra_tr_locale_ck"
             ),
         ]
 

@@ -30,6 +30,7 @@ from saas_core.modules.shared.billing.decisions import FeatureOperation
 from .models import (
     BookingClosure,
     BookingRule,
+    Extra,
     Location,
     ParticipantCategory,
     PriceRule,
@@ -43,12 +44,14 @@ RULE_CHANGED = "booking.rule.changed"
 CLOSURE_CHANGED = "booking.closure.changed"
 PRICE_CHANGED = "booking.price.changed"
 CATEGORY_CHANGED = "booking.participant_category.changed"
+EXTRA_CHANGED = "booking.extra.changed"
 #: What the history names as the changed item, by the action that changed it.
 _TARGETS = {
     RULE_CHANGED: "booking_rule",
     CLOSURE_CHANGED: "booking_closure",
     PRICE_CHANGED: "booking_price",
     CATEGORY_CHANGED: "booking_participant_category",
+    EXTRA_CHANGED: "booking_extra",
 }
 
 _RULE_FIELDS = (
@@ -286,7 +289,7 @@ def _check_dates(starts_on: date, ends_on: date) -> None:
         )
 
 
-def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory)](
+def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra)](
     context: TenantContext,
     organization: Organization,
     model: type[T],
@@ -329,7 +332,7 @@ def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory)](
     return Saved(item, item.id, item.version, not before, changes)
 
 
-def _replay[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory)](
+def _replay[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra)](
     model: type[T], organization: Organization, item_id: UUID, created: bool
 ) -> Saved[T]:
     item = model.all_objects.get(organization=organization, pk=item_id)

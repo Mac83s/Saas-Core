@@ -118,6 +118,21 @@ def _participants() -> serializers.ListField:
     )
 
 
+class ExtraPickSerializer(serializers.Serializer[dict[str, Any]]):
+    extra_id = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1, max_value=100, required=False)
+
+
+def _extras() -> serializers.ListField:
+    return serializers.ListField(
+        child=ExtraPickSerializer(),
+        required=False,
+        max_length=20,
+        help_text="The optional extras picked, each with how many (1 when omitted). The "
+        "offer's mandatory extras are always charged.",
+    )
+
+
 def _quote_digest() -> serializers.CharField:
     return serializers.CharField(
         required=False,
@@ -131,9 +146,10 @@ def _quote_digest() -> serializers.CharField:
 
 class BookingQuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(
-        choices=["price", "extra_person", "category", "discount"],
+        choices=["price", "extra_person", "category", "discount", "extra"],
         help_text="`price` — the offer's price; `extra_person` — people beyond those it "
-        "includes; `category` — participants of a category; `discount` — for the length.",
+        "includes; `category` — participants of a category; `discount` — for the length; "
+        "`extra` — an extra of the offer.",
     )
     name = serializers.CharField(help_text="In the company's language.")
     customer_name = serializers.CharField(help_text="In the customer's language.")
@@ -155,6 +171,7 @@ class BookingQuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
     category_id = serializers.UUIDField(allow_null=True)
     price_rule_id = serializers.UUIDField(allow_null=True)
     percent = serializers.IntegerField(allow_null=True, help_text="A discount's percent.")
+    extra_id = serializers.UUIDField(allow_null=True)
 
 
 class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
@@ -167,6 +184,10 @@ class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
     )
     lines = BookingQuoteLineSerializer(many=True)
     participants = ParticipantInputSerializer(many=True)
+    extras = ExtraPickSerializer(many=True, help_text="The optional extras picked.")
+    security_deposit_minor = serializers.IntegerField(
+        help_text="Held and given back: beside the totals, never in them."
+    )
     net_minor = serializers.IntegerField()
     vat_minor = serializers.IntegerField()
     gross_minor = serializers.IntegerField(help_text="What the customer pays.")
@@ -186,6 +207,7 @@ class BookingQuoteInputSerializer(serializers.Serializer[dict[str, Any]]):
     resource_id = serializers.UUIDField(required=False, allow_null=True)
     group_id = serializers.UUIDField(required=False, allow_null=True)
     participants = _participants()
+    extras = _extras()
     locale = serializers.CharField(
         required=False,
         allow_blank=True,
@@ -223,6 +245,7 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Street and number in that town; optional, and only with a town.",
     )
     participants = _participants()
+    extras = _extras()
     quote_digest = _quote_digest()
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
@@ -1520,6 +1543,7 @@ class StayInputSerializer(serializers.Serializer[dict[str, Any]]):
     customer = CustomerInputSerializer()
     customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
     participants = _participants()
+    extras = _extras()
     quote_digest = _quote_digest()
 
 

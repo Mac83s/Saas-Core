@@ -9,9 +9,13 @@ Amounts are whole minor units of the company's currency, read gross or net as
 the company set it (`pricing.entry.amounts`); a customer always sees gross.
 Nothing here works a price out: `quote` does (§7), from these rules.
 
-Both are setup items (§11): every write has a key with a receipt, a change
-names the version it was made on, and runs as a preview. A category is never
-deleted — a booking's frozen quote names it — only switched off.
+An `Extra` is what an offer adds to its price — mandatory or picked by the
+customer — or the security deposit it holds, which is no charge.
+
+All are setup items (§11): every write has a key with a receipt, a change
+names the version it was made on, and runs as a preview. A category and an
+extra are never deleted — a booking's frozen quote names them — only switched
+off.
 """
 
 from __future__ import annotations
@@ -30,6 +34,9 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.decisions import FeatureOperation
 
 from .models import (
+    Extra,
+    ExtraBasis,
+    ExtraKind,
     ParticipantCategory,
     PriceBasis,
     PriceRule,
@@ -37,9 +44,11 @@ from .models import (
     ResourceGroup,
     Service,
     TimeModel,
+    VatCode,
 )
 from .rules import (
     CATEGORY_CHANGED,
+    EXTRA_CHANGED,
     PRICE_CHANGED,
     _check_dates,
     _copy,
@@ -74,6 +83,18 @@ _PRICE_FIELDS = (
     "active",
 )
 _CATEGORY_FIELDS = ("name", "counts_towards_capacity", "active")
+_EXTRA_FIELDS = (
+    "name",
+    "service_id",
+    "kind",
+    "basis",
+    "amount_minor",
+    "currency",
+    "vat_code",
+    "mandatory",
+    "max_quantity",
+    "active",
+)
 _SCOPES = (("service_id", Service), ("group_id", ResourceGroup), ("resource_id", Resource))
 
 
@@ -84,7 +105,10 @@ def amounts_are_gross() -> bool:
 
 def has_prices(organization_id: UUID) -> bool:
     """Whether the company holds amounts in its currency here (`currency_in_use`)."""
-    return PriceRule.all_objects.filter(organization_id=organization_id).exists()
+    return (
+        PriceRule.all_objects.filter(organization_id=organization_id).exists()
+        or Extra.all_objects.filter(organization_id=organization_id).exists()
+    )
 
 
 def list_prices() -> list[PriceRule]:
@@ -197,6 +221,62 @@ def _write_category(
         _CATEGORY_FIELDS,
         _check_category,
         CATEGORY_CHANGED,
+    )
+    if saved.created or set(saved.changes) & {"name", "active"}:
+        # The catalogue's text, or what it offers, changed (TL12c).
+        from .translation_source import notify_catalog_changed  # noqa: PLC0415
+
+        notify_catalog_changed(context=context)
+    return saved
+
+
+def list_extras() -> list[Extra]:
+    _, organization = _manage(FeatureOperation.READ)
+    return list(Extra.all_objects.filter(organization=organization))
+
+
+@transaction.atomic
+def save_extra(
+    *,
+    extra_id: UUID | None,
+    data: dict[str, Any],
+    idempotency_key: str = "",
+    expected_version: int | None = None,
+    preview: bool = False,
+) -> Saved[Extra]:
+    """What an offer adds to its price, or the deposit it holds. Never deleted
+    — bookings name it — only switched off."""
+    context, organization = _manage()
+    created = extra_id is None
+    return setup_write(
+        context=context,
+        action="extra.create" if created else "extra.update",
+        target_id=extra_id,
+        request={"data": data, "expected_version": expected_version},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=lambda: _write_extra(context, organization, extra_id, data, expected_version),
+        replay=lambda item_id: _replay(Extra, organization, item_id, created),
+    )
+
+
+def _write_extra(
+    context: TenantContext,
+    organization: Organization,
+    extra_id: UUID | None,
+    data: dict[str, Any],
+    expected_version: int | None,
+) -> Saved[Extra]:
+    saved = _write(
+        context,
+        organization,
+        Extra,
+        extra_id,
+        data,
+        expected_version,
+        _EXTRA_FIELDS,
+        _check_extra,
+        EXTRA_CHANGED,
     )
     if saved.created or set(saved.changes) & {"name", "active"}:
         # The catalogue's text, or what it offers, changed (TL12c).
@@ -356,6 +436,36 @@ def _length_discounts(given: Any) -> list[dict[str, int]]:
     if len({line["min_length"] for line in lines}) != len(lines):
         raise _refuse("length_discounts", "Każdy próg długości ma jeden rabat.", "duplicate")
     return lines
+
+
+def _check_extra(organization: Organization, extra: Extra) -> None:
+    if extra.service_id is None:
+        raise _refuse("service_id", "Wybierz usługę, której dotyczy dopłata.", "required")
+    _own(Service, organization, [extra.service_id], "service_id")
+    extra.name = extra.name.strip()
+    taken = Extra.all_objects.filter(
+        organization=organization, service_id=extra.service_id, name__iexact=extra.name
+    ).exclude(pk=extra.pk)
+    if taken.exists():
+        raise _refuse("name", "Ta usługa ma już taką dopłatę.", "name_taken")
+    extra.currency = organization.currency
+    if extra.kind == ExtraKind.SECURITY_DEPOSIT:
+        # One amount held for the booking and given back: no tax, no choice.
+        extra.basis, extra.vat_code = ExtraBasis.PER_BOOKING, VatCode.OUTSIDE
+        extra.mandatory, extra.max_quantity = True, 1
+        return
+    if extra.mandatory:
+        extra.max_quantity = 1
+    if extra.basis in (ExtraBasis.PER_TIME_UNIT, ExtraBasis.PER_PERSON_PER_TIME_UNIT):
+        slot = Service.all_objects.filter(
+            organization=organization, pk=extra.service_id, time_model=TimeModel.SLOT
+        ).exists()
+        if slot:
+            raise _refuse(
+                "basis",
+                "Wizyta nie ma jednostki czasu: wybierz dopłatę za rezerwację albo za osobę.",
+                "basis_needs_time_unit",
+            )
 
 
 def _check_category(organization: Organization, category: ParticipantCategory) -> None:

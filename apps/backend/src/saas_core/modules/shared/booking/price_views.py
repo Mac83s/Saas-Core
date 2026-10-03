@@ -1,6 +1,7 @@
-"""The panel's and the assistant's API of the price list (ADR-072 §6, phase 3a):
-prices of offers, groups and units, and who comes when it changes the price.
-Every write is a setup write with its preview (§11)."""
+"""The panel's and the assistant's API of the price list (ADR-072 §6, phases
+3a and 3c): prices of offers, groups and units, who comes when it changes the
+price, and the extras and deposits of offers. Every write is a setup write
+with its preview (§11)."""
 
 from __future__ import annotations
 
@@ -18,7 +19,15 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .models import ParticipantCategory, PriceBasis, PriceRule, VatCode
+from .models import (
+    Extra,
+    ExtraBasis,
+    ExtraKind,
+    ParticipantCategory,
+    PriceBasis,
+    PriceRule,
+    VatCode,
+)
 from .prices import (
     GROSS,
     NET,
@@ -26,8 +35,10 @@ from .prices import (
     copy_prices_to_next_year,
     delete_price,
     list_categories,
+    list_extras,
     list_prices,
     save_category,
+    save_extra,
     save_price,
 )
 from .serializers import (
@@ -211,6 +222,91 @@ class ParticipantCategoryPreviewSerializer(ParticipantCategorySerializer):
 
 class ParticipantCategoryListSerializer(serializers.Serializer[dict[str, Any]]):
     items = ParticipantCategorySerializer(many=True)
+
+
+class ExtraInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """What an offer adds to its price, or the deposit it holds."""
+
+    service_id = serializers.UUIDField(help_text="The offer it belongs to.")
+    name = serializers.CharField(max_length=160)
+    kind = serializers.ChoiceField(
+        choices=ExtraKind.choices,
+        required=False,
+        help_text="`charge` — the customer pays it; `security_deposit` — held and given "
+        "back: one amount per booking, no tax, never part of the total.",
+    )
+    basis = serializers.ChoiceField(
+        choices=ExtraBasis.choices,
+        required=False,
+        help_text="`per_booking`, `per_person`; for a stay also `per_time_unit` and "
+        "`per_person_per_time_unit` (a local tax).",
+    )
+    amount_minor = _amount(
+        help_text="In minor units of the company's currency, gross or net as the price list."
+    )
+    vat_code = serializers.ChoiceField(
+        choices=VatCode.choices,
+        required=False,
+        help_text="23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only "
+        "collects, like a local tax).",
+    )
+    mandatory = serializers.BooleanField(
+        required=False, help_text="On every booking of the offer; otherwise the customer picks."
+    )
+    max_quantity = serializers.IntegerField(
+        min_value=1,
+        max_value=100,
+        required=False,
+        help_text="How many of an optional one a booking may take.",
+    )
+    active = serializers.BooleanField(required=False)
+
+
+class ExtraUpdateSerializer(ExtraInputSerializer):
+    service_id = None  # type: ignore[assignment]
+    name = serializers.CharField(max_length=160, required=False)
+    amount_minor = _amount(required=False)
+    expected_version = _expected_version()
+
+
+class ExtraSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    service_id = serializers.UUIDField()
+    name = serializers.CharField()
+    kind = serializers.ChoiceField(choices=ExtraKind.choices)
+    basis = serializers.ChoiceField(choices=ExtraBasis.choices)
+    amount_minor = serializers.IntegerField()
+    currency = serializers.CharField()
+    vat_code = serializers.ChoiceField(choices=VatCode.choices)
+    mandatory = serializers.BooleanField()
+    max_quantity = serializers.IntegerField()
+    active = serializers.BooleanField()
+    version = serializers.IntegerField()
+
+
+class ExtraPreviewSerializer(ExtraSerializer):
+    changes = _changes()
+
+
+class ExtraListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = ExtraSerializer(many=True)
+
+
+def _extra_payload(value: Extra) -> dict[str, Any]:
+    return {
+        "id": value.id,
+        "service_id": value.service_id,
+        "name": value.name,
+        "kind": value.kind,
+        "basis": value.basis,
+        "amount_minor": value.amount_minor,
+        "currency": value.currency,
+        "vat_code": value.vat_code,
+        "mandatory": value.mandatory,
+        "max_quantity": value.max_quantity,
+        "active": value.active,
+        "version": value.version,
+    }
 
 
 def _price_payload(value: PriceRule) -> dict[str, Any]:
@@ -520,3 +616,104 @@ class ParticipantCategoryUpdatePreviewView(APIView):
             category_id=category_id, data=data, expected_version=version, preview=True
         )
         return Response(_with_changes(_category_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ExtraListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_extras_list",
+        summary="List the offers' extras and deposits",
+        description="What each offer adds to its price — mandatory or picked by the "
+        "customer — and the security deposit it holds, switched-off ones included.",
+        tags=["booking"],
+        responses={200: ExtraListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"items": [_extra_payload(item) for item in list_extras()]})
+
+    @extend_schema(
+        operation_id="booking_extra_create",
+        summary="Add an extra or a deposit to an offer",
+        description="A charge on top of the offer's price — once, per person, per night or "
+        "day, or per person and night — or a security deposit, which is held and given "
+        "back and never part of the total. Its currency is the company's." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=ExtraInputSerializer,
+        responses={201: ExtraSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = ExtraInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_extra(
+            extra_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
+        )
+        return Response(_extra_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ExtraCreatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_extra_create_preview",
+        summary="Check an extra without adding it",
+        description="Validates an extra as `booking_extra_create` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ExtraInputSerializer,
+        responses={200: ExtraPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = ExtraInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_extra(extra_id=None, data=dict(s.validated_data), preview=True)
+        return Response(_with_changes(_extra_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ExtraDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_extra_update",
+        summary="Change an extra",
+        description="Changes an extra's name, amount or terms, or switches it off. An extra "
+        "is never deleted: bookings name it, and keep the amount they were quoted." + _UPDATE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=ExtraUpdateSerializer,
+        responses={200: ExtraSerializer, **_SETUP_PROBLEMS},
+    )
+    def patch(self, request: Request, extra_id: UUID) -> Response:
+        s = ExtraUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_extra(
+            extra_id=extra_id, data=data, expected_version=version, idempotency_key=_idem(request)
+        )
+        return Response(_extra_payload(saved.value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ExtraUpdatePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_extra_update_preview",
+        summary="Check a change to an extra without saving it",
+        description="Validates a change as `booking_extra_update` would." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=ExtraUpdateSerializer,
+        responses={200: ExtraPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request, extra_id: UUID) -> Response:
+        s = ExtraUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, version = _update(s.validated_data)
+        saved = save_extra(extra_id=extra_id, data=data, expected_version=version, preview=True)
+        return Response(_with_changes(_extra_payload(saved.value), saved.changes))

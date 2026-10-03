@@ -410,6 +410,7 @@ def create_appointment(
     place_town: str = "",
     place_address: str = "",
     participants: Sequence[Mapping[str, Any]] | None = None,
+    extras: Sequence[Mapping[str, Any]] | None = None,
     quote_digest: str = "",
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
@@ -436,7 +437,9 @@ def create_appointment(
     visit takes place when that is not the company's location.
 
     `participants` — who comes (`[{"category_id", "count"}]`; one standard
-    person when empty). The price is worked out here and frozen in the booking;
+    person when empty); `extras` — the optional extras picked
+    (`[{"extra_id", "quantity"}]`). The price is worked out here and frozen in
+    the booking;
     `quote_digest` is the digest of the quote the caller showed, and another
     price by now is 409 `quote_changed` (ADR-072 §7).
     """
@@ -472,6 +475,11 @@ def create_appointment(
                 ]
             }
             if participants
+            else {}
+        ),
+        **(
+            {"extras": [[str(line["extra_id"]), int(line.get("quantity") or 1)] for line in extras]}
+            if extras
             else {}
         ),
     })
@@ -622,7 +630,7 @@ def create_appointment(
     occupied_until = ends_at + timedelta(minutes=after)
     token, digest = issue_self_service_token()
     expires = _self_service_expiry(ends_at)
-    quote = _visit_quote(service, starts_at, participants, customer.locale, quote_digest)
+    quote = _visit_quote(service, starts_at, participants, extras, customer.locale, quote_digest)
     lookup = {
         person.id: person
         for person in StaffMember.all_objects.filter(pk__in=candidates, active=True)
@@ -823,8 +831,10 @@ def reschedule_appointment(
             service,
             starts_at,
             appointment.quote.get("participants"),
+            appointment.quote.get("extras"),
             appointment.customer.locale,
             quote_digest,
+            kept=True,
         )
         appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest
         fields += ["quote", "quote_digest"]
@@ -1477,8 +1487,11 @@ def _visit_quote(
     service: Service,
     starts_at: datetime,
     participants: Sequence[Mapping[str, Any]] | None,
+    extras: Sequence[Mapping[str, Any]] | None,
     locale: str,
     shown: str,
+    *,
+    kept: bool = False,
 ) -> Quote:
     """The visit's price, worked out inside the booking's transaction; another
     one than the caller showed is 409 `quote_changed` (ADR-072 §7)."""
@@ -1487,7 +1500,12 @@ def _visit_quote(
     from .quote import assert_shown, quote_visit
 
     quote = quote_visit(
-        service=service, starts_at=starts_at, participants=participants, locale=locale
+        service=service,
+        starts_at=starts_at,
+        participants=participants,
+        extras=extras,
+        locale=locale,
+        kept=kept,
     )
     assert_shown(quote, shown)
     return quote

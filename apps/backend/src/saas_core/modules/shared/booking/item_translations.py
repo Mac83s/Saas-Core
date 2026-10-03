@@ -43,6 +43,8 @@ from saas_core.modules.core.organizations.models import Organization, Organizati
 from saas_core.modules.shared.billing.decisions import FeatureOperation
 
 from .models import (
+    Extra,
+    ExtraTranslation,
     ItemTranslation,
     Location,
     LocationTranslation,
@@ -110,6 +112,7 @@ for _builtin in (
         "category",
         ("name",),
     ),
+    Translatable("extra", Extra, ExtraTranslation, "extra", ("name",)),
 ):
     register_translatable(_builtin)
 

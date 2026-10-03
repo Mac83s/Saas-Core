@@ -3462,6 +3462,275 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/booking/setup/extras/:
+    get:
+      operationId: booking_extras_list
+      description: What each offer adds to its price — mandatory or picked by the
+        customer — and the security deposit it holds, switched-off ones included.
+      summary: List the offers' extras and deposits
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: booking_extra_create
+      description: A charge on top of the offer's price — once, per person, per night
+        or day, or per person and night — or a security deposit, which is held and
+        given back and never part of the total. Its currency is the company's. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `booking_idempotency_conflict`.
+      summary: Add an extra or a deposit to an offer
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExtraInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExtraInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extra'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/extras/{extra_id}/:
+    patch:
+      operationId: booking_extra_update
+      description: 'Changes an extra''s name, amount or terms, or switches it off.
+        An extra is never deleted: bookings name it, and keep the amount they were
+        quoted. Only the fields sent change. `expected_version` is the version the
+        change was made on; another one is 409 `booking_version_conflict`. A repeated
+        Idempotency-Key answers the first result again; the key reused on another
+        request is 409 `booking_idempotency_conflict`.'
+      summary: Change an extra
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: extra_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedExtraUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedExtraUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedExtraUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extra'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/extras/{extra_id}/preview/:
+    post:
+      operationId: booking_extra_update_preview
+      description: 'Validates a change as `booking_extra_update` would. Nothing is
+        saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check a change to an extra without saving it
+      parameters:
+      - in: path
+        name: extra_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExtraUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExtraUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/setup/extras/preview/:
+    post:
+      operationId: booking_extra_create_preview
+      description: 'Validates an extra as `booking_extra_create` would. Nothing is
+        saved: the answer is the item as the write would leave it, with `changes`,
+        or the same 400, 404 and 409 the write would answer.'
+      summary: Check an extra without adding it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExtraInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExtraInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/groups/:
     post:
       operationId: booking_setup_group_create
@@ -5817,14 +6086,15 @@ paths:
         schema:
           type: string
           enum:
+          - extra
           - group
           - location
           - participant_category
           - resource
           - service
           - team
-        description: service, location, resource (a unit), group (of units), team
-          or participant_category.
+        description: service, location, resource (a unit), group (of units), team,
+          participant_category or extra.
         required: true
       tags:
       - booking
@@ -5874,14 +6144,15 @@ paths:
         schema:
           type: string
           enum:
+          - extra
           - group
           - location
           - participant_category
           - resource
           - service
           - team
-        description: service, location, resource (a unit), group (of units), team
-          or participant_category.
+        description: service, location, resource (a unit), group (of units), team,
+          participant_category or extra.
         required: true
       - in: path
         name: locale
@@ -5954,14 +6225,15 @@ paths:
         schema:
           type: string
           enum:
+          - extra
           - group
           - location
           - participant_category
           - resource
           - service
           - team
-        description: service, location, resource (a unit), group (of units), team
-          or participant_category.
+        description: service, location, resource (a unit), group (of units), team,
+          participant_category or extra.
         required: true
       - in: path
         name: locale
@@ -22604,6 +22876,13 @@ components:
           description: Who comes; omitted — one standard person. The price and a unit's
             capacity count them.
           maxItems: 20
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
+          maxItems: 20
         quote_digest:
           type: string
           description: The `digest` of the quote shown to whoever books. When the
@@ -24273,6 +24552,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ParticipantInput'
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked.
+        security_deposit_minor:
+          type: integer
+          description: 'Held and given back: beside the totals, never in them.'
         net_minor:
           type: integer
         vat_minor:
@@ -24287,10 +24574,12 @@ components:
       - amounts
       - currency
       - digest
+      - extras
       - gross_minor
       - lines
       - net_minor
       - participants
+      - security_deposit_minor
       - vat_minor
     BookingQuoteInput:
       type: object
@@ -24333,6 +24622,13 @@ components:
           description: Who comes; omitted — one standard person. The price and a unit's
             capacity count them.
           maxItems: 20
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
+          maxItems: 20
         locale:
           type: string
           description: The customer's language, for `customer_name`; omitted — the
@@ -24347,12 +24643,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/QuoteLineKindEnum'
           description: |-
-            `price` — the offer's price; `extra_person` — people beyond those it includes; `category` — participants of a category; `discount` — for the length.
+            `price` — the offer's price; `extra_person` — people beyond those it includes; `category` — participants of a category; `discount` — for the length; `extra` — an extra of the offer.
 
             * `price` - price
             * `extra_person` - extra_person
             * `category` - category
             * `discount` - discount
+            * `extra` - extra
         name:
           type: string
           description: In the company's language.
@@ -24399,9 +24696,15 @@ components:
           - integer
           - 'null'
           description: A discount's percent.
+        extra_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
       required:
       - category_id
       - customer_name
+      - extra_id
       - gross_minor
       - kind
       - name
@@ -27209,6 +27512,257 @@ components:
       description: |-
         * `block` - block
         * `warn` - warn
+    Extra:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/ExtraKindEnum'
+        basis:
+          $ref: '#/components/schemas/ExtraBasisEnum'
+        amount_minor:
+          type: integer
+        currency:
+          type: string
+        vat_code:
+          $ref: '#/components/schemas/VatCodeEnum'
+        mandatory:
+          type: boolean
+        max_quantity:
+          type: integer
+        active:
+          type: boolean
+        version:
+          type: integer
+      required:
+      - active
+      - amount_minor
+      - basis
+      - currency
+      - id
+      - kind
+      - mandatory
+      - max_quantity
+      - name
+      - service_id
+      - vat_code
+      - version
+    ExtraBasisEnum:
+      enum:
+      - per_booking
+      - per_time_unit
+      - per_person
+      - per_person_per_time_unit
+      type: string
+      description: |-
+        * `per_booking` - Za rezerwację
+        * `per_time_unit` - Za jednostkę czasu
+        * `per_person` - Za osobę
+        * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+    ExtraInput:
+      type: object
+      description: What an offer adds to its price, or the deposit it holds.
+      properties:
+        service_id:
+          type: string
+          format: uuid
+          description: The offer it belongs to.
+        name:
+          type: string
+          maxLength: 160
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ExtraKindEnum'
+          description: |-
+            `charge` — the customer pays it; `security_deposit` — held and given back: one amount per booking, no tax, never part of the total.
+
+            * `charge` - Dopłata
+            * `security_deposit` - Kaucja
+        basis:
+          allOf:
+          - $ref: '#/components/schemas/ExtraBasisEnum'
+          description: |-
+            `per_booking`, `per_person`; for a stay also `per_time_unit` and `per_person_per_time_unit` (a local tax).
+
+            * `per_booking` - Za rezerwację
+            * `per_time_unit` - Za jednostkę czasu
+            * `per_person` - Za osobę
+            * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+          description: In minor units of the company's currency, gross or net as the
+            price list.
+        vat_code:
+          allOf:
+          - $ref: '#/components/schemas/VatCodeEnum'
+          description: |-
+            23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only collects, like a local tax).
+
+            * `23` - 23%
+            * `8` - 8%
+            * `5` - 5%
+            * `0` - 0%
+            * `zw` - zw.
+            * `np` - np.
+        mandatory:
+          type: boolean
+          description: On every booking of the offer; otherwise the customer picks.
+        max_quantity:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: How many of an optional one a booking may take.
+        active:
+          type: boolean
+      required:
+      - amount_minor
+      - name
+      - service_id
+    ExtraKindEnum:
+      enum:
+      - charge
+      - security_deposit
+      type: string
+      description: |-
+        * `charge` - Dopłata
+        * `security_deposit` - Kaucja
+    ExtraList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Extra'
+      required:
+      - items
+    ExtraPick:
+      type: object
+      properties:
+        extra_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          maximum: 100
+          minimum: 1
+      required:
+      - extra_id
+    ExtraPreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/ExtraKindEnum'
+        basis:
+          $ref: '#/components/schemas/ExtraBasisEnum'
+        amount_minor:
+          type: integer
+        currency:
+          type: string
+        vat_code:
+          $ref: '#/components/schemas/VatCodeEnum'
+        mandatory:
+          type: boolean
+        max_quantity:
+          type: integer
+        active:
+          type: boolean
+        version:
+          type: integer
+        changes:
+          type: object
+          additionalProperties: {}
+          description: 'What the write changes, per field: `{from, to}`, or `{changed:
+            true}` for a private value and a list of links. Empty for a new item and
+            for no change.'
+      required:
+      - active
+      - amount_minor
+      - basis
+      - changes
+      - currency
+      - id
+      - kind
+      - mandatory
+      - max_quantity
+      - name
+      - service_id
+      - vat_code
+      - version
+    ExtraUpdate:
+      type: object
+      description: What an offer adds to its price, or the deposit it holds.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ExtraKindEnum'
+          description: |-
+            `charge` — the customer pays it; `security_deposit` — held and given back: one amount per booking, no tax, never part of the total.
+
+            * `charge` - Dopłata
+            * `security_deposit` - Kaucja
+        basis:
+          allOf:
+          - $ref: '#/components/schemas/ExtraBasisEnum'
+          description: |-
+            `per_booking`, `per_person`; for a stay also `per_time_unit` and `per_person_per_time_unit` (a local tax).
+
+            * `per_booking` - Za rezerwację
+            * `per_time_unit` - Za jednostkę czasu
+            * `per_person` - Za osobę
+            * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        vat_code:
+          allOf:
+          - $ref: '#/components/schemas/VatCodeEnum'
+          description: |-
+            23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only collects, like a local tax).
+
+            * `23` - 23%
+            * `8` - 8%
+            * `5` - 5%
+            * `0` - 0%
+            * `zw` - zw.
+            * `np` - np.
+        mandatory:
+          type: boolean
+          description: On every booking of the offer; otherwise the customer picks.
+        max_quantity:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: How many of an optional one a booking may take.
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
+      required:
+      - expected_version
     Farm:
       type: object
       properties:
@@ -32602,6 +33156,62 @@ components:
         noindex:
           type: boolean
           description: The article asks search engines not to index it (robots noindex,follow).
+    PatchedExtraUpdate:
+      type: object
+      description: What an offer adds to its price, or the deposit it holds.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ExtraKindEnum'
+          description: |-
+            `charge` — the customer pays it; `security_deposit` — held and given back: one amount per booking, no tax, never part of the total.
+
+            * `charge` - Dopłata
+            * `security_deposit` - Kaucja
+        basis:
+          allOf:
+          - $ref: '#/components/schemas/ExtraBasisEnum'
+          description: |-
+            `per_booking`, `per_person`; for a stay also `per_time_unit` and `per_person_per_time_unit` (a local tax).
+
+            * `per_booking` - Za rezerwację
+            * `per_time_unit` - Za jednostkę czasu
+            * `per_person` - Za osobę
+            * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+        amount_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        vat_code:
+          allOf:
+          - $ref: '#/components/schemas/VatCodeEnum'
+          description: |-
+            23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only collects, like a local tax).
+
+            * `23` - 23%
+            * `8` - 8%
+            * `5` - 5%
+            * `0` - 0%
+            * `zw` - zw.
+            * `np` - np.
+        mandatory:
+          type: boolean
+          description: On every booking of the offer; otherwise the customer picks.
+        max_quantity:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: How many of an optional one a booking may take.
+        active:
+          type: boolean
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The version the change was made on, as the last read gave it;
+            another one answers 409 `booking_version_conflict`.
     PatchedFarmUpdate:
       type: object
       description: |-
@@ -36596,12 +37206,14 @@ components:
       - extra_person
       - category
       - discount
+      - extra
       type: string
       description: |-
         * `price` - price
         * `extra_person` - extra_person
         * `category` - category
         * `discount` - discount
+        * `extra` - extra
     QuoteRequest:
       type: object
       properties:
@@ -39954,6 +40566,13 @@ components:
             $ref: '#/components/schemas/ParticipantInput'
           description: Who comes; omitted — one standard person. The price and a unit's
             capacity count them.
+          maxItems: 20
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
           maxItems: 20
         quote_digest:
           type: string

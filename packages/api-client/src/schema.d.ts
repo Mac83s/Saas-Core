@@ -1335,6 +1335,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/setup/extras/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the offers' extras and deposits
+         * @description What each offer adds to its price — mandatory or picked by the customer — and the security deposit it holds, switched-off ones included.
+         */
+        get: operations["booking_extras_list"];
+        put?: never;
+        /**
+         * Add an extra or a deposit to an offer
+         * @description A charge on top of the offer's price — once, per person, per night or day, or per person and night — or a security deposit, which is held and given back and never part of the total. Its currency is the company's. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_extra_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/extras/{extra_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an extra
+         * @description Changes an extra's name, amount or terms, or switches it off. An extra is never deleted: bookings name it, and keep the amount they were quoted. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_extra_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/extras/{extra_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to an extra without saving it
+         * @description Validates a change as `booking_extra_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_extra_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/extras/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check an extra without adding it
+         * @description Validates an extra as `booking_extra_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_extra_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/setup/groups/": {
         parameters: {
             query?: never;
@@ -7441,6 +7525,8 @@ export interface components {
             place_address?: string;
             /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
             participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
             /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
             quote_digest?: string;
         };
@@ -8218,6 +8304,10 @@ export interface components {
             amounts: components["schemas"]["PriceAmountsEnum"];
             lines: components["schemas"]["BookingQuoteLine"][];
             participants: components["schemas"]["ParticipantInput"][];
+            /** @description The optional extras picked. */
+            extras: components["schemas"]["ExtraPick"][];
+            /** @description Held and given back: beside the totals, never in them. */
+            security_deposit_minor: number;
             net_minor: number;
             vat_minor: number;
             /** @description What the customer pays. */
@@ -8244,17 +8334,20 @@ export interface components {
             group_id?: string | null;
             /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
             participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
             /** @description The customer's language, for `customer_name`; omitted — the company's. */
             locale?: string;
         };
         BookingQuoteLine: {
             /**
-             * @description `price` — the offer's price; `extra_person` — people beyond those it includes; `category` — participants of a category; `discount` — for the length.
+             * @description `price` — the offer's price; `extra_person` — people beyond those it includes; `category` — participants of a category; `discount` — for the length; `extra` — an extra of the offer.
              *
              *     * `price` - price
              *     * `extra_person` - extra_person
              *     * `category` - category
              *     * `discount` - discount
+             *     * `extra` - extra
              */
             kind: components["schemas"]["QuoteLineKindEnum"];
             /** @description In the company's language. */
@@ -8278,6 +8371,8 @@ export interface components {
             price_rule_id: string | null;
             /** @description A discount's percent. */
             percent: number | null;
+            /** Format: uuid */
+            extra_id: string | null;
         };
         BookingRemindersSettings: {
             group: string;
@@ -9415,6 +9510,146 @@ export interface components {
          * @enum {string}
          */
         ExpiredSaleCbbEnum: "block" | "warn";
+        Extra: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            service_id: string;
+            name: string;
+            kind: components["schemas"]["ExtraKindEnum"];
+            basis: components["schemas"]["ExtraBasisEnum"];
+            amount_minor: number;
+            currency: string;
+            vat_code: components["schemas"]["VatCodeEnum"];
+            mandatory: boolean;
+            max_quantity: number;
+            active: boolean;
+            version: number;
+        };
+        /**
+         * @description * `per_booking` - Za rezerwację
+         *     * `per_time_unit` - Za jednostkę czasu
+         *     * `per_person` - Za osobę
+         *     * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+         * @enum {string}
+         */
+        ExtraBasisEnum: "per_booking" | "per_time_unit" | "per_person" | "per_person_per_time_unit";
+        /** @description What an offer adds to its price, or the deposit it holds. */
+        ExtraInput: {
+            /**
+             * Format: uuid
+             * @description The offer it belongs to.
+             */
+            service_id: string;
+            name: string;
+            /**
+             * @description `charge` — the customer pays it; `security_deposit` — held and given back: one amount per booking, no tax, never part of the total.
+             *
+             *     * `charge` - Dopłata
+             *     * `security_deposit` - Kaucja
+             */
+            kind?: components["schemas"]["ExtraKindEnum"];
+            /**
+             * @description `per_booking`, `per_person`; for a stay also `per_time_unit` and `per_person_per_time_unit` (a local tax).
+             *
+             *     * `per_booking` - Za rezerwację
+             *     * `per_time_unit` - Za jednostkę czasu
+             *     * `per_person` - Za osobę
+             *     * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+             */
+            basis?: components["schemas"]["ExtraBasisEnum"];
+            /** @description In minor units of the company's currency, gross or net as the price list. */
+            amount_minor: number;
+            /**
+             * @description 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only collects, like a local tax).
+             *
+             *     * `23` - 23%
+             *     * `8` - 8%
+             *     * `5` - 5%
+             *     * `0` - 0%
+             *     * `zw` - zw.
+             *     * `np` - np.
+             */
+            vat_code?: components["schemas"]["VatCodeEnum"];
+            /** @description On every booking of the offer; otherwise the customer picks. */
+            mandatory?: boolean;
+            /** @description How many of an optional one a booking may take. */
+            max_quantity?: number;
+            active?: boolean;
+        };
+        /**
+         * @description * `charge` - Dopłata
+         *     * `security_deposit` - Kaucja
+         * @enum {string}
+         */
+        ExtraKindEnum: "charge" | "security_deposit";
+        ExtraList: {
+            items: components["schemas"]["Extra"][];
+        };
+        ExtraPick: {
+            /** Format: uuid */
+            extra_id: string;
+            quantity?: number;
+        };
+        ExtraPreview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            service_id: string;
+            name: string;
+            kind: components["schemas"]["ExtraKindEnum"];
+            basis: components["schemas"]["ExtraBasisEnum"];
+            amount_minor: number;
+            currency: string;
+            vat_code: components["schemas"]["VatCodeEnum"];
+            mandatory: boolean;
+            max_quantity: number;
+            active: boolean;
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description What an offer adds to its price, or the deposit it holds. */
+        ExtraUpdate: {
+            name?: string;
+            /**
+             * @description `charge` — the customer pays it; `security_deposit` — held and given back: one amount per booking, no tax, never part of the total.
+             *
+             *     * `charge` - Dopłata
+             *     * `security_deposit` - Kaucja
+             */
+            kind?: components["schemas"]["ExtraKindEnum"];
+            /**
+             * @description `per_booking`, `per_person`; for a stay also `per_time_unit` and `per_person_per_time_unit` (a local tax).
+             *
+             *     * `per_booking` - Za rezerwację
+             *     * `per_time_unit` - Za jednostkę czasu
+             *     * `per_person` - Za osobę
+             *     * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+             */
+            basis?: components["schemas"]["ExtraBasisEnum"];
+            amount_minor?: number;
+            /**
+             * @description 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only collects, like a local tax).
+             *
+             *     * `23` - 23%
+             *     * `8` - 8%
+             *     * `5` - 5%
+             *     * `0` - 0%
+             *     * `zw` - zw.
+             *     * `np` - np.
+             */
+            vat_code?: components["schemas"]["VatCodeEnum"];
+            /** @description On every booking of the offer; otherwise the customer picks. */
+            mandatory?: boolean;
+            /** @description How many of an optional one a booking may take. */
+            max_quantity?: number;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
         Farm: {
             /** Format: uuid */
             readonly id: string;
@@ -11779,6 +12014,45 @@ export interface components {
             /** @description The article asks search engines not to index it (robots noindex,follow). */
             noindex?: boolean;
         };
+        /** @description What an offer adds to its price, or the deposit it holds. */
+        PatchedExtraUpdate: {
+            name?: string;
+            /**
+             * @description `charge` — the customer pays it; `security_deposit` — held and given back: one amount per booking, no tax, never part of the total.
+             *
+             *     * `charge` - Dopłata
+             *     * `security_deposit` - Kaucja
+             */
+            kind?: components["schemas"]["ExtraKindEnum"];
+            /**
+             * @description `per_booking`, `per_person`; for a stay also `per_time_unit` and `per_person_per_time_unit` (a local tax).
+             *
+             *     * `per_booking` - Za rezerwację
+             *     * `per_time_unit` - Za jednostkę czasu
+             *     * `per_person` - Za osobę
+             *     * `per_person_per_time_unit` - Za osobę i jednostkę czasu
+             */
+            basis?: components["schemas"]["ExtraBasisEnum"];
+            amount_minor?: number;
+            /**
+             * @description 23, 8, 5, 0, `zw` (exempt), `np` (outside VAT — what the company only collects, like a local tax).
+             *
+             *     * `23` - 23%
+             *     * `8` - 8%
+             *     * `5` - 5%
+             *     * `0` - 0%
+             *     * `zw` - zw.
+             *     * `np` - np.
+             */
+            vat_code?: components["schemas"]["VatCodeEnum"];
+            /** @description On every booking of the offer; otherwise the customer picks. */
+            mandatory?: boolean;
+            /** @description How many of an optional one a booking may take. */
+            max_quantity?: number;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
+        };
         /**
          * @description What a client may send; kept apart from the response so the generated
          *     client does not demand `id` for a row that does not exist yet.
@@ -13545,9 +13819,10 @@ export interface components {
          *     * `extra_person` - extra_person
          *     * `category` - category
          *     * `discount` - discount
+         *     * `extra` - extra
          * @enum {string}
          */
-        QuoteLineKindEnum: "price" | "extra_person" | "category" | "discount";
+        QuoteLineKindEnum: "price" | "extra_person" | "category" | "discount" | "extra";
         QuoteRequest: {
             /** @description The (object, language) pairs to translate. */
             targets: components["schemas"]["Target"][];
@@ -15043,6 +15318,8 @@ export interface components {
             customer_notes?: string;
             /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
             participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
             /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
             quote_digest?: string;
         };
@@ -19217,6 +19494,269 @@ export interface operations {
             };
         };
     };
+    booking_extras_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtraList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_extra_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ExtraInput"];
+                "multipart/form-data": components["schemas"]["ExtraInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Extra"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_extra_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                extra_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedExtraUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedExtraUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedExtraUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Extra"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_extra_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                extra_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ExtraUpdate"];
+                "multipart/form-data": components["schemas"]["ExtraUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtraPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_extra_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ExtraInput"];
+                "multipart/form-data": components["schemas"]["ExtraInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtraPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     booking_setup_group_create: {
         parameters: {
             query?: never;
@@ -21507,8 +22047,8 @@ export interface operations {
             header?: never;
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units), team or participant_category. */
-                kind: "group" | "location" | "participant_category" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team, participant_category or extra. */
+                kind: "extra" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
             };
             cookie?: never;
         };
@@ -21548,8 +22088,8 @@ export interface operations {
             };
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units), team or participant_category. */
-                kind: "group" | "location" | "participant_category" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team, participant_category or extra. */
+                kind: "extra" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
                 locale: string;
             };
             cookie?: never;
@@ -21610,8 +22150,8 @@ export interface operations {
             header?: never;
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units), team or participant_category. */
-                kind: "group" | "location" | "participant_category" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team, participant_category or extra. */
+                kind: "extra" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
                 locale: string;
             };
             cookie?: never;

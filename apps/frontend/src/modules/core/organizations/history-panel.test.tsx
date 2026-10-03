@@ -234,6 +234,7 @@ test("the booking settings of phases 2 and 3 have their own words in the history
     "booking_unit_unblocked",
     "booking_price_changed",
     "booking_participant_category_changed",
+    "booking_extra_changed",
   ]) {
     expect(polishMessages.History.actions).toHaveProperty(action);
     expect(englishMessages.History.actions).toHaveProperty(action);

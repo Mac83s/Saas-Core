@@ -1,6 +1,10 @@
 from django.urls import path
 
 from .price_views import (
+    ExtraCreatePreviewView,
+    ExtraDetailView,
+    ExtraListView,
+    ExtraUpdatePreviewView,
     ParticipantCategoryCreatePreviewView,
     ParticipantCategoryDetailView,
     ParticipantCategoryListView,
@@ -266,6 +270,14 @@ urlpatterns = [
         "setup/prices/<uuid:price_id>/preview/",
         PriceRuleUpdatePreviewView.as_view(),
         name="price-preview",
+    ),
+    path("setup/extras/", ExtraListView.as_view(), name="extras"),
+    path("setup/extras/preview/", ExtraCreatePreviewView.as_view(), name="extras-preview"),
+    path("setup/extras/<uuid:extra_id>/", ExtraDetailView.as_view(), name="extra"),
+    path(
+        "setup/extras/<uuid:extra_id>/preview/",
+        ExtraUpdatePreviewView.as_view(),
+        name="extra-preview",
     ),
     path(
         "setup/participant-categories/",

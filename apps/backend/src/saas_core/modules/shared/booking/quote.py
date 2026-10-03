@@ -46,6 +46,9 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from .availability import _zone
 from .item_translations import localized_texts, source_locale, translatable
 from .models import (
+    Extra,
+    ExtraBasis,
+    ExtraKind,
     ParticipantCategory,
     PriceBasis,
     PriceRule,
@@ -62,6 +65,7 @@ PRICE = "price"
 EXTRA_PERSON = "extra_person"
 CATEGORY = "category"
 DISCOUNT = "discount"
+EXTRA = "extra"
 
 #: The percent each tax code adds; exempt and outside VAT add nothing.
 _RATES = {
@@ -120,6 +124,7 @@ class QuoteLine:
     price_rule_id: UUID | None = None
     #: A discount's percent.
     percent: int | None = None
+    extra_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +135,10 @@ class Quote:
     lines: tuple[QuoteLine, ...]
     #: Who comes: `[{"category_id", "count"}]`, a standard person without one.
     participants: tuple[dict[str, Any], ...]
+    #: The optional extras picked: `[{"extra_id", "quantity"}]`.
+    extras: tuple[dict[str, Any], ...]
+    #: Held and given back, so no part of the totals (ADR-072 §6).
+    security_deposit_minor: int
     net_minor: int
     vat_minor: int
     gross_minor: int
@@ -139,7 +148,7 @@ class Quote:
     @property
     def priced(self) -> bool:
         """The offer has a price list; without one a booking is made as before."""
-        return bool(self.lines)
+        return bool(self.lines) or bool(self.security_deposit_minor)
 
     def snapshot(self) -> dict[str, Any]:
         """The quote as a booking keeps it and an answer gives it."""
@@ -148,6 +157,8 @@ class Quote:
             "amounts": self.amounts,
             "lines": [_line_json(line) for line in self.lines],
             "participants": list(self.participants),
+            "extras": list(self.extras),
+            "security_deposit_minor": self.security_deposit_minor,
             "net_minor": self.net_minor,
             "vat_minor": self.vat_minor,
             "gross_minor": self.gross_minor,
@@ -173,6 +184,7 @@ class _Names:
     customer: str
     service: tuple[str, str]
     categories: dict[UUID, str]
+    extras: dict[UUID, str]
 
     def word(self, kind: str) -> tuple[str, str]:
         words = _WORDS[kind]
@@ -181,6 +193,9 @@ class _Names:
     def category(self, item: ParticipantCategory) -> tuple[str, str]:
         return item.name, self.categories.get(item.id, item.name)
 
+    def extra(self, item: Extra) -> tuple[str, str]:
+        return item.name, self.extras.get(item.id, item.name)
+
 
 def quote_stay(
     *,
@@ -188,11 +203,15 @@ def quote_stay(
     unit: Resource,
     days: Sequence[date],
     participants: Sequence[Mapping[str, Any]] | None = None,
+    extras: Sequence[Mapping[str, Any]] | None = None,
     locale: str | None = None,
+    kept: bool = False,
 ) -> Quote:
     """What a stay on `days` in `unit` costs (the nights or days it takes, from
     `Stay.days`). Refuses more people than the unit takes and a day the price
-    list has no price for."""
+    list has no price for. `extras` — the optional ones picked
+    (`[{"extra_id", "quantity"}]`); `kept` — a booking made earlier is priced
+    again, so an extra switched off since stays on it."""
     organization = Organization.objects.get(pk=service.organization_id)
     party = _party(organization, participants)
     people = sum(group.count for group in party if group.counts)
@@ -202,12 +221,28 @@ def quote_stay(
             f"Ta jednostka przyjmuje najwyżej {unit.capacity} os.",
             "unit_capacity_exceeded",
         )
+    picked = _picked(organization, service, extras, kept)
+    names = _names(organization, service, party, picked, locale)
+    lines = _stay_lines(organization, service, unit, days, party, names)
+    lines += _extra_lines(picked, people, names, len(days))
+    return _total(organization, party, picked, lines)
+
+
+def _stay_lines(
+    organization: Organization,
+    service: Service,
+    unit: Resource,
+    days: Sequence[date],
+    party: Sequence[_Party],
+    names: _Names,
+) -> list[QuoteLine]:
+    """The stay's own price, without extras; nothing without a price list."""
     scope = Q(service=service) | Q(resource=unit)
     if unit.group_id is not None:
         scope |= Q(group_id=unit.group_id)
     rules = list(PriceRule.all_objects.filter(scope, organization=organization, active=True))
     if not rules:
-        return _total(organization, party, [])
+        return []
 
     def on(day: date, among: Sequence[PriceRule]) -> PriceRule:
         rule = price_for(
@@ -219,10 +254,9 @@ def quote_stay(
             )
         return rule
 
-    names = _names(organization, service, party, locale)
     first = on(days[0], rules)
     if first.basis != PriceBasis.PER_TIME_UNIT:
-        return _total(organization, party, _once(first, party, names))
+        return _once(first, party, names)
 
     timed = [rule for rule in rules if rule.basis == PriceBasis.PER_TIME_UNIT]
     segments: list[tuple[PriceRule, int]] = []
@@ -268,7 +302,7 @@ def quote_stay(
                     percent=percent,
                 )
             )
-    return _total(organization, party, lines)
+    return lines
 
 
 def quote_visit(
@@ -276,24 +310,28 @@ def quote_visit(
     service: Service,
     starts_at: datetime,
     participants: Sequence[Mapping[str, Any]] | None = None,
+    extras: Sequence[Mapping[str, Any]] | None = None,
     locale: str | None = None,
+    kept: bool = False,
 ) -> Quote:
     """What a visit that starts at `starts_at` costs: the price of that local
-    day and hour."""
+    day and hour, and the extras."""
     organization = Organization.objects.get(pk=service.organization_id)
     party = _party(organization, participants)
+    picked = _picked(organization, service, extras, kept)
+    names = _names(organization, service, party, picked, locale)
     rules = list(
         PriceRule.all_objects.filter(organization=organization, service=service, active=True)
     )
-    if not rules:
-        return _total(organization, party, [])
-    local = starts_at.astimezone(_zone())
-    rule = price_for(rules, day=local.date(), at=local.time(), service_id=service.id)
-    if rule is None:
-        raise _refused("starts_at", "Cennik nie ma ceny na ten termin.", "price_missing")
-    return _total(
-        organization, party, _once(rule, party, _names(organization, service, party, locale))
-    )
+    lines: list[QuoteLine] = []
+    if rules:
+        local = starts_at.astimezone(_zone())
+        rule = price_for(rules, day=local.date(), at=local.time(), service_id=service.id)
+        if rule is None:
+            raise _refused("starts_at", "Cennik nie ma ceny na ten termin.", "price_missing")
+        lines = _once(rule, party, names)
+    lines += _extra_lines(picked, sum(group.count for group in party if group.counts), names, None)
+    return _total(organization, party, picked, lines)
 
 
 def quote_offer(
@@ -305,6 +343,7 @@ def quote_offer(
     resource_id: UUID | None = None,
     group_id: UUID | None = None,
     participants: Sequence[Mapping[str, Any]] | None = None,
+    extras: Sequence[Mapping[str, Any]] | None = None,
     locale: str | None = None,
 ) -> Quote:
     """What a booking would cost, for whoever books in the panel: a visit at
@@ -321,7 +360,11 @@ def quote_offer(
         if service is None:
             raise NotFound("Nie ma takiej usługi.")
         return quote_visit(
-            service=service, starts_at=starts_at, participants=participants, locale=locale
+            service=service,
+            starts_at=starts_at,
+            participants=participants,
+            extras=extras,
+            locale=locale,
         )
     if start_date is None or end_date is None:
         raise _refused("starts_at", "Podaj termin wizyty albo daty pobytu.", "required")
@@ -332,7 +375,7 @@ def quote_offer(
         resource_id=resource_id,
         group_id=group_id,
     )
-    return stay_quote(plan, participants=participants, locale=locale)
+    return stay_quote(plan, participants=participants, extras=extras, locale=locale)
 
 
 def assert_shown(quote: Quote, digest: str) -> None:
@@ -424,6 +467,82 @@ def _people(
     ]
 
 
+@dataclass(frozen=True, slots=True)
+class _Picked:
+    """The offer's extras on this booking."""
+
+    #: What is charged, with how many: the mandatory ones and the picked.
+    charged: tuple[tuple[Extra, int], ...]
+    #: The optional ones as picked: `[{"extra_id", "quantity"}]`.
+    chosen: tuple[dict[str, Any], ...]
+    deposit: int
+
+
+def _picked(
+    organization: Organization,
+    service: Service,
+    extras: Sequence[Mapping[str, Any]] | None,
+    kept: bool,
+) -> _Picked:
+    wanted: dict[UUID, int] = {}
+    for line in extras or ():
+        key = UUID(str(line["extra_id"]))
+        wanted[key] = wanted.get(key, 0) + int(line.get("quantity") or 1)
+    offered = list(Extra.all_objects.filter(organization=organization, service=service))
+    if set(wanted) - {extra.id for extra in offered}:
+        raise _refused("extras", "Ta usługa nie ma takiej dopłaty.", "invalid")
+    charged: list[tuple[Extra, int]] = []
+    chosen: list[dict[str, Any]] = []
+    deposit = 0
+    for extra in offered:
+        if extra.kind == ExtraKind.SECURITY_DEPOSIT:
+            deposit += extra.amount_minor if extra.active else 0
+        elif extra.mandatory:
+            if extra.active:
+                charged.append((extra, 1))
+        elif quantity := wanted.get(extra.id, 0):
+            # A booking priced again keeps an extra the company has since
+            # switched off; a new one cannot take it.
+            if not extra.active and not kept:
+                raise _refused("extras", f"„{extra.name}” nie jest już w ofercie.", "invalid")
+            if quantity > extra.max_quantity:
+                raise _refused(
+                    "extras",
+                    f"„{extra.name}” można wziąć najwyżej {extra.max_quantity} razy.",
+                    "extra_quantity_exceeded",
+                )
+            charged.append((extra, quantity))
+            chosen.append({"extra_id": str(extra.id), "quantity": quantity})
+    return _Picked(tuple(charged), tuple(chosen), deposit)
+
+
+def _extra_lines(picked: _Picked, people: int, names: _Names, units: int | None) -> list[QuoteLine]:
+    """The extras' lines: once, per time unit, per person, or per both. A
+    discount for length never reaches them."""
+    lines = []
+    for extra, quantity in picked.charged:
+        timed = extra.basis in (ExtraBasis.PER_TIME_UNIT, ExtraBasis.PER_PERSON_PER_TIME_UNIT)
+        personal = extra.basis in (ExtraBasis.PER_PERSON, ExtraBasis.PER_PERSON_PER_TIME_UNIT)
+        name, customer_name = names.extra(extra)
+        lines.append(
+            QuoteLine(
+                kind=EXTRA,
+                name=name,
+                customer_name=customer_name,
+                quantity=quantity * (units or 1 if timed else 1) * (people if personal else 1),
+                unit_amount_minor=extra.amount_minor,
+                net_minor=0,
+                vat_minor=0,
+                gross_minor=0,
+                vat_code=extra.vat_code,
+                time_units=units if timed else None,
+                people=people if personal else None,
+                extra_id=extra.id,
+            )
+        )
+    return lines
+
+
 def _own_amounts(rule: PriceRule) -> dict[UUID, int]:
     return {UUID(line["category_id"]): int(line["amount_minor"]) for line in rule.category_prices}
 
@@ -451,7 +570,9 @@ def _line(
     )
 
 
-def _total(organization: Organization, party: Sequence[_Party], lines: list[QuoteLine]) -> Quote:
+def _total(
+    organization: Organization, party: Sequence[_Party], picked: _Picked, lines: list[QuoteLine]
+) -> Quote:
     gross = amounts_are_gross()
     taxed = [_taxed(line, gross) for line in lines]
     participants = tuple(
@@ -474,6 +595,8 @@ def _total(organization: Organization, party: Sequence[_Party], lines: list[Quot
             for line in taxed
         ],
         "participants": list(participants),
+        "extras": list(picked.chosen),
+        "security_deposit_minor": picked.deposit,
         **sums,
     }
     return Quote(
@@ -481,6 +604,8 @@ def _total(organization: Organization, party: Sequence[_Party], lines: list[Quot
         amounts=GROSS if gross else NET,
         lines=tuple(taxed),
         participants=participants,
+        extras=picked.chosen,
+        security_deposit_minor=picked.deposit,
         digest=canonical_json_hash(essence),
         **sums,
     )
@@ -545,11 +670,16 @@ def _party(
 
 
 def _names(
-    organization: Organization, service: Service, party: Sequence[_Party], locale: str | None
+    organization: Organization,
+    service: Service,
+    party: Sequence[_Party],
+    picked: _Picked,
+    locale: str | None,
 ) -> _Names:
     source = source_locale(organization)
     customer = locale or source
     categories = [group.category for group in party if group.category is not None]
+    extras = [extra for extra, _quantity in picked.charged]
     translated = customer != source
     own = (
         localized_texts(translatable("service"), [service], customer).get(service.id, {})
@@ -565,6 +695,15 @@ def _names(
             for item_id, texts in (
                 localized_texts(translatable("participant_category"), categories, customer)
                 if translated and categories
+                else {}
+            ).items()
+            if "name" in texts
+        },
+        extras={
+            item_id: texts["name"]
+            for item_id, texts in (
+                localized_texts(translatable("extra"), extras, customer)
+                if translated and extras
                 else {}
             ).items()
             if "name" in texts
