@@ -101,9 +101,10 @@ def test_a_level_1_operator_changes_a_level_1_key_with_a_reason(
     assert _post(operator, f"{URL}{NOTE}/", {"value": "Hej", "reason": ""}).status_code == 400
     with django_capture_on_commit_callbacks(execute=True):
         changed = _post(operator, f"{URL}{NOTE}/", {"value": "Hej", "reason": "Na próbę"})
+        again = _post(operator, f"{URL}{NOTE}/", {"value": "Hej", "reason": "Na próbę"})
     history = operator.get(f"{URL}{NOTE}/history/")
 
-    assert changed.status_code == 200, changed.data
+    assert (changed.status_code, again.status_code) == (200, 200), changed.data
     assert (changed.data["value"], changed.data["source"]) == ("Hej", "platform")
     assert _keys(operator.get(URL))[NOTE]["source"] == "platform"
     assert [

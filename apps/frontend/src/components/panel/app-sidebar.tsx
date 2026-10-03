@@ -43,7 +43,7 @@ export function AppSidebar({
 }) {
   const t = useTranslations("DashboardNav");
   const { closeMobile } = useSidebar();
-  const { work, company } = panelNavigation(access);
+  const { work, company, platform } = panelNavigation(access);
 
   return (
     <Sidebar
@@ -70,6 +70,7 @@ export function AppSidebar({
       <SidebarContent>
         <NavGroup items={work} label={t("work")} />
         <NavGroup items={company} label={t("company")} />
+        <NavGroup items={platform} label={t("platform")} />
         {/* At the end of the list, scrolling with it: pinned to the bottom
             it covered the last entries (UX-002). */}
         {attention ? (

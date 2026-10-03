@@ -60,14 +60,20 @@ export default async function PanelLayout({
       : false;
   const prefix = locale === "pl" ? "" : `/${locale}`;
   if (!user) redirect(`${prefix}/login`);
+  const operatorLevel = user.operator_level ?? 0;
   // An account without an organization has nothing to show yet: it starts by
-  // saying who it is (ADR-050) instead of landing in an empty panel.
-  if (organizations.length === 0) redirect(`${prefix}/onboarding`);
+  // saying who it is (ADR-050) instead of landing in an empty panel — except
+  // a platform operator, whose work is „Platforma” (S-T5).
+  if (organizations.length === 0 && operatorLevel < 1)
+    redirect(`${prefix}/onboarding`);
 
-  const access = await withSettingsAreas(
-    await withBooking(panelAccess(organization)),
-    locale,
-  );
+  const access =
+    organizations.length === 0
+      ? { ...panelAccess(null), modules: [], permissions: [], operatorLevel }
+      : await withSettingsAreas(
+          await withBooking({ ...panelAccess(organization), operatorLevel }),
+          locale,
+        );
   const typeRoleInfo = typeRole(
     organization?.organization_type,
     organization?.role,

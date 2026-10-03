@@ -133,6 +133,13 @@ export type SettingOptions = components["schemas"]["SettingOptions"];
 export type SettingsSchema = components["schemas"]["SettingsSchema"];
 export type SettingsGroupSchema = components["schemas"]["SettingsGroupSchema"];
 export type SettingEffect = components["schemas"]["SettingEffect"];
+/** The platform's values for its operators (platform settings, phase 2). */
+export type PlatformSchema = components["schemas"]["PlatformSchema"];
+export type PlatformKey = components["schemas"]["PlatformKey"];
+export type PlatformValue = components["schemas"]["PlatformValue"];
+export type PlatformPreview = components["schemas"]["PlatformPreview"];
+export type PlatformHistoryItem = components["schemas"]["PlatformHistoryItem"];
+export type PlatformChange = components["schemas"]["PlatformChange"];
 
 type SettingsGroupPath = {
   [
@@ -825,6 +832,67 @@ async function settingsRequest<T>(
   const body: unknown = await response.json().catch(() => undefined);
   if (!response.ok) throwProblem(body, response);
   return body as T;
+}
+
+/** Every key the platform sets, for an operator signed in through MFA. */
+export async function getPlatformSettings(): Promise<PlatformSchema> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/platform/settings/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What a platform value's change would do, saving nothing (`x-dry-run`). */
+export async function previewPlatformSetting(
+  key: string,
+  change: PlatformChange,
+): Promise<PlatformPreview> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/platform/settings/{key}/preview/",
+    {
+      params: { path: { key } },
+      body: change,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** A new platform value, or `null` back to the deployment's or the code's. */
+export async function changePlatformSetting(
+  key: string,
+  change: PlatformChange,
+): Promise<PlatformValue> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/platform/settings/{key}/",
+    {
+      params: { path: { key } },
+      body: change,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getPlatformSettingHistory(
+  key: string,
+): Promise<PlatformHistoryItem[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/platform/settings/{key}/history/",
+    {
+      params: { path: { key } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
 }
 
 export async function createOrganization(

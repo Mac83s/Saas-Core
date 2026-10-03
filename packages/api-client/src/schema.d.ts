@@ -3834,6 +3834,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The platform's settings
+         * @description Every key the platform sets (class A), by group and area: the value in force and where it comes from, its bounds and variants, who may change it and whether this operator may. Operators only, on a session signed in through MFA.
+         */
+        get: operations["platform_settings_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/{key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a platform setting
+         * @description A new value, or null to give the key back to the deployment's or the code's, with a reason; one append-only entry. A level-2 key needs a level-2 operator and a fresh code from the authenticator app (403 step_up_required; POST /api/v1/auth/step-up/, then repeat).
+         */
+        post: operations["platform_setting_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/{key}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A platform setting's history
+         * @description Every change of the key, newest first: the value, who and why.
+         */
+        get: operations["platform_setting_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/{key}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a platform setting's change would do
+         * @description Checks the value as the change would and says how many companies follow the platform's value (none of their own), so the change reaches them at once. Writes nothing.
+         */
+        post: operations["platform_setting_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/": {
         parameters: {
             query?: never;
@@ -10273,8 +10353,108 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
+        PlatformArea: {
+            key: string;
+            title: components["schemas"]["LocalizedText"];
+            description: components["schemas"]["LocalizedText"];
+        };
+        PlatformChange: {
+            /** @description The new value; null gives the key back to the deployment's or the code's. */
+            value: unknown | null;
+            /** @description Why — it stays in the key's history. */
+            reason: string;
+        };
         PlatformDomainChange: {
             label: string;
+        };
+        PlatformGroup: {
+            key: string;
+            area: string;
+            title: components["schemas"]["LocalizedText"];
+            description: components["schemas"]["LocalizedText"];
+            keys: components["schemas"]["PlatformKey"][];
+        };
+        PlatformHistory: {
+            items: components["schemas"]["PlatformHistoryItem"][];
+        };
+        PlatformHistoryItem: {
+            /** @description null: given back to the deployment's or the code's. */
+            value: unknown;
+            /** Format: email */
+            operator: string;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description One setting a company may choose, with what it may choose; the shape of
+         *     an entry of the settings registry's schema (ADR-078 pkt 11).
+         */
+        PlatformKey: {
+            /** @description Stable key, e.g. organization.currency. */
+            key: string;
+            type: components["schemas"]["SettingTypeEnum"];
+            minimum: number | null;
+            maximum: number | null;
+            unit: components["schemas"]["SettingUnitEnum"] | components["schemas"]["NullEnum"];
+            values: components["schemas"]["SettingValueOption"][] | null;
+            /** @description The value a new company starts with. */
+            default: unknown;
+            label: components["schemas"]["LocalizedText"];
+            help: components["schemas"]["LocalizedText"] | null;
+            /** @description What the setting does, in English. */
+            description: string;
+            scopes: string[];
+            depends_on: string | null;
+            /**
+             * @description restrict: the value in force may be stricter than the company's — the module applies its ceilings (operator, deployment) on top.
+             *
+             *     * `override` - override
+             *     * `restrict` - restrict
+             */
+            strategy: components["schemas"]["SettingStrategyEnum"];
+            /** @description The longest a text may be. */
+            max_length?: number | null;
+            /** @description The value in force for the platform. */
+            value: unknown;
+            /**
+             * @description platform: an operator set it; deployment: the server's .env; code: default.
+             *
+             *     * `platform` - platform
+             *     * `deployment` - deployment
+             *     * `code` - code
+             */
+            source: components["schemas"]["PlatformKeySourceEnum"];
+            /** @description 1: any operator changes it; 2: a platform administrator, with a code. */
+            operator_level: number;
+            /** @description Whether this operator may change it. */
+            can_change: boolean;
+        };
+        /**
+         * @description * `platform` - platform
+         *     * `deployment` - deployment
+         *     * `code` - code
+         * @enum {string}
+         */
+        PlatformKeySourceEnum: "platform" | "deployment" | "code";
+        PlatformPreview: {
+            key: string;
+            current: unknown;
+            proposed: unknown;
+            /** @description Companies with no value of their own, which the change reaches at once; null for a key companies do not set. */
+            companies_following: number | null;
+        };
+        PlatformSchema: {
+            /** @description This operator's level: 1 or 2. */
+            operator_level: number;
+            areas: components["schemas"]["PlatformArea"][];
+            groups: components["schemas"]["PlatformGroup"][];
+        };
+        PlatformValue: {
+            key: string;
+            value: unknown;
+            source: string;
+            operator_level: number;
         };
         Preference: {
             locale: components["schemas"]["LocaleEnum"];
@@ -12053,12 +12233,6 @@ export interface components {
             items: components["schemas"]["SlotTime"][];
         };
         /**
-         * @description * `manual` - Ręczna
-         *     * `ical` - Kalendarz zewnętrzny
-         * @enum {string}
-         */
-        SourceEnum: "manual" | "ical";
-        /**
          * @description * `cattle` - cattle
          *     * `sheep` - sheep
          *     * `goat` - goat
@@ -12637,7 +12811,7 @@ export interface components {
              *     * `manual` - Ręczna
              *     * `ical` - Kalendarz zewnętrzny
              */
-            source: components["schemas"]["SourceEnum"];
+            source: components["schemas"]["UnitBlockSourceEnum"];
             /** @description False for a block that could not take its time (it overlapped a booking); the unit is still busy then. */
             holds: boolean;
         };
@@ -12656,6 +12830,12 @@ export interface components {
         UnitBlockList: {
             items: components["schemas"]["UnitBlock"][];
         };
+        /**
+         * @description * `manual` - Ręczna
+         *     * `ical` - Kalendarz zewnętrzny
+         * @enum {string}
+         */
+        UnitBlockSourceEnum: "manual" | "ical";
         /**
          * @description * `piece` - Sztuka
          *     * `pack` - Opakowanie
@@ -12687,6 +12867,8 @@ export interface components {
             status: string;
             locale: string;
             timezone: string;
+            /** @description 0: not a platform operator; 1: an operator (staff with 2FA); 2: a platform administrator. The „Platforma” panel is for 1 and 2. */
+            operator_level?: number;
         };
         /**
          * @description * `23` - 23%
@@ -24228,6 +24410,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingOptions"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    platform_settings_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchema"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    platform_setting_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlatformChange"];
+                "multipart/form-data": components["schemas"]["PlatformChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformValue"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    platform_setting_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHistory"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    platform_setting_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlatformChange"];
+                "multipart/form-data": components["schemas"]["PlatformChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {

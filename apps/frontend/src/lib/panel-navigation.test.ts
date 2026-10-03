@@ -402,3 +402,31 @@ describe("przydział wizyt w menu (ADR-058)", () => {
     );
   });
 });
+
+describe("platforma", () => {
+  it("„Platforma” widzi tylko operator platformy, w osobnej grupie menu (S-T5)", () => {
+    expect(panelNavigation(OWNER).platform).toEqual([]);
+    expect(panelNavigation({ ...OWNER, operatorLevel: 0 }).platform).toEqual(
+      [],
+    );
+    const operator = panelNavigation({ ...OWNER, operatorLevel: 1 });
+    expect(operator.platform.map((item) => item.href)).toEqual([
+      "/panel/platform",
+    ]);
+    expect(isActive("/panel/platform", operator.platform[0])).toBe(true);
+  });
+
+  it("operator bez firmy ma w menu tylko to, co nie wymaga firmy", () => {
+    const alone = panelNavigation({
+      modules: [],
+      permissions: [],
+      isOwner: false,
+      limited: false,
+      operatorLevel: 1,
+    });
+    expect(alone.work.map((item) => item.href)).toEqual(["/panel"]);
+    expect(alone.platform.map((item) => item.href)).toEqual([
+      "/panel/platform",
+    ]);
+  });
+});

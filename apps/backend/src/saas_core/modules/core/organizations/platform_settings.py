@@ -124,6 +124,14 @@ def change_platform_setting(
             message, code = (checked[1], checked[2]) if checked else ("Zła wartość.", "invalid")
             raise ValidationError({"value": [message]}, code=code)
         stored = checked[0]
+    latest = PlatformSettingEntry.objects.filter(key=key).order_by("-created_at", "-id").first()
+    if latest is not None and (latest.value, latest.reason, latest.operator_id) == (
+        stored,
+        reason,
+        operator.pk,
+    ):
+        # The same change sent twice (a retried click) is one entry.
+        return latest
     entry = PlatformSettingEntry.objects.create(
         key=key, value=stored, operator=operator, reason=reason
     )

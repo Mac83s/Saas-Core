@@ -660,3 +660,33 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
 - **Do czasu panelu** wartości zmienia `platform_setting list|get|set|reset|history`
   z `--operator` i `--reason`.
 
+
+## Uzupełnienie 2026-10-03 (6): faza 2 — panel „Platforma” (S-T5)
+
+- **API tylko dla operatora.** `GET /api/v1/platform/settings/` daje każdy klucz z
+  `platform` w `scopes` (także klucze firm — wartość platformy jest wtedy tym, co
+  dostaje firma bez własnej), pogrupowany według grup i obszarów rejestru: wartość,
+  źródło (`platform`/`deployment`/`code`), poziom i `can_change` dla tego operatora.
+  `POST …/<key>/` przyjmuje wartość albo `null` (z powrotem do `.env`/kodu) i powód;
+  `…/preview/` (`x-dry-run`) sprawdza wartość i liczy firmy bez własnej wartości;
+  `…/history/` to wpisy klucza od najnowszego. Bramka to `require_operator` (sesja po
+  MFA). Klucz poziomu 2: najpierw poziom operatora (`operator_level_required`), potem
+  `require_step_up(reason="platform")` — kodu nie żąda się od kogoś, kogo poziom i tak
+  nie wpuści.
+- **Powtórka nic nie dopisuje.** Ta sama wartość z tym samym powodem od tego samego
+  operatora co najnowszy wpis zwraca stan bez nowego wpisu, więc operacja nie
+  potrzebuje `Idempotency-Key` (wyjątek opisany w `x-quality-exempt`).
+- **„Dotyczy N firm” bez nowych drzwi.** Drzwi ADR-041 dają tylko listę firm
+  (`platform_settings.companies_following`); to, czy firma ma własną wartość, czyta
+  się w jej tenancie, jak przemiatania billingu (ADR-039). Koszt: zapytanie na firmę
+  przy każdym podglądzie — zapisany w planie jako sprawa skali.
+- **Panel.** `/panel/platform` z wpisem „Ustawienia platformy” w osobnej grupie menu
+  „Platforma”, widocznej przy `operator_level ≥ 1` (pole w `/auth/me/`). Operator bez
+  firmy nie trafia do onboardingu: ma panel z samą „Platformą”, a „Dziś” prowadzi go
+  tam. Formularz klucza: wartość według typu, powód, „Sprawdź skutek” (podgląd),
+  „Zapisz zmianę”; klucz poziomu 2 pyta o kod przez wspólne `useStepUp`. Historia
+  pokazuje kto i dlaczego, a wcześniejszą wartość można z niej ustawić ponownie —
+  jako nową zmianę z nowym powodem.
+- **Poza tą fazą:** grupy „AI i tłumaczenia” i „Języki” wchodzą z kluczami
+  planu wielojęzyczności (TL22) — panel rysuje je bez zmian w kodzie; ścieżka
+  operatora w cudzym tenancie czeka na osobny ADR.

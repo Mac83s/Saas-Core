@@ -7,3 +7,4 @@ export { InvitationAcceptance } from "./invitation-acceptance";
 export { OrganizationOnboarding } from "./organization-onboarding";
 export { SettingsGroupForm } from "./settings-group-form";
 export { SettingsSearch } from "./settings-search";
+export { PlatformSettings } from "./platform-settings";

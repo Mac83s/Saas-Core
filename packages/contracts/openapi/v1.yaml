@@ -11213,6 +11213,182 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/platform/settings/:
+    get:
+      operationId: platform_settings_list
+      description: 'Every key the platform sets (class A), by group and area: the
+        value in force and where it comes from, its bounds and variants, who may change
+        it and whether this operator may. Operators only, on a session signed in through
+        MFA.'
+      summary: The platform's settings
+      tags:
+      - platform
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformSchema'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/platform/settings/{key}/:
+    post:
+      operationId: platform_setting_update
+      description: A new value, or null to give the key back to the deployment's or
+        the code's, with a reason; one append-only entry. A level-2 key needs a level-2
+        operator and a fresh code from the authenticator app (403 step_up_required;
+        POST /api/v1/auth/step-up/, then repeat).
+      summary: Change a platform setting
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformChange'
+            examples:
+              Set:
+                value:
+                  value: 48
+                  reason: Pilot
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlatformChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlatformChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformValue'
+              examples:
+                Set:
+                  value:
+                    value: 48
+                    reason: Pilot
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: The same value with the same reason from the same operator
+          writes nothing new and answers the value in force.
+  /api/v1/platform/settings/{key}/history/:
+    get:
+      operationId: platform_setting_history
+      description: 'Every change of the key, newest first: the value, who and why.'
+      summary: A platform setting's history
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      tags:
+      - platform
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformHistory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/platform/settings/{key}/preview/:
+    post:
+      operationId: platform_setting_preview
+      description: Checks the value as the change would and says how many companies
+        follow the platform's value (none of their own), so the change reaches them
+        at once. Writes nothing.
+      summary: What a platform setting's change would do
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      tags:
+      - platform
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlatformChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlatformChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/profiles/:
     get:
       operationId: api_v1_profiles_list
@@ -28761,6 +28937,35 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    PlatformArea:
+      type: object
+      properties:
+        key:
+          type: string
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+      required:
+      - description
+      - key
+      - title
+    PlatformChange:
+      type: object
+      properties:
+        value:
+          oneOf:
+          - {}
+          - type: 'null'
+          description: The new value; null gives the key back to the deployment's
+            or the code's.
+        reason:
+          type: string
+          description: Why — it stays in the key's history.
+          maxLength: 500
+      required:
+      - reason
+      - value
     PlatformDomainChange:
       type: object
       properties:
@@ -28769,6 +28974,212 @@ components:
           maxLength: 80
       required:
       - label
+    PlatformGroup:
+      type: object
+      properties:
+        key:
+          type: string
+        area:
+          type: string
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformKey'
+      required:
+      - area
+      - description
+      - key
+      - keys
+      - title
+    PlatformHistory:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformHistoryItem'
+      required:
+      - items
+    PlatformHistoryItem:
+      type: object
+      properties:
+        value:
+          description: 'null: given back to the deployment''s or the code''s.'
+        operator:
+          type: string
+          format: email
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - operator
+      - reason
+      - value
+    PlatformKey:
+      type: object
+      description: |-
+        One setting a company may choose, with what it may choose; the shape of
+        an entry of the settings registry's schema (ADR-078 pkt 11).
+      properties:
+        key:
+          type: string
+          description: Stable key, e.g. organization.currency.
+        type:
+          $ref: '#/components/schemas/SettingTypeEnum'
+        minimum:
+          type:
+          - integer
+          - 'null'
+        maximum:
+          type:
+          - integer
+          - 'null'
+        unit:
+          oneOf:
+          - $ref: '#/components/schemas/SettingUnitEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        values:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/SettingValueOption'
+        default:
+          description: The value a new company starts with.
+        label:
+          $ref: '#/components/schemas/LocalizedText'
+        help:
+          oneOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          - type: 'null'
+        description:
+          type: string
+          description: What the setting does, in English.
+        scopes:
+          type: array
+          items:
+            type: string
+        depends_on:
+          type:
+          - string
+          - 'null'
+        strategy:
+          allOf:
+          - $ref: '#/components/schemas/SettingStrategyEnum'
+          description: |-
+            restrict: the value in force may be stricter than the company's — the module applies its ceilings (operator, deployment) on top.
+
+            * `override` - override
+            * `restrict` - restrict
+        max_length:
+          type:
+          - integer
+          - 'null'
+          description: The longest a text may be.
+        value:
+          description: The value in force for the platform.
+        source:
+          allOf:
+          - $ref: '#/components/schemas/PlatformKeySourceEnum'
+          description: |-
+            platform: an operator set it; deployment: the server's .env; code: default.
+
+            * `platform` - platform
+            * `deployment` - deployment
+            * `code` - code
+        operator_level:
+          type: integer
+          description: '1: any operator changes it; 2: a platform administrator, with
+            a code.'
+        can_change:
+          type: boolean
+          description: Whether this operator may change it.
+      required:
+      - can_change
+      - default
+      - depends_on
+      - description
+      - help
+      - key
+      - label
+      - maximum
+      - minimum
+      - operator_level
+      - scopes
+      - source
+      - strategy
+      - type
+      - unit
+      - value
+      - values
+    PlatformKeySourceEnum:
+      enum:
+      - platform
+      - deployment
+      - code
+      type: string
+      description: |-
+        * `platform` - platform
+        * `deployment` - deployment
+        * `code` - code
+    PlatformPreview:
+      type: object
+      properties:
+        key:
+          type: string
+        current: {}
+        proposed: {}
+        companies_following:
+          type:
+          - integer
+          - 'null'
+          description: Companies with no value of their own, which the change reaches
+            at once; null for a key companies do not set.
+      required:
+      - companies_following
+      - current
+      - key
+      - proposed
+    PlatformSchema:
+      type: object
+      properties:
+        operator_level:
+          type: integer
+          description: 'This operator''s level: 1 or 2.'
+        areas:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformArea'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformGroup'
+      required:
+      - areas
+      - groups
+      - operator_level
+    PlatformValue:
+      type: object
+      properties:
+        key:
+          type: string
+        value: {}
+        source:
+          type: string
+        operator_level:
+          type: integer
+      required:
+      - key
+      - operator_level
+      - source
+      - value
     Preference:
       type: object
       properties:
@@ -32879,14 +33290,6 @@ components:
             $ref: '#/components/schemas/SlotTime'
       required:
       - items
-    SourceEnum:
-      enum:
-      - manual
-      - ical
-      type: string
-      description: |-
-        * `manual` - Ręczna
-        * `ical` - Kalendarz zewnętrzny
     SpeciesEnum:
       enum:
       - cattle
@@ -34173,7 +34576,7 @@ components:
           type: string
         source:
           allOf:
-          - $ref: '#/components/schemas/SourceEnum'
+          - $ref: '#/components/schemas/UnitBlockSourceEnum'
           description: |-
             `manual`, or `ical` for an imported one.
 
@@ -34218,6 +34621,14 @@ components:
             $ref: '#/components/schemas/UnitBlock'
       required:
       - items
+    UnitBlockSourceEnum:
+      enum:
+      - manual
+      - ical
+      type: string
+      description: |-
+        * `manual` - Ręczna
+        * `ical` - Kalendarz zewnętrzny
     UnitEnum:
       enum:
       - piece
@@ -34284,6 +34695,10 @@ components:
           type: string
         timezone:
           type: string
+        operator_level:
+          type: integer
+          description: '0: not a platform operator; 1: an operator (staff with 2FA);
+            2: a platform administrator. The „Platforma” panel is for 1 and 2.'
       required:
       - email
       - first_name

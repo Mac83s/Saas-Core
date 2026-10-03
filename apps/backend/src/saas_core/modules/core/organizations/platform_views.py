@@ -47,7 +47,7 @@ class IsPlatformOperator(BasePermission):
 
 class PlatformKeySerializer(SettingOptionSerializer):
     value = serializers.JSONField(help_text="The value in force for the platform.")
-    source = serializers.ChoiceField(
+    source = serializers.ChoiceField(  # type: ignore[assignment]
         choices=["platform", "deployment", "code"],
         help_text="platform: an operator set it; deployment: the server's .env; code: default.",
     )
@@ -99,7 +99,7 @@ class PlatformPreviewSerializer(serializers.Serializer[dict[str, Any]]):
 class PlatformValueSerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.CharField()
     value = serializers.JSONField()
-    source = serializers.CharField()
+    source = serializers.CharField()  # type: ignore[assignment]
     operator_level = serializers.IntegerField()
 
 
@@ -191,6 +191,12 @@ class PlatformSettingView(APIView):
         request=PlatformChangeSerializer,
         responses={200: PlatformValueSerializer, **PROBLEMS},
         examples=[OpenApiExample("Set", value={"value": 48, "reason": "Pilot"})],
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The same value with the same reason from the same "
+                "operator writes nothing new and answers the value in force.",
+            }
+        },
     )
     def post(self, request: Request, key: str) -> Response:
         user = cast(User, request.user)

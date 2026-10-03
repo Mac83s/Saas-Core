@@ -24,9 +24,10 @@ import { Link } from "#i18n/navigation";
  * owner answer 52a): `handled(error, again)` takes the server's
  * `step_up_required`, asks for the code and runs `again`;
  * `step_up_mfa_setup_required` says where to turn two-factor sign-in on. Any
- * other error is the caller's. `ui` goes where the notice should stand.
+ * other error is the caller's. `ui` goes where the notice should stand;
+ * `description` says what the code confirms when it is not a billing change.
  */
-export function useStepUp(): {
+export function useStepUp(description?: string): {
   handled: (error: unknown, again: () => Promise<unknown>) => boolean;
   ui: ReactNode;
 } {
@@ -87,7 +88,9 @@ export function useStepUp(): {
         <DialogContent closeLabel={t("cancel")}>
           <DialogHeader>
             <DialogTitle>{t("title")}</DialogTitle>
-            <DialogDescription>{t("description")}</DialogDescription>
+            <DialogDescription>
+              {description ?? t("description")}
+            </DialogDescription>
           </DialogHeader>
           <Field data-invalid={Boolean(problem)}>
             <FieldLabel htmlFor={id}>{t("code")}</FieldLabel>

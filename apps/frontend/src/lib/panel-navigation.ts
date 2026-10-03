@@ -7,6 +7,7 @@ import {
   MessageSquareTextIcon,
   PackageIcon,
   PawPrintIcon,
+  ServerCogIcon,
   SettingsIcon,
   UsersIcon,
   WarehouseIcon,
@@ -25,8 +26,10 @@ import type { ProductNavigationItem } from "./product-extension";
  * to, so daily work does not drown among them. An entry's pages unfold under
  * it in the menu (ADR-057); on a phone they are also tabs above the content.
  */
-export type PanelNavItem = ProductNavigationItem & {
-  group: "work" | "company";
+export type PanelNavItem = Omit<ProductNavigationItem, "group"> & {
+  group: "work" | "company" | "platform";
+  /** A platform operator's (staff with 2FA, S-T7), whatever the company. */
+  operator?: boolean;
   /** Owner only, for what permissions cannot express. */
   ownerOnly?: boolean;
   /** Hidden from the type's limited roles (a trimmer, a viewer). */
@@ -289,6 +292,9 @@ export type PanelAccess = {
   /** The areas of „Ustawienia” the person may change that have no page of
    * their own (GET …/settings/schema/). */
   settingsAreas?: readonly SettingsAreaTab[];
+  /** 0 for everyone but a platform operator: 1, or 2 for a platform
+   * administrator (GET /auth/me/). */
+  operatorLevel?: number;
 };
 
 export function panelAccess(
@@ -405,6 +411,15 @@ const SETTINGS: PanelNavItem = {
   section: "settings",
 };
 
+/** The platform's own settings, for its operators only (S-T5). */
+const PLATFORM: PanelNavItem = {
+  href: "/panel/platform",
+  icon: ServerCogIcon,
+  labelKey: "platformSettings",
+  group: "platform",
+  operator: true,
+};
+
 export function allows(
   access: PanelAccess,
   item: Pick<
@@ -415,12 +430,14 @@ export function allows(
     | "notForLimited"
     | "anyAccess"
     | "organizationTypes"
+    | "operator"
   > & {
     dispatch?: PanelSectionTab["dispatch"];
     stays?: PanelSectionTab["stays"];
   },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
+  if (item.operator && (access.operatorLevel ?? 0) < 1) return false;
   if (item.stays && !access.booking?.stays) return false;
   if (item.dispatch) {
     const booking = access.booking;
@@ -457,6 +474,7 @@ export type PanelNavEntry = PanelNavItem & { pages?: PanelSectionTab[] };
 export function panelNavigation(access: PanelAccess): {
   work: PanelNavEntry[];
   company: PanelNavEntry[];
+  platform: PanelNavEntry[];
 } {
   const fromProduct = (product.navigation ?? []).map((item): PanelNavItem => ({
     ...item,
@@ -487,6 +505,7 @@ export function panelNavigation(access: PanelAccess): {
       ...fromProduct.filter((i) => i.group === "company"),
       SETTINGS,
     ]),
+    platform: visible([PLATFORM]),
   };
 }
 
@@ -589,7 +608,7 @@ export function menuEntryFor(pathname: string): PanelNavItem | undefined {
     ...item,
     group: item.group ?? "work",
   }));
-  return [...WORK, ...COMPANY, ...fromProduct, SETTINGS]
+  return [...WORK, ...COMPANY, ...fromProduct, SETTINGS, PLATFORM]
     .filter((item) => isActive(pathname, item))
     .sort((a, b) => b.href.length - a.href.length)[0];
 }

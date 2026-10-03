@@ -7,6 +7,8 @@ import {
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
+import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
 import { getPanelTranslations } from "#lib/panel-messages";
 
 import { Link } from "#i18n/navigation";
@@ -19,11 +21,15 @@ import type { ProductDashboard as ProductDashboardEntry } from "#lib/product-ext
 import ProductDashboard from "../../../product/dashboard";
 
 export default async function PanelHomePage() {
-  const [user, organization, t] = await Promise.all([
+  const [user, organization, t, locale] = await Promise.all([
     getServerUser(),
     getServerCurrentOrganization(),
     getPanelTranslations("Dashboard"),
+    getLocale(),
   ]);
+  // An operator outside any company works in „Platforma” (S-T5).
+  if (!organization && (user?.operator_level ?? 0) >= 1)
+    redirect(`${locale === "pl" ? "" : `/${locale}`}/panel/platform`);
   const access = panelAccess(organization);
   // A product's "Today" only where it applies (e.g. HoofCare's for trimming
   // companies, the farmer's own for its farms, UX-078).
