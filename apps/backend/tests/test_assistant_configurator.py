@@ -34,6 +34,7 @@ from saas_core.modules.core.organizations.command_executor import execute_plan
 from saas_core.modules.core.organizations.command_registry import command, registered_commands
 from saas_core.modules.core.organizations.context import activate_tenant_context
 from saas_core.modules.shared.assistant.configurator import (
+    CARD,
     ORGANIZATION,
     PRESETS,
     READS,
@@ -354,6 +355,15 @@ def test_an_empty_profile_asks_what_the_company_does_and_sells() -> None:
         ("company.category", "card_needs_category"),
     ]
     assert (answer["plan"], answer["blocked"], answer["unsupported"]) == ([], [], [])
+
+
+def test_what_the_card_already_says_is_not_asked_about() -> None:
+    reads = new_company("Nowa firma")
+    reads[CARD] |= {"exists": True, "city_slug": "olsztyn", "category": "uroda-i-zdrowie"}
+
+    answer = configure({"schema": "company-profile.v1"}, reads, COMMANDS)
+
+    assert [question["key"] for question in answer["missing"]] == ["company.activity", "offers"]
 
 
 def test_an_area_whose_reads_are_not_given_is_left_alone() -> None:

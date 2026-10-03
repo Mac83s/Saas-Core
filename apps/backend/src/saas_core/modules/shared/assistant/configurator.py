@@ -17,7 +17,8 @@ It answers four lists:
 A plan's arguments are fixed before it runs, so a step cannot name what an
 earlier step creates: run again after a round, the function answers the next
 one, until nothing is left to plan. It only ever adds to the account — a
-place, a person or a language the profile does not mention stays.
+place, a person or a language the profile does not mention stays. A person's
+working week is one value, though: the profile's week replaces the account's.
 """
 
 from __future__ import annotations
@@ -271,7 +272,9 @@ def _card(run: _Run) -> None:
     }
     city = run.profile.get("company", {}).get("city")
     if city is None:
-        run.ask("company.city", "card_needs_city")
+        # What the card already says is not asked about again.
+        if not card.get("city_slug"):
+            run.ask("company.city", "card_needs_city")
     elif (name := _confirmed(city)) is not None:
         slug = next(
             (entry["slug"] for entry in options["cities"] if _fold(entry["name"]) == _fold(name)),
@@ -283,7 +286,7 @@ def _card(run: _Run) -> None:
             wanted["city_slug"] = slug
     category = run.profile.get("company", {}).get("category")
     keys = [entry["key"] for entry in options["categories"]]
-    if category is None and keys:
+    if category is None and keys and not card.get("category"):
         run.ask(
             "company.category",
             "card_needs_category",

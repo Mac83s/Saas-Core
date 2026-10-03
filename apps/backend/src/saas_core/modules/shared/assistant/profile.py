@@ -79,7 +79,8 @@ def save_profile(
         if repeated is not None:
             if repeated.request_hash != request_hash:
                 raise ProfileKeyReused
-            return _state(repeated)
+            earlier = _versions(context).filter(version=repeated.version - 1).first()
+            return _state(repeated, changed_from=_state(earlier).document)
     current = _latest(context, lock=True)
     before = _state(current)
     if before.version != expected_version:
@@ -109,7 +110,7 @@ def save_profile(
     except IntegrityError:
         # Two first saves at once: there was no row to lock.
         raise ProfileVersionConflict from None
-    return ProfileState(saved.version, document, saved.created_at, changed)
+    return _state(saved, changed_from=before.document)
 
 
 def _manager(operation: FeatureOperation) -> TenantContext:
@@ -138,10 +139,13 @@ def _latest(context: TenantContext, *, lock: bool = False) -> AssistantProfileVe
     return found
 
 
-def _state(row: AssistantProfileVersion | None) -> ProfileState:
+def _state(
+    row: AssistantProfileVersion | None, *, changed_from: dict[str, Any] | None = None
+) -> ProfileState:
     if row is None:
         return ProfileState(0, empty_profile(), None)
-    return ProfileState(row.version, row.document, row.created_at)
+    changed = () if changed_from is None else tuple(_changed(changed_from, row.document))
+    return ProfileState(row.version, row.document, row.created_at, changed)
 
 
 def _conversation(context: TenantContext) -> UUID | None:

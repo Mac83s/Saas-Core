@@ -133,7 +133,7 @@ def test_a_repeated_key_answers_the_first_save_and_is_refused_for_another() -> N
     other = change(client, {"company": {"name": said("Salon Ola")}}, 0, key="k1")
 
     assert (first.status_code, again.status_code) == (200, 200)
-    assert again.data["version"] == 1
+    assert again.data == first.data
     assert (other.status_code, other.data["code"]) == (409, "assistant_idempotency_conflict")
     assert AssistantProfileVersion.all_objects.count() == 1
 

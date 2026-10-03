@@ -77,7 +77,8 @@ Zasady:
   identyfikatora, który powstaje w tym samym planie. Usługa czeka na miejsce i osoby,
   godziny czekają na osobę i miejsce; po wykonaniu rundy ta sama funkcja daje następną.
 - **Tylko dokłada.** Miejsce, osoba, język albo wykonawca usługi, których profil nie
-  wymienia, zostają.
+  wymienia, zostają. Wyjątek: tydzień pracy osoby to jedna wartość — tydzień z profilu
+  zastępuje ten z konta. O miasto i kategorię, które wizytówka już ma, nie pyta.
 - **Dopasowanie po nazwie**: miejsca, osoby i usługi konta poznaje po nazwie bez
   wielkości liter, znaków diakrytycznych i interpunkcji.
 - **Usługa** powstaje przez `booking.preset.apply@1`, gdy produkt ma to polecenie; do
