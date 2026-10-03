@@ -38,7 +38,7 @@ session's sharing policy blocked it. Maciej can share the Claude Design link.
 | #   | What                                                                                                                  | State |
 | --- | --------------------------------------------------------------------------------------------------------------------- | ----- |
 | 1   | One 52 px top bar: back, page name + "Szkic, wersja N", mode, undo/redo, device switch in the middle, language, „…”, preview, save | done  |
-| 2   | Vertical 64 px icon rail + one 300 px panel; compact outline with header/footer rows                                   | todo  |
+| 2   | Vertical 72 px icon rail + one 300 px panel; compact outline with header/footer rows and a working drag handle         | done  |
 | 3   | Section library: category chips, compact rows (thumbnail, name, two lines, eye + "+"), insert hint, canvas "+" opens it in the panel | todo  |
 | 4   | Page templates: two-column grid of thumbnails, in-panel detail (description, goal/style, section list, preview, use)   | todo  |
 | 5   | Inspector: "Sekcja N z M" header with icon actions; tabs Treść / Układ / Styl                                           | todo  |
@@ -69,6 +69,17 @@ No backend, API, OpenAPI, `api-client` or migration changes so far.
 - Messages: `Sites.studio.draftVersion` added, `Sites.studio.liveCanvasLabel`
   removed.
 - `LanguageSwitch` is untouched, so it keeps its own height in the bar.
+- The left side is a rail (72 px, wider than the mockup's 64 px so „Biblioteka”
+  and „Podstrony” do not break mid-word) beside one 300 px panel; the workspace
+  grid is `372px | 1fr | 320px`. The rail keeps the product's words (Sekcje,
+  Biblioteka, Całe strony, Wygląd, Podstrony) rather than the mockup's
+  „Dodaj”/„Szablony”, so tests and the label-in-name rule hold.
+- The outline is a `ReorderList` of its own: each row selects its section, its
+  grip moves it (drag or arrow keys; handle named „Przenieś sekcję N na
+  liście” so it never collides with the canvas handle). The site's header and
+  footer show as muted rows around the sections when the site has them.
+- Messages: `Sites.studio.siteHeader`, `siteFooter`, `reorderInOutline` added,
+  `Sites.studio.outlineHint` removed.
 
 ## How to verify
 
