@@ -16,6 +16,7 @@ from rest_framework.test import APIClient
 
 from saas_core.config.composition import CompositionError, organization_types_from
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.shared.billing.models import Plan
 from saas_core.modules.shared.billing.overview import public_plan_catalog
 from saas_core.modules.shared.billing.plan_offer import plan_keys_for_type
 from test_organization_api import (
@@ -154,7 +155,12 @@ def test_plans_are_offered_per_type(settings: Any) -> None:
     assert plan_keys_for_type("farm") == (first,)
     assert plan_keys_for_type("unknown") == ()
     assert [plan["key"] for plan in public_plan_catalog("farm")] == [first]
-    assert [plan["key"] for plan in public_plan_catalog()] == list(rest)
+    # A product may keep a plan of its profile off the offer (HoofCare hides
+    # „Gospodarstwo Plus” at the start, owner's answer 46a).
+    offered = set(Plan.objects.filter(is_public=True).values_list("key", flat=True))
+    assert [plan["key"] for plan in public_plan_catalog()] == [
+        key for key in rest if key in offered
+    ]
 
 
 def test_a_new_organization_gets_the_free_plan_of_its_type(settings: Any) -> None:
