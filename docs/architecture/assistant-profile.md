@@ -14,8 +14,12 @@ Schemat: `packages/contracts/assistant/company-profile.v1.schema.json` — pisan
 
 - Sekcje: `company` (nazwa, czym się zajmuje, miasto, kategoria, kontakt), `card`
   (zdanie i opis), `languages`, `places`, `people` (z tygodniem pracy), `offers`
-  (rodzaj rezerwacji — id presetu, czas, sztuki, pojemność, cena, miejsca, osoby,
-  odpowiedzi na `requiredInputs` presetu), `sources`.
+  (rodzaj rezerwacji — id presetu, czas, sztuki, pojemność, cena, stawka VAT ceny,
+  miejsca, osoby, odpowiedzi na `requiredInputs` presetu), `sources`.
+- **Cena to kwota właściciela** (`offers[].price`: kwota do 999 999,99, waluta, za
+  co — rezerwację, osobę, godzinę, dzień, noc) i osobno **stawka VAT**
+  (`offers[].vat`: `23`, `8`, `5`, `0`, `zw`, `np`). Żadna z nich nie ma wartości
+  domyślnej.
 - **Każda wartość ma pochodzenie i potwierdzenie**:
   `{"value", "origin": owner | account | existing_site | preset_default | assistant, "confirmed"}`.
   Do konta trafia wyłącznie wartość potwierdzona; niepotwierdzona wraca jako pytanie.
@@ -32,11 +36,11 @@ jeden wiersz na zapisany stan — dokument, numer wersji, kto zapisał, kanał
 Najnowszy wiersz to profil, starsze to historia. Zapis, który niczego nie zmienia, nie
 tworzy wersji.
 
-Klasa danych: `personal` (słowa właściciela, imiona osób). Profil znika razem z firmą;
-wersje starsze od bieżącej podlegają `assistant.retention.conversation_days`. **A2 nie
-ma własnego zadania czyszczącego**: tabelę rejestruje hak retencji platformy (plan
-ustawień, plaster 2). Gdyby moduł trafił na VPS przed tym hakiem, starsze wersje
-dopisujemy do `purge_assistant_conversations`.
+Klasa danych: `personal` (słowa właściciela, imiona osób). Profil znika razem z firmą.
+Wcześniejszy stan znika `assistant.retention.conversation_days` dni po tym, jak
+zastąpił go następny; stan bieżący nie znika nigdy. Robi to wspólny nocny przebieg
+prywatności — moduł rejestruje przemiatanie `assistant.profile_versions`
+(`assistant/retention.py`, `platform_days`) i nie ma własnego zadania czyszczącego.
 
 ## API (`/api/v1/assistant/profile/`)
 
@@ -59,8 +63,8 @@ i `assistant.use`), także asystent działający w jego imieniu; cecha planu
 - `reads`: wyniki poleceń odczytu, po nazwie polecenia — asystent sięga do innych
   modułów tylko przez rejestr (ADR-076 pkt 9): `organization.read@1`,
   `organization.public_locales.read@1`, `profiles.organization.read@1`,
-  `profiles.catalog_options.read@1`, `booking.setup.read@1`, `booking.preset.list@1`.
-  Obszar bez swoich odczytów jest pomijany.
+  `profiles.catalog_options.read@1`, `booking.setup.read@1`, `booking.preset.list@1`,
+  `booking.prices.read@1`. Obszar bez swoich odczytów jest pomijany.
 - `commands`: nazwy poleceń, którymi wolno planować.
 
 Wynik to cztery listy:
@@ -70,7 +74,7 @@ Wynik to cztery listy:
 | `missing` | pytania do właściciela, od najważniejszych: `ask` (brakuje wartości) albo `confirm` (jest, ale niepotwierdzona), z `reason`, propozycją i dozwolonymi odpowiedziami |
 | `plan` | polecenia gotowe do wykonania: `ref`, `command`, `arguments` |
 | `blocked` | kroki, które czekają: `waits` (na wcześniejszy krok — `waits_for`), `command_missing` (produkt nie ma polecenia), `person_only` (krok właściciela, np. włączenie usługi) |
-| `unsupported` | czego właściciel chce, a produkt jeszcze nie umie: `preset_not_ready`, `price_list`, `city_not_in_catalog`, `language_not_offered`, `language_limit`, `preset_unknown`, `category_unknown`, `booking_unavailable`, `presets_unavailable` |
+| `unsupported` | czego właściciel chce, a produkt jeszcze nie umie: `preset_not_ready`, `price_list` (rejestr bez poleceń cennika), `price_currency` (cena w innej walucie niż firma — nie przeliczamy), `city_not_in_catalog`, `language_not_offered`, `language_limit`, `preset_unknown`, `category_unknown`, `booking_unavailable`, `presets_unavailable` |
 
 Zasady:
 
@@ -85,6 +89,28 @@ Zasady:
 - **Usługa** powstaje przez `booking.preset.apply@1`, gdy produkt ma to polecenie; do
   tego czasu wizyta na godzinę (`slot`) powstaje przez `booking.offer.create@1`, bez
   zapisanego presetu. Zawsze wyłączona — włącza ją właściciel.
+- **Jednostki pobytu i wynajmu** (oferta `range`): liczba z profilu staje się krokiem
+  `booking.offer.units.set@1`, gdy oferta ma już identyfikator — do tego czasu krok
+  czeka na ofertę (`units:<klucz>` po `offer:<klucz>`). Polecenie dostaje liczbę
+  docelową, nie przyrost, i tylko dokłada: pula, która ma tyle albo więcej jednostek,
+  zostaje. Pulę o nazwie oferty, do której oferta nie jest jeszcze podpięta (szkic
+  usunięty i założony ponownie), konfigurator liczy jako pulę tej oferty. Jednostek
+  ułożonych w panelu inaczej — pojedynczo albo w kilku grupach — nie rusza. Oferta
+  `range` bez liczby jednostek dostaje pytanie `offer_needs_units`.
+- **Pieniędzy się nie zgaduje.** Cena staje się krokiem `booking.price.save@1` (cena
+  podstawowa oferty) tylko wtedy, gdy: kwota jest potwierdzona przez właściciela,
+  waluta jest walutą firmy, to, za co jest cena, pasuje do oferty (noc albo dzień
+  tylko tam, gdzie oferta je liczy; rezerwacja i osoba zawsze) i właściciel podał
+  stawkę VAT. Czego brakuje, o to konfigurator pyta: `offer_needs_price` (pobyt albo
+  wynajem bez ceny — wizyta ceny mieć nie musi), `price_needs_vat`,
+  `price_per_not_offered` (z dozwolonymi odpowiedziami). Kwotę oznaczoną przez model
+  jako słowa właściciela serwer przyjmuje tylko wtedy, gdy właściciel napisał tę
+  liczbę w rozmowie (`setup.amount_typed`: „450 zł”, „1 200”, „89,50”); inaczej zostaje
+  propozycją do potwierdzenia. **Oferta, która ma już jakąkolwiek cenę — własną albo
+  swojej grupy jednostek — zostaje nietknięta**: cennik na koncie należy do
+  właściciela, notatka go nie nadpisuje.
+- **Włączenie oferty** (`person_only`) konfigurator podaje dopiero wtedy, gdy nic z
+  oferty nie zostało do ustawienia — także jednostki i cena.
 - **Kategoria katalogu**: propozycja z presetu oferty, a gdy jej nie ma — kategoria,
   której słowo kluczowe pada najwcześniej w opisie działalności, a potem w nazwach
   ofert (zawód pada przed szczegółami: „hydraulik: awarie, instalacje”). Zawsze jako

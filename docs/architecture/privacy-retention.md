@@ -185,8 +185,8 @@ Panel pokazuje takie zapytanie jako „Dane usunięte” z datą i stroną.
 |---|---|---|---|---|
 | Wiadomości e-mail (`NotificationMessage.recipient_email`, `recipient_hash`, `context`) | odbiorcy | `NOTIFICATIONS_RETENTION_DAYS` (30) od wysyłki | `tasks.scrub_expired`, co godzinę, firma po firmie | `shared.notifications` |
 | Eksporty danych powiadomień | firmy | do wygaśnięcia eksportu | to samo zadanie | `shared.notifications` |
-| Rozmowy z asystentem | osoby z firmy | `assistant.retention.conversation_days` po ostatniej wiadomości (ustawienie platformy, robocza wartość 90) | `assistant-purge` | `shared.assistant` |
-| Wersje profilu firmy dla asystenta (`assistant_assistantprofileversion`) — zapowiedziane | firmy; wolny tekst i nazwiska osób z firmy | najnowsza zostaje, starsze po tylu dniach co rozmowy | jeszcze brak — wejdzie przez wspólną rejestrację | `shared.assistant` |
+| Rozmowy z asystentem | osoby z firmy | `assistant.retention.conversation_days` po ostatniej wiadomości (ustawienie platformy, robocza wartość 90) | wspólny przebieg, przemiatanie `assistant.conversations` (`platform_days`) | `shared.assistant` |
+| Wersje profilu firmy dla asystenta (`assistant_assistantprofileversion`) | firmy; wolny tekst i nazwiska osób z firmy | najnowsza zostaje zawsze; wcześniejsza znika po tylu dniach co rozmowy, liczonych od chwili, gdy zastąpiła ją następna | wspólny przebieg, przemiatanie `assistant.profile_versions` (`platform_days`) | `shared.assistant` |
 | Zużycie portu modeli | platformy, bez treści | 396 dni | `purge_model_port_usage` | `shared.model_port` |
 
 Znane ograniczenie reguły 30 dni: po oczyszczeniu wiadomości znikają też zdarzenia
@@ -225,7 +225,8 @@ Otwarte dla tego, kto zbuduje usuwanie konta użytkownika:
 
 - reguła dla gospodarstw i minimum dla gabinetów (`settingsDefaults` profilu i dolna
   granica z profilu) — po decyzji właściciela produktu i odpowiedzi z listy prawnej;
-- reguły modułów ustawiane przez platformę (rozmowy asystenta, wersje profilu) nie
-  są jeszcze zarejestrowane: rejestracja je przyjmuje (`platform_days(<klucz>)`, bez
-  okresu ochronnego — test z regułą próbną); harmonogram już działa, więc moduły
-  mogą pod nią przejść, a do tego czasu zostają przy własnych zadaniach.
+- pozostałe reguły platformy z tabeli wyżej (wiadomości e-mail, zużycie portu modeli)
+  zostają przy własnych zadaniach; asystent przeszedł pod wspólny przebieg 03.10
+  (`platform_days`, bez okresu ochronnego). Reguła platformy obowiązuje w każdej
+  firmie, więc `--dry-run` wypisuje ją tylko tam, gdzie jest co usunąć — firma z
+  własną regułą jest na liście od chwili jej włączenia, także z zerem.

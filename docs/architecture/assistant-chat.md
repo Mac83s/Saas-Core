@@ -107,8 +107,9 @@ Kody: 503 `assistant_unavailable`, 403 `assistant_not_in_plan`, 403
 
 `assistant_assistantconversation`, `assistant_assistantturn`,
 `assistant_assistantmessage` — tabele firmy z RLS. Treść rozmowy nie trafia do
-logów ani telemetrii portu. Retencja: `assistant.retention.conversation_days`
-(zadanie dobowe `assistant-purge`); usunięcie firmy zabiera rozmowy.
+logów ani telemetrii portu. Retencja: `assistant.retention.conversation_days`,
+wykonywana przez wspólny nocny przebieg prywatności (`assistant/retention.py`,
+przemiatanie `assistant.conversations`); usunięcie firmy zabiera rozmowy.
 
 `assistant_assistantprofileversion` — profil firmy i jego wersje (A2), opisany w
 `assistant-profile.md`. Profil nie trafia do żadnego wywołania modelu: w A2 nie ma

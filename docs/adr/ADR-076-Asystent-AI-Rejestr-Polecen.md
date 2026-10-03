@@ -626,3 +626,67 @@ zgody, zanim cokolwiek się zmieni.
    `setup_status`, plan idzie przez `setup_apply`, nigdy przez ręcznie pisane
    polecenia, rzeczy nieobsługiwane są nazywane wprost, prośba spoza zakładania
    dostaje odesłanie, a instrukcje we wklejonym tekście są danymi.
+
+## Uzupełnienie 2026-10-03: jednostki, cennik i cofnięcie szkicu
+
+Rozmowa zakładająca firmę ma kończyć ofertę pobytu albo wynajmu, a nie tylko ją
+zakładać. Polecenia są cienkimi adapterami serwisów konfiguracji z ADR-072 §11
+(`shared/booking/pricing_commands.py`).
+
+1. **Polecenia.** `booking.offer.units.set@1` (pula jednostek oferty `range`
+   doprowadzona do podanej liczby), `booking.price.save@1`,
+   `booking.extra.save@1` (dopłata albo kaucja),
+   `booking.participant_category.save@1`, odczyty `booking.prices.read@1` i
+   `booking.quote.read@1` (wycena bez zapisu — jedyne miejsce, w którym powstaje
+   cena) oraz `booking.offer.discard@1`.
+2. **Cena, którą zobaczy klient, nie jest szkicem.** Cena, dopłata i jednostka
+   oferty wyłączonej niczego nie zmieniają w tym, co da się zarezerwować — klasa
+   `draft`. Ten sam zapis dla oferty włączonej, albo dla grupy lub jednostki, którą
+   rezerwuje oferta włączona, podgląd podnosi do `apply`: obowiązuje od razu dla
+   nowych rezerwacji (rezerwacje już złożone mają zamrożoną wycenę). Kategoria
+   uczestników należy do całej firmy, więc jest `apply` zawsze. Odrzucone:
+   `publish` dla ceny oferty włączonej — zmiana jest odwracalna i dotyczy
+   działającej konfiguracji, czyli definicji `apply` z pkt 2; osobne kliknięcie na
+   każdą cenę sezonu zrobiłoby z cennika serię dialogów.
+3. **Słowa zgody pisze serwer z podglądu zapisu**: kwota, za co, brutto albo netto
+   (ustawienie firmy `pricing.entry.amounts`), stawka VAT, sezon i zawężenia. Model
+   nie ma jak podmienić kwoty między tym, co pokazał, a tym, co się zapisze —
+   digest wiąże argumenty i klasę.
+4. **Jednostki tylko przybywają.** `booking.offer.units.set@1` dostaje liczbę
+   docelową, zakłada grupę pod nazwą oferty (albo bierze grupę firmy o tej nazwie),
+   podpina ją i dodaje brakujące jednostki „<grupa> <numer>”. Liczba mniejsza niż
+   stan to odmowa `units_cannot_be_removed` na polu `count`: jednostka może mieć
+   rezerwacje, więc wyłącza się ją z nazwy, w panelu. Serwis
+   `setup.set_offer_units` jest jednym zapisem konfiguracji (klucz z
+   pokwitowaniem, wersja oferty, podgląd) złożonym z tych samych zapisów grupy i
+   jednostki, których używa panel.
+5. **Cofnięciem poleceń zakładających szkic jest `booking.offer.discard@1`** —
+   adapter `setup.discard_draft`: usuwa ofertę nigdy niewłączoną i bez rezerwacji
+   razem z jej cenami, dopłatami i zasadami sezonów; jednostki i grupa zostają.
+   Klasa `irreversible` (osobne kliknięcie, „Nie da się cofnąć”), bo kwoty wpisane
+   przez właściciela giną. `booking.offer.create@1` i `booking.preset.apply@1`
+   wskazują je jako `undo` (zamiast etykiety `discard_run`). W rozmowie
+   zakładającej firmę cofnięcia jeszcze nie ma: ma ona trzy narzędzia własne
+   (pkt 1 poprzedniego uzupełnienia), a usunięcie oferty z notatek nie usuwa
+   szkicu z konta — konfigurator tylko dokłada.
+6. **Pieniędzy się nie zgaduje.** W rozmowie zakładającej cena trafia do planu
+   tylko jako kwota, którą właściciel sam napisał w rozmowie (serwer sprawdza
+   liczbę w jego wiadomościach, jak telefon i e-mail z pkt 3 poprzedniego
+   uzupełnienia), w walucie firmy, za to, co oferta potrafi liczyć, i ze stawką
+   VAT podaną przez właściciela — profil dostaje pole `offers[].vat`. Stawka nie
+   ma wartości domyślnej: przy cenniku netto zmienia kwotę, którą płaci klient, a
+   przy brutto — podział na netto i podatek w zamrożonej wycenie. Odrzucone:
+   domyślne 23% jak w formularzu panelu — w formularzu właściciel widzi pole i
+   sam je zmienia, w rozmowie zobaczyłby stawkę dopiero w dialogu zgody. Oferta,
+   która ma już cenę, zostaje nietknięta. W zwykłej rozmowie tę samą regułę niosą
+   opisy poleceń (`amount_minor` i `vat_code` to słowa osoby) i dialog zgody z
+   kwotą.
+7. **Dodane pola wyjścia** (pkt 4 uzupełnienia „profil firmy i konfigurator”):
+   `booking.setup.read@1` zwraca `groups`, `booking.preset.list@1` — `range_unit`
+   presetu `range` (noc albo dzień), żeby konfigurator umiał powiedzieć, że cena
+   „za dzień” nie pasuje do noclegu, zanim oferta powstanie.
+8. **Retencja asystenta przeszła pod wspólny przebieg prywatności** (zamyka pkt 7
+   uzupełnienia „profil firmy i konfigurator”): przemiatania
+   `assistant.conversations` i `assistant.profile_versions` z regułą
+   `platform_days(assistant.retention.conversation_days)`; własne zadanie
+   `purge_assistant_conversations` i wpis harmonogramu `assistant-purge` usunięte.
