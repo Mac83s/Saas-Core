@@ -476,3 +476,39 @@ wejścia API i poleceń.
 - Typ `date` dołączył do typów ustawień (`SETTING_TYPES`); typ zasięgu `operator`,
   strategie `restrict`/`lockable`, `copy_at_creation` i `settingsDefaults` wejdą z
   pierwszym kluczem, który ich potrzebuje.
+
+## Uzupełnienie 2026-10-03 (2): R2b i odpowiedzi 34, 35, 37
+
+- **Grupa encji (zmienia pkt 7).** Grupa z `api` deklaruje klucze w rejestrze,
+  a tabelę, endpoint, potwierdzenia i polecenia zostawia modułowi; `read_explicit`
+  mówi, skąd moduł bierze wartość jawnie ustawioną. Tak weszły dane podstawowe
+  firmy (`organization`: język, strefa czasu, waluta; `organizations/current/`),
+  oferta (`booking.offer`; `booking/setup/services/`) i tłumaczenia. Schemat
+  podaje `api` grupy, więc panel wie, że nie zapisuje jej przez
+  `current/settings/<grupa>/`.
+- **`depends_on`** to `<pole>` (przełącznik tej grupy) albo `<pole> == '<wartość>'`;
+  formularz pokazuje pole tylko przy spełnionym warunku, serwis wartości ukrytego
+  pola nie odrzuca. **`strategy`** (`override`, `restrict` dla `enum` i `int`) jest
+  w schemacie pola.
+- **34a (pkt 8).** Rozliczeniami zarządza domyślnie tylko właściciel. Grupa
+  `billing.access` (`billing.access.delegated`, `owner_only`) pozwala mu dopuścić
+  role z `billing.manage`; powiadomienia o rozliczeniach trafiają do tych, którzy
+  mogą działać. Zmiana tego przełącznika wymaga kodu 2FA (`step_up_reason` grupy):
+  serwis woła `require_step_up` w panelu i u asystenta, a formularz po
+  `step_up_required` pyta o kod i powtarza zapis (`step_up_mfa_setup_required`
+  odsyła do „Twoje konto”). Ekrany rozliczeń (plan, metoda płatności) jeszcze o
+  kod nie pytają — u asystenta pyta go modyfikator `changes_billing` — i dostaną
+  ten sam dialog osobnym krokiem.
+- **35a.** `organization.security.mfa_required`: `none` (domyślnie), `managers`,
+  `all`; MedPlano startuje od `managers` przez `settingsDefaults`. Rola
+  zarządzająca to rola z `organization.settings.manage`, `members.manage` albo
+  `members.manage_limited`. Rejestr odpowiada tylko, czy wymóg obejmuje członkostwo
+  (`membership_requires_mfa`, pamiętane per firma i czyszczone przy zmianie);
+  bramka przy wejściu do firmy należy do tożsamości. Włączenie wymogu nikogo nie
+  wylogowuje — zatrzymuje następne żądanie, a zgody asystenta wygasają z
+  `COMMAND_CONSENT_TTL`. Lista zespołu pokazuje 2FA tylko temu, kto zarządza
+  zespołem albo ustawieniami firmy.
+- **37a (zmienia ADR-036, rozstrzygnięcie 3).** Automatyczne usuwanie danych
+  klientów jest domyślnie wyłączone; firma może je włączyć na 12, 24 albo 36
+  miesięcy od ostatniej wizyty, z podglądem „dotyczy N osób” przed zapisem
+  (D1–D2 planu). Do tego czasu anonimizacja jest wyłącznie ręczna.

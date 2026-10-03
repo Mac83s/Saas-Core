@@ -161,6 +161,8 @@ eksport i usunięcie konta.
 3. **Retencja danych klienta** — 24 miesiące od ostatniej wizyty jako domyślna,
    konfigurowalna per deployment; dokumenty sprzedaży według osobnych przepisów
    (ADR-037, gdy wróci).
+   *Zmienione 2026-10-03 (odpowiedź 37a, ADR-078): automatyczne usuwanie jest
+   domyślnie wyłączone; firma włącza je na 12, 24 albo 36 miesięcy.*
 4. **Konto klienta** — w zakresie bazy: pełny P3 z `Customer.user`,
    principalem `customer`, panelem „moje wizyty", eksportem i usunięciem konta
    oraz `PolicyAcknowledgement`.
