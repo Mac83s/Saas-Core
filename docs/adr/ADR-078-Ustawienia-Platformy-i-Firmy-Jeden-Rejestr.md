@@ -496,9 +496,11 @@ wejścia API i poleceń.
   mogą działać. Zmiana tego przełącznika wymaga kodu 2FA (`step_up_reason` grupy):
   serwis woła `require_step_up` w panelu i u asystenta, a formularz po
   `step_up_required` pyta o kod i powtarza zapis (`step_up_mfa_setup_required`
-  odsyła do „Twoje konto”). Ekrany rozliczeń (plan, metoda płatności) jeszcze o
-  kod nie pytają — u asystenta pyta go modyfikator `changes_billing` — i dostaną
-  ten sam dialog osobnym krokiem.
+  odsyła do „Twoje konto”). Od odpowiedzi 52a (03.10) firma, która ma
+  subskrypcję, potwierdza kodem także zmianę danych do faktury, wejście do portalu
+  płatności i zakup kredytów (`_step_up_when_paying` w serwisach rozliczeń; panel
+  pyta o kod tym samym dialogiem, `useStepUp`); pierwszy zakup planu — bez
+  subskrypcji — kodu nie wymaga. U asystenta zostaje modyfikator `changes_billing`.
 - **35a.** `organization.security.mfa_required`: `none` (domyślnie), `managers`,
   `all`; nowa firma MedPlano startuje od `managers` przez `settingsDefaults`. Ten
   klucz ma `inheritance="copy_at_creation"` (pkt 6 dla zasięgu firmy): wartość

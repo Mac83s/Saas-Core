@@ -46,6 +46,7 @@ import {
   formatDay,
   formatMoney,
 } from "./parts";
+import { useStepUp } from "../../core/organizations/step-up";
 
 export function CreditsPanel({
   canManageBilling = false,
@@ -63,6 +64,8 @@ export function CreditsPanel({
   const [loadError, setLoadError] = useState<string | undefined>(undefined);
   const [pending, setPending] = useState<string | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  // A company that pays confirms a purchase with a code (52a).
+  const stepUp = useStepUp();
   // One key per pack for the whole visit: a double click must not open two
   // payments for the same intent.
   const keys = useRef<Record<string, string>>({});
@@ -91,7 +94,9 @@ export function CreditsPanel({
       // The simulator settles at once and hands back no address to visit.
       load();
     } catch (error) {
-      setProblem(problemText(error, t("buyError")));
+      if (!stepUp.handled(error, () => buy(pack))) {
+        setProblem(problemText(error, t("buyError")));
+      }
     }
     setPending(undefined);
   }
@@ -187,6 +192,7 @@ export function CreditsPanel({
           tone="warning"
         />
       ) : null}
+      {stepUp.ui}
       {problem ? (
         <Notice
           icon={CircleAlertIcon}

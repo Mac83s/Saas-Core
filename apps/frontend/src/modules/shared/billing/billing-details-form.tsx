@@ -50,6 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@saas-core/ui/components/select";
+import { useStepUp } from "../../core/organizations/step-up";
 
 // Where Stripe Tax is registered for us, plus the neighbours a Polish company
 // actually invoices. Names come from the browser in the reader's own language,
@@ -109,6 +110,8 @@ export function BillingDetailsForm({
   const [editing, setEditing] = useState(canManage && incomplete);
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  // A company that pays confirms the change with a code (52a).
+  const stepUp = useStepUp();
   const editButton = useRef<HTMLButtonElement>(null);
   // Set by the person's own switch between summary and form: the control they
   // used disappears, so focus follows them to the other side.
@@ -180,6 +183,7 @@ export function BillingDetailsForm({
         setEditing(false);
       }
     } catch (error) {
+      if (stepUp.handled(error, () => save(values))) return;
       setProblem(
         error instanceof ApiProblemError &&
           typeof error.problem.detail === "string"
@@ -267,6 +271,7 @@ export function BillingDetailsForm({
                   {problem}
                 </p>
               ) : null}
+              {stepUp.ui}
             </CardContent>
             <CardFooter className="mt-4 flex-wrap gap-3">
               <Button disabled={form.formState.isSubmitting} type="submit">

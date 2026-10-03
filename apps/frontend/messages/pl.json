@@ -4271,6 +4271,17 @@
     "rangeLength_night": "na noce",
     "rangeLength_day": "na dni"
   },
+  "StepUp": {
+    "title": "Potwierdź kodem z aplikacji",
+    "description": "Zmiana rozliczeń wymaga kodu z aplikacji uwierzytelniającej — nawet od właściciela.",
+    "code": "Kod z aplikacji",
+    "confirm": "Potwierdź",
+    "cancel": "Anuluj",
+    "invalid": "Kod się nie zgadza. Wpisz aktualny kod z aplikacji.",
+    "locked": "Zbyt wiele błędnych kodów — zaloguj się ponownie.",
+    "setup": "Tę zmianę potwierdza się kodem z aplikacji uwierzytelniającej. Najpierw włącz weryfikację dwuetapową:",
+    "setupLink": "Twoje konto › Weryfikacja dwuetapowa"
+  },
   "CompanySettings": {
     "searchOpen": "Szukaj w ustawieniach",
     "searchTitle": "Szukaj w ustawieniach",

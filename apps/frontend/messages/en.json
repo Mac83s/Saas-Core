@@ -4271,6 +4271,17 @@
     "rangeLength_night": "by the night",
     "rangeLength_day": "by the day"
   },
+  "StepUp": {
+    "title": "Confirm with a code from your app",
+    "description": "A billing change needs a code from the authenticator app — even from the owner.",
+    "code": "Code from the app",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "invalid": "The code doesn't match. Enter the current code from the app.",
+    "locked": "Too many wrong codes — sign in again.",
+    "setup": "This change is confirmed with a code from an authenticator app. Turn on two-factor sign-in first:",
+    "setupLink": "Your account › Two-factor sign-in"
+  },
   "CompanySettings": {
     "searchOpen": "Search settings",
     "searchTitle": "Search settings",

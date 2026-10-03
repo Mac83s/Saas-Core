@@ -47,6 +47,7 @@ import {
   formatDay,
   formatMoney,
 } from "./parts";
+import { useStepUp } from "../../core/organizations/step-up";
 
 /** The plan offered first to an organization without one. */
 const RECOMMENDED_PLAN = "starter";
@@ -87,6 +88,8 @@ export function CustomerBillingPanel({
   const [pending, setPending] = useState<string>();
   const [problem, setProblem] = useState<string>();
   const [problemRetry, setProblemRetry] = useState<"load" | "activation">();
+  // A company that pays opens the payment portal with a code (52a).
+  const stepUp = useStepUp();
   const [activated, setActivated] = useState(false);
 
   const load = useCallback(async () => {
@@ -147,8 +150,14 @@ export function CustomerBillingPanel({
         overview.has_active_subscription &&
         overview.portal_available
       ) {
-        const session = await createBillingPortal();
-        window.location.assign(session.url);
+        try {
+          const session = await createBillingPortal();
+          window.location.assign(session.url);
+        } catch (error) {
+          setPending(undefined);
+          if (stepUp.handled(error, () => openPortal())) return;
+          throw error;
+        }
         return;
       }
       const key = (checkoutKeys.current[plan.key] ??= crypto.randomUUID());
@@ -170,9 +179,10 @@ export function CustomerBillingPanel({
       const session = await createBillingPortal();
       window.location.assign(session.url);
     } catch (error) {
+      setPending(undefined);
+      if (stepUp.handled(error, () => openPortal())) return;
       setProblem(errorMessage(error, t, overview?.payment_mode));
       setProblemRetry(undefined);
-      setPending(undefined);
     }
   }
 
@@ -333,6 +343,7 @@ export function CustomerBillingPanel({
         </Notice>
       ) : null}
 
+      {stepUp.ui}
       {problem ? (
         <Notice
           action={

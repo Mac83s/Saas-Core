@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import axe from "axe-core";
 import {
   act,
@@ -22,6 +23,7 @@ import { CustomerBillingPanel } from "./customer-billing-panel";
 
 const {
   activateBillingTrial,
+  confirmStepUp,
   createBillingCheckout,
   createBillingPortal,
   getCustomerBillingOverview,
@@ -29,6 +31,7 @@ const {
   searchParams,
 } = vi.hoisted(() => ({
   activateBillingTrial: vi.fn(),
+  confirmStepUp: vi.fn(),
   createBillingCheckout: vi.fn(),
   createBillingPortal: vi.fn(),
   getCustomerBillingOverview: vi.fn(),
@@ -37,9 +40,16 @@ const {
 }));
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => searchParams }));
+// The 2FA notice links to the account page (useStepUp, 52a).
+vi.mock("#i18n/navigation", () => ({
+  Link: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   activateBillingTrial,
+  confirmStepUp,
   createBillingCheckout,
   createBillingPortal,
   getCustomerBillingOverview,
@@ -659,3 +669,40 @@ function problem(status: number, code: string) {
     correlation_id: null,
   });
 }
+
+test("a paying company opens the payment portal with a code from its app (52a)", async () => {
+  createBillingPortal
+    .mockRejectedValueOnce(problem(403, "step_up_required"))
+    .mockResolvedValue({
+      id: "bps_2",
+      url: "https://billing.stripe.test/after-code",
+      expires_at: null,
+    });
+  confirmStepUp.mockResolvedValue(undefined);
+  getCustomerBillingOverview.mockResolvedValue(
+    subscribed({}, { payment_mode: "stripe", portal_available: true }),
+  );
+
+  await withLocation(async (assign) => {
+    renderPanel();
+    const portal = await screen.findAllByRole("button", {
+      name: "Zmień plan w portalu płatności",
+    });
+    fireEvent.click(portal[0]!);
+    const dialog = await screen.findByRole("dialog", {
+      name: "Potwierdź kodem z aplikacji",
+    });
+    fireEvent.change(within(dialog).getByLabelText("Kod z aplikacji"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Potwierdź" }));
+
+    await waitFor(() => expect(confirmStepUp).toHaveBeenCalledWith("123456"));
+    await waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(
+        "https://billing.stripe.test/after-code",
+      ),
+    );
+    expect(createBillingPortal).toHaveBeenCalledTimes(2);
+  });
+});
