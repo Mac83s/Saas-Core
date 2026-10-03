@@ -153,6 +153,11 @@ test("wznawia zapisany krok danych po angielsku", async () => {
     await screen.findByRole("heading", { name: "Add the essentials" }),
   ).not.toBeNull();
   expect(screen.getByDisplayValue("Saved business")).not.toBeNull();
+  // The saved language reads as its name before the list is ever opened,
+  // not „en”.
+  expect(
+    screen.getByRole("combobox", { name: "Primary website language" }),
+  ).toHaveTextContent("English");
   expect(
     screen.getByText(/saved-business\.sites\.example\.test/),
   ).not.toBeNull();

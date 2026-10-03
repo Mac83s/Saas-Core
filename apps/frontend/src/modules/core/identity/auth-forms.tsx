@@ -257,7 +257,16 @@ export function RegistrationForm() {
               <FieldLabel htmlFor="locale">
                 {t("communicationLanguage")}
               </FieldLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select
+                // The trigger shows the option's label, not its raw value,
+                // before the list has ever been opened.
+                items={[
+                  { value: "pl", label: "Polski" },
+                  { value: "en", label: "English" },
+                ]}
+                onValueChange={field.onChange}
+                value={field.value}
+              >
                 <SelectTrigger className="w-full" id="locale">
                   <SelectValue />
                 </SelectTrigger>

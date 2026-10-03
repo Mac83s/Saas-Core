@@ -483,7 +483,16 @@ function DetailsStep({
                   <FieldLabel htmlFor="onboarding-locale">
                     {t("onboardingLanguage")}
                   </FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    // The trigger shows the option's label, not its raw
+                    // value, before the list has ever been opened.
+                    items={[
+                      { value: "pl", label: common("polish") },
+                      { value: "en", label: common("english") },
+                    ]}
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
                     <SelectTrigger
                       aria-invalid={fieldState.invalid}
                       className="w-full"

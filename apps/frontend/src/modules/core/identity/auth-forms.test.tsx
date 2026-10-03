@@ -101,6 +101,10 @@ test("pokazuje równoważny komunikat rejestracji zwrócony przez API", async ()
   );
   renderWithMessages(<RegistrationForm />);
 
+  // The language reads as its name before the list is ever opened, not „pl”.
+  expect(
+    screen.getByRole("combobox", { name: "Język komunikacji" }),
+  ).toHaveTextContent("Polski");
   fireEvent.change(screen.getByLabelText("E-mail"), {
     target: { value: "new@example.com" },
   });

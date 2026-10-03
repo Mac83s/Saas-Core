@@ -1908,6 +1908,12 @@ export function PageEditor({
                       {t("locale")}
                     </FieldLabel>
                     <Select
+                      // The trigger shows the language's name, not its code,
+                      // before the list has ever been opened.
+                      items={localeOptions.map((item) => ({
+                        value: item.code,
+                        label: item.name,
+                      }))}
                       onValueChange={(nextLocale) => {
                         if (!nextLocale) return;
                         setLocale(nextLocale);

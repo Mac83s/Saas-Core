@@ -684,6 +684,10 @@ test("the page settings show what a search engine reads, again after a save", as
     expect(readSeoPreview).toHaveBeenCalledWith(page.site_id, page.id, "pl"),
   );
   const before = vi.mocked(readSeoPreview).mock.calls.length;
+  // The language reads as its name before the list is ever opened, not „pl”.
+  expect(screen.getByRole("combobox", { name: "Język" })).toHaveTextContent(
+    "Polski",
+  );
 
   fireEvent.change(screen.getByLabelText("Tytuł strony"), {
     target: { value: "Nowy tytuł" },

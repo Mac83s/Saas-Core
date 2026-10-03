@@ -20,6 +20,12 @@ export function LocaleSwitcher() {
 
   return (
     <Select
+      // The trigger shows the option's label, not its raw value, before the
+      // list has ever been opened.
+      items={[
+        { value: "pl", label: common("polish") },
+        { value: "en", label: common("english") },
+      ]}
       onValueChange={(nextLocale) => {
         if (nextLocale === "pl" || nextLocale === "en") {
           router.replace(pathname, { locale: nextLocale });
