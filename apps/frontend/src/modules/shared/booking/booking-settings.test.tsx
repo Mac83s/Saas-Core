@@ -191,6 +191,7 @@ function renderSettings({
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? messages : englishMessages}
+      timeZone="Europe/Warsaw"
     >
       <BookingSettings
         canManageBilling={canManageBilling}
@@ -320,6 +321,48 @@ test("usługa pokazuje swoją cenę, a „Cennik” otwiera jej ceny, dopłaty i
     within(dialog).getByRole("table", { name: "Dopłaty i kaucja" }),
   ).toBeInTheDocument();
   expect((await axe.run(dialog, noContrast)).violations).toEqual([]);
+});
+
+test("cennik oferty nad cenami pobytów: każda etykieta trafia do swojego pola", async () => {
+  // A company that books by dates has the stays' prices on the page, with
+  // their own preview — and an offer's „Cennik” opens a second one over it.
+  api.getBookingSetup.mockResolvedValue({
+    ...SETUP,
+    services: [
+      ...SETUP.services,
+      service({
+        id: "stay",
+        name: "Pobyt w domku",
+        time_model: "range",
+        range_unit: "night",
+        duration_minutes: null,
+        staff_count: 0,
+        staff_ids: [],
+        group_ids: [GROUP],
+      }),
+    ],
+  });
+  renderSettings();
+  const stays = await screen.findByRole("table", { name: "Ceny pobytów" });
+  expect(stays).toBeInTheDocument();
+  const services = screen.getByRole("table", { name: "Usługi firmy" });
+  const herd = within(services)
+    .getByText("Korekcja stada 60–150 krów")
+    .closest("tr")!;
+  fireEvent.click(within(herd).getByRole("button", { name: "Cennik" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Cennik: Korekcja stada 60–150 krów",
+  });
+  expect(
+    screen.getAllByRole("region", {
+      name: "Jaka cena obowiązuje dnia…",
+      hidden: true,
+    }),
+  ).toHaveLength(2);
+  const ids = [...document.querySelectorAll("[id]")].map((node) => node.id);
+  expect(ids.filter((id, at) => ids.indexOf(id) !== at)).toEqual([]);
+  // The dialog's „Dzień” is the dialog's field, not the page's under it.
+  expect(dialog).toContainElement(within(dialog).getByLabelText("Dzień"));
 });
 
 test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", async () => {

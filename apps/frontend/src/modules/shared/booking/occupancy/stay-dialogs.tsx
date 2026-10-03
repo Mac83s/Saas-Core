@@ -265,7 +265,12 @@ export function NewStayDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-xl" closeLabel={common("close")}>
+      {/* With who comes, the extras and the price the form is taller than a
+          screen: it scrolls inside, the buttons stay within reach. */}
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
+        closeLabel={common("close")}
+      >
         <form
           className="space-y-4"
           noValidate
@@ -681,7 +686,10 @@ export function MoveStayDialog({
       <DialogTrigger render={<Button type="button" variant="outline" />}>
         {t("moveStay")}
       </DialogTrigger>
-      <DialogContent closeLabel={common("close")}>
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto"
+        closeLabel={common("close")}
+      >
         <form
           className="space-y-4"
           noValidate

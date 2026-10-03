@@ -440,6 +440,9 @@ test("pobyt z ceną: kto przyjeżdża i dodatki idą do wyceny, a zmienioną cen
       `group:${COTTAGES}`,
     ),
   );
+  // Taller than a screen with the price in it: the form scrolls inside, so
+  // „Zarezerwuj” stays within reach.
+  expect(dialog).toHaveClass("max-h-[90vh]", "overflow-y-auto");
   // Only what the company still offers is asked about.
   expect(within(dialog).queryByLabelText("Senior")).toBeNull();
   expect(within(dialog).queryByLabelText(/Sprzątanie/)).toBeNull();

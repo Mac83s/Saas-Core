@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -40,6 +40,9 @@ export function PricePreview({
 }) {
   const t = useTranslations("PriceList");
   const words = usePriceWords(setup);
+  // Two of these can be on one screen — an offer's „Cennik” over the stays'
+  // prices — so every field's id is this instance's own.
+  const id = useId();
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
   const [target, setTarget] = useState("");
   const [date, setDate] = useState(() => wallClock(new Date(), zone).day);
@@ -123,11 +126,11 @@ export function PricePreview({
 
   return (
     <section
-      aria-labelledby="price-preview-title"
+      aria-labelledby={`${id}-title`}
       className="space-y-3 rounded-lg border bg-muted/30 p-4"
     >
       <div className="space-y-1">
-        <h3 className="font-medium" id="price-preview-title">
+        <h3 className="font-medium" id={`${id}-title`}>
           {t("previewTitle")}
         </h3>
         <p className="text-sm text-muted-foreground">{t("previewHint")}</p>
@@ -143,11 +146,11 @@ export function PricePreview({
         <div className="grid grid-cols-2 gap-4">
           {services.length > 1 ? (
             <Field className="col-span-2">
-              <FieldLabel htmlFor="preview-offer">
+              <FieldLabel htmlFor={`${id}-offer`}>
                 {t("previewOffer")}
               </FieldLabel>
               <NativeSelect
-                id="preview-offer"
+                id={`${id}-offer`}
                 onChange={(event) => {
                   setServiceId(event.target.value);
                   setTarget("");
@@ -163,7 +166,7 @@ export function PricePreview({
             </Field>
           ) : null}
           <Field>
-            <FieldLabel htmlFor="preview-date">
+            <FieldLabel htmlFor={`${id}-date`}>
               {t(
                 stay
                   ? byDays
@@ -173,7 +176,7 @@ export function PricePreview({
               )}
             </FieldLabel>
             <Input
-              id="preview-date"
+              id={`${id}-date`}
               onChange={(event) => setDate(event.target.value)}
               type="date"
               value={date}
@@ -181,11 +184,11 @@ export function PricePreview({
           </Field>
           {stay ? (
             <Field>
-              <FieldLabel htmlFor="preview-length">
+              <FieldLabel htmlFor={`${id}-length`}>
                 {t(byDays ? "previewDays" : "previewNights")}
               </FieldLabel>
               <Input
-                id="preview-length"
+                id={`${id}-length`}
                 inputMode="numeric"
                 min={1}
                 onChange={(event) => setLength(event.target.value)}
@@ -195,9 +198,9 @@ export function PricePreview({
             </Field>
           ) : (
             <Field>
-              <FieldLabel htmlFor="preview-time">{t("previewTime")}</FieldLabel>
+              <FieldLabel htmlFor={`${id}-time`}>{t("previewTime")}</FieldLabel>
               <Input
-                id="preview-time"
+                id={`${id}-time`}
                 onChange={(event) => setTime(event.target.value)}
                 type="time"
                 value={time}
@@ -206,9 +209,9 @@ export function PricePreview({
           )}
           {stay && groups.length + units.length > 1 ? (
             <Field className="col-span-2">
-              <FieldLabel htmlFor="preview-unit">{t("previewUnit")}</FieldLabel>
+              <FieldLabel htmlFor={`${id}-unit`}>{t("previewUnit")}</FieldLabel>
               <NativeSelect
-                id="preview-unit"
+                id={`${id}-unit`}
                 onChange={(event) => setTarget(event.target.value)}
                 value={target}
               >
@@ -229,7 +232,7 @@ export function PricePreview({
         </div>
         <PartyFields
           categories={categories}
-          idPrefix="preview-party"
+          idPrefix={`${id}-party`}
           onChange={setParty}
           value={party}
         />
