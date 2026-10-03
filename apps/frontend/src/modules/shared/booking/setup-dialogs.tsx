@@ -75,12 +75,16 @@ type ServiceValues = {
   notice: number;
   staffCount: number;
   choice: Choice;
+  step: number;
+  online: boolean;
   staffIds: string[];
   locationIds: string[];
   resourceIds: string[];
 };
 
 const CHOICES: Choice[] = ["none", "team", "person"];
+/** How often a visit may start (B6): each divides an hour. */
+const SLOT_STEPS = [5, 10, 15, 20, 30, 60];
 const TIME_MODELS: TimeModel[] = ["slot", "range"];
 const RANGE_UNITS: RangeUnit[] = ["night", "day"];
 /** Check-in and check-out, pickup and return, until the company says (ADR-072 §1). */
@@ -191,6 +195,8 @@ export function ServiceDialog({
         notice: minutes(129600),
         staffCount: z.number().or(z.nan()),
         choice: z.enum(CHOICES),
+        step: z.number().int(),
+        online: z.boolean(),
         staffIds: z.array(z.string()),
         locationIds: z.array(z.string()),
         resourceIds: z.array(z.string()),
@@ -244,6 +250,8 @@ export function ServiceDialog({
       notice: service?.minimum_notice_minutes ?? 60,
       staffCount: service?.staff_count ?? 1,
       choice: (service?.public_staff_choice as Choice | undefined) ?? "none",
+      step: service?.slot_step_minutes ?? 5,
+      online: service?.online ?? true,
       staffIds: service?.staff_ids ?? only(people),
       locationIds: service?.location_ids ?? only(places),
       resourceIds: service?.resource_ids ?? [],
@@ -292,6 +300,7 @@ export function ServiceDialog({
             duration_minutes: values.duration,
             staff_count: values.staffCount,
             public_staff_choice: values.choice,
+            slot_step_minutes: values.step,
             staff_ids: values.staffIds,
           };
     const body = {
@@ -300,6 +309,7 @@ export function ServiceDialog({
       buffer_before_minutes: values.before,
       buffer_after_minutes: values.after,
       minimum_notice_minutes: values.notice,
+      online: values.online,
       location_ids: values.locationIds,
       resource_ids: values.resourceIds,
       ...(!service && template?.appointmentKind
@@ -448,6 +458,22 @@ export function ServiceDialog({
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               {stay ? null : minutesField("duration", t("duration"))}
+              {stay ? null : (
+                <Field>
+                  <FieldLabel htmlFor="service-step">{t("slotStep")}</FieldLabel>
+                  <NativeSelect
+                    id="service-step"
+                    {...form.register("step", { valueAsNumber: true })}
+                  >
+                    {SLOT_STEPS.map((step) => (
+                      <option key={step} value={step}>
+                        {t("slotStepValue", { minutes: step })}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  <FieldDescription>{t("slotStepHint")}</FieldDescription>
+                </Field>
+              )}
               {minutesField("notice", t("notice"), t("noticeHint"))}
               {minutesField("before", t("bufferBefore"))}
               {minutesField("after", t("bufferAfter"), t("bufferHint"))}
@@ -560,6 +586,21 @@ export function ServiceDialog({
           <FieldSet className={stay ? "hidden" : undefined}>
             <FieldLegend>{t("legendPublic")}</FieldLegend>
             <FieldDescription>{t("publicHint")}</FieldDescription>
+            <Field>
+              <label
+                className="flex min-h-11 items-center gap-2 text-sm"
+                htmlFor="service-online"
+              >
+                <input
+                  className="size-4"
+                  id="service-online"
+                  type="checkbox"
+                  {...form.register("online")}
+                />
+                {t("online")}
+              </label>
+              <FieldDescription>{t("onlineHint")}</FieldDescription>
+            </Field>
             <Field data-invalid={Boolean(errors.choice)}>
               <FieldLabel htmlFor="service-choice">{t("choice")}</FieldLabel>
               <NativeSelect
@@ -635,6 +676,10 @@ export function ItemDialog({
   const [address, setAddress] = useState(
     item && "address" in item ? item.address : "",
   );
+  // On the site's booking form (B2); only a place has it.
+  const [online, setOnline] = useState(
+    item && "online" in item ? item.online : true,
+  );
   const [groupId, setGroupId] = useState(unit?.group_id ?? "");
   const [placeId, setPlaceId] = useState(unit?.location_id ?? "");
   const [capacity, setCapacity] = useState(
@@ -670,7 +715,7 @@ export function ItemDialog({
     setProblem(undefined);
     try {
       if (kind === "location") {
-        const body = { name: name.trim(), address: address.trim() };
+        const body = { name: name.trim(), address: address.trim(), online };
         await (item
           ? updateSetupLocation(
               item.id,
@@ -763,6 +808,24 @@ export function ItemDialog({
                 onChange={(event) => setAddress(event.target.value)}
                 value={address}
               />
+            </Field>
+          ) : null}
+          {kind === "location" ? (
+            <Field>
+              <label
+                className="flex min-h-11 items-center gap-2 text-sm"
+                htmlFor="location-online"
+              >
+                <input
+                  checked={online}
+                  className="size-4"
+                  id="location-online"
+                  onChange={(event) => setOnline(event.target.checked)}
+                  type="checkbox"
+                />
+                {t("placeOnline")}
+              </label>
+              <FieldDescription>{t("placeOnlineHint")}</FieldDescription>
             </Field>
           ) : null}
           {kind === "resource" ? (

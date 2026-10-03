@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -28,8 +28,16 @@ const schema = z.object({ starts_at: z.string().min(1) });
 
 export function SelfServiceBooking({ token }: { token: string }) {
   const t = useTranslations("BookingSelfService");
+  const locale = useLocale();
   const [appointment, setAppointment] = useState<BookingPublicAppointment>();
   const [problem, setProblem] = useState<string>();
+  // The booking's own terms (B4); a booking read from an older server has
+  // none and keeps both actions, as before.
+  const terms = appointment?.self_service ?? {
+    reschedule: true,
+    cancel: true,
+    until: null,
+  };
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { starts_at: "" },
@@ -105,20 +113,41 @@ export function SelfServiceBooking({ token }: { token: string }) {
             </div>
             {appointment.status === "confirmed" ? (
               <>
-                <form className="space-y-3" onSubmit={reschedule}>
-                  <Label htmlFor="self-service-start">{t("newTime")}</Label>
-                  <Input
-                    id="self-service-start"
-                    type="datetime-local"
-                    {...form.register("starts_at")}
-                  />
-                  <Button disabled={form.formState.isSubmitting} type="submit">
-                    {t("reschedule")}
+                {/* What the link may still do: the booking's own terms (B4). */}
+                {terms.reschedule ? (
+                  <form className="space-y-3" onSubmit={reschedule}>
+                    <Label htmlFor="self-service-start">{t("newTime")}</Label>
+                    <Input
+                      id="self-service-start"
+                      type="datetime-local"
+                      {...form.register("starts_at")}
+                    />
+                    <Button
+                      disabled={form.formState.isSubmitting}
+                      type="submit"
+                    >
+                      {t("reschedule")}
+                    </Button>
+                  </form>
+                ) : null}
+                {terms.cancel ? (
+                  <Button onClick={() => void cancel()} variant="destructive">
+                    {t("cancel")}
                   </Button>
-                </form>
-                <Button onClick={() => void cancel()} variant="destructive">
-                  {t("cancel")}
-                </Button>
+                ) : null}
+                {appointment.self_service ? (
+                  <p className="text-sm text-muted-foreground">
+                    {terms.until
+                      ? t("changesUntil", {
+                          when: new Intl.DateTimeFormat(locale, {
+                            dateStyle: "full",
+                            timeStyle: "short",
+                            timeZone: appointment.timezone,
+                          }).format(new Date(terms.until)),
+                        })
+                      : t("contactCompany")}
+                  </p>
+                ) : null}
               </>
             ) : null}
           </>

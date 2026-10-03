@@ -2090,3 +2090,40 @@ test("public booking offers the company's horizon and asks for the contact it re
     "email",
   );
 });
+
+test("the customer's link offers only what the booking's terms allow (B4)", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    self_service: {
+      reschedule: false,
+      cancel: true,
+      until: "2026-08-20T07:00:00Z",
+    },
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_terms" />
+    </NextIntlClientProvider>,
+  );
+  expect(await screen.findByRole("button", { name: "Cancel booking" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
+  expect(
+    screen.getByText(/You can change the time or cancel until/),
+  ).not.toBeNull();
+});
+
+test("a booking whose terms allow nothing sends the customer to the company (B4)", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    self_service: { reschedule: false, cancel: false, until: null },
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_none" />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    await screen.findByText("To change or cancel, contact the company."),
+  ).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Cancel booking" })).toBeNull();
+});

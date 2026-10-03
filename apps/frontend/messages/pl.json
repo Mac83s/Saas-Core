@@ -2810,6 +2810,8 @@
     "failed": "Nie udało się zapisać produktów."
   },
   "BookingSelfService": {
+    "changesUntil": "Zmienić termin lub odwołać możesz do {when}.",
+    "contactCompany": "Zmiany i odwołanie — skontaktuj się z firmą.",
     "title": "Zarządzaj rezerwacją",
     "description": "Możesz zmienić termin lub anulować aktywną rezerwację.",
     "notFound": "Rezerwacja nie istnieje lub link wygasł.",
@@ -4006,6 +4008,13 @@
     "problem": "Nie udało się zlecić obrazu. Spróbuj ponownie."
   },
   "ServicesSetup": {
+    "slotStep": "Wizyty zaczynają się co",
+    "slotStepValue": "{minutes} min",
+    "slotStepHint": "Liczone od początku godzin pracy osoby; tak samo w panelu i na stronie.",
+    "online": "W rezerwacji online na stronie",
+    "onlineHint": "Wyłączona: nie ma jej w formularzu na stronie firmy, zespół zapisuje na nią w panelu.",
+    "placeOnline": "W rezerwacji online na stronie",
+    "placeOnlineHint": "Wyłączone: klient nie wybierze tego miejsca na stronie, zespół zapisuje tu w panelu.",
     "numberRequired": "Podaj liczbę.",
     "minutesRange": "Podaj od 0 do {max} minut.",
     "nameRequired": "Podaj nazwę.",

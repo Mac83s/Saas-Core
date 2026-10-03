@@ -309,6 +309,9 @@ test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", 
       minimum_notice_minutes: 60,
       staff_count: 2,
       public_staff_choice: "team",
+      // The start grid and the site's form (B6, B2): as the service had them.
+      slot_step_minutes: 5,
+      online: true,
       staff_ids: [MARCIN, PIOTR],
       location_ids: [BASE],
       resource_ids: [ROOM],
@@ -380,7 +383,7 @@ test("wyłączenie usługi i nowe miejsce z adresem", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
   await waitFor(() =>
     expect(api.createSetupLocation).toHaveBeenCalledWith(
-      { name: "Gabinet Toruń", address: "ul. Długa 2" },
+      { name: "Gabinet Toruń", address: "ul. Długa 2", online: true },
       expect.any(String),
     ),
   );

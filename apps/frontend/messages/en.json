@@ -2810,6 +2810,8 @@
     "failed": "The products could not be saved."
   },
   "BookingSelfService": {
+    "changesUntil": "You can change the time or cancel until {when}.",
+    "contactCompany": "To change or cancel, contact the company.",
     "title": "Manage booking",
     "description": "You can reschedule or cancel an active booking.",
     "notFound": "The booking does not exist or the link has expired.",
@@ -4006,6 +4008,13 @@
     "problem": "The image could not be requested. Try again."
   },
   "ServicesSetup": {
+    "slotStep": "Visits start every",
+    "slotStepValue": "{minutes} min",
+    "slotStepHint": "Counted from the start of a person's hours; the same in the panel and on the site.",
+    "online": "In online booking on the site",
+    "onlineHint": "Off: it is not on the company's site form; the team books it in the panel.",
+    "placeOnline": "In online booking on the site",
+    "placeOnlineHint": "Off: customers cannot pick this place on the site; the team books it in the panel.",
     "numberRequired": "Enter a number.",
     "minutesRange": "Enter 0 to {max} minutes.",
     "nameRequired": "Enter a name.",
