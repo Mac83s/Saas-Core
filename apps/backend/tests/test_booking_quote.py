@@ -450,7 +450,8 @@ def test_the_quote_api_prices_and_a_booking_answers_a_changed_price() -> None:
         HTTP_IDEMPOTENCY_KEY=key(),
     )
     assert (stale.status_code, stale.json()["code"]) == (409, "quote_changed")
-    assert stale.json()["detail"]["quote"]["digest"] == quote["digest"]
+    # The new quote comes with the refusal, amounts as numbers.
+    assert stale.json()["detail"]["quote"] == quote
     made = client.post(
         "/api/v1/booking/stays/",
         {**booking, "quote_digest": quote["digest"]},

@@ -92,14 +92,16 @@ class QuoteChanged(APIException):
 
     status_code = 409
     default_code = "quote_changed"
+    default_detail = "Cena zmieniła się od chwili, gdy ją pokazaliśmy. Sprawdź nową."
+    #: The detail below is data, not messages: the handler reads the code here.
+    problem_code = "quote_changed"
 
     def __init__(self, quote: Quote) -> None:
-        super().__init__(
-            detail={
-                "message": "Cena zmieniła się od chwili, gdy ją pokazaliśmy. Sprawdź nową.",
-                "quote": quote.snapshot(),
-            }
-        )
+        super().__init__()
+        # Set after: DRF turns every leaf of a detail into text, and a quote's
+        # amounts are numbers.
+        body: Any = {"message": self.default_detail, "quote": quote.snapshot()}
+        self.detail = body
         self.quote = quote
 
 
