@@ -43,6 +43,10 @@ import {
   typeText,
 } from "#lib/organization-types";
 import { ClosuresSection } from "./closures-section";
+import {
+  ItemTranslationsSheet,
+  type TranslatedItem,
+} from "./item-translations-sheet";
 import { SeasonsSection } from "./seasons-section";
 import { problemText } from "./people/person-dialogs";
 import {
@@ -87,6 +91,9 @@ export function BookingSettings({
   /** A service still booked ahead, asked about before it is switched off (W1). */
   const [switchingOff, setSwitchingOff] = useState<ServiceSetup>();
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
+  /** The item whose „Tłumaczenia” are open (TL12d). */
+  const [translating, setTranslating] = useState<TranslatedItem>();
+  const translations = useTranslations("Translations");
 
   const load = useCallback(async () => {
     try {
@@ -329,6 +336,15 @@ export function BookingSettings({
                 open({ kind: "service", service }, trigger ?? null),
             },
             {
+              label: translations("action"),
+              onSelect: () =>
+                setTranslating({
+                  kind: "service",
+                  id: service.id,
+                  name: service.name,
+                }),
+            },
+            {
               label: t(service.active ? "switchOffService" : "switchOnService"),
               onSelect: () =>
                 // Bookings still ahead stay; the owner hears how many first (W1).
@@ -361,6 +377,10 @@ export function BookingSettings({
               : { kind, item: item as ResourceSetup },
           trigger ?? null,
         ),
+    },
+    {
+      label: translations("action"),
+      onSelect: () => setTranslating({ kind, id: item.id, name: item.name }),
     },
     {
       label: t(item.active ? "switchOff" : "switchOn"),
@@ -530,6 +550,10 @@ export function BookingSettings({
 
   return (
     <div className="space-y-10">
+      <ItemTranslationsSheet
+        item={translating}
+        onClose={() => setTranslating(undefined)}
+      />
       {/* The people's hours live with the people: said first, not last (UX-059). */}
       <p className="max-w-3xl text-sm text-muted-foreground">
         {t("peopleElsewhere")}{" "}

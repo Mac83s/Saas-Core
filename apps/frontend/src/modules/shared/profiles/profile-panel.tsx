@@ -29,6 +29,7 @@ import { Switch } from "@saas-core/ui/components/switch";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { profileProblem } from "./problem";
+import { ProfileTranslations } from "./profile-translations";
 
 /** The three catalogue page layouts (ADR-053 §6); the keys are the contract. */
 const LAYOUTS = ["card", "cover", "compact"] as const;
@@ -331,6 +332,9 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
           )}
         </CardFooter>
       </Card>
+      {/* The card in the company's other languages, next to what it
+          translates (TL12d). */}
+      <ProfileTranslations canManage={canManage} profileId={profile.id} />
     </div>
   );
 }

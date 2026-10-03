@@ -4824,3 +4824,171 @@ export async function markSiteInquiryRead(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+// --- Translations of the card and the booking catalogue (TL12) ---------------
+
+/** One unit of a translation form: the source, the text, its state, its author. */
+export type TranslationUnitState =
+  components["schemas"]["ProfileTranslationUnit"];
+export type ProfileTranslationList =
+  components["schemas"]["ProfileTranslationList"];
+export type ProfileTranslation =
+  components["schemas"]["ProfileTranslationSummary"];
+export type ProfileTranslationInput =
+  components["schemas"]["ProfileTranslation"];
+export type BookingItemKind =
+  "service" | "location" | "resource" | "group" | "team";
+export type BookingItemTranslationList =
+  components["schemas"]["ItemTranslationList"];
+export type BookingItemTranslation = components["schemas"]["ItemTranslation"];
+export type BookingItemTranslationInput =
+  components["schemas"]["ItemTranslationInput"];
+export type TranslationOffer = components["schemas"]["TranslationOffer"];
+export type TranslationQuote = components["schemas"]["Quote"];
+export type TranslationTarget = components["schemas"]["Target"];
+export type TranslationJob = components["schemas"]["Job"];
+
+export async function getProfileTranslations(
+  profileId: string,
+): Promise<ProfileTranslationList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/profiles/{profile_id}/translations/",
+    {
+      params: { path: { profile_id: profileId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateProfileTranslation(
+  profileId: string,
+  locale: string,
+  input: ProfileTranslationInput,
+): Promise<ProfileTranslation> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/profiles/{profile_id}/translations/{locale}/",
+    {
+      params: { path: { profile_id: profileId, locale } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getBookingItemTranslations(
+  kind: BookingItemKind,
+  itemId: string,
+): Promise<BookingItemTranslationList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/translations/{kind}/{item_id}/",
+    {
+      params: { path: { kind, item_id: itemId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBookingItemTranslation(
+  kind: BookingItemKind,
+  itemId: string,
+  locale: string,
+  input: BookingItemTranslationInput,
+  idempotencyKey: string,
+): Promise<BookingItemTranslation> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/setup/translations/{kind}/{item_id}/{locale}/",
+    {
+      params: {
+        path: { kind, item_id: itemId, locale },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function previewBookingItemTranslation(
+  kind: BookingItemKind,
+  itemId: string,
+  locale: string,
+  input: BookingItemTranslationInput,
+): Promise<BookingItemTranslation> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/translations/{kind}/{item_id}/{locale}/preview/",
+    {
+      params: { path: { kind, item_id: itemId, locale } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Whether the company can order a translation now, and why not. */
+export async function getTranslationOffer(): Promise<TranslationOffer> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/offer/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function quoteTranslation(
+  targets: TranslationTarget[],
+): Promise<TranslationQuote> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/translation/quotes/",
+    {
+      body: { targets, protected: "propose", include_unverified: false },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function orderTranslation(
+  targets: TranslationTarget[],
+  quote: Pick<TranslationQuote, "digest" | "credits">,
+  idempotencyKey: string,
+): Promise<TranslationJob> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/translation/jobs/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: {
+        targets,
+        protected: "propose",
+        include_unverified: false,
+        digest: quote.digest,
+        expected_credits: quote.credits,
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

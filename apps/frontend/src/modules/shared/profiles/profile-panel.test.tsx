@@ -30,11 +30,25 @@ const api = vi.hoisted(() => ({
   withdrawOrganizationProfile: vi.fn(),
   updateProfile: vi.fn(),
   searchCatalog: vi.fn(),
+  // The card's other languages (TL12d): one language here, no engine.
+  getProfileTranslations: vi.fn(async () => ({
+    source_locale: "pl",
+    languages: [],
+  })),
+  getTranslationOffer: vi.fn(async () => {
+    throw new Error("not composed");
+  }),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
   ...api,
+}));
+
+vi.mock("#i18n/navigation", () => ({
+  Link: ({ children, ...props }: { children: ReactNode; href: string }) => (
+    <a {...props}>{children}</a>
+  ),
 }));
 
 const DICTIONARY: CatalogDictionary = {

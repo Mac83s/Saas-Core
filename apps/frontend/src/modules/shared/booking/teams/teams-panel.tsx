@@ -49,6 +49,10 @@ import { useDataTableLabels } from "#lib/data-table-labels";
 import { addDays, wallClock, weekStart } from "../calendar-time";
 import { ConfirmDialog, problemText } from "../people/person-dialogs";
 import { todayState } from "../people/people";
+import {
+  ItemTranslationsSheet,
+  type TranslatedItem,
+} from "../item-translations-sheet";
 
 const BOOKING_MANAGE = "booking.appointment.manage";
 const collator = new Intl.Collator("pl", { sensitivity: "base" });
@@ -90,6 +94,8 @@ export function TeamsPanel({
   const [editing, setEditing] = useState<StaffTeam | "new">();
   const [removing, setRemoving] = useState<StaffTeam>();
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
+  const [translating, setTranslating] = useState<TranslatedItem>();
+  const translations = useTranslations("Translations");
 
   const load = useCallback(async () => {
     try {
@@ -217,6 +223,13 @@ export function TeamsPanel({
         },
       },
       {
+        // A team's name is a proper name: translated by a person, never
+        // sent to a model unasked (TL12c).
+        label: translations("action"),
+        onSelect: () =>
+          setTranslating({ kind: "team", id: team.id, name: team.name }),
+      },
+      {
         label: t("delete"),
         destructive: true,
         onSelect: (trigger) => {
@@ -336,6 +349,10 @@ export function TeamsPanel({
           title={t("deleteTitle", { name: removing.name })}
         />
       ) : null}
+      <ItemTranslationsSheet
+        item={translating}
+        onClose={() => setTranslating(undefined)}
+      />
     </PanelPage>
   );
 }
