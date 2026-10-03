@@ -30,6 +30,7 @@ from .settings_registry import (
     SOURCES,
     SettingGroup,
     SettingSpec,
+    platform_group,
     registered_areas,
     registered_groups,
     schema_entry,
@@ -157,8 +158,10 @@ class SettingsSchemaView(APIView):
 def settings_urlpatterns() -> list[URLPattern]:
     patterns = [path("current/settings/schema/", SettingsSchemaView.as_view())]
     for group in registered_groups():
-        if group.api is not None:
-            continue  # An entity group's module serves its own API.
+        if group.api is not None or platform_group(group):
+            # An entity group's module serves its own API; the platform's
+            # groups are the operators'.
+            continue
         read, preview = _group_views(group)
         patterns += [
             path(f"current/settings/{group.key}/", read.as_view()),

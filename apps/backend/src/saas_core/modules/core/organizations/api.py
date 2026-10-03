@@ -35,6 +35,7 @@ from .joining import (
     register_seat_limit,
 )
 from .person_gate import PersonRequired, assert_person_required
+from .platform_settings import platform_setting
 from .public_locales import (
     LocaleRedirect,
     PublicLocalesLimit,
@@ -82,6 +83,7 @@ __all__ = [
     "SettingSpec",
     "change_settings",
     "group_commands",
+    "platform_setting",
     "register_setting_area",
     "register_setting_group",
     "relabel_settings",

@@ -89,6 +89,10 @@ class SettingSpec:
     #: False: no product may set a starting value (`settingsDefaults`) — e.g. a
     #: switch whose turning on is one person's consent (ADR-069 pkt 14).
     product_default: bool = True
+    #: Who may change the platform's value (S-T7): 1 — any operator; 2 — a
+    #: platform administrator, for whatever changes what a company pays or gets,
+    #: or has a legal effect. The stricter one unless the module says otherwise.
+    operator_level: int = 2
     #: `copy_at_creation`: the product's value becomes a new company's own when
     #: it is created, and is never read live — a company older than the value
     #: keeps what it had (e.g. a 2FA requirement that would lock out people
@@ -261,10 +265,24 @@ def live_product_value(spec: SettingSpec) -> Any:
 
 
 def platform_value(spec: SettingSpec) -> Any:
-    """The platform's value, or None when the platform has not set one."""
-    if spec.platform_env is None or "platform" not in spec.scopes:
+    """The platform's value, or None when the platform has not set one: what
+    an operator set (S-T1), else the deployment's `.env` (`platform_env`)."""
+    if "platform" not in spec.scopes:
+        return None
+    from .platform_settings import platform_overrides  # noqa: PLC0415
+
+    chosen = platform_overrides().get(spec.key)
+    if chosen is not None:
+        return chosen
+    if spec.platform_env is None:
         return None
     return getattr(settings, spec.platform_env, None)
+
+
+def platform_group(group: SettingGroup) -> bool:
+    """A group only the platform sets: every key of it platform-only. It is
+    not a company's — not in its schema, not its to change."""
+    return all(spec.scopes == ("platform",) for spec in group.settings)
 
 
 def check_value(spec: SettingSpec, value: Any) -> tuple[Any, str, str] | None:
@@ -587,8 +605,8 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         problems.append(f"klasa danych {spec.data_class!r} (health nigdy)")
     if not spec.scopes or set(spec.scopes) - set(SCOPES):
         problems.append(f"zasięgi spoza {list(SCOPES)}")
-    elif group.api is None and "organization" not in spec.scopes:
-        problems.append("grupa rdzenia ma zasięg firmy")
+    elif group.api is None and "organization" not in spec.scopes and not platform_group(group):
+        problems.append("grupa rdzenia ma zasięg firmy — albo wszystkie klucze tylko platformy")
     elif set(spec.scopes) - {"platform", "organization"} and group.read_explicit is not None:
         problems.append("read_explicit czyta tylko wartości firmy")
     if spec.type == "enum" and (
@@ -605,6 +623,8 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         spec.strategy == "restrict" and spec.type not in {"enum", "int"}
     ):
         problems.append("strategia override albo restrict (restrict dla enum i int)")
+    if spec.operator_level not in (1, 2):
+        problems.append("poziom operatora 1 albo 2")
     if spec.no_links and spec.type != "text":
         problems.append("no_links tylko dla typu text")
     if spec.inheritance not in SETTING_INHERITANCE or (

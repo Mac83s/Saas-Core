@@ -305,3 +305,41 @@ class AccountAuditEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event_type}:{self.subject_user_id}:{self.id}"
+
+
+class OperatorGrant(models.Model):
+    """Level 2 of a platform operator (S-T7): what changes what a company pays
+    or gets for free, and whatever has a legal effect. An explicit grant — not
+    `is_superuser`, which every administrative account of a dev server has —
+    given and taken back only by a server command, with a reason; the rows
+    are the history of who held it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="operator_grants")
+    granted_by = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="operator_grants_given", null=True
+    )
+    reason = models.TextField()
+    granted_at = models.DateTimeField(default=django_timezone.now)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="operator_grants_taken",
+        null=True,
+        blank=True,
+    )
+    revoke_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-granted_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(revoked_at__isnull=True),
+                name="identity_operator_one_active_grant",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id}:{'active' if self.revoked_at is None else 'revoked'}"

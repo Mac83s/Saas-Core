@@ -48,6 +48,7 @@ from .settings_registry import (
     check_value,
     live_product_value,
     organization_groups,
+    platform_group,
     platform_value,
     product_value,
     registered_groups,
@@ -142,7 +143,10 @@ def resolve(key: str, *, organization_id: UUID | None = None) -> Resolved:
     its own ceilings on top (ADR-078 pkt 3)."""
     spec = setting_spec(key)
     group = setting_group(spec.group)
-    if group.api is not None:
+    if platform_group(group):
+        # No company has a say: the platform's value, without a tenant.
+        explicit = None
+    elif group.api is not None:
         if group.read_explicit is None:
             raise LookupError(f"{key}: wartość węższego zasięgu czyta jej moduł.")
         explicit = group.read_explicit().get(spec.field)
@@ -191,6 +195,8 @@ def schema(context: TenantContext) -> list[tuple[SettingGroup, bool, str]]:
             group_locked(group),
         )
         for group in organization_groups(context.organization_id)
+        # The platform's own groups are the operators', in „Platforma”.
+        if not platform_group(group)
     ]
 
 
@@ -345,7 +351,7 @@ _DENIALS = {
 def _group(context: TenantContext, group_key: str) -> SettingGroup:
     """A group core reads and changes itself; an entity group's own module does."""
     for group in organization_groups(context.organization_id):
-        if group.key == group_key and group.api is None:
+        if group.key == group_key and group.api is None and not platform_group(group):
             return group
     raise NotFound("Nie ma takiej grupy ustawień.")
 

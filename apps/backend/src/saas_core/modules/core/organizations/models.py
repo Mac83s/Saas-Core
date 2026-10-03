@@ -763,6 +763,30 @@ class OrganizationSetting(models.Model):
         return f"{self.organization_id}:{self.key}"
 
 
+class PlatformSettingEntry(models.Model):
+    """One change of a platform setting (class A; platform settings plan
+    S-T1, S-T2): the value from then on — null: back to the deployment's or
+    the code's — who changed it and why. Append-only: the newest entry of a
+    key is its value, "Przywróć" is one more entry, and the rows are the
+    history. No organization: it is the platform's."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    key = models.CharField(max_length=120)
+    value = models.JSONField(null=True)
+    operator = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    reason = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        indexes = [models.Index(fields=["key", "-created_at"], name="org_platform_setting_key_idx")]
+
+    def __str__(self) -> str:
+        return f"{self.key}@{self.created_at.isoformat()}"
+
+
 class OrganizationSettingsReceipt(models.Model):
     """The answer to one change of a settings group (ADR-046:31-36): a repeat
     with the same key and request gets it again, another request with the same
