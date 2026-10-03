@@ -76,6 +76,7 @@ from .settings_registry import (
 from .settings_service import (
     Resolved,
     change_settings,
+    inherited,
     register_settings_feature_check,
     resolve,
     setting,
@@ -92,6 +93,7 @@ __all__ = [
     "SettingSpec",
     "change_settings",
     "group_commands",
+    "inherited",
     "platform_setting",
     "register_setting_area",
     "register_setting_group",

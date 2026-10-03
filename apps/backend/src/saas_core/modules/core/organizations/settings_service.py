@@ -169,6 +169,23 @@ def setting(key: str, *, organization_id: UUID | None = None) -> Any:
     return resolve(key, organization_id=organization_id).value
 
 
+def inherited(key: str) -> Resolved:
+    """What a company without a value of its own gets for `key`, and from
+    where: the product's default, the platform's value, the code's — the
+    registry's order below the company (ADR-078 pkt 3). For a module that
+    keeps the company's values in its own table and reads them where there is
+    no tenant context to give `resolve()` (a sweep): it reads its row, then
+    asks here, and does not rebuild the order."""
+    spec = setting_spec(key)
+    product = live_product_value(spec)
+    if product is not None:
+        return Resolved(product, "product")
+    platform = platform_value(spec)
+    if platform is not None:
+        return Resolved(platform, "platform")
+    return Resolved(spec.default, "code")
+
+
 def read_group(group_key: str) -> GroupState:
     context = authorize(ORGANIZATION_READ)
     return _state(context, _group(context, group_key))

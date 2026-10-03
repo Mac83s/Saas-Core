@@ -296,3 +296,27 @@ def test_companies_with_a_value_in_a_modules_own_table_are_counted_through_it() 
     assert preview.status_code == 200, preview.data
     assert second.organization_id != first.organization_id
     assert preview.data["companies_following"] == Organization.objects.count() - 1
+
+
+def test_what_a_company_without_its_own_value_gets_is_one_function(
+    settings: Any, django_capture_on_commit_callbacks: Any
+) -> None:
+    from saas_core.modules.core.organizations.api import inherited  # noqa: PLC0415
+
+    assert (inherited(LEAD).value, inherited(LEAD).source) in {(24, "code"), (24, "platform")}
+    operator, secret = operator_after_enrolment()
+    OperatorGrant.objects.create(user=User.objects.get(email="operator@example.test"), reason="t")
+    assert (
+        _post(
+            operator,
+            "/api/v1/auth/step-up/",
+            {"code": current_totp_code(secret, at=timezone.now().timestamp() + 30)},
+        ).status_code
+        == 200
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        assert _post(operator, f"{URL}{LEAD}/", {"value": 48, "reason": "Pilot"}).status_code == 200
+    assert (inherited(LEAD).value, inherited(LEAD).source) == (48, "platform")
+    # The product's default stands above the operator's value.
+    settings.SETTINGS_DEFAULTS = {LEAD: 36}
+    assert (inherited(LEAD).value, inherited(LEAD).source) == (36, "product")
