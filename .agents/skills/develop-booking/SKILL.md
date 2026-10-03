@@ -144,9 +144,11 @@ not in PostgreSQL.
   on every move (ADR-058 §7). Signed with the caller's membership it dies when
   that person leaves — and an unopenable route used to head the queue forever.
 - **Prices, payment and cancellation policies and pending states follow
-  ADR-072 §6–§9; money lives in the order (ADR-073).** Never add a price or
-  deposit field to `Service` or `Appointment` beyond the frozen quote and
-  policy snapshot. Refund thresholds cover only the deposit unless the offer's
+  ADR-072 §6–§9; money lives in the order (ADR-073).** Never add an amount to
+  `Service` or `Appointment` beyond the frozen quote: a price is a `PriceRule`,
+  a charge or a deposit an `Extra`. What an offer carries is policy — how the
+  customer pays (`payment_policy`), later the terms of a prepayment — declared
+  in `offer_settings.py` and frozen into each booking's quote. Refund thresholds cover only the deposit unless the offer's
   switch says otherwise (`appliesTo`, owner decision 28a) — a setting the API
   reads and writes, not a column only the panel knows; an unpaid balance
   never cancels a booking on its own (29a).
@@ -217,6 +219,9 @@ price: ask for a quote. The tax is rounded on each line, halves up; a caller
 that showed a price sends its `digest` back (`quote_digest`) and gets 409
 `quote_changed` with the new quote when it moved. A booking moved is priced
 again for the same people; one from before quotes has none and gets none.
+A customer reads a quote through `quote.customer_quote`: gross, in their
+language, without the company's net, tax and ids — the public form and the
+customer's own link never serialize the full snapshot.
 
 ## Done means
 
