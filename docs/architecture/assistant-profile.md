@@ -3,7 +3,8 @@
 Faza A2 planu asystenta (memex `saas-core-asystent-ai-zakladanie-i-konfiguracja-firmy`),
 uzupełnienie ADR-076. Bez modelu: profil to zapis tego, co powiedział właściciel, a
 konfigurator to czysta funkcja, która z profilu i stanu konta wylicza, o co zapytać i
-co wykonać. Rozmowę, która profil wypełnia, dodaje A3-2.
+co wykonać. Rozmowę, która profil wypełnia, opisuje `assistant-chat.md` („Dwa
+rodzaje rozmowy”, A3-2).
 
 ## Profil (`company-profile.v1`)
 
