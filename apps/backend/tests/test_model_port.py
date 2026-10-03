@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.shared.model_port import registry
 from saas_core.modules.shared.model_port.adapters.base import AdapterCall, RawToolCall
 from saas_core.modules.shared.model_port.adapters.fake import FAKE, FakeFailure, FakeReply
 from saas_core.modules.shared.model_port.adapters.openrouter import (
@@ -409,11 +410,34 @@ def test_an_admission_is_a_reservation_the_call_then_uses() -> None:
 
 
 def test_task_status_names_the_reason_a_task_cannot_run(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_EXTRACT_PROFILE_MODEL", "")
+    # A task a module registered before anybody picked its model on the evals.
+    unpicked = replace(registry._TASKS["assistant.extract_profile"], model="")
+    monkeypatch.setitem(registry._TASKS, "assistant.extract_profile", unpicked)
 
     assert task_status("translation.text").available
     status = task_status("assistant.extract_profile")
     assert (status.available, status.reason) == (False, "model_not_selected")
+
+
+def test_the_assistants_tasks_run_on_the_owners_choice_and_haiku_is_the_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Answer 59a of 03.10: Claude Sonnet 5.5 in code; Claude Haiku 4.5 stays a
+    probed model an operator falls back to through the environment."""
+    for key in ("assistant.conversation", "assistant.extract_profile"):
+        # As declared: this module's fixtures point the conversation at the fake.
+        spec = registry._TASKS[key]
+        assert (spec.adapter, spec.model) == ("openrouter", "anthropic/claude-sonnet-5.5")
+        profile = MODELS[spec.adapter, spec.model]
+        assert profile.probed is not None and spec.capabilities <= profile.capabilities
+
+    haiku = "anthropic/claude-haiku-4.5"
+    monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_ADAPTER", "openrouter")
+    monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_MODEL", haiku)
+    fallback = task_spec("assistant.conversation", platform=False)
+    assert fallback is not None and fallback.model == haiku
+    profile = MODELS[fallback.adapter, haiku]
+    assert profile.probed is not None and fallback.capabilities <= profile.capabilities
 
 
 def test_rows_leave_with_their_organization_and_a_late_call_does_not_bring_them_back() -> None:

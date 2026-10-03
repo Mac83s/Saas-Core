@@ -24,9 +24,11 @@ POOLS = frozenset({"translation", "assistant"})
 _TASKS: dict[str, TaskSpec] = {}
 _KEY = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
 
-#: The tasks every deployment has from day one. Translation's model is the
-#: owner's choice on the evals (TL7, answer 53 of 03.10: Claude Sonnet 5.5);
-#: the assistant's comes with its track.
+#: The tasks every deployment has from day one. Their model is the owner's
+#: choice on the evals: Claude Sonnet 5.5 for translation (TL7, answer 53 of
+#: 03.10) and for the assistant (answer 59a of 03.10, `docs/evals/assistant/`).
+#: Claude Haiku 4.5 stays the assistant's fallback: a probed row an operator
+#: sets with `MODEL_PORT_TASK_ASSISTANT_<TASK>_MODEL` when Sonnet is unavailable.
 DEFAULT_TASKS = (
     TaskSpec(
         key="translation.text",
@@ -47,7 +49,7 @@ DEFAULT_TASKS = (
         key="assistant.conversation",
         pool="assistant",
         adapter="openrouter",
-        model="",
+        model="anthropic/claude-sonnet-5.5",
         timeout_seconds=18,
         max_tokens_rule=(0.0, 1536, 1536),
         capabilities=frozenset({"tools", "zdr"}),
@@ -58,7 +60,7 @@ DEFAULT_TASKS = (
         key="assistant.extract_profile",
         pool="assistant",
         adapter="openrouter",
-        model="",
+        model="anthropic/claude-sonnet-5.5",
         timeout_seconds=15,
         max_tokens_rule=(0.0, 1024, 1024),
         capabilities=frozenset({"json_schema", "zdr"}),

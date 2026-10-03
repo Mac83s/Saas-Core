@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Mapping
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -54,6 +55,7 @@ from saas_core.modules.shared.billing.models import (
     CreditReservationState,
     EntitlementSnapshot,
 )
+from saas_core.modules.shared.model_port import registry as model_registry
 from saas_core.modules.shared.model_port.adapters.base import RawToolCall
 from saas_core.modules.shared.model_port.adapters.fake import FAKE, FakeFailure, FakeReply
 from saas_core.modules.shared.model_port.matrix import MODELS, ModelProfile, register_model
@@ -408,7 +410,11 @@ def test_the_chat_is_closed_without_a_worker_a_model_or_the_plan(
     assert (refused.status_code, refused.data["code"]) == (503, "assistant_unavailable")
 
     cache.set(WORKER_SEEN, 1, 300)
-    monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_MODEL", "")
+    # An empty value in the environment is no override: the task has to lose
+    # its model in the registry for nobody to have picked one.
+    monkeypatch.delenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_MODEL")
+    unpicked = replace(model_registry._TASKS["assistant.conversation"], model="")
+    monkeypatch.setitem(model_registry._TASKS, "assistant.conversation", unpicked)
     assert client.get(f"{BASE}offer/").data["reasons"] == ["model_not_selected"]
 
     monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_MODEL", MODEL)
