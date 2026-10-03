@@ -355,7 +355,10 @@ export function PageEditor({
   page,
   previewOnOpen = false,
   languageSwitch,
+  leading,
 }: {
+  /** The studio's way back and its dialog title, first in the top bar. */
+  leading?: ReactNode;
   onChanged: () => Promise<void>;
   onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
   /** The site's pages in the studio's left rail (F3-Z3). */
@@ -411,6 +414,8 @@ export function PageEditor({
   const [assetOption, setAssetOption] = useState<MediaAsset | null>(null);
   const [preview, setPreview] = useState<PageDraft>();
   const [previewViewport, setPreviewViewport] =
+    useState<PreviewViewport>("desktop");
+  const [canvasViewport, setCanvasViewport] =
     useState<PreviewViewport>("desktop");
   const [file, setFile] = useState<File>();
   const [uploadStatus, setUploadStatus] = useState<string>();
@@ -999,20 +1004,6 @@ export function PageEditor({
 
   return (
     <div className="site-studio-editor">
-      {problem && (
-        <div
-          className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
-          role="alert"
-        >
-          {problem}
-        </div>
-      )}
-      {restoredNotice && !draftForm.formState.isDirty && (
-        <p className="rounded-lg border bg-muted/40 p-3 text-sm" role="status">
-          {restoredNotice}
-        </p>
-      )}
-
       <Card className="studio-editor-main">
         <CardContent className="studio-editor-content">
           <FormProvider {...draftForm}>
@@ -1060,43 +1051,39 @@ export function PageEditor({
                   })(event);
                 }}
               >
-                {draftConflict && (
-                  <div
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
-                    role="alert"
-                  >
-                    <p className="text-sm text-destructive">
-                      {t("draftConflict")}
-                    </p>
-                    <Button
-                      autoFocus
-                      onClick={() => void reloadDraft()}
-                      type="button"
-                      variant="outline"
-                    >
-                      <RefreshCwIcon aria-hidden="true" />
-                      {t("loadServerVersion")}
-                    </Button>
-                  </div>
-                )}
-
                 <fieldset
                   disabled={loading || draftForm.formState.isSubmitting}
                   className="studio-editor-fieldset"
                 >
-                  {/* The way of editing as segments, undo and redo as icons,
-                      save and preview on the right, the rest under „Więcej”;
-                      a phone keeps one row: save, preview and „…” (UX-039). */}
-                  <div className="studio-toolbar">
+                  {/* One row: the page on the left, the device in the middle,
+                      saving on the right, the rest under „Więcej”. A phone
+                      keeps the page over save, preview and „…” (UX-039). */}
+                  <div className="studio-toolbar studio-topbar">
+                    {leading}
+                    <div className="studio-topbar-page">
+                      <p className="truncate text-sm font-semibold">
+                        {page.name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t("studio.draftVersion", {
+                          version: draft?.version ?? 0,
+                        })}
+                      </p>
+                    </div>
+                    <span
+                      aria-hidden="true"
+                      className="studio-topbar-divider hidden sm:block"
+                    />
                     <div
                       aria-label={t("studio.mode")}
-                      className="studio-mode inline-flex max-sm:hidden"
+                      className="studio-segmented inline-flex max-sm:hidden"
                       role="group"
                     >
                       <Button
                         type="button"
-                        variant={visual ? "secondary" : "ghost"}
+                        variant="ghost"
                         size="sm"
+                        className="pointer-fine:h-7"
                         aria-pressed={visual}
                         onClick={() => setVisual(true)}
                       >
@@ -1104,19 +1091,21 @@ export function PageEditor({
                       </Button>
                       <Button
                         type="button"
-                        variant={visual ? "ghost" : "secondary"}
+                        variant="ghost"
                         size="sm"
+                        className="pointer-fine:h-7"
                         aria-pressed={!visual}
                         onClick={() => setVisual(false)}
                       >
                         {t("studio.forms")}
                       </Button>
                     </div>
-                    <div className="flex gap-1 max-sm:hidden">
+                    <div className="flex gap-0.5 max-sm:hidden">
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
+                        size="icon-sm"
+                        className="pointer-fine:size-8"
                         aria-label={t("studio.undo")}
                         title={t("studio.undo")}
                         disabled={!history.canUndo}
@@ -1127,7 +1116,8 @@ export function PageEditor({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
+                        size="icon-sm"
+                        className="pointer-fine:size-8"
                         aria-label={t("studio.redo")}
                         title={t("studio.redo")}
                         disabled={!history.canRedo}
@@ -1136,23 +1126,52 @@ export function PageEditor({
                         <Redo2Icon aria-hidden="true" />
                       </Button>
                     </div>
+                    {/* A phone already is the phone view (UX-039); the forms
+                        have no canvas to resize. */}
+                    <div className="studio-topbar-center hidden sm:flex">
+                      {visual && (
+                        <div
+                          aria-label={t("previewViewport")}
+                          className="studio-segmented inline-flex"
+                          role="group"
+                        >
+                          {(
+                            [
+                              ["desktop", MonitorIcon],
+                              ["tablet", TabletIcon],
+                              ["mobile", SmartphoneIcon],
+                            ] as const
+                          ).map(([value, Icon]) => (
+                            <Button
+                              key={value}
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="pointer-fine:h-7 pointer-fine:w-9"
+                              aria-label={t(`previewViewport_${value}`)}
+                              title={t(`previewViewport_${value}`)}
+                              aria-pressed={canvasViewport === value}
+                              onClick={() => setCanvasViewport(value)}
+                            >
+                              <Icon aria-hidden="true" />
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="studio-save-actions">
                       {languageSwitch}
-                      <span className="text-xs text-muted-foreground max-md:hidden">
-                        {t("versionValue", { version: draft?.version ?? 0 })}
-                      </span>
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           aria-label={t("studio.more")}
+                          title={t("studio.more")}
                           className={buttonVariants({
-                            variant: "ghost",
-                            className: "max-sm:px-2.5",
+                            variant: "outline",
+                            size: "icon-sm",
+                            className: "pointer-fine:size-8",
                           })}
                         >
                           <EllipsisIcon aria-hidden="true" />
-                          <span className="max-sm:hidden">
-                            {t("studio.more")}
-                          </span>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {/* What a wide screen shows in the row. */}
@@ -1211,13 +1230,20 @@ export function PageEditor({
                         onClick={() => void showPreview()}
                         type="button"
                         variant="outline"
+                        size="sm"
+                        className="pointer-fine:h-8"
                         aria-label={t("preview")}
                         title={t("preview")}
                       >
                         <EyeIcon aria-hidden="true" />
                         <span className="max-sm:hidden">{t("preview")}</span>
                       </Button>
-                      <Button disabled={loading || draftConflict} type="submit">
+                      <Button
+                        disabled={loading || draftConflict}
+                        type="submit"
+                        size="sm"
+                        className="pointer-fine:h-8"
+                      >
                         <SaveIcon aria-hidden="true" />
                         {t("studio.save")}
                       </Button>
@@ -1232,6 +1258,48 @@ export function PageEditor({
                       onOpenChange={setHistoryOpen}
                     />
                   </div>
+                  {/* Under the top bar, so the bar stays where it is. */}
+                  {(problem ||
+                    draftConflict ||
+                    (restoredNotice && !draftForm.formState.isDirty)) && (
+                    <div className="studio-notices">
+                      {problem && (
+                        <div
+                          className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+                          role="alert"
+                        >
+                          {problem}
+                        </div>
+                      )}
+                      {restoredNotice && !draftForm.formState.isDirty && (
+                        <p
+                          className="rounded-lg border bg-muted/40 p-3 text-sm"
+                          role="status"
+                        >
+                          {restoredNotice}
+                        </p>
+                      )}
+                      {draftConflict && (
+                        <div
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+                          role="alert"
+                        >
+                          <p className="text-sm text-destructive">
+                            {t("draftConflict")}
+                          </p>
+                          <Button
+                            autoFocus
+                            onClick={() => void reloadDraft()}
+                            type="button"
+                            variant="outline"
+                          >
+                            <RefreshCwIcon aria-hidden="true" />
+                            {t("loadServerVersion")}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <PlaceholderBanner
                     blocks={liveBlocks}
                     counts={unfilled}
@@ -1287,6 +1355,7 @@ export function PageEditor({
                         />
                         <SectionCanvas
                           ref={canvas}
+                          viewport={canvasViewport}
                           revision={canvasRevision}
                           unfilled={unfilled}
                           inspectorActions={

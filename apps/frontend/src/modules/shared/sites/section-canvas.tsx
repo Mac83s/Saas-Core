@@ -28,8 +28,6 @@ import { InlineText } from "@saas-core/ui/components/inline-text";
 import { ReorderList } from "@saas-core/ui/components/reorder-list";
 import {
   MonitorIcon,
-  TabletIcon,
-  SmartphoneIcon,
   LayersIcon,
   PlusIcon,
   PaletteIcon,
@@ -52,6 +50,9 @@ import {
 
 /** Lets the page editor pick a section exactly as the outline does. */
 export type SectionCanvasHandle = { choose: (index: number) => void };
+
+/** The device the canvas imitates; the switch is in the editor's top bar. */
+export type CanvasViewport = "desktop" | "tablet" | "mobile";
 
 /** The site's look on this page: palette, fonts, width and page style — the
  *  canvas root, and the full-screen writer that uses its fonts. */
@@ -89,9 +90,11 @@ export function SectionCanvas({
   onChangeImage,
   focusField,
   revision = 0,
+  viewport,
   disabled,
 }: {
   ref?: Ref<SectionCanvasHandle>;
+  viewport: CanvasViewport;
   /** `[Uzupełnij: …]` markers still in each section, by position. */
   unfilled?: readonly number[];
   blocks: BlockFormValues[];
@@ -209,9 +212,6 @@ export function SectionCanvas({
     });
   };
   useImperativeHandle(ref, () => ({ choose: chooseSection }));
-  const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">(
-    "desktop",
-  );
   const mobileNavigation =
     appearance &&
     renderResponsiveNavigation(
@@ -333,41 +333,6 @@ export function SectionCanvas({
         </div>
       </aside>
       <div className="studio-stage">
-        <div className="studio-stage-toolbar">
-          <div
-            role="group"
-            aria-label={t("previewViewport")}
-            className="flex gap-1"
-          >
-            {(
-              [
-                ["desktop", MonitorIcon],
-                ["tablet", TabletIcon],
-                ["mobile", SmartphoneIcon],
-              ] as const
-            ).map(([value, Icon]) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={viewport === value ? "secondary" : "ghost"}
-                aria-pressed={viewport === value}
-                onClick={() => setViewport(value)}
-              >
-                <Icon aria-hidden="true" />
-                <span className="hidden sm:inline">
-                  {t(`previewViewport_${value}`)}
-                </span>
-                <span className="sr-only sm:hidden">
-                  {t(`previewViewport_${value}`)}
-                </span>
-              </Button>
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {t("studio.liveCanvasLabel")}
-          </span>
-        </div>
         <div className="studio-stage-scroll">
           <div
             key={revision}
