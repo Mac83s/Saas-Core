@@ -953,12 +953,27 @@ def _localization_report(report: SiteLocalizationReport) -> dict[str, Any]:
         "default_locale": report.site.default_locale,
         "supported_locales": list(report.supported_locales),
         "ready_to_publish": report.ready_to_publish,
+        # One state of the languages for the site card and the readiness (W8).
+        "languages": [
+            {
+                "locale": locale,
+                "is_source": locale == report.site.default_locale,
+                "live": locale in report.live_locales,
+            }
+            for locale in report.supported_locales
+        ],
         "pages": [
             {
                 "page_id": page.page.id,
                 "page_key": page.page.key,
                 "page_name": page.page.name,
-                "locales": [_locale_resolution(locale) for locale in page.locales],
+                "locales": [
+                    {
+                        **_locale_resolution(locale),
+                        **_language_state(report, page.page.id, locale),
+                    }
+                    for locale in page.locales
+                ],
                 "hreflang": page.hreflang,
                 "x_default": page.x_default,
                 # What the draft still says only to its owner (UX-038).
@@ -966,6 +981,20 @@ def _localization_report(report: SiteLocalizationReport) -> dict[str, Any]:
             }
             for page in report.pages
         ],
+    }
+
+
+def _language_state(
+    report: SiteLocalizationReport, page_id: UUID, locale: LocaleResolution
+) -> dict[str, Any]:
+    if locale.locale == report.site.default_locale:
+        return {
+            "state": "complete" if locale.complete else "incomplete",
+            "blocks_publication": not locale.complete,
+        }
+    return {
+        "state": report.language_states.get((page_id, locale.locale), "missing"),
+        "blocks_publication": False,
     }
 
 

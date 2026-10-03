@@ -24502,7 +24502,24 @@ components:
           type: boolean
         slug_locked:
           type: boolean
+        state:
+          allOf:
+          - $ref: '#/components/schemas/LocaleLocalizationStateEnum'
+          description: |-
+            The site's language: `complete` or `incomplete` (its metadata). Another language: `published` (its own version is on the site), `missing`, `pending` (a translation waits for a person), `outdated` (translates an older source), `untranslated` (units left) or `complete` (not published yet).
+
+            * `complete` - complete
+            * `incomplete` - incomplete
+            * `published` - published
+            * `missing` - missing
+            * `pending` - pending
+            * `outdated` - outdated
+            * `untranslated` - untranslated
+        blocks_publication:
+          type: boolean
+          description: Only the site's language can hold a publication back (W8).
       required:
+      - blocks_publication
       - canonical_path
       - complete
       - description
@@ -24514,9 +24531,28 @@ components:
       - slug_locked
       - social_description
       - social_title
+      - state
       - title
       - translation_id
       - version
+    LocaleLocalizationStateEnum:
+      enum:
+      - complete
+      - incomplete
+      - published
+      - missing
+      - pending
+      - outdated
+      - untranslated
+      type: string
+      description: |-
+        * `complete` - complete
+        * `incomplete` - incomplete
+        * `published` - published
+        * `missing` - missing
+        * `pending` - pending
+        * `outdated` - outdated
+        * `untranslated` - untranslated
     LocaleRedirect:
       type: object
       properties:
@@ -30482,6 +30518,21 @@ components:
       - name
       - path
       - publication_id
+    SiteLanguage:
+      type: object
+      properties:
+        locale:
+          type: string
+        is_source:
+          type: boolean
+          description: The site's own language.
+        live:
+          type: boolean
+          description: Visitors can read the site in it now.
+      required:
+      - is_source
+      - live
+      - locale
     SiteList:
       type: object
       properties:
@@ -30511,12 +30562,17 @@ components:
             type: string
         ready_to_publish:
           type: boolean
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteLanguage'
         pages:
           type: array
           items:
             $ref: '#/components/schemas/PageLocalization'
       required:
       - default_locale
+      - languages
       - pages
       - ready_to_publish
       - site_id

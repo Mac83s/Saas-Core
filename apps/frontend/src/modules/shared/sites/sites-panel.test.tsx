@@ -147,6 +147,10 @@ beforeEach(() => {
     default_locale: "pl",
     supported_locales: ["pl", "en"],
     ready_to_publish: true,
+    languages: [
+      { locale: "pl", is_source: true, live: true },
+      { locale: "en", is_source: false, live: false },
+    ],
     pages: [
       {
         page_id: page.id,
@@ -168,6 +172,8 @@ beforeEach(() => {
             missing_fields: [],
             complete: true,
             slug_locked: false,
+            state: "complete",
+            blocks_publication: false,
           },
           {
             locale: "en",
@@ -184,6 +190,8 @@ beforeEach(() => {
             missing_fields: ["slug"],
             complete: false,
             slug_locked: false,
+            state: "missing",
+            blocks_publication: false,
           },
         ],
         hreflang: { pl: "/start/" },
@@ -242,8 +250,14 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
   cleanup();
 
   renderPanel({ section: "publication" });
-  expect(await screen.findByText("PL: kompletne")).not.toBeNull();
-  expect(screen.getByText("EN: niekompletne")).not.toBeNull();
+  expect(await screen.findByText("PL: Kompletne")).not.toBeNull();
+  // Another language says what it is and that it does not block (W8).
+  expect(
+    screen.getByText("EN: Brak tłumaczenia — nie blokuje publikacji"),
+  ).not.toBeNull();
+  expect(screen.getByText("Gotowy do publikacji")).not.toBeNull();
+  expect(screen.getByText("PL · język strony")).not.toBeNull();
+  expect(screen.getByText("EN · jeszcze nie na stronie")).not.toBeNull();
 });
 
 test("slots and the template's contact are named, not called ready", async () => {

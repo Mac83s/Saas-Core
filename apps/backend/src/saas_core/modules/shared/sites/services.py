@@ -1851,9 +1851,12 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
         )
     except Site.DoesNotExist as error:
         raise SiteNotFound from error
-    supported_locales = _supported_locales()
-    if site.default_locale not in supported_locales:
+    if site.default_locale not in _supported_locales():
         raise UnsupportedSiteLocale
+    from .language_versions import page_language_states, site_locales
+
+    # The company's languages, not every one the platform could serve (W8).
+    supported_locales = site_locales(site)
     pages = list(
         Page.all_objects.filter(
             organization_id=context.organization_id,
@@ -1874,8 +1877,19 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
         translations=translations,
         supported_locales=supported_locales,
     )
-    # The template's slots and sample contact, named before a visitor sees them.
-    return replace(report, content=page_content(context.organization_id, pages))
+    snapshot = site.current_publication.snapshot if site.current_publication else {}
+    return replace(
+        report,
+        # The template's slots and sample contact, named before a visitor sees them.
+        content=page_content(context.organization_id, pages),
+        language_states=page_language_states(site, snapshot),
+        live_locales=tuple(
+            code
+            for code in supported_locales
+            if snapshot
+            and (code == site.default_locale or code in (snapshot.get("live_locales") or []))
+        ),
+    )
 
 
 def list_site_publications(

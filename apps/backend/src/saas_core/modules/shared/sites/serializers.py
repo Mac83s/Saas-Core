@@ -791,6 +791,30 @@ class LocaleLocalizationSerializer(serializers.Serializer[dict[str, Any]]):
     missing_fields = serializers.ListField(child=serializers.CharField())
     complete = serializers.BooleanField()
     slug_locked = serializers.BooleanField()
+    state = serializers.ChoiceField(
+        choices=[
+            "complete",
+            "incomplete",
+            "published",
+            "missing",
+            "pending",
+            "outdated",
+            "untranslated",
+        ],
+        help_text="The site's language: `complete` or `incomplete` (its metadata). Another "
+        "language: `published` (its own version is on the site), `missing`, `pending` (a "
+        "translation waits for a person), `outdated` (translates an older source), "
+        "`untranslated` (units left) or `complete` (not published yet).",
+    )
+    blocks_publication = serializers.BooleanField(
+        help_text="Only the site's language can hold a publication back (W8)."
+    )
+
+
+class SiteLanguageSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.CharField()
+    is_source = serializers.BooleanField(help_text="The site's own language.")
+    live = serializers.BooleanField(help_text="Visitors can read the site in it now.")
 
 
 class PageLocalizationSerializer(serializers.Serializer[dict[str, Any]]):
@@ -813,6 +837,7 @@ class SiteLocalizationReportSerializer(serializers.Serializer[dict[str, Any]]):
     default_locale = serializers.CharField()
     supported_locales = serializers.ListField(child=serializers.CharField())
     ready_to_publish = serializers.BooleanField()
+    languages = SiteLanguageSerializer(many=True)
     pages = PageLocalizationSerializer(many=True)
 
 

@@ -922,6 +922,26 @@ def _page_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
     return rows
 
 
+def page_language_states(site: Site, snapshot: Mapping[str, Any]) -> dict[tuple[UUID, str], str]:
+    """Each page's version in another language: `published` when the site's
+    publication carries its own body, otherwise the overview's cell."""
+    locales = tuple(code for code in site_locales(site) if code != site.default_locale)
+    published = {
+        (str(page.get("page_id")), str(entry.get("locale")))
+        for page in snapshot.get("pages", [])
+        if isinstance(page, dict)
+        for entry in page.get("locales", [])
+        if isinstance(entry, dict) and "blocks" in entry and not entry.get("withheld")
+    }
+    return {
+        (row.id, cell.locale): (
+            OVERVIEW_PUBLISHED if (str(row.id), cell.locale) in published else cell.state
+        )
+        for row in _page_rows(site, locales)
+        for cell in row.cells
+    }
+
+
 def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
     groups: dict[UUID, list[ContentEntry]] = {}
     for entry in ContentEntry.all_objects.filter(

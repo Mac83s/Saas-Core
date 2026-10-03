@@ -8490,7 +8490,32 @@ export interface components {
             missing_fields: string[];
             complete: boolean;
             slug_locked: boolean;
+            /**
+             * @description The site's language: `complete` or `incomplete` (its metadata). Another language: `published` (its own version is on the site), `missing`, `pending` (a translation waits for a person), `outdated` (translates an older source), `untranslated` (units left) or `complete` (not published yet).
+             *
+             *     * `complete` - complete
+             *     * `incomplete` - incomplete
+             *     * `published` - published
+             *     * `missing` - missing
+             *     * `pending` - pending
+             *     * `outdated` - outdated
+             *     * `untranslated` - untranslated
+             */
+            state: components["schemas"]["LocaleLocalizationStateEnum"];
+            /** @description Only the site's language can hold a publication back (W8). */
+            blocks_publication: boolean;
         };
+        /**
+         * @description * `complete` - complete
+         *     * `incomplete` - incomplete
+         *     * `published` - published
+         *     * `missing` - missing
+         *     * `pending` - pending
+         *     * `outdated` - outdated
+         *     * `untranslated` - untranslated
+         * @enum {string}
+         */
+        LocaleLocalizationStateEnum: "complete" | "incomplete" | "published" | "missing" | "pending" | "outdated" | "untranslated";
         LocaleRedirect: {
             locale: string;
             /** @description Adres wersji w usuwanym języku. */
@@ -10996,6 +11021,13 @@ export interface components {
             /** @default  */
             website: string;
         };
+        SiteLanguage: {
+            locale: string;
+            /** @description The site's own language. */
+            is_source: boolean;
+            /** @description Visitors can read the site in it now. */
+            live: boolean;
+        };
         SiteList: {
             items: components["schemas"]["SiteSummary"][];
             /** Format: uuid */
@@ -11007,6 +11039,7 @@ export interface components {
             default_locale: string;
             supported_locales: string[];
             ready_to_publish: boolean;
+            languages: components["schemas"]["SiteLanguage"][];
             pages: components["schemas"]["PageLocalization"][];
         };
         SiteMetrics: {

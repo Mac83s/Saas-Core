@@ -46,6 +46,12 @@ class SiteLocalizationReport:
     #: What each page's draft still says only to its owner (UX-038); filled
     #: for the readiness card, not for the publication itself.
     content: Mapping[UUID, PageContent] = field(default_factory=dict)
+    #: The state of each page's version in another language (W8): `published`,
+    #: or the translation overview's cell (`language_versions`); the readiness
+    #: card says these never block a publication.
+    language_states: Mapping[tuple[UUID, str], str] = field(default_factory=dict)
+    #: The languages visitors can read on the site now.
+    live_locales: tuple[str, ...] = ()
 
 
 #: First segments an unprefixed address never takes (ADR-071): every two-letter

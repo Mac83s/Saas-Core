@@ -50,6 +50,11 @@ from saas_core.content_protocol.sources import (
     WriteOutcome,
 )
 from saas_core.content_protocol.units import unit_state
+from saas_core.content_protocol.writes import GATE_UNKNOWN_UNIT
+from saas_core.content_protocol.writes import item_digest as _item_digest
+from saas_core.content_protocol.writes import outcome_from_dict as _outcome_from
+from saas_core.content_protocol.writes import outcome_to_dict as _outcome_dict
+from saas_core.content_protocol.writes import write_gate as _gate
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 from saas_core.modules.shared.billing.api import authorize_entitled
 
@@ -74,15 +79,7 @@ from .site_texts import (
     translation_rows,
 )
 from .source_changes import SITE_TEXTS_SOURCE_KEY
-from .translation_source import (
-    GATE_UNKNOWN_UNIT,
-    _gate,
-    _item_digest,
-    _outcome_dict,
-    _outcome_from,
-    _tenant,
-    _tenant_context,
-)
+from .translation_source import _tenant, _tenant_context
 
 SOURCE_KEY = SITE_TEXTS_SOURCE_KEY
 

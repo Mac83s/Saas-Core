@@ -608,9 +608,37 @@ export function SitesPanel({
             className="size-5 shrink-0 text-muted-foreground"
           />
           <span className="font-medium">{selectedSite.name}</span>
-          <Badge variant="outline">
-            {selectedSite.default_locale.toUpperCase()}
-          </Badge>
+          {/* The same languages and states as the readiness below (W8). */}
+          {(report?.site_id === selectedSite.id
+            ? report.languages
+            : [
+                {
+                  locale: selectedSite.default_locale,
+                  is_source: true,
+                  live: Boolean(selectedSite.current_publication_id),
+                },
+              ]
+          ).map((language) => (
+            <Badge
+              key={language.locale}
+              variant={
+                language.is_source
+                  ? "neutral"
+                  : language.live
+                    ? "success"
+                    : "warning"
+              }
+            >
+              {t(
+                language.is_source
+                  ? "siteLanguageSource"
+                  : language.live
+                    ? "siteLanguageLive"
+                    : "siteLanguageNotLive",
+                { locale: language.locale.toUpperCase() },
+              )}
+            </Badge>
+          ))}
           <Badge
             variant={
               selectedSite.current_publication_id ? "default" : "secondary"
@@ -976,12 +1004,13 @@ function ReadinessCard({
               {/* Slots and the template's contact are not „ready” (UX-038):
                   they may go out, but the card says what a visitor misses. */}
               <Badge
-                className={
-                  report.ready_to_publish && unfinished
-                    ? "bg-warning text-warning-foreground"
-                    : undefined
+                variant={
+                  !report.ready_to_publish
+                    ? "destructive"
+                    : unfinished
+                      ? "warning"
+                      : "success"
                 }
-                variant={report.ready_to_publish ? "default" : "destructive"}
               >
                 {t(
                   !report.ready_to_publish
@@ -1021,13 +1050,27 @@ function ReadinessCard({
                     </span>
                   ) : null}
                   <div className="flex flex-wrap gap-1">
+                    {/* Only the site's own language holds the publication
+                        back; another one says what it is, in amber (W8). */}
                     {page.locales.map((locale) => (
                       <Badge
                         key={locale.locale}
-                        variant={locale.complete ? "outline" : "destructive"}
+                        variant={
+                          locale.blocks_publication
+                            ? "destructive"
+                            : locale.state === "published" ||
+                                (locale.locale === report.default_locale &&
+                                  locale.state === "complete")
+                              ? "success"
+                              : "warning"
+                        }
                       >
                         {locale.locale.toUpperCase()}:{" "}
-                        {t(locale.complete ? "complete" : "incomplete")}
+                        {t(
+                          locale.locale === report.default_locale
+                            ? `languageStates.source_${locale.state}`
+                            : `languageStates.${locale.state}`,
+                        )}
                       </Badge>
                     ))}
                   </div>
