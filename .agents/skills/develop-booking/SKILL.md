@@ -202,8 +202,11 @@ base, the narrower over the wider, the later start). Amounts are whole minor
 units, read gross or net by the company's `pricing.entry.amounts`; the tax is
 a code (`VatCode`), because exempt is not 0%. A rule's currency is always
 `Organization.currency`, and a company with prices cannot change its currency
-(`register_currency_use`, `currency_in_use`). A `ParticipantCategory` is never
-deleted, only switched off: frozen quotes name it.
+(`register_currency_use`, `currency_in_use`). An `Extra` belongs to one offer:
+mandatory, or picked by the customer; of kind `security_deposit` it is the
+amount held and given back, which a quote names beside its totals and never
+in them. A `ParticipantCategory` and an `Extra` are never deleted, only
+switched off: frozen quotes name them.
 
 A booking's price is worked out in one place, `quote.py` (ADR-072 §7):
 `quote_visit` and `quote_stay` write nothing, and every booking path — the
