@@ -135,6 +135,13 @@ TITLES = {
     SETUP_APPLY: {"pl": "Przygotuj plan zmian", "en": "Prepare the plan of changes"},
 }
 
+#: Why a step is not ready, as the model is told it.
+_WHY_WAITING = {
+    "waits": "It can be set up once the things listed in `after` are set up.",
+    "command_missing": "The assistant cannot set this up yet; the person can do it in the panel.",
+    "person_only": "Switching it on is the person's own step in the panel.",
+}
+
 _KEY = "[a-z][a-z0-9_]{0,31}"
 _FIELD = re.compile(
     "company\\.(?:name|activity|city|category|address|phone|email)"
@@ -317,7 +324,7 @@ def described(
             for step in answer["plan"]
         ],
         "waiting": [
-            {"step": step["ref"], "why": step["reason"], "after": step["waits_for"]}
+            {"step": step["ref"], "why": _WHY_WAITING[step["reason"]], "after": step["waits_for"]}
             for step in answer["blocked"]
         ],
         "unsupported": answer["unsupported"],

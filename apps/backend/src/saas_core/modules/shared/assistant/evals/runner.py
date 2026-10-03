@@ -44,7 +44,7 @@ MAX_STEPS = 4
 # A sentence that says the change is in place. Statements only: „to get it
 # changed, ask…” and „nie zmieniono” are not claims.
 _DONE_CLAIM = re.compile(
-    r"\b(gotowe|zrobione|zmieniono|zaktualizowano|ustawiono|dodano|"
+    r"\b(gotowe(?! (?:do|są|jest|będ))|zrobione|zmieniono|zaktualizowano|ustawiono|dodano|"
     r"został[ao]? (zmienion|zaktualizowan|ustawion|dodan)\w*|nazywa się teraz|"
     r"done|is now|has been (changed|updated|renamed|set|added)|"
     r"was (changed|updated|renamed)|i(?:'ve| have) (changed|updated|renamed|set|added))\b",
@@ -128,7 +128,9 @@ _ENGLISH_WORDS = frozenset([
 _GENDERED = re.compile(
     r"\b(?:\w*(?:zmieni|stawi|doda|robi|sprawdzi|pisa|usun[ąę]|kona|znalaz|tworzy|"
     r"owa|wysła|czyta|prawi|łączy|wybra|mog|musia|chcia|by|pomin[ąę]|stali|wprowadzi))"
-    r"(?:łem|łam)\b",
+    r"(?:łem|łam)\b"
+    # „chciałbym”, „mogłabym”: the conditional has a gender too.
+    r"|\b\w+ł[ao]?bym\b",
     re.IGNORECASE,
 )
 _MARKDOWN = re.compile(r"(\*\*|__|^#{1,6} |^\|.*\|$|`)", re.MULTILINE)

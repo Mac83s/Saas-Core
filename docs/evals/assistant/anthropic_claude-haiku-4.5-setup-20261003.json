@@ -1,0 +1,188 @@
+{
+  "model": "anthropic/claude-haiku-4.5",
+  "kind": "setup",
+  "prompt": "assistant.setup@1",
+  "tools": 3,
+  "scenarios": 13,
+  "passed": 9,
+  "skipped_for_budget": 0,
+  "cost_usd": 0.0972,
+  "cost_per_message_usd": 0.0075,
+  "model_calls": 32,
+  "latency_ms_p50": 1580,
+  "latency_ms_p95": 2314,
+  "invalid_arguments": 0,
+  "errors": [
+    "refused:empty_output"
+  ],
+  "results": [
+    {
+      "key": "start_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "setup_status"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 5653,
+      "answer": "Potrzebuję kilka informacji o Twojej firmie. Zadam Ci pytania jedno po jednym.\n\nNa początek: co robi Twoja firma? Co będziesz sprzedawać?",
+      "error": ""
+    },
+    {
+      "key": "start_en",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "setup_status"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 5382,
+      "answer": "Great! Let me start with the basics. What does your company do?",
+      "error": ""
+    },
+    {
+      "key": "owner_words_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "profile_note",
+        "setup_status"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 9424,
+      "answer": "Zgadza się, że salon należy do kategorii \"Uroda i zdrowie\"?",
+      "error": ""
+    },
+    {
+      "key": "guess_stays_a_proposal_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "profile_note",
+        "setup_status"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 6372,
+      "answer": "Świetnie! Teraz potrzebne są:\n\nNajpierw: czy kategoria \"Motoryzacja\" pasuje do Twojego warsztatu?\n\nPotem: jakie usługi oferujesz? Na przykład naprawy, przeglądy, wymianę opon, diagnostykę?",
+      "error": ""
+    },
+    {
+      "key": "two_messages_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "setup_status",
+        "profile_note",
+        "setup_status"
+      ],
+      "steps": 5,
+      "cost_usd_micros": 15751,
+      "answer": "Czy działalność to rzeczywiście \"Usługi hydrauliczne\"?",
+      "error": ""
+    },
+    {
+      "key": "offer_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "profile_note",
+        "setup_status"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 6520,
+      "answer": "Do tej oferty brakuje jeszcze informacji o jej rodzaju. Strzyżenie damskie — to wizyta u specjalisty (tzn. klient przychodzi do Ciebie), czy może usługa u klienta?",
+      "error": ""
+    },
+    {
+      "key": "resume_en",
+      "passed": false,
+      "failed": [
+        "did_not_ask"
+      ],
+      "calls": [
+        "setup_status"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 5493,
+      "answer": "You are missing what your company sells or offers. Tell me what services you offer — for example, haircuts, hair coloring, styling — and I'll set them up.",
+      "error": ""
+    },
+    {
+      "key": "confirm_proposal_pl",
+      "passed": false,
+      "failed": [],
+      "calls": [
+        "setup_status",
+        "profile_note"
+      ],
+      "steps": 4,
+      "cost_usd_micros": 9267,
+      "answer": "",
+      "error": "refused:empty_output"
+    },
+    {
+      "key": "apply_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "setup_status",
+        "setup_apply",
+        "setup_status"
+      ],
+      "steps": 4,
+      "cost_usd_micros": 12764,
+      "answer": "Teraz trzeba dodać, co firma sprzedaje — jakie usługi oferuje. Jakie usługi ma Salon Ania?",
+      "error": ""
+    },
+    {
+      "key": "declined_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "setup_status",
+        "setup_apply"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 8809,
+      "answer": "Plan została odrzucona. Nie dodano zmian.\n\nŻeby iść dalej, musisz odpowiedzieć na jedno pytanie: jakie usługi lub produkty sprzedajesz w salonie?",
+      "error": ""
+    },
+    {
+      "key": "unsupported_pl",
+      "passed": false,
+      "failed": [
+        "no_status"
+      ],
+      "calls": [],
+      "steps": 1,
+      "cost_usd_micros": 2904,
+      "answer": "Nie jest to rozmowa o rezerwacjach — to jest panel konfiguracji, gdzie razem ustawimy profil Twojej firmy.\n\nAby odpowiedzieć na Twoje pytanie o rezerwacje, potrzebujesz zwykłej rozmowy z asystentem. Mogę Ci w tym pomóc, ale najpierw — czy chcesz kontynuować konfigurację profilu firmy?",
+      "error": ""
+    },
+    {
+      "key": "other_request_pl",
+      "passed": false,
+      "failed": [
+        "no_status"
+      ],
+      "calls": [],
+      "steps": 1,
+      "cost_usd_micros": 2880,
+      "answer": "To pytanie o rezerwacje na jutro dotyczy zarządzania biznesem, a nie konfiguracji jego profilu. Zwykła rozmowa z asystentem to obsługuje.\n\nMogę natomiast pomóc w skonfigurowaniu profilu Twojej firmy — co ona robi, gdzie pracuje, jakie usługi oferuje i kiedy. Chcesz zacząć od tego?",
+      "error": ""
+    },
+    {
+      "key": "pasted_instructions_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "setup_status"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 6008,
+      "answer": "Widzę, że już wiele jest gotowe: salon Ania w Olsztynie. Teraz potrzebuję, żeby mi powiedziała:\n\nJakie usługi oferujesz w salonie? Na przykład strzyżenie, farbowanie, zabiegi?",
+      "error": ""
+    }
+  ],
+  "at": "2026-10-03T13:58:02.350640+00:00"
+}

@@ -137,6 +137,9 @@ def test_a_done_claim_is_a_statement_not_a_mention() -> None:
     assert grade(polish, refused, called) == []
     claimed = ScenarioResult(key=polish.key, answer="Gotowe. Firma nazywa się teraz Studio Anna.")
     assert grade(polish, claimed, called) == ["claimed_done"]
+    # „Ready to be set up” is not „done”.
+    ready = ScenarioResult(key=polish.key, answer="Gotowe do ustawienia są dwie rzeczy.")
+    assert grade(polish, ready, called) == []
 
 
 def test_the_words_are_graded_too() -> None:
@@ -153,6 +156,8 @@ def test_the_words_are_graded_too() -> None:
     polish = BY_KEY["missing_name_pl"]
     answered = ScenarioResult(key=polish.key, answer="Zmieniłem. Jaką nazwę ustawić?")
     assert grade(polish, answered, {}) == ["gendered_verb"]
+    wished = ScenarioResult(key=polish.key, answer="Najpierw chciałbym zapytać: jaka nazwa?")
+    assert grade(polish, wished, {}) == ["gendered_verb"]
     # A Polish answer without diacritics, and an English one quoting a Polish name.
     plain = ScenarioResult(key=polish.key, answer="Jaka ma byc nowa nazwa firmy?")
     assert grade(polish, plain, {}) == []
