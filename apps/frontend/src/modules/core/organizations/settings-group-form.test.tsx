@@ -92,13 +92,13 @@ const STATE = {
   locked: "",
 };
 
-function renderForm(locale: "pl" | "en" = "pl") {
+function renderForm(locale: "pl" | "en" = "pl", onSaved?: () => void) {
   return render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? messages : englishMessages}
     >
-      <SettingsGroupForm group={GROUP} />
+      <SettingsGroupForm group={GROUP} onSaved={onSaved} />
     </NextIntlClientProvider>,
   );
 }
@@ -474,4 +474,36 @@ test("an emptied box removes that language's text", async () => {
   expect(updateSettingsGroup.mock.calls[0]?.[1]).toMatchObject({
     note: { de: "" },
   });
+});
+
+test("po zapisie woła onSaved — raz, i nie przy samym podglądzie ani przy błędzie", async () => {
+  const onSaved = vi.fn();
+  previewSettingsGroup.mockResolvedValue({
+    version: "v1",
+    values: { enabled: true, lead_hours: 48 },
+    changes: { lead_hours: { from: 24, to: 48 } },
+    effects: [],
+  });
+  updateSettingsGroup
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce({
+      ...STATE,
+      version: "v2",
+      values: { enabled: true, lead_hours: 48 },
+      sources: { enabled: "code", lead_hours: "organization" },
+    });
+  renderForm("pl", onSaved);
+
+  const hours = (await screen.findByLabelText(
+    "Ile godzin przed wizytą",
+  )) as HTMLInputElement;
+  await waitFor(() => expect(hours.value).toBe("24"));
+  fireEvent.change(hours, { target: { value: "48" } });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+  await screen.findByRole("alert");
+  expect(onSaved).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+  await screen.findByText("Zapisano ustawienia.");
+  expect(onSaved).toHaveBeenCalledTimes(1);
 });

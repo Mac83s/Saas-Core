@@ -98,7 +98,15 @@ function zodFor(option: SettingOption): z.ZodType {
  * where each comes from, "Restore the default", and a change that first shows
  * what it would do (re-planned reminders) when it does more than set a value.
  */
-export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
+export function SettingsGroupForm({
+  group,
+  onSaved,
+}: {
+  group: SettingsGroupSchema;
+  /** After a change is saved: a page that shows what the values drive
+   * (a list above the form) reloads it instead of asking for a refresh. */
+  onSaved?: () => void;
+}) {
   const t = useTranslations("CompanySettings");
   const locale = useLocale();
   const key = group.key as SettingsGroupKey;
@@ -179,6 +187,7 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
       setReset([]);
       form.reset(value.values as Values);
       setSaved(true);
+      onSaved?.();
     } catch (error) {
       if (error instanceof ApiProblemError) {
         if (error.problem.code === "step_up_required") {
