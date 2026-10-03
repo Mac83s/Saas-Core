@@ -17,8 +17,8 @@ from saas_core.modules.core.organizations.context import (
     context_from_membership,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.models import Membership
-from saas_core.modules.core.organizations.settings_service import change_settings, read_group
+from saas_core.modules.core.organizations.models import Membership, OrganizationSetting
+from saas_core.modules.core.organizations.security_settings import MFA_REQUIRED
 from test_organization_lifecycle import authenticated_member
 
 pytestmark = pytest.mark.django_db
@@ -33,14 +33,16 @@ def clear_cache() -> None:
 
 
 def _require(owner: Membership, value: str) -> None:
+    """The company's requirement as it stands — set by someone with 2FA, or
+    kept after the owner turned theirs off. Turning it on over one's own
+    missing 2FA is refused (test_settings_access_security), so the row is
+    written here directly, and the cached requirement dropped with it."""
     with activate_tenant_context(context_from_membership(owner)):
         set_local_organization_id(owner.organization_id)
-        change_settings(
-            "organization.security",
-            changes={"mfa_required": value},
-            expected_version=read_group("organization.security").version,
-            idempotency_key=f"mfa-{value}",
+        OrganizationSetting.objects.update_or_create(
+            organization_id=owner.organization_id, key=MFA_REQUIRED, defaults={"value": value}
         )
+    cache.clear()
 
 
 def _with_mfa(user: Any) -> None:
