@@ -3625,6 +3625,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/{profile_id}/translations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The card's translations, language by language
+         * @description Every other language of the company with the card's text in it, unit by unit (headline, bio, link labels): the source text, the translation, its state against the current source (fresh, stale, missing…) and who wrote it, plus the version to send with a change.
+         */
+        get: operations["profile_translations_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/{profile_id}/translations/{locale}/": {
         parameters: {
             query?: never;
@@ -3633,7 +3653,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["api_v1_profiles_translations_update"];
+        /**
+         * Write the card in another language
+         * @description A person's headline, bio and link labels in a language of the company, at the version they saw (0 for a new language; another answers 409). An absent field stays as it is. The change is in the history and the catalogue follows at once.
+         */
+        put: operations["profile_translation_update"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3703,6 +3727,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * One company's catalogue page
+         * @description The company's public card in the catalogue. With `locale` the headline, bio and link labels come in that language of the company when the card has them; `locale` in the answer says which language was served and `fallback` lists what stayed in the card's own language.
+         */
         get: operations["catalog_profile"];
         put?: never;
         post?: never;
@@ -6801,6 +6829,8 @@ export interface components {
             is_external: boolean;
             /** Format: double */
             distance_km: number | null;
+            /** @description Units shown in the card's own language because the asked language has no translation of them (and its fallback flag allows it). */
+            fallback: string[];
             layout: string;
             voivodeship: string;
             bio: string;
@@ -9654,19 +9684,67 @@ export interface components {
             version: number;
         };
         ProfileTranslation: {
+            /** @description The language's version this change was made on; 0 for a language the card does not have yet. Another version answers 409. */
+            expected_version: number;
             headline?: string;
             bio?: string;
+            /** @description Link labels by the unit key of the link (`link/<12 hex>`, see `units`); an empty label removes the translation. */
+            link_labels?: {
+                [key: string]: string;
+            };
             allow_headline_fallback?: boolean;
             allow_bio_fallback?: boolean;
+        };
+        ProfileTranslationList: {
+            /** @description The language the card is written in. */
+            source_locale: string;
+            /** @description Every other language of the company, translated or not. */
+            languages: components["schemas"]["ProfileTranslationSummary"][];
         };
         ProfileTranslationSummary: {
             locale: string;
             headline: string;
             bio: string;
+            link_labels: {
+                [key: string]: string;
+            };
             allow_headline_fallback: boolean;
             allow_bio_fallback: boolean;
+            /** @description 0 for a language the card does not have yet. */
             version: number;
+            units: components["schemas"]["ProfileTranslationUnit"][];
         };
+        ProfileTranslationUnit: {
+            /** @description `headline`, `bio` or `link/<12 hex>`. */
+            key: string;
+            /** @description The text in the card's own language. */
+            source_text: string;
+            /** @description The translation; empty: none. */
+            text: string;
+            /**
+             * @description Against the current source text (translation-sources.md §4).
+             *
+             *     * `fresh` - fresh
+             *     * `stale` - stale
+             *     * `missing` - missing
+             *     * `blocked` - blocked
+             *     * `copied` - copied
+             *     * `unverified` - unverified
+             */
+            status: components["schemas"]["ProfileTranslationUnitStatusEnum"];
+            /** @description Who wrote it: human, ai, integration…; empty: nobody. */
+            origin: string;
+        };
+        /**
+         * @description * `fresh` - fresh
+         *     * `stale` - stale
+         *     * `missing` - missing
+         *     * `blocked` - blocked
+         *     * `copied` - copied
+         *     * `unverified` - unverified
+         * @enum {string}
+         */
+        ProfileTranslationUnitStatusEnum: "fresh" | "stale" | "missing" | "blocked" | "copied" | "unverified";
         ProfileUpdate: {
             display_name?: string;
             headline?: string;
@@ -22724,7 +22802,36 @@ export interface operations {
             };
         };
     };
-    api_v1_profiles_translations_update: {
+    profile_translations_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileTranslationList"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    profile_translation_update: {
         parameters: {
             query?: never;
             header?: never;
@@ -22734,7 +22841,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "application/json": components["schemas"]["ProfileTranslation"];
                 "application/x-www-form-urlencoded": components["schemas"]["ProfileTranslation"];
@@ -22759,6 +22866,22 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22892,7 +23015,10 @@ export interface operations {
     };
     catalog_profile: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A language code of the registry, e.g. de. A language the company does not have is answered in the card's own. */
+                locale?: string;
+            };
             header?: never;
             path: {
                 city_slug: string;

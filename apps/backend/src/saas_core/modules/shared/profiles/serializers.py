@@ -38,19 +38,52 @@ class ProfileUpdateSerializer(ProfileWriteSerializer):
 
 
 class ProfileTranslationSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(
+        min_value=0,
+        help_text="The language's version this change was made on; 0 for a language the "
+        "card does not have yet. Another version answers 409.",
+    )
     headline = serializers.CharField(max_length=200, allow_blank=True, required=False)
     bio = serializers.CharField(max_length=4000, allow_blank=True, required=False)
+    link_labels = serializers.DictField(
+        child=serializers.CharField(max_length=80, allow_blank=True),
+        required=False,
+        help_text="Link labels by the unit key of the link (`link/<12 hex>`, see `units`); "
+        "an empty label removes the translation.",
+    )
     allow_headline_fallback = serializers.BooleanField(required=False)
     allow_bio_fallback = serializers.BooleanField(required=False)
+
+
+class ProfileTranslationUnitSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField(help_text="`headline`, `bio` or `link/<12 hex>`.")
+    source_text = serializers.CharField(help_text="The text in the card's own language.")
+    text = serializers.CharField(allow_blank=True, help_text="The translation; empty: none.")
+    status = serializers.ChoiceField(
+        choices=["fresh", "stale", "missing", "blocked", "copied", "unverified"],
+        help_text="Against the current source text (translation-sources.md §4).",
+    )
+    origin = serializers.CharField(
+        allow_blank=True, help_text="Who wrote it: human, ai, integration…; empty: nobody."
+    )
 
 
 class ProfileTranslationSummarySerializer(serializers.Serializer[dict[str, Any]]):
     locale = serializers.CharField()
     headline = serializers.CharField()
     bio = serializers.CharField()
+    link_labels = serializers.DictField(child=serializers.CharField())
     allow_headline_fallback = serializers.BooleanField()
     allow_bio_fallback = serializers.BooleanField()
-    version = serializers.IntegerField()
+    version = serializers.IntegerField(help_text="0 for a language the card does not have yet.")
+    units = ProfileTranslationUnitSerializer(many=True)
+
+
+class ProfileTranslationListSerializer(serializers.Serializer[dict[str, Any]]):
+    source_locale = serializers.CharField(help_text="The language the card is written in.")
+    languages = ProfileTranslationSummarySerializer(
+        many=True, help_text="Every other language of the company, translated or not."
+    )
 
 
 class ProfileSummarySerializer(serializers.Serializer[dict[str, Any]]):
@@ -123,6 +156,11 @@ class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class CatalogProfileSerializer(CatalogItemSerializer):
+    fallback = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Units shown in the card's own language because the asked language has "
+        "no translation of them (and its fallback flag allows it).",
+    )
     layout = serializers.CharField()
     voivodeship = serializers.CharField(allow_blank=True)
     bio = serializers.CharField(allow_blank=True)

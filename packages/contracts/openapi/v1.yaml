@@ -10587,9 +10587,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/profiles/{profile_id}/translations/:
+    get:
+      operationId: profile_translations_list
+      description: 'Every other language of the company with the card''s text in it,
+        unit by unit (headline, bio, link labels): the source text, the translation,
+        its state against the current source (fresh, stale, missing…) and who wrote
+        it, plus the version to send with a change.'
+      summary: The card's translations, language by language
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - profiles
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileTranslationList'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/profiles/{profile_id}/translations/{locale}/:
     put:
-      operationId: api_v1_profiles_translations_update
+      operationId: profile_translation_update
+      description: A person's headline, bio and link labels in a language of the company,
+        at the version they saw (0 for a new language; another answers 409). An absent
+        field stays as it is. The change is in the history and the catalogue follows
+        at once.
+      summary: Write the card in another language
       parameters:
       - in: path
         name: locale
@@ -10603,7 +10640,7 @@ paths:
           format: uuid
         required: true
       tags:
-      - api
+      - profiles
       requestBody:
         content:
           application/json:
@@ -10615,6 +10652,7 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/ProfileTranslation'
+        required: true
       security:
       - cookieAuth: []
       responses:
@@ -10636,6 +10674,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by version: a repeat at the same version answers
+          409 and changes nothing.'
   /api/v1/profiles/organization/:
     get:
       operationId: api_v1_profiles_organization_retrieve
@@ -10759,12 +10812,23 @@ paths:
   /api/v1/public/catalog/{city_slug}/{slug}/:
     get:
       operationId: catalog_profile
+      description: The company's public card in the catalogue. With `locale` the headline,
+        bio and link labels come in that language of the company when the card has
+        them; `locale` in the answer says which language was served and `fallback`
+        lists what stayed in the card's own language.
+      summary: One company's catalogue page
       parameters:
       - in: path
         name: city_slug
         schema:
           type: string
         required: true
+      - in: query
+        name: locale
+        schema:
+          type: string
+        description: A language code of the registry, e.g. de. A language the company
+          does not have is answered in the card's own.
       - in: path
         name: slug
         schema:
@@ -10787,6 +10851,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        error-400: An unknown language is served in the card's own, never refused.
   /api/v1/public/catalog/dictionary/:
     get:
       operationId: catalog_dictionary
@@ -20316,6 +20382,12 @@ components:
           - number
           - 'null'
           format: double
+        fallback:
+          type: array
+          items:
+            type: string
+          description: Units shown in the card's own language because the asked language
+            has no translation of them (and its fallback flag allows it).
         layout:
           type: string
         voivodeship:
@@ -20353,6 +20425,7 @@ components:
       - contact_phone
       - display_name
       - distance_km
+      - fallback
       - headline
       - is_external
       - languages
@@ -27290,16 +27363,44 @@ components:
     ProfileTranslation:
       type: object
       properties:
+        expected_version:
+          type: integer
+          minimum: 0
+          description: The language's version this change was made on; 0 for a language
+            the card does not have yet. Another version answers 409.
         headline:
           type: string
           maxLength: 200
         bio:
           type: string
           maxLength: 4000
+        link_labels:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 80
+          description: Link labels by the unit key of the link (`link/<12 hex>`, see
+            `units`); an empty label removes the translation.
         allow_headline_fallback:
           type: boolean
         allow_bio_fallback:
           type: boolean
+      required:
+      - expected_version
+    ProfileTranslationList:
+      type: object
+      properties:
+        source_locale:
+          type: string
+          description: The language the card is written in.
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileTranslationSummary'
+          description: Every other language of the company, translated or not.
+      required:
+      - languages
+      - source_locale
     ProfileTranslationSummary:
       type: object
       properties:
@@ -27309,19 +27410,79 @@ components:
           type: string
         bio:
           type: string
+        link_labels:
+          type: object
+          additionalProperties:
+            type: string
         allow_headline_fallback:
           type: boolean
         allow_bio_fallback:
           type: boolean
         version:
           type: integer
+          description: 0 for a language the card does not have yet.
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileTranslationUnit'
       required:
       - allow_bio_fallback
       - allow_headline_fallback
       - bio
       - headline
+      - link_labels
       - locale
+      - units
       - version
+    ProfileTranslationUnit:
+      type: object
+      properties:
+        key:
+          type: string
+          description: '`headline`, `bio` or `link/<12 hex>`.'
+        source_text:
+          type: string
+          description: The text in the card's own language.
+        text:
+          type: string
+          description: 'The translation; empty: none.'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ProfileTranslationUnitStatusEnum'
+          description: |-
+            Against the current source text (translation-sources.md §4).
+
+            * `fresh` - fresh
+            * `stale` - stale
+            * `missing` - missing
+            * `blocked` - blocked
+            * `copied` - copied
+            * `unverified` - unverified
+        origin:
+          type: string
+          description: 'Who wrote it: human, ai, integration…; empty: nobody.'
+      required:
+      - key
+      - origin
+      - source_text
+      - status
+      - text
+    ProfileTranslationUnitStatusEnum:
+      enum:
+      - fresh
+      - stale
+      - missing
+      - blocked
+      - copied
+      - unverified
+      type: string
+      description: |-
+        * `fresh` - fresh
+        * `stale` - stale
+        * `missing` - missing
+        * `blocked` - blocked
+        * `copied` - copied
+        * `unverified` - unverified
     ProfileUpdate:
       type: object
       properties:

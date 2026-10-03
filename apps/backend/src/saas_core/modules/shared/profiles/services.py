@@ -13,8 +13,10 @@ from uuid import UUID
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
+from saas_core.content_protocol.provenance import ORIGIN_HUMAN, Provenance, unit_hash
+from saas_core.content_protocol.units import UNIT_TEXT
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import (
     audit_snapshot,
@@ -45,7 +47,13 @@ from .catalog import (
 )
 from .models import ProfileSubjectKind, PublicProfile, PublicProfileTranslation
 from .permissions import PROFILES_MANAGE
-from .search_index import catalog_changed
+from .translation_source import (
+    LEGACY_SOURCE,
+    LINK_PREFIX,
+    apply_translation,
+    notify_card_changed,
+    source_units,
+)
 
 EDITABLE_FIELDS = (
     "display_name",
@@ -297,6 +305,7 @@ def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) ->
 
     tracked = (*EDITABLE_FIELDS, "photo", "membership")
     before = audit_snapshot(profile, tracked)
+    texts_before = [unit.source_hash for unit in source_units(profile)]
     if "photo_id" in values:
         profile.photo = _resolve_photo(values.pop("photo_id"))
     if "membership_id" in values:
@@ -312,6 +321,8 @@ def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) ->
     _validated_placement(profile, context.organization_id)
     profile.save()
     refresh_catalog_entry(profile)
+    if [unit.source_hash for unit in source_units(profile)] != texts_before:
+        notify_card_changed(context=context, profile_id=profile.id)
 
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
@@ -349,30 +360,79 @@ def delete_profile(profile_id: UUID) -> None:
         target_id=profile.id,
         metadata={"subject_kind": profile.subject_kind},
     )
+    notify_card_changed(context=context, profile_id=profile.id, change="deleted")
     profile.delete()
 
 
+def list_translations(
+    profile_id: UUID,
+) -> tuple[PublicProfile, list[tuple[str, PublicProfileTranslation | None]]]:
+    """The card and each other language of the company, with its row or none."""
+    profile = get_profile(profile_id)
+    organization = Organization.objects.get(pk=profile.organization_id)
+    rows = {
+        row.locale: row
+        for row in PublicProfileTranslation.all_objects.filter(
+            organization_id=profile.organization_id, profile=profile
+        )
+    }
+    locales = [
+        code for code in organization_content_locales(organization) if code != profile.locale
+    ]
+    locales += sorted(code for code in rows if code not in locales and code != profile.locale)
+    return profile, [(code, rows.get(code)) for code in locales]
+
+
 @transaction.atomic
-def save_translation(profile_id: UUID, *, locale: str, **values: Any) -> PublicProfileTranslation:
+def save_translation(
+    profile_id: UUID, *, locale: str, expected_version: int, **values: Any
+) -> PublicProfileTranslation:
+    """A person's text of the card in another language, at the version they
+    saw (0 for a language the card does not have yet)."""
     context = authorize(PROFILES_MANAGE)
-    profile = _for_tenant(context.organization_id).filter(pk=profile_id).first()
+    profile = _for_tenant(context.organization_id).select_for_update().filter(pk=profile_id).first()
     if profile is None:
         raise NotFound
-
-    translation = PublicProfileTranslation.all_objects.filter(
+    if locale == profile.locale:
+        raise ValidationError({
+            "locale": [ErrorDetail("To język, w którym karta jest napisana.", "locale_is_source")]
+        })
+    assert_organization_content_locale(locale, organization_id=context.organization_id)
+    current = PublicProfileTranslation.all_objects.filter(
         organization_id=context.organization_id, profile=profile, locale=locale
     ).first()
-    if translation is None:
-        translation = PublicProfileTranslation(
-            organization_id=context.organization_id, profile=profile, locale=locale
+    if (current.version if current is not None else 0) != expected_version:
+        raise ProfileVersionConflict
+    units = {unit.key: unit for unit in source_units(profile)}
+    texts: dict[str, tuple[str, Provenance]] = {}
+    wanted = {field: values[field] for field in ("headline", "bio") if field in values}
+    labels = values.get("link_labels") or {}
+    unknown = [key for key in labels if key not in units or not key.startswith(LINK_PREFIX)]
+    if unknown:
+        raise ValidationError({
+            f"link_labels.{key}": [ErrorDetail("Karta nie ma takiego linku.", "unknown_link")]
+            for key in unknown
+        })
+    wanted.update(labels)
+    for key, text in wanted.items():
+        unit = units.get(key)
+        texts[key] = (
+            text,
+            Provenance(
+                origin=ORIGIN_HUMAN,
+                source_hash=unit.source_hash if unit is not None else LEGACY_SOURCE,
+                written_hash=unit_hash(UNIT_TEXT, text) if text else "",
+            ),
         )
-    else:
-        translation.version += 1
-    for field in ("headline", "bio", "allow_headline_fallback", "allow_bio_fallback"):
-        if field in values:
-            setattr(translation, field, values[field])
-    _validated(translation)
-    translation.save()
-    if profile.subject_kind == ProfileSubjectKind.ORGANIZATION:
-        catalog_changed(context.organization_id)
+    flags = {
+        flag: values[flag]
+        for flag in ("allow_headline_fallback", "allow_bio_fallback")
+        if flag in values
+    }
+    try:
+        translation, _replaced = apply_translation(
+            profile, locale, texts, actor_id=context.actor_id, flags=flags
+        )
+    except DjangoValidationError as error:
+        raise ValidationError(error.message_dict) from error
     return translation

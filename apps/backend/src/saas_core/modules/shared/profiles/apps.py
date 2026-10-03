@@ -43,6 +43,11 @@ class ProfilesConfig(AppConfig):
 
         register_profile_commands()
 
+        # The card as a translation source (ADR-069, TL12a).
+        from .translation_source import register_profile_source
+
+        register_profile_source()
+
         # Every write of a catalogue row — publication, refresh, withdrawal and
         # the cascade when a company is erased — moves its search document too.
         post_save.connect(

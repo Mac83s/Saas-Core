@@ -29,8 +29,11 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from saas_core.content_protocol.provenance import ORIGIN_COPY
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.locales import organization_content_locales
+from saas_core.modules.core.organizations.models import Organization
 
 from .catalog_contract import categories, cities, cities_within
 from .models import (
@@ -46,6 +49,7 @@ from .serializers import (
     CatalogPageSerializer,
     CatalogProfileSerializer,
 )
+from .translation_source import link_key
 
 logger = logging.getLogger(__name__)
 
@@ -252,8 +256,15 @@ def search_catalog(
     }
 
 
-def resolve_catalog_profile(*, city_slug: str, slug: str) -> dict[str, Any]:
-    """One catalogue page: the row names the tenant, the tenant answers for itself."""
+def resolve_catalog_profile(
+    *, city_slug: str, slug: str, locale: str | None = None
+) -> dict[str, Any]:
+    """One catalogue page: the row names the tenant, the tenant answers for itself.
+
+    With `locale` (a language of the company other than the card's own) the
+    headline, bio and link labels come from that language; a unit it has no
+    translation of shows in the card's language where its fallback flag allows
+    (link labels always), and is named in `fallback` (TL12a, ADR-027)."""
     entry = (
         CatalogEntry.all_objects.select_related("site", "photo")
         .filter(city_slug=city_slug, slug=slug)
@@ -283,12 +294,20 @@ def resolve_catalog_profile(*, city_slug: str, slug: str) -> dict[str, Any]:
         # and let withdrawal or erasure clean the row up.
         if profile is None:
             raise CatalogEntryNotFound
+        organization = Organization.objects.get(pk=entry.organization_id)
+        asked = (
+            locale
+            if locale
+            and locale != profile.locale
+            and locale in organization_content_locales(organization)
+            else None
+        )
         translation = PublicProfileTranslation.all_objects.filter(
-            organization_id=entry.organization_id, profile=profile, locale=profile.locale
+            organization_id=entry.organization_id, profile=profile, locale=asked or profile.locale
         ).first()
 
     city = cities().get(entry.city_slug)
-    return {
+    payload = {
         **_entry_payload(entry),
         "layout": profile.layout,
         "voivodeship": city.voivodeship if city else "",
@@ -300,6 +319,50 @@ def resolve_catalog_profile(*, city_slug: str, slug: str) -> dict[str, Any]:
         "languages": profile.languages,
         "specializations": profile.specializations,
         "locale": profile.locale,
+        "fallback": [],
+    }
+    if asked is None or translation is None:
+        return payload
+    return {**payload, **_in_language(profile, translation)}
+
+
+def _in_language(profile: PublicProfile, row: PublicProfileTranslation) -> dict[str, Any]:
+    """The card's text in the row's language, with what stays in the source.
+    The source's own text standing in for a translation (`copy`) is not one."""
+    fallback: list[str] = []
+    copied = {
+        key
+        for key, origin in (row.provenance or {}).items()
+        if isinstance(origin, dict) and origin.get("origin") == ORIGIN_COPY
+    }
+
+    def text(field: str, translated: str, source: str, allowed: bool) -> str:
+        if translated:
+            return translated
+        if source:
+            fallback.append(field)
+        return source if allowed else ""
+
+    headline = text(
+        "headline",
+        "" if "headline" in copied else row.headline,
+        profile.headline,
+        row.allow_headline_fallback,
+    )
+    bio = text("bio", "" if "bio" in copied else row.bio, profile.bio, row.allow_bio_fallback)
+    labels = {key: label for key, label in (row.link_labels or {}).items() if key not in copied}
+    links = []
+    for link in profile.links or ():
+        key = link_key(link["url"])
+        if key not in labels:
+            fallback.append(key)
+        links.append({"label": labels.get(key) or link["label"], "url": link["url"]})
+    return {
+        "headline": headline,
+        "bio": bio,
+        "links": links,
+        "locale": row.locale,
+        "fallback": fallback,
     }
 
 
@@ -378,10 +441,30 @@ class PublicCatalogDetailView(APIView):
 
     @extend_schema(
         operation_id="catalog_profile",
+        summary="One company's catalogue page",
+        description="The company's public card in the catalogue. With `locale` the headline, "
+        "bio and link labels come in that language of the company when the card has them; "
+        "`locale` in the answer says which language was served and `fallback` lists what "
+        "stayed in the card's own language.",
+        parameters=[
+            OpenApiParameter(
+                "locale",
+                str,
+                required=False,
+                description="A language code of the registry, e.g. de. A language the company "
+                "does not have is answered in the card's own.",
+            )
+        ],
         responses={200: CatalogProfileSerializer, 404: ProblemDetailsSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "error-400": "An unknown language is served in the card's own, never refused.",
+            }
+        },
     )
     def get(self, request: Request, city_slug: str, slug: str) -> Response:
-        return Response(resolve_catalog_profile(city_slug=city_slug, slug=slug))
+        locale = request.query_params.get("locale") or None
+        return Response(resolve_catalog_profile(city_slug=city_slug, slug=slug, locale=locale))
 
 
 class PublicCatalogDictionaryView(APIView):

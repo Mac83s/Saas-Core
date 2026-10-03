@@ -11,6 +11,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from saas_core.content_protocol.units import unit_state
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.locales import ContentLocaleField
 
@@ -21,6 +22,7 @@ from .serializers import (
     OrganizationProfileSerializer,
     ProfileCreateSerializer,
     ProfileSummarySerializer,
+    ProfileTranslationListSerializer,
     ProfileTranslationSerializer,
     ProfileTranslationSummarySerializer,
     ProfileUpdateSerializer,
@@ -30,10 +32,12 @@ from .services import (
     delete_profile,
     get_profile,
     list_profiles,
+    list_translations,
     organization_profile,
     save_translation,
     update_profile,
 )
+from .translation_source import source_units, target_texts
 
 
 def _summary(profile: PublicProfile) -> dict[str, Any]:
@@ -59,14 +63,30 @@ def _summary(profile: PublicProfile) -> dict[str, Any]:
     }
 
 
-def _translation(translation: PublicProfileTranslation) -> dict[str, Any]:
+def _translation(
+    profile: PublicProfile, locale: str, translation: PublicProfileTranslation | None
+) -> dict[str, Any]:
+    units = source_units(profile)
+    targets = target_texts(translation, units)
+    rows = []
+    for unit in units:
+        target = targets.get(unit.key)
+        rows.append({
+            "key": unit.key,
+            "source_text": unit.text,
+            "text": target.text if target else "",
+            "status": unit_state(unit, target).status,
+            "origin": target.provenance.origin if target and target.provenance else "",
+        })
     return {
-        "locale": translation.locale,
-        "headline": translation.headline,
-        "bio": translation.bio,
-        "allow_headline_fallback": translation.allow_headline_fallback,
-        "allow_bio_fallback": translation.allow_bio_fallback,
-        "version": translation.version,
+        "locale": locale,
+        "headline": translation.headline if translation else "",
+        "bio": translation.bio if translation else "",
+        "link_labels": dict(translation.link_labels or {}) if translation else {},
+        "allow_headline_fallback": translation.allow_headline_fallback if translation else True,
+        "allow_bio_fallback": translation.allow_bio_fallback if translation else True,
+        "version": translation.version if translation else 0,
+        "units": rows,
     }
 
 
@@ -126,16 +146,51 @@ class ProfileDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ProfileTranslationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="profile_translations_list",
+        summary="The card's translations, language by language",
+        description="Every other language of the company with the card's text in it, unit by "
+        "unit (headline, bio, link labels): the source text, the translation, its state against "
+        "the current source (fresh, stale, missing…) and who wrote it, plus the version to send "
+        "with a change.",
+        tags=["profiles"],
+        responses={200: ProfileTranslationListSerializer, 404: ProblemDetailsSerializer},
+    )
+    def get(self, _request: Request, profile_id: UUID) -> Response:
+        profile, rows = list_translations(profile_id)
+        return Response({
+            "source_locale": profile.locale,
+            "languages": [_translation(profile, code, row) for code, row in rows],
+        })
+
+
 @method_decorator(csrf_protect, name="dispatch")
 class ProfileTranslationView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="profile_translation_update",
+        summary="Write the card in another language",
+        description="A person's headline, bio and link labels in a language of the company, at "
+        "the version they saw (0 for a new language; another answers 409). An absent field stays "
+        "as it is. The change is in the history and the catalogue follows at once.",
+        tags=["profiles"],
         request=ProfileTranslationSerializer,
         responses={
             200: ProfileTranslationSummarySerializer,
             400: ProblemDetailsSerializer,
             403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Locked by version: a repeat at the same version answers "
+                "409 and changes nothing.",
+            }
         },
     )
     def put(self, request: Request, profile_id: UUID, locale: str) -> Response:
@@ -150,7 +205,7 @@ class ProfileTranslationView(APIView):
         translation = save_translation(
             profile_id, locale=locale, **cast(dict[str, Any], serializer.validated_data)
         )
-        return Response(_translation(translation))
+        return Response(_translation(translation.profile, locale, translation))
 
 
 def _catalog_state(entry: CatalogEntry | None) -> dict[str, Any]:

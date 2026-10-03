@@ -182,6 +182,9 @@ def publish_profile() -> CatalogEntry:
         target_id=entry.id,
         metadata={"catalog": "published", "city_slug": entry.city_slug, "slug": entry.slug},
     )
+    from .translation_source import notify_card_changed
+
+    notify_card_changed(context=context, profile_id=profile.id)
     return entry
 
 
@@ -201,6 +204,9 @@ def withdraw_profile() -> None:
         metadata={"catalog": "withdrawn", "city_slug": entry.city_slug, "slug": entry.slug},
     )
     entry.delete()
+    from .translation_source import notify_card_changed
+
+    notify_card_changed(context=context, profile_id=profile.id, change="withdrawn")
 
 
 def refresh_catalog_entry(profile: PublicProfile) -> None:

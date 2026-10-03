@@ -173,6 +173,12 @@ class PublicProfileTranslation(TenantScopedModel):
     bio = models.TextField(blank=True, max_length=4000)
     allow_headline_fallback = models.BooleanField(default=True)
     allow_bio_fallback = models.BooleanField(default=True)
+    # A link's label by `link/<sha256(url)[:12]>`: reordering the links keeps
+    # their translations (TL12a).
+    link_labels = models.JSONField(default=dict, blank=True)
+    # Unit key (`headline`, `bio`, `link/…`) → provenance (`content_protocol`):
+    # who wrote the text, from which source text (ADR-069 pkt 9).
+    provenance = models.JSONField(default=dict, blank=True)
     version = models.PositiveBigIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -189,7 +195,7 @@ class PublicProfileTranslation(TenantScopedModel):
             models.UniqueConstraint(
                 fields=["organization", "profile", "locale"],
                 name="profiles_translation_org_profile_locale_uq",
-            )
+            ),
         ]
 
     def __str__(self) -> str:
@@ -199,6 +205,34 @@ class PublicProfileTranslation(TenantScopedModel):
         super().clean()
         if "<" in self.bio or "<" in self.headline:
             raise ValidationError({"bio": "Opis nie może zawierać znaczników HTML."})
+
+
+class ProfileTranslationWrite(TenantScopedModel):
+    """The receipt of one translation write of a card in one language
+    (`translation_source`): a repeat answers the same outcomes, and the texts
+    it replaced let `revert` put them back."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    profile = models.ForeignKey(PublicProfile, on_delete=models.CASCADE, related_name="+")
+    locale = models.CharField(max_length=10)
+    idempotency_key = models.CharField(max_length=64)
+    request_hash = models.CharField(max_length=64)
+    job_ref = models.CharField(max_length=160, blank=True, default="")
+    outcomes = models.JSONField(default=list)
+    # Unit key → [text, provenance] before the write; null where it had none.
+    replaced = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "profile", "locale", "idempotency_key"],
+                name="profiles_translationwrite_idem_uq",
+            ),
+        ]
+        indexes = [models.Index(fields=["organization", "job_ref"])]
 
 
 class CatalogEntry(TenantScopedModel):

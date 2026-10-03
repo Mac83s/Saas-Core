@@ -207,12 +207,18 @@ def test_a_translation_is_one_row_per_locale() -> None:
 
     with activate_tenant_context(_context(organization)):
         set_local_organization_id(organization.id)
-        first = save_translation(profile.id, locale="en", headline="Dentist")
-        second = save_translation(profile.id, locale="en", headline="Dental surgeon")
+        first = save_translation(profile.id, locale="en", expected_version=0, headline="Dentist")
+        second = save_translation(
+            profile.id, locale="en", expected_version=1, headline="Dental surgeon"
+        )
+        # A second person working from the first version is told, not overwritten.
+        with pytest.raises(ProfileVersionConflict):
+            save_translation(profile.id, locale="en", expected_version=1, headline="Dentysta")
 
     assert first.id == second.id
     assert second.headline == "Dental surgeon"
     assert second.version == first.version + 1
+    assert second.provenance["headline"]["origin"] == "human"
 
 
 def test_a_role_without_the_permission_may_read_but_not_write() -> None:
