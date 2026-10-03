@@ -5608,14 +5608,19 @@ export async function getTranslationOffer(): Promise<TranslationOffer> {
   return data;
 }
 
+/** What a person's or an integration's text gets: left alone, a proposal
+ *  that waits for a person (the default), or overwritten — a person's choice. */
+export type TranslationProtected = "skip" | "propose" | "overwrite";
+
 export async function quoteTranslation(
   targets: TranslationTarget[],
+  protectedTexts: TranslationProtected = "propose",
 ): Promise<TranslationQuote> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/translation/quotes/",
     {
-      body: { targets, protected: "propose", include_unverified: false },
+      body: { targets, protected: protectedTexts, include_unverified: false },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
@@ -5628,6 +5633,7 @@ export async function orderTranslation(
   targets: TranslationTarget[],
   quote: Pick<TranslationQuote, "digest" | "credits">,
   idempotencyKey: string,
+  protectedTexts: TranslationProtected = "propose",
 ): Promise<TranslationJob> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
@@ -5636,13 +5642,27 @@ export async function orderTranslation(
       params: { header: { "Idempotency-Key": idempotencyKey } },
       body: {
         targets,
-        protected: "propose",
+        protected: protectedTexts,
         include_unverified: false,
         digest: quote.digest,
         expected_credits: quote.credits,
       },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** One translation order with its parts and items, to follow its progress. */
+export async function getTranslationJob(jobId: string): Promise<TranslationJob> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/jobs/{job_id}/",
+    {
+      params: { path: { job_id: jobId } },
+      credentials: "same-origin",
+      cache: "no-store",
     },
   );
   if (error || !data) throwProblem(error, response);

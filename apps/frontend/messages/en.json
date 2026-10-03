@@ -2559,7 +2559,11 @@
         "accept": "Accept and publish",
         "reject": "Reject",
         "publish": "Publish this version",
-        "withdraw": "Take off the site"
+        "withdraw": "Take off the site",
+        "translate": "Translate (AI)",
+        "translateMissing": "Translate what is missing (AI)",
+        "translating": "This page is being translated…",
+        "translated": "The translation is ready — the new version is below."
       },
       "decision": {
         "acceptTitle": "Accept the translation and publish it?",
@@ -4869,7 +4873,59 @@
     "confirmOrder": "Translate",
     "cancel": "Cancel",
     "ordered": "The translation is ordered. The results show here when they are ready.",
-    "orderFailed": "The translation could not be ordered."
+    "orderFailed": "The translation could not be ordered.",
+    "unavailable": {
+      "line": "Automatic translation is not available right now: {reason}. You can translate manually.",
+      "processor_not_listed": "the platform has not chosen a translation provider yet",
+      "model_not_selected": "the platform has not chosen a translation model yet",
+      "operation_unpriced": "the platform has not set the price of translations yet",
+      "worker_unavailable": "the translation service is not responding at the moment",
+      "disabled": "it is switched off for this company",
+      "suspended": "it is suspended for this company",
+      "processing_ack_required": "the company has not yet confirmed that the AI provider may process its content (Settings › Languages and translations)",
+      "other": "the platform has not switched it on yet"
+    },
+    "dialog": {
+      "title": "Translate automatically?",
+      "quoting": "Working out how much there is to translate…",
+      "nothing": "There is nothing to translate — everything is up to date.",
+      "amount": "To translate: {characters, plural, one {# character} other {# characters}}{languages, plural, one {} other {, languages: #}}.",
+      "costCredits": "Cost: {credits, plural, one {# credit} other {# credits}}.",
+      "balance": "You have {available, plural, one {# credit} other {# credits}}.",
+      "insufficient": "{missing, plural, one {# credit is} other {# credits are}} missing. Buy more in Subscription › Credits.",
+      "costPlatform": "The platform covers the cost.",
+      "outcome": {
+        "live": "The finished translation goes on the site at once.",
+        "draft": "The finished translation stays in the editor — it goes on the site when you publish.",
+        "pending": "The finished translation waits for your approval: {reason}."
+      },
+      "overwrite": "Overwrite my corrections too ({count})",
+      "overwriteHint": "Without this, the fragments you corrected stay, and the new translation of them waits for your decision.",
+      "working": "The source page has changes that are not on the site yet — translating the version from the editor.",
+      "excluded": {
+        "line": "{language}: nothing will be sent — {reason}.",
+        "in_progress": "a translation is already running",
+        "source_unpublished": "the source page is not published yet",
+        "deleted": "this content no longer exists",
+        "withdrawn": "this version has been taken off the site",
+        "locale_is_source": "it is the source language",
+        "locale_not_enabled": "this language is not enabled for the company",
+        "other": "this content cannot be translated right now"
+      },
+      "confirm": "Translate",
+      "cancel": "Cancel",
+      "close": "Close",
+      "quoteFailed": "The translation could not be quoted. Try again.",
+      "orderFailed": "The translation could not be ordered. Try again.",
+      "quoteChanged": "The content changed since the quote — check the new one.",
+      "running": "Translating… You can close this window — the work goes on.",
+      "done": {
+        "succeeded": "The translation is ready.",
+        "partial": "The translation is partly ready — some fragments need your attention.",
+        "failed": "The translation failed. Credits for what was not delivered are returned.",
+        "canceled": "The translation was cancelled."
+      }
+    }
   },
   "PlatformSettings": {
     "title": "Platform settings",

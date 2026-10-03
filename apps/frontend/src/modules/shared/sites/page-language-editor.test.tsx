@@ -24,6 +24,11 @@ const api = vi.hoisted(() => ({
   previewPublishLocaleBody: vi.fn(),
   publishLocaleBody: vi.fn(),
   withdrawLocaleBody: vi.fn(),
+  getTranslationOffer: vi.fn(),
+  getTranslationJob: vi.fn(),
+  quoteTranslation: vi.fn(),
+  orderTranslation: vi.fn(),
+  getCustomerCredits: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -111,6 +116,8 @@ function show(locale: "pl" | "en" = "pl") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // No translation engine composed, unless a test says otherwise.
+  api.getTranslationOffer.mockRejectedValue(new Error("not found"));
 });
 
 test("only the words change: each fragment beside its source, structure in the source", async () => {
@@ -375,4 +382,128 @@ test("a decision the person may not take says who takes it", async () => {
   expect(
     await screen.findByText("Tę decyzję podejmuje osoba z prawem publikacji."),
   ).not.toBeNull();
+});
+
+const EMPTY = () =>
+  body({
+    version: null,
+    version_id: null,
+    units: body().units.map((item) => ({ ...item, text: null, origin: "" })),
+  });
+
+test("an engine that takes no orders leaves the manual way whole and says why", async () => {
+  api.getLocaleBody.mockResolvedValue(EMPTY());
+  api.getTranslationOffer.mockResolvedValue({
+    available: false,
+    reasons: ["model_not_selected"],
+  });
+  show();
+
+  expect(
+    await screen.findByText(
+      "Automatyczne tłumaczenie nie jest teraz dostępne: platforma nie wybrała jeszcze modelu tłumaczeń. Możesz przetłumaczyć ręcznie.",
+    ),
+  ).not.toBeNull();
+  // No button that leads nowhere.
+  expect(screen.queryByRole("button", { name: "Przetłumacz (AI)" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Przetłumacz ręcznie" }));
+  expect(await screen.findByLabelText("Treść")).not.toBeNull();
+});
+
+test("an order from the empty state is followed and the page reloads when it ends", async () => {
+  api.getLocaleBody
+    .mockResolvedValueOnce(EMPTY())
+    .mockResolvedValue(body({ untranslated: 0 }));
+  api.getTranslationOffer.mockResolvedValue({
+    available: true,
+    reasons: [],
+    billing: { mode: "credits" },
+  });
+  api.getCustomerCredits.mockResolvedValue({ balance: { available: 5 } });
+  api.quoteTranslation.mockResolvedValue({
+    digest: "d".repeat(64),
+    characters: 120,
+    units: 1,
+    credits: 1,
+    lines: [
+      {
+        object_id: PAGE.id,
+        locale: "de",
+        proposals: 0,
+        outcome: "draft",
+        reason: null,
+        excluded: null,
+      },
+    ],
+  });
+  api.orderTranslation.mockResolvedValue({ id: "job-1", state: "queued" });
+  api.getTranslationJob.mockResolvedValue({ id: "job-1", state: "succeeded" });
+  show();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz (AI)" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz" }));
+
+  await waitFor(() =>
+    expect(api.orderTranslation).toHaveBeenCalledWith(
+      [{ source_key: "sites.page", object_id: PAGE.id, locale: "de", basis: "published" }],
+      expect.anything(),
+      expect.any(String),
+      "propose",
+    ),
+  );
+  expect(
+    await screen.findByText("Tłumaczenie gotowe — poniżej nowa wersja."),
+  ).not.toBeNull();
+  expect(api.getLocaleBody).toHaveBeenCalledTimes(2);
+});
+
+test("an order that ended is history: asking again quotes anew", async () => {
+  // Fragments are still missing after the order, so the banner offers it again.
+  api.getLocaleBody.mockResolvedValue(body());
+  api.getTranslationOffer.mockResolvedValue({
+    available: true,
+    reasons: [],
+    billing: { mode: "credits" },
+  });
+  api.getCustomerCredits.mockResolvedValue({ balance: { available: 5 } });
+  api.quoteTranslation.mockResolvedValue({
+    digest: "d".repeat(64),
+    characters: 40,
+    units: 1,
+    credits: 1,
+    lines: [
+      {
+        object_id: PAGE.id,
+        locale: "de",
+        proposals: 0,
+        outcome: "draft",
+        reason: null,
+        excluded: null,
+      },
+    ],
+  });
+  api.orderTranslation.mockResolvedValue({ id: "job-1", state: "queued" });
+  api.getTranslationJob.mockResolvedValue({ id: "job-1", state: "partial" });
+  show();
+
+  const again = () =>
+    screen.findByRole("button", { name: "Przetłumacz brakujące (AI)" });
+  fireEvent.click(await again());
+  fireEvent.click(await screen.findByRole("button", { name: "Przetłumacz" }));
+  expect(
+    await screen.findByText(
+      "Tłumaczenie gotowe częściowo — część fragmentów wymaga Twojej uwagi.",
+    ),
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Zamknij" }));
+
+  fireEvent.click(await again());
+  // The dialog asks what it would cost now; it does not show the old order.
+  expect(await screen.findByRole("button", { name: "Przetłumacz" })).not.toBeNull();
+  expect(api.quoteTranslation).toHaveBeenCalledTimes(2);
+  expect(
+    screen.queryByText(
+      "Tłumaczenie gotowe częściowo — część fragmentów wymaga Twojej uwagi.",
+    ),
+  ).toBeNull();
 });

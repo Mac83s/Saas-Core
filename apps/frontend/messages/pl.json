@@ -2559,7 +2559,11 @@
         "accept": "Zaakceptuj i opublikuj",
         "reject": "Odrzuć",
         "publish": "Opublikuj tę wersję",
-        "withdraw": "Zdejmij ze strony"
+        "withdraw": "Zdejmij ze strony",
+        "translate": "Przetłumacz (AI)",
+        "translateMissing": "Przetłumacz brakujące (AI)",
+        "translating": "Tłumaczenie tej strony trwa…",
+        "translated": "Tłumaczenie gotowe — poniżej nowa wersja."
       },
       "decision": {
         "acceptTitle": "Zaakceptować tłumaczenie i opublikować je?",
@@ -4869,7 +4873,59 @@
     "confirmOrder": "Przetłumacz",
     "cancel": "Anuluj",
     "ordered": "Zlecono tłumaczenie. Wyniki pojawią się tutaj, gdy będą gotowe.",
-    "orderFailed": "Nie udało się zlecić tłumaczenia."
+    "orderFailed": "Nie udało się zlecić tłumaczenia.",
+    "unavailable": {
+      "line": "Automatyczne tłumaczenie nie jest teraz dostępne: {reason}. Możesz przetłumaczyć ręcznie.",
+      "processor_not_listed": "platforma nie wybrała jeszcze dostawcy tłumaczeń",
+      "model_not_selected": "platforma nie wybrała jeszcze modelu tłumaczeń",
+      "operation_unpriced": "platforma nie ustaliła jeszcze ceny tłumaczeń",
+      "worker_unavailable": "usługa tłumaczeń chwilowo nie odpowiada",
+      "disabled": "jest wyłączone dla tej firmy",
+      "suspended": "jest wstrzymane dla tej firmy",
+      "processing_ack_required": "firma nie potwierdziła jeszcze przetwarzania treści przez dostawcę AI (Ustawienia › Języki i tłumaczenia)",
+      "other": "platforma jeszcze go nie włączyła"
+    },
+    "dialog": {
+      "title": "Przetłumaczyć automatycznie?",
+      "quoting": "Liczę, ile jest do przetłumaczenia…",
+      "nothing": "Nie ma nic do przetłumaczenia — wszystko jest aktualne.",
+      "amount": "Do przetłumaczenia: {characters, plural, one {# znak} few {# znaki} many {# znaków} other {# znaku}}{languages, plural, one {} other {, języków: #}}.",
+      "costCredits": "Koszt: {credits, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}}.",
+      "balance": "Masz {available, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}}.",
+      "insufficient": "Brakuje {missing, plural, one {# kredytu} other {# kredytów}}. Dokupisz je w Abonament › Kredyty.",
+      "costPlatform": "Koszt pokrywa platforma.",
+      "outcome": {
+        "live": "Gotowe tłumaczenie trafi na stronę od razu.",
+        "draft": "Gotowe tłumaczenie zostanie w edytorze — na stronę trafi z Twoją publikacją.",
+        "pending": "Gotowe tłumaczenie poczeka na Twoją akceptację: {reason}."
+      },
+      "overwrite": "Nadpisz też moje poprawki ({count})",
+      "overwriteHint": "Bez tego poprawione przez Ciebie fragmenty zostają, a nowe tłumaczenie do nich poczeka na Twoją decyzję.",
+      "working": "Strona źródłowa ma zmiany, których nie ma jeszcze na stronie — tłumaczę wersję z edytora.",
+      "excluded": {
+        "line": "{language}: nic nie zostanie wysłane — {reason}.",
+        "in_progress": "tłumaczenie już trwa",
+        "source_unpublished": "strona źródłowa nie jest jeszcze opublikowana",
+        "deleted": "tej treści już nie ma",
+        "withdrawn": "ta wersja jest zdjęta ze strony",
+        "locale_is_source": "to język źródłowy",
+        "locale_not_enabled": "ten język nie jest włączony dla firmy",
+        "other": "tej treści nie można teraz przetłumaczyć"
+      },
+      "confirm": "Przetłumacz",
+      "cancel": "Anuluj",
+      "close": "Zamknij",
+      "quoteFailed": "Nie udało się wycenić tłumaczenia. Spróbuj ponownie.",
+      "orderFailed": "Nie udało się zlecić tłumaczenia. Spróbuj ponownie.",
+      "quoteChanged": "Treść zmieniła się od wyceny — sprawdź nową wycenę.",
+      "running": "Tłumaczenie trwa… Możesz zamknąć to okno — praca będzie trwała dalej.",
+      "done": {
+        "succeeded": "Tłumaczenie gotowe.",
+        "partial": "Tłumaczenie gotowe częściowo — część fragmentów wymaga Twojej uwagi.",
+        "failed": "Nie udało się przetłumaczyć. Kredyty za niedostarczone fragmenty wracają.",
+        "canceled": "Tłumaczenie zostało anulowane."
+      }
+    }
   },
   "PlatformSettings": {
     "title": "Ustawienia platformy",

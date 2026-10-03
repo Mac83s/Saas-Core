@@ -90,6 +90,15 @@ import {
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { privateMediaRenderer } from "./private-media-preview";
+import {
+  TranslateDialog,
+  TranslationUnavailable,
+} from "../translation/translate-dialog";
+import {
+  translationJobFinished,
+  useTranslationJob,
+  useTranslationOffer,
+} from "../translation/use-translation";
 import { TokenText, TokenTextField } from "./rich-text-token-field";
 import type { TokenMarks } from "./rich-text-tokens";
 import { slugFromTitle } from "./slug";
@@ -240,6 +249,13 @@ export function PageLanguageEditor({
     | null
   >(null);
   const [deciding, setDeciding] = useState(false);
+  // Automatic translation: whether it can be ordered here, the dialog, and
+  // the order being followed — it runs on the server whatever this screen
+  // does, and the page reloads when it ends.
+  const offer = useTranslationOffer();
+  const [translating, setTranslating] = useState(false);
+  const [jobId, setJobId] = useState<string>();
+  const job = useTranslationJob(jobId);
 
   const dirtyKeys = useMemo(
     () => Object.keys(values).filter((key) => values[key] !== initial[key]),
@@ -278,6 +294,17 @@ export function PageLanguageEditor({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  const jobDone = translationJobFinished(job);
+  useEffect(() => {
+    if (!jobDone) return;
+    // The job wrote this language: show what it wrote.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load().then(() => setNotice(t("actions.translated")));
+    onChanged();
+    // `load` and `onChanged` are the same for the editor's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobDone]);
 
   const marks = useMemo(
     () =>
@@ -585,8 +612,39 @@ export function PageLanguageEditor({
     </div>
   );
 
+  function openTranslate() {
+    // An order that ended is history: the dialog quotes anew.
+    if (jobDone) setJobId(undefined);
+    setTranslating(true);
+  }
+
+  /** "Przetłumacz", only where the engine takes orders — never a button
+   *  that leads nowhere. */
+  function translateAction(label: string): ReactNode {
+    if (offer.state !== "available") return null;
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={dirtyKeys.length > 0 || (jobId !== undefined && !jobDone)}
+        title={dirtyKeys.length > 0 ? t("banner.saveFirst") : undefined}
+        onClick={openTranslate}
+      >
+        {label}
+      </Button>
+    );
+  }
+
   function banner() {
     if (!body) return null;
+    if (jobId !== undefined && !jobDone) {
+      return (
+        <div className="border-b bg-muted/40 px-4 py-2 text-sm" role="status">
+          {t("actions.translating")}
+        </div>
+      );
+    }
     const lines: {
       tone: "info" | "warning" | "success";
       text: string;
@@ -636,14 +694,17 @@ export function PageLanguageEditor({
         tone: "warning",
         text: t("banner.outdated"),
         action: (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => void askRebase()}
-          >
-            {t("rebase.action")}
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void askRebase()}
+            >
+              {t("rebase.action")}
+            </Button>
+            {translateAction(t("actions.translateMissing"))}
+          </>
         ),
       });
     }
@@ -652,6 +713,7 @@ export function PageLanguageEditor({
         lines.push({
           tone: "info",
           text: t("banner.untranslated", { count: body.untranslated }),
+          action: translateAction(t("actions.translateMissing")),
         });
       } else if (body.version_id && body.version_id === body.live_version_id) {
         lines.push({ tone: "success", text: t("banner.live") });
@@ -883,10 +945,26 @@ export function PageLanguageEditor({
           <CardTitle>{t("empty.title", { language: languageName })}</CardTitle>
           <CardDescription>{t("empty.text")}</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => setStarted(true)}>
-            {t("empty.manual")}
-          </Button>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {offer.state === "available" && (
+              <Button type="button" onClick={openTranslate}>
+                {t("actions.translate")}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant={offer.state === "available" ? "outline" : "default"}
+              onClick={() => setStarted(true)}
+            >
+              {t("empty.manual")}
+            </Button>
+          </div>
+          {/* The engine is there but takes no orders now: said plainly, with
+              the manual way whole. Without an engine nothing is said. */}
+          {offer.state === "unavailable" && (
+            <TranslationUnavailable reasons={offer.reasons} />
+          )}
         </CardContent>
       </Card>
     );
@@ -1068,6 +1146,26 @@ export function PageLanguageEditor({
           </div>
         </DialogContent>
       </Dialog>
+
+      {offer.state === "available" && (
+        <TranslateDialog
+          open={translating}
+          onOpenChange={setTranslating}
+          targets={[
+            { source_key: "sites.page", object_id: page.id, locale, basis: "published" },
+          ]}
+          languageName={() => languageName}
+          reasonText={(reason) =>
+            t.has(`banner.reasons.${reason}`)
+              ? t(`banner.reasons.${reason}`)
+              : t("banner.reasons.other")
+          }
+          allowWorking
+          offer={offer.offer}
+          job={job}
+          onOrdered={(started) => setJobId(started.id)}
+        />
+      )}
 
       <Dialog
         open={decision !== null}
