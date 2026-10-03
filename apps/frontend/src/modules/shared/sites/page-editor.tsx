@@ -355,6 +355,7 @@ export function PageEditor({
   page,
   previewOnOpen = false,
   languageSwitch,
+  afterSaveNotice,
 }: {
   onChanged: () => Promise<void>;
   onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
@@ -370,6 +371,9 @@ export function PageEditor({
   /** The page's language (TL15, development-51): beside „Zapisz” on every
    *  screen; the toolbar keeps its place either way. */
   languageSwitch?: ReactNode;
+  /** What a saved change means for the page's other languages; said once
+   *  after a save, when there is something to say. */
+  afterSaveNotice?: string;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
@@ -781,6 +785,8 @@ export function PageEditor({
       setDraft(saved);
       draftForm.reset(draftValues(saved));
       setPreview(undefined);
+      // The same region as "restored": gone with the next edit.
+      setRestoredNotice(afterSaveNotice);
       await onChanged();
     } catch (error) {
       if (

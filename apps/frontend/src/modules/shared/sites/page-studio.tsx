@@ -30,6 +30,7 @@ import { useCompanyLocales } from "#lib/company-locales";
 import { LanguageSwitch, pageLanguageOptions } from "./language-switch";
 import { PageEditor } from "./page-editor";
 import { PageLanguageEditor } from "./page-language-editor";
+import { useTranslationOffer } from "../translation/use-translation";
 
 /** The language the editor shows, kept in the address (`?language=de`) so a
  *  refresh or a shared link opens the same one (TL15). */
@@ -86,6 +87,23 @@ export function PageStudio({
     [report, page.id, companyLocales],
   );
   const sourceLocale = report?.default_locale ?? languages[0]?.locale ?? "pl";
+  // With automatic translation of changes on, a saved change to the source
+  // says what happens to the languages already on the site — and only then:
+  // the automation follows publications in languages that are live.
+  const offer = useTranslationOffer();
+  const followed = languages
+    .filter((item) => item.state === "published" || item.state === "outdated")
+    .map((item) => item.name)
+    .join(", ");
+  const afterSaveNotice =
+    offer.state === "available" && offer.offer.automation.enabled && followed
+      ? t(
+          offer.offer.mode.effective === "review"
+            ? "afterSave.review"
+            : "afterSave.automatic",
+          { languages: followed },
+        )
+      : undefined;
   // A language the company no longer has, or the source by its code, is
   // the source.
   const contentLocale =
@@ -394,6 +412,7 @@ export function PageStudio({
               savedAppearance={savedAppearance?.data}
               appearanceControls={appearanceControls}
               languageSwitch={languageSwitch}
+              afterSaveNotice={afterSaveNotice}
             />
           )}
         </div>

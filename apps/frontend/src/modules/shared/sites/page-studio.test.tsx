@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
 import { expect, test, vi } from "vitest";
@@ -20,6 +26,8 @@ vi.mock("@saas-core/api-client", async (original) => ({
     .mockResolvedValue({ pages: [], default_locale: "en" }),
   saveSiteAppearance: vi.fn(),
   getPublicLocales: vi.fn().mockRejectedValue(new Error("offline")),
+  // No translation engine composed, unless a test says otherwise.
+  getTranslationOffer: vi.fn().mockRejectedValue(new Error("not found")),
 }));
 
 vi.mock("./page-language-editor", () => ({
@@ -47,7 +55,9 @@ vi.mock("./page-editor", () => ({
     pagesPanel,
     page,
     previewOnOpen,
+    afterSaveNotice,
   }: {
+    afterSaveNotice?: string;
     appearanceControls?: ReactNode;
     pagesPanel?: ReactNode;
     page: PageSummary;
@@ -64,6 +74,7 @@ vi.mock("./page-editor", () => ({
       <>
         <p>Editing {page.name}</p>
         {previewOnOpen ? <p>Preview first</p> : null}
+        {afterSaveNotice ? <p>After a save: {afterSaveNotice}</p> : null}
         {pagesPanel}
         {appearanceControls}
         <button onClick={() => setDirty(true)}>Change draft</button>
@@ -284,4 +295,58 @@ test("the studio edits another language of the page and keeps it in the address"
   fireEvent.click(screen.getByRole("button", { name: "Back to the source" }));
   expect(await screen.findByText("Editing Home")).not.toBeNull();
   expect(window.location.search).toBe("");
+});
+
+test("a saved source says what follows for its live languages, only with the automation on", async () => {
+  const { getSiteLocalizationReport, getTranslationOffer } =
+    await import("@saas-core/api-client");
+  const report = {
+    default_locale: "pl",
+    languages: [
+      { locale: "pl", is_source: true, live: true },
+      { locale: "en", is_source: false, live: true },
+      { locale: "de", is_source: false, live: false },
+    ],
+    pages: [
+      {
+        page_id: "page",
+        locales: [
+          { locale: "pl", state: "complete" },
+          { locale: "en", state: "published" },
+          // Not on the site yet: the automation does not follow it.
+          { locale: "de", state: "complete" },
+        ],
+      },
+    ],
+  } as never;
+  const offer = (enabled: boolean, mode: string) =>
+    ({
+      available: true,
+      reasons: [],
+      mode: { effective: mode },
+      automation: { enabled },
+      billing: { mode: "credits" },
+    }) as never;
+  window.history.replaceState(null, "", "/panel/sites/pages/page");
+
+  vi.mocked(getSiteLocalizationReport).mockResolvedValue(report);
+  vi.mocked(getTranslationOffer).mockResolvedValueOnce(offer(true, "review"));
+  const first = setup("pl", "site");
+  expect(
+    await screen.findByText(
+      "After a save: Zapisano. Po publikacji tej strony nowe tłumaczenia (English) poczekają na Twoją akceptację.",
+    ),
+  ).not.toBeNull();
+  first.unmount();
+
+  vi.mocked(getTranslationOffer).mockClear();
+  vi.mocked(getTranslationOffer).mockResolvedValueOnce(offer(false, "automatic"));
+  setup("pl", "site");
+  expect(await screen.findByText("Editing Home")).not.toBeNull();
+  await waitFor(() => expect(getTranslationOffer).toHaveBeenCalledTimes(1));
+  // The answer has landed: nothing is promised without the automation.
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(screen.queryByText(/After a save/)).toBeNull();
 });

@@ -1806,6 +1806,10 @@
       "menu": "Menu"
     },
     "studio": {
+      "afterSave": {
+        "automatic": "Saved. After this page is published, its translations ({languages}) update by themselves within a few minutes.",
+        "review": "Saved. After this page is published, the new translations ({languages}) wait for your approval."
+      },
       "canvas": "Page canvas",
       "tools": "Editor tools",
       "libraryTool": "Library",

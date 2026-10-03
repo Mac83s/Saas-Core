@@ -1806,6 +1806,10 @@
       "menu": "Menu"
     },
     "studio": {
+      "afterSave": {
+        "automatic": "Zapisano. Po publikacji tej strony tłumaczenia ({languages}) zaktualizują się same w ciągu kilku minut.",
+        "review": "Zapisano. Po publikacji tej strony nowe tłumaczenia ({languages}) poczekają na Twoją akceptację."
+      },
       "canvas": "Podgląd strony",
       "tools": "Narzędzia edytora",
       "libraryTool": "Biblioteka",

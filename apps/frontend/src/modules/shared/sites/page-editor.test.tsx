@@ -277,6 +277,22 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
   expect(onChanged).toHaveBeenCalledOnce();
 });
 
+test("a saved draft says what follows for the other languages, until the next edit", async () => {
+  const notice = "Zapisano. Po publikacji tłumaczenia (English) zaktualizują się same.";
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined), false, {
+    afterSaveNotice: notice,
+  });
+
+  const heading = await screen.findByLabelText("Nagłówek");
+  expect(screen.queryByText(notice)).toBeNull();
+  fireEvent.change(heading, { target: { value: "Nowy nagłówek" } });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
+
+  expect((await screen.findByText(notice)).getAttribute("role")).toBe("status");
+  fireEvent.change(heading, { target: { value: "Jeszcze nowszy" } });
+  await waitFor(() => expect(screen.queryByText(notice)).toBeNull());
+});
+
 test("bez modułu generowania obrazów edytor nie pyta o jego ofertę (UX-041)", async () => {
   composed.imageGeneration = false;
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
@@ -755,7 +771,10 @@ function renderEditor(
   visual = false,
   extraProps: Pick<
     ComponentProps<typeof PageEditor>,
-    "appearanceControls" | "onExitStateChange" | "previewOnOpen"
+    | "appearanceControls"
+    | "onExitStateChange"
+    | "previewOnOpen"
+    | "afterSaveNotice"
   > = {},
 ) {
   const result = render(
