@@ -104,7 +104,50 @@ export type SitesSection =
 
 // Several sites are rare; which one the pages work on survives moving
 // between them, per browser (a convenience, so a failed read is no loss).
+// The address outranks it: `?site=<id>` on a section page, and a page's own
+// site in the editor — a link, a second tab or the assistant's link must
+// open the right site whatever was chosen last (UX-086).
 const SELECTED_SITE_KEY = "saas-core.sites.selected";
+const SITE_PARAM = "site";
+
+function askedSiteId(): string | undefined {
+  try {
+    return (
+      new URLSearchParams(globalThis.location?.search).get(SITE_PARAM) ??
+      undefined
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/** Puts the chosen site in the address without a navigation, so copying
+ *  the address carries it. */
+function writeSiteToAddress(siteId: string) {
+  try {
+    const address = new URL(globalThis.location.href);
+    address.searchParams.set(SITE_PARAM, siteId);
+    globalThis.history?.replaceState(globalThis.history.state, "", address);
+  } catch {
+    // No address to write to: the choice still stands for this visit.
+  }
+}
+
+/** The site a page belongs to, asking the likeliest site first. */
+async function siteOfPage(
+  pageId: string,
+  siteIds: readonly string[],
+): Promise<string | undefined> {
+  for (const siteId of siteIds) {
+    try {
+      const pages = await listSitePages(siteId);
+      if (pages.items.some((page) => page.id === pageId)) return siteId;
+    } catch {
+      // A site that will not list its pages cannot be the page's home here.
+    }
+  }
+  return undefined;
+}
 
 function rememberedSiteId(): string | undefined {
   try {
@@ -260,16 +303,31 @@ export function SitesPanel({
   useEffect(() => {
     let mounted = true;
     void listSites()
-      .then((result) => {
+      .then(async (result) => {
         if (!mounted) return;
         setRequiresPlan(false);
         setSites(result.items);
+        const known = (id?: string) =>
+          result.items.some((item) => item.id === id);
+        const asked = askedSiteId();
         const remembered = rememberedSiteId();
-        setSelectedSiteId(
-          result.items.some((item) => item.id === remembered)
+        let chosen = known(asked)
+          ? asked
+          : known(remembered)
             ? remembered
-            : result.items[0]?.id,
-        );
+            : result.items[0]?.id;
+        // The editor's address names a page, and the page names its site.
+        if (pageId && result.items.length > 1) {
+          const home = await siteOfPage(pageId, [
+            ...(chosen ? [chosen] : []),
+            ...result.items
+              .map((item) => item.id)
+              .filter((id) => id !== chosen),
+          ]);
+          if (!mounted) return;
+          chosen = home ?? chosen;
+        }
+        setSelectedSiteId(chosen);
       })
       .catch((error: unknown) => {
         if (!mounted) return;
@@ -284,7 +342,7 @@ export function SitesPanel({
     return () => {
       mounted = false;
     };
-  }, [t]);
+  }, [pageId, t]);
 
   useEffect(() => {
     if (!selectedSiteId) return;
@@ -695,6 +753,7 @@ export function SitesPanel({
                   setSelectedPageId(undefined);
                   setLoading(true);
                   rememberSiteId(item.id);
+                  writeSiteToAddress(item.id);
                   setSelectedSiteId(item.id);
                 }}
                 value={selectedSite}

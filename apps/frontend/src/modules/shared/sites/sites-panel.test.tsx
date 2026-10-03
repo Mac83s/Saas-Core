@@ -560,6 +560,52 @@ test("the page's address opens its editor, and closing it goes back to the list"
   await waitFor(() => expect(push).toHaveBeenCalledWith("/panel/sites"));
 });
 
+test("a link to a page of another site opens it, whatever site was chosen last (UX-086)", async () => {
+  const other = {
+    ...site,
+    id: "019ff20d-a000-7000-8000-0000000000b2",
+    name: "Druga",
+  };
+  listSites.mockResolvedValue({ items: [other, site], next_cursor: null });
+  // The browser remembers the other site; the page lives on this one.
+  localStorage.setItem("saas-core.sites.selected", other.id);
+  listSitePages.mockImplementation(async (siteId: string) => ({
+    items: siteId === site.id ? [page] : [],
+    next_cursor: null,
+  }));
+  try {
+    renderPanel({ section: "page", pageId: page.id });
+
+    expect(
+      await screen.findByRole("dialog", { name: "Edytor strony: Start" }),
+    ).not.toBeNull();
+    expect(
+      screen.queryByText("Tej podstrony nie ma — mogła zostać usunięta."),
+    ).toBeNull();
+  } finally {
+    localStorage.removeItem("saas-core.sites.selected");
+  }
+});
+
+test("a section page takes its site from the address before the remembered one (UX-086)", async () => {
+  const other = {
+    ...site,
+    id: "019ff20d-a000-7000-8000-0000000000b2",
+    name: "Druga",
+  };
+  listSites.mockResolvedValue({ items: [site, other], next_cursor: null });
+  localStorage.setItem("saas-core.sites.selected", site.id);
+  window.history.replaceState(null, "", `/panel/sites/menu?site=${other.id}`);
+  try {
+    renderPanel({ section: "menu" });
+    await waitFor(() => expect(listSitePages).toHaveBeenCalledWith(other.id));
+    expect(listSitePages).not.toHaveBeenCalledWith(site.id);
+  } finally {
+    localStorage.removeItem("saas-core.sites.selected");
+    window.history.replaceState(null, "", "/");
+  }
+});
+
 test("a page that is gone is said to be gone, not swapped for another", async () => {
   renderPanel({
     section: "page",
