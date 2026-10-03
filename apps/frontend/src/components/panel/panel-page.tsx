@@ -154,17 +154,24 @@ export function PanelSection({
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          {description ? (
-            <p className="max-w-3xl text-sm text-muted-foreground">
-              {description}
-            </p>
+      <div className="space-y-1">
+        {/* The title and its action share one row on a phone too (UX-061):
+            the title wraps before a button drops under it, and actions too
+            wide for the row go below, still on the right. */}
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+          <h2 className="min-w-0 flex-1 basis-40 text-lg font-semibold">
+            {title}
+          </h2>
+          {actions ? (
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {actions}
+            </div>
           ) : null}
         </div>
-        {actions ? (
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        {description ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
       {children}

@@ -137,6 +137,12 @@ export function ItemsTab({
     onChanged(t(item.active ? "itemHidden" : "itemShown", { name: item.name }));
   }
 
+  // A badge only for the exception (UX-061): the company's own item among
+  // the product's standard ones — never „standard” on every row.
+  const mixed =
+    data.items.some((item) => item.system_key) &&
+    data.items.some((item) => !item.system_key);
+
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     {
       id: "name",
@@ -147,14 +153,20 @@ export function ItemsTab({
         <>
           <p className="font-medium wrap-anywhere">
             {item.name}{" "}
-            {item.system_key ? (
-              <Badge variant="neutral">{t("standard")}</Badge>
+            {mixed && !item.system_key ? (
+              <Badge title={t("ownBadgeHint")} variant="neutral">
+                {t("ownBadge")}
+              </Badge>
             ) : null}{" "}
             {item.tracks_lots ? (
-              <Badge variant="neutral">{t("lotsBadge")}</Badge>
+              <Badge title={t("lotsBadgeHint")} variant="neutral">
+                {t("lotsBadge")}
+              </Badge>
             ) : null}{" "}
             {item.active ? null : (
-              <Badge variant="neutral">{t("hidden")}</Badge>
+              <Badge title={t("hiddenHint")} variant="neutral">
+                {t("hidden")}
+              </Badge>
             )}
           </p>
           {item.sku || item.ean ? (

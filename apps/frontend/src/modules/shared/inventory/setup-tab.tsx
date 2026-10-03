@@ -8,8 +8,8 @@ import {
   createInventoryCategory,
   createWarehouse,
   deleteInventoryCategory,
-  renameInventoryCategory,
   saveSupplier,
+  updateInventoryCategory,
   updateStockLocation,
   type InventoryCategory,
   type StockLocation,
@@ -56,6 +56,8 @@ export function SetupTab({
   const labels = useDataTableLabels();
   const [naming, setNaming] = useState<Naming | null>(null);
   const [name, setName] = useState("");
+  // A category's own „expiring” days (M3); empty: the company's number.
+  const [days, setDays] = useState("");
   const [supplier, setSupplier] = useState<Supplier | "new" | null>(null);
   const [supplierDraft, setSupplierDraft] = useState<SupplierDraft>({
     name: "",
@@ -68,7 +70,23 @@ export function SetupTab({
 
   const rename = (next: Naming) => {
     setName(next.target?.name ?? "");
+    setDays(
+      next.kind === "category" && next.target?.expiring_days
+        ? String(next.target.expiring_days)
+        : "",
+    );
     setNaming(next);
+  };
+  // Badges only for the exceptions (UX-061): what the company added among
+  // the product's standard ones, the main warehouse among several.
+  const mixedCategories =
+    data.categories.some((one) => one.system) &&
+    data.categories.some((one) => !one.system);
+  const severalWarehouses =
+    data.locations.filter((one) => one.kind === "warehouse").length > 1;
+  const newSupplier = () => {
+    setSupplierDraft({ name: "", tax_id: "", email: "", phone: "", notes: "" });
+    setSupplier("new");
   };
 
   async function run(action: () => Promise<unknown>, done: string) {
@@ -88,9 +106,10 @@ export function SetupTab({
         ? updateStockLocation(naming.target.id, { name })
         : createWarehouse(name));
     } else {
-      await (naming.target
-        ? renameInventoryCategory(naming.target.id, name)
-        : createInventoryCategory(name));
+      const category = naming.target ?? (await createInventoryCategory(name));
+      const expiring_days = days.trim() === "" ? null : Number(days);
+      if (naming.target || expiring_days !== null)
+        await updateInventoryCategory(category.id, { name, expiring_days });
     }
     onChanged(t("saved"));
   }
@@ -112,8 +131,10 @@ export function SetupTab({
       cell: ({ row: { original: location } }) => (
         <p className="font-medium wrap-anywhere">
           {locationLabel(location)}{" "}
-          {location.is_default ? (
-            <Badge variant="secondary">{t("mainWarehouse")}</Badge>
+          {location.is_default && severalWarehouses ? (
+            <Badge title={t("mainWarehouseHint")} variant="neutral">
+              {t("mainWarehouse")}
+            </Badge>
           ) : null}{" "}
           {location.active === false ? (
             <Badge variant="outline">{t("inactive")}</Badge>
@@ -228,11 +249,26 @@ export function SetupTab({
       cell: ({ row: { original: category } }) => (
         <p className="font-medium wrap-anywhere">
           {category.name}{" "}
-          {category.system ? (
-            <Badge variant="secondary">{t("standard")}</Badge>
+          {mixedCategories && !category.system ? (
+            <Badge title={t("ownBadgeHint")} variant="neutral">
+              {t("ownBadge")}
+            </Badge>
           ) : null}
         </p>
       ),
+    },
+    {
+      id: "expiring",
+      accessorFn: (category) => category.expiring_days ?? 0,
+      header: t("expiringDaysColumn"),
+      cell: ({ row: { original: category } }) =>
+        category.expiring_days ? (
+          t("expiringDaysValue", { days: category.expiring_days })
+        ) : (
+          <span className="text-muted-foreground">
+            {t("expiringDaysCompany")}
+          </span>
+        ),
     },
     {
       id: "actions",
@@ -242,7 +278,7 @@ export function SetupTab({
         <RowActions
           items={[
             {
-              label: t("rename"),
+              label: t("edit"),
               icon: <PencilIcon aria-hidden="true" />,
               inline: true,
               main: true,
@@ -299,22 +335,13 @@ export function SetupTab({
         </PanelSection>
         <PanelSection
           actions={
-            <Button
-              onClick={() => {
-                setSupplierDraft({
-                  name: "",
-                  tax_id: "",
-                  email: "",
-                  phone: "",
-                  notes: "",
-                });
-                setSupplier("new");
-              }}
-              variant="outline"
-            >
-              <PlusIcon aria-hidden="true" />
-              {t("addSupplier")}
-            </Button>
+            // With no supplier yet the empty state itself offers the first one.
+            data.suppliers.length ? (
+              <Button onClick={newSupplier} variant="outline">
+                <PlusIcon aria-hidden="true" />
+                {t("addSupplier")}
+              </Button>
+            ) : null
           }
           title={t("suppliers")}
         >
@@ -322,6 +349,12 @@ export function SetupTab({
             caption={t("suppliers")}
             columns={supplierColumns}
             data={data.suppliers}
+            emptyAction={
+              <Button onClick={newSupplier} variant="outline">
+                <PlusIcon aria-hidden="true" />
+                {t("suppliersEmptyAction")}
+              </Button>
+            }
             getRowId={(one) => one.id}
             labels={{ ...labels, empty: t("suppliersEmpty") }}
             searchable={data.suppliers.length > 10}
@@ -357,7 +390,7 @@ export function SetupTab({
         title={
           naming?.kind === "warehouse"
             ? t(naming.target ? "renameWarehouse" : "addWarehouse")
-            : t(naming?.target ? "renameCategory" : "addCategory")
+            : t(naming?.target ? "editCategory" : "addCategory")
         }
       >
         <Field>
@@ -370,6 +403,25 @@ export function SetupTab({
             value={name}
           />
         </Field>
+        {naming?.kind === "category" ? (
+          <Field>
+            <FieldLabel htmlFor="setup-expiring">
+              {t("expiringDays")}
+            </FieldLabel>
+            <Input
+              id="setup-expiring"
+              max="365"
+              min="1"
+              onChange={(event) => setDays(event.target.value)}
+              step="1"
+              type="number"
+              value={days}
+            />
+            <p className="text-sm text-muted-foreground">
+              {t("expiringDaysHelp")}
+            </p>
+          </Field>
+        ) : null}
       </FormDialog>
 
       <FormDialog

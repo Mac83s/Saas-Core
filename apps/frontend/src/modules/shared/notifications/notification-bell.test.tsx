@@ -213,3 +213,30 @@ test("przeniesiona kategoria: nazwa w języku czytelnika i link do wizytówki", 
   );
   expect(link.closest("a")?.getAttribute("href")).toBe("/panel/profile");
 });
+
+test("mały stan: ile pozycji, pierwsza z nazwy i link do listy „Do uzupełnienia”", async () => {
+  getNotificationInbox.mockResolvedValue({
+    unread: 1,
+    items: [
+      {
+        ...trialEnding,
+        kind: "inventory.low_stock",
+        severity: "info" as const,
+        payload: { count: 3, items: [{ name: "Klocek drewniany" }] },
+      },
+    ],
+  });
+  renderBell();
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 1",
+    }),
+  );
+  const link = await screen.findByText(
+    "Magazyn: 3 pozycje do uzupełnienia — m.in. Klocek drewniany.",
+  );
+  expect(link.closest("a")?.getAttribute("href")).toBe(
+    "/panel/inventory?low=1",
+  );
+});

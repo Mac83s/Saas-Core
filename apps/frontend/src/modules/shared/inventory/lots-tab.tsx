@@ -28,7 +28,8 @@ type Soon = "" | "soon" | "expired";
 
 /**
  * Partie i ważność (decyzja 25.09): co gdzie leży, od partii, która najwcześniej
- * traci ważność. Po terminie — na czerwono, w ciągu 30 dni — na bursztynowo;
+ * traci ważność. Po terminie — na czerwono, kończąca się (próg z ustawień albo
+ * kategorii, M3) — na bursztynowo;
  * w pracy nic tu nie blokuje, sprzedaży partii po terminie odmawia WZ.
  */
 export function LotsTab({

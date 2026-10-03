@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  ArrowDownToLineIcon,
+  ArrowUpFromLineIcon,
   CalendarClockIcon,
-  PackageCheckIcon,
-  PackageMinusIcon,
-  PackagePlusIcon,
+  GaugeIcon,
+  Undo2Icon,
 } from "lucide-react";
 
 import {
+  getSettingsGroup,
   issueInventory,
   listInventoryBalances,
   receiveInventory,
   returnInventory,
+  setInventoryPlaceMinimum,
   type InventoryBalance,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
@@ -43,10 +47,12 @@ import {
 } from "./shared";
 
 type Movement = "receive" | "issue" | "return";
+// By the direction of the goods (UX-061): into the warehouse, out of it, and
+// coming back.
 const MOVEMENT_ICONS = {
-  receive: PackagePlusIcon,
-  issue: PackageCheckIcon,
-  return: PackageMinusIcon,
+  receive: ArrowDownToLineIcon,
+  issue: ArrowUpFromLineIcon,
+  return: Undo2Icon,
 };
 
 /**
@@ -86,6 +92,27 @@ export function StockTab({
     expires_on: "",
   });
   const [held, setHeld] = useState<InventoryBalance[]>([]);
+  // A low-stock notice links here with the list already narrowed.
+  const params = useSearchParams();
+  const [onlyLow, setOnlyLow] = useState(params?.get("low") === "1");
+  const [minimumOf, setMinimumOf] = useState<InventoryBalance | null>(null);
+  const [minimum, setMinimum] = useState("");
+  // Whether the daily notice is off — then the list offers to switch it on.
+  const [alertsOff, setAlertsOff] = useState(false);
+
+  useEffect(() => {
+    if (!canManage) return;
+    let current = true;
+    getSettingsGroup("inventory.alerts")
+      .then((state) => {
+        const values = state.values as { low_stock?: string };
+        if (current) setAlertsOff(values.low_stock === "off");
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [canManage]);
 
   useEffect(() => {
     if (canManage && !shown) return;
@@ -123,9 +150,8 @@ export function StockTab({
     };
   }, [form.holder_id]);
 
-  const low = (row: InventoryBalance) =>
-    Number(row.minimum_quantity) > 0 &&
-    Number(row.available) <= Number(row.minimum_quantity);
+  // The API decides what is short (the place's minimum, else the item's).
+  const low = (row: InventoryBalance) => row.below_minimum;
 
   const columns: ColumnDef<InventoryBalance, unknown>[] = [
     {
@@ -173,16 +199,25 @@ export function StockTab({
       cell: ({ row: { original: row } }) => (
         <span className="inline-flex flex-wrap items-center gap-2">
           {amount(row.available)}
-          {low(row) ? <Badge variant="destructive">{t("low")}</Badge> : null}
+          {low(row) ? <Badge variant="warning">{t("low")}</Badge> : null}
         </span>
       ),
     },
     {
       id: "minimum",
-      accessorFn: (row) => Number(row.minimum_quantity),
+      accessorFn: (row) => Number(row.minimum_quantity ?? -1),
       header: t("minimum"),
       meta: { numeric: true },
-      cell: ({ row: { original: row } }) => amount(row.minimum_quantity),
+      cell: ({ row: { original: row } }) => (
+        <span className="inline-flex flex-wrap items-center justify-end gap-2">
+          {row.minimum_quantity === null ? "—" : amount(row.minimum_quantity)}
+          {row.place_minimum === null ? null : (
+            <Badge title={t("minimumOwnHint")} variant="neutral">
+              {t("minimumOwn")}
+            </Badge>
+          )}
+        </span>
+      ),
     },
     {
       // The lot that expires first here: red past it, amber within 30 days.
@@ -218,6 +253,18 @@ export function StockTab({
                         movement("issue", row, true),
                         movement("return", row, false),
                       ]),
+                  {
+                    label: t("placeMinimum"),
+                    icon: <GaugeIcon aria-hidden="true" />,
+                    onSelect: () => {
+                      setMinimum(
+                        row.place_minimum === null
+                          ? ""
+                          : String(Number(row.place_minimum)),
+                      );
+                      setMinimumOf(row);
+                    },
+                  },
                   ...(row.tracks_lots
                     ? [
                         {
@@ -270,6 +317,24 @@ export function StockTab({
     };
   }
 
+  const placeName = (row: InventoryBalance) => {
+    const location = data.locations.find((one) => one.id === row.location_id);
+    return location ? locationLabel(location) : row.location_name;
+  };
+  // The Catalogue's minimum of the item: what an empty field falls back to.
+  const itemMinimum = (row: InventoryBalance | null) =>
+    data.items.find((item) => item.id === row?.item_id)?.minimum_quantity ?? 0;
+
+  async function saveMinimum() {
+    if (!minimumOf) return;
+    await setInventoryPlaceMinimum({
+      item_id: minimumOf.item_id,
+      location_id: minimumOf.location_id,
+      minimum_quantity: minimum.trim() === "" ? null : minimum,
+    });
+    onChanged(t("placeMinimumSaved", { name: minimumOf.item_name }));
+  }
+
   async function submit() {
     if (dialog === "receive") {
       await receiveInventory({
@@ -318,18 +383,18 @@ export function StockTab({
       more={[
         {
           label: t("issue"),
-          icon: <PackageCheckIcon aria-hidden="true" />,
+          icon: <ArrowUpFromLineIcon aria-hidden="true" />,
           onSelect: () => open("issue"),
         },
         {
           label: t("return"),
-          icon: <PackageMinusIcon aria-hidden="true" />,
+          icon: <Undo2Icon aria-hidden="true" />,
           onSelect: () => open("return"),
         },
       ]}
     >
       <Button onClick={() => open("receive")}>
-        <PackagePlusIcon aria-hidden="true" />
+        <ArrowDownToLineIcon aria-hidden="true" />
         {t("receive")}
       </Button>
     </PanelActions>
@@ -349,12 +414,28 @@ export function StockTab({
         <DataTable
           caption={t("stockCaption")}
           columns={columns}
-          data={rows ?? []}
+          data={onlyLow ? (rows ?? []).filter(low) : (rows ?? [])}
           getRowId={(row) => `${row.location_id}:${row.item_id}`}
           labels={{
             ...labels,
-            empty: canManage ? t("stockEmpty") : t("myStockEmpty"),
+            empty: onlyLow
+              ? t("lowEmpty")
+              : canManage
+                ? t("stockEmpty")
+                : t("myStockEmpty"),
           }}
+          activeFilters={onlyLow ? 1 : 0}
+          filters={
+            <DataTableFilter
+              id="stock-low"
+              label={t("lowFilter")}
+              onChange={(event) => setOnlyLow(event.target.value === "low")}
+              value={onlyLow ? "low" : ""}
+            >
+              <option value="">{t("lowFilterAll")}</option>
+              <option value="low">{t("lowFilterLow")}</option>
+            </DataTableFilter>
+          }
           loading={!rows}
           searchable
           searchText={(row) =>
@@ -363,6 +444,58 @@ export function StockTab({
           toolbar={toolbar}
         />
       )}
+
+      {canManage && alertsOff && (rows ?? []).some(low) ? (
+        // Off by default: the list is where a company learns the notice exists.
+        <p className="mt-3 text-sm text-muted-foreground">
+          {t("alertsHint")}{" "}
+          <Link
+            className="font-medium text-foreground underline underline-offset-4"
+            href="/panel/settings/inventory"
+          >
+            {t("alertsHintLink")}
+          </Link>
+        </p>
+      ) : null}
+
+      <FormDialog
+        description={
+          minimumOf
+            ? t("placeMinimumDescription", {
+                place: placeName(minimumOf),
+              })
+            : undefined
+        }
+        onOpenChange={(next) => setMinimumOf(next ? minimumOf : null)}
+        onSubmit={saveMinimum}
+        open={minimumOf !== null}
+        submitLabel={t("save")}
+        title={
+          minimumOf ? t("placeMinimumTitle", { name: minimumOf.item_name }) : ""
+        }
+      >
+        <Field>
+          <FieldLabel htmlFor="place-minimum">
+            {t("placeMinimumField")}
+            {minimumOf ? ` (${t(`unit_${minimumOf.unit}`)})` : ""}
+          </FieldLabel>
+          <Input
+            id="place-minimum"
+            min="0"
+            onChange={(event) => setMinimum(event.target.value)}
+            step="0.001"
+            type="number"
+            value={minimum}
+          />
+          <p className="text-sm text-muted-foreground">
+            {minimumOf?.holder_id
+              ? t("placeMinimumHelpPerson")
+              : t("placeMinimumHelpWarehouse", {
+                  amount: amount(itemMinimum(minimumOf)),
+                })}
+          </p>
+        </Field>
+      </FormDialog>
 
       <FormDialog
         description={dialog ? t(`${dialog}Description`) : undefined}

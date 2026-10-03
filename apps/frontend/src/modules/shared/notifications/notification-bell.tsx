@@ -180,6 +180,10 @@ function headline(
     when: at(payload.starts_at),
     before: at(payload.previous_starts_at),
     category: named(payload.category),
+    // The first item of a low-stock notice; the count says how many more.
+    first: String(
+      (payload.items as { name?: string }[] | undefined)?.[0]?.name ?? "",
+    ),
   };
   switch (item.kind) {
     case "billing.trial_ending":
@@ -206,6 +210,8 @@ function headline(
       return t("translationAutomationPaused", values);
     case "profiles.category_changed":
       return t("profilesCategoryChanged", values);
+    case "inventory.low_stock":
+      return t("inventoryLowStock", values);
     default:
       return t("unknown");
   }
@@ -215,6 +221,7 @@ function headline(
 function noticeHref(item: AppNotification): string | null {
   const day = calendarDay(item);
   if (day) return `/panel/calendar?view=day&date=${day}`;
+  if (item.kind === "inventory.low_stock") return "/panel/inventory?low=1";
   return item.kind === "profiles.category_changed" ? "/panel/profile" : null;
 }
 

@@ -4726,6 +4726,7 @@ export type InventoryBalance = components["schemas"]["InventoryBalance"];
 export type InventoryMovement = components["schemas"]["InventoryMovement"];
 export type InventoryLotStock = components["schemas"]["InventoryLotStock"];
 export type InventoryCategory = components["schemas"]["InventoryCategory"];
+export type InventoryLowStockRow = components["schemas"]["LowStockRow"];
 export type StockLocation = components["schemas"]["StockLocation"];
 export type Supplier = components["schemas"]["Supplier"];
 export type StockDocument = components["schemas"]["StockDocument"];
@@ -4761,7 +4762,7 @@ async function inventoryRead<T>(
 }
 
 async function inventoryWrite<T>(
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
   path: keyof paths,
   pathParams: Record<string, string>,
   body?: unknown,
@@ -4791,15 +4792,16 @@ export function createInventoryCategory(
   return inventoryWrite("POST", "/api/v1/inventory/categories/", {}, { name });
 }
 
-export function renameInventoryCategory(
+/** Only the fields sent change; `expiring_days: null` returns to the company's number. */
+export function updateInventoryCategory(
   categoryId: string,
-  name: string,
+  input: components["schemas"]["PatchedInventoryCategoryUpdate"],
 ): Promise<InventoryCategory> {
   return inventoryWrite(
     "PATCH",
     "/api/v1/inventory/categories/{category_id}/",
     { category_id: categoryId },
-    { name },
+    input,
   );
 }
 
@@ -4890,6 +4892,20 @@ export function listInventoryBalances(
 }
 
 /** Partie, których coś leży — od najkrótszej ważności. */
+/** What is at or below its minimum, the biggest shortfall first (M4). */
+export function listInventoryLowStock(
+  places?: "main" | "warehouses" | "all",
+): Promise<InventoryLowStockRow[]> {
+  return inventoryRead("/api/v1/inventory/low-stock/", { places });
+}
+
+/** An item's minimum in one place; `null` returns to the item's own. */
+export function setInventoryPlaceMinimum(
+  input: components["schemas"]["PlaceMinimumInput"],
+): Promise<InventoryBalance> {
+  return inventoryWrite("PUT", "/api/v1/inventory/minimums/", {}, input);
+}
+
 export function listInventoryLots(
   filters: { itemId?: string; locationId?: string } = {},
 ): Promise<InventoryLotStock[]> {
