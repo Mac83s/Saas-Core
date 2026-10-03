@@ -248,7 +248,9 @@ class HistoryActingSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class HistoryTargetSerializer(serializers.Serializer[dict[str, Any]]):
-    label = serializers.CharField(help_text="What the object is called, e.g. a farm's name.")
+    label = serializers.CharField(  # type: ignore[assignment]
+        help_text="What the object is called, e.g. a farm's name."
+    )
     href = serializers.CharField(
         allow_blank=True, help_text="The panel address that shows it; empty when none does."
     )
