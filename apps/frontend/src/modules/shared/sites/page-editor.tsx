@@ -143,6 +143,7 @@ import {
 import { PageUrlDialog } from "./page-url";
 import { PageAutomationSwitch, PageTypeField } from "./page-settings";
 import { sitesErrorMessage } from "./problem";
+import { deployment } from "../../../generated/deployment";
 
 const designTokens = {
   schemaVersion: 1,
@@ -300,6 +301,13 @@ export function TemplateOption({
   );
 }
 
+/**
+ * The offer's address exists only where the deployment composes image
+ * generation: elsewhere asking for it is a 404 in the console (UX-041).
+ */
+const generatesImages = () =>
+  (deployment.modules as readonly string[]).includes("shared.image-generation");
+
 /** Where a picture sits in a section's data, as the form addresses it:
  *  `["image", "asset_id"]`, `["images", "0", "asset_id"]` or a figure inside
  *  rich text. The first match: a section rarely shows one photo twice. */
@@ -357,7 +365,9 @@ export function PageEditor({
   const localeOptions = [
     ...companyLocaleOptions,
     ...[...new Set([baseLocale, locale])]
-      .filter((code) => !companyLocaleOptions.some((item) => item.code === code))
+      .filter(
+        (code) => !companyLocaleOptions.some((item) => item.code === code),
+      )
       .map((code) => ({ code, name: code.toUpperCase() })),
   ];
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -365,6 +375,7 @@ export function PageEditor({
   const [imageGeneration, setImageGeneration] =
     useState<ImageGenerationOffer | null>(null);
   useEffect(() => {
+    if (!generatesImages()) return;
     let mounted = true;
     getImageGenerationOffer()
       .then((offer) => {

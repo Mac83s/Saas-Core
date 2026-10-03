@@ -90,6 +90,24 @@ const {
 // (`siteIndustry`, section-library-industry.test.tsx). Pinned here so a
 // product's slot does not change what these tests count.
 vi.mock("../../../product", () => ({ product: {} }));
+// Image generation is a module of its own; a deployment without it has no
+// offer to ask for (UX-041).
+const composed = vi.hoisted(() => ({ imageGeneration: true }));
+vi.mock("../../../generated/deployment", async (importOriginal) => {
+  const { deployment } =
+    await importOriginal<typeof import("../../../generated/deployment")>();
+  return {
+    deployment: {
+      ...deployment,
+      get modules() {
+        return [
+          ...deployment.modules,
+          ...(composed.imageGeneration ? ["shared.image-generation"] : []),
+        ];
+      },
+    },
+  };
+});
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
@@ -169,6 +187,7 @@ const translation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  composed.imageGeneration = true;
   listSiteTemplates.mockResolvedValue({ items: [], limit: null });
   getImageGenerationOffer.mockResolvedValue({ ...offer, available: false });
   materializeTemplatePhoto.mockResolvedValue({
@@ -256,6 +275,13 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
     ],
   });
   expect(onChanged).toHaveBeenCalledOnce();
+});
+
+test("bez modułu generowania obrazów edytor nie pyta o jego ofertę (UX-041)", async () => {
+  composed.imageGeneration = false;
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  expect(await screen.findByLabelText("Treść")).not.toBeNull();
+  expect(getImageGenerationOffer).not.toHaveBeenCalled();
 });
 
 test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", async () => {
