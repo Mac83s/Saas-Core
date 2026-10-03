@@ -571,6 +571,16 @@ nigdy zapis szkicu.
 5. Brak zgody, praw, limitu, salda albo dostawcy — popyt czeka z powodem, a osoby z
    `translation.manage` dostają jedno powiadomienie na okres.
 
+W kodzie (TL21, 03.10): `shared/translation/demand.py` (odbiorca, `TranslationDemand`,
+dobowa naprawa) i `automation.py` (takt `translation-demand` co 60 s na kolejce `ai`).
+Języki zlecenia automatu to włączone języki firmy, w których `read(...).facts.locale_live`
+— dodanie języka zostaje decyzją osoby. Zablokowany popyt ma `reason` i `check_at`
+(limit miesiąca: do następnego miesiąca; reszta: godzina) i daje jedno powiadomienie
+`translation.automation_paused` na powód i okres. Części automatu płacą pełne tysiące,
+resztę znaków trzyma `TranslationSettings.auto_carry_characters`. Pozycja „wycofaj
+tłumaczenia” z pkt 3 czeka na pierwsze źródło z `translations_publish_separately`
+(dziś żadne go nie ma; strony zdejmują wersje językowe razem z podstroną).
+
 ### 8.4. Pętle i zgubione zgłoszenia
 
 Zapis tłumaczenia zmienia cel, nie źródło, więc nie jest zgłaszany; publikacje pochodne
