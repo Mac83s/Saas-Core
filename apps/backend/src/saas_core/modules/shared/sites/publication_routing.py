@@ -1075,11 +1075,17 @@ def _find_tag_archive(
         raise PublicSiteNotFound
     window = entries[(requested_page - 1) * page_size : requested_page * page_size]
 
-    tag_id = (
-        ContentTag.all_objects.filter(organization_id=organization_id, site_id=site.id, slug=slug)
-        .values_list("id", flat=True)
-        .first()
-    )
+    # sites_contenttag forces RLS: the tenant the host named goes first. The
+    # site texts name a tag by its id, the archive's address by its slug.
+    with transaction.atomic():
+        set_local_organization_id(organization_id)
+        tag_id = (
+            ContentTag.all_objects.filter(
+                organization_id=organization_id, site_id=site.id, slug=slug
+            )
+            .values_list("id", flat=True)
+            .first()
+        )
     name = _site_texts(site, locale, available).get(f"tag/{tag_id}") or next(
         (
             str(tag.get("name") or slug)

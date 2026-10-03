@@ -249,3 +249,32 @@ def test_each_language_has_its_own_feed() -> None:
     # visitors cannot read has none.
     assert _feed(blog.host, "feed.xml", "pl").status_code == 404
     assert _feed(blog.host, "feed.xml", "fr").status_code == 404
+
+
+def test_the_tag_name_is_looked_up_as_the_tenant_the_host_named() -> None:
+    """The test database bypasses RLS; on the stack sites_contenttag answers
+    nothing until the tenant is set, and the archive fell back to the Polish
+    name (03.10). The order of the statements is what proves it here."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    blog = Blog("blog-lang-tag-rls")
+    _translate_entry(blog.client, blog.polish, "in-english", "In English")
+    blog.english_names("Journal", "Tips")
+
+    with CaptureQueriesContext(connection) as queries:
+        archive = _get(blog.host, "/en/blog/tag/porady/")
+
+    assert archive.data["title"] == "Entries tagged: Tips"
+    statements = [query["sql"] for query in queries.captured_queries]
+    tag_query = next(
+        index for index, sql in enumerate(statements) if 'FROM "sites_contenttag"' in sql
+    )
+    # In its own transaction: on the stack each block is one, so a tenant set
+    # by an earlier block is gone by then (in a test it would linger).
+    opened = max(
+        index for index, sql in enumerate(statements[:tag_query]) if sql.startswith("SAVEPOINT")
+    )
+    assert any("SET LOCAL app.organization_id" in sql for sql in statements[opened:tag_query]), (
+        statements[opened : tag_query + 1]
+    )
