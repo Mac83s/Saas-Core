@@ -11,6 +11,7 @@ import pytest
 from django.core.cache import cache
 from django.utils import timezone
 
+from saas_core.modules.core.identity.mfa import current_totp_code
 from saas_core.modules.core.identity.models import UserMfaMethod
 from saas_core.modules.core.organizations.context import (
     activate_tenant_context,
@@ -86,6 +87,30 @@ def test_turning_2fa_on_signing_out_and_switching_company_stay_open() -> None:
     assert setup.status_code == 200, setup.content
 
     _with_mfa(owner_user)
+    assert client.get(CURRENT).status_code == 200
+
+
+def test_a_member_turns_2fa_on_from_the_gate_with_a_session_and_gets_recovery_codes() -> None:
+    """Platform settings 0c removed only an operator's setup before sign-in:
+    a member behind this gate still turns 2FA on with their own session, as
+    the gate screen and "Twoje konto" do, and the company opens."""
+    _owner_user, owner, client = authenticated_member(
+        email="mfa-self@example.test", role_key="owner", slug="mfa-self"
+    )
+    _require(owner, "all")
+    assert client.get(CURRENT).status_code == 403
+    csrf = client.cookies["csrftoken"].value
+
+    setup = client.post("/api/v1/auth/mfa/totp/setup/", HTTP_X_CSRFTOKEN=csrf)
+    confirmed = client.post(
+        "/api/v1/auth/mfa/totp/confirm/",
+        {"code": current_totp_code(setup.data["secret"])},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf,
+    )
+
+    assert confirmed.status_code == 200, confirmed.content
+    assert len(confirmed.data["recovery_codes"]) == 8
     assert client.get(CURRENT).status_code == 200
 
 

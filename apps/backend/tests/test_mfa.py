@@ -5,6 +5,7 @@ from io import StringIO
 
 import pytest
 from django.conf import settings
+from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -283,7 +284,9 @@ def test_the_command_takes_only_operator_accounts() -> None:
     assert not UserMfaMethod.objects.exists()
 
 
-def test_wrong_codes_lock_the_account_wherever_they_are_given(caplog) -> None:
+def test_wrong_codes_lock_the_account_wherever_they_are_given(
+    caplog, django_capture_on_commit_callbacks
+) -> None:
     """Per account, not per address (ADR-023): sign-in and step-up share one
     count, and while locked even the right code is refused."""
     user = active_user("locked@example.com")
@@ -309,11 +312,18 @@ def test_wrong_codes_lock_the_account_wherever_they_are_given(caplog) -> None:
         )
 
     assert [mfa_login("000000").status_code for _ in range(4)] == [400] * 4
-    with caplog.at_level("WARNING", logger="saas_core.security"):
+    with (
+        caplog.at_level("WARNING", logger="saas_core.security"),
+        django_capture_on_commit_callbacks(execute=True),
+    ):
         locked = mfa_login("000000")
     assert locked.status_code == 429
     assert locked.data["code"] == "mfa_locked"
     assert "identity.mfa_locked" in [getattr(r, "security_event", None) for r in caplog.records]
+    # Reaching the limit means someone had the password: the owner is told.
+    (notice,) = mail.outbox
+    assert notice.to == [user.email]
+    assert "15 minut" in notice.body
 
     right = current_totp_code(secret, at=timezone.now().timestamp() + 30)
     assert mfa_login(right).data["code"] == "mfa_locked"

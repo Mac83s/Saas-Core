@@ -20,6 +20,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
+from saas_core.observability import correlation_id
+
 from .models import AccountAuditEvent, AccountAuditEventType, MfaRecoveryCode, User, UserMfaMethod
 from .tokens import digest_secret
 
@@ -203,9 +205,21 @@ def _counted_attempt(user: User) -> Iterator[None]:
                 "identity_mfa_locked",
                 extra={"security_event": "identity.mfa_locked", "user_id": str(user.pk)},
             )
+            _notify_owner_of_lock(user)
             raise MfaLocked from None
         raise
     cache.delete(failures_key)
+
+
+def _notify_owner_of_lock(user: User) -> None:
+    from .tasks import send_mfa_locked_notice  # noqa: PLC0415
+
+    user_id, request_correlation_id = str(user.pk), correlation_id.get()
+
+    def enqueue_notice() -> None:
+        send_mfa_locked_notice.delay(user_id, request_correlation_id)
+
+    transaction.on_commit(enqueue_notice, robust=True)
 
 
 def _lock_key(user: User) -> str:

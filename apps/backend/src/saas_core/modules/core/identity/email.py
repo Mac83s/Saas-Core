@@ -49,12 +49,47 @@ class DjangoPasswordResetEmailSender:
         _deliver(email=email, subject=subject, message=message)
 
 
+class MfaLockedEmailSender(Protocol):
+    def send(self, *, email: str, locale: str) -> None: ...
+
+
+class DjangoMfaLockedEmailSender:
+    """Reaching the code limit means someone had the password or a session,
+    so the owner hears about it (platform settings plan 0c)."""
+
+    def send(self, *, email: str, locale: str) -> None:
+        limit = settings.MFA_FAILURE_LIMIT
+        minutes = settings.MFA_LOCK_SECONDS // 60
+        if locale == "en":
+            subject = "Too many wrong sign-in codes"
+            message = (
+                f"{limit} wrong two-factor codes were entered for your account, so no code "
+                f"will be accepted for {minutes} minutes.\n\n"
+                "A code is asked for only after the password or in a signed-in session. "
+                "If it was not you, change your password and sign out your other sessions "
+                "in your account settings.\n"
+            )
+        else:
+            subject = "Zbyt wiele błędnych kodów logowania"
+            message = (
+                f"Na Twoim koncie wpisano {limit} błędnych kodów weryfikacji dwuetapowej, "
+                f"więc przez {minutes} minut żaden kod nie zostanie przyjęty.\n\n"
+                "Kod jest potrzebny dopiero po haśle albo w zalogowanej sesji. Jeśli to nie "
+                "Ty, zmień hasło i wyloguj pozostałe sesje w ustawieniach konta.\n"
+            )
+        _deliver(email=email, subject=subject, message=message)
+
+
 def get_verification_email_sender() -> VerificationEmailSender:
     return DjangoVerificationEmailSender()
 
 
 def get_password_reset_email_sender() -> PasswordResetEmailSender:
     return DjangoPasswordResetEmailSender()
+
+
+def get_mfa_locked_email_sender() -> MfaLockedEmailSender:
+    return DjangoMfaLockedEmailSender()
 
 
 def _deliver(*, email: str, subject: str, message: str) -> None:
