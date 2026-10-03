@@ -5965,6 +5965,56 @@ export async function getTranslationJob(
   return data;
 }
 
+/** A translation result waiting for a person, with why it waits. */
+export type TranslationReviewItem = components["schemas"]["ReviewListItem"];
+export type TranslationReviewPage = components["schemas"]["ReviewPage"];
+export type TranslationReviewDecision =
+  components["schemas"]["ReviewDecisionResult"];
+/** An item at the version the person saw. */
+export type TranslationReviewChoice = Pick<
+  TranslationReviewItem,
+  "id" | "version"
+>;
+
+/** What waits for a person's decision, oldest first, paged by `cursor`. */
+export async function listTranslationReview(
+  query: { cursor?: string; limit?: number; reason?: string } = {},
+): Promise<TranslationReviewPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/review/",
+    {
+      params: { query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** A person's decision on waiting results: accepting publishes them the way
+ *  their source publishes, discarding drops them and what is public stays. */
+export async function decideTranslationReview(
+  action: "accept" | "discard",
+  items: TranslationReviewChoice[],
+  idempotencyKey: string,
+): Promise<TranslationReviewDecision> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    action === "accept"
+      ? "/api/v1/translation/review/accept/"
+      : "/api/v1/translation/review/discard/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { items: items.map(({ id, version }) => ({ id, version })) },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type AssistantOffer = components["schemas"]["AssistantOffer"];
 export type AssistantConversationSummary =
   components["schemas"]["AssistantConversationSummary"];

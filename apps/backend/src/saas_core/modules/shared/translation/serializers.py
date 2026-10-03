@@ -348,8 +348,22 @@ class ReviewItemSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField()
 
 
+class ReviewListItemSerializer(ReviewItemSerializer):
+    label = serializers.CharField(  # type: ignore[assignment]
+        allow_blank=True,
+        help_text="The object's name as its source lists it (a page's name, an article's "
+        "title); empty when the person may not read the source.",
+    )
+    scope = serializers.CharField(
+        allow_blank=True, help_text="Where the object publishes, e.g. the site's id."
+    )
+
+
 class ReviewPageSerializer(serializers.Serializer[dict[str, Any]]):
-    items = ReviewItemSerializer(many=True)
+    items = ReviewListItemSerializer(many=True)
+    count = serializers.IntegerField(
+        help_text="Everything that waits (for this reason, when one is given), on all pages."
+    )
     next_cursor = serializers.CharField(allow_null=True)
 
 

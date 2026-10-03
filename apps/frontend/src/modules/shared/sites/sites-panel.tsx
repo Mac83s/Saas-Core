@@ -88,6 +88,7 @@ import { useCompanyLocales } from "#lib/company-locales";
 import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
+import { TranslationTabs } from "../translation/translation-tabs";
 import { SiteOnboardingWizard } from "./site-onboarding";
 import { SitePagesTable } from "./site-pages-table";
 import {
@@ -634,6 +635,7 @@ export function SitesPanel({
   return (
     <section className="space-y-6" aria-labelledby="sites-heading">
       {heading}
+      {section === "translations" ? <TranslationTabs /> : null}
 
       {problem && (
         <div

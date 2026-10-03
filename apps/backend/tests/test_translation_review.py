@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from rest_framework.exceptions import PermissionDenied
 
 from saas_core.content_protocol.sources import ContentContext, WriteBatch, WriteOutcome
 from saas_core.modules.core.organizations.context import activate_tenant_context
@@ -30,6 +31,7 @@ from saas_core.modules.shared.translation.review import (
 )
 from saas_core.modules.shared.translation.services import change_settings
 from saas_core.testing.translation_sources import (
+    FAKE_SCOPE,
     FakeLiveRecordSource,
     FakeSourceDriver,
     registered_translation_source,
@@ -132,6 +134,33 @@ def test_review_mode_results_wait_are_billed_and_go_out_when_accepted(pages: Job
         HTTP_IDEMPOTENCY_KEY="accept-2",
     )
     assert stale.status_code == 409 and stale.json()["code"] == "translation_review_changed"
+
+
+def test_the_list_names_what_waits_as_its_source_lists_it(
+    pages: JobSource, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    owner = company("tl16-labels")
+    review_mode(owner)
+    object_id = page(pages, "Alfa")
+    run(order(owner, [object_id]))
+    client = authenticated_client(owner)
+    listed = client.get("/api/v1/translation/review/").json()
+    assert listed["count"] == 1
+    assert client.get("/api/v1/translation/review/?reason=qa_flagged").json()["count"] == 0
+    [item] = listed["items"]
+    assert (item["object_id"], item["label"], item["scope"]) == (
+        str(object_id),
+        "Studio Testowe",
+        FAKE_SCOPE,
+    )
+
+    # A source the person may not read: the row stays, without a name.
+    def refuse(**_kwargs: Any) -> Any:
+        raise PermissionDenied
+
+    monkeypatch.setattr(pages, "list_objects", refuse)
+    [item] = client.get("/api/v1/translation/review/").json()["items"]
+    assert (item["reason"], item["label"], item["scope"]) == ("review_mode", "", "")
 
 
 def test_a_live_records_waiting_text_is_kept_here_and_written_on_acceptance(

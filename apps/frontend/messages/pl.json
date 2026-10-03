@@ -5145,6 +5145,98 @@
     "cancel": "Anuluj",
     "ordered": "Zlecono tłumaczenie. Wyniki pojawią się tutaj, gdy będą gotowe.",
     "orderFailed": "Nie udało się zlecić tłumaczenia.",
+    "review": {
+      "title": "Tłumaczenia",
+      "description": "Tłumaczenia, które czekają na Twoją decyzję. Zaakceptowane trafia na stronę albo do wizytówki; odrzucone znika, a to, co widzą klienci, zostaje bez zmian.",
+      "tabs": "Widoki tłumaczeń",
+      "tabOverview": "Przegląd",
+      "tabReview": "Do akceptacji",
+      "tabReviewCount": "Do akceptacji ({count})",
+      "caption": "Tłumaczenia czekające na decyzję",
+      "colSelect": "Zaznacz",
+      "colWhat": "Co",
+      "colLanguage": "Język",
+      "colReason": "Dlaczego czeka",
+      "colKeys": "Fragmenty",
+      "colCreated": "Czeka od",
+      "colActions": "Działania",
+      "actionsFor": "Działania dla: {name} · {language}",
+      "select": "Zaznacz: {name} · {language}",
+      "selectAll": "Zaznacz wszystkie, które można zaakceptować",
+      "kinds": {
+        "page": "Podstrona",
+        "entry": "Wpis bloga",
+        "siteTexts": "Nagłówek i stopka strony",
+        "profile": "Wizytówka",
+        "catalog": "Usługi i rezerwacje",
+        "other": "Treść"
+      },
+      "reasons": {
+        "review_mode": "Firma akceptuje tłumaczenia przed publikacją",
+        "overwrites_human": "Zmieniłoby Twoje poprawki",
+        "locale_first_appearance": "Pierwsza wersja w tym języku",
+        "legal_document": "Dokument prawny",
+        "qa_flagged": "Kontrola jakości ma uwagi",
+        "mass_publication": "Zmiana obejmuje wiele stron naraz",
+        "publisher_required": "Potrzebna osoba z prawem publikacji",
+        "operator_forced_review": "Operator platformy wymaga przeglądu",
+        "source_withdrawn": "Źródło zostało zdjęte ze strony",
+        "qa_failed": "Nie przeszło kontroli jakości — przetłumacz ręcznie",
+        "gate_failed": "Nie przeszło kontroli — przetłumacz ręcznie",
+        "model_refused": "Model odmówił tłumaczenia — przetłumacz ręcznie",
+        "other": "Do przejrzenia"
+      },
+      "filterReason": "Powód",
+      "allReasons": "Wszystkie powody",
+      "empty": "Nic nie czeka na Twoją decyzję.",
+      "accept": "Zaakceptuj i opublikuj",
+      "discard": "Odrzuć",
+      "withdraw": "Zdejmij też tłumaczenie",
+      "keep": "Zostaw tłumaczenie",
+      "open": "Otwórz",
+      "acceptSelected": "{count, plural, =0 {Zaakceptuj zaznaczone} other {Zaakceptuj zaznaczone (#)}}",
+      "accepted": "{count, plural, one {Tłumaczenie zaakceptowane i opublikowane.} few {Zaakceptowano i opublikowano # tłumaczenia.} many {Zaakceptowano i opublikowano # tłumaczeń.} other {Zaakceptowano i opublikowano # tłumaczenia.}}",
+      "acceptedNotPublished": "{count, plural, one {Tłumaczenie zaakceptowane.} other {Tłumaczenia zaakceptowane.}} Nie wszystko trafiło jeszcze na stronę: {reason}.",
+      "discarded": "Tłumaczenie odrzucone.",
+      "withdrawn": "Tłumaczenie zdjęte ze strony.",
+      "kept": "Tłumaczenie zostaje na stronie.",
+      "changed": "Ta pozycja zmieniła się albo ktoś już o niej zdecydował — poniżej aktualna lista.",
+      "forbidden": "Tę decyzję podejmuje osoba z prawem publikacji.",
+      "failed": "Nie udało się zapisać decyzji. Spróbuj ponownie.",
+      "loadFailed": "Nie udało się wczytać tłumaczeń do akceptacji.",
+      "noAccess": "Nie masz uprawnień do tłumaczeń tej firmy.",
+      "retry": "Spróbuj ponownie",
+      "loadMore": "Wczytaj więcej",
+      "clearFilters": "Wyczyść filtry",
+      "cancel": "Anuluj",
+      "dialog": {
+        "acceptOne": {
+          "title": "Zaakceptować tłumaczenie i opublikować je?",
+          "text": "{name} · {language}: to tłumaczenie trafi do klientów. Reszta się nie zmieni.",
+          "confirm": "Zaakceptuj i opublikuj"
+        },
+        "acceptMany": {
+          "title": "{count, plural, one {Zaakceptować # zaznaczone tłumaczenie?} few {Zaakceptować # zaznaczone tłumaczenia?} many {Zaakceptować # zaznaczonych tłumaczeń?} other {Zaakceptować # zaznaczonego tłumaczenia?}}",
+          "text": "Zaznaczone tłumaczenia trafią do klientów. Reszta się nie zmieni.",
+          "confirm": "Zaakceptuj i opublikuj"
+        },
+        "discardOne": {
+          "title": "Odrzucić to tłumaczenie?",
+          "text": "{name} · {language}: czekające tłumaczenie zniknie, a klienci dalej widzą to, co teraz. Kredyty za dostarczone tłumaczenie nie wracają.",
+          "confirm": "Odrzuć"
+        },
+        "withdrawOne": {
+          "title": "Zdjąć też tłumaczenie?",
+          "text": "{name} · {language}: źródło nie jest już na stronie. Tłumaczenie też z niej zniknie; tekst zostaje w edytorze.",
+          "confirm": "Zdejmij też tłumaczenie"
+        },
+        "keepOne": {
+          "title": "Zostawić tłumaczenie na stronie?",
+          "text": "{name} · {language}: tłumaczenie zostanie na stronie, choć źródła już na niej nie ma.",
+          "confirm": "Zostaw tłumaczenie"
+        }
+      }
+    },
     "unavailable": {
       "line": "Automatyczne tłumaczenie nie jest teraz dostępne: {reason}. Możesz przetłumaczyć ręcznie.",
       "processor_not_listed": "platforma nie wybrała jeszcze dostawcy tłumaczeń",

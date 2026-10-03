@@ -36,10 +36,11 @@ from .jobs import (
 from .review import (
     ReviewChoice,
     cancel_job,
+    count_review,
     decide_review,
     list_review,
     revert_job,
-    review_payload,
+    review_listing,
 )
 from .serializers import (
     GlossaryDeleteQuerySerializer,
@@ -469,7 +470,8 @@ class ReviewListView(APIView):
         summary="Translations waiting for a person",
         description="Results that wait, with why: a legal document, review mode, a person's "
         "text they would replace, the first appearance of a language, a soft-check flag — "
-        "and those the checks refused, to translate by hand. Oldest first, paged by `cursor`.",
+        "and those the checks refused, to translate by hand. Each is named as its source lists "
+        "it. Oldest first, paged by `cursor`; `count` is everything that waits.",
         tags=["translation"],
         parameters=[ReviewQuerySerializer],
         responses={
@@ -487,7 +489,8 @@ class ReviewListView(APIView):
             reason=query.validated_data.get("reason"),
         )
         return Response({
-            "items": [review_payload(row) for row in rows],
+            "items": review_listing(rows),
+            "count": count_review(reason=query.validated_data.get("reason")),
             "next_cursor": next_cursor,
         })
 

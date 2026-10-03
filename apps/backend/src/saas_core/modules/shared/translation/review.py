@@ -25,7 +25,14 @@ from rest_framework.exceptions import APIException, NotFound
 from saas_core.content_protocol.policy import Trigger
 from saas_core.content_protocol.provenance import Provenance
 from saas_core.content_protocol.registry import translation_source
-from saas_core.content_protocol.sources import ReviewItem, WriteBatch, WriteItem, WriteOutcome
+from saas_core.content_protocol.sources import (
+    LIST_LIMIT,
+    ObjectRef,
+    ReviewItem,
+    WriteBatch,
+    WriteItem,
+    WriteOutcome,
+)
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.authorization import authorize
@@ -69,18 +76,69 @@ def _actor(context: TenantContext) -> User | None:
     return User.objects.filter(pk=context.actor_id).first()
 
 
-def list_review(
-    *, cursor: str | None, limit: int, reason: str | None = None
-) -> tuple[list[TranslationReviewItem], str | None]:
+def _open_rows(reason: str | None) -> Any:
     context = authorize(TRANSLATION_REQUEST)
     rows = TranslationReviewItem.all_objects.filter(
         organization_id=context.organization_id, state=ReviewState.OPEN
-    ).order_by("created_at", "id")
-    if reason:
-        rows = rows.filter(reason=reason)
+    )
+    return rows.filter(reason=reason) if reason else rows
+
+
+def count_review(*, reason: str | None = None) -> int:
+    """How many results wait for a person (for this reason, when one is given)."""
+    return int(_open_rows(reason).count())
+
+
+def list_review(
+    *, cursor: str | None, limit: int, reason: str | None = None
+) -> tuple[list[TranslationReviewItem], str | None]:
+    rows = _open_rows(reason).order_by("created_at", "id")
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = list(rows[start : start + limit + 1])
     return page[:limit], (str(start + limit) if len(page) > limit else None)
+
+
+#: A source is read this many pages deep for the names of what waits; an
+#: object further down goes without a name rather than slowing the list.
+LABEL_PAGES = 5
+
+
+def review_labels(rows: Sequence[TranslationReviewItem]) -> dict[UUID, ObjectRef]:
+    """What each waiting object is called and where it publishes, as its source
+    lists it. A source the person may not read, or one no longer installed,
+    answers nothing: the row is shown without a name."""
+    context = authorize(TRANSLATION_REQUEST)
+    wanted: dict[str, set[UUID]] = defaultdict(set)
+    for row in rows:
+        wanted[row.source_key].add(row.object_id)
+    found: dict[UUID, ObjectRef] = {}
+    for source_key, ids in wanted.items():
+        try:
+            source = translation_source(source_key)
+            cursor: str | None = None
+            for _ in range(LABEL_PAGES):
+                page = source.list_objects(context=context, cursor=cursor, limit=LIST_LIMIT)
+                found.update({ref.object_id: ref for ref in page.items if ref.object_id in ids})
+                cursor = page.next_cursor
+                if cursor is None or ids <= found.keys():
+                    break
+        except (APIException, LookupError):
+            continue
+    return found
+
+
+def review_listing(rows: Sequence[TranslationReviewItem]) -> list[dict[str, Any]]:
+    """The rows as the panel lists them: each with its object's name and scope."""
+    named = review_labels(rows)
+    listed = []
+    for row in rows:
+        ref = named.get(row.object_id)
+        listed.append({
+            **review_payload(row),
+            "label": ref.label if ref else "",
+            "scope": ref.scope if ref else "",
+        })
+    return listed
 
 
 def review_payload(row: TranslationReviewItem) -> dict[str, Any]:

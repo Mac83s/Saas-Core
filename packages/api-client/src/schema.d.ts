@@ -7198,7 +7198,7 @@ export interface paths {
         };
         /**
          * Translations waiting for a person
-         * @description Results that wait, with why: a legal document, review mode, a person's text they would replace, the first appearance of a language, a soft-check flag — and those the checks refused, to translate by hand. Oldest first, paged by `cursor`.
+         * @description Results that wait, with why: a legal document, review mode, a person's text they would replace, the first appearance of a language, a soft-check flag — and those the checks refused, to translate by hand. Each is named as its source lists it. Oldest first, paged by `cursor`; `count` is everything that waits.
          */
         get: operations["translation_review_list"];
         put?: never;
@@ -14178,7 +14178,7 @@ export interface components {
         ReviewDecisionResult: {
             items: components["schemas"]["ReviewDecided"][];
         };
-        ReviewItem: {
+        ReviewListItem: {
             /** Format: uuid */
             id: string;
             /** @description Send it back with a decision. */
@@ -14198,9 +14198,15 @@ export interface components {
             state: string;
             /** Format: date-time */
             created_at: string;
+            /** @description The object's name as its source lists it (a page's name, an article's title); empty when the person may not read the source. */
+            label: string;
+            /** @description Where the object publishes, e.g. the site's id. */
+            scope: string;
         };
         ReviewPage: {
-            items: components["schemas"]["ReviewItem"][];
+            items: components["schemas"]["ReviewListItem"][];
+            /** @description Everything that waits (for this reason, when one is given), on all pages. */
+            count: number;
             next_cursor: string | null;
         };
         /**

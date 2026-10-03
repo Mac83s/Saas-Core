@@ -5145,6 +5145,98 @@
     "cancel": "Cancel",
     "ordered": "The translation is ordered. The results show here when they are ready.",
     "orderFailed": "The translation could not be ordered.",
+    "review": {
+      "title": "Translations",
+      "description": "Translations waiting for your decision. An accepted one goes to the site or the business card; a discarded one is dropped and what customers see stays as it is.",
+      "tabs": "Translation views",
+      "tabOverview": "Overview",
+      "tabReview": "To approve",
+      "tabReviewCount": "To approve ({count})",
+      "caption": "Translations waiting for a decision",
+      "colSelect": "Select",
+      "colWhat": "What",
+      "colLanguage": "Language",
+      "colReason": "Why it waits",
+      "colKeys": "Fragments",
+      "colCreated": "Waiting since",
+      "colActions": "Actions",
+      "actionsFor": "Actions for: {name} · {language}",
+      "select": "Select: {name} · {language}",
+      "selectAll": "Select everything that can be accepted",
+      "kinds": {
+        "page": "Page",
+        "entry": "Blog article",
+        "siteTexts": "The site's header and footer",
+        "profile": "Business card",
+        "catalog": "Services and bookings",
+        "other": "Content"
+      },
+      "reasons": {
+        "review_mode": "The company approves translations before they go out",
+        "overwrites_human": "It would change your corrections",
+        "locale_first_appearance": "The first version in this language",
+        "legal_document": "A legal document",
+        "qa_flagged": "The quality check has remarks",
+        "mass_publication": "The change covers many pages at once",
+        "publisher_required": "A person who may publish is needed",
+        "operator_forced_review": "The platform operator requires a review",
+        "source_withdrawn": "The source was taken off the site",
+        "qa_failed": "It did not pass the quality check — translate by hand",
+        "gate_failed": "It did not pass the check — translate by hand",
+        "model_refused": "The model refused to translate — translate by hand",
+        "other": "To review"
+      },
+      "filterReason": "Reason",
+      "allReasons": "All reasons",
+      "empty": "Nothing waits for your decision.",
+      "accept": "Accept and publish",
+      "discard": "Discard",
+      "withdraw": "Take the translation down too",
+      "keep": "Keep the translation",
+      "open": "Open",
+      "acceptSelected": "{count, plural, =0 {Accept selected} other {Accept selected (#)}}",
+      "accepted": "{count, plural, one {Translation accepted and published.} other {# translations accepted and published.}}",
+      "acceptedNotPublished": "{count, plural, one {Translation accepted.} other {Translations accepted.}} Not everything is on the site yet: {reason}.",
+      "discarded": "Translation discarded.",
+      "withdrawn": "Translation taken off the site.",
+      "kept": "The translation stays on the site.",
+      "changed": "This item changed or somebody has already decided it — the current list is below.",
+      "forbidden": "This decision belongs to a person who may publish.",
+      "failed": "The decision could not be saved. Try again.",
+      "loadFailed": "The translations to approve could not be loaded.",
+      "noAccess": "You have no access to this company's translations.",
+      "retry": "Try again",
+      "loadMore": "Load more",
+      "clearFilters": "Clear filters",
+      "cancel": "Cancel",
+      "dialog": {
+        "acceptOne": {
+          "title": "Accept the translation and publish it?",
+          "text": "{name} · {language}: this translation goes out to customers. Nothing else changes.",
+          "confirm": "Accept and publish"
+        },
+        "acceptMany": {
+          "title": "{count, plural, one {Accept # selected translation?} other {Accept # selected translations?}}",
+          "text": "The selected translations go out to customers. Nothing else changes.",
+          "confirm": "Accept and publish"
+        },
+        "discardOne": {
+          "title": "Discard this translation?",
+          "text": "{name} · {language}: the waiting translation is dropped and customers keep seeing what they see now. Credits for a delivered translation do not come back.",
+          "confirm": "Discard"
+        },
+        "withdrawOne": {
+          "title": "Take the translation down too?",
+          "text": "{name} · {language}: the source is no longer on the site. The translation leaves it too; its text stays in the editor.",
+          "confirm": "Take the translation down too"
+        },
+        "keepOne": {
+          "title": "Keep the translation on the site?",
+          "text": "{name} · {language}: the translation stays on the site although its source is no longer there.",
+          "confirm": "Keep the translation"
+        }
+      }
+    },
     "unavailable": {
       "line": "Automatic translation is not available right now: {reason}. You can translate manually.",
       "processor_not_listed": "the platform has not chosen a translation provider yet",
