@@ -270,12 +270,18 @@ test("section width and surface are saved beside the content and reset removes t
   fireEvent.click(
     screen.getByRole("tab", { name: polishMessages.Sites.studio.tabStyle }),
   );
-  fireEvent.change(screen.getByLabelText("Szerokość treści"), {
-    target: { value: "narrow" },
-  });
-  fireEvent.change(screen.getByLabelText("Tło sekcji"), {
-    target: { value: "inverse" },
-  });
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Szerokość treści" })).getByRole(
+      "button",
+      { name: "Wąska" },
+    ),
+  );
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Tło sekcji" })).getByRole(
+      "button",
+      { name: "Ciemne" },
+    ),
+  );
   expect(
     screen.getByTestId("live-canvas").querySelector(".site-presentation"),
   ).toHaveClass(

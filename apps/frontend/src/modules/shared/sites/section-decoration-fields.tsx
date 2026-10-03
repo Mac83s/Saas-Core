@@ -16,6 +16,8 @@ import {
 } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { SegmentedOptions } from "./segmented-options";
+
 const OPTIONS = {
   background: ["none", "tint", "gradient", "grid", "dots"],
   frame: ["none", "outline", "accent", "double"],
@@ -99,10 +101,12 @@ export function SectionDecorationFields({
   return (
     <FieldSet
       aria-describedby={`${id}-description`}
-      className="min-w-0 gap-4 rounded-lg border p-4"
+      className="min-w-0 gap-4"
       disabled={disabled}
     >
-      <FieldLegend className="px-1">{t("title")}</FieldLegend>
+      <FieldLegend variant="label" className="font-semibold">
+        {t("title")}
+      </FieldLegend>
       <p className="text-sm text-muted-foreground" id={`${id}-description`}>
         {t("description")}
       </p>
@@ -154,7 +158,15 @@ export function SectionDecorationFields({
         <FieldLegend variant="label">{t("groups.ornament")}</FieldLegend>
         {select("ornament")}
         {select("placement")}
-        {select("intensity")}
+        <FieldSet className="min-w-0 gap-2">
+          <FieldLegend variant="label">{t("fields.intensity")}</FieldLegend>
+          <SegmentedOptions
+            label={(option) => t(`options.intensity.${option}`)}
+            onChange={(option) => update("intensity", option)}
+            options={OPTIONS.intensity}
+            value={value?.intensity ?? DEFAULTS.intensity}
+          />
+        </FieldSet>
       </FieldSet>
       <FieldSet className="min-w-0 border-t pt-3">
         <FieldLegend variant="label">{t("groups.motion")}</FieldLegend>

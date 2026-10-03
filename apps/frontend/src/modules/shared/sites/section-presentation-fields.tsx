@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useContext, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormContext, type UseFormReturn } from "react-hook-form";
 
@@ -21,7 +21,9 @@ import {
   FieldSet,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
-import { NativeSelect } from "@saas-core/ui/components/native-select";
+
+import { PageEditorContext } from "./page-editor-context";
+import { SegmentedOptions } from "./segmented-options";
 
 const OPTIONS = {
   inner: ["standard", "narrow", "wide", "full"],
@@ -49,6 +51,8 @@ export function SectionPresentationFields({
   const t = useTranslations("Sites.sectionPresentation");
   const richText = useTranslations("Sites.richText");
   const id = useId();
+  // The swatches are painted by the site's own palette and style.
+  const look = useContext(PageEditorContext)?.look ?? "site-theme";
   const form = useFormContext() as UseFormReturn | null;
   const stored = (value && "anchor" in value ? value.anchor : undefined) ?? "";
   // An invalid anchor stays in the input and is never written; a change from
@@ -95,41 +99,73 @@ export function SectionPresentationFields({
           ? richText("anchorTaken")
           : undefined;
 
+  const inner = value?.inner ?? OPTIONS.inner[0];
+  const surface = value?.surface ?? OPTIONS.surface[0];
+
   return (
+    // No box of its own: a legend on a border breaks across it in the
+    // inspector's narrow column.
     <FieldSet
       aria-describedby={`${id}-description`}
-      className="min-w-0 gap-4 rounded-lg border p-4"
+      className="min-w-0 gap-4"
       disabled={disabled}
     >
-      <FieldLegend className="px-1">{t("title")}</FieldLegend>
+      <FieldLegend variant="label" className="font-semibold">
+        {t("title")}
+      </FieldLegend>
       <p className="text-sm text-muted-foreground" id={`${id}-description`}>
         {t("description")}
       </p>
-      {(Object.keys(OPTIONS) as PresentationField[]).map((field) => {
-        const current = value?.[field] ?? OPTIONS[field][0];
-        return (
-          <Field key={field}>
-            <FieldLabel htmlFor={`${id}-${field}`}>
-              {t(`fields.${field}`)}
-            </FieldLabel>
-            <NativeSelect
-              aria-describedby={`${id}-${field}-hint`}
-              id={`${id}-${field}`}
-              onChange={(event) => update(field, event.target.value)}
-              value={current}
+      <FieldSet aria-describedby={`${id}-inner-hint`} className="min-w-0 gap-2">
+        <FieldLegend variant="label">{t("fields.inner")}</FieldLegend>
+        <SegmentedOptions
+          label={(option) => t(`options.inner.${option}`)}
+          onChange={(option) => update("inner", option)}
+          options={OPTIONS.inner}
+          value={inner}
+        />
+        <FieldDescription id={`${id}-inner-hint`}>
+          {t(`hints.inner.${inner}`)}
+        </FieldDescription>
+      </FieldSet>
+      <FieldSet
+        aria-describedby={`${id}-surface-hint`}
+        className="min-w-0 gap-2"
+      >
+        <FieldLegend variant="label">{t("fields.surface")}</FieldLegend>
+        <div className="grid grid-cols-2 gap-1.5">
+          {OPTIONS.surface.map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-11 min-w-0 justify-start gap-2 px-2 text-xs font-medium aria-pressed:border-primary aria-pressed:ring-1 aria-pressed:ring-primary pointer-fine:h-9"
+              aria-pressed={option === surface}
+              onClick={() => update("surface", option)}
             >
-              {OPTIONS[field].map((option) => (
-                <option key={option} value={option}>
-                  {t(`options.${field}.${option}`)}
-                </option>
-              ))}
-            </NativeSelect>
-            <FieldDescription id={`${id}-${field}-hint`}>
-              {t(`hints.${field}.${current}`)}
-            </FieldDescription>
-          </Field>
-        );
-      })}
+              <span
+                aria-hidden="true"
+                className={`${look} site-theme--preview studio-swatch`}
+              >
+                <span
+                  className={
+                    option === "default"
+                      ? undefined
+                      : `site-presentation--surface-${option}`
+                  }
+                />
+              </span>
+              <span className="min-w-0 truncate">
+                {t(`options.surface.${option}`)}
+              </span>
+            </Button>
+          ))}
+        </div>
+        <FieldDescription id={`${id}-surface-hint`}>
+          {t(`hints.surface.${surface}`)}
+        </FieldDescription>
+      </FieldSet>
       <Field data-invalid={Boolean(anchorError)}>
         <FieldLabel htmlFor={`${id}-anchor`}>{t("fields.anchor")}</FieldLabel>
         <Input

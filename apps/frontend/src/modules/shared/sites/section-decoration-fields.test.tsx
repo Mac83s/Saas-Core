@@ -1,6 +1,12 @@
 import { useState } from "react";
 import axe from "axe-core";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, expect, test, vi } from "vitest";
 
@@ -67,7 +73,7 @@ test.each(["pl", "en"] as const)(
   async (locale) => {
     const { container } = renderFields({ locale });
     expect(container.querySelectorAll("form")).toHaveLength(1);
-    expect(screen.getAllByRole("combobox")).toHaveLength(7);
+    expect(screen.getAllByRole("combobox")).toHaveLength(6);
     const motion = screen.getByRole("combobox", {
       name: locale === "pl" ? "Animacja ozdobników" : "Ornament animation",
     });
@@ -78,8 +84,14 @@ test.each(["pl", "en"] as const)(
         : /Choose an ornament.*reduced motion/,
     );
     for (const name of locale === "pl"
-      ? ["Tło", "Ramka", "Ozdobniki", "Ruch"]
-      : ["Background", "Border", "Ornaments", "Motion"]) {
+      ? ["Tło", "Ramka", "Ozdobniki", "Widoczność dekoracji", "Ruch"]
+      : [
+          "Background",
+          "Border",
+          "Ornaments",
+          "Decoration visibility",
+          "Motion",
+        ]) {
       expect(screen.getByRole("group", { name })).not.toBeNull();
     }
     expect(
@@ -107,15 +119,23 @@ test("zmienia jedno ustawienie i zachowuje pozostałe właściwości dekoracji",
     ...initial,
     background: "gradient",
   });
-  fireEvent.change(
-    screen.getByRole("combobox", { name: "Widoczność dekoracji" }),
-    { target: { value: "soft" } },
+  // Two levels are two segments, the chosen one pressed.
+  const visibility = within(
+    screen.getByRole("group", { name: "Widoczność dekoracji" }),
   );
+  expect(
+    visibility.getByRole("button", { name: "Bardzo delikatne" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(visibility.getByRole("button", { name: "Delikatne" }));
   expect(onChange).toHaveBeenLastCalledWith({
     ...initial,
     background: "gradient",
     intensity: "soft",
   });
+  expect(visibility.getByRole("button", { name: "Delikatne" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   expect(initial).not.toHaveProperty("background");
   expect(screen.getByRole("combobox", { name: "Styl ramki" })).toHaveValue(
     "accent",

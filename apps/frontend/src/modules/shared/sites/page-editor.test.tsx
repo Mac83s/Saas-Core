@@ -1374,7 +1374,7 @@ test("the inspector names the section's place, keeps its icons beside the name a
   ).toBeNull();
   fireEvent.click(tab(t.studio.tabStyle));
   expect(
-    within(inspector).getByRole("combobox", {
+    within(inspector).getByRole("group", {
       name: t.sectionPresentation.fields.inner,
     }),
   ).toBeDefined();

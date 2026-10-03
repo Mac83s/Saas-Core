@@ -1,6 +1,12 @@
 import { useState, type ReactNode } from "react";
 import axe from "axe-core";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { FormProvider, useForm } from "react-hook-form";
 import { afterEach, expect, test, vi } from "vitest";
@@ -77,17 +83,37 @@ test.each(["pl", "en"] as const)(
       </NextIntlClientProvider>,
     );
     const t = messages[locale].Sites.sectionPresentation;
-    fireEvent.change(screen.getByLabelText(t.fields.inner), {
-      target: { value: "wide" },
-    });
-    fireEvent.change(screen.getByLabelText(t.fields.surface), {
-      target: { value: "muted" },
-    });
+    // Segments for the width, swatches for the surface: each a named group
+    // of buttons, the chosen one pressed.
+    const option = (group: string, name: string) =>
+      within(screen.getByRole("group", { name: group })).getByRole("button", {
+        name,
+      });
+    expect(option(t.fields.inner, t.options.inner.standard)).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(option(t.fields.inner, t.options.inner.wide));
+    fireEvent.click(option(t.fields.surface, t.options.surface.muted));
     expect(onChange).toHaveBeenLastCalledWith({
       schemaVersion: 2,
       inner: "wide",
       surface: "muted",
     });
+    expect(option(t.fields.inner, t.options.inner.wide)).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(option(t.fields.surface, t.options.surface.muted)).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // The swatch is painted by the site's surface class, not a copy of it.
+    expect(
+      option(t.fields.surface, t.options.surface.muted).querySelector(
+        ".site-theme .site-presentation--surface-muted",
+      ),
+    ).not.toBeNull();
     expect(screen.getByText(t.hints.surface.muted)).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: t.reset }));
     expect(onChange).toHaveBeenLastCalledWith(undefined);

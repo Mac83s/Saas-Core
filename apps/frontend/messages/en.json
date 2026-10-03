@@ -2234,7 +2234,7 @@
       },
       "options": {
         "inner": {
-          "standard": "Standard (as the site)",
+          "standard": "Standard",
           "narrow": "Narrow",
           "wide": "Wide",
           "full": "Full"

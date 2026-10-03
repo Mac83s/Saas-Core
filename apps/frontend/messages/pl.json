@@ -2234,7 +2234,7 @@
       },
       "options": {
         "inner": {
-          "standard": "Standardowa (jak witryna)",
+          "standard": "Standardowa",
           "narrow": "Wąska",
           "wide": "Szeroka",
           "full": "Pełna"

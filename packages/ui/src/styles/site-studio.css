@@ -108,6 +108,22 @@
   color: var(--foreground);
   box-shadow: 0 1px 2px #00000014;
 }
+/* A section surface as a dot of the site's own colours (the inspector's
+   „Styl”): the outer box carries the site's look, the inner one the surface. */
+.site-theme.studio-swatch {
+  flex-shrink: 0;
+  width: 1.25rem;
+  min-height: 0;
+  height: 1.25rem;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.site-theme.studio-swatch > span {
+  display: block;
+  height: 100%;
+}
 /* An error, a conflict or a restored version: under the top bar. */
 .studio-notices {
   display: grid;
