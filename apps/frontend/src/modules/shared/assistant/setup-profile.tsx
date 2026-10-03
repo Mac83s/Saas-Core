@@ -117,6 +117,7 @@ const FIELDS: Record<"company" | "card" | ListName, readonly string[]> = {
     "units",
     "capacity",
     "price",
+    "vat",
     "places",
     "people",
   ],
@@ -130,6 +131,8 @@ const REF_LISTS: Partial<Record<string, ListName>> = {
   person: "people",
   offer: "offers",
   hours: "people",
+  units: "offers",
+  price: "offers",
 };
 const CONFLICT = "assistant_profile_version_conflict";
 /** A row's button: 44 px on a phone, the row's height from md — as the
@@ -528,6 +531,9 @@ function Overview({
       }
       if (leaf === "duration_minutes") {
         return t("valueMinutes", { count: value as number });
+      }
+      if (leaf === "vat" && t.has(`vat_${String(value)}`)) {
+        return t(`vat_${String(value)}`);
       }
     }
     if (typeof value === "boolean") return t(value ? "valueYes" : "valueNo");

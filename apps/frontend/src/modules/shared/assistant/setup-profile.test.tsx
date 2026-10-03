@@ -923,3 +923,92 @@ test("notes that could not be read offer to try again", async () => {
   expect(screen.queryByRole("alert")).toBeNull();
   expect(api.getAssistantSetup).toHaveBeenCalledTimes(2);
 });
+
+/** A stay whose units and price are on their way: asked, ready and waiting. */
+const STAY: AssistantSetup = {
+  version: 4,
+  document: {
+    schema: "company-profile.v1",
+    offers: [
+      {
+        key: "domki",
+        name: said("Domki"),
+        units: said(3),
+        price: said({ amount: "450.00", currency: "PLN", per: "night" }),
+        vat: said("8"),
+      },
+      { key: "kajak", name: said("Kajak") },
+    ],
+  },
+  labels: { categories: {}, presets: {} },
+  questions: [
+    {
+      field: "offers.kajak.units",
+      kind: "ask",
+      reason: "offer_needs_units",
+      proposal: null,
+      options: [],
+    },
+    {
+      field: "offers.kajak.price",
+      kind: "ask",
+      reason: "offer_needs_price",
+      proposal: null,
+      options: [],
+    },
+    {
+      field: "offers.kajak.vat",
+      kind: "ask",
+      reason: "price_needs_vat",
+      proposal: null,
+      options: [],
+    },
+  ],
+  ready: [
+    {
+      ref: "units:domki",
+      title: { pl: "Ustaw jednostki usługi", en: "Set a service's units" },
+      risk: "draft",
+    },
+    {
+      ref: "price:domki",
+      title: { pl: "Zapisz cenę", en: "Save a price" },
+      risk: "draft",
+    },
+  ],
+  waiting: [
+    { ref: "units:kajak", reason: "waits", waits_for: ["offer:kajak"] },
+    { ref: "price:kajak", reason: "waits", waits_for: ["offer:kajak"] },
+  ],
+  unsupported: [
+    { field: "offers.kajak.price", code: "price_currency", detail: "PLN" },
+  ],
+};
+
+test("a stay's units, its price and the tax rate are said in words: asked, ready and waiting", async () => {
+  api.getAssistantSetup.mockResolvedValue(STAY);
+  view();
+
+  await screen.findByRole("heading", { name: "Domki" });
+  const domki = entry("Domki");
+  expect(row("Liczba jednostek", domki).getByText("3")).toBeInTheDocument();
+  expect(row("Cena", domki).getByText("450,00 zł za noc")).toBeInTheDocument();
+  // The rate is a code in the notes and words on the screen.
+  expect(row("Stawka VAT", domki).getByText("8%")).toBeInTheDocument();
+  for (const line of [
+    "Ile jednostek — domków, pokoi, sztuk sprzętu — ma usługa „Kajak”?",
+    "Ile kosztuje usługa „Kajak” i za co jest ta cena?",
+    "Jaka stawka VAT dotyczy ceny usługi „Kajak”?",
+    "Ustaw jednostki usługi: Domki",
+    "Zapisz cenę: Domki",
+    "W kolejnym kroku: jednostki usługi „Kajak”. Najpierw: usługa „Kajak”.",
+    "W kolejnym kroku: cena usługi „Kajak”. Najpierw: usługa „Kajak”.",
+    "Cena usługi „Kajak”: cennik firmy jest w walucie PLN. Podaj cenę w tej walucie — kwot nie przeliczamy.",
+  ]) {
+    expect(screen.getByText(line)).toBeInTheDocument();
+  }
+  // A step's kind and an offer's key stay out of sight.
+  expect(document.body.textContent).not.toMatch(
+    /units:|price:|offer_needs|domki\b/,
+  );
+});
