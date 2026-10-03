@@ -58,11 +58,14 @@ export function useStepUp(): {
     try {
       await confirmStepUp(code);
     } catch (error) {
+      const code =
+        error instanceof ApiProblemError ? error.problem.code : undefined;
       setProblem(
-        error instanceof ApiProblemError &&
-          error.problem.code === "step_up_locked"
+        code === "step_up_locked"
           ? t("locked")
-          : t("invalid"),
+          : code === "mfa_locked"
+            ? t("mfaLocked")
+            : t("invalid"),
       );
       return;
     }

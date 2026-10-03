@@ -4401,6 +4401,7 @@
     "cancel": "Anuluj",
     "invalid": "Kod się nie zgadza. Wpisz aktualny kod z aplikacji.",
     "locked": "Zbyt wiele błędnych kodów — zaloguj się ponownie.",
+    "mfaLocked": "Zbyt wiele błędnych kodów na tym koncie — spróbuj ponownie za kwadrans.",
     "setup": "Tę zmianę potwierdza się kodem z aplikacji uwierzytelniającej. Najpierw włącz weryfikację dwuetapową:",
     "setupLink": "Twoje konto › Weryfikacja dwuetapowa"
   },

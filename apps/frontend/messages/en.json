@@ -4401,6 +4401,7 @@
     "cancel": "Cancel",
     "invalid": "The code doesn't match. Enter the current code from the app.",
     "locked": "Too many wrong codes — sign in again.",
+    "mfaLocked": "Too many wrong codes on this account — try again in fifteen minutes.",
     "setup": "This change is confirmed with a code from an authenticator app. Turn on two-factor sign-in first:",
     "setupLink": "Your account › Two-factor sign-in"
   },
