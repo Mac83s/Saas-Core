@@ -62,6 +62,7 @@ const DICTIONARY: CatalogDictionary = {
       labels: { pl: "Uroda i zdrowie", en: "Beauty and health" },
     },
   ],
+  locales: ["pl"],
 };
 
 function profile(

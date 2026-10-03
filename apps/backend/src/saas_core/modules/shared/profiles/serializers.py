@@ -221,3 +221,8 @@ class CatalogCategorySerializer(serializers.Serializer[dict[str, Any]]):
 class CatalogDictionarySerializer(serializers.Serializer[dict[str, Any]]):
     cities = CatalogCitySerializer(many=True)
     categories = CatalogCategorySerializer(many=True)
+    locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Languages at least one card is whole in (its own or a complete "
+        "translation): a catalogue page in any other language is not indexed (TL20).",
+    )

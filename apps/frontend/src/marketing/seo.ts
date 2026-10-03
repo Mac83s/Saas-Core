@@ -4,12 +4,24 @@ import { deployment } from "../generated/deployment";
 
 const origin = `https://${deployment.product.platformDomain}`;
 
+/** A marketing path in a locale, without the origin (`pl` has no prefix). */
+export function localizedPath(locale: string, path: string): string {
+  const clean = path === "/" ? "" : path;
+  return locale === "pl" ? clean || "/" : `/${locale}${clean}`;
+}
+
 /** The address of a marketing path in a locale (`pl` has no prefix). */
 export function localizedUrl(locale: string, path: string): string {
-  const clean = path === "/" ? "" : path;
-  return locale === "pl"
-    ? `${origin}${clean || "/"}`
-    : `${origin}/${locale}${clean}`;
+  return `${origin}${localizedPath(locale, path)}`;
+}
+
+/** Open Graph's name for a language of the registry. */
+export function openGraphLocale(locale: string): string {
+  return (
+    { pl: "pl_PL", en: "en_GB", de: "de_DE", es: "es_ES", ru: "ru_RU" }[
+      locale
+    ] ?? locale
+  );
 }
 
 /**
@@ -39,7 +51,7 @@ export function marketingMetadata(args: {
       description: args.description,
       url,
       siteName: deployment.product.name,
-      locale: args.locale === "en" ? "en_GB" : "pl_PL",
+      locale: openGraphLocale(args.locale),
       type: "website",
     },
   };

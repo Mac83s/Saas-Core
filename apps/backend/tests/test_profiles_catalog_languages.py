@@ -286,3 +286,13 @@ def test_the_backfill_recomputes_every_row_and_twice_is_the_same() -> None:
         {"de": "Friseur im Zentrum"},
     )
     assert (polish.entry.source_locale, polish.entry.translated_locales) == ("pl", [])
+
+
+def test_the_dictionary_names_the_languages_some_card_is_whole_in() -> None:
+    Company("Salon Polski")
+    assert APIClient().get(f"{CATALOG_URL}dictionary/").data["locales"] == ["pl"]
+
+    german = Company("Salon Niemiecki")
+    german.translate_whole()
+
+    assert APIClient().get(f"{CATALOG_URL}dictionary/").data["locales"] == ["pl", "de"]

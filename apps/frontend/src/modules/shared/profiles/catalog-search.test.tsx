@@ -35,6 +35,7 @@ const DICTIONARY: CatalogDictionary = {
     { slug: "olsztyn", name: "Olsztyn", voivodeship: "warmińsko-mazurskie" },
   ],
   categories: [],
+  locales: ["pl"],
 };
 
 function item(
@@ -200,4 +201,21 @@ test("a refused location says so and leaves the town select", async () => {
     ),
   ).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Miasto" })).toBeTruthy();
+});
+
+test("the English listing asks in English and links the cards under /en", async () => {
+  api.searchCatalog.mockResolvedValue(
+    page([
+      { ...item("salon", "Salon Anna"), headline: "Hairdresser", locale: "en" },
+    ]),
+  );
+  view(<CatalogSearch locale="en" />, "en");
+
+  const link = await screen.findByRole("link", { name: "Salon Anna" });
+
+  expect(link.getAttribute("href")).toBe("/en/katalog/olsztyn/salon/");
+  expect(screen.getByText("Hairdresser").getAttribute("lang")).toBe("en");
+  expect(api.searchCatalog).toHaveBeenLastCalledWith(
+    expect.objectContaining({ locale: "en" }),
+  );
 });

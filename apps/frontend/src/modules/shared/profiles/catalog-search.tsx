@@ -30,6 +30,7 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Slider } from "@saas-core/ui/components/slider";
 
+import { localizedPath } from "../../../marketing/seo";
 import { profileProblem } from "./problem";
 
 /** Typing pauses this long before the catalogue is asked. */
@@ -40,7 +41,7 @@ const MAX_RADIUS_KM = 100;
 
 type Point = { lat: number; lng: number };
 
-function EntryCard({ item }: { item: CatalogItem }) {
+function EntryCard({ item, locale }: { item: CatalogItem; locale: string }) {
   const t = useTranslations("Catalog");
   return (
     <Card className="h-full">
@@ -48,7 +49,9 @@ function EntryCard({ item }: { item: CatalogItem }) {
         <CardTitle>
           <a
             className="hover:underline"
-            href={item.url}
+            // The platform's own page in the listing's language (TL20); a
+            // company's site is its own address.
+            href={item.is_external ? item.url : localizedPath(locale, item.url)}
             // An entry that leaves the platform opens in a new tab and says
             // so; one that stays does neither.
             rel={item.is_external ? "noreferrer" : undefined}
@@ -63,7 +66,7 @@ function EntryCard({ item }: { item: CatalogItem }) {
             )}
           </a>
         </CardTitle>
-        <CardDescription>{item.headline}</CardDescription>
+        <CardDescription lang={item.locale}>{item.headline}</CardDescription>
       </CardHeader>
       <CardContent className="text-muted-foreground text-sm">
         {item.city}
@@ -75,12 +78,12 @@ function EntryCard({ item }: { item: CatalogItem }) {
   );
 }
 
-function Entries({ items }: { items: CatalogItem[] }) {
+function Entries({ items, locale }: { items: CatalogItem[]; locale: string }) {
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
         <li key={`${item.city_slug}/${item.slug}`}>
-          <EntryCard item={item} />
+          <EntryCard item={item} locale={locale} />
         </li>
       ))}
     </ul>
@@ -135,13 +138,22 @@ export function CatalogSearch({
 
   // The point leaves the browser only in this request; the API neither stores
   // nor logs it (ADR-064 §7).
+  // Headlines in the page's language where the card is whole in it (TL20).
   const search: CatalogQuery = near
-    ? { category, q: query, lat: near.lat, lng: near.lng, radius_km: radius }
+    ? {
+        category,
+        q: query,
+        lat: near.lat,
+        lng: near.lng,
+        radius_km: radius,
+        locale,
+      }
     : {
         city,
         category,
         q: query,
         ...(city && radius ? { radius_km: radius } : {}),
+        locale,
       };
   const searchKey = JSON.stringify(search);
 
@@ -319,11 +331,11 @@ export function CatalogSearch({
           <h2 className="text-lg font-medium" id="catalog-similar">
             {t("noExact", { query })}
           </h2>
-          <Entries items={similar} />
+          <Entries items={similar} locale={locale} />
         </section>
       ) : (
         <>
-          <Entries items={items} />
+          <Entries items={items} locale={locale} />
           {page && page.total > items.length && (
             <Button
               onClick={() => {
@@ -346,7 +358,7 @@ export function CatalogSearch({
               <h2 className="text-lg font-medium" id="catalog-may-also">
                 {t("mayAlso")}
               </h2>
-              <Entries items={similar} />
+              <Entries items={similar} locale={locale} />
             </section>
           )}
         </>

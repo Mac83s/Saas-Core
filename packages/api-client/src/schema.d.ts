@@ -7189,6 +7189,8 @@ export interface components {
         CatalogDictionary: {
             cities: components["schemas"]["CatalogCity"][];
             categories: components["schemas"]["CatalogCategory"][];
+            /** @description Languages at least one card is whole in (its own or a complete translation): a catalogue page in any other language is not indexed (TL20). */
+            locales: string[];
         };
         /**
          * @description One row of the public listing (ADR-053 §5).

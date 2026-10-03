@@ -21385,9 +21385,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CatalogCategory'
+        locales:
+          type: array
+          items:
+            type: string
+          description: 'Languages at least one card is whole in (its own or a complete
+            translation): a catalogue page in any other language is not indexed (TL20).'
       required:
       - categories
       - cities
+      - locales
     CatalogItem:
       type: object
       description: |-

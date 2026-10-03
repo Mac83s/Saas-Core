@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { routing } from "#i18n/routing";
 import { productHasCatalog, productName } from "../../../../marketing/content";
-import { marketingMetadata } from "../../../../marketing/seo";
 import { CatalogSearch } from "../../../../modules/shared/profiles";
+import { catalogListMetadata } from "../../../../modules/shared/profiles/catalog-seo";
+import { readCatalogLocalesOnServer } from "../../../../modules/shared/profiles/catalog-server";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -14,8 +16,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!productHasCatalog) notFound();
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Catalog" });
-  return marketingMetadata({
+  return catalogListMetadata({
     locale,
+    locales: routing.locales,
+    speaking: await readCatalogLocalesOnServer(),
     path: "/katalog",
     title: `${t("title")} — ${productName}`,
     description: t("intro"),

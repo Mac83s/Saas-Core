@@ -18,7 +18,7 @@ from typing import Any
 from uuid import UUID
 
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Case, FloatField, QuerySet, Value, When
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from prometheus_client import Counter
@@ -293,6 +293,18 @@ def _locale_has_entries(locale: str) -> bool:
     )
 
 
+def catalog_locales() -> list[str]:
+    """The languages at least one card is whole in, in the registry's order:
+    the languages the catalogue's own pages are worth indexing in (TL20)."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT source_locale FROM profiles_catalogentry"
+            " UNION SELECT unnest(translated_locales) FROM profiles_catalogentry"
+        )
+        found = {code for (code,) in cursor.fetchall()}
+    return [code for code in settings.LOCALE_REGISTRY if code in found]
+
+
 def catalog_sitemap(*, page: int) -> dict[str, Any]:
     """Every entry's address and languages, for the platform's sitemap (TL20).
 
@@ -552,4 +564,5 @@ class PublicCatalogDictionaryView(APIView):
                 {"key": category.key, "labels": category.label}
                 for category in categories(organization_type).values()
             ],
+            "locales": catalog_locales(),
         })
