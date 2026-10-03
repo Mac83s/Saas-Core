@@ -1356,8 +1356,6 @@
     "scannerBusy": "The photo scanner is busy right now. Nothing was changed — please try again in a moment.",
     "pageLimitReached": "Your plan allows no more pages on this site. Remove a page you do not use or choose a higher plan.",
     "conflict": "The data changed in the meantime. Refresh the view and try again.",
-    "contentEditor": "Controlled content blocks",
-    "contentEditorDescription": "Edit the draft for {page}. Every successful save creates an immutable version.",
     "addBlock": "Block type",
     "searchBlocks": "Search blocks…",
     "openOptions": "Open options",

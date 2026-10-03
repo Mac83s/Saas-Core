@@ -321,7 +321,7 @@ test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", a
   fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
   expect(
-    await screen.findByText("Tekst jest za długi dla tego bloku."),
+    await screen.findByText("Tekst jest za długi dla tej sekcji."),
   ).not.toBeNull();
   expect(savePageDraft).not.toHaveBeenCalled();
 
