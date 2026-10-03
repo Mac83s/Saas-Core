@@ -141,19 +141,23 @@ def list_catalog() -> dict[str, list[Any]]:
     }
 
 
-def _assert_appointment_kind_available(organization: Organization, kind: str) -> None:
-    """A service may sell a kind of visit only a module of the organization's
-    type provides (ADR-050): a farm cannot sell a trimming company's visit."""
-    if not kind:
-        return
+def organization_appointment_kinds(organization: Organization) -> dict[str, str]:
+    """{key: label} of the kinds of visit a service of this organization may
+    sell: those the modules of its type provide (ADR-050). A farm cannot sell
+    a trimming company's visit."""
     organization_type = settings.ORGANIZATION_TYPES.get(organization.organization_type)
     allowed = organization_type.modules if organization_type is not None else frozenset()
-    owners = [
-        module_id
+    return {
+        key: label
         for module_id, descriptor in settings.MODULE_CATALOG.items()
-        if kind in (descriptor.appointment_kinds or {})
-    ]
-    if kind not in settings.APPOINTMENT_KINDS or not any(owner in allowed for owner in owners):
+        if module_id in allowed
+        for key, label in (descriptor.appointment_kinds or {}).items()
+        if key in settings.APPOINTMENT_KINDS
+    }
+
+
+def _assert_appointment_kind_available(organization: Organization, kind: str) -> None:
+    if kind and kind not in organization_appointment_kinds(organization):
         raise ValidationError({"appointment_kind": "Ten typ wizyty nie jest dostępny."})
 
 

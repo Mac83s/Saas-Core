@@ -25,6 +25,8 @@ from uuid import UUID
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection, transaction
+from django.db.models import Count, QuerySet
+from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework.exceptions import NotFound, ParseError, ValidationError
 
@@ -43,6 +45,7 @@ from saas_core.modules.shared.billing.decisions import FeatureOperation
 from . import materials as stock
 from .models import (
     Appointment,
+    AppointmentStatus,
     BookingSetupMutation,
     Location,
     PublicBookingRoute,
@@ -65,6 +68,7 @@ from .services import (
     BookingIdempotencyConflict,
     BookingVersionConflict,
     _assert_appointment_kind_available,
+    organization_appointment_kinds,
 )
 
 #: What the history keeps of a service; the links go in as counts.
@@ -97,6 +101,8 @@ class ServiceSetup:
     resource_ids: list[UUID] = field(default_factory=list)
     #: The groups of units a `range` offer is booked in (ADR-072 §3).
     group_ids: list[UUID] = field(default_factory=list)
+    #: Bookings of it that will still happen; switching it off leaves them (W1).
+    future_bookings: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +114,8 @@ class Setup:
     groups: list[ResourceGroup]
     #: Who can be named as a performer: the company's current people.
     staff: list[StaffMember]
+    #: {key: label} of the kinds of visit its services may sell (ADR-050).
+    appointment_kinds: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +237,12 @@ def list_setup() -> Setup:
         for service_id, target in rows.values_list("service_id", column):
             links.setdefault(service_id, {}).setdefault(key, []).append(target)
     services = Service.all_objects.filter(organization=organization)
+    ahead = dict(
+        _future_bookings(organization)
+        .values("service_id")
+        .annotate(count=Count("id"))
+        .values_list("service_id", "count")
+    )
     return Setup(
         services=[
             ServiceSetup(
@@ -237,6 +251,7 @@ def list_setup() -> Setup:
                 links.get(service.id, {}).get("locations", []),
                 links.get(service.id, {}).get("resources", []),
                 links.get(service.id, {}).get("groups", []),
+                ahead.get(service.id, 0),
             )
             for service in services
         ],
@@ -244,6 +259,21 @@ def list_setup() -> Setup:
         resources=list(Resource.all_objects.filter(organization=organization)),
         groups=list(ResourceGroup.all_objects.filter(organization=organization)),
         staff=list(StaffMember.all_objects.filter(organization=organization, active=True)),
+        appointment_kinds=organization_appointment_kinds(organization),
+    )
+
+
+def _future_bookings(organization: Organization) -> QuerySet[Appointment]:
+    """Bookings that will still happen: not over and not closed. A status a
+    later phase adds (awaiting confirmation, awaiting payment) counts too."""
+    return Appointment.all_objects.filter(
+        organization=organization, starts_at__gte=timezone.now()
+    ).exclude(
+        status__in=[
+            AppointmentStatus.CANCELED,
+            AppointmentStatus.COMPLETED,
+            AppointmentStatus.NO_SHOW,
+        ]
     )
 
 
@@ -336,6 +366,7 @@ def _service_links(organization: Organization, service: Service) -> ServiceSetup
         links["location_id"],
         links["resource_id"],
         links["group_id"],
+        _future_bookings(organization).filter(service=service).count(),
     )
 
 

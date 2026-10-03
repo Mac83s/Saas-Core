@@ -441,6 +441,17 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField(
         help_text="The service's version; a change names it (`expected_version`)."
     )
+    future_bookings = serializers.IntegerField(
+        help_text=(
+            "Bookings of this service that will still happen (from now, neither canceled, "
+            "completed nor a no-show). Switching the service off leaves them as they are."
+        )
+    )
+
+
+class AppointmentKindSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField(help_text="The `appointment_kind` a service sells.")
+    label = serializers.CharField(help_text="Its name, as the module declares it.")
 
 
 class PlaceSetupSerializer(serializers.Serializer[dict[str, Any]]):
@@ -549,6 +560,13 @@ class SetupSerializer(serializers.Serializer[dict[str, Any]]):
     resources = ResourceSetupSerializer(many=True)
     groups = GroupSetupSerializer(many=True)
     staff = SetupPersonSerializer(many=True)
+    appointment_kinds = AppointmentKindSerializer(
+        many=True,
+        help_text=(
+            "The kinds of visit the company's modules provide (ADR-050); empty when none. "
+            'A service without one (`""`) is a plain visit.'
+        ),
+    )
 
 
 def _bounded(field: str, **kwargs: Any) -> serializers.IntegerField:

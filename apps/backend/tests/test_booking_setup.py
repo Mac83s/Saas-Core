@@ -3,7 +3,9 @@ edits them (team phase 3c)."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import time, timedelta
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -21,7 +23,11 @@ from saas_core.modules.shared.booking.models import (
     ServiceStaff,
     StaffMember,
 )
-from saas_core.modules.shared.booking.services import create_appointment, list_catalog
+from saas_core.modules.shared.booking.services import (
+    cancel_appointment,
+    create_appointment,
+    list_catalog,
+)
 from saas_core.modules.shared.booking.setup import (
     list_setup,
     save_location,
@@ -29,7 +35,7 @@ from saas_core.modules.shared.booking.setup import (
     save_service,
 )
 from test_booking import membership, tenant
-from test_booking_slots import at, team
+from test_booking_slots import WARSAW, at, book, team
 from test_organization_lifecycle import authenticated_member, csrf_value
 from test_team_people import bookable, member_of
 from test_tenant_context import authenticated_client
@@ -262,3 +268,35 @@ def test_the_settings_api_answers_management_and_refuses_the_others() -> None:
     )
     assert refused.status_code == 403
     assert StaffMember.all_objects.filter(organization=owner.organization).count() == 2
+
+
+def test_a_service_says_how_many_bookings_switching_it_off_leaves(settings: Any) -> None:
+    """W1: the panel warns before switching off a service still booked."""
+    owner = membership("uslugi-przyszle")
+    bookable(owner.organization)
+    configured = team(owner, people=1, hours=(time(8), time(16)), duration=60)
+    day = timezone.localdate(timezone=WARSAW) + timedelta(days=7)
+    book(owner, configured, at(day, 9), "a")
+    called_off = book(owner, configured, at(day, 11), "b")
+    with tenant(owner):
+        cancel_appointment(appointment_id=called_off.id, idempotency_key="b", principal_ref="t")
+        assert [item.future_bookings for item in list_setup().services] == [1]
+        switched_off = save_service(
+            service_id=configured["service"].id,
+            data={"active": False},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+    # Left as they are: switching off calls nothing off.
+    assert switched_off.value.future_bookings == 1
+
+    # The kinds of visit a module of the company's type provides (ADR-050).
+    catalog = dict(settings.MODULE_CATALOG)
+    catalog["shared.booking"] = replace(
+        catalog["shared.booking"], appointment_kinds={"test.visit": "Wizyta testowa"}
+    )
+    settings.MODULE_CATALOG = catalog
+    settings.APPOINTMENT_KINDS = {"test.visit": "Wizyta testowa"}
+    body = authenticated_client(owner).get("/api/v1/booking/setup/").json()
+    assert body["appointment_kinds"] == [{"key": "test.visit", "label": "Wizyta testowa"}]
+    assert [item["future_bookings"] for item in body["services"]] == [1]

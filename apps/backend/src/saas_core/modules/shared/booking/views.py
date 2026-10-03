@@ -1807,6 +1807,7 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "materials": service.materials,
         "takes_materials": stock.takes_materials(service.appointment_kind),
         "version": service.version,
+        "future_bookings": value.future_bookings,
     }
 
 
@@ -1881,6 +1882,9 @@ class BookingSetupView(APIView):
             "staff": [
                 {"id": item.id, "name": item.display_name, "hours_version": item.hours_version}
                 for item in value.staff
+            ],
+            "appointment_kinds": [
+                {"key": key, "label": label} for key, label in value.appointment_kinds.items()
             ],
         })
 
