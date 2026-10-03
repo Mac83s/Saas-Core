@@ -396,3 +396,49 @@ class TranslationReviewItem(TenantScopedModel):
 
     class Meta:
         indexes = [models.Index(fields=["organization", "state", "created_at"])]
+
+
+class DemandState(models.TextChoices):
+    WAITING = "waiting", "Waiting"
+    # Consent, rights, the month's limit, credits or the provider are missing:
+    # checked again at `check_at` (ADR-069 pkt 14, translation-sources.md §8.3).
+    BLOCKED = "blocked", "Blocked"
+
+
+class TranslationDemand(TenantScopedModel):
+    """An object whose public source changed while the automation is on, waiting
+    for its job (TL21, translation-sources.md §8.3).
+
+    One row per (source, object): repeated changes move `due_at` — five
+    minutes after the latest, at most thirty after the first — so a burst of
+    publications becomes one job.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    source_key = models.CharField(max_length=100)
+    object_id = models.UUIDField()
+    # `<kind>:<uuid>` of the change that opened the row: user, api_key, schedule.
+    cause = models.CharField(max_length=80)
+    first_at = models.DateTimeField()
+    due_at = models.DateTimeField()
+    state = models.CharField(
+        max_length=16, choices=DemandState.choices, default=DemandState.WAITING
+    )
+    reason = models.CharField(max_length=40, blank=True)
+    check_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "source_key", "object_id"],
+                name="translation_demand_object_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(state__in=["waiting", "blocked"]),
+                name="translation_demand_state_ck",
+            ),
+        ]
+        indexes = [models.Index(fields=["state", "due_at"])]

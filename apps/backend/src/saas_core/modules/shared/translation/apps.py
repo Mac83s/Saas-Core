@@ -8,13 +8,18 @@ class TranslationConfig(AppConfig):
     verbose_name = "Tłumaczenia AI"
 
     def ready(self) -> None:
-        from saas_core.content_protocol.registry import register_translation_policy
+        from saas_core.content_protocol.registry import (
+            register_source_change_listener,
+            register_translation_policy,
+        )
         from saas_core.modules.core.organizations.api import register_setting_group
 
+        from .demand import on_source_change
         from .engine_policy import ENGINE_POLICY
         from .settings_spec import SETTINGS
 
         register_translation_policy(ENGINE_POLICY)
+        register_source_change_listener(on_source_change)
         # The registry checks the profile's settingsDefaults for these keys at
         # start, and organizations.E101 any other translation.* key.
         register_setting_group(SETTINGS)
