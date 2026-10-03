@@ -273,3 +273,57 @@ test("zmiana wymagająca kodu 2FA pyta o kod i powtarza zapis", async () => {
   await waitFor(() => expect(updateSettingsGroup).toHaveBeenCalledTimes(2));
   expect(await screen.findByText("Zapisano ustawienia.")).toBeInTheDocument();
 });
+
+test("długi tekst pisze się w polu wieloliniowym, a wyczyszczony wraca do domyślnego", async () => {
+  const group: SettingsGroupSchema = {
+    ...GROUP,
+    key: "notifications.customer_mail",
+    keys: [
+      {
+        ...GROUP.keys[0],
+        key: "notifications.customer_mail.note",
+        type: "text",
+        default: "",
+        max_length: 300,
+        label: { pl: "Tekst firmy w e-mailach", en: "The company's note" },
+      },
+    ],
+  };
+  getSettingsGroup.mockResolvedValue({
+    ...STATE,
+    values: { note: "Prosimy o punktualność." },
+    sources: { note: "organization" },
+  });
+  previewSettingsGroup.mockResolvedValue({
+    version: "v1",
+    values: { note: "" },
+    changes: { note: { from: "Prosimy o punktualność.", to: "" } },
+    effects: [],
+  });
+  updateSettingsGroup.mockResolvedValue({
+    ...STATE,
+    values: { note: "" },
+    sources: { note: "code" },
+  });
+  render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      <SettingsGroupForm group={group} />
+    </NextIntlClientProvider>,
+  );
+
+  const note = await screen.findByLabelText("Tekst firmy w e-mailach");
+  expect(note.tagName).toBe("TEXTAREA");
+  expect(note).toHaveAttribute("maxlength", "300");
+  await waitFor(() =>
+    expect((note as HTMLTextAreaElement).value).toBe("Prosimy o punktualność."),
+  );
+  fireEvent.change(note, { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+
+  await waitFor(() =>
+    expect(previewSettingsGroup).toHaveBeenCalledWith(
+      "notifications.customer_mail",
+      { expected_version: "v1", reset: ["note"] },
+    ),
+  );
+});

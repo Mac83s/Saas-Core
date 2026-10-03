@@ -46,6 +46,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Switch } from "@saas-core/ui/components/switch";
+import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { Link } from "#i18n/navigation";
 
@@ -73,6 +74,9 @@ function applies(option: SettingOption, values: Values): boolean {
     : value === expected.replace(/^'|'$/g, "");
 }
 
+/** A text longer than a line is written in a box, not a single field. */
+const LONG_TEXT = 80;
+
 function zodFor(option: SettingOption): z.ZodType {
   if (option.type === "bool") return z.boolean();
   if (option.type === "int") {
@@ -81,7 +85,7 @@ function zodFor(option: SettingOption): z.ZodType {
     if (option.maximum !== null) number = number.max(option.maximum);
     return number;
   }
-  // A date left empty goes back to the default through `reset`.
+  // A date or a text left empty goes back to the default through `reset`.
   return z.string().nullable();
 }
 
@@ -211,7 +215,11 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
     setSaved(false);
     const dirty = form.formState.dirtyFields as Record<string, boolean>;
     const cleared = group.keys
-      .filter((option) => option.type === "date" && dirty[fieldOf(option)])
+      .filter(
+        (option) =>
+          (option.type === "date" || option.type === "text") &&
+          dirty[fieldOf(option)],
+      )
       .filter((option) => !values[fieldOf(option)])
       .map(fieldOf);
     const change: SettingsGroupChange = {
@@ -315,6 +323,16 @@ export function SettingsGroupForm({ group }: { group: SettingsGroupSchema }) {
                             </option>
                           ))}
                         </NativeSelect>
+                      ) : option.type === "text" &&
+                        (option.max_length ?? 0) > LONG_TEXT ? (
+                        <Textarea
+                          aria-invalid={Boolean(error)}
+                          disabled={readOnly}
+                          id={id}
+                          maxLength={option.max_length ?? undefined}
+                          rows={3}
+                          {...form.register(field)}
+                        />
                       ) : (
                         <Input
                           aria-invalid={Boolean(error)}
