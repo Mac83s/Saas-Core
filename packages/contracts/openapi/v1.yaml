@@ -1668,7 +1668,9 @@ paths:
       description: 'Every active unit (of one group with `group_id`) with what holds
         it from `from` to `to`, local days included: stays, visits that take the unit,
         and blocks — a block that could not take its time is listed too. Closed days
-        of the company or of a unit''s place come with it. At most 62 days per read.'
+        of the company or of a unit''s place come with it. At most 62 days per read.
+        A booking of somebody else''s that the caller may not see (a product''s `appointmentsOfOthersPermission`,
+        UX-023) comes with its time only: no `appointment_id`, `title` or `status`.'
       summary: Read what holds each unit, day by day
       parameters:
       - in: query
@@ -18440,6 +18442,10 @@ components:
           type: string
         service_name:
           type: string
+        service_id:
+          type: string
+          format: uuid
+          description: The offer it was booked from.
         status:
           type: string
           description: '`confirmed`, `completed`, `canceled` or `no_show` (the customer
@@ -18525,6 +18531,12 @@ components:
           type:
           - string
           - 'null'
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The unit or room it takes, if any.
         materials:
           type: array
           items:
@@ -18588,7 +18600,9 @@ components:
       - queued_at
       - requested_staff_id
       - requested_team
+      - resource_id
       - resource_name
+      - service_id
       - service_name
       - staff_id
       - staff_membership_id
@@ -24707,10 +24721,11 @@ components:
         title:
           type: string
           description: The booking's name (a module's, else the customer's), or the
-            block's reason.
+            block's reason; empty for somebody else's booking the caller may not see.
         status:
           type: string
-          description: The booking's status; empty for a block.
+          description: The booking's status; empty for a block and for a booking not
+            shown.
       required:
       - appointment_id
       - block_id
@@ -28148,6 +28163,10 @@ components:
           type: string
         service_name:
           type: string
+        service_id:
+          type: string
+          format: uuid
+          description: The offer it was booked from.
         status:
           type: string
           description: '`confirmed`, `completed`, `canceled` or `no_show` (the customer
@@ -28225,6 +28244,12 @@ components:
           type:
           - string
           - 'null'
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The unit or room it takes, if any.
         materials:
           type: array
           items:
@@ -28288,7 +28313,9 @@ components:
       - queued_at
       - requested_staff_id
       - requested_team
+      - resource_id
       - resource_name
+      - service_id
       - service_name
       - staff_id
       - staff_membership_id

@@ -683,7 +683,7 @@ export interface paths {
         };
         /**
          * Read what holds each unit, day by day
-         * @description Every active unit (of one group with `group_id`) with what holds it from `from` to `to`, local days included: stays, visits that take the unit, and blocks — a block that could not take its time is listed too. Closed days of the company or of a unit's place come with it. At most 62 days per read.
+         * @description Every active unit (of one group with `group_id`) with what holds it from `from` to `to`, local days included: stays, visits that take the unit, and blocks — a block that could not take its time is listed too. Closed days of the company or of a unit's place come with it. At most 62 days per read. A booking of somebody else's that the caller may not see (a product's `appointmentsOfOthersPermission`, UX-023) comes with its time only: no `appointment_id`, `title` or `status`.
          */
         get: operations["booking_occupancy_retrieve"];
         put?: never;
@@ -6067,6 +6067,11 @@ export interface components {
             ends_at: string;
             timezone: string;
             service_name: string;
+            /**
+             * Format: uuid
+             * @description The offer it was booked from.
+             */
+            service_id: string;
             /** @description `confirmed`, `completed`, `canceled` or `no_show` (the customer did not come). */
             status: string;
             /** @description Confirmed and its planned end is behind us: nobody closed it with complete or no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work. */
@@ -6107,6 +6112,11 @@ export interface components {
             /** @description Street and number of the visit's own place, or empty; empty also for whoever may not see the customer's phone. */
             place_address: string;
             resource_name: string | null;
+            /**
+             * Format: uuid
+             * @description The unit or room it takes, if any.
+             */
+            resource_id: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
             self_service_token?: string | null;
@@ -8609,9 +8619,9 @@ export interface components {
             appointment_id: string | null;
             /** Format: uuid */
             block_id: string | null;
-            /** @description The booking's name (a module's, else the customer's), or the block's reason. */
+            /** @description The booking's name (a module's, else the customer's), or the block's reason; empty for somebody else's booking the caller may not see. */
             title: string;
-            /** @description The booking's status; empty for a block. */
+            /** @description The booking's status; empty for a block and for a booking not shown. */
             status: string;
         };
         /**
@@ -10028,6 +10038,11 @@ export interface components {
             ends_at: string;
             timezone: string;
             service_name: string;
+            /**
+             * Format: uuid
+             * @description The offer it was booked from.
+             */
+            service_id: string;
             /** @description `confirmed`, `completed`, `canceled` or `no_show` (the customer did not come). */
             status: string;
             /** @description Confirmed and its planned end is behind us: nobody closed it with complete or no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work. */
@@ -10066,6 +10081,11 @@ export interface components {
             /** @description Street and number of the visit's own place, or empty; empty also for whoever may not see the customer's phone. */
             place_address: string;
             resource_name: string | null;
+            /**
+             * Format: uuid
+             * @description The unit or room it takes, if any.
+             */
+            resource_id: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
             self_service_token?: string | null;
