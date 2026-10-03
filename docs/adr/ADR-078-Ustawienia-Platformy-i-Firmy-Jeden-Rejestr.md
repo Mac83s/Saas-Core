@@ -500,7 +500,14 @@ wejścia API i poleceń.
   kod nie pytają — u asystenta pyta go modyfikator `changes_billing` — i dostaną
   ten sam dialog osobnym krokiem.
 - **35a.** `organization.security.mfa_required`: `none` (domyślnie), `managers`,
-  `all`; MedPlano startuje od `managers` przez `settingsDefaults`. Rola
+  `all`; nowa firma MedPlano startuje od `managers` przez `settingsDefaults`. Ten
+  klucz ma `inheritance="copy_at_creation"` (pkt 6 dla zasięgu firmy): wartość
+  produktu zapisuje się jako własna wartość firmy przy jej utworzeniu
+  (`settings_at_creation()` w `create_organization` i w danych demo) i nigdy nie
+  jest czytana na żywo, więc firma starsza niż ta wartość zostaje przy `none`, aż
+  sama to zmieni — nikogo nie wyrzuca w środku pracy (decyzja koordynatora
+  03.10, właściciel może ją zmienić). „Przywróć” wraca do wartości kodu, nie
+  produktu. Rola
   zarządzająca to rola z `organization.settings.manage`, `members.manage` albo
   `members.manage_limited`. Rejestr odpowiada tylko, czy wymóg obejmuje członkostwo
   (`membership_requires_mfa`, pamiętane per firma i czyszczone przy zmianie);

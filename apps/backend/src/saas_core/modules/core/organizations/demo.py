@@ -43,6 +43,7 @@ from .models import (
 )
 from .pre_tenant import PRE_TENANT_DB
 from .role_catalog import system_role
+from .settings_service import settings_at_creation
 
 #: Every demo account lives here, so no message can reach a real mailbox.
 DEMO_EMAIL_SUFFIX = ".test"
@@ -259,6 +260,7 @@ class DemoRun:
             set_local_organization_id(organization.id)
             organization.save()
             BillingProfile.objects.create(organization=organization)
+            settings_at_creation(organization)
             Membership.objects.create(
                 organization=organization,
                 user=owner,

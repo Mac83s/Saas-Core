@@ -33,7 +33,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from .command_registry import RISKS, Effect, organization_modules
-from .options import SETTING_STRATEGIES, SETTING_TYPES, SETTING_UNITS
+from .options import SETTING_INHERITANCE, SETTING_STRATEGIES, SETTING_TYPES, SETTING_UNITS
 
 #: Where a value comes from, most general first (ADR-078 pkt 3): the code, the
 #: platform, the product's starting value (`settingsDefaults`), the company.
@@ -89,6 +89,11 @@ class SettingSpec:
     #: False: no product may set a starting value (`settingsDefaults`) — e.g. a
     #: switch whose turning on is one person's consent (ADR-069 pkt 14).
     product_default: bool = True
+    #: `copy_at_creation`: the product's value becomes a new company's own when
+    #: it is created, and is never read live — a company older than the value
+    #: keeps what it had (e.g. a 2FA requirement that would lock out people
+    #: mid-work, 35a). `live`: read while the company has none of its own.
+    inheritance: str = "live"
 
     @property
     def field(self) -> str:
@@ -199,6 +204,12 @@ def product_value(spec: SettingSpec) -> Any:
     return getattr(settings, "SETTINGS_DEFAULTS", {}).get(spec.key)
 
 
+def live_product_value(spec: SettingSpec) -> Any:
+    """The product's value as `resolve()` reads it: None for a key copied at
+    a company's creation instead."""
+    return product_value(spec) if spec.inheritance == "live" else None
+
+
 def platform_value(spec: SettingSpec) -> Any:
     """The platform's value, or None when the platform has not set one."""
     if spec.platform_env is None or "platform" not in spec.scopes:
@@ -305,6 +316,10 @@ def _group_problems(group: SettingGroup) -> list[str]:
         problems.append("read_explicit ma tylko grupa encji (z api)")
     if group.api is not None and group.commands is not None:
         problems.append("polecenia grupy encji pisze jej moduł")
+    if group.api is not None and any(
+        spec.inheritance == "copy_at_creation" for spec in group.settings
+    ):
+        problems.append("grupa encji kopiuje wartości przy tworzeniu sama")
     if group.step_up_reason and group.commands is not None:
         problems.append("grupa ze step-upem nie ma jeszcze poleceń asystenta")
     if len(set(group.fields)) != len(group.fields):
@@ -350,6 +365,10 @@ def _spec_problems(group: SettingGroup, spec: SettingSpec) -> list[str]:
         problems.append("strategia override albo restrict (restrict dla enum i int)")
     if spec.no_links and spec.type != "text":
         problems.append("no_links tylko dla typu text")
+    if spec.inheritance not in SETTING_INHERITANCE or (
+        spec.inheritance == "copy_at_creation" and "organization" not in spec.scopes
+    ):
+        problems.append("dziedziczenie live albo copy_at_creation (to drugie z zasięgiem firmy)")
     product = product_value(spec)
     if product is not None:
         if not spec.product_default or "organization" not in spec.scopes:

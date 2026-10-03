@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserMfaMethod, UserStatus
 from saas_core.modules.core.identity.step_up import StepUpMfaSetupRequired, activate_step_up
@@ -27,9 +28,15 @@ from saas_core.modules.core.organizations.security_settings import (
     MFA_REQUIRED,
     membership_requires_mfa,
 )
-from saas_core.modules.core.organizations.settings_service import change_settings, read_group
+from saas_core.modules.core.organizations.settings_service import (
+    Resolved,
+    change_settings,
+    read_group,
+    resolve,
+)
 from saas_core.modules.shared.billing.billing_settings import billing_manager
 from test_booking import membership, tenant
+from test_organization_api import PASSWORD, csrf_value, login
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -152,3 +159,41 @@ def test_the_member_list_shows_who_has_2fa_to_who_manages_the_team() -> None:
         hidden = mfa_status(list_memberships())
     assert seen == frozenset({owner.user_id})
     assert hidden is None
+
+
+def test_a_product_s_2fa_default_is_where_a_new_company_starts_never_an_older_one(
+    settings: Any,
+) -> None:
+    older = membership("mfa-older")
+    user = older.user
+    user.set_password(PASSWORD)
+    user.save()
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).status_code == 200
+    settings.SETTINGS_DEFAULTS = {MFA_REQUIRED: "managers"}
+
+    created = client.post(
+        "/api/v1/organizations/",
+        {
+            "name": "Nowy gabinet",
+            "slug": "mfa-newer",
+            "organization_type": settings.DEFAULT_ORGANIZATION_TYPE,
+            "workspace_kind": "business",
+            "default_locale": "pl",
+            "timezone": "Europe/Warsaw",
+            "currency": "PLN",
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert created.status_code == 201
+    newer = Membership.objects.select_related("role").get(organization__slug="mfa-newer", user=user)
+
+    # The older company keeps what it had: the product's value is not read live.
+    with tenant(older):
+        assert resolve(MFA_REQUIRED) == Resolved("none", "code")
+        assert membership_requires_mfa(older) is False
+    # The new one starts there, as its own choice it may change.
+    with tenant(newer):
+        assert resolve(MFA_REQUIRED) == Resolved("managers", "organization")
+        assert membership_requires_mfa(newer) is True

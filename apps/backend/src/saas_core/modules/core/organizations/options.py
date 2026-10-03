@@ -9,6 +9,10 @@ from __future__ import annotations
 SETTING_TYPES = ("int", "decimal", "bool", "enum", "text", "date")
 SETTING_UNITS = ("minute", "hour", "day", "percent")
 SETTING_STRATEGIES = ("override", "restrict")
+#: How a company gets the product's value (ADR-078 pkt 6): `live` reads it on
+#: every read while the company has none of its own; `copy_at_creation` writes
+#: it as the company's own when the company is created.
+SETTING_INHERITANCE = ("live", "copy_at_creation")
 
 #: The currencies a company keeps its prices and stock values in (owner
 #: decision 16, ADR-073 §8). A platform value once the platform settings exist.

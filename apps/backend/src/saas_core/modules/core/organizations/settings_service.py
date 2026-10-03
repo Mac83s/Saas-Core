@@ -46,9 +46,11 @@ from .settings_registry import (
     SettingGroup,
     SettingSpec,
     check_value,
+    live_product_value,
     organization_groups,
     platform_value,
     product_value,
+    registered_groups,
     setting_group,
     setting_spec,
 )
@@ -149,7 +151,7 @@ def resolve(key: str, *, organization_id: UUID | None = None) -> Resolved:
         explicit = row.value if row is not None else None
     if explicit is not None:
         return Resolved(explicit, "organization")
-    product = product_value(spec)
+    product = live_product_value(spec)
     if product is not None:
         return Resolved(product, "product")
     platform = platform_value(spec)
@@ -190,6 +192,19 @@ def schema(context: TenantContext) -> list[tuple[SettingGroup, bool, str]]:
         )
         for group in organization_groups(context.organization_id)
     ]
+
+
+def settings_at_creation(organization: Organization) -> None:
+    """A new company's own values of the keys copied at creation (ADR-078
+    pkt 6) — the product's value, written as if the company had chosen it.
+    The caller has set the new company's tenant."""
+    OrganizationSetting.objects.bulk_create([
+        OrganizationSetting(organization=organization, key=spec.key, value=value)
+        for group in registered_groups()
+        if group.api is None
+        for spec in group.settings
+        if spec.inheritance == "copy_at_creation" and (value := product_value(spec)) is not None
+    ])
 
 
 # --- changing -------------------------------------------------------------------------
@@ -395,7 +410,7 @@ def _validated(
 
 
 def _inherited(spec: SettingSpec) -> Any:
-    for value in (product_value(spec), platform_value(spec)):
+    for value in (live_product_value(spec), platform_value(spec)):
         if value is not None:
             return value
     return spec.default

@@ -1,8 +1,10 @@
 """Whether a company requires two-factor sign-in of its people (owner answer
 35a, 2026-10-03; ADR-078).
 
-"nie wymagaj" by default (MedPlano starts at "role zarządzające" through its
-profile's `settingsDefaults`). Who counts as managing: a role that changes the
+"nie wymagaj" by default; MedPlano's new companies start at "role
+zarządzające" — its profile's `settingsDefaults`, copied at a company's
+creation and never read live, so existing companies keep "nie wymagaj" until
+they change it (coordinator decision on 35a, 03.10). Who counts as managing: a role that changes the
 company's settings or decides who gets in — settings, members, or members in a
 limited way; an account taken over in any of these hurts the company alike.
 Billing is left out on purpose: every billing change asks for a code anyway
@@ -142,6 +144,9 @@ SECURITY = SettingGroup(
             type="enum",
             default="none",
             scopes=("organization",),
+            # A product's "managers" is where a new company starts; one older
+            # than it keeps "none", so nobody is shut out mid-work.
+            inheritance="copy_at_creation",
             values=(
                 ("none", {"pl": "Nie wymagaj", "en": "Do not require"}),
                 ("managers", {"pl": "Role zarządzające", "en": "Managing roles"}),
