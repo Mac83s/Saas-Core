@@ -616,7 +616,13 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
    asystenta są więc per produkt.
 3. **Poziom typu** (`organization_type="farm"`) to nakładka czytana tylko dla
    organizacji tego typu: schemat ustawień i opis zmian w podglądzie polecenia.
-   Rejestr, polecenia i manifest zostają przy słowach produktu.
+   Rejestr, polecenia i manifest zostają przy słowach produktu. Historia zmian w
+   panelu bierze tytuły grup ze schematu, więc też widzi słowa typu.
+5. **Kolejność wdrożenia w produkcie:** produkt woła `relabel_settings` na poziomie
+   produktu dopiero wtedy, gdy generator manifestu pisze `manifest.json` słowami
+   rdzenia (`unrelabeled_group`), a różnice do `manifest.product.json` — inaczej
+   `commands:check` albo `core:check` w produkcie się rozjadą. Test generatora
+   pilnuje, że relabel zostawia `command_manifest --check` zielonym.
 4. **Czego to nie obejmuje:** wolnych tekstów w kodzie — opisów skutków
    („N osób w firmie straci dostęp”), komunikatów odmowy („Skontaktuj się z firmą”)
    i szablonów e-maili. Te zostają słowami rdzenia; gdy produkt będzie ich
