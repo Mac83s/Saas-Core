@@ -306,6 +306,16 @@ def test_once_a_day_from_the_companys_hour_to_whoever_runs_the_warehouse() -> No
         "alert-codziennie@example.test",
         "alert-magazynier@example.test",
     ]
+    # Signed as the organization's own job, which delivery has to open: a
+    # role the task contract does not know leaves the mail queued for ever.
+    from saas_core.modules.core.organizations.tasks import tenant_task_context  # noqa: PLC0415
+
+    for mail in mails(owner):
+        with tenant_task_context(
+            mail.signed_tenant_context, expected_causation_id=f"email:{mail.id}"
+        ) as context:
+            assert context.role_key == "inventory_notifications"
+        assert mail.status != "queued"
     # Later the same day: nobody hears twice. The next day: again.
     assert notify(at_nine + timedelta(hours=5)) == 0
     assert notify(at_nine + timedelta(days=1)) == 2

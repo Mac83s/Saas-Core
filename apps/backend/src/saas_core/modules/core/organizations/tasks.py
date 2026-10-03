@@ -336,6 +336,9 @@ def _service_context(contract: TenantTaskContract) -> TenantContext:
         # Booking's mails to the people on a visit (ADR-058 §9): sent on the
         # organization's own account, with no permission of their own.
         "booking_notify": set(),
+        # The warehouse's daily low-stock notice (ADR-055, phase 10): the
+        # hourly sweep signs its mails as the organization's own job.
+        "inventory_notifications": set(),
     }
     allowed = allowed_scopes.get(contract.role_key)
     if (
