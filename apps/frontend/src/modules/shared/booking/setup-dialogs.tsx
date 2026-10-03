@@ -461,7 +461,9 @@ export function ServiceDialog({
               {stay ? null : minutesField("duration", t("duration"))}
               {stay ? null : (
                 <Field>
-                  <FieldLabel htmlFor="service-step">{t("slotStep")}</FieldLabel>
+                  <FieldLabel htmlFor="service-step">
+                    {t("slotStep")}
+                  </FieldLabel>
                   <NativeSelect
                     id="service-step"
                     {...form.register("step", { valueAsNumber: true })}
