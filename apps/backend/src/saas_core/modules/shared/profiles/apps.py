@@ -14,14 +14,20 @@ class ProfilesConfig(AppConfig):
     def ready(self) -> None:
         from django.db.models.signals import post_delete, post_save
 
-        from saas_core.modules.core.organizations.api import register_public_locales_guard
+        from saas_core.modules.core.organizations.api import (
+            register_public_locales_changed,
+            register_public_locales_guard,
+        )
 
+        from .card_languages import company_languages_changed
         from .company_locales import profile_locale_problems
         from .models import CatalogEntry
         from .search_index import follow_catalog_entry
 
         register(check_catalog_contract, "profiles")
         register_public_locales_guard(profile_locale_problems)
+        # A language switched off leaves the catalogue card's languages (TL20).
+        register_public_locales_changed(company_languages_changed)
 
         # A page built from a template calls the business card's own phone and
         # writes to its own e-mail, not the template's samples (UX-038).

@@ -101,7 +101,6 @@ from .models import (
     PublicProfileTranslation,
 )
 from .permissions import PROFILES_MANAGE
-from .search_index import catalog_changed
 
 SOURCE_KEY = "profiles.public_profile"
 HEADLINE = "headline"
@@ -286,7 +285,10 @@ def apply_translation(
         },
     )
     if profile.subject_kind == ProfileSubjectKind.ORGANIZATION:
-        catalog_changed(profile.organization_id)
+        # The catalogue row's languages and the search document follow (TL20).
+        from .card_languages import refresh_catalog_languages
+
+        refresh_catalog_languages(profile.organization_id)
     return row, replaced
 
 

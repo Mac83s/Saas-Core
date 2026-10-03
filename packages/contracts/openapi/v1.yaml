@@ -11540,6 +11540,11 @@ paths:
   /api/v1/public/catalog/:
     get:
       operationId: catalog_list
+      description: One page of the catalogue's companies, filtered by city, category,
+        words or distance. With `locale` each card's headline comes in that language
+        where the card is whole in it, and `locale_has_entries` says whether any card
+        is.
+      summary: The public catalogue's listing
       parameters:
       - in: query
         name: category
@@ -11563,6 +11568,12 @@ paths:
           type: number
           format: double
         description: Długość punktu „Blisko mnie”.
+      - in: query
+        name: locale
+        schema:
+          type: string
+        description: 'Język strony katalogu (kod z rejestru, np. de): nagłówki w nim,
+          gdzie wizytówka jest w nim cała, i `locale_has_entries`.'
       - in: query
         name: page
         schema:
@@ -11590,6 +11601,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/CatalogPage'
           description: ''
+      x-quality-exempt:
+        error-400: Filters outside the dictionary are dropped, never refused.
   /api/v1/public/catalog/{city_slug}/{slug}/:
     get:
       operationId: catalog_profile
@@ -11650,6 +11663,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/CatalogDictionary'
           description: ''
+  /api/v1/public/catalog/sitemap/:
+    get:
+      operationId: catalog_sitemap
+      description: 'One page of every catalogue entry: its city and slug, the language
+        the card is written in, the languages it has a complete translation in, and
+        when it last changed. Pages hold `page_size` entries in address order; the
+        platform''s sitemap lists the card in its own language and in each translated
+        one.'
+      summary: The catalogue's addresses for the sitemap
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Strona, od 1.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogSitemapPage'
+          description: ''
+      x-quality-exempt:
+        error-400: A page that is not a number is the first page, never refused.
   /api/v1/public/site/:
     get:
       operationId: public_site_page_retrieve
@@ -21381,6 +21422,19 @@ components:
           - number
           - 'null'
           format: double
+        locale:
+          type: string
+          description: 'The language of the card''s texts in this answer: the asked
+            one where the card is whole in it, the card''s own otherwise.'
+        source_locale:
+          type: string
+          description: The language the card is written in.
+        translated_locales:
+          type: array
+          items:
+            type: string
+          description: The company's languages the card has a complete translation
+            in, in the company's order (TL20).
       required:
       - category
       - city
@@ -21389,8 +21443,11 @@ components:
       - distance_km
       - headline
       - is_external
+      - locale
       - photo_id
       - slug
+      - source_locale
+      - translated_locales
       - url
     CatalogPage:
       type: object
@@ -21409,8 +21466,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CatalogItem'
+        locale_has_entries:
+          type:
+          - boolean
+          - 'null'
+          description: 'With `locale`: whether any card of the catalogue is whole
+            in that language. A listing in a language nobody speaks yet is not indexed.
+            Null without `locale`.'
       required:
       - items
+      - locale_has_entries
       - page
       - page_size
       - similar
@@ -21449,12 +21514,25 @@ components:
           - number
           - 'null'
           format: double
+        locale:
+          type: string
+          description: 'The language of the card''s texts in this answer: the asked
+            one where the card is whole in it, the card''s own otherwise.'
+        source_locale:
+          type: string
+          description: The language the card is written in.
+        translated_locales:
+          type: array
+          items:
+            type: string
+          description: The company's languages the card has a complete translation
+            in, in the company's order (TL20).
         fallback:
           type: array
           items:
             type: string
-          description: Units shown in the card's own language because the asked language
-            has no translation of them (and its fallback flag allows it).
+          description: 'Units shown in the card''s own language. Empty since TL20:
+            the card comes whole in the asked language or whole in its own.'
         layout:
           type: string
         voivodeship:
@@ -21480,8 +21558,6 @@ components:
           type: array
           items:
             type: string
-        locale:
-          type: string
       required:
       - bio
       - category
@@ -21501,9 +21577,53 @@ components:
       - locale
       - photo_id
       - slug
+      - source_locale
       - specializations
+      - translated_locales
       - url
       - voivodeship
+    CatalogSitemapEntry:
+      type: object
+      properties:
+        city_slug:
+          type: string
+        slug:
+          type: string
+        source_locale:
+          type: string
+          description: The language the card is written in.
+        translated_locales:
+          type: array
+          items:
+            type: string
+          description: The languages the card has a complete translation in.
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - city_slug
+      - slug
+      - source_locale
+      - translated_locales
+      - updated_at
+    CatalogSitemapPage:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogSitemapEntry'
+      required:
+      - items
+      - page
+      - page_size
+      - total
     CatalogState:
       type: object
       description: Whether this company is in the public catalogue, and under which

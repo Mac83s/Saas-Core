@@ -145,6 +145,9 @@ def _place_entry(profile: PublicProfile, organization_id: UUID | Any) -> Catalog
         "photo": profile.photo,
         "site": _site_for(organization_id),
     }
+    from .card_languages import card_languages
+
+    values.update(card_languages(profile))
     if entry is None:
         entry = CatalogEntry(published_at=timezone.now(), **values)
     else:

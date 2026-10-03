@@ -82,7 +82,6 @@
     "GET /api/v1/profiles/": {"fingerprint": "74a5f3a3b21a6b14", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/profiles/organization/": {"fingerprint": "81bc6d5dfe8a7909", "violations": ["operation-id", "summary"]},
     "GET /api/v1/profiles/{profile_id}/": {"fingerprint": "6247b2561aef3dae", "violations": ["operation-id", "summary", "description"]},
-    "GET /api/v1/public/catalog/": {"fingerprint": "a06c1c2f608314bc", "violations": ["summary", "description", "error-400"]},
     "GET /api/v1/public/catalog/dictionary/": {"fingerprint": "dcbea0feec8d2238", "violations": ["summary"]},
     "GET /api/v1/seo/audit-offer/": {"fingerprint": "fd8b6a4503d2fa82", "violations": ["operation-id", "summary", "description"]},
     "GET /api/v1/seo/audits/": {"fingerprint": "298a9f44161f6cee", "violations": ["summary", "description", "error-400"]},

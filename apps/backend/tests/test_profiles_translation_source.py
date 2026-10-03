@@ -45,6 +45,7 @@ from saas_core.modules.shared.billing.models import (
     EntitlementSnapshot,
     SubscriptionState,
 )
+from saas_core.modules.shared.profiles.card_languages import card_in_language
 from saas_core.modules.shared.profiles.catalog import publish_profile
 from saas_core.modules.shared.profiles.catalog_contract import categories
 from saas_core.modules.shared.profiles.models import (
@@ -243,28 +244,24 @@ class ProfilesDriver:
         return list(source_units(PublicProfile.all_objects.get(pk=object_id)))
 
     def public_texts(self, object_id: UUID, locale: str) -> list[str] | None:
-        """The company's card as the catalogue serves it in the language; a
-        person's card from its row, which is what the card shows."""
-        if object_id != self.company:
-            row = PublicProfileTranslation.all_objects.filter(
-                profile_id=object_id, locale=locale
-            ).first()
-            if row is None or not row.link_labels:
-                return None
-            labels = row.link_labels
-            return [labels.get(link_key(link["url"]), "") for link in self._links(object_id)]
-        entry = CatalogEntry.all_objects.filter(profile_id=object_id).first()
-        if entry is None:
+        """The link labels the card shows in the language, unit by unit — a
+        person's card from its row; the company's while it is in the
+        catalogue. Whether the catalogue serves the card in the language at
+        all (every text translated, TL20) is `test_profiles_catalog_languages`."""
+        if (
+            object_id == self.company
+            and not CatalogEntry.all_objects.filter(profile_id=object_id).exists()
+        ):
             return None
-        cache.clear()
-        response = APIClient().get(
-            f"/api/v1/public/catalog/{entry.city_slug}/{entry.slug}/", {"locale": locale}
-        )
-        if response.status_code != 200 or response.data["locale"] != locale:
+        row = PublicProfileTranslation.all_objects.filter(
+            profile_id=object_id, locale=locale
+        ).first()
+        if row is None:
             return None
-        if any(key.startswith("link/") for key in response.data["fallback"]):
+        shown = card_in_language(PublicProfile.all_objects.get(pk=object_id), row)
+        if any(key.startswith("link/") for key in shown["fallback"]):
             return None
-        return [str(link["label"]) for link in response.data["links"]]
+        return [str(link["label"]) for link in shown["links"]]
 
 
 @pytest.fixture(autouse=True)
@@ -284,7 +281,7 @@ class TestProfilesSource(TranslationSourceContract):
 # -- what only business cards do ----------------------------------------------
 
 
-def test_the_catalogue_serves_the_card_in_german_with_what_stays_polish() -> None:
+def test_the_catalogue_serves_the_card_in_german_only_whole() -> None:
     driver = ProfilesDriver()
     card = driver.create(["Cennik"])
     driver.publish(card)
@@ -298,10 +295,28 @@ def test_the_catalogue_serves_the_card_in_german_with_what_stays_polish() -> Non
         )
     entry = CatalogEntry.all_objects.get(profile_id=card)
     url = f"/api/v1/public/catalog/{entry.city_slug}/{entry.slug}/"
+    cache.clear()
+    # Bio and the link are still Polish: the card stays Polish, never a mix (TL20).
+    half = APIClient().get(url, {"locale": "de"}).data
+    assert (half["locale"], half["headline"], half["fallback"]) == ("pl", "Fryzjer w centrum", [])
+    links = PublicProfile.all_objects.get(pk=card).links
+    with _as(driver.publisher):
+        save_translation(
+            card,
+            locale="de",
+            expected_version=1,
+            bio="Wir schneiden seit 1990.",
+            link_labels={link_key(links[0]["url"]): "Preise"},
+        )
+    cache.clear()
     german = APIClient().get(url, {"locale": "de"}).data
-    assert (german["locale"], german["headline"], german["bio"]) == ("de", "Friseur im Zentrum", "")
-    assert set(german["fallback"]) == {"bio", link_key(german["links"][0]["url"])}
-    assert german["links"][0]["label"] == "Cennik"
+    assert (german["locale"], german["headline"], german["bio"]) == (
+        "de",
+        "Friseur im Zentrum",
+        "Wir schneiden seit 1990.",
+    )
+    assert (german["links"][0]["label"], german["fallback"]) == ("Preise", [])
+    assert german["translated_locales"] == ["de"]
     # A language the company does not have: the card's own.
     assert APIClient().get(url, {"locale": "es"}).data["locale"] == "pl"
     assert APIClient().get(url).data["headline"] == "Fryzjer w centrum"

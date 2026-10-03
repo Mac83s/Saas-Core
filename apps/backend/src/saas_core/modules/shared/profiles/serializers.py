@@ -143,6 +143,16 @@ class CatalogItemSerializer(serializers.Serializer[dict[str, Any]]):
     #: Kilometres from the searched point, town centre to town centre; null
     #: when the search had no point.
     distance_km = serializers.FloatField(allow_null=True)
+    locale = serializers.CharField(
+        help_text="The language of the card's texts in this answer: the asked one where the "
+        "card is whole in it, the card's own otherwise."
+    )
+    source_locale = serializers.CharField(help_text="The language the card is written in.")
+    translated_locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The company's languages the card has a complete translation in, in the "
+        "company's order (TL20).",
+    )
 
 
 class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
@@ -153,13 +163,36 @@ class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
     #: Entries that fit the words by meaning without containing them (ADR-064):
     #: "Podobne" when `items` is empty, "Może też" below them otherwise.
     similar = CatalogItemSerializer(many=True)
+    locale_has_entries = serializers.BooleanField(
+        allow_null=True,
+        help_text="With `locale`: whether any card of the catalogue is whole in that language. "
+        "A listing in a language nobody speaks yet is not indexed. Null without `locale`.",
+    )
+
+
+class CatalogSitemapEntrySerializer(serializers.Serializer[dict[str, Any]]):
+    city_slug = serializers.CharField()
+    slug = serializers.CharField()
+    source_locale = serializers.CharField(help_text="The language the card is written in.")
+    translated_locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The languages the card has a complete translation in.",
+    )
+    updated_at = serializers.DateTimeField()
+
+
+class CatalogSitemapPageSerializer(serializers.Serializer[dict[str, Any]]):
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    total = serializers.IntegerField()
+    items = CatalogSitemapEntrySerializer(many=True)
 
 
 class CatalogProfileSerializer(CatalogItemSerializer):
     fallback = serializers.ListField(
         child=serializers.CharField(),
-        help_text="Units shown in the card's own language because the asked language has "
-        "no translation of them (and its fallback flag allows it).",
+        help_text="Units shown in the card's own language. Empty since TL20: the card comes "
+        "whole in the asked language or whole in its own.",
     )
     layout = serializers.CharField()
     voivodeship = serializers.CharField(allow_blank=True)
@@ -170,7 +203,6 @@ class CatalogProfileSerializer(CatalogItemSerializer):
     links = serializers.ListField(child=serializers.DictField())
     languages = serializers.ListField(child=serializers.CharField())
     specializations = serializers.ListField(child=serializers.CharField())
-    locale = serializers.CharField()
 
 
 class CatalogCitySerializer(serializers.Serializer[dict[str, Any]]):

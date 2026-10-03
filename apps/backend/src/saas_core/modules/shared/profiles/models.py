@@ -12,6 +12,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import ValidationError
@@ -287,6 +288,14 @@ class CatalogEntry(TenantScopedModel):
         related_name="catalog_entries",
     )
     published_at = models.DateTimeField()
+    # The card's languages, for public pages that must not open the tenant
+    # (TL20): the one it is written in, the company's served languages with a
+    # complete translation (nothing standing in from the source), in the
+    # company's order, and the headline in each of them. Kept by
+    # `card_languages.refresh_catalog_languages`.
+    source_locale = models.CharField(max_length=10, default="pl")
+    translated_locales = ArrayField(models.CharField(max_length=10), default=list, blank=True)
+    headline_by_locale = models.JSONField(default=dict, blank=True)
     search = SearchVectorField(null=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -53,11 +53,21 @@ function item(
     url: `/katalog/olsztyn/${slug}/`,
     is_external: false,
     distance_km: distance,
+    locale: "pl",
+    source_locale: "pl",
+    translated_locales: [],
   };
 }
 
 function page(items: CatalogItem[], similar: CatalogItem[] = []): CatalogPage {
-  return { total: items.length, page: 1, page_size: 20, items, similar };
+  return {
+    total: items.length,
+    page: 1,
+    page_size: 20,
+    items,
+    similar,
+    locale_has_entries: true,
+  };
 }
 
 function view(ui: ReactNode, locale: "pl" | "en" = "pl") {

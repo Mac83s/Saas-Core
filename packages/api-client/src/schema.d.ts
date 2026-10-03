@@ -3947,6 +3947,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * The public catalogue's listing
+         * @description One page of the catalogue's companies, filtered by city, category, words or distance. With `locale` each card's headline comes in that language where the card is whole in it, and `locale_has_entries` says whether any card is.
+         */
         get: operations["catalog_list"];
         put?: never;
         post?: never;
@@ -3985,6 +3989,26 @@ export interface paths {
         };
         /** @description The dictionary the catalogue filters by, for the search form to render. */
         get: operations["catalog_dictionary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/catalog/sitemap/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The catalogue's addresses for the sitemap
+         * @description One page of every catalogue entry: its city and slug, the language the card is written in, the languages it has a complete translation in, and when it last changed. Pages hold `page_size` entries in address order; the platform's sitemap lists the card in its own language and in each translated one.
+         */
+        get: operations["catalog_sitemap"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7185,6 +7209,12 @@ export interface components {
             is_external: boolean;
             /** Format: double */
             distance_km: number | null;
+            /** @description The language of the card's texts in this answer: the asked one where the card is whole in it, the card's own otherwise. */
+            locale: string;
+            /** @description The language the card is written in. */
+            source_locale: string;
+            /** @description The company's languages the card has a complete translation in, in the company's order (TL20). */
+            translated_locales: string[];
         };
         CatalogPage: {
             total: number;
@@ -7192,6 +7222,8 @@ export interface components {
             page_size: number;
             items: components["schemas"]["CatalogItem"][];
             similar: components["schemas"]["CatalogItem"][];
+            /** @description With `locale`: whether any card of the catalogue is whole in that language. A listing in a language nobody speaks yet is not indexed. Null without `locale`. */
+            locale_has_entries: boolean | null;
         };
         /**
          * @description One row of the public listing (ADR-053 §5).
@@ -7212,7 +7244,13 @@ export interface components {
             is_external: boolean;
             /** Format: double */
             distance_km: number | null;
-            /** @description Units shown in the card's own language because the asked language has no translation of them (and its fallback flag allows it). */
+            /** @description The language of the card's texts in this answer: the asked one where the card is whole in it, the card's own otherwise. */
+            locale: string;
+            /** @description The language the card is written in. */
+            source_locale: string;
+            /** @description The company's languages the card has a complete translation in, in the company's order (TL20). */
+            translated_locales: string[];
+            /** @description Units shown in the card's own language. Empty since TL20: the card comes whole in the asked language or whole in its own. */
             fallback: string[];
             layout: string;
             voivodeship: string;
@@ -7225,7 +7263,22 @@ export interface components {
             }[];
             languages: string[];
             specializations: string[];
-            locale: string;
+        };
+        CatalogSitemapEntry: {
+            city_slug: string;
+            slug: string;
+            /** @description The language the card is written in. */
+            source_locale: string;
+            /** @description The languages the card has a complete translation in. */
+            translated_locales: string[];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CatalogSitemapPage: {
+            page: number;
+            page_size: number;
+            total: number;
+            items: components["schemas"]["CatalogSitemapEntry"][];
         };
         /** @description Whether this company is in the public catalogue, and under which address. */
         CatalogState: {
@@ -24517,6 +24570,8 @@ export interface operations {
                 lat?: number;
                 /** @description Długość punktu „Blisko mnie”. */
                 lng?: number;
+                /** @description Język strony katalogu (kod z rejestru, np. de): nagłówki w nim, gdzie wizytówka jest w nim cała, i `locale_has_entries`. */
+                locale?: string;
                 /** @description Strona wyników, od 1. */
                 page?: number;
                 /** @description Szukaj po nazwie, usługach, opisie, kategorii. */
@@ -24588,6 +24643,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogDictionary"];
+                };
+            };
+        };
+    };
+    catalog_sitemap: {
+        parameters: {
+            query?: {
+                /** @description Strona, od 1. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSitemapPage"];
                 };
             };
         };

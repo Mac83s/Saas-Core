@@ -29,12 +29,12 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from saas_core.content_protocol.provenance import ORIGIN_COPY
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import Organization
 
+from .card_languages import card_in_language
 from .catalog_contract import categories, cities, cities_within
 from .models import (
     CatalogEntry,
@@ -48,8 +48,8 @@ from .serializers import (
     CatalogDictionarySerializer,
     CatalogPageSerializer,
     CatalogProfileSerializer,
+    CatalogSitemapPageSerializer,
 )
-from .translation_source import link_key
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,9 @@ SIMILAR_BELOW = 6
 #: "Near me" without a radius; the form's slider starts here too.
 DEFAULT_RADIUS_KM = 25.0
 MAX_RADIUS_KM = 200.0
+#: Entries per page of the sitemap feed; well under the 50 000 URLs a sitemap
+#: file may hold, even with every entry in five languages.
+SITEMAP_PAGE_SIZE = 5000
 
 CATALOG_SEARCHES = Counter(
     "saas_core_catalog_searches_total",
@@ -98,15 +101,32 @@ def site_url(entry: CatalogEntry) -> str | None:
     return f"https://{canonical.hostname}/"
 
 
-def _entry_payload(entry: CatalogEntry, distance_km: float | None = None) -> dict[str, Any]:
+def speaks(entry: CatalogEntry, locale: str | None) -> bool:
+    """The card is whole in this language: its own, or a complete translation."""
+    return bool(locale) and (
+        locale == entry.source_locale or locale in (entry.translated_locales or ())
+    )
+
+
+def _entry_payload(
+    entry: CatalogEntry, distance_km: float | None = None, locale: str | None = None
+) -> dict[str, Any]:
     external = site_url(entry)
+    translated = locale if speaks(entry, locale) and locale != entry.source_locale else None
     return {
         "slug": entry.slug,
         "city_slug": entry.city_slug,
         "city": entry.city,
         "category": entry.category,
         "display_name": entry.display_name,
-        "headline": entry.headline,
+        "headline": (entry.headline_by_locale or {}).get(translated, entry.headline)
+        if translated
+        else entry.headline,
+        # The language the card's texts in this answer are in, the card's own,
+        # and every language it is whole in besides (TL20).
+        "locale": translated or entry.source_locale,
+        "source_locale": entry.source_locale,
+        "translated_locales": list(entry.translated_locales or ()),
         "photo_id": str(entry.photo_id) if entry.photo_id else None,
         # What the listing links to. The catalogue page is always a valid
         # target, so the client never has to decide what to do with a null.
@@ -186,8 +206,10 @@ def search_catalog(
     page: int = 1,
     point: tuple[float, float] | None = None,
     radius_km: float | None = None,
+    locale: str | None = None,
 ) -> dict[str, Any]:
-    """One page of the listing.
+    """One page of the listing; with `locale`, headlines in that language
+    where the card is whole in it (TL20), the card's own elsewhere.
 
     Words go to the search engine (ADR-064) and come back as organization ids;
     the rows themselves are read here, so the table stays the truth and an entry
@@ -244,15 +266,49 @@ def search_catalog(
         "page": page,
         "page_size": PAGE_SIZE,
         "items": [
-            _entry_payload(entry, None if distances is None else distances.get(entry.city_slug))
+            _entry_payload(
+                entry, None if distances is None else distances.get(entry.city_slug), locale
+            )
             for entry in found
         ],
         # What fits the words by meaning without containing them (ADR-064 §8):
         # "Podobne" when `items` is empty, "Może też" below them otherwise.
         "similar": [
-            _entry_payload(entry, None if distances is None else distances.get(entry.city_slug))
+            _entry_payload(
+                entry, None if distances is None else distances.get(entry.city_slug), locale
+            )
             for entry in similar
         ],
+        # Whether any card in the whole catalogue is whole in `locale`: a listing
+        # in a language nobody speaks yet is `noindex` and stays out of the
+        # sitemap (TL20). Null without `locale`.
+        "locale_has_entries": _locale_has_entries(locale) if locale else None,
+    }
+
+
+def _locale_has_entries(locale: str) -> bool:
+    return (
+        CatalogEntry.all_objects.filter(source_locale=locale).exists()
+        or CatalogEntry.all_objects.filter(translated_locales__contains=[locale]).exists()
+    )
+
+
+def catalog_sitemap(*, page: int) -> dict[str, Any]:
+    """Every entry's address and languages, for the platform's sitemap (TL20).
+
+    One table, no tenant: the languages are the row's copy, so a sitemap of
+    the whole catalogue is a page of rows, not a page of tenants."""
+    page = max(page, 1)
+    entries = CatalogEntry.all_objects.order_by("city_slug", "slug")
+    start = (page - 1) * SITEMAP_PAGE_SIZE
+    rows = entries.values("city_slug", "slug", "source_locale", "translated_locales", "updated_at")[
+        start : start + SITEMAP_PAGE_SIZE
+    ]
+    return {
+        "page": page,
+        "page_size": SITEMAP_PAGE_SIZE,
+        "total": entries.count(),
+        "items": [{**row, "translated_locales": list(row["translated_locales"])} for row in rows],
     }
 
 
@@ -261,10 +317,10 @@ def resolve_catalog_profile(
 ) -> dict[str, Any]:
     """One catalogue page: the row names the tenant, the tenant answers for itself.
 
-    With `locale` (a language of the company other than the card's own) the
-    headline, bio and link labels come from that language; a unit it has no
-    translation of shows in the card's language where its fallback flag allows
-    (link labels always), and is named in `fallback` (TL12a, ADR-027)."""
+    With `locale` the card comes in that language when it is whole in it —
+    every text translated, the language one the company serves (TL20) — and in
+    its own language otherwise; never a mix. `fallback` is therefore empty
+    unless the row's copy of the languages lags a write."""
     entry = (
         CatalogEntry.all_objects.select_related("site", "photo")
         .filter(city_slug=city_slug, slug=slug)
@@ -299,6 +355,7 @@ def resolve_catalog_profile(
             locale
             if locale
             and locale != profile.locale
+            and locale in (entry.translated_locales or ())
             and locale in organization_content_locales(organization)
             else None
         )
@@ -308,7 +365,7 @@ def resolve_catalog_profile(
 
     city = cities().get(entry.city_slug)
     payload = {
-        **_entry_payload(entry),
+        **_entry_payload(entry, locale=asked),
         "layout": profile.layout,
         "voivodeship": city.voivodeship if city else "",
         "bio": (translation.bio if translation and translation.bio else profile.bio),
@@ -323,47 +380,12 @@ def resolve_catalog_profile(
     }
     if asked is None or translation is None:
         return payload
-    return {**payload, **_in_language(profile, translation)}
+    return {**payload, **card_in_language(profile, translation)}
 
 
-def _in_language(profile: PublicProfile, row: PublicProfileTranslation) -> dict[str, Any]:
-    """The card's text in the row's language, with what stays in the source.
-    The source's own text standing in for a translation (`copy`) is not one."""
-    fallback: list[str] = []
-    copied = {
-        key
-        for key, origin in (row.provenance or {}).items()
-        if isinstance(origin, dict) and origin.get("origin") == ORIGIN_COPY
-    }
-
-    def text(field: str, translated: str, source: str, allowed: bool) -> str:
-        if translated:
-            return translated
-        if source:
-            fallback.append(field)
-        return source if allowed else ""
-
-    headline = text(
-        "headline",
-        "" if "headline" in copied else row.headline,
-        profile.headline,
-        row.allow_headline_fallback,
-    )
-    bio = text("bio", "" if "bio" in copied else row.bio, profile.bio, row.allow_bio_fallback)
-    labels = {key: label for key, label in (row.link_labels or {}).items() if key not in copied}
-    links = []
-    for link in profile.links or ():
-        key = link_key(link["url"])
-        if key not in labels:
-            fallback.append(key)
-        links.append({"label": labels.get(key) or link["label"], "url": link["url"]})
-    return {
-        "headline": headline,
-        "bio": bio,
-        "links": links,
-        "locale": row.locale,
-        "fallback": fallback,
-    }
+def _locale_param(raw: str | None) -> str | None:
+    """A registry language code, or None; anything else is no language at all."""
+    return raw if raw and raw in settings.LOCALE_REGISTRY else None
 
 
 def _coordinate(raw: str | None, limit: float) -> float | None:
@@ -383,6 +405,15 @@ class PublicCatalogListView(APIView):
 
     @extend_schema(
         operation_id="catalog_list",
+        summary="The public catalogue's listing",
+        description="One page of the catalogue's companies, filtered by city, category, words "
+        "or distance. With `locale` each card's headline comes in that language where the card "
+        "is whole in it, and `locale_has_entries` says whether any card is.",
+        extensions={
+            "x-quality-exempt": {
+                "error-400": "Filters outside the dictionary are dropped, never refused.",
+            }
+        },
         parameters=[
             OpenApiParameter("city", str, description="Slug miasta ze słownika katalogu."),
             OpenApiParameter("category", str, description="Klucz kategorii ze słownika."),
@@ -397,6 +428,12 @@ class PublicCatalogListView(APIView):
             ),
             OpenApiParameter("lat", float, description="Szerokość punktu „Blisko mnie”."),
             OpenApiParameter("lng", float, description="Długość punktu „Blisko mnie”."),
+            OpenApiParameter(
+                "locale",
+                str,
+                description="Język strony katalogu (kod z rejestru, np. de): nagłówki w nim, "
+                "gdzie wizytówka jest w nim cała, i `locale_has_entries`.",
+            ),
         ],
         responses={200: CatalogPageSerializer},
     )
@@ -431,6 +468,7 @@ class PublicCatalogListView(APIView):
                 page=page,
                 point=point,
                 radius_km=radius_km,
+                locale=_locale_param(params.get("locale")),
             )
         )
 
@@ -465,6 +503,35 @@ class PublicCatalogDetailView(APIView):
     def get(self, request: Request, city_slug: str, slug: str) -> Response:
         locale = request.query_params.get("locale") or None
         return Response(resolve_catalog_profile(city_slug=city_slug, slug=slug, locale=locale))
+
+
+class PublicCatalogSitemapView(APIView):
+    """Every catalogue address with its languages, for the platform sitemap."""
+
+    authentication_classes: list[Any] = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        operation_id="catalog_sitemap",
+        summary="The catalogue's addresses for the sitemap",
+        description="One page of every catalogue entry: its city and slug, the language the "
+        "card is written in, the languages it has a complete translation in, and when it last "
+        "changed. Pages hold `page_size` entries in address order; the platform's sitemap "
+        "lists the card in its own language and in each translated one.",
+        parameters=[OpenApiParameter("page", int, description="Strona, od 1.")],
+        responses={200: CatalogSitemapPageSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "error-400": "A page that is not a number is the first page, never refused.",
+            }
+        },
+    )
+    def get(self, request: Request) -> Response:
+        try:
+            page = int(request.query_params.get("page", "1"))
+        except ValueError:
+            page = 1
+        return Response(catalog_sitemap(page=page))
 
 
 class PublicCatalogDictionaryView(APIView):
