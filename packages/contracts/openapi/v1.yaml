@@ -6956,7 +6956,10 @@ paths:
   /api/v1/inventory/balances/:
     get:
       operationId: inventory_balance_list
-      description: Stany jednego miejsca; bez parametrów — magazyn główny.
+      description: 'What lies in one place, item by item: on hand, reserved, available,
+        the minimum in force there and whether the item is at or below it. Without
+        parameters, the main warehouse; somebody else''s stock needs inventory.manage.'
+      summary: Stock of one place
       parameters:
       - in: query
         name: holder_id
@@ -7013,7 +7016,10 @@ paths:
   /api/v1/inventory/categories/:
     get:
       operationId: inventory_category_list
-      description: Kategorie firmy; zestaw startowy deklaruje produkt.
+      description: 'The company''s categories: the product''s starting ones (`system`,
+        they can be renamed, not deleted) and the company''s own, each with its own
+        number of days before a lot counts as expiring, if set.'
+      summary: Stock categories
       tags:
       - inventory
       security:
@@ -7053,21 +7059,22 @@ paths:
           description: ''
     post:
       operationId: inventory_category_create
-      description: Kategorie firmy; zestaw startowy deklaruje produkt.
+      description: 'A category of the company''s own (`name` required). The name is
+        unique in the company: a second one is 400 `duplicate`. Needs inventory.manage.'
+      summary: Add a stock category
       tags:
       - inventory
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InventoryCategory'
+              $ref: '#/components/schemas/InventoryCategoryUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/InventoryCategory'
+              $ref: '#/components/schemas/InventoryCategoryUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/InventoryCategory'
-        required: true
+              $ref: '#/components/schemas/InventoryCategoryUpdate'
       security:
       - cookieAuth: []
       responses:
@@ -7101,9 +7108,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'The name is unique in the company: a repeat is refused (400),
+          never a second one.'
   /api/v1/inventory/categories/{category_id}/:
     patch:
       operationId: inventory_category_update
+      description: Renames a category or sets how many days before expiry its lots
+        count as expiring (`expiring_days`; null returns to the company's number).
+        Only the fields sent change; the history records what did. Needs inventory.manage.
+      summary: Change a stock category
       parameters:
       - in: path
         name: category_id
@@ -7117,13 +7131,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedInventoryCategory'
+              $ref: '#/components/schemas/PatchedInventoryCategoryUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedInventoryCategory'
+              $ref: '#/components/schemas/PatchedInventoryCategoryUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedInventoryCategory'
+              $ref: '#/components/schemas/PatchedInventoryCategoryUpdate'
       security:
       - cookieAuth: []
       responses:
@@ -7157,6 +7171,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'Sets absolute values: a repeat leaves the same state and
+          writes no second history.'
     delete:
       operationId: inventory_category_delete
       parameters:
@@ -7910,6 +7927,123 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/inventory/low-stock/:
+    get:
+      operationId: inventory_low_stock_list
+      description: Each item whose available stock (on hand minus reserved) is at
+        or below the minimum in force in a place, the biggest shortfall first. An
+        item with a minimum never received in the main warehouse counts with zero.
+        Other people's stock only for inventory.manage; everyone else sees warehouses
+        and their own.
+      summary: Items at or below their minimum
+      parameters:
+      - in: query
+        name: places
+        schema:
+          type: string
+          enum:
+          - all
+          - main
+          - warehouses
+        description: main — the main warehouse; warehouses — every warehouse; all
+          (default) — warehouses and people's stock.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LowStockRow'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/minimums/:
+    put:
+      operationId: inventory_place_minimum_set
+      description: 'Sets the minimum of one item in one warehouse or person''s stock.
+        null returns to the item''s minimum (a warehouse) or to none (a person''s
+        stock); 0 means no minimum in this place. The answer is the place''s row with
+        the minimum in force and whether it is reached. Needs inventory.manage; the
+        history records the change. No preview: the answer itself says what the threshold
+        now means.'
+      summary: Set an item's minimum in one place
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceMinimumInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlaceMinimumInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaceMinimumInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryBalance'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Sets absolute values: a repeat leaves the same state and
+          writes no second history.'
   /api/v1/inventory/movements/:
     get:
       operationId: inventory_movement_list
@@ -10700,6 +10834,440 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BookingSelfServiceSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/inventory.alerts/:
+    get:
+      operationId: organization_settings_inventory_alerts_retrieve
+      description: Once a day, a list of what is at or below its minimum — in the
+        panel and by e-mail. The minimum is set on the item in the Catalogue or on
+        a place in Stock. The values that apply, where each comes from (code, platform
+        or the company) and the group's version token.
+      summary: 'Read the company''s settings: Low-stock notices'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryAlertsSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_inventory_alerts_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Low-stock notices'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryAlertsSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryAlertsSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryAlertsSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryAlertsSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/inventory.alerts/preview/:
+    post:
+      operationId: organization_settings_inventory_alerts_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Low-stock notices'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryAlertsSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryAlertsSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryAlertsSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryAlertsSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/inventory.lots/:
+    get:
+      operationId: organization_settings_inventory_lots_retrieve
+      description: For items kept by lots and expiry dates. At work an expired lot
+        only warns — it never stops a record. The values that apply, where each comes
+        from (code, platform or the company) and the group's version token.
+      summary: 'Read the company''s settings: Lot expiry'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLotsSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_inventory_lots_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Lot expiry'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryLotsSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryLotsSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryLotsSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLotsSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/inventory.lots/preview/:
+    post:
+      operationId: organization_settings_inventory_lots_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Lot expiry'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryLotsSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryLotsSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryLotsSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLotsSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/inventory.materials/:
+    get:
+      operationId: organization_settings_inventory_materials_retrieve
+      description: 'Where the products on a calendar visit come from: reserved from
+        confirmation, used and sold when it is completed. The values that apply, where
+        each comes from (code, platform or the company) and the group''s version token.'
+      summary: 'Read the company''s settings: Materials at visits'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMaterialsSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_inventory_materials_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Materials at visits'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryMaterialsSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryMaterialsSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryMaterialsSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMaterialsSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/inventory.materials/preview/:
+    post:
+      operationId: organization_settings_inventory_materials_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Materials at
+        visits'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryMaterialsSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryMaterialsSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryMaterialsSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMaterialsSettingsPreview'
           description: ''
         '400':
           content:
@@ -23359,6 +23927,14 @@ components:
           maxItems: 10
       required:
       - names
+    ExpiredSaleCbbEnum:
+      enum:
+      - block
+      - warn
+      type: string
+      description: |-
+        * `block` - block
+        * `warn` - warn
     Farm:
       type: object
       properties:
@@ -24644,6 +25220,192 @@ components:
       - item_id
       - note
       - quantity
+    InventoryAlertsSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/InventoryAlertsSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/InventoryAlertsSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    InventoryAlertsSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryAlertsSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        low_stock:
+          description: |-
+            Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+
+            * `off` - off
+            * `daily` - daily
+          oneOf:
+          - $ref: '#/components/schemas/LowStock14fEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        places:
+          description: |-
+            Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own.
+
+            * `main` - main
+            * `warehouses` - warehouses
+            * `all` - all
+          oneOf:
+          - $ref: '#/components/schemas/Places1e6Enum'
+          - $ref: '#/components/schemas/NullEnum'
+        recipients:
+          description: |-
+            Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner.
+
+            * `managers` - managers
+            * `owner` - owner
+          oneOf:
+          - $ref: '#/components/schemas/RecipientsB39Enum'
+          - $ref: '#/components/schemas/NullEnum'
+        holder:
+          type:
+          - boolean
+          - 'null'
+          description: 'With people''s stock watched: the person whose own stock is
+            at or below its minimum also gets a notice about it (only their own rows).'
+        hour:
+          type:
+          - integer
+          - 'null'
+          maximum: 23
+          minimum: 0
+          description: The hour of the company's day (0 to 23, its time zone) from
+            which the daily notice may go out; it goes once a day, the first time
+            something is at or below its minimum at or after this hour.
+      required:
+      - expected_version
+    InventoryAlertsSettingsChangeResetEnum:
+      enum:
+      - low_stock
+      - places
+      - recipients
+      - holder
+      - hour
+      type: string
+      description: |-
+        * `low_stock` - low_stock
+        * `places` - places
+        * `recipients` - recipients
+        * `holder` - holder
+        * `hour` - hour
+    InventoryAlertsSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/InventoryAlertsSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    InventoryAlertsSettingsSources:
+      type: object
+      properties:
+        low_stock:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        places:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        recipients:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        holder:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        hour:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - holder
+      - hour
+      - low_stock
+      - places
+      - recipients
+    InventoryAlertsSettingsValues:
+      type: object
+      properties:
+        low_stock:
+          allOf:
+          - $ref: '#/components/schemas/LowStock14fEnum'
+          description: |-
+            Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+
+            * `off` - off
+            * `daily` - daily
+        places:
+          allOf:
+          - $ref: '#/components/schemas/Places1e6Enum'
+          description: |-
+            Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own.
+
+            * `main` - main
+            * `warehouses` - warehouses
+            * `all` - all
+        recipients:
+          allOf:
+          - $ref: '#/components/schemas/RecipientsB39Enum'
+          description: |-
+            Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner.
+
+            * `managers` - managers
+            * `owner` - owner
+        holder:
+          type: boolean
+          description: 'With people''s stock watched: the person whose own stock is
+            at or below its minimum also gets a notice about it (only their own rows).'
+        hour:
+          type: integer
+          maximum: 23
+          minimum: 0
+          description: The hour of the company's day (0 to 23, its time zone) from
+            which the daily notice may go out; it goes once a day, the first time
+            something is at or below its minimum at or after this hour.
+      required:
+      - holder
+      - hour
+      - low_stock
+      - places
+      - recipients
     InventoryBalance:
       type: object
       description: Ile czego leży w jednym miejscu; dostępne = stan − zarezerwowane.
@@ -24687,9 +25449,21 @@ components:
           type: string
           readOnly: true
         minimum_quantity:
-          type: string
+          type:
+          - string
+          - 'null'
           format: decimal
           pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          readOnly: true
+        place_minimum:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        below_minimum:
+          type: boolean
+          readOnly: true
         tracks_lots:
           type: boolean
         nearest_expiry:
@@ -24708,6 +25482,7 @@ components:
           format: date-time
       required:
       - available
+      - below_minimum
       - holder_id
       - item_id
       - item_name
@@ -24716,6 +25491,7 @@ components:
       - lot_status
       - minimum_quantity
       - nearest_expiry
+      - place_minimum
       - quantity
       - reserved
       - sku
@@ -24738,11 +25514,35 @@ components:
         system:
           type: boolean
           readOnly: true
+        expiring_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: 'How many days before its expiry date a lot of this category
+            counts as expiring (1–365); null: the company''s number (setting inventory.lots.expiring_days).'
       required:
       - id
       - key
       - name
       - system
+    InventoryCategoryUpdate:
+      type: object
+      description: Only the fields sent change.
+      properties:
+        name:
+          type: string
+          description: The category's name, unique in the company.
+          maxLength: 120
+        expiring_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: Days before expiry a lot of this category counts as expiring
+            (1–365); null returns to the company's number.
     InventoryIssueInput:
       type: object
       properties:
@@ -24928,6 +25728,227 @@ components:
       - quantity
       - status
       - unit
+    InventoryLotsSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/InventoryLotsSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/InventoryLotsSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    InventoryLotsSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryLotsSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        expiring_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: How many days before its expiry date a lot is shown as expiring
+            (1 to 365). A category's own number (`expiring_days` on the category,
+            PATCH /inventory/categories/{id}/) wins over this one.
+        expired_sale:
+          description: |-
+            What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09).
+
+            * `block` - block
+            * `warn` - warn
+          oneOf:
+          - $ref: '#/components/schemas/ExpiredSaleCbbEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - expected_version
+    InventoryLotsSettingsChangeResetEnum:
+      enum:
+      - expiring_days
+      - expired_sale
+      type: string
+      description: |-
+        * `expiring_days` - expiring_days
+        * `expired_sale` - expired_sale
+    InventoryLotsSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/InventoryLotsSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    InventoryLotsSettingsSources:
+      type: object
+      properties:
+        expiring_days:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        expired_sale:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - expired_sale
+      - expiring_days
+    InventoryLotsSettingsValues:
+      type: object
+      properties:
+        expiring_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+          description: How many days before its expiry date a lot is shown as expiring
+            (1 to 365). A category's own number (`expiring_days` on the category,
+            PATCH /inventory/categories/{id}/) wins over this one.
+        expired_sale:
+          allOf:
+          - $ref: '#/components/schemas/ExpiredSaleCbbEnum'
+          description: |-
+            What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09).
+
+            * `block` - block
+            * `warn` - warn
+      required:
+      - expired_sale
+      - expiring_days
+    InventoryMaterialsSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/InventoryMaterialsSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/InventoryMaterialsSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    InventoryMaterialsSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryMaterialsSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        source:
+          description: |-
+            Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected.
+
+            * `main` - main
+            * `lead_person` - lead_person
+          oneOf:
+          - $ref: '#/components/schemas/Source014Enum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - expected_version
+    InventoryMaterialsSettingsChangeResetEnum:
+      enum:
+      - source
+      type: string
+      description: '* `source` - source'
+    InventoryMaterialsSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/InventoryMaterialsSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    InventoryMaterialsSettingsSources:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - source
+    InventoryMaterialsSettingsValues:
+      type: object
+      properties:
+        source:
+          allOf:
+          - $ref: '#/components/schemas/Source014Enum'
+          description: |-
+            Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected.
+
+            * `main` - main
+            * `lead_person` - lead_person
+      required:
+      - source
     InventoryMovement:
       type: object
       properties:
@@ -25912,6 +26933,70 @@ components:
         * `expiring` - Kończy się ważność
         * `ok` - Ważna
         * `no_date` - Bez daty ważności
+    LowStock14fEnum:
+      enum:
+      - 'off'
+      - daily
+      type: string
+      description: |-
+        * `off` - off
+        * `daily` - daily
+    LowStockRow:
+      type: object
+      description: One item at or below its minimum in one place (available ≤ minimum).
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        location_id:
+          type: string
+          format: uuid
+        location_name:
+          type: string
+        location_kind:
+          $ref: '#/components/schemas/StockLocationKindEnum'
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Whose own stock this is; null for a warehouse.
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: On hand in the place.
+        available:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: On hand minus what is reserved for visits and orders.
+        minimum:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: The minimum in force here.
+        missing:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: How much is needed to be back at the minimum.
+      required:
+      - available
+      - holder_id
+      - item_id
+      - item_name
+      - location_id
+      - location_kind
+      - location_name
+      - minimum
+      - missing
+      - quantity
+      - unit
     MaterialInput:
       type: object
       description: Produkt z magazynu przy usłudze albo wizycie (ADR-055).
@@ -27860,22 +28945,76 @@ components:
           minimum: 1
           description: The version the change was made on, as the last read gave it;
             another one answers 409 `booking_version_conflict`.
-    PatchedInventoryCategory:
+    PatchedInventoryAlertsSettingsChange:
       type: object
       properties:
-        id:
+        expected_version:
           type: string
-          format: uuid
-          readOnly: true
-        key:
-          type: string
-          readOnly: true
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryAlertsSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        low_stock:
+          description: |-
+            Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+
+            * `off` - off
+            * `daily` - daily
+          oneOf:
+          - $ref: '#/components/schemas/LowStock14fEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        places:
+          description: |-
+            Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own.
+
+            * `main` - main
+            * `warehouses` - warehouses
+            * `all` - all
+          oneOf:
+          - $ref: '#/components/schemas/Places1e6Enum'
+          - $ref: '#/components/schemas/NullEnum'
+        recipients:
+          description: |-
+            Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner.
+
+            * `managers` - managers
+            * `owner` - owner
+          oneOf:
+          - $ref: '#/components/schemas/RecipientsB39Enum'
+          - $ref: '#/components/schemas/NullEnum'
+        holder:
+          type:
+          - boolean
+          - 'null'
+          description: 'With people''s stock watched: the person whose own stock is
+            at or below its minimum also gets a notice about it (only their own rows).'
+        hour:
+          type:
+          - integer
+          - 'null'
+          maximum: 23
+          minimum: 0
+          description: The hour of the company's day (0 to 23, its time zone) from
+            which the daily notice may go out; it goes once a day, the first time
+            something is at or below its minimum at or after this hour.
+    PatchedInventoryCategoryUpdate:
+      type: object
+      description: Only the fields sent change.
+      properties:
         name:
           type: string
+          description: The category's name, unique in the company.
           maxLength: 120
-        system:
-          type: boolean
-          readOnly: true
+        expiring_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: Days before expiry a lot of this category counts as expiring
+            (1–365); null returns to the company's number.
     PatchedInventoryItemInput:
       type: object
       properties:
@@ -27911,6 +29050,55 @@ components:
           type: boolean
         notes:
           type: string
+    PatchedInventoryLotsSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryLotsSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        expiring_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 1
+          description: How many days before its expiry date a lot is shown as expiring
+            (1 to 365). A category's own number (`expiring_days` on the category,
+            PATCH /inventory/categories/{id}/) wins over this one.
+        expired_sale:
+          description: |-
+            What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09).
+
+            * `block` - block
+            * `warn` - warn
+          oneOf:
+          - $ref: '#/components/schemas/ExpiredSaleCbbEnum'
+          - $ref: '#/components/schemas/NullEnum'
+    PatchedInventoryMaterialsSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryMaterialsSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        source:
+          description: |-
+            Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected.
+
+            * `main` - main
+            * `lead_person` - lead_person
+          oneOf:
+          - $ref: '#/components/schemas/Source014Enum'
+          - $ref: '#/components/schemas/NullEnum'
     PatchedMembershipUpdate:
       type: object
       properties:
@@ -28857,6 +30045,29 @@ components:
           description: Shown on the booking form on the company's site (B2).
       required:
       - name
+    PlaceMinimumInput:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+          description: The item.
+        location_id:
+          type: string
+          format: uuid
+          description: The warehouse or the person's stock.
+        minimum_quantity:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          description: 'The minimum in this place; 0: no minimum here; null: back
+            to the item''s minimum (a warehouse) or none (a person''s stock).'
+      required:
+      - item_id
+      - location_id
+      - minimum_quantity
     PlaceSetup:
       type: object
       properties:
@@ -28937,6 +30148,16 @@ components:
             another one answers 409 `booking_version_conflict`.
       required:
       - expected_version
+    Places1e6Enum:
+      enum:
+      - main
+      - warehouses
+      - all
+      type: string
+      description: |-
+        * `main` - main
+        * `warehouses` - warehouses
+        * `all` - all
     PlatformArea:
       type: object
       properties:
@@ -30642,6 +31863,14 @@ components:
       description: |-
         * `night` - night
         * `day` - day
+    RecipientsB39Enum:
+      enum:
+      - managers
+      - owner
+      type: string
+      description: |-
+        * `managers` - managers
+        * `owner` - owner
     RecipientsD00Enum:
       enum:
       - owner
@@ -33290,6 +34519,22 @@ components:
             $ref: '#/components/schemas/SlotTime'
       required:
       - items
+    Source014Enum:
+      enum:
+      - main
+      - lead_person
+      type: string
+      description: |-
+        * `main` - main
+        * `lead_person` - lead_person
+    SourceEnum:
+      enum:
+      - manual
+      - ical
+      type: string
+      description: |-
+        * `manual` - Ręczna
+        * `ical` - Kalendarz zewnętrzny
     SpeciesEnum:
       enum:
       - cattle
@@ -34576,7 +35821,7 @@ components:
           type: string
         source:
           allOf:
-          - $ref: '#/components/schemas/UnitBlockSourceEnum'
+          - $ref: '#/components/schemas/SourceEnum'
           description: |-
             `manual`, or `ical` for an imported one.
 
@@ -34621,14 +35866,6 @@ components:
             $ref: '#/components/schemas/UnitBlock'
       required:
       - items
-    UnitBlockSourceEnum:
-      enum:
-      - manual
-      - ical
-      type: string
-      description: |-
-        * `manual` - Ręczna
-        * `ical` - Kalendarz zewnętrzny
     UnitEnum:
       enum:
       - piece

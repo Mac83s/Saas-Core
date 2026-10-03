@@ -660,7 +660,6 @@ Uzgodnione z development-15 (właściciel rejestru) i development-1b (manifest p
 - **Do czasu panelu** wartości zmienia `platform_setting list|get|set|reset|history`
   z `--operator` i `--reason`.
 
-
 ## Uzupełnienie 2026-10-03 (6): faza 2 — panel „Platforma” (S-T5)
 
 - **API tylko dla operatora.** `GET /api/v1/platform/settings/` daje każdy klucz z

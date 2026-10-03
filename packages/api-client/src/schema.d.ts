@@ -2471,7 +2471,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Stany jednego miejsca; bez parametrów — magazyn główny. */
+        /**
+         * Stock of one place
+         * @description What lies in one place, item by item: on hand, reserved, available, the minimum in force there and whether the item is at or below it. Without parameters, the main warehouse; somebody else's stock needs inventory.manage.
+         */
         get: operations["inventory_balance_list"];
         put?: never;
         post?: never;
@@ -2488,10 +2491,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Kategorie firmy; zestaw startowy deklaruje produkt. */
+        /**
+         * Stock categories
+         * @description The company's categories: the product's starting ones (`system`, they can be renamed, not deleted) and the company's own, each with its own number of days before a lot counts as expiring, if set.
+         */
         get: operations["inventory_category_list"];
         put?: never;
-        /** @description Kategorie firmy; zestaw startowy deklaruje produkt. */
+        /**
+         * Add a stock category
+         * @description A category of the company's own (`name` required). The name is unique in the company: a second one is 400 `duplicate`. Needs inventory.manage.
+         */
         post: operations["inventory_category_create"];
         delete?: never;
         options?: never;
@@ -2512,6 +2521,10 @@ export interface paths {
         delete: operations["inventory_category_delete"];
         options?: never;
         head?: never;
+        /**
+         * Change a stock category
+         * @description Renames a category or sets how many days before expiry its lots count as expiring (`expiring_days`; null returns to the company's number). Only the fields sent change; the history records what did. Needs inventory.manage.
+         */
         patch: operations["inventory_category_update"];
         trace?: never;
     };
@@ -2678,6 +2691,46 @@ export interface paths {
         /** @description Partie, których coś leży — od najkrótszej ważności (decyzja 25.09). */
         get: operations["inventory_lot_list"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/low-stock/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Items at or below their minimum
+         * @description Each item whose available stock (on hand minus reserved) is at or below the minimum in force in a place, the biggest shortfall first. An item with a minimum never received in the main warehouse counts with zero. Other people's stock only for inventory.manage; everyone else sees warehouses and their own.
+         */
+        get: operations["inventory_low_stock_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/minimums/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set an item's minimum in one place
+         * @description Sets the minimum of one item in one warehouse or person's stock. null returns to the item's minimum (a warehouse) or to none (a person's stock); 0 means no minimum in this place. The answer is the place's row with the minimum in force and whether it is reached. Needs inventory.manage; the history records the change. No preview: the answer itself says what the threshold now means.
+         */
+        put: operations["inventory_place_minimum_set"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3656,6 +3709,138 @@ export interface paths {
          * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
          */
         post: operations["organization_settings_booking_self_service_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/inventory.alerts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Low-stock notices
+         * @description Once a day, a list of what is at or below its minimum — in the panel and by e-mail. The minimum is set on the item in the Catalogue or on a place in Stock. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_inventory_alerts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Low-stock notices
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_inventory_alerts_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/inventory.alerts/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Low-stock notices
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_inventory_alerts_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/inventory.lots/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Lot expiry
+         * @description For items kept by lots and expiry dates. At work an expired lot only warns — it never stops a record. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_inventory_lots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Lot expiry
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_inventory_lots_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/inventory.lots/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Lot expiry
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_inventory_lots_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/inventory.materials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Materials at visits
+         * @description Where the products on a calendar visit come from: reserved from confirmation, used and sold when it is completed. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_inventory_materials_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Materials at visits
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_inventory_materials_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/inventory.materials/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Materials at visits
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_inventory_materials_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8002,6 +8187,12 @@ export interface components {
         EntryTagsSave: {
             names: string[];
         };
+        /**
+         * @description * `block` - block
+         *     * `warn` - warn
+         * @enum {string}
+         */
+        ExpiredSaleCbbEnum: "block" | "warn";
         Farm: {
             /** Format: uuid */
             readonly id: string;
@@ -8528,6 +8719,106 @@ export interface components {
             quantity: string;
             note: string;
         };
+        InventoryAlertsSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["InventoryAlertsSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["InventoryAlertsSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        InventoryAlertsSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["InventoryAlertsSettingsChangeResetEnum"][];
+            /**
+             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+             *
+             *     * `off` - off
+             *     * `daily` - daily
+             */
+            low_stock?: components["schemas"]["LowStock14fEnum"] | components["schemas"]["NullEnum"];
+            /**
+             * @description Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own.
+             *
+             *     * `main` - main
+             *     * `warehouses` - warehouses
+             *     * `all` - all
+             */
+            places?: components["schemas"]["Places1e6Enum"] | components["schemas"]["NullEnum"];
+            /**
+             * @description Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner.
+             *
+             *     * `managers` - managers
+             *     * `owner` - owner
+             */
+            recipients?: components["schemas"]["RecipientsB39Enum"] | components["schemas"]["NullEnum"];
+            /** @description With people's stock watched: the person whose own stock is at or below its minimum also gets a notice about it (only their own rows). */
+            holder?: boolean | null;
+            /** @description The hour of the company's day (0 to 23, its time zone) from which the daily notice may go out; it goes once a day, the first time something is at or below its minimum at or after this hour. */
+            hour?: number | null;
+        };
+        /**
+         * @description * `low_stock` - low_stock
+         *     * `places` - places
+         *     * `recipients` - recipients
+         *     * `holder` - holder
+         *     * `hour` - hour
+         * @enum {string}
+         */
+        InventoryAlertsSettingsChangeResetEnum: "low_stock" | "places" | "recipients" | "holder" | "hour";
+        InventoryAlertsSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["InventoryAlertsSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        InventoryAlertsSettingsSources: {
+            low_stock: components["schemas"]["SettingSourceEnum"];
+            places: components["schemas"]["SettingSourceEnum"];
+            recipients: components["schemas"]["SettingSourceEnum"];
+            holder: components["schemas"]["SettingSourceEnum"];
+            hour: components["schemas"]["SettingSourceEnum"];
+        };
+        InventoryAlertsSettingsValues: {
+            /**
+             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+             *
+             *     * `off` - off
+             *     * `daily` - daily
+             */
+            low_stock: components["schemas"]["LowStock14fEnum"];
+            /**
+             * @description Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own.
+             *
+             *     * `main` - main
+             *     * `warehouses` - warehouses
+             *     * `all` - all
+             */
+            places: components["schemas"]["Places1e6Enum"];
+            /**
+             * @description Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner.
+             *
+             *     * `managers` - managers
+             *     * `owner` - owner
+             */
+            recipients: components["schemas"]["RecipientsB39Enum"];
+            /** @description With people's stock watched: the person whose own stock is at or below its minimum also gets a notice about it (only their own rows). */
+            holder: boolean;
+            /** @description The hour of the company's day (0 to 23, its time zone) from which the daily notice may go out; it goes once a day, the first time something is at or below its minimum at or after this hour. */
+            hour: number;
+        };
         /** @description Ile czego leży w jednym miejscu; dostępne = stan − zarezerwowane. */
         InventoryBalance: {
             /** Format: uuid */
@@ -8548,7 +8839,10 @@ export interface components {
             reserved: string;
             readonly available: string;
             /** Format: decimal */
-            minimum_quantity: string;
+            readonly minimum_quantity: string | null;
+            /** Format: decimal */
+            place_minimum: string | null;
+            readonly below_minimum: boolean;
             tracks_lots: boolean;
             /** Format: date */
             readonly nearest_expiry: string | null;
@@ -8562,6 +8856,15 @@ export interface components {
             readonly key: string;
             name: string;
             readonly system: boolean;
+            /** @description How many days before its expiry date a lot of this category counts as expiring (1–365); null: the company's number (setting inventory.lots.expiring_days). */
+            expiring_days?: number | null;
+        };
+        /** @description Only the fields sent change. */
+        InventoryCategoryUpdate: {
+            /** @description The category's name, unique in the company. */
+            name?: string;
+            /** @description Days before expiry a lot of this category counts as expiring (1–365); null returns to the company's number. */
+            expiring_days?: number | null;
         };
         InventoryIssueInput: {
             /** Format: uuid */
@@ -8629,6 +8932,120 @@ export interface components {
             holder_id: string | null;
             /** Format: decimal */
             quantity: string;
+        };
+        InventoryLotsSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["InventoryLotsSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["InventoryLotsSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        InventoryLotsSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["InventoryLotsSettingsChangeResetEnum"][];
+            /** @description How many days before its expiry date a lot is shown as expiring (1 to 365). A category's own number (`expiring_days` on the category, PATCH /inventory/categories/{id}/) wins over this one. */
+            expiring_days?: number | null;
+            /**
+             * @description What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09).
+             *
+             *     * `block` - block
+             *     * `warn` - warn
+             */
+            expired_sale?: components["schemas"]["ExpiredSaleCbbEnum"] | components["schemas"]["NullEnum"];
+        };
+        /**
+         * @description * `expiring_days` - expiring_days
+         *     * `expired_sale` - expired_sale
+         * @enum {string}
+         */
+        InventoryLotsSettingsChangeResetEnum: "expiring_days" | "expired_sale";
+        InventoryLotsSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["InventoryLotsSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        InventoryLotsSettingsSources: {
+            expiring_days: components["schemas"]["SettingSourceEnum"];
+            expired_sale: components["schemas"]["SettingSourceEnum"];
+        };
+        InventoryLotsSettingsValues: {
+            /** @description How many days before its expiry date a lot is shown as expiring (1 to 365). A category's own number (`expiring_days` on the category, PATCH /inventory/categories/{id}/) wins over this one. */
+            expiring_days: number;
+            /**
+             * @description What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09).
+             *
+             *     * `block` - block
+             *     * `warn` - warn
+             */
+            expired_sale: components["schemas"]["ExpiredSaleCbbEnum"];
+        };
+        InventoryMaterialsSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["InventoryMaterialsSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["InventoryMaterialsSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        InventoryMaterialsSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["InventoryMaterialsSettingsChangeResetEnum"][];
+            /**
+             * @description Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected.
+             *
+             *     * `main` - main
+             *     * `lead_person` - lead_person
+             */
+            source?: components["schemas"]["Source014Enum"] | components["schemas"]["NullEnum"];
+        };
+        /**
+         * @description * `source` - source
+         * @enum {string}
+         */
+        InventoryMaterialsSettingsChangeResetEnum: "source";
+        InventoryMaterialsSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["InventoryMaterialsSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        InventoryMaterialsSettingsSources: {
+            source: components["schemas"]["SettingSourceEnum"];
+        };
+        InventoryMaterialsSettingsValues: {
+            /**
+             * @description Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected.
+             *
+             *     * `main` - main
+             *     * `lead_person` - lead_person
+             */
+            source: components["schemas"]["Source014Enum"];
         };
         InventoryMovement: {
             /** Format: uuid */
@@ -9073,6 +9490,48 @@ export interface components {
          * @enum {string}
          */
         LotStatusEnum: "expired" | "expiring" | "ok" | "no_date";
+        /**
+         * @description * `off` - off
+         *     * `daily` - daily
+         * @enum {string}
+         */
+        LowStock14fEnum: "off" | "daily";
+        /** @description One item at or below its minimum in one place (available ≤ minimum). */
+        LowStockRow: {
+            /** Format: uuid */
+            item_id: string;
+            item_name: string;
+            unit: components["schemas"]["UnitEnum"];
+            /** Format: uuid */
+            location_id: string;
+            location_name: string;
+            location_kind: components["schemas"]["StockLocationKindEnum"];
+            /**
+             * Format: uuid
+             * @description Whose own stock this is; null for a warehouse.
+             */
+            holder_id: string | null;
+            /**
+             * Format: decimal
+             * @description On hand in the place.
+             */
+            quantity: string;
+            /**
+             * Format: decimal
+             * @description On hand minus what is reserved for visits and orders.
+             */
+            available: string;
+            /**
+             * Format: decimal
+             * @description The minimum in force here.
+             */
+            minimum: string;
+            /**
+             * Format: decimal
+             * @description How much is needed to be back at the minimum.
+             */
+            missing: string;
+        };
         /** @description Produkt z magazynu przy usłudze albo wizycie (ADR-055). */
         MaterialInput: {
             /** Format: uuid */
@@ -9908,12 +10367,44 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
-        PatchedInventoryCategory: {
-            /** Format: uuid */
-            readonly id?: string;
-            readonly key?: string;
+        PatchedInventoryAlertsSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["InventoryAlertsSettingsChangeResetEnum"][];
+            /**
+             * @description Whether the company gets a daily notice (in the panel and by e-mail) listing the items whose available stock is at or below their minimum. Off by default: nothing is sent until the company switches it on.
+             *
+             *     * `off` - off
+             *     * `daily` - daily
+             */
+            low_stock?: components["schemas"]["LowStock14fEnum"] | components["schemas"]["NullEnum"];
+            /**
+             * @description Which places the notice watches: the main warehouse, every warehouse of the company, or warehouses and people's own stock. The minimum in force in a place is resolved by the warehouse itself, not by this setting: the minimum set on that place (PUT /inventory/minimums/; 0 = none there), else — in a warehouse — the item's minimum; a person's stock has only its own.
+             *
+             *     * `main` - main
+             *     * `warehouses` - warehouses
+             *     * `all` - all
+             */
+            places?: components["schemas"]["Places1e6Enum"] | components["schemas"]["NullEnum"];
+            /**
+             * @description Who gets the notice: everyone whose role may run the warehouse (inventory.manage), or only the company's owner.
+             *
+             *     * `managers` - managers
+             *     * `owner` - owner
+             */
+            recipients?: components["schemas"]["RecipientsB39Enum"] | components["schemas"]["NullEnum"];
+            /** @description With people's stock watched: the person whose own stock is at or below its minimum also gets a notice about it (only their own rows). */
+            holder?: boolean | null;
+            /** @description The hour of the company's day (0 to 23, its time zone) from which the daily notice may go out; it goes once a day, the first time something is at or below its minimum at or after this hour. */
+            hour?: number | null;
+        };
+        /** @description Only the fields sent change. */
+        PatchedInventoryCategoryUpdate: {
+            /** @description The category's name, unique in the company. */
             name?: string;
-            readonly system?: boolean;
+            /** @description Days before expiry a lot of this category counts as expiring (1–365); null returns to the company's number. */
+            expiring_days?: number | null;
         };
         PatchedInventoryItemInput: {
             name?: string;
@@ -9928,6 +10419,34 @@ export interface components {
             tracks_lots?: boolean;
             active?: boolean;
             notes?: string;
+        };
+        PatchedInventoryLotsSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["InventoryLotsSettingsChangeResetEnum"][];
+            /** @description How many days before its expiry date a lot is shown as expiring (1 to 365). A category's own number (`expiring_days` on the category, PATCH /inventory/categories/{id}/) wins over this one. */
+            expiring_days?: number | null;
+            /**
+             * @description What a sale to a customer (WZ posted in the panel) does with a lot past its date: refuse it (default, as before), or let it go after the valid lots with the lot's status shown. Work (consumption at a visit, in the field) is never stopped by an expired lot and has no setting: recording what was done is never blocked (owner decisions 21.09 and 25.09).
+             *
+             *     * `block` - block
+             *     * `warn` - warn
+             */
+            expired_sale?: components["schemas"]["ExpiredSaleCbbEnum"] | components["schemas"]["NullEnum"];
+        };
+        PatchedInventoryMaterialsSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["InventoryMaterialsSettingsChangeResetEnum"][];
+            /**
+             * @description Where the products of a calendar visit are reserved and taken from: the main warehouse (default, as before) or the own stock of the person leading the visit (the main warehouse when that person has no account). Visits whose module accounts for its own material (HoofCare's) are not affected.
+             *
+             *     * `main` - main
+             *     * `lead_person` - lead_person
+             */
+            source?: components["schemas"]["Source014Enum"] | components["schemas"]["NullEnum"];
         };
         PatchedMembershipUpdate: {
             role?: string;
@@ -10316,6 +10835,23 @@ export interface components {
             /** @description Shown on the booking form on the company's site (B2). */
             online?: boolean;
         };
+        PlaceMinimumInput: {
+            /**
+             * Format: uuid
+             * @description The item.
+             */
+            item_id: string;
+            /**
+             * Format: uuid
+             * @description The warehouse or the person's stock.
+             */
+            location_id: string;
+            /**
+             * Format: decimal
+             * @description The minimum in this place; 0: no minimum here; null: back to the item's minimum (a warehouse) or none (a person's stock).
+             */
+            minimum_quantity: string | null;
+        };
         PlaceSetup: {
             /** Format: uuid */
             id: string;
@@ -10353,6 +10889,13 @@ export interface components {
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
+        /**
+         * @description * `main` - main
+         *     * `warehouses` - warehouses
+         *     * `all` - all
+         * @enum {string}
+         */
+        Places1e6Enum: "main" | "warehouses" | "all";
         PlatformArea: {
             key: string;
             title: components["schemas"]["LocalizedText"];
@@ -11088,6 +11631,12 @@ export interface components {
          * @enum {string}
          */
         RangeUnitEnum: "night" | "day";
+        /**
+         * @description * `managers` - managers
+         *     * `owner` - owner
+         * @enum {string}
+         */
+        RecipientsB39Enum: "managers" | "owner";
         /**
          * @description * `owner` - owner
          *     * `editors` - editors
@@ -12233,6 +12782,18 @@ export interface components {
             items: components["schemas"]["SlotTime"][];
         };
         /**
+         * @description * `main` - main
+         *     * `lead_person` - lead_person
+         * @enum {string}
+         */
+        Source014Enum: "main" | "lead_person";
+        /**
+         * @description * `manual` - Ręczna
+         *     * `ical` - Kalendarz zewnętrzny
+         * @enum {string}
+         */
+        SourceEnum: "manual" | "ical";
+        /**
          * @description * `cattle` - cattle
          *     * `sheep` - sheep
          *     * `goat` - goat
@@ -12811,7 +13372,7 @@ export interface components {
              *     * `manual` - Ręczna
              *     * `ical` - Kalendarz zewnętrzny
              */
-            source: components["schemas"]["UnitBlockSourceEnum"];
+            source: components["schemas"]["SourceEnum"];
             /** @description False for a block that could not take its time (it overlapped a booking); the unit is still busy then. */
             holds: boolean;
         };
@@ -12830,12 +13391,6 @@ export interface components {
         UnitBlockList: {
             items: components["schemas"]["UnitBlock"][];
         };
-        /**
-         * @description * `manual` - Ręczna
-         *     * `ical` - Kalendarz zewnętrzny
-         * @enum {string}
-         */
-        UnitBlockSourceEnum: "manual" | "ical";
         /**
          * @description * `piece` - Sztuka
          *     * `pack` - Opakowanie
@@ -19938,11 +20493,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["InventoryCategory"];
-                "application/x-www-form-urlencoded": components["schemas"]["InventoryCategory"];
-                "multipart/form-data": components["schemas"]["InventoryCategory"];
+                "application/json": components["schemas"]["InventoryCategoryUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryCategoryUpdate"];
+                "multipart/form-data": components["schemas"]["InventoryCategoryUpdate"];
             };
         };
         responses: {
@@ -20051,9 +20606,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedInventoryCategory"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryCategory"];
-                "multipart/form-data": components["schemas"]["PatchedInventoryCategory"];
+                "application/json": components["schemas"]["PatchedInventoryCategoryUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryCategoryUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryCategoryUpdate"];
             };
         };
         responses: {
@@ -20852,6 +21407,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InventoryLotStock"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_low_stock_list: {
+        parameters: {
+            query?: {
+                /** @description main — the main warehouse; warehouses — every warehouse; all (default) — warehouses and people's stock. */
+                places?: "all" | "main" | "warehouses";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LowStockRow"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_place_minimum_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceMinimumInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlaceMinimumInput"];
+                "multipart/form-data": components["schemas"]["PlaceMinimumInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryBalance"];
                 };
             };
             400: {
@@ -23876,6 +24542,462 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingSelfServiceSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_alerts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryAlertsSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_alerts_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInventoryAlertsSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryAlertsSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryAlertsSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryAlertsSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_alerts_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryAlertsSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryAlertsSettingsChange"];
+                "multipart/form-data": components["schemas"]["InventoryAlertsSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryAlertsSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_lots_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryLotsSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_lots_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInventoryLotsSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryLotsSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryLotsSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryLotsSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_lots_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryLotsSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryLotsSettingsChange"];
+                "multipart/form-data": components["schemas"]["InventoryLotsSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryLotsSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_materials_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMaterialsSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_materials_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInventoryMaterialsSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryMaterialsSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryMaterialsSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMaterialsSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_inventory_materials_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryMaterialsSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryMaterialsSettingsChange"];
+                "multipart/form-data": components["schemas"]["InventoryMaterialsSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMaterialsSettingsPreview"];
                 };
             };
             400: {
