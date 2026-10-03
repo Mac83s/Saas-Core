@@ -85,13 +85,13 @@ test.each([
   [
     "pl",
     "250 z 1000",
-    "Odnawia się 30 wrz 2026",
+    "Odnawia się 30 wrz 2026 — co miesiąc, niezależnie od dnia płatności za plan",
     "Firma nie ma jeszcze zakupionych pakietów.",
   ],
   [
     "en",
     "250 of 1000",
-    "Renews on Sep 30, 2026",
+    "Renews Sep 30, 2026 — every month, whatever day the plan is paid",
     "You have not bought a pack yet.",
   ],
 ] as const)(
@@ -178,11 +178,14 @@ test("z planem kupuje tylko właściciel", async () => {
 
   renderPanel({ canManageBilling: false });
 
+  // One line instead of three dead buttons (UX-058).
   expect(
-    await screen.findByRole("button", {
-      name: "Tylko właściciel może kupować",
-    }),
-  ).toBeDisabled();
+    await screen.findByText("Kredyty dokupuje właściciel firmy."),
+  ).not.toBeNull();
+  expect(screen.queryByRole("button", { name: /Kup pakiet/ })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Tylko właściciel może kupować" }),
+  ).toBeNull();
 });
 
 test("pakiet bez ceny w tym trybie nie jest oferowany", async () => {
@@ -197,6 +200,22 @@ test("pakiet bez ceny w tym trybie nie jest oferowany", async () => {
     name: "Chwilowo niedostępny",
   });
   expect(button).toBeDisabled();
+});
+
+test("w wersji demo niedostępny pakiet mówi dlaczego, a cena jest tym, co widać (UX-058)", async () => {
+  getCustomerCredits.mockResolvedValue({
+    ...overview,
+    payment_mode: "simulated",
+    packs: [{ ...overview.packs[0]!, purchasable: false }],
+  });
+
+  renderPanel();
+
+  expect(
+    await screen.findByRole("button", {
+      name: "Dokupowanie wyłączone w wersji demo",
+    }),
+  ).toBeDisabled();
 });
 
 test("po błędzie odczytu pozwala spróbować ponownie", async () => {

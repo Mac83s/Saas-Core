@@ -3453,12 +3453,12 @@
   "Credits": {
     "eyebrow": "Abonament",
     "title": "Kredyty",
-    "description": "Kredyty zasilają operacje, które kosztują nas moc obliczeniową. Część dostajesz z planu co miesiąc, resztę możesz dokupić.",
+    "description": "Kredytami płacisz za zadania, które wykonują za Ciebie automaty. Część dostajesz co miesiąc z planu, resztę możesz dokupić.",
     "balanceTitle": "Dostępne kredyty",
     "balanceDescription": "Suma kredytów, które zostały z planu, i tych dokupionych.",
     "fromPlan": "Z planu",
     "fromPlanValue": "{remaining} z {granted}",
-    "renewsOn": "Odnawia się {date}",
+    "renewsOn": "Odnawia się {date} — co miesiąc, niezależnie od dnia płatności za plan",
     "purchased": "Dokupione",
     "purchasedNote": "Nie wygasają",
     "reserved": "Zarezerwowane",
@@ -3493,7 +3493,11 @@
     "askOwner": "Poproś właściciela firmy o wybranie planu.",
     "packsEmpty": "Nie ma teraz pakietów do kupienia.",
     "needsPlan": "Wymaga aktywnego planu",
-    "creditsCount": "{count, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}}"
+    "creditsCount": "{count, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}}",
+    "packContents": "{count, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}}, netto",
+    "ownerBuys": "Kredyty dokupuje właściciel firmy.",
+    "unavailableDemo": "Dokupowanie wyłączone w wersji demo",
+    "nothingSpends": "W tej wersji nic nie zużywa kredytów, więc nie ma czego dokupować."
   },
   "SeoGsc": {
     "title": "Google Search Console",

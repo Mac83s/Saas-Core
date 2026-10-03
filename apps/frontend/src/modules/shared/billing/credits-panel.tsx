@@ -47,6 +47,22 @@ import {
   formatMoney,
 } from "./parts";
 import { useStepUp } from "../../core/organizations/step-up";
+import { deployment } from "../../../generated/deployment";
+
+/**
+ * The modules whose work costs credits. Where a product composes none of
+ * them, nothing spends credits and there is nothing to top up (UX-058); what
+ * each one costs is the assistant plan's „Na co wydasz kredyty” (W9).
+ */
+const SPENDERS = [
+  "shared.image-generation",
+  "shared.seo",
+  "shared.translation",
+];
+const spendsCredits = () =>
+  (deployment.modules as readonly string[]).some((module) =>
+    SPENDERS.includes(module),
+  );
 
 export function CreditsPanel({
   canManageBilling = false,
@@ -258,7 +274,9 @@ export function CreditsPanel({
                   label={t("fromPlan")}
                   note={
                     balance.allowance_period_end
-                      ? t("renewsOn", {
+                      ? // The plan's credits follow the calendar month, not
+                        // the day the plan is paid (UX-058).
+                        t("renewsOn", {
                           date: formatDay(balance.allowance_period_end, locale),
                         })
                       : undefined
@@ -306,71 +324,93 @@ export function CreditsPanel({
             </CardContent>
           </Card>
 
-          <section aria-labelledby="credit-packs-heading" className="space-y-4">
-            <SectionHeader
-              description={t("packsDescription")}
-              id="credit-packs-heading"
-              title={t("packsTitle")}
-            />
-            {overview.packs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("packsEmpty")}</p>
-            ) : (
-              <ul className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {overview.packs.map((pack) => (
-                  <li className="flex" key={pack.key}>
-                    <Card className="w-full">
-                      <CardHeader>
-                        <CardTitle className="text-lg font-semibold">
-                          <h3>{pack.name}</h3>
-                        </CardTitle>
-                        <CardDescription>{pack.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex-1">
-                        <p className="text-3xl font-semibold tracking-tight tabular-nums">
-                          {number(pack.credits)}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {t("creditsFor", {
-                            price: formatMoney(
+          {!spendsCredits() ? (
+            <p className="text-sm text-muted-foreground">
+              {t("nothingSpends")}
+            </p>
+          ) : (
+            <section
+              aria-labelledby="credit-packs-heading"
+              className="space-y-4"
+            >
+              <SectionHeader
+                description={t("packsDescription")}
+                id="credit-packs-heading"
+                title={t("packsTitle")}
+              />
+              {/* Whoever cannot buy reads it once, not on three dead buttons. */}
+              {!overview.can_buy && !overview.plan_required ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("ownerBuys")}
+                </p>
+              ) : null}
+              {overview.packs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("packsEmpty")}
+                </p>
+              ) : (
+                <ul className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {overview.packs.map((pack) => (
+                    <li className="flex" key={pack.key}>
+                      <Card className="w-full">
+                        <CardHeader>
+                          <CardTitle className="text-lg font-semibold">
+                            <h3>{pack.name}</h3>
+                          </CardTitle>
+                          <CardDescription>{pack.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-1">
+                          {/* The price is what one compares; the credits are
+                            in the pack's name already (UX-058). */}
+                          <p className="text-3xl font-semibold tracking-tight tabular-nums">
+                            {formatMoney(
                               pack.unit_amount_minor,
                               pack.currency,
                               locale,
-                            ),
-                          })}
-                        </p>
-                      </CardContent>
-                      <CardFooter>
-                        <Button
-                          className="w-full"
-                          disabled={
-                            !overview.can_buy ||
-                            !pack.purchasable ||
-                            Boolean(pending)
-                          }
-                          onClick={() => void buy(pack)}
-                          variant="outline"
-                        >
-                          {pending === pack.key ? (
-                            <LoaderCircleIcon
-                              aria-hidden="true"
-                              className="animate-spin"
-                            />
-                          ) : null}
-                          {!pack.purchasable
-                            ? t("unavailable")
-                            : overview.plan_required
-                              ? t("needsPlan")
-                              : !overview.can_buy
-                                ? t("ownerOnly")
-                                : t("buy")}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                            )}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {t("packContents", { count: pack.credits })}
+                          </p>
+                        </CardContent>
+                        {!overview.can_buy && !overview.plan_required ? null : (
+                          <CardFooter>
+                            <Button
+                              className="w-full"
+                              disabled={
+                                !overview.can_buy ||
+                                !pack.purchasable ||
+                                Boolean(pending)
+                              }
+                              onClick={() => void buy(pack)}
+                              variant="outline"
+                            >
+                              {pending === pack.key ? (
+                                <LoaderCircleIcon
+                                  aria-hidden="true"
+                                  className="animate-spin"
+                                />
+                              ) : null}
+                              {!pack.purchasable
+                                ? // A dead button says why (UX-058).
+                                  t(
+                                    overview.payment_mode === "simulated"
+                                      ? "unavailableDemo"
+                                      : "unavailable",
+                                  )
+                                : overview.plan_required
+                                  ? t("needsPlan")
+                                  : t("buy")}
+                            </Button>
+                          </CardFooter>
+                        )}
+                      </Card>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <section
             aria-labelledby="credit-history-heading"

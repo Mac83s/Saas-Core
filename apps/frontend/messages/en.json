@@ -3453,12 +3453,12 @@
   "Credits": {
     "eyebrow": "Subscription",
     "title": "Credits",
-    "description": "Credits pay for operations that cost us computing power. Your plan includes some every month; you can buy more.",
+    "description": "Credits pay for tasks done for you automatically. Some come with your plan every month; you can buy more.",
     "balanceTitle": "Available credits",
     "balanceDescription": "What is left from the plan plus what you bought.",
     "fromPlan": "From the plan",
     "fromPlanValue": "{remaining} of {granted}",
-    "renewsOn": "Renews on {date}",
+    "renewsOn": "Renews {date} — every month, whatever day the plan is paid",
     "purchased": "Purchased",
     "purchasedNote": "Never expire",
     "reserved": "Reserved",
@@ -3493,7 +3493,11 @@
     "askOwner": "Ask the business owner to choose a plan.",
     "packsEmpty": "No packs are on sale right now.",
     "needsPlan": "Requires an active plan",
-    "creditsCount": "{count, plural, one {# credit} other {# credits}}"
+    "creditsCount": "{count, plural, one {# credit} other {# credits}}",
+    "packContents": "{count, plural, one {# credit} other {# credits}}, net",
+    "ownerBuys": "The company owner buys credits.",
+    "unavailableDemo": "Buying is switched off in the demo",
+    "nothingSpends": "Nothing spends credits in this version, so there is nothing to top up."
   },
   "SeoGsc": {
     "title": "Google Search Console",
