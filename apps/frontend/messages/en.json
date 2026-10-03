@@ -1057,7 +1057,7 @@
     "choosePlan": "Choose this plan",
     "simulatePlan": "Simulate plan selection",
     "managePlan": "Change plan in billing portal",
-    "simulatedPlanLocked": "A plan is already active in demo mode",
+    "simulatedPlanLocked": "In the demo the chosen plan stays — changing it is switched off.",
     "current": "Current plan",
     "ownerOnly": "Only the owner can purchase a plan",
     "simulatedOwnerOnly": "Only the owner can choose a plan",
@@ -1107,7 +1107,8 @@
       "suspended": "Suspended",
       "trialing": "Free trial",
       "unconfigured": "Not configured",
-      "cancel_scheduled": "Ends with the period"
+      "cancel_scheduled": "Ends with the period",
+      "granted": "Given without payment"
     },
     "detailsTitle": "Invoice details",
     "detailsDescription": "Required before your first purchase — the address decides the VAT rate.",
@@ -1172,7 +1173,9 @@
     "address": "Invoice address (registered office)",
     "detailsOwnerOnly": "Only the business owner can change invoice details.",
     "free": "Free",
-    "freeIncluded": "Included from the start"
+    "freeIncluded": "Included from the start",
+    "currentGranted": "Your plan — given without payment",
+    "switchTo": "Switch to the {plan} plan"
   },
   "Sites": {
     "navigation": "Sites",

@@ -1057,7 +1057,7 @@
     "choosePlan": "Wybieram ten plan",
     "simulatePlan": "Symuluj wybór planu",
     "managePlan": "Zmień plan w portalu płatności",
-    "simulatedPlanLocked": "Plan jest już aktywny w wersji demo",
+    "simulatedPlanLocked": "W wersji demo wybrany plan zostaje — zmiana planu jest wyłączona.",
     "current": "Bieżący plan",
     "ownerOnly": "Tylko właściciel może kupić plan",
     "simulatedOwnerOnly": "Tylko właściciel może wybrać plan",
@@ -1107,7 +1107,8 @@
       "suspended": "Zawieszony",
       "trialing": "Okres próbny",
       "unconfigured": "Nieskonfigurowany",
-      "cancel_scheduled": "Wygasa z końcem okresu"
+      "cancel_scheduled": "Wygasa z końcem okresu",
+      "granted": "Nadany bez płatności"
     },
     "detailsTitle": "Dane do faktury",
     "detailsDescription": "Wymagane przed pierwszym zakupem — od adresu zależy stawka VAT.",
@@ -1172,7 +1173,9 @@
     "address": "Adres do faktury (siedziba)",
     "detailsOwnerOnly": "Dane do faktury zmienia właściciel firmy.",
     "free": "Darmowy",
-    "freeIncluded": "W koncie od początku"
+    "freeIncluded": "W koncie od początku",
+    "currentGranted": "Twój plan — nadany bez płatności",
+    "switchTo": "Przejdź na plan {plan}"
   },
   "Sites": {
     "navigation": "Strony",

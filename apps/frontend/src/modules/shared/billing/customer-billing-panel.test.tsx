@@ -399,16 +399,50 @@ test("w symulacji ukrywa portal, blokuje zmianę planu i liczy dni okresu próbn
   expect(
     screen.queryByRole("button", { name: /Zarządzaj płatnością/ }),
   ).toBeNull();
-  const lockedPlans = screen.getAllByRole("button", {
-    name: "Plan jest już aktywny w wersji demo",
-  });
-  expect(lockedPlans).toHaveLength(2);
-  for (const button of lockedPlans) expect(button).toBeDisabled();
+  // The demo says once, in its banner, that the chosen plan stays; the cards
+  // carry no dead buttons, and the company's plan is words, not a button
+  // (UX-057).
   expect(
-    within(planCard("Profil")).getByRole("button", { name: "Bieżący plan" }),
-  ).toBeDisabled();
+    screen.getByText(
+      /W wersji demo wybrany plan zostaje — zmiana planu jest wyłączona\./,
+    ),
+  ).not.toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /Symuluj wybór planu/ }),
+  ).toBeNull();
+  expect(within(planCard("Profil")).queryByRole("button")).toBeNull();
+  expect(within(planCard("Profil")).getByText("Bieżący plan")).not.toBeNull();
   expect(createBillingPortal).not.toHaveBeenCalled();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("plan nadany bez płatności jest planem firmy: bez „wybieram” na nim i bez „najczęściej wybierany” (UX-057)", async () => {
+  getCustomerBillingOverview.mockResolvedValue({
+    ...subscribed({ plan_key: "pro", current_period_end: null }),
+    payment_mode: "stripe",
+    has_active_subscription: false,
+    plans: overview.plans.map((plan) => ({
+      ...plan,
+      is_current: plan.key === "pro",
+    })),
+  });
+
+  renderPanel();
+
+  expect(await screen.findByText("Nadany bez płatności")).not.toBeNull();
+  const pro = planCard("Pro");
+  expect(within(pro).getByText("Twój plan")).not.toBeNull();
+  expect(
+    within(pro).getByText("Twój plan — nadany bez płatności"),
+  ).not.toBeNull();
+  expect(within(pro).queryByRole("button")).toBeNull();
+  // The other cards say where the change leads; none is „the usual choice”.
+  expect(
+    within(planCard("Witryna")).getByRole("button", {
+      name: "Przejdź na plan Witryna",
+    }),
+  ).not.toBeNull();
+  expect(screen.queryByText("Najczęściej wybierany")).toBeNull();
 });
 
 test("po zakończonym planie znów pozwala wybrać każdy plan, także poprzedni", async () => {

@@ -58,7 +58,7 @@ export function Notice({
   );
 }
 
-export function DemoPaymentBanner() {
+export function DemoPaymentBanner({ note }: { note?: string } = {}) {
   const t = useTranslations("CustomerBilling");
   return (
     <aside aria-label={t("simulationBannerTitle")}>
@@ -68,6 +68,8 @@ export function DemoPaymentBanner() {
         tone="info"
       >
         {t("simulationBannerDescription")}
+        {/* What the demo leaves out on this page, said once here. */}
+        {note ? ` ${note}` : null}
       </Notice>
     </aside>
   );

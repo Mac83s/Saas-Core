@@ -228,6 +228,13 @@ export function CustomerBillingPanel({
   const livePlan = overview?.has_active_subscription
     ? overview.plans.find((plan) => plan.is_current)
     : undefined;
+  // A plan given by hand: access is on, no subscription pays for it. It is
+  // the company's plan all the same — one source for the header and the
+  // cards (UX-057).
+  const grantedPlan =
+    overview && granted(overview)
+      ? overview.plans.find((plan) => plan.is_current)
+      : undefined;
   // Only a feature the pricing page names: the message has to say which.
   const featureLabel = requestedFeature
     ? featureLabels[requestedFeature]
@@ -256,13 +263,22 @@ export function CustomerBillingPanel({
       ? overview?.plans.find((plan) =>
           plan.features.includes(missingFeature.key),
         )?.key
-      : overview?.has_active_subscription
-        ? undefined
+      : overview?.has_active_subscription || grantedPlan
+        ? // „Najczęściej wybierany” is advice for a company without a plan.
+          undefined
         : RECOMMENDED_PLAN;
 
   return (
     <div className="space-y-8">
-      {isSimulated ? <DemoPaymentBanner /> : null}
+      {isSimulated ? (
+        <DemoPaymentBanner
+          note={
+            overview?.has_active_subscription
+              ? t("simulatedPlanLocked")
+              : undefined
+          }
+        />
+      ) : null}
 
       {awaitingActivation ? (
         <Card className="ring-2 ring-primary">
@@ -425,7 +441,8 @@ export function CustomerBillingPanel({
                 <li className="flex" key={`${plan.key}:${plan.version}`}>
                   <PlanCard
                     badge={
-                      plan.is_current && overview.has_active_subscription
+                      plan.is_current &&
+                      (overview.has_active_subscription || grantedPlan)
                         ? t("currentPlan")
                         : plan.key !== highlighted
                           ? undefined
@@ -439,6 +456,8 @@ export function CustomerBillingPanel({
                       overview.billing_details.missing.length === 0
                     }
                     featureLabels={featureLabels}
+                    granted={grantedPlan?.key === plan.key}
+                    hasPlan={Boolean(livePlan ?? grantedPlan)}
                     hasSubscription={overview.has_active_subscription}
                     highlighted={plan.key === highlighted}
                     onChoose={() => void choosePlan(plan)}
@@ -588,7 +607,9 @@ function CurrentPlan({
               <Badge variant={stateBadge(subscription.state, ending)}>
                 {ending
                   ? t("states.cancel_scheduled")
-                  : stateLabel(subscription.state, t, isSimulated)}
+                  : granted(overview)
+                    ? t("states.granted")
+                    : stateLabel(subscription.state, t, isSimulated)}
               </Badge>
             ) : null}
           </div>
@@ -648,6 +669,8 @@ function PlanCard({
   busy,
   canManage,
   detailsComplete,
+  granted,
+  hasPlan,
   hasSubscription,
   paymentMode,
   onChoose,
@@ -662,6 +685,10 @@ function PlanCard({
   busy: boolean;
   canManage: boolean;
   detailsComplete: boolean;
+  /** The company's plan, given without a subscription. */
+  granted: boolean;
+  /** The company has a plan, paid or given: the others are a change. */
+  hasPlan: boolean;
   hasSubscription: boolean;
   paymentMode: CustomerBillingOverview["payment_mode"];
   onChoose: () => void;
@@ -670,7 +697,7 @@ function PlanCard({
   const locale = useLocale();
   // The snapshot keeps naming the last plan after it ended, and the API sells
   // it again then; only a live plan is the one there is nothing to buy.
-  const current = plan.is_current && hasSubscription;
+  const current = (plan.is_current && hasSubscription) || granted;
   const simulatedPlanLocked =
     paymentMode === "simulated" && hasSubscription && !current;
   // Every card lists the same rows in the same order, so the plans compare
@@ -790,16 +817,21 @@ function PlanCard({
         ) : null}
       </CardContent>
       <CardFooter>
-        {plan.unit_amount_minor === 0 ? (
+        {plan.unit_amount_minor === 0 || current || simulatedPlanLocked ? (
+          // The company's own plan has nothing to choose, and in the demo a
+          // chosen plan stays: the banner says so once, not every card
+          // (UX-057).
           <p className="w-full text-center text-sm text-muted-foreground">
-            {current ? t("current") : t("freeIncluded")}
+            {current
+              ? t(granted ? "currentGranted" : "current")
+              : simulatedPlanLocked
+                ? null
+                : t("freeIncluded")}
           </p>
         ) : (
           <Button
             className="w-full"
             disabled={
-              current ||
-              simulatedPlanLocked ||
               !detailsComplete ||
               (!hasSubscription && !plan.checkout_available) ||
               !canManage ||
@@ -812,31 +844,30 @@ function PlanCard({
             {pending ? (
               <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
             ) : null}
-            {current
-              ? t("current")
-              : !canManage
-                ? t(
-                    paymentMode === "simulated"
-                      ? "simulatedOwnerOnly"
-                      : "ownerOnly",
-                  )
-                : !detailsComplete
-                  ? t("completeDetailsFirst")
-                  : simulatedPlanLocked
-                    ? t("simulatedPlanLocked")
-                    : hasSubscription
-                      ? t("managePlan")
-                      : plan.checkout_available
-                        ? t(
-                            paymentMode === "simulated"
-                              ? "simulatePlan"
-                              : "choosePlan",
-                          )
-                        : t(
-                            paymentMode === "simulated"
-                              ? "simulationUnavailable"
-                              : "checkoutUnavailable",
-                          )}
+            {!canManage
+              ? t(
+                  paymentMode === "simulated"
+                    ? "simulatedOwnerOnly"
+                    : "ownerOnly",
+                )
+              : !detailsComplete
+                ? t("completeDetailsFirst")
+                : hasSubscription
+                  ? t("managePlan")
+                  : plan.checkout_available
+                    ? paymentMode === "simulated"
+                      ? t("simulatePlan")
+                      : hasPlan
+                        ? // The direction of the change, not „choose”.
+                          t("switchTo", {
+                            plan: planLabel(plan.key, plans, t),
+                          })
+                        : t("choosePlan")
+                    : t(
+                        paymentMode === "simulated"
+                          ? "simulationUnavailable"
+                          : "checkoutUnavailable",
+                      )}
           </Button>
         )}
       </CardFooter>
@@ -864,6 +895,15 @@ function planLabel(key: string, plans: CustomerPlan[], t: Translator) {
     pro: t("planPro"),
   };
   return labels[key] ?? plans.find((plan) => plan.key === key)?.name ?? key;
+}
+
+/** Access is on without a subscription paying for it: a plan given by hand. */
+function granted(overview: CustomerBillingOverview): boolean {
+  return (
+    !overview.has_active_subscription &&
+    Boolean(overview.subscription?.plan_key) &&
+    ["active", "trialing"].includes(overview.subscription?.state ?? "")
+  );
 }
 
 function stateLabel(state: string, t: Translator, isSimulated = false) {
