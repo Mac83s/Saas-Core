@@ -1093,9 +1093,11 @@ function ReadinessCard({
   // what each would carry (TL15); the card answers for the site's own.
   const [confirming, setConfirming] = useState(false);
   const otherLanguages = (report?.languages.length ?? 0) > 1;
-  const unfinished = report?.pages.some(
+  const leftovers = report?.pages.some(
     (page) => page.placeholders > 0 || page.template_contact,
   );
+  const deadLinks = report?.pages.some((page) => page.missing_pages.length > 0);
+  const unfinished = leftovers || deadLinks;
   return (
     <Card>
       <CardHeader>
@@ -1158,6 +1160,26 @@ function ReadinessCard({
                       </Link>
                     </span>
                   ) : null}
+                  {/* A link to a record's own page that is not there: a
+                      document nobody approved yet, a unit no longer shown. */}
+                  {page.missing_pages.length ? (
+                    <span className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1 text-sm text-warning-foreground">
+                      {t("unfinishedPages", {
+                        count: page.missing_pages.length,
+                        paths: page.missing_pages.join(", "),
+                      })}
+                      {page.missing_pages.some((path) =>
+                        path.startsWith("/documents/"),
+                      ) ? (
+                        <Link
+                          className="text-primary underline"
+                          href="/panel/settings/documents"
+                        >
+                          {t("unfinishedDocuments")}
+                        </Link>
+                      ) : null}
+                    </span>
+                  ) : null}
                   <div className="flex flex-wrap gap-1">
                     {/* Only the site's own language holds the publication
                         back; another one says what it is, in amber (W8). */}
@@ -1190,8 +1212,11 @@ function ReadinessCard({
                 </div>
               ))}
             </div>
-            {report.ready_to_publish && unfinished ? (
+            {report.ready_to_publish && leftovers ? (
               <p className="text-sm">{t("unfinishedPublish")}</p>
+            ) : null}
+            {report.ready_to_publish && deadLinks ? (
+              <p className="text-sm">{t("unfinishedPagesPublish")}</p>
             ) : null}
             {otherLanguages && (
               <p className="text-sm text-muted-foreground">

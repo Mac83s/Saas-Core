@@ -14,6 +14,7 @@
 @import "./site-page-styles.css";
 @import "./site-stay.css";
 @import "./stay-calendar.css";
+@import "./site-document.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 

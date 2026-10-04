@@ -722,6 +722,74 @@ def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(
     assert asked(host, "/en/stay/domek-1/").status_code == 404
 
 
+def test_a_thing_rented_by_the_day_is_a_product_let_out_with_what_a_day_costs_from() -> None:
+    from saas_core.modules.shared.booking.site_blocks import _thing
+    from saas_core.modules.shared.sites.seo_graph import page_graph
+
+    rental = {"range_unit": "day"}
+    kayak = {
+        "name": "Kajak dwuosobowy",
+        "description": "Z wiosłami\n i kapokami.",
+        "capacity": 2,
+        "amenities": [],
+        "from_price": {"gross_minor": 5000, "currency": "PLN", "per": "day"},
+    }
+
+    # No accommodation: a product, let out, a day of it from 50 zł.
+    thing = _thing(rental, kayak, None, "pl")  # type: ignore[arg-type]
+    assert thing == {
+        "@type": "Product",
+        "name": "Kajak dwuosobowy",
+        "description": "Z wiosłami i kapokami.",
+        "offers": {
+            "@type": "Offer",
+            "businessFunction": "http://purl.org/goodrelations/v1#LeaseOut",
+            "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "minPrice": "50.00",
+                "priceCurrency": "PLN",
+                "unitCode": "DAY",
+            },
+        },
+    }
+    # A price charged once for the rental names no unit; no price on the
+    # list, no node — a product without an offer is an error.
+    once = _thing(
+        rental,
+        {**kayak, "from_price": {"gross_minor": 12050, "currency": "EUR", "per": "stay"}},
+        None,  # type: ignore[arg-type]
+        "pl",
+    )
+    assert once is not None
+    assert once["offers"]["priceSpecification"] == {
+        "@type": "UnitPriceSpecification",
+        "minPrice": "120.50",
+        "priceCurrency": "EUR",
+    }
+    assert _thing(rental, {**kayak, "from_price": None}, None, "pl") is None  # type: ignore[arg-type]
+
+    # On the page the company is the seller of the offer; a product has no
+    # provider.
+    graph = page_graph(
+        origin="https://kajaki.example.test",
+        site_name="Kajaki",
+        locale="pl",
+        canonical_url="https://kajaki.example.test/stay/kajak/",
+        title="Kajak dwuosobowy",
+        description="",
+        breadcrumbs=[],
+        blocks=[],
+        article=None,
+        image=None,
+        facts=None,
+        thing=thing,
+    )
+    (node,) = [item for item in graph["@graph"] if item["@id"].endswith("#thing")]
+    assert "provider" not in node
+    assert node["offers"]["seller"] == {"@id": "https://kajaki.example.test/#organization"}
+    assert node["offers"]["businessFunction"].endswith("#LeaseOut")
+
+
 def test_a_new_page_cannot_take_the_address_of_the_units_pages() -> None:
     assert first_segment_reserved("stay")
     assert not first_segment_reserved("pobyt")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -325,7 +326,12 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             default_locale,
         )
         links = _link_targets(site_snapshot, page.locale)
-        blocks, appearance = localized_links(blocks, links), localized_links(appearance, links)
+        prefix = f"/{page.locale}"
+        appearance = localized_links(appearance, links, prefix)
+        # A record's own page is built by its source in the reader's language
+        # already — the links it carries to its other languages stay as given.
+        if not isinstance(page.publication, SourcePublication):
+            blocks = localized_links(blocks, links, prefix)
     navigation = _navigation_links(
         site_snapshot,
         page.locale,
@@ -638,33 +644,42 @@ def _link_targets(snapshot: dict[str, Any], locale: str) -> dict[str, str]:
     return targets
 
 
-def localized_links(value: Any, targets: dict[str, str]) -> Any:
+def localized_links(value: Any, targets: dict[str, str], prefix: str = "") -> Any:
     """`value` with every internal link to a page that is live in the reader's
-    language pointing at that version (ADR-070 pkt 15). Everything else — the
-    query and fragment, `rel` (ADR-061), links to pages without that language
-    and to anything off the site — stays as written."""
+    language pointing at that version (ADR-070 pkt 15), and every link to a
+    record's own page (`/documents/…`, `/stay/…`) at that page under the
+    reader's language (`prefix`, `/de`), where its source answers. Everything
+    else — the query and fragment, `rel` (ADR-061), links to pages without
+    that language and to anything off the site — stays as written."""
     if isinstance(value, list):
-        return [localized_links(item, targets) for item in value]
+        return [localized_links(item, targets, prefix) for item in value]
     if isinstance(value, dict):
         return {
             key: (
-                _localized_href(item, targets)
+                _localized_href(item, targets, prefix)
                 if key in LINK_FIELDS and isinstance(item, str)
-                else localized_links(item, targets)
+                else localized_links(item, targets, prefix)
             )
             for key, item in value.items()
         }
     return value
 
 
-def _localized_href(href: str, targets: dict[str, str]) -> str:
+def _localized_href(href: str, targets: dict[str, str], prefix: str = "") -> str:
     if not href.startswith("/") or href.startswith("//"):
         return href
     cut = min(
         (index for index in (href.find("?"), href.find("#")) if index >= 0), default=len(href)
     )
     target = targets.get(_comparable_path(href[:cut]))
-    return href if target is None else target + href[cut:]
+    if target is not None:
+        return target + href[cut:]
+    # A record's own page: its source answers under the reader's language too
+    # — with the record's words there, with one move to the site's own
+    # language (a unit), or with where the text can be read (a document).
+    if prefix and href[:cut].strip("/").split("/", 1)[0] in page_sources():
+        return prefix + href
+    return href
 
 
 def _ai_media_ids(page: PublicPage) -> list[str]:
@@ -1418,13 +1433,18 @@ def source_page_versions(
     slug: str,
     own_locales: frozenset[str],
     available: frozenset[str] | None,
+    *,
+    per_language: bool = False,
 ) -> dict[str, str]:
     """A record's page by language: always in the site's own, and in another
     one only where the record has words of its own in it and the site is
-    read in it — never the same text under two addresses."""
+    read in it — never the same text under two addresses. A record written
+    per language (`per_language`, a company's document) has a page only where
+    it has a text: the site's own language is then no exception."""
+    codes = set(own_locales) if per_language else {default_locale, *own_locales}
     return {
         code: f"{source_page_base(default_locale, code, segment)}{slug}/"
-        for code in sorted({default_locale, *own_locales})
+        for code in sorted(codes)
         if code == default_locale or available is None or code in available
     }
 
@@ -1448,7 +1468,13 @@ class SourcePublication:
     @property
     def snapshot_hash(self) -> str:
         digest = hashlib.sha256()
-        for part in (self.page.key, self.page.title, self.page.description):
+        for part in (
+            self.page.key,
+            self.page.title,
+            self.page.description,
+            # What the page's blocks say: a document's text is in its block.
+            json.dumps(self.page.blocks, sort_keys=True, default=str),
+        ):
             digest.update(part.encode())
         return digest.hexdigest()
 
@@ -1463,7 +1489,9 @@ def _find_source_page(
     """The page a record has by itself on a published site — `/stay/<unit>/`,
     `/de/stay/<unit>/` — asked of the record's source. A language the record
     has no words of its own in answers one 308 to the page in the site's own
-    language (ADR-071 pkt 9)."""
+    language (ADR-071 pkt 9). A record written per language (a company's
+    document) is never moved to another language's text: the source's page
+    says where it can be read, and stays out of search."""
     # „On every published site”: a site nobody published has no such pages.
     if site.current_publication is None:
         raise PublicSiteNotFound
@@ -1480,13 +1508,30 @@ def _find_source_page(
     source = page_sources().get(segment)
     if source is None or source.site_page is None:
         raise PublicSiteNotFound
-    found = source.site_page(organization_id, locale, slug)
+
+    def address(code: str) -> str:
+        """Where the site answers for this record's page in a language."""
+        if code != default_locale and available is not None and code not in available:
+            return ""
+        return f"{source_page_base(default_locale, code, segment)}{slug}/"
+
+    found = source.site_page(organization_id, locale, slug, address)
     if found is None:
         raise PublicSiteNotFound
-    versions = source_page_versions(default_locale, segment, slug, found.locales, available)
-    if locale not in versions:
+    versions = source_page_versions(
+        default_locale,
+        segment,
+        slug,
+        found.locales,
+        available,
+        per_language=found.per_language,
+    )
+    if locale not in versions and not found.per_language:
         raise PublicSiteMoved(versions[default_locale])
-    path = versions[locale]
+    # A per-language record asked for where it has no text: the page that
+    # says so, at the address asked for.
+    wordless = locale not in versions
+    path = address(locale) if wordless else versions[locale]
     locale_document: dict[str, Any] = {
         "locale": locale,
         "translation_id": None,
@@ -1508,8 +1553,8 @@ def _find_source_page(
             "media_asset_ids": [],
             "locales": [locale_document],
             "hreflang": versions,
-            "x_default": versions[default_locale],
-            "noindex": False,
+            "x_default": versions.get(default_locale, path),
+            "noindex": wordless,
             "pagination": None,
         },
         locale_document,

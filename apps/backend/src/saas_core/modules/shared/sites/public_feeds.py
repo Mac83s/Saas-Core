@@ -283,7 +283,12 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
                 continue
             for record in source.site_pages(domain.organization_id):
                 versions = source_page_versions(
-                    site_locale, segment, record.slug, record.locales, available
+                    site_locale,
+                    segment,
+                    record.slug,
+                    record.locales,
+                    available,
+                    per_language=record.per_language,
                 )
                 for path in versions.values():
                     locations.append(_Location(path, record.changed_at, versions))

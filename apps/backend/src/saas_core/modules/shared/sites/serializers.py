@@ -940,6 +940,12 @@ class PageLocalizationSerializer(serializers.Serializer[dict[str, Any]]):
     template_contact = serializers.BooleanField(
         help_text="The template's sample phone or e-mail is still in a link of the draft."
     )
+    missing_pages = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Links of the draft to a record's own page that is not there now: a "
+        "company document nobody approved yet (`/documents/privacy-policy/`), a unit the "
+        "company no longer shows (`/stay/…`). A visitor who follows one gets 404.",
+    )
 
 
 class SiteLocalizationReportSerializer(serializers.Serializer[dict[str, Any]]):

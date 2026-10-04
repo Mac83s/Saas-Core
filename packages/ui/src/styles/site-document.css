@@ -1,0 +1,55 @@
+/* A company's document on its own site (ADR-072, slice 5f part 2): the
+   heading, which version it is, and the text as a reading column. */
+.site-block--document {
+  display: grid;
+  gap: clamp(1.25rem, 3cqw, 2rem);
+}
+.site-document__head {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.site-theme .site-block .site-document__head h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.site-theme .site-block .site-document__version {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--muted-foreground);
+}
+/* The text is plain: a line break inside a paragraph is the author's. */
+.site-theme .site-block .site-document__text p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.site-document__missing {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 68ch;
+  padding: clamp(1rem, 2.5cqw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--site-radius, 0.75rem);
+  background: var(--card, transparent);
+}
+.site-theme .site-block .site-document__missing p {
+  margin: 0;
+}
+.site-theme .site-block .site-document__languages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-theme .site-block .site-document__languages a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--site-radius, 0.5rem);
+  font-weight: 500;
+  text-decoration: none;
+}

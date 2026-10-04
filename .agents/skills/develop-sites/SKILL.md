@@ -74,6 +74,14 @@ else one 308 to the site's own language. The sitemap lists such pages
 page's share picture and what the record is for structured data
 (`SourcePage.image`, `.thing` — the page's `mainEntity`).
 
+A company's document (`/documents/<name>/`, `customers.site_pages`) is
+`per_language`: the page has the text only where the version in force has
+one; asked in another language it says so and links those that do — no
+308, no other language's text, `noindex`. Its block `core.document` is
+`serverBuilt`: `validate_site_block` refuses it in anything written. A
+draft's link to a record's page that is not there shows in readiness
+(`missing_pages`).
+
 ## Six operations belong to a person
 
 `assert_person_required(context, what)` in

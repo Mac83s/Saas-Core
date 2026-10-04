@@ -1416,11 +1416,6 @@
     "stayOfferCurrent": "Wybrana oferta",
     "stayOfferOffline": "{name} (poza rezerwacją online)",
     "stayOfferNone": "Nie masz jeszcze oferty rezerwowanej od–do. Dodaj ją w Ustawieniach › Usługi i grafik — bez niej ta sekcja nie pojawi się na opublikowanej stronie.",
-    "stayUnitsLayout": "Układ listy",
-    "stayUnitsLayoutOptions": {
-      "cards": "Karty obok siebie",
-      "rows": "Wiersze: zdjęcie obok opisu"
-    },
     "footerBlock": "Stopka",
     "featureItems": "Pozycje oferty",
     "featureTitle": "Nazwa pozycji",
@@ -2613,6 +2608,9 @@
     "readyUnfinished": "Do uzupełnienia przed publikacją",
     "unfinishedSlots": "{count, plural, one {# miejsce do uzupełnienia} few {# miejsca do uzupełnienia} many {# miejsc do uzupełnienia} other {# miejsca do uzupełnienia}}",
     "unfinishedContact": "telefon albo e-mail z szablonu",
+    "unfinishedPages": "{count, plural, one {Odnośnik prowadzi do strony, której jeszcze nie ma} other {Odnośniki prowadzą do stron, których jeszcze nie ma}}: {paths}",
+    "unfinishedDocuments": "Zatwierdź dokument w „Dokumenty dla klientów”",
+    "unfinishedPagesPublish": "Odwiedzający, który kliknie odnośnik do strony, której jeszcze nie ma, zobaczy „Nie ma takiej strony”. Strona dokumentu pojawia się sama, gdy zatwierdzisz dokument.",
     "unfinishedShow": "Pokaż: {page}",
     "unfinishedPublish": "Odwiedzający nie zobaczą zdań z miejscami do uzupełnienia ani przycisków z telefonem i e-mailem z szablonu — znikną ze strony. Uzupełnij je, zanim opublikujesz.",
     "connectionsAsk": "Napisz do nas, żeby podłączyć integrację",

@@ -36811,9 +36811,18 @@ components:
           type: boolean
           description: The template's sample phone or e-mail is still in a link of
             the draft.
+        missing_pages:
+          type: array
+          items:
+            type: string
+          description: 'Links of the draft to a record''s own page that is not there
+            now: a company document nobody approved yet (`/documents/privacy-policy/`),
+            a unit the company no longer shows (`/stay/…`). A visitor who follows
+            one gets 404.'
       required:
       - hreflang
       - locales
+      - missing_pages
       - page_id
       - page_key
       - page_name

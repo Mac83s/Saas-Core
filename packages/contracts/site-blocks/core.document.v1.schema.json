@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.document.v1.schema.json",
+  "title": "Core company document block v1",
+  "description": "One of a company's documents for its customers (booking terms, shop terms, privacy policy, cancellation policy) as its own site shows it: the text of the version in force, in the page's language. Built by the server for the document's own page (`/documents/<name>/`) from the text a person approved; nobody writes it — a draft, an entry or a change set that carries it is refused (`serverBuilt` in the manifest). A document is written per language: where the version in force has no text in the page's language the block carries no `text` and names the languages that have one (ADR-072, slice 5f part 2; ADR-073 §9).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "title", "version", "effective_from"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "booking_terms",
+        "shop_terms",
+        "privacy_policy",
+        "cancellation_policy"
+      ]
+    },
+    "title": {
+      "description": "What the document is called, in the page's language.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "effective_from": {
+      "description": "The day the version took force, as a calendar date.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "text": {
+      "description": "The version's text in the page's language: plain text, paragraphs apart by an empty line. Absent where the version has none in that language.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100000
+    },
+    "elsewhere": {
+      "description": "Where the document can be read when the page's language has no text: its page on this site in each language that has one and the site is read in.",
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["locale", "name", "href"],
+        "properties": {
+          "locale": {
+            "type": "string",
+            "pattern": "^[a-z]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "href": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^/[A-Za-z0-9/_-]*$"
+          }
+        }
+      }
+    }
+  }
+}

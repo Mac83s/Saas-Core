@@ -33,7 +33,11 @@ from uuid import UUID
 from django.conf import settings
 from rest_framework.exceptions import APIException
 
-from saas_core.modules.core.organizations.api import SourcePage, SourcePageAddress
+from saas_core.modules.core.organizations.api import (
+    PageAddress,
+    SourcePage,
+    SourcePageAddress,
+)
 from saas_core.modules.core.organizations.locales import (
     clamp_content_locale,
     organization_content_locales,
@@ -333,9 +337,29 @@ def _thing(
     """What a unit let by the night is, for a search engine: a place to stay
     with its name, how many it takes, what it has and its town — and its
     point only where the company shows it. A thing rented by the day (a
-    kayak) is no accommodation and gets no node of its own."""
+    kayak) is no accommodation: it is a product let out, with what a day of
+    it costs from — and without a price on the list it gets no node, because
+    a product without an offer is an error to a search engine."""
     if stay["range_unit"] != "night":
-        return None
+        price = item.get("from_price")
+        if not price:
+            return None
+        rented: dict[str, Any] = {"@type": "Product", "name": str(item["name"])}
+        if item["description"]:
+            rented["description"] = " ".join(str(item["description"]).split())
+        rented["offers"] = {
+            "@type": "Offer",
+            # Let out, not sold: the price is of one day, and the least of it.
+            "businessFunction": "http://purl.org/goodrelations/v1#LeaseOut",
+            "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "minPrice": f"{price['gross_minor'] / 100:.2f}",
+                "priceCurrency": price["currency"],
+                # A price charged once for the whole rental names no unit.
+                **({"unitCode": "DAY"} if price["per"] == "day" else {}),
+            },
+        }
+        return rented
     thing: dict[str, Any] = {"@type": "Accommodation", "name": str(item["name"])}
     if item["description"]:
         thing["description"] = " ".join(str(item["description"]).split())
@@ -359,9 +383,13 @@ def _thing(
     return thing
 
 
-def site_page(organization_id: UUID, locale: str, public_slug: str) -> SourcePage | None:
+def site_page(
+    organization_id: UUID, locale: str, public_slug: str, address: PageAddress | None = None
+) -> SourcePage | None:
     """The page of the unit at that address: its card as the page's one
-    block. None — the form shows no such unit now."""
+    block. None — the form shows no such unit now. A unit's page links to no
+    other language of itself, so where the site answers for it (`address`)
+    goes unread."""
     with _form(organization_id, locale) as form:
         if form is None:
             return None

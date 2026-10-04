@@ -723,7 +723,7 @@ def test_the_lodging_template_brings_the_stay_sections_to_a_company_with_booking
     client, organization, _ = sites_client(slug="sites-template-lodging")
     snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
     snapshot.features.update({"storage.enabled": True, "booking.enabled": False})
-    # Room for the recipe's own illustrations, as they ship.
+    # Room for a recipe's illustrations; this one ships none.
     snapshot.quotas["storage.bytes"] = 200 * 1024**2
     snapshot.sources["storage.enabled"] = {"kind": "plan"}
     snapshot.sources["storage.bytes"] = {"kind": "plan"}
@@ -779,15 +779,16 @@ def test_the_lodging_template_brings_the_stay_sections_to_a_company_with_booking
     # The first screen leads to the date picker, which is on the page.
     assert blocks[0]["data"]["action"]["href"] == "#terminy"
     assert blocks[1]["presentation"]["anchor"] == "terminy"
-    # The gallery's two sample photos are the company's own assets now.
-    photos = [item["image"]["asset_id"] for item in blocks[4]["data"]["items"]]
-    assert len(set(photos)) == 2
-    assert {
-        str(asset)
-        for asset in MediaAsset.all_objects.filter(organization=organization).values_list(
-            "id", flat=True
-        )
-    } == set(photos)
+    # The gallery brings no picture: a lodging's photos are its own, and the
+    # recipe ships none that is not of lodging.
+    assert all("image" not in item for item in blocks[4]["data"]["items"])
+    assert not MediaAsset.all_objects.filter(organization=organization).exists()
+    assert storage.objects == {}
+    # The house rules lead to the company's booking terms and the question
+    # form to its privacy policy: pages its documents have on the site
+    # (ADR-072, slice 5f part 2).
+    assert blocks[5]["data"]["action"]["href"] == "/documents/booking-terms/"
+    assert blocks[9]["data"]["privacy_href"] == "/documents/privacy-policy/"
 
 
 def test_page_template_import_materializes_approved_media_once_per_tenant(

@@ -6,11 +6,11 @@
   "labels": {
     "pl": {
       "name": "Noclegi",
-      "description": "Strona obiektu z noclegami, która prowadzi do rezerwacji online: obietnica na otwarcie, wybór terminu, jednostki z ceną „od”, okolica, galeria, zasady pobytu, pytania, mapa i kalendarz wolnych terminów. Przykład: domki nad jeziorem; zdjęcia w galerii są poglądowe — wymień je przed publikacją."
+      "description": "Strona obiektu z noclegami, która prowadzi do rezerwacji online: obietnica na otwarcie, wybór terminu, jednostki z ceną „od”, okolica, galeria, zasady pobytu, pytania, mapa i kalendarz wolnych terminów. Przykład: domki nad jeziorem; galeria czeka na zdjęcia Twojego obiektu."
     },
     "en": {
       "name": "Accommodation",
-      "description": "An accommodation page that leads to online booking: a promise up front, the date picker, units with “from” prices, the area, a gallery, house rules, questions, a map and the calendar of available dates. Example: lakeside cottages; the gallery photos are illustrative — replace them before publishing."
+      "description": "An accommodation page that leads to online booking: a promise up front, the date picker, units with “from” prices, the area, a gallery, house rules, questions, a map and the calendar of available dates. Example: lakeside cottages; the gallery waits for photos of your own place."
     }
   },
   "requiredEntitlements": ["sites.enabled", "booking.enabled"],
@@ -56,42 +56,8 @@
       "version": 1
     }
   ],
-  "media": [
-    {
-      "id": "agriculture",
-      "source": "assets/agriculture-farm.png",
-      "filename": "agriculture-farm.png",
-      "contentType": "image/png",
-      "sha256": "8f06eb2669e06dea7ac6092ed451b2c519d866c85134372af13c9911e023e9fb"
-    },
-    {
-      "id": "business",
-      "source": "assets/business-studio.png",
-      "filename": "business-studio.png",
-      "contentType": "image/png",
-      "sha256": "d913927c10daac2e3ceb7a2fcb28c00634dfe01961825509da104640e7f0fe43"
-    }
-  ],
-  "mediaBindings": [
-    {
-      "blockPosition": 4,
-      "mediaId": "agriculture",
-      "alt": {
-        "pl": "Krowy na pastwisku przy zabudowaniach gospodarstwa",
-        "en": "Cows grazing on a pasture by the farm buildings"
-      },
-      "path": ["items", 0, "image"]
-    },
-    {
-      "blockPosition": 4,
-      "mediaId": "business",
-      "alt": {
-        "pl": "Jasne wnętrze z drewnianym stołem przy wysokich oknach",
-        "en": "A bright interior with an oak table by tall windows"
-      },
-      "path": ["items", 1, "image"]
-    }
-  ],
+  "media": [],
+  "mediaBindings": [],
   "blocks": [
     {
       "block_type": "core.hero",
@@ -182,11 +148,11 @@
         "items": [
           {
             "title": "[Uzupełnij: co widać na zdjęciu, np. taras o zachodzie słońca]",
-            "caption": "Zdjęcie poglądowe — wymień na zdjęcie swojego obiektu."
+            "caption": "[Uzupełnij: podpis — wgraj tu zdjęcie swojego obiektu]"
           },
           {
             "title": "[Uzupełnij: co widać na zdjęciu, np. wnętrze domku]",
-            "caption": "Zdjęcie poglądowe — wymień na zdjęcie swojego obiektu."
+            "caption": "[Uzupełnij: podpis — wgraj tu zdjęcie swojego obiektu]"
           }
         ]
       },
@@ -220,7 +186,11 @@
             "text": "[Uzupełnij: czy przyjmujecie zwierzęta i w jakich godzinach obowiązuje cisza]"
           }
         ],
-        "layout": "checklist"
+        "layout": "checklist",
+        "action": {
+          "label": "Przeczytaj regulamin rezerwacji",
+          "href": "/documents/booking-terms/"
+        }
       },
       "presentation": {
         "schemaVersion": 2,
@@ -299,7 +269,8 @@
         "text": "Napisz — odpowiemy [Uzupełnij: w jakim czasie]. Termin najszybciej zarezerwujesz samodzielnie, w kalendarzu powyżej.",
         "submit_label": "Wyślij pytanie",
         "success_message": "Dziękujemy! Wiadomość dotarła. Odpowiemy e-mailem.",
-        "privacy_label": "Informacje o prywatności"
+        "privacy_label": "Informacje o prywatności",
+        "privacy_href": "/documents/privacy-policy/"
       },
       "presentation": {
         "schemaVersion": 2,
@@ -399,11 +370,11 @@
           "items": [
             {
               "title": "[Fill in: what the photo shows, e.g. the terrace at sunset]",
-              "caption": "Illustrative photo — replace it with a photo of your own place."
+              "caption": "[Fill in: a caption — upload a photo of your own place here]"
             },
             {
               "title": "[Fill in: what the photo shows, e.g. inside a cottage]",
-              "caption": "Illustrative photo — replace it with a photo of your own place."
+              "caption": "[Fill in: a caption — upload a photo of your own place here]"
             }
           ]
         },
@@ -437,7 +408,11 @@
               "text": "[Fill in: whether pets are welcome and when quiet hours apply]"
             }
           ],
-          "layout": "checklist"
+          "layout": "checklist",
+          "action": {
+            "label": "Read the booking terms",
+            "href": "/documents/booking-terms/"
+          }
         },
         "presentation": {
           "schemaVersion": 2,
@@ -516,7 +491,8 @@
           "text": "Write to us — we will reply [Fill in: how soon]. The quickest way to book is the calendar above.",
           "submit_label": "Send your question",
           "success_message": "Thank you! Your message has arrived. We will reply by email.",
-          "privacy_label": "Privacy information"
+          "privacy_label": "Privacy information",
+          "privacy_href": "/documents/privacy-policy/"
         },
         "presentation": {
           "schemaVersion": 2,

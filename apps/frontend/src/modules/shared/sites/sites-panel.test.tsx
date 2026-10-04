@@ -203,6 +203,7 @@ beforeEach(() => {
         x_default: "/start/",
         placeholders: 0,
         template_contact: false,
+        missing_pages: [],
       },
     ],
   });
@@ -292,6 +293,40 @@ test("slots and the template's contact are named, not called ready", async () =>
   expect(
     screen.getByRole("button", { name: "Opublikuj zmiany" }),
   ).not.toBeDisabled();
+});
+
+test("a link to a document nobody approved is named, with where to approve it", async () => {
+  const report = await getSiteLocalizationReport();
+  getSiteLocalizationReport.mockResolvedValue({
+    ...report,
+    pages: [
+      {
+        ...report.pages[0]!,
+        missing_pages: ["/documents/booking-terms/", "/stay/domek-1/"],
+      },
+    ],
+  });
+  renderPanel({ section: "publication" });
+
+  expect(
+    await screen.findByText("Do uzupełnienia przed publikacją"),
+  ).not.toBeNull();
+  expect(
+    screen.getByText(
+      "Odnośniki prowadzą do stron, których jeszcze nie ma: /documents/booking-terms/, /stay/domek-1/",
+      { exact: false },
+    ),
+  ).not.toBeNull();
+  expect(
+    screen
+      .getByRole("link", {
+        name: "Zatwierdź dokument w „Dokumenty dla klientów”",
+      })
+      .getAttribute("href"),
+  ).toBe("/panel/settings/documents");
+  // Not the sentence about slots: the page has none.
+  expect(screen.queryByText(/miejscami do uzupełnienia/)).toBeNull();
+  expect(screen.getByText(/zobaczy „Nie ma takiej strony”/)).not.toBeNull();
 });
 
 test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {

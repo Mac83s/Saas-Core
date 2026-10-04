@@ -1416,11 +1416,6 @@
     "stayOfferCurrent": "The chosen offer",
     "stayOfferOffline": "{name} (not booked online)",
     "stayOfferNone": "You have no offer booked from–to yet. Add one in Settings › Services and schedule — without it this section does not appear on the published page.",
-    "stayUnitsLayout": "List layout",
-    "stayUnitsLayoutOptions": {
-      "cards": "Cards side by side",
-      "rows": "Rows: photo beside the description"
-    },
     "footerBlock": "Footer",
     "featureItems": "Service entries",
     "featureTitle": "Entry name",
@@ -2613,6 +2608,9 @@
     "readyUnfinished": "To complete before publishing",
     "unfinishedSlots": "{count, plural, one {# place to fill in} other {# places to fill in}}",
     "unfinishedContact": "the template's phone or e-mail",
+    "unfinishedPages": "{count, plural, one {A link leads to a page that is not there yet} other {Links lead to pages that are not there yet}}: {paths}",
+    "unfinishedDocuments": "Approve the document in “Documents for customers”",
+    "unfinishedPagesPublish": "A visitor who follows a link to a page that is not there yet will see “Page not found”. A document's page appears by itself once you approve the document.",
     "unfinishedShow": "Show: {page}",
     "unfinishedPublish": "Visitors will not see the sentences with places to fill in, nor the buttons with the template's phone and e-mail — they are left out of the page. Fill them in before you publish.",
     "connectionsAsk": "Write to us to connect an integration",

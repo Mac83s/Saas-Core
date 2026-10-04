@@ -13513,6 +13513,8 @@ export interface components {
             placeholders: number;
             /** @description The template's sample phone or e-mail is still in a link of the draft. */
             template_contact: boolean;
+            /** @description Links of the draft to a record's own page that is not there now: a company document nobody approved yet (`/documents/privacy-policy/`), a unit the company no longer shows (`/stay/…`). A visitor who follows one gets 404. */
+            missing_pages: string[];
         };
         PageRedirectSummary: {
             from_path: string;

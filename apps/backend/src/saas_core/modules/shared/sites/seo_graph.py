@@ -157,12 +157,14 @@ def page_graph(
     if thing is not None:
         # The page is about that one record: its main entity, offered by the
         # company, under the page's own address.
-        node = {
-            **thing,
-            "@id": f"{canonical_url}#thing",
-            "url": canonical_url,
-            "provider": organization,
-        }
+        node = {**thing, "@id": f"{canonical_url}#thing", "url": canonical_url}
+        offer = node.get("offers")
+        if isinstance(offer, Mapping):
+            # A product the company lets out or sells: the company is the
+            # seller of its offer — a product has no provider.
+            node["offers"] = {**offer, "seller": organization}
+        else:
+            node["provider"] = organization
         if image:
             node["image"] = image["url"]
         if not questions:

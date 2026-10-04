@@ -53,7 +53,16 @@ test("site block manifest references valid canonical schemas", async () => {
       // Where a unit is: its town, or its own point once the company shows
       // it; the map loads only when the visitor asks (the map block of 5e).
       "core.stay_map",
+      // A company's document on its own site (slice 5f part 2): the server
+      // builds it for the document's page; nothing anybody writes carries it.
+      "core.document",
     ],
+  );
+  assert.deepEqual(
+    manifest.blocks
+      .filter((block) => block.serverBuilt)
+      .map((block) => block.type),
+    ["core.document"],
   );
 
   for (const block of manifest.blocks) {

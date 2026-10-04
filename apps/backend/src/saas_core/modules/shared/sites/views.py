@@ -1009,6 +1009,7 @@ def _page_content(report: SiteLocalizationReport, page_id: UUID) -> dict[str, An
     return {
         "placeholders": content.placeholders if content else 0,
         "template_contact": content.template_contact if content else False,
+        "missing_pages": list(content.missing_pages) if content else [],
     }
 
 

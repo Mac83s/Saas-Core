@@ -63,6 +63,7 @@ from .public_locales import (
     register_public_locales_limit,
 )
 from .public_sources import (
+    PageAddress,
     PublicSource,
     SourcePage,
     SourcePageAddress,
@@ -174,6 +175,7 @@ __all__ = [
     "Preview",
     "PersonRequired",
     "PublicLocalesLimit",
+    "PageAddress",
     "PublicSource",
     "ResourceReferenceConflict",
     "ResourceReferenceHandler",

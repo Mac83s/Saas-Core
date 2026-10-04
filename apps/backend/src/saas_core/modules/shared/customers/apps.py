@@ -24,3 +24,19 @@ class CustomersConfig(AppConfig):
         register_customer_commands()
         # The documents' texts in other languages (ADR-073 §9; needs no engine).
         register_document_source()
+
+        # Each document in force has a page on the company's own site, at
+        # `/documents/<its name>/` (ADR-072, slice 5f part 2).
+        from saas_core.modules.core.organizations.api import PublicSource, register_public_source
+
+        from .site_pages import PAGE_SEGMENT, no_media, site_page, site_pages
+
+        register_public_source(
+            PublicSource(
+                "customers.documents",
+                no_media,
+                page_segment=PAGE_SEGMENT,
+                site_page=site_page,
+                site_pages=site_pages,
+            )
+        )

@@ -526,6 +526,12 @@ test("composed page recipes pin section versions and materialize their exact see
   }
 });
 
+// A recipe ships example photographs of its own subject, or none. „Noclegi”
+// has none yet: the approved illustrations are of other trades (cows on a
+// pasture, a studio), and a guest reads a lodging's gallery as the place
+// itself — its gallery waits for photographs of lodging (owner, 2026-10-04).
+const WITHOUT_PHOTOGRAPHS = new Set(["core.lodging"]);
+
 test("latest complete pages contain localized seeds and bound example photographs", async () => {
   const { templates } = await loadTemplates();
   const photos = await readJson("page-templates", "sample-media.v1.json");
@@ -538,6 +544,10 @@ test("latest complete pages contain localized seeds and bound example photograph
       const localized = recipe.localizedBlocks.en[index];
       assert.equal(localized.block_type, block.block_type, recipe.id);
       assert.equal(localized.schema_version, block.schema_version, recipe.id);
+    }
+    if (WITHOUT_PHOTOGRAPHS.has(recipe.id)) {
+      assert.deepEqual([recipe.media, recipe.mediaBindings], [[], []]);
+      continue;
     }
     assert.ok(recipe.mediaBindings.length > 0, recipe.id);
     for (const binding of recipe.mediaBindings) {

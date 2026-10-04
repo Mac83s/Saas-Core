@@ -109,6 +109,8 @@ def read_content_capabilities() -> dict[str, Any]:
                 "latest_version": max(versions),
             }
             for block_type, versions in sorted(contracts.validators.items())
+            # What nobody writes is not offered to a connector.
+            if block_type not in contracts.server_built
         ],
         "content_types": {
             "site_purposes": [value for value, _label in SitePurpose.choices],

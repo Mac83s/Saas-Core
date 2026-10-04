@@ -1170,3 +1170,80 @@ szablon strony „Noclegi”; strona prawna witryny z dokumentów firmy (ADR-073
   jednostek w edytorze, kategorie uczestników w widgecie, podpowiedź szablonu
   przez preset przy zakładaniu firmy (5g).
 
+
+### Rozstrzygnięcia plastra 5f, część 2 (strona prawna witryny z dokumentów firmy)
+
+Zamyka pytanie z ADR-073 („Otwarte technicznie”: czy strona prawna witryny
+pokazuje bieżącą wersję dokumentu). Bez migracji.
+
+- **Dokument ma na witrynie stronę, której nikt nie publikuje.** Każdy
+  dokument firmy dla klientów (ADR-073 §9), który ma dziś obowiązującą wersję,
+  odpowiada na każdej opublikowanej stronie firmy pod
+  `/documents/<nazwa>/` — `booking-terms`, `shop-terms`, `privacy-policy`,
+  `cancellation-policy`. To strona źródła, jak `/stay/<jednostka>/` z plastra
+  5e: `shared.customers` rejestruje `PublicSource` `customers.documents` z
+  segmentem `documents`, witryna pyta je na końcu, gdy nie odpowie żadna
+  opublikowana strona, a segment jest zarezerwowany dla nowych podstron i
+  kolekcji (`first_segment_reserved`). Wybrana strona systemowa, nie blok
+  wstawiany przez firmę: adres musi istnieć u każdej firmy z dokumentem bez
+  niczyjej pracy (prowadzą do niego szablony i formularze), a treść ma być
+  dokładnie tą, którą zatwierdziła osoba — kopia wklejona w stronę starzeje
+  się przy następnej wersji.
+- **Blok strony buduje wyłącznie serwer.** Strona to jeden blok
+  `core.document` v1: rodzaj, nazwa dokumentu w języku strony, numer wersji,
+  dzień wejścia w życie i tekst. Manifest bloków oznacza go `serverBuilt`:
+  `validate_site_block` odmawia go każdemu zapisowi (szkic strony, wpis,
+  szablon, zestaw zmian — 400 `server_built_site_block`), katalog możliwości
+  dla automatu go nie wymienia, edytor go nie oferuje. Powód: blok wygląda jak
+  zatwierdzony dokument („wersja 3, obowiązuje od…”), więc nie może dać się
+  wpisać z dowolnym tekstem.
+- **Tekst jest per język i żaden język nie zastępuje innego.** To reguła
+  czytnika z ADR-073 („Czytnik nie zastępuje języka”), tu dla strony:
+  strona ma tekst tam, gdzie obowiązująca wersja go ma. Zapytana w innym
+  języku witryny odpowiada pod adresem tego języka, **bez tekstu**: mówi, że
+  dokument nie ma wersji w tym języku, i podaje odnośniki do stron w
+  językach, które tekst mają i w których witryna jest czytana. Dla regulaminu
+  rezerwacji mówi to słowami formularza rezerwacji („W tym języku nie można
+  zarezerwować online: regulamin rezerwacji nie ma wersji w tym języku”,
+  ADR-073 „krok zgód formularzy publicznych”). Taka strona ma `noindex`, nie
+  jest w mapie strony ani w `hreflang`. Język własny witryny nie jest
+  wyjątkiem: witryna po angielsku z dokumentem tylko po polsku ma tekst pod
+  `/pl/documents/…`, a pod `/documents/…` informację. Strona platformy
+  `/<język>/documents/<identyfikator>` zostaje bez zmian (pokazuje wersję w
+  języku zatwierdzenia z dopiskiem — tam nikt się na nic nie zgadza, a adres
+  jest w e-mailach).
+- **Rejestr źródeł dostał dwie rzeczy.** `SourcePage.per_language` (i to samo
+  w `SourcePageAddress`): rekord pisany per język ma stronę tylko w
+  `locales`, bez wyjątku dla języka witryny, a zapytany gdzie indziej nie
+  jest przenoszony 308 do cudzego tekstu — odpowiada strona źródła. Oraz
+  czwarty argument `site_page`: `address(język)` — gdzie witryna odpowiada za
+  stronę tego rekordu w danym języku (pusty, gdy witryna nie jest w nim
+  czytana) — bo źródło nie zna prefiksów językowych witryny, a strona musi
+  linkować do swoich innych języków.
+- **Odnośnik do strony rekordu idzie za językiem czytelnika.** W wersji
+  językowej strony odnośnik `/documents/…` albo `/stay/…` dostaje prefiks
+  języka (`localized_links`): źródło odpowiada tam tekstem, informacją
+  (dokument) albo jednym 308 do języka witryny (jednostka). Bloków strony
+  źródła to nie dotyczy — źródło zbudowało je już w języku czytelnika.
+- **Szablon „Noclegi” prowadzi do dokumentów.** Sekcja „Cena i zasady
+  pobytu” ma przycisk „Przeczytaj regulamin rezerwacji”
+  (`/documents/booking-terms/`), a formularz pytania odnośnik „Informacje o
+  prywatności” (`/documents/privacy-policy/`). Recepta `core.lodging`
+  zostaje w wersji 1 — nie wyszła poza lokalny `main` (nic wypchniętego ani
+  wdrożonego), więc nie ma stron, którym zmiana odebrałaby wersję.
+- **Gotowość publikacji nazywa odnośnik do strony, której nie ma.** Firma,
+  która nie zatwierdziła jeszcze dokumentu, miałaby po imporcie szablonu
+  odnośnik do 404. Raport gotowości (`GET /sites/<id>/localization/`) oddaje
+  przy stronie `missing_pages` — odnośniki szkicu do strony rekordu, której
+  źródło dziś nie ma (dokument bez obowiązującej wersji, jednostka, której
+  firma już nie pokazuje) — a karta „Gotowość” wymienia je z odnośnikiem do
+  „Dokumenty dla klientów”. Publikacji to nie blokuje, tak jak miejsca
+  `[Uzupełnij: …]`.
+- **Strona dokumentu jest indeksowana i w mapie strony** (tam, gdzie ma
+  tekst), bez danych strukturalnych własnego typu; strona platformy zostaje
+  `noindex`.
+- **Poza tą częścią:** formularz rezerwacji i e-maile linkują dokument
+  nadal pod adresem platformy (`DocumentInForce.url`); stopka witryny nie
+  dostaje odnośników do dokumentów sama — firma dodaje je jak każdy odnośnik
+  (adresy powyżej); dokument jako sekcja na własnej podstronie firmy; wersje
+  archiwalne dokumentu na witrynie.

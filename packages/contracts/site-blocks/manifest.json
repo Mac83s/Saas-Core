@@ -168,6 +168,14 @@
       "schemas": {
         "1": "core.stay_map.v1.schema.json"
       }
+    },
+    {
+      "type": "core.document",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.document.v1.schema.json"
+      },
+      "serverBuilt": true
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

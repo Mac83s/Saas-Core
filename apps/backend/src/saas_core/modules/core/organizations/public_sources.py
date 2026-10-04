@@ -19,6 +19,13 @@ site — a unit's own page — under one first segment of the address that is th
 source's (`stay`): nobody publishes such a page, the site asks the source for
 it when no published page answers, and the source says what the record is for
 structured data (`SourcePage.thing`) and which picture a shared link shows.
+
+A record whose words are written per language and never stand in for one
+another — a company's document for its customers (`documents`, slice 5f) —
+says so with `per_language`: its page exists only in the languages it has a
+text in, the site's own included, and where a visitor asks for it in another
+one the source's page says in which languages it can be read instead of
+showing a text nobody approved in that language.
 """
 
 from __future__ import annotations
@@ -33,6 +40,9 @@ from django.core.exceptions import ImproperlyConfigured
 
 #: A block of a site as a source reads it: its type and its published data.
 SiteBlock = tuple[str, Mapping[str, Any]]
+#: Where the site answers for one record's own page, by language code: its
+#: path there, or an empty string where the site is not read in that language.
+PageAddress = Callable[[str], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +64,12 @@ class SourcePage:
     #: What the record is, for structured data: a schema.org node. Its
     #: address and picture (`@id`, `url`, `image`) are the site's to give.
     thing: Mapping[str, Any] | None = None
+    #: The record's words are written per language and none stands in for
+    #: another (a legal text): its page exists in `locales` only — the site's
+    #: own language is no exception — and a page asked for in another one is
+    #: the source's own word that the record has no text there, kept out of
+    #: search and of the language alternates instead of being moved.
+    per_language: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +79,8 @@ class SourcePageAddress:
     slug: str
     locales: frozenset[str] = frozenset()
     changed_at: datetime | None = None
+    #: As `SourcePage.per_language`: the page is listed in `locales` only.
+    per_language: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,10 +109,13 @@ class PublicSource:
     #: company's site, the same in every language (ADR-074 pkt 7); empty — its
     #: records have no pages.
     page_segment: str = ""
-    #: `site_page(organization_id, locale, slug)` → the page of the record at
-    #: that address, in that language where the record has words in it, or
-    #: None. The source sets its own tenant.
-    site_page: Callable[[UUID, str, str], SourcePage | None] | None = None
+    #: `site_page(organization_id, locale, slug, address)` → the page of the
+    #: record at that address, in that language where the record has words in
+    #: it, or None. `address(locale)` is where the site answers for this
+    #: record's page in a language — empty where the site is not read in it —
+    #: for a page that links to its own other languages. The source sets its
+    #: own tenant.
+    site_page: Callable[[UUID, str, str, PageAddress], SourcePage | None] | None = None
     #: `site_pages(organization_id)` → every record that has a page now.
     site_pages: Callable[[UUID], Iterable[SourcePageAddress]] | None = None
 

@@ -50,6 +50,7 @@ import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import stayCalendarV1Schema from "@saas-core/contracts/site-blocks/core.stay_calendar.v1.schema.json";
 import staySearchV1Schema from "@saas-core/contracts/site-blocks/core.stay_search.v1.schema.json";
+import documentV1Schema from "@saas-core/contracts/site-blocks/core.document.v1.schema.json";
 import stayMapV1Schema from "@saas-core/contracts/site-blocks/core.stay_map.v1.schema.json";
 import stayUnitV1Schema from "@saas-core/contracts/site-blocks/core.stay_unit.v1.schema.json";
 import stayUnitsV1Schema from "@saas-core/contracts/site-blocks/core.stay_units.v1.schema.json";
@@ -64,6 +65,7 @@ import pricingV1Schema from "@saas-core/contracts/site-blocks/core.pricing.v1.sc
 import richTextV1Schema from "@saas-core/contracts/site-blocks/core.rich_text.v1.schema.json";
 import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimonials.v1.schema.json";
 
+import { DocumentBlock } from "./document-block";
 import { linkRel } from "./link-rel";
 import {
   StayCalendarBlock,
@@ -1052,6 +1054,17 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["unit"], kind: "stayPlace", labelKey: "stayUnit" },
         ],
       },
+    },
+    // A company's document on its own site (slice 5f part 2). Deliberately
+    // absent from the catalogue: the server builds it for the document's own
+    // page from the text a person approved, and the contract refuses it in
+    // anything a person or an automation writes (`serverBuilt`).
+    {
+      type: "core.document",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: documentV1Schema }],
+      migrators: {},
+      component: DocumentBlock,
     },
     {
       type: "core.entry_list",

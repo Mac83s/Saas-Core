@@ -31,11 +31,26 @@ class InvalidSiteBlockData(APIException):
     default_code = "invalid_site_block_data"
 
 
+class ServerBuiltSiteBlock(APIException):
+    status_code = 400
+    default_detail = (
+        "Ten blok buduje serwer z zatwierdzonych danych firmy; nie zapisuje się go w treści."
+    )
+    default_code = "server_built_site_block"
+
+
 @dataclass(frozen=True, slots=True)
 class SiteBlockContracts:
     validators: dict[str, dict[int, Draft202012Validator]]
+    #: Blocks only the server builds, for a page nobody edits (`serverBuilt`
+    #: in the manifest: a company's document, `core.document`). Their schema
+    #: says what the renderer is handed; nothing a person or an automation
+    #: writes — a draft, an entry, a template, a change set — may carry one.
+    server_built: frozenset[str] = frozenset()
 
     def validate(self, *, block_type: str, schema_version: int, data: Any) -> None:
+        if block_type in self.server_built:
+            raise ServerBuiltSiteBlock
         versions = self.validators.get(block_type)
         if versions is None:
             raise UnknownSiteBlockType
@@ -68,6 +83,7 @@ def site_block_contracts() -> SiteBlockContracts:
         raise ImproperlyConfigured("Manifest kontraktów bloków nie zawiera listy bloków")
 
     validators: dict[str, dict[int, Draft202012Validator]] = {}
+    server_built: set[str] = set()
     try:
         for block in blocks:
             block_type = block["type"]
@@ -94,9 +110,11 @@ def site_block_contracts() -> SiteBlockContracts:
             if block_type in validators:
                 raise ImproperlyConfigured(f"Powielony typ bloku: {block_type}")
             validators[block_type] = block_validators
+            if block.get("serverBuilt") is True:
+                server_built.add(block_type)
     except (KeyError, TypeError, ValueError, SchemaError) as error:
         raise ImproperlyConfigured("Manifest kontraktów bloków jest nieprawidłowy") from error
-    return SiteBlockContracts(validators=validators)
+    return SiteBlockContracts(validators=validators, server_built=frozenset(server_built))
 
 
 def _read_json(path: Path) -> dict[str, Any]:

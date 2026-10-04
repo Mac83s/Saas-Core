@@ -209,8 +209,11 @@ Recepta strony `core.lodging` v1 („Noclegi”, cel: rezerwacja) przeszła list
 „Szablony nastawione na konwersję” ze zrzutami 390 i 1440 px:
 
 1. **Jeden cel:** rezerwacja online. Przyciski nazywają efekt („Sprawdź wolny
-   termin”, „Sprawdź cenę i zarezerwuj”); jedyne cichsze działanie to pytanie
-   w formularzu na końcu.
+   termin”, „Sprawdź cenę i zarezerwuj”); cichsze działania to pytanie w
+   formularzu na końcu i „Przeczytaj regulamin rezerwacji” pod zasadami
+   pobytu — odnośnik do strony dokumentu firmy (`/documents/booking-terms/`,
+   ADR-072 „Rozstrzygnięcia plastra 5f, część 2”); formularz pytania prowadzi
+   tak samo do polityki prywatności (`/documents/privacy-policy/`).
 2. **Pierwszy ekran:** obietnica, zdanie uzupełnienia i główne działanie,
    które prowadzi do wyboru terminu na tej samej stronie (`#terminy`) — widoczne
    bez przewijania na 390 i 1440 px. Sekcja startowa nie ma zdjęcia: nie ma
@@ -222,8 +225,11 @@ Recepta strony `core.lodging` v1 („Noclegi”, cel: rezerwacja) przeszła list
    jednostkach i na końcu.
 4. **Bez zmyślania:** żadnych cen, opinii ani ocen w seedzie. Fakty obiektu
    (okolica, godziny przyjazdu, zasady, odpowiedzi) to miejsca `[Uzupełnij: …]`,
-   których opublikowana strona nie pokazuje; zdjęcia galerii są oznaczone jako
-   poglądowe. Ceny i wolne dni pochodzą z cennika i grafiku firmy.
+   których opublikowana strona nie pokazuje; galeria nie przynosi zdjęć — jej
+   pozycje to miejsca na zdjęcia obiektu (ilustracje z innych branż wyszły z
+   recepty 04.10), a sekcja bez zdjęć i podpisów nie trafia na opublikowaną
+   stronę. Ceny i wolne dni pochodzą z cennika i grafiku firmy; regulaminu
+   seed nie niesie — pokazuje go strona dokumentu, gdy firma go zatwierdzi.
 5. **Niski próg:** rezerwacja bez konta; formularz pytania ma imię, e-mail i
    wiadomość.
 6. **Bez ciemnych wzorców:** bez liczników i sztucznej rzadkości — kalendarz

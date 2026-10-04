@@ -84,6 +84,20 @@ export interface StayTexts {
   };
 }
 
+/** What the page of a company's document says by itself (ADR-072, slice 5f
+ *  part 2): which version it is, and — where that version has no text in the
+ *  page's language — that it has none and where it can be read. */
+export interface DocumentTexts {
+  /** „Wersja 3, obowiązuje od 1 października 2026”; the caller says the day. */
+  readonly version: (number: number, date: string) => string;
+  readonly missing: string;
+  /** The same for the booking terms, in the booking form's own words: no
+   *  text in a language closes online booking in it (ADR-073). */
+  readonly missingBookingTerms: string;
+  /** Before the languages that have the text. */
+  readonly readIn: string;
+}
+
 /** One, few, many: the form a count takes in a language. */
 function counted(
   locale: string,
@@ -118,6 +132,7 @@ export interface SiteUiTexts {
     readonly home: string;
   };
   readonly stay: StayTexts;
+  readonly document: DocumentTexts;
 }
 
 const TEXTS = {
@@ -224,6 +239,13 @@ const TEXTS = {
         frame: (where) => `Mapa: ${where}`,
       },
     },
+    document: {
+      version: (number, date) => `Wersja ${number}, obowiązuje od ${date}`,
+      missing: "Ten dokument nie ma wersji w tym języku.",
+      missingBookingTerms:
+        "W tym języku nie można zarezerwować online: regulamin rezerwacji nie ma wersji w tym języku.",
+      readIn: "Przeczytaj go w języku, w którym jest dostępny:",
+    },
   },
   en: {
     menu: "Menu",
@@ -323,6 +345,13 @@ const TEXTS = {
         townOnly: "The map shows the town, not the exact address.",
         frame: (where) => `Map: ${where}`,
       },
+    },
+    document: {
+      version: (number, date) => `Version ${number}, in force from ${date}`,
+      missing: "This document has no version in this language.",
+      missingBookingTerms:
+        "Online booking is not available in this language: the booking terms have no version in it.",
+      readIn: "Read it in a language it is available in:",
     },
   },
   de: {
@@ -425,6 +454,13 @@ const TEXTS = {
         frame: (where) => `Karte: ${where}`,
       },
     },
+    document: {
+      version: (number, date) => `Version ${number}, gültig ab ${date}`,
+      missing: "Dieses Dokument liegt in dieser Sprache nicht vor.",
+      missingBookingTerms:
+        "In dieser Sprache ist keine Online-Buchung möglich: Die Buchungsbedingungen liegen in dieser Sprache nicht vor.",
+      readIn: "Lesen Sie es in einer Sprache, in der es vorliegt:",
+    },
   },
   es: {
     menu: "Menú",
@@ -524,6 +560,13 @@ const TEXTS = {
         townOnly: "El mapa muestra la localidad, no la dirección exacta.",
         frame: (where) => `Mapa: ${where}`,
       },
+    },
+    document: {
+      version: (number, date) => `Versión ${number}, vigente desde el ${date}`,
+      missing: "Este documento no tiene versión en este idioma.",
+      missingBookingTerms:
+        "En este idioma no se puede reservar en línea: las condiciones de reserva no tienen versión en este idioma.",
+      readIn: "Léalo en un idioma en el que esté disponible:",
     },
   },
   ru: {
@@ -633,6 +676,13 @@ const TEXTS = {
         townOnly: "Карта показывает населённый пункт, а не точный адрес.",
         frame: (where) => `Карта: ${where}`,
       },
+    },
+    document: {
+      version: (number, date) => `Версия ${number}, действует с ${date}`,
+      missing: "У этого документа нет версии на этом языке.",
+      missingBookingTerms:
+        "На этом языке нельзя забронировать онлайн: у правил бронирования нет версии на этом языке.",
+      readIn: "Прочитайте его на языке, на котором он доступен:",
     },
   },
 } satisfies Record<string, SiteUiTexts>;

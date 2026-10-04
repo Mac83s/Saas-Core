@@ -6,6 +6,7 @@ export {
   SITE_UI_LOCALES,
   siteUiTexts,
   type ContactFormTexts,
+  type DocumentTexts,
   type SiteUiLocale,
   type SiteUiTexts,
   type StayTexts,

@@ -127,6 +127,18 @@ describe("shared section decoration contract", () => {
         data: { unit: "11111111-1111-4111-8111-111111111111" },
       },
       { block_type: "core.stay_map", schema_version: 1, data: {} },
+      // A company's document, as the server builds it for the document's page.
+      {
+        block_type: "core.document",
+        schema_version: 1,
+        data: {
+          kind: "privacy_policy",
+          title: "Privacy policy",
+          version: 1,
+          effective_from: "2026-10-04",
+          text: "We keep what a booking needs.",
+        },
+      },
     ];
     for (const block of remaining) {
       for (const preset of sectionDecorationPresets) {

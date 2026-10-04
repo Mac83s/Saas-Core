@@ -519,6 +519,21 @@ export type FooterV1Data = JsonObject & {
   links?: { label: string; href: string; rel?: LinkRel }[];
 };
 
+/** One of a company's documents for its customers as its own site shows it
+ *  (ADR-072, slice 5f part 2): built by the server for the document's page
+ *  from the text a person approved — nobody writes this block. Without
+ *  `text` the version in force has none in the page's language, and
+ *  `elsewhere` names the languages that have one. */
+export type DocumentV1Data = JsonObject & {
+  kind:
+    "booking_terms" | "shop_terms" | "privacy_policy" | "cancellation_policy";
+  title: string;
+  version: number;
+  effective_from: string;
+  text?: string;
+  elsewhere?: { locale: string; name: string; href: string }[];
+};
+
 export type EntryListV1Data = JsonObject & {
   title?: string;
   empty_text?: string;

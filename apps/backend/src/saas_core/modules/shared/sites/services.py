@@ -1898,7 +1898,7 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
     return replace(
         report,
         # The template's slots and sample contact, named before a visitor sees them.
-        content=page_content(context.organization_id, pages),
+        content=page_content(context.organization_id, pages, str(site.default_locale)),
         language_states=page_language_states(site, snapshot),
         live_locales=tuple(
             code

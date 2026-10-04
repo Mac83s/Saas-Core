@@ -6,6 +6,11 @@ and the visitor would then see „[Uzupełnij: obszar dojazdu]” or call
 +48 000 000 000. The publication's readiness names both before that happens.
 The slots are found the way a language version finds them (`extract_units`,
 `PLACEHOLDER_PATTERN`), so readiness and the language gate count the same.
+
+It also names a link to a record's own page that is not there (ADR-072,
+slice 5f part 2): a template links the company's booking terms and privacy
+policy at `/documents/…`, and until a person approves those documents the
+address answers 404. The record's source says whether the page exists.
 """
 
 from __future__ import annotations
@@ -17,10 +22,12 @@ from typing import Any
 from uuid import UUID
 
 from saas_core.content_protocol.tokens import PLACEHOLDER_PATTERN
+from saas_core.modules.core.organizations.public_sources import page_sources
 
 from .block_decoration import stored_block_payload
 from .localized_bodies import extract_units
 from .models import Page, PageBlock
+from .rich_content import block_links
 
 #: The templates' sample contact: a number of zeros, an example.* address.
 TEMPLATE_PHONE = re.compile(r"^tel:(\+\d{2})?0{9,}$")
@@ -33,6 +40,9 @@ class PageContent:
     placeholders: int
     #: The template's phone or e-mail still in a link of the draft.
     template_contact: bool
+    #: Links of the draft to a record's own page — a document at
+    #: `/documents/…`, a unit at `/stay/…` — that has no page now.
+    missing_pages: tuple[str, ...] = ()
 
 
 def is_template_contact(href: str) -> bool:
@@ -52,8 +62,38 @@ def _hrefs(value: Any) -> Iterator[str]:
             yield from _hrefs(item)
 
 
-def page_content(organization_id: UUID, pages: Sequence[Page]) -> dict[UUID, PageContent]:
-    """Each page's current draft, one query for the site."""
+def _source_page(href: str) -> tuple[str, str] | None:
+    """The segment and the record's address of a link to a record's own page
+    in the site's own language (`/documents/privacy-policy/`), else None."""
+    if not href.startswith("/") or href.startswith("//"):
+        return None
+    parts = href.split("?", 1)[0].split("#", 1)[0].strip("/").split("/")
+    if len(parts) != 2 or parts[0] not in page_sources():
+        return None
+    return parts[0], parts[1]
+
+
+def page_content(
+    organization_id: UUID, pages: Sequence[Page], locale: str = ""
+) -> dict[UUID, PageContent]:
+    """Each page's current draft, one query for the site. `locale` is the
+    site's own language: a record's page is asked for in it."""
+    # Each record's source is asked once, whatever many pages link to it.
+    exists: dict[tuple[str, str], bool] = {}
+
+    def missing(href: str) -> bool:
+        target = _source_page(href)
+        if target is None:
+            return False
+        if target not in exists:
+            source = page_sources()[target[0]]
+            exists[target] = (
+                source.site_page is not None
+                and source.site_page(organization_id, locale, target[1], lambda _code: "")
+                is not None
+            )
+        return not exists[target]
+
     drafts = {page.current_draft_id: page.id for page in pages if page.current_draft_id}
     by_page: dict[UUID, list[Any]] = {}
     for block in PageBlock.all_objects.filter(
@@ -67,6 +107,11 @@ def page_content(organization_id: UUID, pages: Sequence[Page]) -> dict[UUID, Pag
             placeholders=sum(len(PLACEHOLDER_PATTERN.findall(unit.text)) for unit in units),
             template_contact=any(
                 is_template_contact(href) for block in blocks for href in _hrefs(block.data)
+            ),
+            missing_pages=tuple(
+                href
+                for href in block_links([{"data": block.data} for block in blocks])
+                if missing(href)
             ),
         )
     return report
