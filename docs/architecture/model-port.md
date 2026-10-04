@@ -366,10 +366,18 @@ ten wpis bez zmian.
 | --- | --- |
 | Kto | OpenRouter, Inc. (USA) — pośrednik, do którego platforma wysyła żądanie; Anthropic, PBC (USA) — dostawca modelu `anthropic/claude-sonnet-5.5`, który je wykonuje |
 | Co | tekst zlecony do tłumaczenia (`translation.text`: treść stron firmy, wizytówki, katalogu ofert i dokumentów dla klientów; klasy `public` i `public_personal`) oraz rozmowa z asystentem (`assistant.conversation`, `assistant.extract_profile`: to, co osoba z firmy wpisała, i to, co oddały polecenia asystenta; klasa `personal`) |
-| Czego nigdy | treści klasy `health`; danych klientów firmy w wyniku polecenia asystenta bez audytowanego odczytu (ADR-076 §1 — kupujący zamówienia nie trafia do modelu); tożsamości osoby, która pisze — pole `user` to skrót HMAC. To, co osoba sama wpisze w rozmowę, wychodzi tak, jak zostało wpisane — dlatego asystent mówi o tym nad polem rozmowy |
+| Czego nigdy | treści klasy `health`; danych klientów firmy w wyniku polecenia asystenta — klient jest dla modelu uchwytem, a jego imię i nazwisko, e-mail i telefon widzi tylko osoba przy ekranie, na karcie (ADR-076, „karty osób”); tożsamości osoby, która pisze — pole `user` to skrót HMAC. To, co osoba sama wpisze w rozmowę, wychodzi tak, jak zostało wpisane — dlatego asystent mówi o tym nad polem rozmowy |
 | Gdzie | poza Europejskim Obszarem Gospodarczym (USA). Podstawa przekazania i treść klauzul — do potwierdzenia przez prawnika (lista prawna), zanim wpis trafi do opublikowanego dokumentu |
-| Jak | każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters`; klasa `personal` wychodzi wyłącznie do hostów z zerową retencją (`zdr`); firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
+| Jak | każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters`; klasa `personal` wychodzi wyłącznie do hostów z zerową retencją (`zdr`); pilnuje tego ustawienie platformy `model_port.privacy.no_training_providers`, domyślnie włączone — żądania trafiają tylko do dostawców, którzy nie zapisują promptów i nie uczą na nich modeli, gdy żaden taki nie obsługuje modelu, zadanie staje, zamiast pójść gdzie indziej, a wyłączyć je może tylko operator platformy i tylko dla treści bez danych osobowych („Dostawcy i prywatność zapytań”); firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
 | Od kiedy | od chwili, gdy operator ustawi `MODEL_PORT_PROCESSOR_LISTED=true` na danym wdrożeniu. Do tego czasu treść firmy nie wychodzi (`processor_not_listed`) |
+
+**Do rozstrzygnięcia przez właściciela (pakiet W, 04.10):** telemetria rozmów z 04.10
+pokazuje `resolved_provider = Google` przy modelu `anthropic/claude-sonnet-5.5` —
+OpenRouter wykonał żądania u hosta innego niż Anthropic, spełniającego `deny` i ZDR.
+Wiersz „Kto” nazywa tylko OpenRouter i Anthropic. Albo dokumenty nazywają także
+hostów, u których OpenRouter może wykonać model, albo port przypina dostawcę
+(`provider.only`), co zawęża dostępność; do tego czasu wiersz „Kto” mówi mniej, niż
+się dzieje.
 
 Gdzie ten wpis jest powtórzony słowami dla ludzi — zmiana modelu albo pośrednika
 zmienia wszystkie naraz, **najpierw dokumenty, potem konfigurację**:

@@ -988,7 +988,9 @@ poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): 
    wypisać. W tabelach asystenta nie powstaje kopia danych klienta — przy wyniku
    narzędzia zapisane jest tylko, który rekord oznacza uchwyt (`result.people`
    wiadomości `tool`, obok `content`, którego jedynego czyta model). Klient
-   zanonimizowany znika więc także z kart starych rozmów.
+   zanonimizowany znika więc także z kart starych rozmów — także wtedy, gdy opłacone
+   zamówienie zatrzymuje jeszcze kupującego na swojej stronie (ADR-073, plaster 4i):
+   karta czyta rekord klienta, nie kopię z zamówienia.
 2. **Uchwyt jest wyprowadzony, nie numerowany**: HMAC z firmy, rozmowy
    (`acting_ref`), rodzaju i identyfikatora rekordu, pięć znaków base32 (dłuższy, gdy
    dwa zaczynają się tak samo). Ta sama osoba ma w rozmowie jeden uchwyt, którekolwiek
