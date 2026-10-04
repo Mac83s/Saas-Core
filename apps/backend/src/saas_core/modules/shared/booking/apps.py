@@ -69,6 +69,11 @@ class BookingConfig(AppConfig):
         from .prices import has_prices
 
         register_currency_use(has_prices)
+        # A priced booking is an order `R/…` where the product has commerce
+        # (ADR-073 §1).
+        from .orders import register as register_order_source
+
+        register_order_source()
         # The booking catalogue as a translation source (ADR-069, TL12c).
         from .translation_source import register_catalog_source
 

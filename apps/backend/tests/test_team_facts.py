@@ -299,8 +299,8 @@ def test_the_history_names_a_visit_by_its_service_and_start_never_by_the_custome
     """UX-055: „Utworzono rezerwację” says which one. The history is read by
     whoever manages settings, so the row carries no customer."""
     from saas_core.modules.shared.booking.history_targets import (  # noqa: PLC0415
-        _appointments,
         _staff,
+        appointment_targets,
     )
 
     configured = company("historia-wizyta")
@@ -308,7 +308,7 @@ def test_the_history_names_a_visit_by_its_service_and_start_never_by_the_custome
     first = configured["staff"][0]
     booked = book(owner, configured, at(day, 9), "a", first)
 
-    named = _appointments(owner.organization_id, [booked.id])[booked.id]
+    named = appointment_targets(owner.organization_id, [booked.id])[booked.id]
     assert named.label == configured["service"].name
     assert named.at == booked.starts_at
     assert named.href == f"/panel/calendar?view=day&date={day.isoformat()}"
@@ -316,4 +316,4 @@ def test_the_history_names_a_visit_by_its_service_and_start_never_by_the_custome
     assert _staff(owner.organization_id, [first.id])[first.id].href == f"/panel/team/{first.id}"
     # Another company's visit is never named here.
     other = company("historia-wizyta-obca")
-    assert _appointments(other["owner"].organization_id, [booked.id]) == {}
+    assert appointment_targets(other["owner"].organization_id, [booked.id]) == {}

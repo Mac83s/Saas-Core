@@ -43,6 +43,7 @@ from saas_core.modules.shared.customers.api import match_or_create
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
 
+from . import orders
 from .availability import _valid_instants, _zone, closed_days
 from .consents import BookingConsents
 from .crew import lost_slot_race
@@ -551,6 +552,7 @@ def move_stay(
             quote_digest,
             kept=True,
         )
+        orders.repriced(appointment)
     mutation = BookingMutation.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,

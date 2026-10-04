@@ -50,6 +50,7 @@ source_modules =
 forbidden_modules =
     saas_core.modules.shared.billing
     saas_core.modules.shared.booking
+    saas_core.modules.shared.commerce
     saas_core.modules.shared.customers
     saas_core.modules.shared.farms
     saas_core.modules.shared.image_generation
@@ -67,6 +68,7 @@ source_modules =
     saas_core.modules.shared.assistant
 forbidden_modules =
     saas_core.modules.shared.booking
+    saas_core.modules.shared.commerce
     saas_core.modules.shared.customers
     saas_core.modules.shared.farms
     saas_core.modules.shared.image_generation

@@ -115,8 +115,9 @@ przełącznika nie czyta.
 czyści wiersz klienta, a potem woła w tej samej transakcji każdy moduł, który
 zarejestrował, co sam trzyma o kliencie (`register_customer_anonymizer`). Booking
 rejestruje `strip_customer_visits` (`shared/booking/services.py`) — wiersze tabeli
-niżej dotyczące wizyt, linków i wiadomości. Moduł, który zacznie trzymać dane
-klienta (zamówienie: migawka kupującego; sklep: dane dostawy), rejestruje własne
+niżej dotyczące wizyt, linków i wiadomości. Commerce rejestruje `strip_buyer`
+(`shared/commerce/orders.py`) — migawkę kupującego na zamówieniu. Moduł, który
+zacznie trzymać dane klienta (sklep: dane dostawy), rejestruje własne
 czyszczenie i dopisuje swoje wiersze do tej tabeli.
 
 | Kopia | Co zawiera | Co się dzieje | Powód |
@@ -135,6 +136,9 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 | `AppNotification.payload` (powiadomienia zespołu) | identyfikator wizyty, termin, nazwa usługi | zostaje | bez danych klienta |
 | `Appointment` (termin, usługa, osoba z firmy, kwoty), historia stanów, materiały, dokumenty magazynu z `source_reference` | fakty o wizycie | zostaje | zapis pracy firmy; klient jest już nienazwany |
 | `Customer.locale`, `created_at` | język, data rekordu | zostaje | nie wskazują osoby |
+| `Order.buyer_name`, `buyer_email`, `buyer_phone` (`shared.commerce`, ADR-073 §3) | migawka kupującego z chwili złożenia zamówienia | **usuwane** („Zanonimizowany klient”, puste pola) | to jest usuwana dana |
+| `Order` (numer, kwoty, status, kanał), `OrderLine` (pozycje, stawki) | fakty o sprzedaży | zostaje | zapis sprzedaży firmy; kupujący jest już nienazwany. Wyjątek retencji dla zamówień z wpłatą — plaster 4i (ADR-073) |
+| `OrganizationAuditEntry` zamówień | numer, źródło, kanał, kwota | zostaje | bez danych kupującego |
 | Dziennik zgód (`customers_consentrecord`, ADR-073 §9) | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu, źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany |
 | Karta gospodarstwa (`shared.farms`) | dane hodowcy | **zostaje — własna reguła** | dlatego grupy nie ma w profilu z gospodarstwami (wyżej) |
 | Rozmowa z asystentem (`assistant_assistantmessage`) | cokolwiek pracownik wpisał, także nazwisko klienta | zostaje do wygaśnięcia rozmowy | nie da się jej znaleźć po identyfikatorze klienta; ogranicza ją retencja rozmów asystenta |

@@ -2669,6 +2669,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/options/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What orders can hold and be filtered by
+         * @description The company's currency, the statuses and channels of an order, the sources that place orders in this product with the prefix of their numbers, the kinds of a line and the tax rate codes.
+         */
+        get: operations["commerce_options_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/orders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company's orders
+         * @description Newest first, a page at a time. Filter by `status`, `channel`, `source` or one customer, or search with `q` — a part of a number, of the buyer's name or of their e-mail.
+         */
+        get: operations["commerce_orders_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/orders/{order_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One order with its lines
+         * @description The buyer as they were when it was placed, the lines in force with what each comes to, and what every earlier revision came to when a source priced its record again.
+         */
+        get: operations["commerce_order_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/documents/": {
         parameters: {
             query?: never;
@@ -9174,6 +9234,18 @@ export interface components {
             resource_id: string;
             summary: components["schemas"]["LocalizedText"];
         };
+        CommerceOptions: {
+            /** @description The company's currency: every order is in it. */
+            currency: string;
+            statuses: components["schemas"]["OrderStatusEnum"][];
+            channels: components["schemas"]["OrderChannelEnum"][];
+            /** @description Who places orders in this product. */
+            sources: components["schemas"]["OrderSource"][];
+            line_kinds: components["schemas"]["OrderLineKindEnum"][];
+            tax_rates: components["schemas"]["OrderTaxRateEnum"][];
+            /** @description The longest page a list returns. */
+            max_page_size: number;
+        };
         /**
          * @description * `email` - email
          *     * `phone` - phone
@@ -11852,6 +11924,171 @@ export interface components {
             /** Format: date-time */
             created_at: string | null;
         };
+        Order: {
+            /** Format: uuid */
+            id: string;
+            /** @description `{prefix}/{year}/{NNNN}`, e.g. `R/2026/0001`: per company, source and year of the company's time zone. Empty for a draft that waits for the company's answer. */
+            number: string;
+            /**
+             * @description A shortcut for lists; an order with nothing to pay is `paid`.
+             *
+             *     * `draft` - draft
+             *     * `awaiting_payment` - awaiting_payment
+             *     * `partially_paid` - partially_paid
+             *     * `paid` - paid
+             *     * `fulfilled` - fulfilled
+             *     * `completed` - completed
+             *     * `canceled` - canceled
+             *     * `refunded` - refunded
+             */
+            status: components["schemas"]["OrderStatusEnum"];
+            /**
+             * @description Where it came from: the company's own site or form, the catalogue, or somebody of the company who wrote it down (`office`).
+             *
+             *     * `company_site` - company_site
+             *     * `catalog` - catalog
+             *     * `office` - office
+             */
+            channel: components["schemas"]["OrderChannelEnum"];
+            /** @description The registered source that placed it. */
+            source: string;
+            /** Format: date-time */
+            placed_at: string | null;
+            /** @description The buyer as they were when the order was placed; the anonymised customer's placeholder once the customer is removed. */
+            buyer_name: string;
+            /** @description ISO 4217; the company's currency. */
+            currency: string;
+            /** @description What the lines in force come to, gross, in minor units. */
+            gross_minor: number;
+            /** Format: uuid */
+            customer_id: string;
+            buyer_email: string;
+            buyer_phone: string;
+            /**
+             * @description How `unit_amount_minor` of the lines is read.
+             *
+             *     * `gross` - gross
+             *     * `net` - net
+             */
+            amounts: components["schemas"]["PriceAmountsEnum"];
+            net_minor: number;
+            vat_minor: number;
+            /** @description Which lines are in force. A source that prices its record again — a booking moved to dearer days — writes the next revision. */
+            revision: number;
+            /** @description Goes up with every change of the order. */
+            version: number;
+            /** @description The lines in force. */
+            lines: components["schemas"]["OrderLine"][];
+            /** @description Every revision with what it came to, oldest first. */
+            revisions: components["schemas"]["OrderRevision"][];
+            /** @description What the buyer accepted when they bought, from the consent journal: the lines written for the records this order's lines stand for, oldest first. Empty for an order the company's own people wrote down. */
+            consents: components["schemas"]["OrderConsent"][];
+        };
+        /**
+         * @description * `company_site` - company_site
+         *     * `catalog` - catalog
+         *     * `office` - office
+         * @enum {string}
+         */
+        OrderChannelEnum: "company_site" | "catalog" | "office";
+        OrderConsent: {
+            /**
+             * @description A document the buyer accepted, a marketing consent or a form's field.
+             *
+             *     * `document` - document
+             *     * `marketing` - marketing
+             *     * `field` - field
+             */
+            kind: components["schemas"]["OrderConsentKindEnum"];
+            /**
+             * @description For a document: which one.
+             *
+             *     * `booking_terms` - Regulamin rezerwacji
+             *     * `shop_terms` - Regulamin sklepu
+             *     * `privacy_policy` - Polityka prywatności
+             *     * `cancellation_policy` - Polityka anulowania
+             */
+            document_kind: components["schemas"]["CustomerDocumentKindEnum"] | components["schemas"]["NullEnum"];
+            /** @description For a document: the version whose text was shown. */
+            version: number | null;
+            /** @description The language it was shown in. */
+            locale: string;
+            /** @description False withdraws an earlier consent. */
+            granted: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description * `document` - document
+         *     * `marketing` - marketing
+         *     * `field` - field
+         * @enum {string}
+         */
+        OrderConsentKindEnum: "document" | "marketing" | "field";
+        OrderLine: {
+            /** @description From 1, in the order the source gave. */
+            position: number;
+            kind: components["schemas"]["OrderLineKindEnum"];
+            /** @description In the company's own language. */
+            name: string;
+            /** @description In the language the customer bought in. */
+            customer_name: string;
+            quantity: number;
+            /** @description As the company entered it — gross or net by the order's `amounts` — in minor units; negative for a discount. */
+            unit_amount_minor: number;
+            /** @description What the line comes to, net. */
+            net_minor: number;
+            /** @description The line's tax, rounded on the line. */
+            vat_minor: number;
+            /** @description What the line comes to, gross. */
+            gross_minor: number;
+            /**
+             * @description A code, not a number: `zw` is exempt and `np` is outside VAT.
+             *
+             *     * `23` - 23
+             *     * `8` - 8
+             *     * `5` - 5
+             *     * `0` - 0
+             *     * `zw` - zw
+             *     * `np` - np
+             */
+            tax_rate: components["schemas"]["OrderTaxRateEnum"];
+            /** @description What the line stands for, e.g. `booking.appointment`. */
+            source: string;
+            /** @description That record's id. */
+            source_reference: string;
+            /** @description What the line stands for, as its source names it — a visit with its time and its day in the calendar. Null when the record is gone. */
+            target: components["schemas"]["OrderLineTarget"] | null;
+        };
+        /**
+         * @description * `booking` - booking
+         *     * `product` - product
+         *     * `extra` - extra
+         *     * `discount` - discount
+         *     * `voucher` - voucher
+         *     * `delivery` - delivery
+         *     * `fee` - fee
+         * @enum {string}
+         */
+        OrderLineKindEnum: "booking" | "product" | "extra" | "discount" | "voucher" | "delivery" | "fee";
+        OrderLineTarget: {
+            /** @description What the record is called, e.g. the offer's name. */
+            label: string;
+            /** @description Where the panel shows it; empty when nowhere. */
+            href: string;
+            /**
+             * Format: date-time
+             * @description The record's own time, e.g. a visit's start.
+             */
+            at: string | null;
+        };
+        OrderPage: {
+            /** @description Orders that match the filters. */
+            total: number;
+            page: number;
+            page_size: number;
+            items: components["schemas"]["OrderSummary"][];
+        };
         OrderRequest: {
             /** @description The (object, language) pairs to translate. */
             targets: components["schemas"]["Target"][];
@@ -11874,6 +12111,77 @@ export interface components {
             /** @description The credits the quote showed. */
             expected_credits: number;
         };
+        OrderRevision: {
+            /** @description From 1; the highest is in force. */
+            revision: number;
+            /** @description What that revision's lines came to. */
+            gross_minor: number;
+        };
+        OrderSource: {
+            /** @description The value of an order's `source`. */
+            kind: string;
+            /** @description What its orders' numbers start with. */
+            prefix: string;
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `awaiting_payment` - awaiting_payment
+         *     * `partially_paid` - partially_paid
+         *     * `paid` - paid
+         *     * `fulfilled` - fulfilled
+         *     * `completed` - completed
+         *     * `canceled` - canceled
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        OrderStatusEnum: "draft" | "awaiting_payment" | "partially_paid" | "paid" | "fulfilled" | "completed" | "canceled" | "refunded";
+        OrderSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @description `{prefix}/{year}/{NNNN}`, e.g. `R/2026/0001`: per company, source and year of the company's time zone. Empty for a draft that waits for the company's answer. */
+            number: string;
+            /**
+             * @description A shortcut for lists; an order with nothing to pay is `paid`.
+             *
+             *     * `draft` - draft
+             *     * `awaiting_payment` - awaiting_payment
+             *     * `partially_paid` - partially_paid
+             *     * `paid` - paid
+             *     * `fulfilled` - fulfilled
+             *     * `completed` - completed
+             *     * `canceled` - canceled
+             *     * `refunded` - refunded
+             */
+            status: components["schemas"]["OrderStatusEnum"];
+            /**
+             * @description Where it came from: the company's own site or form, the catalogue, or somebody of the company who wrote it down (`office`).
+             *
+             *     * `company_site` - company_site
+             *     * `catalog` - catalog
+             *     * `office` - office
+             */
+            channel: components["schemas"]["OrderChannelEnum"];
+            /** @description The registered source that placed it. */
+            source: string;
+            /** Format: date-time */
+            placed_at: string | null;
+            /** @description The buyer as they were when the order was placed; the anonymised customer's placeholder once the customer is removed. */
+            buyer_name: string;
+            /** @description ISO 4217; the company's currency. */
+            currency: string;
+            /** @description What the lines in force come to, gross, in minor units. */
+            gross_minor: number;
+        };
+        /**
+         * @description * `23` - 23
+         *     * `8` - 8
+         *     * `5` - 5
+         *     * `0` - 0
+         *     * `zw` - zw
+         *     * `np` - np
+         * @enum {string}
+         */
+        OrderTaxRateEnum: "23" | "8" | "5" | "0" | "zw" | "np";
         OrganizationArchived: {
             status: components["schemas"]["OrganizationArchivedStatusEnum"];
         };
@@ -24129,6 +24437,131 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_options_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommerceOptions"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_orders_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `company_site` - company_site
+                 *     * `catalog` - catalog
+                 *     * `office` - office
+                 */
+                channel?: "company_site" | "catalog" | "office";
+                /** @description One customer's orders. */
+                customer_id?: string;
+                page?: number;
+                page_size?: number;
+                /** @description A part of an order's number, of the buyer's name or of their e-mail. */
+                q?: string;
+                /** @description A registered source, as `options` lists them, e.g. `booking`. */
+                source?: string;
+                /**
+                 * @description * `draft` - draft
+                 *     * `awaiting_payment` - awaiting_payment
+                 *     * `partially_paid` - partially_paid
+                 *     * `paid` - paid
+                 *     * `fulfilled` - fulfilled
+                 *     * `completed` - completed
+                 *     * `canceled` - canceled
+                 *     * `refunded` - refunded
+                 */
+                status?: "draft" | "awaiting_payment" | "partially_paid" | "paid" | "fulfilled" | "completed" | "canceled" | "refunded";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
             };
             403: {
                 headers: {

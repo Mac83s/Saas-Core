@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -665,6 +666,34 @@ def record_consent(
         source=source,
         source_reference=source_reference,
     )
+
+
+def consents_of(source: str, references: Sequence[str]) -> list[dict[str, Any]]:
+    """The journal's lines written for these records of a source, oldest
+    first: what was shown, in which language and when — for whoever reads the
+    record itself (an order shows what its buyer accepted). No person is in
+    them; the caller knows whose record it is and holds the tenant."""
+    context = require_tenant_context()
+    rows = (
+        ConsentRecord.all_objects.filter(
+            organization_id=context.organization_id,
+            source=source,
+            source_reference__in=list(references),
+        )
+        .select_related("document_text__version__document")
+        .order_by("created_at", "id")
+    )
+    return [
+        {
+            "kind": row.kind,
+            "document_kind": row.document_text.version.document.kind if row.document_text else None,
+            "version": row.document_text.version.number if row.document_text else None,
+            "locale": row.locale,
+            "granted": row.granted,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
 
 
 def public_document(public_id: str, locale: str | None) -> dict[str, Any] | None:

@@ -39,7 +39,7 @@ from saas_core.modules.shared.notifications.security import decrypt_secret, encr
 from saas_core.modules.shared.notifications.services import queue_email
 
 from . import materials as stock
-from . import notify
+from . import notify, orders
 from .availability import _zone, free_at, validate_start
 from .company_settings import (
     refuse_beyond_horizon,
@@ -859,6 +859,7 @@ def reschedule_appointment(
         appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest
         fields += ["quote", "quote_digest"]
     appointment.save(update_fields=[*fields, "self_service_expires_at", "updated_at"])
+    orders.repriced(appointment)
     try:
         for person in StaffMember.all_objects.filter(pk__in=kept):
             allocate(appointment, person)
@@ -1030,6 +1031,7 @@ def cancel_appointment(
             actor_kind=context.principal_kind,
         )
         stock.release(context.organization_id, appointment.id)
+        orders.canceled(appointment)
         customer = appointment.customer
         if customer.email:
             queue_email(
@@ -1552,6 +1554,8 @@ def record_new_booking(
     # First: a customer who has not accepted the documents in force books
     # nothing, and nothing below is written for them.
     record_consents(consents, customer=customer, reference=appointment.id, asked=asked_locale)
+    # A booking with a price is an order, where the company has orders (ADR-073 §3).
+    orders.place(appointment, customer)
     AppointmentStatusHistory.all_objects.create(
         organization=organization,
         appointment=appointment,

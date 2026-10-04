@@ -426,7 +426,7 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | **4c** | Rezerwacja zapisuje zgody: formularz publiczny pokazuje regulamin rezerwacji i politykę prywatności obowiązujące w języku klienta, rezerwacja dopisuje wpisy dziennika (`source` `booking.appointment`), zgoda marketingowa osobno | — | formularz publiczny |
 | **4d-1** | Polecenia asystenta dla dokumentów: `customers.documents.read@1` (odczyt) i `customers.document.draft.save@1` (zapis szkicu z identyfikatorem rozmowy), z evalami; panel mówi, że szkic napisał asystent | — | Ustawienia › „Dokumenty dla klientów” (szkic) |
 | **4d-2** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; akceptacja tłumaczenia przez osobę ze step-upem w centrum tłumaczeń | do rozstrzygnięcia (niżej) | Tłumaczenia |
-| **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał i token pochodzenia; `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0002, billing (wersje planów) | Zamówienia (lista, szczegół) |
+| **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał (token pochodzenia — niżej, „Rozstrzygnięcia plastra 4e”); `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0004 (wersje planów publikuje 0004) | Zamówienia (lista, szczegół) |
 | **4f** | Wpłaty ręczne i przelew z terminem (§4–§5): `Payment`, `LedgerEntry`, rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, oznaczenie wpłaty przez firmę, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | wpłata w zamówieniu, oferta |
 | **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
 | **4h** | Progi anulowania (przeniesione z 3d) i zwroty ręczne (§8): progi i `appliesTo` w ofercie i migawce, wyliczenie zwrotu przy rezygnacji gościa i odwołaniu przez firmę, zwrot ręczny w księdze, przypomnienia dopłaty i alert dla firmy (29a) | booking, commerce | oferta, zamówienie, link samoobsługi |
@@ -574,3 +574,65 @@ Rozstrzygnięcia plastra 4d (2026-10-04, decyzje techniczne z powodem):
      umieć o niego zapytać — tak jak okno zatwierdzenia wersji w 4b.
   Do tego czasu ręczna ścieżka z 4b jest kompletna: osoba dopisuje tekst w
   kolejnym języku tą samą bramką co wersję.
+
+Rozstrzygnięcia plastra 4e (2026-10-04, decyzje techniczne z powodem):
+
+- **Zamówienie powstaje dla rezerwacji z ceną.** Rezerwacja, której zamrożona
+  wycena ma pozycje, zakłada zamówienie w swojej transakcji
+  (`booking/orders.py`, wołane z `record_new_booking` zaraz po zgodach —
+  wspólnie dla wizyty i pobytu). Oferta bez cennika niczego nie sprzedaje za
+  kwotę, więc zostaje bez zamówienia, tak jak rezerwacje sprzed wdrożenia (§3).
+  Firma bez cechy `commerce.enabled` rezerwuje jak dotąd: `place_order` oddaje
+  wtedy nic, a pytanie o cechę jest w commerce, nie w źródle.
+- **Pozycja niesie kwoty wyceny, nie cenę jednostkową w dwóch postaciach** —
+  doprecyzowanie §3 (`unit_gross_minor`, `unit_net_minor`). Podatek jest
+  zaokrąglany na pozycji (ADR-072 §7), więc cena jednostkowa istnieje tylko po
+  tej stronie, po której firma ją wpisała; drugą commerce musiałoby wyliczyć, a
+  commerce cen nie liczy. `OrderLine` ma `unit_amount_minor` (czytane brutto
+  albo netto według `Order.amounts`) oraz `net_minor`, `vat_minor` i
+  `gross_minor` pozycji — liczby źródła. Suma pozycji obowiązujących to kwoty
+  zamówienia.
+- **Zmiana ceny to kolejna rewizja pozycji.** „Złożonych pozycji nie zmienia —
+  korekta to nowa pozycja” (§3): gdy źródło wyceni rzecz od nowa (przeniesienie
+  rezerwacji na droższy termin), `reprice_order` dopisuje pozycje z numerem
+  rewizji o jeden wyższym i przestawia `Order.revision`; wcześniejsze wiersze
+  zostają nietknięte, a baza odmawia ich zmiany i usunięcia (wyzwalacz, furtka
+  usunięcia tenanta). Te same pozycje jeszcze raz niczego nie zmieniają. Pary
+  pozycji odwracających nie ma: szczegół zamówienia pokazuje pozycje
+  obowiązujące i kwotę każdej wcześniejszej rewizji.
+- **Rejestr źródeł bez handlera do 4f.** `register_order_source(kind, prefix,
+  targets=…)`: prefiks numeru i nazywanie tego, czego dotyczą pozycje (wizyta
+  z terminem i dniem w kalendarzu — bez danych klienta). Handler z §1 przyjdzie
+  z pierwszym przejściem, które commerce zleca źródłu (opłacenie i wygaśnięcie
+  wpłaty przed potwierdzeniem, 4f); w 4e każdą zmianę zamówienia zleca źródło:
+  złożenie, nową wycenę, anulowanie. Kształt handlera zaprojektowany bez
+  wywołującego trzeba by poprawiać.
+- **Statusy ustawiane w 4e:** `awaiting_payment` po złożeniu (albo `paid`, gdy
+  nie ma nic do zapłaty) i `canceled` po odwołaniu rezerwacji. Pozostałe
+  wartości z §3 są w kontrakcie, a ustawią je plastry, które przyniosą księgę
+  (4f), „na prośbę” (4g: `draft`) i zwroty (4h).
+- **Kanał z tego, co serwer wie sam; token pochodzenia z fazą 5.** Zamówienie
+  zapisuje `company_site` dla rezerwacji z formularza publicznego i `office`
+  dla zapisanej przez zespół (wartość dodana do listy z §3: rezerwacja biura
+  nie przyszła żadnym kanałem sprzedaży). `catalog` jest w kontrakcie, ale
+  nikt go jeszcze nie ustawia: podpisany token pochodzenia i kanał na samej
+  rezerwacji (ADR-072 §11) powstaną razem z pierwszym odnośnikiem z katalogu
+  do formularza (systemowa strona jednostki, faza 5) — token bez wystawcy nie
+  ma czego potwierdzać, a do tego czasu żadna rezerwacja nie pochodzi z
+  katalogu, więc niczego nie tracimy.
+- **Migawka kupującego to nazwa, e-mail i telefon klienta z chwili złożenia.**
+  Dane do faktury (§3) dojdą z pierwszym formularzem, który o nie pyta. Kaucja
+  z wyceny nie jest pozycją i w 4e nie ma swojego pola — zostaje w wycenie
+  rezerwacji do płatności `security_deposit` (§4, §8).
+- **Uprawnienie `commerce.orders.read`** mają role systemowe `manager`, `admin`
+  i `owner`: zamówienie pokazuje kontakt kupującego i przychód firmy.
+  Polecenia asystenta dla zamówień przyjdą z pierwszą operacją, która coś
+  zmienia (oznaczenie wpłaty, 4f); 4e ma same odczyty.
+- **Szczegół zamówienia pokazuje zgody kupującego**: wpisy dziennika zgód
+  rekordów, których dotyczą pozycje (`customers.api.consents_of`) — rodzaj
+  dokumentu, wersja, język i czas, bez danych osoby. To pierwsze miejsce w
+  panelu, w którym firma widzi dziennik zgód.
+- **Licznik numerów** to wiersz na firmę, prefiks i rok (`OrderCounter`),
+  blokowany `select_for_update` do końca transakcji zamówienia: numer nadaje
+  się raz, a wycofane zamówienie nie zostawia dziury. Rok liczy się w strefie
+  firmy.

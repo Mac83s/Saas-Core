@@ -6574,3 +6574,64 @@ export async function addCustomerDocumentText(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+export type OrderSummary = components["schemas"]["OrderSummary"];
+export type OrderPage = components["schemas"]["OrderPage"];
+export type Order = components["schemas"]["Order"];
+export type OrderLine = components["schemas"]["OrderLine"];
+export type CommerceOptions = components["schemas"]["CommerceOptions"];
+
+/** What orders can hold and be filtered by: statuses, channels, the sources
+ *  that place orders in this product (ADR-073 §11). */
+export async function readCommerceOptions(): Promise<CommerceOptions> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/commerce/options/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The company's orders, newest first, a page at a time (ADR-073 §3). */
+export async function listOrders(
+  query: {
+    page?: number;
+    pageSize?: number;
+    status?: OrderSummary["status"] | "";
+    channel?: OrderSummary["channel"] | "";
+    q?: string;
+  } = {},
+): Promise<OrderPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/commerce/orders/",
+    {
+      params: {
+        query: {
+          page: query.page,
+          page_size: query.pageSize,
+          status: query.status || undefined,
+          channel: query.channel || undefined,
+          q: query.q || undefined,
+        },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** One order with its lines in force and what each revision came to. */
+export async function readOrder(orderId: string): Promise<Order> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/commerce/orders/{order_id}/",
+    {
+      params: { path: { order_id: orderId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

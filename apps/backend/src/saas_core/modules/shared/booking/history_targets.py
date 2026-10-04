@@ -26,7 +26,7 @@ def _zone(organization_id: UUID) -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
-def _appointments(organization_id: UUID, ids: Sequence[UUID]) -> dict[UUID, HistoryTarget]:
+def appointment_targets(organization_id: UUID, ids: Sequence[UUID]) -> dict[UUID, HistoryTarget]:
     zone = _zone(organization_id)
     return {
         visit.id: HistoryTarget(
@@ -56,6 +56,6 @@ def _services(organization_id: UUID, ids: Sequence[UUID]) -> dict[UUID, HistoryT
 
 
 def register_history_targets() -> None:
-    register_history_target("appointment", _appointments)
+    register_history_target("appointment", appointment_targets)
     register_history_target("staff", _staff)
     register_history_target("service", _services)

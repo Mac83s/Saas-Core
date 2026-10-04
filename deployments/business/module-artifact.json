@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:2dc6f1423497167879706b16d2535aafd05a9b2b12190a288a484c53ef10b149",
+  "profileHash": "sha256:a358f7b1435d39622bf7478eb5e37d09dd406c388718badcc371e860a25489df",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -36,6 +36,7 @@
         "shared.translation",
         "shared.assistant",
         "shared.customers",
+        "shared.commerce",
         "shared.booking",
         "shared.seo",
         "shared.inventory"
@@ -574,6 +575,51 @@
         "translationNamespaces": [
           "CustomerDocuments",
           "CustomerDocument"
+        ]
+      }
+    },
+    {
+      "id": "shared.commerce",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.customers"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.commerce",
+        "urlPrefix": "/api/v1/commerce",
+        "permissions": [
+          "commerce.orders.read"
+        ],
+        "roleGrants": {
+          "manager": [
+            "commerce.orders.read"
+          ],
+          "admin": [
+            "commerce.orders.read"
+          ],
+          "owner": [
+            "commerce.orders.read"
+          ]
+        },
+        "entitlements": [
+          "commerce.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/panel/orders"
+        ],
+        "navigation": [
+          "orders"
+        ],
+        "translationNamespaces": [
+          "Orders"
         ]
       }
     },

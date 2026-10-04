@@ -10,10 +10,12 @@ The company's documents for its customers (§9) are read and agreed to through
 two calls, both made inside the tenant the caller already holds — a public
 form's service context is enough: `current_document(kind, locale)` gives the
 text in force in exactly that language (or None — never another language),
-and `record_consent(...)` appends who saw which text row to the journal.
+and `record_consent(...)` appends who saw which text row to the journal;
+`consents_of(source, references)` reads the lines written for a source's
+records back, for the screen that shows the record.
 """
 
-from .documents import DocumentInForce, current_document, record_consent
+from .documents import DocumentInForce, consents_of, current_document, record_consent
 from .models import ConsentKind, Customer, DocumentKind
 from .services import (
     CustomerAnonymizer,
@@ -31,6 +33,7 @@ __all__ = [
     "CustomerAnonymizer",
     "DocumentInForce",
     "DocumentKind",
+    "consents_of",
     "current_document",
     "match_or_create",
     "record_consent",

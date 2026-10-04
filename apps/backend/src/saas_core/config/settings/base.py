@@ -989,6 +989,32 @@ SPECTACULAR_SETTINGS = {
         ],
         "AssistantConversationKindEnum": [("operate", "Operate"), ("setup", "Setup")],
         "StockLocationKindEnum": "saas_core.modules.shared.inventory.models.LocationKind",
+        # An order's status, channel, line kind and tax rate get their own names,
+        # and its channel must not rename the history's. As values: a product
+        # may leave commerce out.
+        "ChannelEnum": ["panel", "api_key", "system"],
+        "OrderTaxRateEnum": ["23", "8", "5", "0", "zw", "np"],
+        "OrderConsentKindEnum": ["document", "marketing", "field"],
+        "OrderStatusEnum": [
+            "draft",
+            "awaiting_payment",
+            "partially_paid",
+            "paid",
+            "fulfilled",
+            "completed",
+            "canceled",
+            "refunded",
+        ],
+        "OrderChannelEnum": ["company_site", "catalog", "office"],
+        "OrderLineKindEnum": [
+            "booking",
+            "product",
+            "extra",
+            "discount",
+            "voucher",
+            "delivery",
+            "fee",
+        ],
     },
 }
 

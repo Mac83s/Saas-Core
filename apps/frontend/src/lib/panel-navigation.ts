@@ -7,6 +7,7 @@ import {
   MessageSquareTextIcon,
   PackageIcon,
   PawPrintIcon,
+  ReceiptTextIcon,
   ServerCogIcon,
   SettingsIcon,
   SparklesIcon,
@@ -367,6 +368,16 @@ const WORK: PanelNavItem[] = [
     group: "work",
     module: "shared.farms",
     permission: "farms.read",
+  },
+  {
+    // What customers bought (ADR-073 §3): after the daily work, so a phone's
+    // bottom bar keeps the calendar. The plan is the page's PlanGate.
+    href: "/panel/orders",
+    icon: ReceiptTextIcon,
+    labelKey: "orders",
+    group: "work",
+    module: "shared.commerce",
+    permission: "commerce.orders.read",
   },
   {
     // Last on purpose: a phone's bottom bar is the first three entries

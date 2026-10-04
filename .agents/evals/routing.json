@@ -150,6 +150,10 @@
       "skill": "change-tenant-data",
       "note": "Klient końcowy firmy, dokumenty dla klientów i dziennik zgód (ADR-073 §2 i §9): tabele tenantowe z RLS, wersje i zgody tylko do dopisywania; kto szuka klienta przy rezerwacji albo czyści jego dane, czyta też develop-booking."
     },
+    "shared.commerce": {
+      "skill": "change-tenant-data",
+      "note": "Zamówienia klientów firm (ADR-073 §1, §3): tabele tenantowe z RLS, pozycje tylko do dopisywania, numer z licznika pod blokadą; kto zakłada zamówienie z rezerwacji, czyta też develop-booking."
+    },
     "shared.booking": {
       "skill": "develop-booking",
       "note": "Własna procedura: czas lokalny, DST i rozstrzyganie wyścigu przez ograniczenie bazy to reguły, których nie da się wyprowadzić z niczego innego."

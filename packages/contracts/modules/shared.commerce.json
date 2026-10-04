@@ -1,0 +1,25 @@
+{
+  "id": "shared.commerce",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "shared.billing", "shared.customers"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.commerce",
+    "urlPrefix": "/api/v1/commerce",
+    "permissions": ["commerce.orders.read"],
+    "roleGrants": {
+      "manager": ["commerce.orders.read"],
+      "admin": ["commerce.orders.read"],
+      "owner": ["commerce.orders.read"]
+    },
+    "entitlements": ["commerce.enabled"],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": ["/panel/orders"],
+    "navigation": ["orders"],
+    "translationNamespaces": ["Orders"]
+  }
+}
