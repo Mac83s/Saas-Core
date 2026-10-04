@@ -9,6 +9,7 @@ click."""
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -89,6 +90,8 @@ def test_accepting_is_agreed_to_with_what_the_customer_gets_and_answers_once() -
     assert risk == "irreversible"
     assert words.startswith(f"Przyjęcie prośby o rezerwację: „{appointment.service_name}”, ")
     assert words.endswith("Rezerwacja zostanie potwierdzona. Klient dostanie e-mail od razu.")
+    # A visit by the clock says its day once: „12 października 2026 10:00–10:30”.
+    assert re.search(r"”, \d{1,2} \w+ \d{4} \d{2}:\d{2}–\d{2}:\d{2}\. Rezerwacja", words), words
 
     result = run(person, accept(appointment))
 

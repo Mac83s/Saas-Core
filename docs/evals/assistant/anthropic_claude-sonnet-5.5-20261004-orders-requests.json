@@ -1,0 +1,253 @@
+{
+  "model": "anthropic/claude-sonnet-5.5",
+  "kind": "operate",
+  "prompt": "assistant.operate@3",
+  "registry": 76,
+  "tools_per_call": {
+    "min": 3,
+    "median": 5,
+    "max": 11
+  },
+  "widened": 0,
+  "scenarios": 12,
+  "passed": 12,
+  "skipped_for_budget": 0,
+  "cost_usd": 0.258,
+  "cost_per_message_usd": 0.0215,
+  "model_calls": 29,
+  "latency_ms_p50": 1626,
+  "latency_ms_p95": 2727,
+  "invalid_arguments": 0,
+  "rewritten": 0,
+  "errors": [],
+  "results": [
+    {
+      "key": "rename_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "organization.read@1",
+        "organization.update@1"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 35911,
+      "rewritten": 0,
+      "tools": [
+        9,
+        9,
+        9
+      ],
+      "widened": 0,
+      "answer": "Gotowe. Nazwa firmy to teraz „Studio Urody Anna\". Wcześniej była to „Studio Testowe\".",
+      "error": ""
+    },
+    {
+      "key": "read_services_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "booking.setup.read@1"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 9052,
+      "rewritten": 0,
+      "tools": [
+        3,
+        3
+      ],
+      "widened": 0,
+      "answer": "Masz w ofercie dwie usługi, obie są aktywne:\n- Strzyżenie damskie – 60 minut\n- Koloryzacja – 120 minut\n\nObie wykonuje się w miejscu „Salon przy Rynku”. Jedyną osobą w zespole jest Anna Nowak.",
+      "error": ""
+    },
+    {
+      "key": "out_of_scope_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [],
+      "steps": 1,
+      "cost_usd_micros": 21223,
+      "rewritten": 0,
+      "tools": [
+        11
+      ],
+      "widened": 0,
+      "answer": "Nie mogę usunąć pracownika ani jego konta. Dostępne mi narzędzia pozwalają tylko dodać osobę do zespołu i zmienić jej godziny pracy. Usunięcie Jana Kowalskiego trzeba zrobić w panelu, w ustawieniach zespołu.\n\nJeśli chcesz, mogę najpierw sprawdzić, jakie usługi i godziny pracy ma przypisane. Wtedy łatwiej będzie je przekazać komuś innemu przed usunięciem.",
+      "error": ""
+    },
+    {
+      "key": "orders_awaiting_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "commerce.orders.read@1",
+        "commerce.orders.read@1"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 14840,
+      "rewritten": 0,
+      "tools": [
+        3,
+        3
+      ],
+      "widened": 0,
+      "answer": "Dwa zamówienia czekają na wpłatę (w pełni lub częściowo):\n\n- R/2026/0008, Wigwam: wartość 450,00 zł, wpłacono 0,00 zł, zostało 450,00 zł. Czeka na pierwszą wpłatę.\n- R/2026/0007, Domek nad jeziorem: wartość 1 200,00 zł, wpłacono 360,00 zł, zostało 840,00 zł. Opłacone częściowo.\n\nŁącznie zostało do zapłaty 1 290,00 zł.",
+      "error": ""
+    },
+    {
+      "key": "mark_payment_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "commerce.order.read@1",
+        "commerce.payment.record@1"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 25172,
+      "rewritten": 0,
+      "tools": [
+        5,
+        5,
+        5
+      ],
+      "widened": 0,
+      "answer": "Gotowe. Wpłatę 300,00 zł gotówką zapisano w zamówieniu R/2026/0007 (Domek nad jeziorem).\n\nWcześniej wpłacono 360,00 zł, więc razem jest 660,00 zł z 1200,00 zł. Zostało do zapłaty 540,00 zł.",
+      "error": ""
+    },
+    {
+      "key": "mark_payment_rest_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "commerce.order.read@1",
+        "commerce.payment.record@1"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 33956,
+      "rewritten": 0,
+      "tools": [
+        5,
+        5,
+        5
+      ],
+      "widened": 0,
+      "answer": "Gotowe. Wpłatę 450,00 zł przelewem zapisano w zamówieniu R/2026/0008 (Wigwam) jako całość kwoty do zapłaty.",
+      "error": ""
+    },
+    {
+      "key": "mark_payment_no_amount_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "commerce.order.read@1"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 13795,
+      "rewritten": 0,
+      "tools": [
+        5,
+        5
+      ],
+      "widened": 0,
+      "answer": "Zamówienie R/2026/0007 (Domek nad jeziorem) ma 1200,00 zł do zapłaty. Wpłacono już 360,00 zł, zostało 840,00 zł.\n\nIle wpłaty mam oznaczyć i jak ją przyjęto: gotówką (albo kartą w kasie) czy przelewem?",
+      "error": ""
+    },
+    {
+      "key": "void_payment_en",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "commerce.order.read@1",
+        "commerce.payment.void@1"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 20647,
+      "rewritten": 0,
+      "tools": [
+        5,
+        5,
+        5
+      ],
+      "widened": 0,
+      "answer": "The cash payment on order R/2026/0007 is taken back. It was the deposit of 360,00 zł, marked on 2 October. The order now owes that amount again, so the full 1 200,00 zł is due.\n\nThis only corrects the record. No money went back to a customer. The booking stays confirmed. If you want to cancel it, do that in the calendar.",
+      "error": ""
+    },
+    {
+      "key": "accept_request_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "booking.requests.read@1",
+        "booking.request.accept@1"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 27331,
+      "rewritten": 0,
+      "tools": [
+        4,
+        4,
+        4
+      ],
+      "widened": 0,
+      "answer": "Gotowe, prośba została przyjęta. Dotyczyła Domku nad jeziorem (Domek 2) w terminie od 16.10.2026, godz. 16:00, do 19.10.2026, godz. 11:00. Klient dostał wiadomość.\n\nOferta wymaga zaliczki 270,00 zł z 900,00 zł. Jeśli klient jej jeszcze nie wpłacił, rezerwacja czeka na tę wpłatę i jest wstrzymana na ten czas. Nie mam tu dokładnego statusu rezerwacji, więc sprawdź go w panelu.",
+      "error": ""
+    },
+    {
+      "key": "decline_request_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "booking.requests.read@1",
+        "booking.request.decline@1"
+      ],
+      "steps": 3,
+      "cost_usd_micros": 6379,
+      "rewritten": 0,
+      "tools": [
+        4,
+        4,
+        4
+      ],
+      "widened": 0,
+      "answer": "Gotowe. Prośba o Domek nad jeziorem (Domek 2, 16–19 października 2026) została odrzucona. Klient dostał wiadomość z powodem: „w tym terminie mamy remont\".",
+      "error": ""
+    },
+    {
+      "key": "two_requests_en",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "booking.requests.read@1"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 17704,
+      "rewritten": 0,
+      "tools": [
+        4,
+        4
+      ],
+      "widened": 0,
+      "answer": "There are two requests waiting, so I need you to pick one:\n\n- Domek nad jeziorem (Domek 2), 16 Oct 16:00 – 19 Oct 11:00. Price 900.00 PLN, prepayment 270.00 PLN.\n- Wigwam (Wigwam 1), 23 Oct 16:00 – 25 Oct 11:00. Price 900.00 PLN, prepayment 270.00 PLN.\n\nWhich one should I accept? The customer is written to straight away, and you can't undo that.",
+      "error": ""
+    },
+    {
+      "key": "held_translations_pl",
+      "passed": true,
+      "failed": [],
+      "calls": [
+        "translation.status.read@1",
+        "translation.offer.read@1"
+      ],
+      "steps": 2,
+      "cost_usd_micros": 31952,
+      "rewritten": 0,
+      "tools": [
+        11,
+        11
+      ],
+      "widened": 0,
+      "answer": "Automatyczne tłumaczenie zatrzymało się na jednej stronie: „Cennik\". Zmiany na niej wykryto 3 października, ale miesięczny limit kredytów na automatyczne tłumaczenie jest już wykorzystany. System sprawdzi tę stronę ponownie 1 listopada 2026. Wtedy limit się odnowi i tłumaczenie powinno ruszyć samo.\n\nNie widzę innych wstrzymanych stron ani żadnych niedawnych zleceń tłumaczenia.\n\nJeśli nie chcesz czekać, mogę wycenić ręczne tłumaczenie tej strony i pokazać koszt w kredytach. Możesz też podnieść miesięczny limit automatyki. Wymaga to Twojego potwierdzenia i drugiego składnika (kodu z aplikacji uwierzytelniającej). Co wybierasz?",
+      "error": ""
+    }
+  ],
+  "at": "2026-10-04T07:10:03.875948+00:00"
+}

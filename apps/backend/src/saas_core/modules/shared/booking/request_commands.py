@@ -136,9 +136,13 @@ def _named(appointment: Appointment, at: int) -> str:
     name = f"„{appointment.service_name}”" if at == 0 else f"“{appointment.service_name}”"
     if appointment.resource is not None:
         name += f" ({appointment.resource.name})"
+    zone = ZoneInfo(appointment.timezone)
     starts = local_time(appointment.starts_at, appointment.timezone, locale)
-    ends = local_time(appointment.ends_at, appointment.timezone, locale)
-    return f"{name}, {starts} – {ends}"
+    first, last = appointment.starts_at.astimezone(zone), appointment.ends_at.astimezone(zone)
+    if first.date() == last.date():
+        # A visit by the clock: its day once, then until when.
+        return f"{name}, {starts}–{last:%H:%M}"
+    return f"{name}, {starts} – {local_time(appointment.ends_at, appointment.timezone, locale)}"
 
 
 def _reaches(appointment: Appointment) -> bool:

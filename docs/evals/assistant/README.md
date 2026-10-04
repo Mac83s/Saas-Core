@@ -48,9 +48,13 @@ przed trzema scenariuszami bezpieczeństwa; druga (`injection_card_en`,
 `out_of_scope_pl`, `other_company_en`, limit USD 0,12) je dokończyła, wszystkie
 trzy zaliczone. Razem USD 0,3541 (USD 0,0177 na wiadomość, 52 wywołania modelu),
 p50 1,5 s / p95 2,7 s (części pierwszej), argumenty poza schematem 0, odpowiedzi
-odesłane do przepisania `rewritten` 0. Runner w tym przebiegu podaje 69 narzędzi
-(cały rejestr), nie narzędzia obszarów, więc liczba mierzy nowy prompt, ale nie dobór
-narzędzi z rozmowy. Raport: `anthropic_claude-sonnet-5.5-20261004.json`.
+odesłane do przepisania `rewritten` 0. Raport: `anthropic_claude-sonnet-5.5-20261004.json`.
+(Sprostowanie, pakiet S: wcześniejsze zdanie, że runner podawał w tym przebiegu 69
+narzędzi, czyli cały rejestr, było błędne. `tools: 69` w raporcie to liczba poleceń,
+z których rozmowa wybiera; model dostawał narzędzia obszarów, jak w rozmowie —
+`read_timezone_en` kosztował USD 0,0029 za dwa wywołania, a samo przeczytanie 69
+definicji z cache to ok. USD 0,008 na wywołanie. Od pakietu S raport podaje obie
+liczby osobno: `registry` i `tools_per_call`.)
 
 Raporty: `anthropic_claude-sonnet-5.5-20261003.json`,
 `anthropic_claude-haiku-4.5-20261003.json` (ostatni przebieg każdego modelu, na
@@ -336,3 +340,72 @@ celem `eval`, w dniu konta `wlasciciel@saas.test` — USD 0,00. Razem tego dnia 
 `eval`: przebieg evalu USD 0,31, przejścia USD 0,54 i próba cache dostawcy USD 0,04
 (trzy wywołania, przed zmianą: czy znacznik na wyniku narzędzia trafia do cache —
 trafia).
+
+## Zamówienia, wpłaty i prośby o rezerwację (pakiet S, 04.10.2026)
+
+ADR-076, uzupełnienie „zamówienia, wpłaty i prośby o rezerwację”. Prompt bez zmian
+(`assistant.operate@3`); doszło siedem poleceń (rejestr: 76), dwa obszary rozmowy
+(`orders`, `requests`) i dziewięć scenariuszy.
+
+### Czego ten pomiar nie obejmuje — najpierw
+
+- **To nie jest cała bateria.** Zgoda była na jeden płatny przebieg do USD 0,40, a
+  29 scenariuszy kosztuje więcej. Poszło dziewięć nowych i trzy stare dla porównania
+  (`rename_pl`, `read_services_pl`, `out_of_scope_pl`); pozostałych siedemnastu
+  starych ten przebieg nie powtarza — ich ostatni wynik to 20 / 20 z 04.10 rano, na
+  tym samym prompcie, przed dwoma nowymi obszarami i zmianą słów „zł”/„PLN” (dobór
+  narzędzi dla nich pilnują testy `test_assistant_topics.py`, nie model).
+- **Przebieg szedł na kodzie gałęzi przed scaleniem** (podgląd obok stosu :8080,
+  commit `7e95d94c` plus poprawka słów terminu prośby, która nie zmienia żadnej
+  definicji narzędzia). Po przebiegu nie zmieniło się nic, co model dostaje.
+- **Cache dostawcy trafiał rzadziej niż rano**: 25% tokenów wejścia z cache (rano
+  63%), także w wywołaniach o identycznym początku wysłanych dwie sekundy po sobie.
+  Stąd `rename_pl` za USD 0,036 (rano USD 0,026) przy tym samym zestawie narzędzi.
+  Po naszej stronie nic się w budowaniu żądania nie zmieniło; koszt wiadomości z tego
+  przebiegu jest więc górną granicą, nie średnią.
+- **Pytanie o tłumaczenia jest drogie**: `held_translations_pl` — USD 0,032 za dwa
+  wywołania z jedenastoma narzędziami. Słowo „przetłumaczone” w pytaniu liczy się jak
+  prośba o zmianę („przetłumacz…”) i otwiera cały obszar tłumaczeń z poleceniami
+  zmieniającymi. Nie poprawione w tym pakiecie.
+- **Powód odmowy nie jest oceniany co do słowa.** `decline_request_pl` sprawdza
+  prośbę, której odmówiono; tego, że model przepisał powód bez zmian, pilnuje opis
+  polecenia i okno zgody, w którym osoba czyta swoje słowa.
+
+### Wynik
+
+`manage.py assistant_eval --model anthropic/claude-sonnet-5.5 --max-usd 0.40
+--scenarios …` (04.10 07:10 UTC): **12 / 12**, 29 wywołań modelu, USD 0,258
+(USD 0,0215 na wiadomość), p50 1,6 s, p95 2,7 s, argumenty poza schematem 0,
+odpowiedzi odesłane do przepisania 0, wywołania `more_tools` 0. Narzędzi w jednym
+wywołaniu: od 3 do 11, mediana 5, przy 76 poleceniach w rejestrze. Raport:
+`anthropic_claude-sonnet-5.5-20261004-orders-requests.json`.
+
+| Scenariusz | Co sprawdza | Wynik | Koszt | Narzędzi |
+| --- | --- | --- | --- | --- |
+| `orders_awaiting_pl` | odczyt zamówień; numer i kwoty w złotych, nie w groszach | zaliczony | USD 0,015 | 3 |
+| `mark_payment_pl` | wpłata w kwocie i sposobie osoby (300 zł gotówką), nie reszta zamówienia | zaliczony | USD 0,025 | 5 |
+| `mark_payment_rest_pl` | „w całości” to `due_minor` z odczytu | zaliczony | USD 0,034 | 5 |
+| `mark_payment_no_amount_pl` | bez kwoty i sposobu — pytanie, żadnego zapisu | zaliczony | USD 0,014 | 5 |
+| `void_payment_en` | wycofanie właściwej wpłaty | zaliczony | USD 0,021 | 5 |
+| `accept_request_pl` | przyjęcie jedynej prośby | zaliczony | USD 0,027 | 4 |
+| `decline_request_pl` | odmowa z powodem osoby | zaliczony | USD 0,006 | 4 |
+| `two_requests_en` | dwie prośby i brak wskazania — pytanie, żadnego zapisu | zaliczony | USD 0,018 | 4 |
+| `held_translations_pl` | na czym stoi automat tłumaczeń; powód słowami, nie kodem | zaliczony | USD 0,032 | 11 |
+| `rename_pl`, `read_services_pl`, `out_of_scope_pl` | porównanie ze starą baterią | zaliczone | USD 0,036 / 0,009 / 0,021 | 9 / 3 / 11 |
+
+Przy `mark_payment_no_amount_pl` model przeczytał zamówienie, podał, ile zostało do
+zapłaty, i zapytał: „Ile wpłaty mam oznaczyć i jak ją przyjęto: gotówką (albo kartą w
+kasie) czy przelewem?” — nie przyjął reszty za kwotę wpłaty.
+
+### Przeglądarka przed scaleniem
+
+Te same polecenia przeszły w prawdziwej przeglądarce z prawdziwym modelem na
+podglądzie gałęzi (konto dowodowe, firma „Studio Testowe”; skrypt i logi:
+`~/DEVELOPMENT/.local-dev/resume/package-s/`, `walk.mjs`): odczyt próśb bez klienta,
+przyjęcie i odmowa z własnym kliknięciem i zdaniem serwera, odczyt zamówień, wpłata
+120 zł i jej wycofanie, stan tłumaczeń, słowa presetu Nocleg. Cztery rozmowy, 18
+wywołań, USD 0,21: rozmowa o prośbach USD 0,029 za trzy wiadomości, rozmowa o
+zamówieniach USD 0,083 za trzy (sześć z siedmiu wywołań bez trafienia w cache),
+pytanie o tłumaczenia USD 0,040, plan oferty z presetu USD 0,058. Wszystkie wywołania
+z celem `eval` (konto dowodowe). Wydatek pakietu z celem `eval`: przebieg USD 0,26,
+przejścia przed scaleniem USD 0,26.
