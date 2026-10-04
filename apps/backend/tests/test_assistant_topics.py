@@ -32,9 +32,10 @@ def size(tools: list[str]) -> int:
 def test_a_question_brings_the_tools_that_read_its_area_and_nothing_else() -> None:
     offered = names(said("Ile kosztuje noc w Wigwamach?"))
 
-    assert offered == ["more_tools", "booking_prices_read_v1", "pricing_settings_entry_read_v1"]
-    # A fortieth of the registry's definitions, not all of them.
-    assert size(offered) * 40 < size([tool["name"] for tool in ALL])
+    # The list itself says whether amounts are net or gross: the setting is not read for it.
+    assert offered == ["more_tools", "booking_prices_read_v1"]
+    # A sixtieth of the registry's definitions, not all of them.
+    assert size(offered) * 60 < size([tool["name"] for tool in ALL])
     # What a booking would cost is a question of its own.
     assert names(said("Policz, ile zapłaci klient za trzy noce"))[1:] == ["booking_quote_read_v1"]
 
@@ -42,9 +43,9 @@ def test_a_question_brings_the_tools_that_read_its_area_and_nothing_else() -> No
 def test_asking_for_a_change_brings_the_tools_that_change() -> None:
     offered = names(said("Zmień cenę Wigwamów na 300 zł"))
 
-    assert offered[:3] == names(said("Ile kosztuje noc w Wigwamach?"))
+    assert offered[:2] == names(said("Ile kosztuje noc w Wigwamach?"))
     assert "booking_price_save_v1" in offered and "booking_extra_save_v1" in offered
-    assert {name.split("_")[0] for name in offered[1:]} == {"booking", "pricing"}
+    assert {name.split("_")[0] for name in offered[1:]} == {"booking"}
     # „oferty” is too common a word to open the services' area beside the price list…
     assert offered == names(said("Zmień cenę podstawową oferty Wigwamy na 300 zł za noc"))
     assert "booking_offer_update_v1" not in offered
@@ -57,6 +58,23 @@ def test_asking_for_a_change_brings_the_tools_that_change() -> None:
     # model was shown before keep their place, so a provider's cache holds.
     later = names(said("Ile kosztuje noc w Wigwamach?"), said("Podnieś ją o 20"))
     assert later == offered
+
+
+def test_a_polish_ending_that_changes_the_stem_still_names_the_area() -> None:
+    def opens(text: str) -> set[str]:
+        return {name.split("_")[0] for name in names(said(text))[1:]}
+
+    assert "organization" in opens("W jakiej walucie prowadzę cennik?")
+    assert opens("Co jest na wizytówce?") == {"profiles"}
+    assert opens("Co jest w regulaminie i w polityce prywatności?") == {"customers"}
+    assert opens("Pokaż, co jest w dokumencie dla klientów") == {"customers"}
+    assert "booking" in opens("Ile jest po rabacie i po zniżce?")
+    assert opens("W jakie dni jest przyjazd, a po przyjeździe?") == {"booking"}
+    assert "booking_seasons_read_v1" in names(said("Co ustawiono przy wyjeździe?"))
+    # „w ofercie”, „o usłudze”: common words, in any case, and only while nothing is open.
+    assert "booking_setup_read_v1" in names(said("Co mam w ofercie?"))
+    assert "booking_setup_read_v1" in names(said("Opowiedz o usłudze strzyżenie"))
+    assert "booking_setup_read_v1" not in names(said("Ile kosztuje noc?"), said("A w ofercie?"))
 
 
 def test_the_model_widens_on_demand_and_what_it_called_stays() -> None:

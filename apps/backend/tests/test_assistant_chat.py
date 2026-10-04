@@ -765,7 +765,7 @@ def test_a_conversation_gets_the_tools_of_what_it_is_about(
 
     first, second = (call.request for call in FAKE.calls)
     assert [spec.name for spec in first.tools] == ["more_tools", "organization_peek_v1"]
-    assert "- company: the company's own data" in first.tools[0].description
+    assert "- company: the company's name" in first.tools[0].description
     assert [spec.name for spec in second.tools] == [
         "more_tools",
         "organization_peek_v1",

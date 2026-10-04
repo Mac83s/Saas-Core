@@ -48,12 +48,14 @@ TITLE = {"pl": "Sięgnij po kolejny obszar panelu", "en": "Reach for another are
 @dataclass(frozen=True, slots=True)
 class Topic:
     key: str
-    #: English, for the model: what a person does in this area.
+    #: English, for the model: what a person does in this area. Short — every
+    #: call of the model carries all of them.
     about: str
     #: Patterns over command names (`booking.price.save`), without versions.
     commands: tuple[str, ...]
     #: Beginnings of the words — folded, in Polish and English — with which a
-    #: person names the area.
+    #: person names the area; where a Polish ending changes the stem („waluta”,
+    #: „w walucie”), both.
     words: tuple[str, ...]
     #: Words too common to open an area in the middle of a conversation
     #: („usługa”, „firma”, „strona”): they count only while no area is open.
@@ -63,12 +65,13 @@ class Topic:
 TOPICS: tuple[Topic, ...] = (
     Topic(
         key="company",
-        about="the company's own data and settings: its name, time zone, currency and "
-        "languages, the languages of its public pages, sign-in security, mail to customers",
+        about="the company's name, time zone, currency and languages, sign-in security, "
+        "mail to customers",
         commands=("organization.*", "notifications.*"),
         words=(
             "stref",
             "walut",
+            "waluc",
             "jezyk",
             "bezpieczen",
             "logowan",
@@ -86,8 +89,8 @@ TOPICS: tuple[Topic, ...] = (
     ),
     Topic(
         key="offers",
-        about="services and the schedule: the services (offers) and their kinds, drafts, the "
-        "people and their working hours, the places, the units of a stay or a rental",
+        about="services (offers) and their kinds, drafts, people and working hours, places, "
+        "units of a stay or a rental",
         commands=(
             "booking.setup.*",
             "booking.offer.*",
@@ -106,6 +109,7 @@ TOPICS: tuple[Topic, ...] = (
             "wizyta",
             "wizyty",
             "wizyte",
+            "wizycie",
             "schedule",
             "hours",
             "staff",
@@ -114,29 +118,30 @@ TOPICS: tuple[Topic, ...] = (
             "unit",
             "draft",
         ),
-        weak=("uslug", "ofert", "miejsc", "service", "offer", "place"),
+        weak=("uslug", "usludz", "ofert", "oferc", "miejsc", "service", "offer", "place"),
     ),
     Topic(
         key="prices",
-        about="the price list: prices and seasons' prices, extras and deposits, participant "
-        "categories, whether amounts are entered net or gross",
+        about="the price list: prices, season prices, extras, deposits, participant categories",
         commands=(
             "booking.price.*",
             "booking.prices.*",
             "booking.extra.*",
             "booking.participant_category.*",
-            "pricing.*",
         ),
         words=(
             "cen",
             "koszt",
             "doplat",
+            "doplac",
             "kaucj",
             "vat",
             "netto",
             "brutto",
             "rabat",
+            "rabac",
             "znizk",
+            "znizc",
             "zl",
             "pln",
             "price",
@@ -150,27 +155,38 @@ TOPICS: tuple[Topic, ...] = (
     ),
     Topic(
         key="quote",
-        about="what one booking would cost: a quote for given dates, people and extras, "
-        "worked out from the price list",
+        about="what one booking would cost, for given dates, people and extras",
         commands=("booking.quote.*",),
         words=("wycen", "wylicz", "policz", "zaplac", "quote", "estimate"),
     ),
     Topic(
         key="seasons",
-        about="seasons of stays and rentals and their booking rules: dates, the shortest and "
-        "longest stay, arrival and departure days, closed dates",
+        about="seasons of stays and rentals: dates, shortest and longest stay, arrival and "
+        "departure days, closed dates",
         commands=("booking.season.*", "booking.seasons.*"),
-        words=("sezon", "przyjazd", "wyjazd", "season", "arrival", "departure"),
+        words=(
+            "sezon",
+            "przyjazd",
+            "przyjezd",
+            "wyjazd",
+            "wyjezd",
+            "season",
+            "arrival",
+            "departure",
+        ),
     ),
     Topic(
         key="booking_settings",
-        about="how bookings work for the whole company: online booking, reminders and "
-        "notices, customers' self-service links, how long bookings are kept",
-        commands=("booking.settings_*",),
+        about="booking settings of the whole company: online booking, reminders, notices, "
+        "self-service links, how long bookings are kept, prices entered net or gross",
+        # Net or gross is said by the price list itself (`amounts`); the setting
+        # that changes it is asked for seldom.
+        commands=("booking.settings_*", "pricing.*"),
         words=(
             "przypomn",
             "powiadom",
             "samoobslug",
+            "samoobsludz",
             "odwol",
             "reminder",
             "notice",
@@ -180,14 +196,14 @@ TOPICS: tuple[Topic, ...] = (
     ),
     Topic(
         key="card",
-        about="the company's public business card and its entry in the company directory",
+        about="the public business card and the entry in the company directory",
         commands=("profiles.*",),
-        words=("wizytowk", "katalog", "card", "directory"),
+        words=("wizytowk", "wizytowc", "katalog", "card", "directory"),
     ),
     Topic(
         key="website",
-        about="the company's website: pages from templates, a page's text in a language, "
-        "how a page looks in search results, inquiries from the site",
+        about="the website: pages from templates, texts per language, the search preview, "
+        "inquiries from the site",
         commands=("sites.*",),
         words=(
             "witryn",
@@ -205,20 +221,28 @@ TOPICS: tuple[Topic, ...] = (
     ),
     Topic(
         key="translation",
-        about="AI translation of the website: quotes and orders, the review of translations, "
-        "the glossary, the translation settings",
+        about="AI translation of the website: quotes, orders, review, glossary, settings",
         commands=("translation.*",),
         words=("tlumacz", "przetlumacz", "glosariusz", "slownik", "translat", "glossary"),
     ),
     Topic(
         key="documents",
-        about="the documents customers accept: terms and the privacy policy",
+        about="documents customers accept: terms, privacy policy",
         commands=("customers.*",),
-        words=("regulamin", "polityk", "dokument", "terms", "privacy", "document"),
+        words=(
+            "regulamin",
+            "polityk",
+            "polityc",
+            "dokument",
+            "dokumenc",
+            "terms",
+            "privacy",
+            "document",
+        ),
     ),
     Topic(
         key="inventory",
-        about="the warehouse settings: low-stock alerts, lots, materials",
+        about="warehouse settings: low-stock alerts, lots, materials",
         commands=("inventory.*",),
         words=("magazyn", "material", "zapas", "parti", "stock", "inventor", "warehouse"),
     ),
@@ -425,11 +449,10 @@ def _more_tools(areas: Mapping[str, _Area]) -> dict[str, Any]:
         "name": MORE_TOOLS,
         "description": (
             "Gives you tools you do not have yet. Use a tool you already have whenever one "
-            "fits; call this only when none does — to get the tools of another area "
-            "(`topics`), or the tools that change things in an area whose tools so far only "
-            "read (`change`: true; every change still waits for the person's click). The new "
-            "tools come with your next step. It changes nothing in the company's account. "
-            "The areas:\n" + listing
+            "fits; call this only when none does — for the tools of another area (`topics`), "
+            "or for the tools that change things where yours only read (`change`: true; a "
+            "change still waits for the person's click). The new tools come with your next "
+            "step; nothing in the company's account changes. Areas:\n" + listing
         ),
         "input_schema": {
             "type": "object",
