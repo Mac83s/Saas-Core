@@ -150,7 +150,7 @@ not in PostgreSQL.
   ADR-072 §6–§9; money lives in the order (ADR-073).** Never add an amount to
   `Service` or `Appointment` beyond the frozen quote: a price is a `PriceRule`,
   a charge or a deposit an `Extra`. What an offer carries is policy — how the
-  customer pays (`payment_policy`), later the terms of a prepayment — declared
+  customer pays (`payment_policy`), the prepayment's terms (see develop-commerce-payments) — declared
   in `offer_settings.py` and frozen into each booking's quote. Refund thresholds cover only the deposit unless the offer's
   switch says otherwise (`appliesTo`, owner decision 28a) — a setting the API
   reads and writes, not a column only the panel knows; an unpaid balance

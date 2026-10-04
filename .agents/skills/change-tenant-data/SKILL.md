@@ -90,6 +90,13 @@ compare indices, the way `apps/backend/tests/test_sites_grant_commands.py` does.
   returns *zero* under RLS instead of failing. Sweeps iterate organizations one
   at a time via `billing_organization_ids()` and `billing_tenant_scope()`. Index
   them by `Organization`, never by a table that only some organizations have.
+- **Work with nobody behind it.** A job the organization owes on its own
+  account — a reminder, a payment's deadline, a notice from a sweep — is
+  signed with `issue_service_task_contract` under a role its module declared
+  from `AppConfig.ready` (`register_service_scope`, ADR-073 §5). A role
+  nobody declared, or a contract carrying more than the role allows, is
+  refused when the task runs — long after the code that signed it passed its
+  tests.
 - **Objects fetched through the door.** They carry `_state.db = "pre_tenant"`,
   so saving one writes through the door. Read the identifier through the door,
   then work on the ordinary connection under the tenant.
