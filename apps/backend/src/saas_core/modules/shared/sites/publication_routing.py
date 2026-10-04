@@ -146,9 +146,22 @@ def site_host_company(host: str) -> Any | None:
     except InvalidHostname:
         return None
     served = _served_domain(hostname)
-    if served is None or served[0].site.current_publication_id is None:
+    if served is None:
         return None
-    return served[0].organization_id
+    domain = served[0]
+    # Published: the site's pages, or — entries publish on their own
+    # (ADR-035 §1) — an article that is out, which is a page with blocks too.
+    if (
+        domain.site.current_publication_id is None
+        and not ContentEntry.all_objects.filter(
+            organization_id=domain.organization_id,
+            site_id=domain.site_id,
+            state=ContentEntryState.PUBLISHED,
+            current_publication__isnull=False,
+        ).exists()
+    ):
+        return None
+    return domain.organization_id
 
 
 def resolve_public_page(*, host: str, path: str) -> PublicPage:

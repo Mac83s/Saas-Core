@@ -25,6 +25,10 @@ from saas_core.modules.shared.booking.site_blocks import SITE_BLOCK_TYPES, site_
 from saas_core.modules.shared.sites.localization import first_segment_reserved
 from saas_core.modules.shared.sites.measurement import COUNT_VIEW_HEADER
 from saas_core.modules.shared.sites.models import (
+    ContentCollection,
+    ContentEntry,
+    ContentEntryPublication,
+    ContentEntryState,
     Domain,
     DomainKind,
     DomainStatus,
@@ -366,6 +370,39 @@ def own_domain(host: str, name: str, *, status: str = DomainStatus.VERIFIED) -> 
     return name
 
 
+def published_article(owner: Membership, site_id: Any) -> Any:
+    """An article of the site's blog that is out; its id."""
+    shared = {
+        "organization": owner.organization,
+        "site_id": site_id,
+        "created_by": owner.user,
+        "request_hash": "0" * 64,
+    }
+    blog = ContentCollection.all_objects.create(
+        key="blog", name="Blog", base_path="blog", idempotency_key="blog", **shared
+    )
+    entry = ContentEntry.all_objects.create(
+        collection=blog,
+        slug="wolne-terminy",
+        locale="pl",
+        title="Wolne terminy",
+        state=ContentEntryState.PUBLISHED,
+        idempotency_key="entry",
+        **shared,
+    )
+    out = ContentEntryPublication.all_objects.create(
+        organization=owner.organization,
+        entry=entry,
+        sequence=1,
+        snapshot={},
+        snapshot_hash="",
+        created_by=owner.user,
+        idempotency_key="out",
+    )
+    ContentEntry.all_objects.filter(pk=entry.pk).update(current_publication=out)
+    return entry.pk
+
+
 def test_the_forms_reads_answer_at_the_hosts_of_the_companys_published_site() -> None:
     configured = form("bloki-host", priced=False)
     subdomain = published(configured["owner"], [block("stay_calendar")])
@@ -431,6 +468,12 @@ def test_no_other_host_reads_a_companys_form() -> None:
     site = Domain.all_objects.get(hostname=host).site_id
     publication = Site.all_objects.get(pk=site).current_publication_id
     Site.all_objects.filter(pk=site).update(current_publication=None)
+    assert read(configured["url"], host) == 400
+    # … unless an article is out: entries publish on their own and an
+    # article is a page with blocks, a calendar of free days among them.
+    article = published_article(configured["owner"], site)
+    assert read(configured["url"], host) == 200
+    ContentEntry.all_objects.filter(pk=article).update(state=ContentEntryState.WITHDRAWN)
     assert read(configured["url"], host) == 400
     Site.all_objects.filter(pk=site).update(current_publication=publication)
     assert read(configured["url"], host) == 200

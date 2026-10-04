@@ -1038,8 +1038,10 @@ bramka przepuszcza teraz dokładnie tyle.
   `_served_domain`): wiersz `Domain` o tym hoście ze statusem `verified` —
   domena własna klienta po weryfikacji DNS albo subdomena platformy strony —
   firma w stanie, w którym platforma ją obsługuje (`onboarding`, `active`),
-  i strona z bieżącą publikacją. Domena `pending` albo `failed` to tylko
-  roszczenie; strona bez publikacji nie ma podstrony, która by pytała.
+  i strona, która coś opublikowała: bieżącą publikację albo — bo wpisy
+  publikują się same (ADR-035 §1), a artykuł też składa się z bloków —
+  opublikowany wpis. Domena `pending` albo `failed` to tylko roszczenie;
+  strona bez żadnej publikacji nie ma podstrony, która by pytała.
 - **Host i adres muszą nazywać tę samą firmę.** Slug formularza w adresie
   wskazuje firmę (`booking.site_blocks.form_company`, aktywna trasa
   formularza); strona firmy B pytająca o formularz firmy A to dla bramki

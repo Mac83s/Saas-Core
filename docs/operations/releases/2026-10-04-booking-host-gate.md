@@ -13,7 +13,8 @@ kontraktu API.
   `ALLOWED_HOSTS` tylko pod hostem, pod którym serwuje opublikowaną stronę
   **tej samej firmy**, której formularz nazywa adres: zweryfikowana domena
   własna albo subdomena platformy strony, firma obsługiwana, strona z
-  publikacją.
+  publikacją albo z opublikowanym wpisem bloga (wpisy publikują się same i
+  też mogą nieść blok kalendarza).
 - Każdy inny host dostaje 400 „Host nie należy do konfiguracji aplikacji” —
   także strona innej firmy pytająca o cudzy formularz.
 - Formularz na hoście platformy i bloki na stronie firmy działają bez zmian.
