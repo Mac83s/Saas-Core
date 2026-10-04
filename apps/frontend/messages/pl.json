@@ -5355,6 +5355,7 @@
         "siteTexts": "Nagłówek i stopka strony",
         "profile": "Wizytówka",
         "catalog": "Usługi i rezerwacje",
+        "document": "Dokument dla klientów",
         "other": "Treść"
       },
       "reasons": {
@@ -5388,6 +5389,8 @@
       "kept": "Tłumaczenie zostaje na stronie.",
       "changed": "Ta pozycja zmieniła się albo ktoś już o niej zdecydował — poniżej aktualna lista.",
       "forbidden": "Tę decyzję podejmuje osoba z prawem publikacji.",
+      "stepUp": "Tłumaczenie dokumentu dla klientów akceptujesz kodem z aplikacji uwierzytelniającej.",
+      "needsTwoFactor": "Akceptacja tłumaczenia dokumentu dla klientów wymaga weryfikacji dwuetapowej. Włącz ją w „Twoje konto”, a potem wróć tutaj — tłumaczenie dalej czeka.",
       "failed": "Nie udało się zapisać decyzji. Spróbuj ponownie.",
       "loadFailed": "Nie udało się wczytać tłumaczeń do akceptacji.",
       "noAccess": "Nie masz uprawnień do tłumaczeń tej firmy.",
@@ -6187,6 +6190,10 @@
     "textDescription": "Tekst trafi do klientów od razu. Wcześniejszy tekst zostaje w historii: kto go zaakceptował, zaakceptował właśnie jego.",
     "textConfirm": "Zapisz tekst",
     "textAdded": "Tekst zapisany: {language}.",
+    "translateHelp": "Brakujące języki może przetłumaczyć AI. Tłumaczenie dokumentu nigdy nie trafia do klientów samo: czeka na Twoją akceptację kodem z aplikacji uwierzytelniającej.",
+    "translationOrdered": "Zlecono tłumaczenie. Gdy będzie gotowe, poczeka w „Tłumaczenia → Do akceptacji” — tekst dokumentu dopisze dopiero Twoja akceptacja.",
+    "translationWaits": "Tłumaczenie AI ({language}) czeka na Twoją akceptację.",
+    "translationReview": "Tłumaczenia → Do akceptacji",
     "versionsTitle": "Wersje"
   },
   "CustomerDocument": {

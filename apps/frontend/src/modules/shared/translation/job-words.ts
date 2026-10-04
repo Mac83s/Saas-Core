@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 import type { TranslationJob } from "@saas-core/api-client";
 
 /** What the panel reads off a translation job (TL16d): whether it still
@@ -73,7 +75,19 @@ export const SOURCE_KINDS: Record<string, string> = {
   "sites.site_texts": "siteTexts",
   "profiles.public_profile": "profile",
   "booking.catalog": "catalog",
+  "customers.document": "document",
 };
+
+/** What a translated object is called: the label its source lists it under —
+ *  except a document for customers, which has no name of its own and is
+ *  called by its kind (the source's scope) in the panel's language. */
+export function useObjectName() {
+  const documents = useTranslations("CustomerDocuments");
+  return (of: { source_key: string; scope: string; label: string }) =>
+    of.source_key === "customers.document" && documents.has(`kinds.${of.scope}`)
+      ? documents(`kinds.${of.scope}`)
+      : of.label;
+}
 
 /** Where a translated object's text can be read and changed by hand. */
 export function translationPlace(of: {
@@ -93,6 +107,11 @@ export function translationPlace(of: {
       return "/panel/profile";
     case "booking.catalog":
       return "/panel/settings/services";
+    case "customers.document":
+      // The source's scope is the document's kind — its place in the panel.
+      return of.scope
+        ? `/panel/settings/documents/${of.scope}`
+        : "/panel/settings/documents";
     default:
       return undefined;
   }

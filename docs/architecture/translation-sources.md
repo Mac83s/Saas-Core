@@ -227,6 +227,7 @@ to błąd.
 | `sites.site_texts` | `shared.sites` | wersjonowane (`SiteTextTranslation`) | `published` | `pending`, `live` | nie | TL11 |
 | `profiles.public_profile` | `shared.profiles` | rekord na żywo | `published` | `live` | nie | TL12 |
 | `booking.catalog` — jeden obiekt na firmę (jej katalog rezerwacji); jednostki `<rodzaj>/<id>/<pole>` usług, miejsc, jednostek, grup, zespołów (nazwa zespołu jako `name`) i kategorii uczestników | `shared.booking` | rekord na żywo | `published` | `live` | nie | TL12c |
+| `customers.document` — dokument firmy dla klientów z zatwierdzoną wersją; źródłem jest wersja, która wchodzi w życie ostatnia (obowiązująca albo zatwierdzona na późniejszy dzień), jeden fragment `text` z całym tekstem; zakres to dokument (jego rodzaj) | `shared.customers` | rekord na żywo, akceptacja tylko przez osobę w panelu z kodem z aplikacji (`accepted_in_panel_only`, §6.6) | `published` | `live` | każdy obiekt | faza 4d-2 rezerwacji (ADR-073 §9) |
 | `puppily.*` (rasa, wpis, kategoria, dokument) | `vertical.puppily` | wersjonowane | `published` (`working` od PU10) | `pending`, `live` | dokument prawny | PU5 |
 
 ## 6. Adapter
@@ -455,7 +456,16 @@ ADR-069 pkt 15), a asystent przechodzi tylko według tabeli A1a i z tokenem zgod
 (ADR-076). Jedno wywołanie obejmuje wiele pozycji jednego zakresu i daje jedną
 publikację — tak działa akceptacja zbiorcza i zatwierdzenie `mass_publication`. Rekord
 na żywo przyjmuje akceptację jako `write` z wyzwalaczem `acceptance` i tymi samymi
-warunkami osoby. Poprawki przed akceptacją mają pochodzenie `human`. `revert` przywraca
+warunkami osoby. Źródło może wymagać przy niej więcej niż kolejka przeglądu: dokument
+dla klientów (`customers.document`) dopisuje zaakceptowany tekst własnym serwisem
+`documents.add_text`, czyli przez bramkę osoby „Dokument dla klientów” i świeży drugi
+składnik (403 `step_up_required` — panel pyta o kod z aplikacji i wysyła tę samą
+decyzję jeszcze raz pod tym samym kluczem). Takie źródło deklaruje
+`accepted_in_panel_only = True` (atrybut opcjonalny, domyślnie fałsz): polecenie
+asystenta `translation.review.accept` odmawia wtedy już w podglądzie
+(`person_required`), zanim osoba kliknie zgodę, która niczego by nie otworzyła.
+Zaakceptowany wiersz zachowuje pochodzenie `ai` z modelem, a osobę wskazuje pole
+akceptacji modułu. Poprawki przed akceptacją mają pochodzenie `human`. `revert` przywraca
 stan sprzed zlecenia (strony: pochodna publikacja `translation_revert`; wpisy: szkic i
 publikacja rodzeństwa sprzed zlecenia, a rodzeństwo opublikowane pierwszy raz przez
 zlecenie wraca do szkicu; teksty witryny: tekst sprzed zlecenia w każdym wierszu, który
@@ -578,6 +588,7 @@ nigdy zapis szkicu.
 | `shared.profiles` | zmiana nagłówka, bio albo etykiety linku opublikowanej karty; `publish_profile` | `changed` |
 | `shared.profiles` | `withdraw_profile`; `delete_profile` | `withdrawn`; `deleted` |
 | `shared.booking` | utworzenie, zmiana nazwy lub opisu, wyłączenie albo ponowne włączenie usługi, miejsca, jednostki lub grupy; utworzenie, zmiana nazwy i usunięcie zespołu; utworzenie, zmiana nazwy, wyłączenie albo ponowne włączenie kategorii uczestników — obiekt to katalog firmy, więc zawsze | `changed` |
+| `shared.customers` | `approve_draft` (nowa wersja dokumentu) i `add_text` w języku wersji (poprawka tekstu źródłowego); tekst w innym języku, także zaakceptowane tłumaczenie, nie jest zgłaszany | `changed` |
 | `vertical.puppily` | publikacja, wycofanie i usunięcie w serwisie redakcyjnym | wszystkie trzy |
 
 ### 8.2. Kontrakt wywołania
@@ -691,12 +702,13 @@ deterministyczną atrapą tłumacza i liczy stany funkcjami protokołu.
 daje klasę bazową `TranslationSourceContract`, protokół `SourceDriver` (moduł
 implementuje go na prawdziwych tabelach: `create`, `insert`, `move`, `edit`, `delete`,
 `publish`, `write_as_person`, `write_as_integration`, `copy_source`, `public_texts`),
-atrapy `FakeDraftSource` i `FakeLiveRecordSource` z `FakeSourceDriver` oraz menedżery
+atrapy `FakeDraftSource` i `FakeLiveRecordSource` z `FakeSourceDriver` (atrapa rekordu na
+żywo przechodzi zestaw także jako źródło `legal_only`) oraz menedżery
 `registered_translation_source`, `translation_policy_override` i
 `captured_source_changes`, które przywracają globalne rejestry po teście. Kontrakty
 `.importlinter`: moduły nie importują `saas_core.testing`, a `shared.sites`,
-`shared.profiles`, `shared.booking` i warstwa `vertical` nie importują
-`shared.translation`.
+`shared.profiles`, `shared.booking`, `shared.customers` i warstwa `vertical` nie
+importują `shared.translation`.
 
 Test modułu to podklasa z `source_key` i fiksturą `driver`. Sterownik operuje na
 pozycjach bieżących fragmentów (`insert(object_id, index, text)`), a `create` przyjmuje
@@ -704,8 +716,21 @@ teksty albo `UnitSpec(text, kind, data_class, max_length, required)`. Daje też 
 konteksty — `publisher` (osoba z prawem publikacji modułu) i `editor` (może tłumaczyć,
 nie publikuje) — oraz `acting(context)`, ten sam kontekst działający przez zlecenie
 (`acting_via="ai_translation"`). `capabilities` mówi, co źródło umie trzymać (`legal`,
-`placeholder`, `name`, `address`, `personal`, `health`); scenariusze bez danej zdolności
-są pomijane. Odmowę osoby test rozpoznaje po kodzie (`error_code(error) ==
+`placeholder`, `name`, `address`, `personal`, `health`) i czego w jego budowie nie ma
+(`unordered` — fragmenty bez pozycji, `single_object` — jeden obiekt na firmę,
+`single_unit` — obiekt to jeden fragment, `persons_only` — cel pisze tylko osoba: bez
+kopii zastępczych i bez integracji); scenariusze bez danej zdolności są pomijane.
+`legal_only` — każdy obiekt jest dokumentem prawnym — zmienia rolę zestawu: zlecenie
+niczego nie wypuszcza (każdy wynik to `pending` / `legal_document`, reguła 3 z §7
+wyprzedza pozostałe), więc zestaw gra także osobę, która akceptuje. Dla rekordu na
+żywo to `write` z wyzwalaczem `acceptance` tekstów, które zlecenie dostarczyło
+(`accept`, `deliver`), wołany z kontekstem `publisher`; czego źródło wymaga od tej
+osoby ponad kontekst (świeży drugi składnik), dostarcza fikstura `driver`. Scenariusze
+startują wtedy od „przetłumaczone i zaakceptowane”, idempotencję i tokeny wersji
+sprawdza zapis akceptacji, a dodatkowy scenariusz pilnuje, że akceptacja ze zlecenia
+(`acting_via="ai_translation"`) dostaje `person_required` i że wyłącznik
+(`POLICY_OFF`) nie zatrzymuje decyzji osoby. Źródło wersjonowane z samymi dokumentami
+prawnymi akceptuje przez `review` — tę gałąź zestaw dostanie z pierwszym takim źródłem. Odmowę osoby test rozpoznaje po kodzie (`error_code(error) ==
 "person_required"`), więc moduł zgłasza ją własnym wyjątkiem.
 Opcjonalne `extra_unit_keys` nazywa fragmenty, które źródło wyprowadza samo na każdym
 obiekcie, a których scenariusz nie tworzy (strony: `meta/title` i `meta/description` —
@@ -726,7 +751,9 @@ przetłumaczony na `de`:
 | Edycja integracji B | pochodzenie `integration`, chroniony; po zmianie źródła kliknięcie bez „nadpisz poprawki” daje propozycję, nie nadpisanie |
 
 Sprawdzenia dodatkowe: powtórka `write` z tym samym kluczem i treścią nic nie zmienia,
-inna treść to `idempotency_conflict`, nieaktualne tokeny — `source_changed` i
+inna treść to `idempotency_conflict` (źródło `legal_only` pamięta tylko zapis, który coś
+zapisał — akceptację; zapis zlecenia niczego nie zostawia, więc jego powtórka daje tę
+samą odpowiedź z samego stanu), nieaktualne tokeny — `source_changed` i
 `target_changed`; wyniki `pending` nie wychodzą zwykłą publikacją; reguły z §7 (dokument
 prawny także dla `working`, `locale_first_appearance`, `publisher_required`,
 `mass_publication` liczone po obiektach, `POLICY_OFF` → `refused`); bramka faktów w

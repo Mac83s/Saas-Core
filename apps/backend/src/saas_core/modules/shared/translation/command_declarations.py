@@ -16,6 +16,7 @@ from uuid import UUID
 
 from rest_framework.exceptions import NotFound, ValidationError
 
+from saas_core.content_protocol.registry import translation_source
 from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
 
 from .jobs import (
@@ -554,6 +555,13 @@ def _open_reviews(arguments: Mapping[str, Any], call: Any) -> list[TranslationRe
     return [rows[row_id] for row_id in ids]
 
 
+def _accepted_in_the_panel_only(source_key: str) -> bool:
+    try:
+        return bool(getattr(translation_source(source_key), "accepted_in_panel_only", False))
+    except LookupError:
+        return False
+
+
 def _review_preview(action: str) -> Any:
     def preview(arguments: Mapping[str, Any], call: Any) -> Preview:
         rows = _open_reviews(arguments, call)
@@ -565,6 +573,18 @@ def _review_preview(action: str) -> Any:
                 raise ValidationError(
                     {"item_ids": ["Tej pozycji nie da się zaakceptować — nie ma tekstu."]},
                     code="not_acceptable",
+                )
+            # Said before the person's click, not after it: a source may keep
+            # the acceptance for the person in the panel (§6.6 of the protocol).
+            if any(_accepted_in_the_panel_only(row.source_key) for row in rows):
+                raise ValidationError(
+                    {
+                        "item_ids": [
+                            "To tłumaczenie akceptuje osoba w panelu („Tłumaczenia → Do "
+                            "akceptacji”), kodem z aplikacji uwierzytelniającej."
+                        ]
+                    },
+                    code="person_required",
                 )
         verb = ("Akceptacja", "Accepting") if action == "accept" else ("Odrzucenie", "Discarding")
         return Preview(
@@ -619,7 +639,10 @@ REVIEW_ACCEPT = CommandSpec(
     model_description=(
         "Publishes the chosen waiting translations (ids from translation.review.list). A "
         "person's decision: it runs only after the person's click that names these items. "
-        "Items without text (qa_failed, model_refused, gate_failed) cannot be accepted."
+        "Items without text (qa_failed, model_refused, gate_failed) cannot be accepted. A "
+        "translation of a document for customers (source customers.document) is refused "
+        "with person_required: the person accepts it in the panel, under „Tłumaczenia → Do "
+        "akceptacji”, with a code from the authenticator app."
     ),
     input_schema=_REVIEW_INPUT,
     output_schema=_DECIDED_OUTPUT,

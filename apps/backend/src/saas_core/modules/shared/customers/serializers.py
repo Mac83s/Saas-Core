@@ -46,6 +46,21 @@ class CustomerDocumentVersionSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class CustomerDocumentTranslationSerializer(serializers.Serializer[dict[str, Any]]):
+    object_id = serializers.UUIDField(
+        help_text="What a translation order names, with the source `customers.document`."
+    )
+    version = serializers.IntegerField(
+        help_text="The version a machine translation is made for: the one that takes "
+        "force last — the version in force, or the one approved for a later day."
+    )
+    waiting = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Languages whose machine translation waits in the translation review "
+        "for a person to accept it; a text is added only then.",
+    )
+
+
 class CustomerDocumentSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(choices=DocumentKind.choices)
     version = serializers.IntegerField(
@@ -65,6 +80,12 @@ class CustomerDocumentSerializer(serializers.Serializer[dict[str, Any]]):
     )
     versions = CustomerDocumentVersionSerializer(
         many=True, required=False, help_text="Every version, newest first; on a detail read."
+    )
+    translation = CustomerDocumentTranslationSerializer(
+        required=False,
+        allow_null=True,
+        help_text="What ordering a machine translation of the document needs; on a detail "
+        "read, null before the first version.",
     )
 
 

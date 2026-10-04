@@ -28653,6 +28653,12 @@ components:
           items:
             $ref: '#/components/schemas/CustomerDocumentVersion'
           description: Every version, newest first; on a detail read.
+        translation:
+          oneOf:
+          - $ref: '#/components/schemas/CustomerDocumentTranslation'
+          - type: 'null'
+          description: What ordering a machine translation of the document needs;
+            on a detail read, null before the first version.
       required:
       - draft
       - in_force
@@ -28860,6 +28866,28 @@ components:
       - locale
       - number
       - text
+    CustomerDocumentTranslation:
+      type: object
+      properties:
+        object_id:
+          type: string
+          format: uuid
+          description: What a translation order names, with the source `customers.document`.
+        version:
+          type: integer
+          description: 'The version a machine translation is made for: the one that
+            takes force last — the version in force, or the one approved for a later
+            day.'
+        waiting:
+          type: array
+          items:
+            type: string
+          description: Languages whose machine translation waits in the translation
+            review for a person to accept it; a text is added only then.
+      required:
+      - object_id
+      - version
+      - waiting
     CustomerDocumentVersion:
       type: object
       properties:

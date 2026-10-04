@@ -9,6 +9,11 @@ protocol's own functions, so a source passes without the engine composed.
 `FakeDraftSource` (versioned, with a working draft) and `FakeLiveRecordSource`
 (a record public on every save) pass the same suite; they also stand in for a
 real source in the engine's tests.
+
+A source whose every object is a legal document (`legal_only`) puts nothing
+out in a job, so the suite also plays the person who accepts: on a live
+record that is a write with the `acceptance` trigger of the texts the job
+delivered (`accept`, `deliver`).
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from saas_core.content_protocol.facts import extract_facts
 from saas_core.content_protocol.policy import (
     POLICY_OFF,
     REASON_GATE_FAILED,
+    REASON_LEGAL_DOCUMENT,
     REASON_OVERWRITES_HUMAN,
     PublicationFacts,
     TranslationPolicy,
@@ -176,7 +182,14 @@ class SourceDriver(Protocol):
     `capabilities` names what the source can hold: `legal`, `placeholder`,
     `name`, `address`, `personal` (public_personal), `health`; and what its
     structure lacks: `unordered` (units have no positions to move, e.g. a
-    catalogue of named items) and `single_object` (one object per company).
+    catalogue of named items), `single_object` (one object per company),
+    `single_unit` (an object is one unit: nothing to insert, move or delete,
+    and none of the unit kinds above beside it) and `persons_only` (a target
+    is only ever a text a person put there: no stand-in copies, no
+    integration). `legal_only` says every object is a legal document: a job
+    puts nothing out, the suite accepts as `publisher`, and whatever the
+    source asks of that person beyond the context — a fresh second factor —
+    the `driver` fixture provides.
     """
 
     source: TranslationSource
@@ -245,6 +258,9 @@ class Translated:
     read: SourceRead
     selection: Selection
     outcomes: tuple[WriteOutcome, ...]
+    # What the job delivered — on a live record, what its review queue keeps
+    # for the person who accepts.
+    texts: Mapping[str, tuple[str, Provenance]] = field(default_factory=dict)
 
     @property
     def decisions(self) -> list[tuple[str, str | None]]:
@@ -378,13 +394,89 @@ class TranslationSourceContract:
                 job_ref=job_ref,
                 idempotency_key=f"{job_ref}:publish",
             )
-        return Translated(seen, own_selection, own_outcomes(driver, outcomes))
+        return Translated(seen, own_selection, own_outcomes(driver, outcomes), texts)
+
+    @staticmethod
+    def legal_only(driver: SourceDriver) -> bool:
+        return "legal_only" in driver.capabilities
+
+    def waits(self, driver: SourceDriver, reason: str) -> list[tuple[str, str | None]]:
+        """What a job's write answers where `reason` holds its result: a
+        source of legal documents alone holds every result as one (§7 rule 3
+        comes before the others)."""
+        return [("pending", REASON_LEGAL_DOCUMENT if self.legal_only(driver) else reason)]
+
+    def accept(
+        self,
+        driver: SourceDriver,
+        result: Translated,
+        *,
+        context: ContentContext | None = None,
+        protected: ProtectedMode = "propose",
+    ) -> Translated:
+        """A person's „Zaakceptuj” on what a job left waiting for a live
+        record: the engine's write, with the `acceptance` trigger, of the
+        texts its review queue kept (§6.6). A versioned source accepts through
+        `review`; the suite plays that with the first such source of legal
+        documents alone."""
+        assert driver.source.staging == "live_record", driver.source.staging
+        read = result.read
+        outcomes = driver.source.write(
+            context=context or driver.publisher,
+            batch=WriteBatch(
+                source_key=driver.source.key,
+                scope=read.scope,
+                trigger=Trigger(kind="acceptance", job_ref=None, cause="user"),
+                protected=protected,
+                items=(
+                    WriteItem(
+                        object_id=read.object_id,
+                        locale=read.locale,
+                        basis=read.basis,
+                        basis_version=read.basis_version,
+                        target_version=read.target_version,
+                        texts=result.texts,
+                        requested="live",
+                    ),
+                ),
+                idempotency_key=f"review:accept:{uuid4()}",
+            ),
+        )
+        return replace(result, outcomes=own_outcomes(driver, outcomes))
+
+    def deliver(
+        self,
+        driver: SourceDriver,
+        object_id: UUID,
+        *,
+        protected: ProtectedMode = "propose",
+        text: Callable[[str, str], str] = fake_translation,
+    ) -> Translated:
+        """A translation taken all the way out on the publisher's click: the
+        job's write and, where every result waits for a person (`legal_only`),
+        that person's acceptance."""
+        result = self.translate(driver, object_id, protected=protected, text=text)
+        if not self.legal_only(driver) or not result.texts:
+            return result
+        assert result.decisions == [("pending", REASON_LEGAL_DOCUMENT)], result.decisions
+        return self.accept(driver, result, protected=protected)
 
     def translated(self, driver: SourceDriver, texts: Sequence[str | UnitSpec]) -> UUID:
         object_id = driver.create(texts)
         driver.publish(object_id)
-        assert self.translate(driver, object_id).decisions == [("live", None)]
+        assert self.deliver(driver, object_id).decisions == [("live", None)]
         return object_id
+
+    @staticmethod
+    def scene(
+        driver: SourceDriver, texts: Sequence[str] = ("Alfa", "Beta", "Gamma")
+    ) -> tuple[list[str], int]:
+        """The object a scenario starts from and the position of the unit it
+        changes, „Beta”: among the others, or — where an object is one unit
+        (`single_unit`) — alone."""
+        if "single_unit" in driver.capabilities:
+            return ["Beta"], 0
+        return list(texts), texts.index("Beta")
 
     @staticmethod
     def statuses(read: SourceRead) -> dict[str, str]:
@@ -413,6 +505,8 @@ class TranslationSourceContract:
         assert registry.translation_source(self.source_key) is driver.source
 
     def test_inserting_a_unit_sends_only_that_unit(self, driver: SourceDriver) -> None:
+        if "single_unit" in driver.capabilities:
+            pytest.skip("An object is one unit: nothing is inserted.")
         object_id = self.translated(driver, ["Alfa", "Beta", "Gamma"])
         before = self.provenances(self.read(driver, object_id))
         driver.insert(object_id, 1, "Iks")
@@ -428,7 +522,7 @@ class TranslationSourceContract:
         assert [unit.text for unit in self.selection(read).units] == ["Iks"]
 
     def test_moving_a_unit_keeps_every_translation(self, driver: SourceDriver) -> None:
-        if "unordered" in driver.capabilities:
+        if driver.capabilities & {"unordered", "single_unit"}:
             pytest.skip("The source's units have no positions.")
         object_id = self.translated(driver, ["Alfa", "Beta", "Gamma"])
         driver.move(object_id, 2, 0)
@@ -443,29 +537,34 @@ class TranslationSourceContract:
         ]
 
     def test_editing_a_unit_sends_only_the_edited_unit(self, driver: SourceDriver) -> None:
-        object_id = self.translated(driver, ["Alfa", "Beta", "Gamma"])
-        driver.edit(object_id, 1, "Beta nowa")
+        texts, index = self.scene(driver)
+        object_id = self.translated(driver, texts)
+        driver.edit(object_id, index, "Beta nowa")
         driver.publish(object_id)
         read = self.read(driver, object_id)
-        assert self.statuses(read) == {"Alfa": "fresh", "Beta nowa": "stale", "Gamma": "fresh"}
+        assert self.statuses(read) == {
+            **{text: "fresh" for text in texts if text != "Beta"},
+            "Beta nowa": "stale",
+        }
         assert [unit.text for unit in self.selection(read).units] == ["Beta nowa"]
 
     def test_an_edit_under_a_persons_correction_waits_beside_it(self, driver: SourceDriver) -> None:
-        object_id = self.translated(driver, ["Alfa", "Beta", "Gamma"])
-        driver.write_as_person(object_id, self.locale, 1, "Beta poprawiona")
-        driver.edit(object_id, 1, "Beta nowa")
+        texts, index = self.scene(driver)
+        object_id = self.translated(driver, texts)
+        driver.write_as_person(object_id, self.locale, index, "Beta poprawiona")
+        driver.edit(object_id, index, "Beta nowa")
         driver.publish(object_id)
         result = self.translate(driver, object_id, trigger="automatic")
         assert [unit.text for unit in result.selection.units] == ["Beta nowa"]
         assert result.selection.proposals == {result.selection.units[0].key}
         assert result.decisions == [("pending", REASON_OVERWRITES_HUMAN)]
-        assert driver.public_texts(object_id, self.locale) == [
-            self.fake("Alfa"),
-            "Beta poprawiona",
-            self.fake("Gamma"),
-        ]
+        public = [self.fake(text) for text in texts]
+        public[index] = "Beta poprawiona"
+        assert driver.public_texts(object_id, self.locale) == public
 
     def test_deleting_a_unit_drops_its_target(self, driver: SourceDriver) -> None:
+        if "single_unit" in driver.capabilities:
+            pytest.skip("An object is one unit: nothing is deleted from it.")
         object_id = self.translated(driver, ["Alfa", "Beta", "Gamma"])
         driver.delete(object_id, 0)
         driver.publish(object_id)
@@ -484,36 +583,36 @@ class TranslationSourceContract:
     def test_copied_stand_ins_count_as_missing_and_ai_replaces_them(
         self, driver: SourceDriver
     ) -> None:
-        object_id = driver.create(["Alfa", "Beta"])
+        if "persons_only" in driver.capabilities:
+            pytest.skip("A target is a text a person put there: nothing stands in.")
+        texts, _index = self.scene(driver, ("Alfa", "Beta"))
+        object_id = driver.create(texts)
         driver.publish(object_id)
         driver.copy_source(object_id, self.locale)
         read = self.read(driver, object_id)
         assert set(self.statuses(read).values()) == {"missing"}
         assert driver.public_texts(object_id, self.locale) is None
-        assert self.translate(driver, object_id).decisions == [("live", None)]
-        assert driver.public_texts(object_id, self.locale) == [
-            self.fake("Alfa"),
-            self.fake("Beta"),
-        ]
+        assert self.deliver(driver, object_id).decisions == [("live", None)]
+        assert driver.public_texts(object_id, self.locale) == [self.fake(text) for text in texts]
 
     def test_an_integrations_text_is_proposed_over_unless_overwritten(
         self, driver: SourceDriver
     ) -> None:
-        object_id = self.translated(driver, ["Alfa", "Beta"])
-        driver.write_as_integration(object_id, self.locale, 1, "Beta z integracji")
-        driver.edit(object_id, 1, "Beta nowa")
+        if "persons_only" in driver.capabilities:
+            pytest.skip("A target is a text a person put there: no integration writes one.")
+        texts, index = self.scene(driver, ("Alfa", "Beta"))
+        object_id = self.translated(driver, texts)
+        driver.write_as_integration(object_id, self.locale, index, "Beta z integracji")
+        driver.edit(object_id, index, "Beta nowa")
         driver.publish(object_id)
         assert self.translate(driver, object_id).decisions == [("pending", REASON_OVERWRITES_HUMAN)]
-        assert driver.public_texts(object_id, self.locale) == [
-            self.fake("Alfa"),
-            "Beta z integracji",
-        ]
-        overwritten = self.translate(driver, object_id, protected="overwrite")
+        public = [self.fake(text) for text in texts]
+        public[index] = "Beta z integracji"
+        assert driver.public_texts(object_id, self.locale) == public
+        overwritten = self.deliver(driver, object_id, protected="overwrite")
         assert overwritten.decisions == [("live", None)]
-        assert driver.public_texts(object_id, self.locale) == [
-            self.fake("Alfa"),
-            self.fake("Beta nowa"),
-        ]
+        public[index] = self.fake("Beta nowa")
+        assert driver.public_texts(object_id, self.locale) == public
 
     # -- further checks (§11)
 
@@ -524,13 +623,19 @@ class TranslationSourceContract:
         texts: Mapping[str, str],
         idempotency_key: str,
     ) -> tuple[WriteOutcome, ...]:
+        """One write that puts `texts` out: a job's on the publisher's click,
+        or — where every result waits for a person (`legal_only`) — that
+        person's acceptance of them."""
         units = {unit.key: unit for unit in read.units}
+        accepting = self.legal_only(driver)
         return driver.source.write(
-            context=driver.acting(driver.publisher),
+            context=driver.publisher if accepting else driver.acting(driver.publisher),
             batch=WriteBatch(
                 source_key=driver.source.key,
                 scope=read.scope,
-                trigger=Trigger(kind="click", job_ref=None, cause="user"),
+                trigger=Trigger(
+                    kind="acceptance" if accepting else "click", job_ref=None, cause="user"
+                ),
                 protected="propose",
                 items=(
                     WriteItem(
@@ -566,7 +671,8 @@ class TranslationSourceContract:
         ]
 
     def test_stale_version_tokens_conflict(self, driver: SourceDriver) -> None:
-        object_id = driver.create(["Alfa", "Beta"])
+        single = "single_unit" in driver.capabilities
+        object_id = driver.create(["Alfa"] if single else ["Alfa", "Beta"])
         driver.publish(object_id)
         old = self.read(driver, object_id)
         driver.edit(object_id, 0, "Alfa nowa")
@@ -588,7 +694,7 @@ class TranslationSourceContract:
         object_id = driver.create(["Alfa"])
         driver.publish(object_id)
         with translation_policy_override(REVIEW):
-            assert self.translate(driver, object_id).decisions == [("pending", "review_mode")]
+            assert self.translate(driver, object_id).decisions == self.waits(driver, "review_mode")
         driver.publish(object_id)
         assert driver.public_texts(object_id, self.locale) is None
 
@@ -602,11 +708,34 @@ class TranslationSourceContract:
             draft = self.translate(driver, object_id, requested="draft")
             assert draft.decisions == [("pending", "legal_document")]
 
+    def test_a_legal_document_goes_out_only_on_a_persons_acceptance(
+        self, driver: SourceDriver
+    ) -> None:
+        if not self.legal_only(driver):
+            pytest.skip("The source also holds what goes out by itself.")
+        object_id = driver.create(["Regulamin"])
+        driver.publish(object_id)
+        waiting = self.translate(driver, object_id)
+        assert waiting.decisions == [("pending", REASON_LEGAL_DOCUMENT)]
+        assert driver.public_texts(object_id, self.locale) is None
+        # A job cannot accept, not even its own publisher's.
+        refusal: BaseException | None = None
+        try:
+            self.accept(driver, waiting, context=driver.acting(driver.publisher))
+        except Exception as error:
+            refusal = error
+        assert refusal is not None and error_code(refusal) == PERSON_REQUIRED
+        assert driver.public_texts(object_id, self.locale) is None
+        # The kill switch stops the model, never a person's decision (§7 rule 1).
+        with translation_policy_override(POLICY_OFF):
+            assert self.accept(driver, waiting).decisions == [("live", None)]
+        assert driver.public_texts(object_id, self.locale) == [self.fake("Regulamin")]
+
     def test_automation_never_brings_a_language_in_first(self, driver: SourceDriver) -> None:
         object_id = driver.create(["Alfa"])
         driver.publish(object_id)
         result = self.translate(driver, object_id, trigger="automatic")
-        assert result.decisions == [("pending", "locale_first_appearance")]
+        assert result.decisions == self.waits(driver, "locale_first_appearance")
 
     def test_a_person_without_the_publish_right_leaves_results_waiting(
         self, driver: SourceDriver
@@ -614,11 +743,13 @@ class TranslationSourceContract:
         object_id = driver.create(["Alfa"])
         driver.publish(object_id)
         result = self.translate(driver, object_id, context=driver.acting(driver.editor))
-        assert result.decisions == [("pending", "publisher_required")]
+        assert result.decisions == self.waits(driver, "publisher_required")
 
     def test_mass_publication_is_counted_in_objects(self, driver: SourceDriver) -> None:
         if "single_object" in driver.capabilities:
             pytest.skip("One object per company: nothing else goes out in its job.")
+        if self.legal_only(driver):
+            pytest.skip("A job puts nothing out: there is no publication to count.")
         capped = TranslationPolicy(mode="automatic", reason=None, mass_publication_cap=1)
         with translation_policy_override(capped):
             first = self.translated(driver, ["Alfa"])
@@ -650,7 +781,7 @@ class TranslationSourceContract:
             assert result.decisions == [("pending", REASON_GATE_FAILED)]
             key = result.read.units[0].key
             assert [error.field for error in result.outcomes[0].errors] == [f"units.{key}"]
-        right = self.translate(driver, object_id, text=fixed_translation("Haarschnitt 120 zł"))
+        right = self.deliver(driver, object_id, text=fixed_translation("Haarschnitt 120 zł"))
         assert right.decisions == [("live", None)]
 
     def test_what_never_reaches_a_model(self, driver: SourceDriver) -> None:
@@ -684,14 +815,15 @@ class TranslationSourceContract:
             assert [(n.source_key, n.object_ids, n.change) for n in notices] == [
                 (self.source_key, (object_id,), "changed")
             ]
-            self.translate(driver, object_id)
+            self.deliver(driver, object_id)
             assert len(notices) == 1
 
     def test_a_translation_write_leaves_the_source_alone(self, driver: SourceDriver) -> None:
-        object_id = driver.create(["Alfa", "Beta"])
+        texts, _index = self.scene(driver, ("Alfa", "Beta"))
+        object_id = driver.create(texts)
         driver.publish(object_id)
         before = self.read(driver, object_id)
-        self.translate(driver, object_id)
+        self.deliver(driver, object_id)
         after = self.read(driver, object_id)
         assert [unit.source_hash for unit in after.units] == [
             unit.source_hash for unit in before.units
@@ -972,6 +1104,10 @@ class _FakeSource:
     def write(self, *, context: ContentContext, batch: WriteBatch) -> tuple[WriteOutcome, ...]:
         if batch.source_key != self.key:
             raise ValueError("The batch is for another source.")
+        # A live record takes a person's acceptance as a write, on the same
+        # terms as a review decision (§6.6): never from a job.
+        if batch.trigger.kind == "acceptance" and context.acting_via:
+            raise FakeRefusal(PERSON_REQUIRED)
         self.authorize(
             context=context,
             action="translate",
@@ -1218,12 +1354,16 @@ class FakeLiveRecordSource(_FakeSource):
 
 
 class FakeSourceDriver:
-    """`SourceDriver` for the in-memory sources."""
+    """`SourceDriver` for the in-memory sources. `capabilities` makes the
+    double stand for a narrower source: with `legal_only` every object it
+    creates is a legal document."""
 
     capabilities = frozenset({"legal", "placeholder", "name", "address", "personal", "health"})
 
-    def __init__(self, source: _FakeSource) -> None:
+    def __init__(self, source: _FakeSource, capabilities: frozenset[str] | None = None) -> None:
         self.source = source
+        if capabilities is not None:
+            self.capabilities = capabilities
         organization_id = uuid4()
         self.publisher = FakeContext(
             organization_id=organization_id,
@@ -1253,7 +1393,12 @@ class FakeSourceDriver:
             (self.source.new_uid(), unit if isinstance(unit, UnitSpec) else UnitSpec(unit))
             for unit in units
         ]
-        obj = _FakeObject(object_id=uuid4(), label="Studio Testowe", legal=legal, working=rows)
+        obj = _FakeObject(
+            object_id=uuid4(),
+            label="Studio Testowe",
+            legal=legal or "legal_only" in self.capabilities,
+            working=rows,
+        )
         if self._live:
             obj.published, obj.published_version = list(rows), 1
         self.source.objects[obj.object_id] = obj

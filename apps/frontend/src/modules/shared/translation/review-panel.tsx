@@ -35,7 +35,8 @@ import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
-import { SOURCE_KINDS, translationPlace } from "./job-words";
+import { useStepUp } from "../../core/organizations/step-up";
+import { SOURCE_KINDS, translationPlace, useObjectName } from "./job-words";
 import { ReviewCompareDialog } from "./review-compare";
 import { TranslationTabs } from "./translation-tabs";
 
@@ -83,7 +84,11 @@ export function TranslationReviewPanel() {
   const t = useTranslations("Translations.review");
   const nav = useTranslations("DashboardNav");
   const skipped = useTranslations("Sites.languageMode.skipped");
+  const objectName = useObjectName();
   const format = useFormatter();
+  // A document for customers is legal text: accepting its translation takes a
+  // fresh code from the authenticator app, like adding the text by hand.
+  const stepUp = useStepUp(t("stepUp"));
   const labels = useDataTableLabels();
   const [reason, setReason] = useState("");
   const [answer, setAnswer] = useState<Answer>();
@@ -142,7 +147,7 @@ export function TranslationReviewPanel() {
 
   const kindOf = (row: Row) =>
     t(`kinds.${SOURCE_KINDS[row.source_key] ?? "other"}`);
-  const nameOf = (row: Row) => row.label || kindOf(row);
+  const nameOf = (row: Row) => objectName(row) || kindOf(row);
   const reasonOf = (row: Row) =>
     t.has(`reasons.${row.reason}`)
       ? t(`reasons.${row.reason}`)
@@ -234,6 +239,12 @@ export function TranslationReviewPanel() {
         error instanceof ApiProblemError ? error.problem.code : undefined;
       if (code === "translation_review_changed") {
         gone();
+      } else if (stepUp.handled(error, () => decide(decision))) {
+        // The code is asked for and the same decision sent again; an account
+        // without two-factor sign-in is told where to turn it on — here too,
+        // because the hook's notice stands behind the open dialog.
+        if (code === "step_up_mfa_setup_required")
+          setDialogProblem(t("needsTwoFactor"));
       } else
         setDialogProblem(
           error instanceof ApiProblemError && error.problem.status === 403
@@ -428,6 +439,7 @@ export function TranslationReviewPanel() {
       title={t("title")}
     >
       <TranslationTabs waiting={waiting} />
+      {stepUp.ui}
       {problem || (answer?.problem && !loading) ? (
         <div
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"

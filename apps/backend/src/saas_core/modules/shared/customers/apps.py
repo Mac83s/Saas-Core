@@ -12,8 +12,11 @@ class CustomersConfig(AppConfig):
 
         from .command_declarations import register_customer_commands
         from .models import DocumentRoute
+        from .translation_source import register_document_source
 
         # A pre-tenant routing index: erasing the organization takes it too.
         register_erasure_rows("shared.customers.document_route", DocumentRoute, "organization_id")
         # What the assistant may read and draft here (ADR-076 §1).
         register_customer_commands()
+        # The documents' texts in other languages (ADR-073 §9; needs no engine).
+        register_document_source()

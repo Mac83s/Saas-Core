@@ -44,6 +44,7 @@ import {
   jobProgress,
   jobWaiting,
   translationPlace,
+  useObjectName,
 } from "./job-words";
 
 type Item = Job["items"][number];
@@ -62,6 +63,7 @@ type Asking = {
 export function TranslationJobDetail({ jobId }: { jobId: string }) {
   const t = useTranslations("Translations.jobs");
   const review = useTranslations("Translations.review");
+  const objectName = useObjectName();
   const format = useFormatter();
   const labels = useDataTableLabels();
   const [answer, setAnswer] = useState<{ job: Job; at: number }>();
@@ -212,7 +214,7 @@ export function TranslationJobDetail({ jobId }: { jobId: string }) {
   const credits = jobCredits(job);
   const kindOf = (item: Item) =>
     review(`kinds.${SOURCE_KINDS[item.source_key] ?? "other"}`);
-  const nameOf = (item: Item) => item.label || kindOf(item);
+  const nameOf = (item: Item) => objectName(item) || kindOf(item);
   const word = (group: string, value: string) =>
     t.has(`detail.${group}.${value}`)
       ? t(`detail.${group}.${value}`)

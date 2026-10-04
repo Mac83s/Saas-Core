@@ -5355,6 +5355,7 @@
         "siteTexts": "The site's header and footer",
         "profile": "Business card",
         "catalog": "Services and bookings",
+        "document": "Customer document",
         "other": "Content"
       },
       "reasons": {
@@ -5388,6 +5389,8 @@
       "kept": "The translation stays on the site.",
       "changed": "This item changed or somebody has already decided it — the current list is below.",
       "forbidden": "This decision belongs to a person who may publish.",
+      "stepUp": "You accept a translation of a document for customers with a code from your authenticator app.",
+      "needsTwoFactor": "Accepting a translation of a document for customers takes two-factor sign-in. Turn it on in “Your account”, then come back — the translation keeps waiting.",
       "failed": "The decision could not be saved. Try again.",
       "loadFailed": "The translations to approve could not be loaded.",
       "noAccess": "You have no access to this company's translations.",
@@ -6187,6 +6190,10 @@
     "textDescription": "Customers get the text at once. The earlier text stays in the history: whoever accepted it, accepted exactly that one.",
     "textConfirm": "Save text",
     "textAdded": "Text saved: {language}.",
+    "translateHelp": "AI can translate the missing languages. A document's translation never reaches customers by itself: it waits for you to accept it with a code from your authenticator app.",
+    "translationOrdered": "The translation is ordered. When it is ready it waits in “Translations → To approve” — the document's text is added only when you accept it.",
+    "translationWaits": "An AI translation ({language}) is waiting for you to accept it.",
+    "translationReview": "Translations → To approve",
     "versionsTitle": "Versions"
   },
   "CustomerDocument": {

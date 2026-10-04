@@ -23,6 +23,7 @@ const { api } = vi.hoisted(() => ({
     listTranslationReview: vi.fn(),
     decideTranslationReview: vi.fn(),
     getTranslationReview: vi.fn(),
+    confirmStepUp: vi.fn(),
   },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -565,4 +566,126 @@ test("texts that do not load can be asked for again; a decided item returns to t
   ).toBeTruthy();
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(api.listTranslationReview).toHaveBeenCalledTimes(2);
+});
+
+const TERMS = item({
+  id: "0199f0a0-0000-7000-8000-0000000000b4",
+  source_key: "customers.document",
+  object_id: "0199f0a0-0000-7000-8000-0000000000d1",
+  locale: "en",
+  reason: "legal_document",
+  keys: 1,
+  label: "Regulamin sklepu",
+  scope: "shop_terms",
+  comparable: true,
+});
+
+function refusal(code: string) {
+  return new ApiProblemError({
+    status: 403,
+    code,
+    title: "",
+    detail: "",
+  } as never);
+}
+
+test("a document for customers is named by its kind and opens in the documents' own screen", async () => {
+  api.listTranslationReview.mockResolvedValue(page([TERMS]));
+  view();
+  const table = await screen.findByRole("table");
+  const [row] = within(table).getAllByRole("row").slice(1);
+  expect(within(row!).getByText("Regulamin sklepu")).toBeTruthy();
+  expect(within(row!).getByText("Dokument dla klientów")).toBeTruthy();
+  expect(within(row!).getByText("Dokument prawny")).toBeTruthy();
+  // Its text waits only in the queue: read first, then decide.
+  expect(within(row!).getByRole("button", { name: "Porównaj" })).toBeTruthy();
+
+  fireEvent.click(
+    within(row!).getByRole("button", {
+      name: "Działania dla: Regulamin sklepu · English",
+    }),
+  );
+  const menu = await screen.findByRole("menu");
+  expect(
+    within(menu)
+      .getAllByRole("menuitem")
+      .map((entry) => [entry.textContent, entry.getAttribute("href")]),
+  ).toEqual([
+    ["Zaakceptuj i opublikuj", null],
+    ["Otwórz", "/panel/settings/documents/shop_terms"],
+    ["Odrzuć", null],
+  ]);
+});
+
+test("a document for customers: accepted with a code from the app, by the same decision sent again", async () => {
+  api.listTranslationReview.mockResolvedValue(page([TERMS]));
+  api.decideTranslationReview
+    .mockRejectedValueOnce(refusal("step_up_required"))
+    .mockResolvedValueOnce({
+      items: [{ ...TERMS, state: "accepted", outcomes: [{ state: "live" }] }],
+    });
+  api.confirmStepUp.mockResolvedValue(undefined);
+  view();
+  const table = await screen.findByRole("table");
+  const [row] = within(table).getAllByRole("row").slice(1);
+
+  fireEvent.click(
+    within(row!).getByRole("button", { name: "Zaakceptuj i opublikuj" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Zaakceptować tłumaczenie i opublikować je?",
+  });
+  api.listTranslationReview.mockResolvedValue(page([]));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zaakceptuj i opublikuj" }),
+  );
+
+  // The server asks for the second factor; nothing is accepted yet.
+  const stepUp = await screen.findByRole("dialog", {
+    name: polishMessages.StepUp.title,
+  });
+  expect(stepUp.textContent).toContain(
+    "Tłumaczenie dokumentu dla klientów akceptujesz kodem z aplikacji uwierzytelniającej.",
+  );
+  expect(screen.queryByText(/zaakceptowane i opublikowane/)).toBeNull();
+  fireEvent.change(within(stepUp).getByLabelText(polishMessages.StepUp.code), {
+    target: { value: "123456" },
+  });
+  fireEvent.click(
+    within(stepUp).getByRole("button", { name: polishMessages.StepUp.confirm }),
+  );
+
+  await waitFor(() =>
+    expect(api.decideTranslationReview).toHaveBeenCalledTimes(2),
+  );
+  expect(api.confirmStepUp).toHaveBeenCalledWith("123456");
+  const [first, second] = api.decideTranslationReview.mock.calls;
+  // The same decision under the same key: the refused attempt wrote nothing.
+  expect(second).toEqual(first);
+  expect(
+    await screen.findByText("Tłumaczenie zaakceptowane i opublikowane."),
+  ).toBeTruthy();
+});
+
+test("a document's translation on an account without two-factor sign-in: the dialog says where to turn it on", async () => {
+  api.listTranslationReview.mockResolvedValue(page([TERMS]));
+  api.decideTranslationReview.mockRejectedValue(
+    refusal("step_up_mfa_setup_required"),
+  );
+  view("en");
+  const table = await screen.findByRole("table");
+  const [row] = within(table).getAllByRole("row").slice(1);
+  // The document's kind in the panel's language, not as the source lists it.
+  expect(row!.textContent).toContain("Shop terms");
+  fireEvent.click(
+    within(row!).getByRole("button", { name: "Accept and publish" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Accept and publish" }),
+  );
+  expect((await within(dialog).findByRole("alert")).textContent).toContain(
+    "takes two-factor sign-in",
+  );
+  expect(api.confirmStepUp).not.toHaveBeenCalled();
 });

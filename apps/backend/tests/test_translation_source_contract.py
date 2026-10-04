@@ -42,6 +42,32 @@ class TestFakeLiveRecordSource(TranslationSourceContract):
             yield FakeSourceDriver(source)
 
 
+class TestFakeLegalRecordSource(TranslationSourceContract):
+    """A live record of legal documents alone: nothing goes out in a job, and
+    the suite accepts as the person."""
+
+    source_key = "testing.legal_record"
+
+    @pytest.fixture
+    def driver(self) -> Iterator[FakeSourceDriver]:
+        with registered_translation_source(FakeLiveRecordSource(self.source_key)) as source:
+            yield FakeSourceDriver(source, FakeSourceDriver.capabilities | {"legal_only"})
+
+
+class TestFakeLegalDocumentSource(TranslationSourceContract):
+    """The same where an object is one unit only a person ever writes — the
+    shape of a company's document for its customers."""
+
+    source_key = "testing.legal_document"
+
+    @pytest.fixture
+    def driver(self) -> Iterator[FakeSourceDriver]:
+        with registered_translation_source(FakeLiveRecordSource(self.source_key)) as source:
+            yield FakeSourceDriver(
+                source, frozenset({"legal", "legal_only", "single_unit", "persons_only"})
+            )
+
+
 def test_every_registered_source_has_a_contract_test() -> None:
     """A new source without its contract test stops CI, in products too."""
     contracts = [

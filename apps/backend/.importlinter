@@ -38,6 +38,7 @@ source_modules =
     saas_core.modules.shared.sites
     saas_core.modules.shared.profiles
     saas_core.modules.shared.booking
+    saas_core.modules.shared.customers
     saas_core.modules.vertical
 forbidden_modules =
     saas_core.modules.shared.translation

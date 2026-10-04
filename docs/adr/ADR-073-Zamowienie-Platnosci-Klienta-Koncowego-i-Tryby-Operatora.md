@@ -289,10 +289,12 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   `^[a-z]{2}$` bez `choices`.
 - Dokument to źródło tłumaczeń `customers.document` (TL-T17;
   `register_translation_source` z `saas_core/content_protocol`, ADR-069 pkt 2,
-  protokół `docs/architecture/translation-sources.md`): wersjonowane, podstawa
-  `published`, zapis `pending` i `live`, dokument prawny. Automat tłumaczy go
-  zawsze do akceptacji (ADR-069 pkt 16.1, TL-T25): wynik `pending` czeka poza
-  wierszami wersji, a wiersz dopisuje dopiero akceptacja osoby (`review` przez
+  protokół `docs/architecture/translation-sources.md`): rekord na żywo, podstawa
+  `published`, zapis `live`, dokument prawny („Rozstrzygnięcia plastra 4d-2”
+  niżej; pierwotnie: wersjonowane z zapisem `pending` i `live`). Automat tłumaczy
+  go zawsze do akceptacji (ADR-069 pkt 16.1, TL-T25): wynik `pending` czeka poza
+  wierszami wersji — w kolejce przeglądu silnika — a wiersz dopisuje dopiero
+  akceptacja osoby (`write` z wyzwalaczem `acceptance`, przez
   `assert_person_required` ze step-upem `legal_document`). Zatwierdzenie nowej
   wersji zgłasza `changed` (`notify_source_changed`). Faza, która tworzy
   dokumenty, w jednym commicie rejestruje źródło (gdy rejestr TL5 jest już w
@@ -425,7 +427,7 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | **4b** | Dokumenty firmy i dziennik zgód (§9): rodzaje, szkic, wersja i wiersze tekstu tylko do dopisywania, zatwierdzenie przez osobę ze step-upem, publiczny adres dokumentu, dwa czytniki dla innych modułów; `customers.read`, `customers.manage`, `/api/v1/customers` | customers 0002 (tabele), 0003 (RLS, strażnik relacji, tylko do dopisywania), 0004 (uprawnienia ról) | Ustawienia › „Dokumenty dla klientów”; publiczna strona dokumentu |
 | **4c** | Rezerwacja zapisuje zgody: formularz publiczny pokazuje regulamin rezerwacji i politykę prywatności obowiązujące w języku klienta, rezerwacja dopisuje wpisy dziennika (`source` `booking.appointment`), zgoda marketingowa osobno | — | formularz publiczny |
 | **4d-1** | Polecenia asystenta dla dokumentów: `customers.documents.read@1` (odczyt) i `customers.document.draft.save@1` (zapis szkicu z identyfikatorem rozmowy), z evalami; panel mówi, że szkic napisał asystent | — | Ustawienia › „Dokumenty dla klientów” (szkic) |
-| **4d-2** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; akceptacja tłumaczenia przez osobę ze step-upem w centrum tłumaczeń | do rozstrzygnięcia (niżej) | Tłumaczenia |
+| **4d-2** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; akceptacja tłumaczenia przez osobę ze step-upem w centrum tłumaczeń | — (rekord na żywo, „Rozstrzygnięcia plastra 4d-2”) | Tłumaczenia › „Do akceptacji”; Ustawienia › „Dokumenty dla klientów” (zlecenie brakujących języków) |
 | **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał (token pochodzenia — niżej, „Rozstrzygnięcia plastra 4e”); `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0004 (wersje planów publikuje 0004) | Zamówienia (lista, szczegół) |
 | **4f-1** | Wpłaty ręczne (§4): `Payment`, `LedgerEntry` (tylko do dopisywania), oznaczenie wpłaty przez firmę (na miejscu, przelew) z podglądem, wycofanie wpłaty oznaczonej przez pomyłkę, status zamówienia z księgi (`partially_paid`, `paid`), `commerce.payments.manage` | commerce 0005–0007 | wpłaty w zamówieniu |
 | **4f-2** | Przelew z terminem (§5): rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, handler źródła w rejestrze, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, e-maile z numerem zamówienia i danymi do przelewu | commerce 0008, booking 0030 | oferta („Cennik”), zamówienie, wizyta, Ustawienia › „Płatności klientów”, formularz publiczny i link klienta |
@@ -575,6 +577,53 @@ Rozstrzygnięcia plastra 4d (2026-10-04, decyzje techniczne z powodem):
      umieć o niego zapytać — tak jak okno zatwierdzenia wersji w 4b.
   Do tego czasu ręczna ścieżka z 4b jest kompletna: osoba dopisuje tekst w
   kolejnym języku tą samą bramką co wersję.
+
+Rozstrzygnięcia plastra 4d-2 (2026-10-04, decyzje techniczne z powodem;
+odpowiedzi na cztery pytania wyżej):
+
+- **Rekord na żywo, bez migracji (pytanie 2).** Wiersz tekstu jest publiczny i
+  wiążący od chwili zapisu, więc źródło nie ma gdzie trzymać „oczekującego”:
+  zapis zlecenia odpowiada `pending` / `legal_document` i niczego nie pisze, a
+  tekst czeka w kolejce przeglądu silnika (`TranslationReviewItem.texts`).
+  Akceptacja to `write` z wyzwalaczem `acceptance`, który dopisuje wiersz przez
+  `documents.add_text` — tę samą bramkę osoby („Dokument dla klientów”) i ten
+  sam świeży drugi składnik co tekst wpisany ręcznie. Tryb tłumaczeń firmy
+  niczego tu nie zmienia: reguła dokumentu prawnego wyprzedza tryby, a gdyby
+  zlecenie mimo to doszło do zapisu, odmówi mu serwis, nie adapter. Druga
+  droga (własna tabela oczekujących tekstów) dublowałaby kolejkę silnika.
+- **Jeden fragment — cały tekst (pytanie 3).** Tak 4b zapisuje pochodzenie
+  (`UNIT_KIND = "text"`). Nowa wersja zaczyna bez tłumaczeń (wiersz należy do
+  wersji i nie przechodzi na następną), poprawka tekstu źródłowego w wersji
+  czyni tłumaczenia nieaktualnymi; tekst osoby jest wtedy chroniony i wynik
+  czeka jako `overwrites_human`. Akapity jako fragmenty wymagałyby pochodzenia
+  per akapit i reguły dla ręcznych tłumaczeń o innej liczbie akapitów —
+  odłożone, aż koszt ponownego tłumaczenia całego dokumentu okaże się realny.
+- **Która wersja jest źródłem.** Ta, która wchodzi w życie ostatnia
+  (`documents.translated_version`: obowiązująca albo zatwierdzona na późniejszy
+  dzień) — tłumaczenia mają być gotowe, zanim nowa wersja zacznie obowiązywać.
+  Wersji obowiązującej, którą zaraz zastąpi następna, automat już nie tłumaczy;
+  tekst do niej osoba nadal dopisuje ręcznie.
+- **Zakres to dokument, nie firma.** Język jest „żywy” dla dokumentu, gdy
+  dokument miał w nim tekst (w tej albo wcześniejszej wersji): automat zmian
+  proponuje wtedy kolejną wersję w tym języku, a pierwsze wejście języka do
+  dokumentu zostaje kliknięciem „Przetłumacz brakujące” z wyceną.
+- **Kto co może.** Zlecenie i odczyt — `customers.read`; akceptacja —
+  `customers.manage`, osoba i kod z aplikacji. Asystent nie akceptuje
+  (etykieta „Dokument dla klientów” nie jest otwarta dla żadnego kanału):
+  polecenie `translation.review.accept` odmawia już w podglądzie, bo źródło
+  deklaruje `accepted_in_panel_only`. `revert` zlecenia niczego nie cofa —
+  zlecenie niczego nie wypuściło, a akceptacja jest decyzją osoby.
+- **Idempotencja bez tabeli.** Zaakceptowany wiersz pamięta zapis, który go
+  dopisał (`provenance.write`: klucz i skrót treści) — powtórka akceptacji
+  odpowiada tym wierszem, inna treść pod tym samym kluczem to
+  `idempotency_conflict`. Zapis zlecenia nie zostawia śladu, więc jego powtórka
+  odpowiada z samego stanu.
+- **Zestaw kontraktu (pytanie 1)** dostał tryb `legal_only` (oraz `single_unit`
+  i `persons_only` dla źródeł o takiej budowie): zestaw gra też osobę
+  akceptującą — protokół §11. **Ekran (pytanie 4):** „Tłumaczenia → Do
+  akceptacji” pyta o kod po 403 `step_up_required` i wysyła tę samą decyzję
+  jeszcze raz; ekran dokumentu zleca brakujące języki i mówi, że tłumaczenie
+  czeka.
 
 Rozstrzygnięcia plastra 4e (2026-10-04, decyzje techniczne z powodem):
 

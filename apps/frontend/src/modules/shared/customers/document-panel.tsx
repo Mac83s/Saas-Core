@@ -38,12 +38,18 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 import { cn } from "@saas-core/ui/lib/utils";
 
 import { PanelPage } from "#components/panel/panel-page";
+import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { useStepUp } from "../../core/organizations/step-up";
+import { TranslateMissing } from "../translation/translate-missing";
+import { translationComposed } from "../translation/use-translation";
 
 type Kind = CustomerDocument["kind"];
 type TextEdit = { number: number; locale: string; text: string };
+
+/** Where a machine translation of a document waits for a person. */
+const REVIEW = "/panel/sites/translations/review";
 
 function message(error: unknown, fallback: string): string {
   return error instanceof ApiProblemError ? error.message : fallback;
@@ -55,7 +61,9 @@ function message(error: unknown, fallback: string): string {
  * versions so far. A draft binds nobody; approving it and adding a text in
  * another language take a fresh code from the authenticator app, and what was
  * approved is never rewritten — a correction is a new text, a change the next
- * version.
+ * version. A missing language can be ordered from the translation engine; its
+ * text never reaches customers by itself — it waits in the translation review
+ * for a person's acceptance, with the same code.
  */
 export function CustomerDocumentPanel({
   kind,
@@ -271,6 +279,12 @@ export function CustomerDocumentPanel({
     const codes = [
       ...new Set([...(options?.locales ?? []), ...version.locales]),
     ];
+    // A machine translation is made for one version: the one in force, or
+    // the one approved for a later day.
+    const translation =
+      document?.translation?.version === version.number && translationComposed()
+        ? document.translation
+        : undefined;
     return (
       <section
         aria-label={title}
@@ -334,10 +348,49 @@ export function CustomerDocumentPanel({
                     {t("noTextHelp", { language: nativeName(code) })}
                   </p>
                 )}
+                {translation?.waiting.includes(code) ? (
+                  <p className="text-sm" role="status">
+                    {t("translationWaits", { language: nativeName(code) })}{" "}
+                    <Link
+                      className="underline underline-offset-2"
+                      href={REVIEW}
+                    >
+                      {t("translationReview")}
+                    </Link>
+                  </p>
+                ) : null}
               </li>
             );
           })}
         </ul>
+        {translation && canManage ? (
+          <div className="space-y-2 border-t pt-3">
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              {t("translateHelp")}{" "}
+              <Link className="underline underline-offset-2" href={REVIEW}>
+                {t("translationReview")}
+              </Link>
+            </p>
+            <TranslateMissing
+              onOrdered={() => void load()}
+              orderedMessage={t("translationOrdered")}
+              // A language whose translation already waits is not ordered
+              // (and paid for) a second time.
+              targets={codes
+                .filter(
+                  (code) =>
+                    code !== version.source_locale &&
+                    !translation.waiting.includes(code),
+                )
+                .map((locale) => ({
+                  source_key: "customers.document",
+                  object_id: translation.object_id,
+                  locale,
+                  basis: "published" as const,
+                }))}
+            />
+          </div>
+        ) : null}
       </section>
     );
   }

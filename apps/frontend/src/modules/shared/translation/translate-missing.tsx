@@ -31,10 +31,13 @@ import { useTranslationOffer } from "./use-translation";
 export function TranslateMissing({
   targets,
   disabled = false,
+  orderedMessage,
   onOrdered,
 }: {
   targets: TranslationTarget[];
   disabled?: boolean;
+  /** Where the result lands, when it is not this screen. */
+  orderedMessage?: string;
   onOrdered?: () => void;
 }) {
   const t = useTranslations("Translations");
@@ -70,7 +73,7 @@ export function TranslateMissing({
     try {
       await orderTranslation(targets, current, crypto.randomUUID());
       setQuote(undefined);
-      setMessage(t("ordered"));
+      setMessage(orderedMessage ?? t("ordered"));
       onOrdered?.();
     } catch {
       setMessage(t("orderFailed"));

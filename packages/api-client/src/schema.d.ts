@@ -9912,6 +9912,8 @@ export interface components {
             public_url: string | null;
             /** @description Every version, newest first; on a detail read. */
             versions?: components["schemas"]["CustomerDocumentVersion"][];
+            /** @description What ordering a machine translation of the document needs; on a detail read, null before the first version. */
+            translation?: components["schemas"]["CustomerDocumentTranslation"] | null;
         };
         CustomerDocumentApproval: {
             effect: components["schemas"]["CustomerDocumentApprovalEffect"];
@@ -10005,6 +10007,17 @@ export interface components {
             text: string;
             /** @description The document's `version` as last read; another answers 409. */
             expected_version: number;
+        };
+        CustomerDocumentTranslation: {
+            /**
+             * Format: uuid
+             * @description What a translation order names, with the source `customers.document`.
+             */
+            object_id: string;
+            /** @description The version a machine translation is made for: the one that takes force last — the version in force, or the one approved for a later day. */
+            version: number;
+            /** @description Languages whose machine translation waits in the translation review for a person to accept it; a text is added only then. */
+            waiting: string[];
         };
         CustomerDocumentVersion: {
             /** @description The version's number, from 1. */

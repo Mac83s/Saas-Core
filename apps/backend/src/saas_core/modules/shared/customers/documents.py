@@ -24,12 +24,13 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
+from saas_core.content_protocol import registry
 from saas_core.content_protocol.provenance import ORIGIN_HUMAN, Provenance, unit_hash
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.step_up import require_step_up
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.authorization import authorize
-from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.context import TenantContext, require_tenant_context
 from saas_core.modules.core.organizations.locales import (
     assert_content_locale,
     organization_content_locales,
@@ -57,6 +58,10 @@ STEP_UP_REASON = "customers.document.approve"
 DOCUMENT_TEXT_MAX = 100_000
 #: The translation memory's key for a document's text (`content_protocol`).
 UNIT_KIND = "text"
+#: The documents as a translation source (`translation_source.py`).
+TRANSLATION_SOURCE = "customers.document"
+#: In an accepted translation's provenance: the write that made the row.
+ACCEPTED_WRITE = "write"
 _PLATFORM_DEFAULT_LOCALE = "pl"
 
 
@@ -135,6 +140,38 @@ def _current_texts(version: DocumentVersion) -> dict[str, DocumentText]:
     for row in rows:
         texts[row.locale] = row
     return texts
+
+
+def translated_version(document: CustomerDocument) -> DocumentVersion | None:
+    """The version a machine translation is made for: the one that takes force
+    last — the version in force, or the one approved for a later day, whose
+    other languages are wanted before that day comes."""
+    return (
+        DocumentVersion.all_objects.filter(
+            organization_id=document.organization_id, document=document
+        )
+        .order_by("-effective_from", "-number")
+        .first()
+    )
+
+
+def _translation(document: CustomerDocument) -> dict[str, Any] | None:
+    """What the panel needs to order a machine translation of the document and
+    to say that one waits for a person (the engine's review queue, asked
+    through the registry: nothing without the engine)."""
+    version = translated_version(document)
+    if version is None:
+        return None
+    waiting = registry.waiting_reviews(require_tenant_context())
+    return {
+        "object_id": document.id,
+        "version": version.number,
+        "waiting": sorted(
+            locale
+            for source_key, object_id, locale in waiting
+            if source_key == TRANSLATION_SOURCE and object_id == document.id
+        ),
+    }
 
 
 def _check_version(document: CustomerDocument | None, expected_version: int) -> None:
@@ -250,6 +287,7 @@ def _payload(
     }
     if with_texts:
         payload["versions"] = [_version_payload(row, names, with_texts=False) for row in versions]
+        payload["translation"] = _translation(document) if document else None
     return payload
 
 
@@ -504,7 +542,34 @@ def approve_draft(
             "effective_from": version.effective_from.isoformat(),
         },
     )
+    _source_changed(context, document)
     return {"effect": effect, "document": _payload(organization, kind, document, with_texts=True)}
+
+
+def _source_changed(context: TenantContext, document: CustomerDocument) -> None:
+    """The text customers read in the document's own language changed — a new
+    version, or a correction of one — in the transaction that changed it
+    (docs/architecture/translation-sources.md §8)."""
+    registry.notify_source_changed(
+        context=context,
+        source_key=TRANSLATION_SOURCE,
+        object_ids=[document.id],
+        change="changed",
+        cause="user",
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptedTranslation:
+    """A machine translation a person accepted in the translation review: what
+    its row keeps beside the text."""
+
+    #: Who wrote the text and against which source text.
+    provenance: Provenance
+    #: The acceptance that writes the row and the digest of what it carried: a
+    #: repeat of it is answered with the row, never with a second one.
+    write_key: str
+    write_digest: str
 
 
 @transaction.atomic
@@ -515,10 +580,13 @@ def add_text(
     locale: str,
     text: str,
     expected_version: int,
+    accepted: AcceptedTranslation | None = None,
 ) -> dict[str, Any]:
     """A version's text in another language, or a correction of one it has:
     always a new row, by a person with a fresh second factor — the same gate
-    as the version itself."""
+    as the version itself. `accepted` is the document's translation source
+    handing over a machine translation the person accepted: the same gate,
+    and the row says a model wrote it."""
     context = authorize(CUSTOMERS_MANAGE)
     organization = _organization(context.organization_id)
     document = _document(organization.id, _kind(kind), lock=True)
@@ -535,7 +603,9 @@ def add_text(
     assert_content_locale(locale, organization=organization)
     text = _checked_text(text)
     current = _current_texts(version)
-    if locale in current and current[locale].text == text:
+    # An accepted translation with the words that already stand is still a new
+    # row: it says the text was accepted against the source as it reads now.
+    if accepted is None and locale in current and current[locale].text == text:
         raise ValidationError({
             "text": [ErrorDetail("Ten tekst już obowiązuje.", code="text_unchanged")]
         })
@@ -543,16 +613,19 @@ def add_text(
     require_step_up(user_id=context.actor_id, reason=STEP_UP_REASON)
     now = timezone.now()
     source = current.get(version.source_locale)
-    provenance = (
-        Provenance(
+    provenance: dict[str, Any] = {}
+    if accepted is not None:
+        provenance = {
+            **accepted.provenance.as_dict(),
+            ACCEPTED_WRITE: [accepted.write_key, accepted.write_digest],
+        }
+    elif source is not None and locale != version.source_locale:
+        provenance = Provenance(
             origin=ORIGIN_HUMAN,
             source_hash=unit_hash(UNIT_KIND, source.text),
             written_hash=unit_hash(UNIT_KIND, text),
             at=now.isoformat(),
         ).as_dict()
-        if source is not None and locale != version.source_locale
-        else {}
-    )
     row = DocumentText.all_objects.create(
         organization=organization,
         version=version,
@@ -577,8 +650,11 @@ def add_text(
             "locale": locale,
             "text_id": str(row.id),
             "corrects": locale in current,
+            "origin": provenance.get("origin", ORIGIN_HUMAN),
         },
     )
+    if locale == version.source_locale:
+        _source_changed(context, document)
     return _payload(organization, kind, document, with_texts=True)
 
 

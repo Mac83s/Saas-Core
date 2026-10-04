@@ -6608,7 +6608,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Publishes the chosen waiting translations (ids from translation.review.list). A person's decision: it runs only after the person's click that names these items. Items without text (qa_failed, model_refused, gate_failed) cannot be accepted.",
+      "model_description": "Publishes the chosen waiting translations (ids from translation.review.list). A person's decision: it runs only after the person's click that names these items. Items without text (qa_failed, model_refused, gate_failed) cannot be accepted. A translation of a document for customers (source customers.document) is refused with person_required: the person accepts it in the panel, under „Tłumaczenia → Do akceptacji”, with a code from the authenticator app.",
       "modifiers": [],
       "module": "shared.translation",
       "no_preview_reason": null,
