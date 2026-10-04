@@ -109,7 +109,10 @@ def test_the_provider_pin_takes_only_the_host_the_documents_name() -> None:
         assert "nie można wybrać: dokumenty prywatności platformy nazywają innego wykonawcę" in (
             str(message)
         )
-        assert "Google (Vertex AI, żądany region europejski). Najpierw zmień wpis „Podmiot przetwarzający”" in (
+        assert (
+            "Google (Vertex AI, żądany region europejski). "
+            "Najpierw zmień wpis „Podmiot przetwarzający”"
+        ) in (
             str(message)
         )
     # The other key of the group is not held back by the pin's rule.
