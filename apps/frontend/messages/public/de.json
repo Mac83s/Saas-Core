@@ -72,6 +72,7 @@
     "onRequestHint": "Diese Leistung bestätigt das Unternehmen selbst. Senden Sie eine Anfrage — der Termin wird für Sie reserviert, und Sie erhalten innerhalb von {hours, plural, one {# Stunde} other {# Stunden}} eine Antwort.",
     "request": "Buchungsanfrage senden",
     "manage": "Termin ändern oder absagen",
+    "manageWaiting": "Buchung ansehen oder absagen",
     "loadError": "Die freien Zeiten konnten nicht geladen werden.",
     "createError": "Die Zeit ist nicht mehr frei oder die Angaben sind ungültig.",
     "required": "Dieses Feld ist erforderlich.",

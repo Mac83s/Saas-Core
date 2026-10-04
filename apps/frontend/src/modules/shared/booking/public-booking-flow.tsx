@@ -455,14 +455,20 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           {booked.payment ? (
             <TransferDetails payment={booked.payment} zone={booked.timezone} />
           ) : null}
-          {booked.quote ? <QuoteSummary quote={booked.quote} /> : null}
+          {booked.quote ? (
+            <QuoteSummary
+              quote={booked.quote}
+              settled={state === "confirmed"}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-3">
             {booked.self_service_token ? (
               <a
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
                 href={`/${locale}/booking/${encodeURIComponent(booked.self_service_token)}`}
               >
-                {t("manage")}
+                {/* A booking that waits can be given up, not moved. */}
+                {t(state === "confirmed" ? "manage" : "manageWaiting")}
               </a>
             ) : null}
             {/* Into the calendar once it is certain: a booking that waits

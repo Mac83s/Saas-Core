@@ -167,7 +167,8 @@ TRANSFER = SettingGroup(
             default="",
             scopes=("organization",),
             product_default=False,
-            max_length=140,
+            # What a transfer's recipient line takes (two lines of 35).
+            max_length=70,
             no_links=True,
             label={"pl": "Właściciel rachunku", "en": "Account holder"},
             help={

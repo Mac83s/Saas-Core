@@ -1729,7 +1729,8 @@ function AppointmentDetails({
                 className="font-medium text-primary hover:underline"
                 href={`/panel/orders/${appointment.order.id}`}
               >
-                {appointment.order.number}
+                {/* A request's order has no number until it is accepted. */}
+                {appointment.order.number || t("orderDraft")}
               </Link>
             </dd>
           </>

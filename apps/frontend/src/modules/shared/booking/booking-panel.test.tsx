@@ -2657,11 +2657,47 @@ test("the customer's page shows the transfer a waiting booking asks for (ADR-073
   expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
 });
 
+test("the terms of a prepayment are an instruction only while it is awaited", async () => {
+  const quote = {
+    ...priceOf(20000, "d".repeat(64)),
+    payment_policy: "deposit",
+    prepayment: { kind: "deposit", amount_minor: 6000, transfer_due_days: 3 },
+  };
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    status: "pending_payment",
+    quote,
+  });
+  const waiting = render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_waiting" />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    await screen.findByText(
+      /Prepayment: PLN\s60\.00 by bank transfer within 3 days/,
+    ),
+  ).not.toBeNull();
+  waiting.unmount();
+
+  // Paid and confirmed: the price stays, the instruction goes.
+  api.getSelfServiceBooking.mockResolvedValue({ ...publicAppointment, quote });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_paid" />
+    </NextIntlClientProvider>,
+  );
+  expect(await screen.findByRole("region", { name: "Price" })).not.toBeNull();
+  expect(screen.queryByText(/by bank transfer within/)).toBeNull();
+});
+
 test("a customer's request is accepted or declined in the visit's dialog (ADR-072 §9)", async () => {
   const request = {
     ...appointment,
     status: "pending_request",
     hold_expires_at: "2026-08-19T20:00:00Z",
+    // The request's order is a draft: no number until it is accepted.
+    order: { id: "0199a000-0000-7000-8000-000000000009", number: "" },
   };
   const confirmed = { ...appointment, hold_expires_at: null };
   api.listBookingAppointments.mockResolvedValue([request]);
@@ -2674,6 +2710,12 @@ test("a customer's request is accepted or declined in the visit's dialog (ADR-07
   expect(within(dialog).getByText("Awaiting answer")).toBeInTheDocument();
   expect(within(dialog).getByText("Answer by").nextSibling).toHaveTextContent(
     /August 19/,
+  );
+  expect(
+    within(dialog).getByRole("link", { name: "draft, no number yet" }),
+  ).toHaveAttribute(
+    "href",
+    "/panel/orders/0199a000-0000-7000-8000-000000000009",
   );
   // A request is answered, not moved or closed.
   expect(
@@ -2795,8 +2837,12 @@ test("the public form says a service is taken on request and what happens to the
   expect(screen.getByText("Answer by").nextSibling).toHaveTextContent(
     /August 19, 2026/,
   );
-  // Not in the calendar yet: the request may still be declined.
+  // Not in the calendar yet: the request may still be declined; and the
+  // link promises only what a waiting booking allows.
   expect(screen.queryByText("Add to calendar")).toBeNull();
+  expect(
+    screen.getByRole("link", { name: "See your booking or cancel it" }),
+  ).toHaveAttribute("href", "/en/booking/bk_request");
 });
 
 test("the customer's page says a request waits for the company and lets them withdraw it", async () => {

@@ -6,7 +6,15 @@ import type { BookingPublicQuote } from "@saas-core/api-client";
 
 /** A price as the customer reads it: the lines, what they pay, the deposit
  *  and how they pay (ADR-072 §7–§8). Every amount is the server's. */
-export function QuoteSummary({ quote }: { quote: BookingPublicQuote }) {
+export function QuoteSummary({
+  quote,
+  settled = false,
+}: {
+  quote: BookingPublicQuote;
+  /** The booking no longer waits for its prepayment: the terms of paying it
+   *  are not an instruction any more, so they are left out. */
+  settled?: boolean;
+}) {
   const t = useTranslations("BookingPrice");
   const locale = useLocale();
   const money = (minor: number) =>
@@ -49,7 +57,7 @@ export function QuoteSummary({ quote }: { quote: BookingPublicQuote }) {
         <p className="text-muted-foreground">{t("payOnSite")}</p>
       ) : null}
       {/* What is paid before the booking is confirmed (ADR-073 §5). */}
-      {quote.prepayment ? (
+      {quote.prepayment && !settled ? (
         <p className="font-medium">
           {t(
             quote.prepayment.kind === "deposit"

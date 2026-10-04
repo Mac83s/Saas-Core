@@ -47,7 +47,8 @@
     "onRequestHint": "La empresa confirma este servicio por sí misma. Envíe una solicitud: le reservaremos la fecha y recibirá una respuesta en un plazo de {hours, plural, one {# hora} other {# horas}}.",
     "request": "Enviar solicitud de reserva",
     "statusPending": "A la espera del pago",
-    "statusRequested": "A la espera de la respuesta de la empresa"
+    "statusRequested": "A la espera de la respuesta de la empresa",
+    "manageWaiting": "Ver la reserva o cancelarla"
   },
   "BookingSelfService": {
     "cancelUntil": "Puede cancelar la reserva hasta el {when}.",

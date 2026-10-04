@@ -146,7 +146,13 @@ export function SelfServiceBooking({ token }: { token: string }) {
               />
             ) : null}
             {appointment.quote ? (
-              <QuoteSummary quote={appointment.quote} />
+              <QuoteSummary
+                quote={appointment.quote}
+                settled={
+                  appointment.status !== "pending_payment" &&
+                  appointment.status !== "pending_request"
+                }
+              />
             ) : null}
             {/* A request waits for the company's answer until a date. */}
             {appointment.status === "pending_request" &&
