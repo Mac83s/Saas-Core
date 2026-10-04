@@ -24,11 +24,13 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.api import setting
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
 from . import orders
 from .availability import _zone, available_days, available_slots, available_times
+from .cancellation import CANCEL_REASONS, REFUND_THRESHOLDS
 from .company_settings import (
     CONTACT,
     HORIZON_DAYS,
@@ -75,9 +77,11 @@ from .rules import (
 )
 from .security import public_booking_context, token_digest
 from .serializers import (
+    AppointmentCancelSerializer,
     AppointmentCreateSerializer,
     AppointmentListSerializer,
     AppointmentSerializer,
+    AppointmentSettlementAnswerSerializer,
     BookingClosureInputSerializer,
     BookingClosureListSerializer,
     BookingClosurePreviewSerializer,
@@ -170,6 +174,7 @@ from .services import (
     CreatedAppointment,
     anonymize_customer,
     answer_request,
+    appointment_for_tenant,
     cancel_appointment,
     complete_appointment,
     configure_schedule,
@@ -425,13 +430,35 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "location_name": value.location.name,
         "status": value.status,
         "hold_expires_at": value.hold_expires_at,
-        # The transfer's details while the booking waits for its payment.
-        "payment": orders.awaited(value) if value.status == "pending_payment" else None,
+        # The transfer's details while the booking waits for its payment, and
+        # of a confirmed one whose rest is due by a transfer.
+        "payment": (
+            orders.awaited(value) if value.status in ("pending_payment", "confirmed") else None
+        ),
+        "settlement": _customer_settlement(value),
         "team_name": team,
         "person_name": person,
         **({"self_service_token": token} if token else {}),
         "self_service": _self_service(value),
         "quote": customer_quote(value.quote),
+    }
+
+
+def _customer_settlement(value: Any) -> dict[str, Any] | None:
+    """What comes back of what the customer paid: before they give the
+    booking up, what its terms would give back now; afterwards, what the
+    company is still to give back."""
+    money = orders.settlement(value)
+    if money is None:
+        return None
+    return {
+        "currency": money["currency"],
+        "paid_minor": money["paid_minor"],
+        "refund_minor": (
+            money["refund_owed_minor"]
+            if value.status == "canceled"
+            else money["by_terms"]["refund_minor"]
+        ),
     }
 
 
@@ -849,10 +876,24 @@ class AppointmentCancelView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="booking_appointment_cancel",
+        summary="Call a booking off",
         tags=["booking"],
+        description="The company calls a booking off; the customer is told by e-mail. What "
+        "the customer paid is settled with the booking's order: everything goes back — or, "
+        "with the reason `balance_overdue`, what the booking's refund thresholds give "
+        "(`GET …/settlement/` says both before anybody decides). The company then marks "
+        "the refund on the order when it has given the money back. A visit that took "
+        "place is 409 `appointment_not_changeable`; the same Idempotency-Key answers the "
+        "first result again.",
         parameters=[IDEMPOTENCY],
-        request=None,
-        responses={200: AppointmentSerializer},
+        request=AppointmentCancelSerializer,
+        responses={
+            200: AppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
     )
     def post(self, request: Request, appointment_id: UUID) -> Response:
         context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
@@ -862,9 +903,43 @@ class AppointmentCancelView(APIView):
                     appointment_id=appointment_id,
                     idempotency_key=_idem(request),
                     principal_ref=str(context.actor_id),
+                    **self._reason(request),
                 )
             )
         )
+
+    @staticmethod
+    def _reason(request: Request) -> dict[str, Any]:
+        serializer = AppointmentCancelSerializer(data=request.data or {})
+        serializer.is_valid(raise_exception=True)
+        return cast(dict[str, Any], serializer.validated_data)
+
+
+class AppointmentSettlementView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_appointment_settlement_retrieve",
+        summary="What calling a booking off does with what its customer paid",
+        description="What the customer has paid for the booking, what its own refund "
+        "thresholds give back now and whether the rest of its price is late — read before "
+        "calling it off. Writes nothing. Null where nothing was paid.",
+        tags=["booking"],
+        responses={
+            200: AppointmentSettlementAnswerSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, appointment_id: UUID) -> Response:
+        del request
+        context = authorize_entitled(
+            BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ
+        )
+        appointment = appointment_for_tenant(context.organization_id, appointment_id)
+        if appointment is None:
+            raise NotFound("Rezerwacja nie istnieje.")
+        return Response({"settlement": orders.settlement(appointment)})
 
 
 def _answer(request: Request, appointment_id: UUID, *, accept: bool) -> Response:
@@ -2192,6 +2267,9 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "payment_policy": service.payment_policy,
         "deposit_percent": service.deposit_percent,
         "transfer_due_days": service.transfer_due_days,
+        "balance_due_days_before": service.balance_due_days_before,
+        "cancellation_refunds": service.cancellation_refunds,
+        "cancellation_applies_to": service.cancellation_applies_to,
         "active": service.active,
         "draft": service.draft,
         "preset_id": service.preset_id or None,
@@ -2299,7 +2377,11 @@ class BookingSetupOptionsView(APIView):
     )
     def get(self, request: Request) -> Response:
         del request
-        return Response({"keys": setup_options()})
+        return Response({
+            "keys": setup_options(),
+            "refund_thresholds": REFUND_THRESHOLDS,
+            "cancel_reasons": list(CANCEL_REASONS),
+        })
 
 
 def _preset_payload(item: Preset) -> dict[str, Any]:

@@ -40,7 +40,7 @@ import { amountText, formatMoney, parseAmount } from "#lib/money";
 type Method = CommerceOptions["manual_methods"][number];
 
 /** What the server said, or the panel's own words when it said nothing. */
-function refusal(error: unknown, fallback: string): string {
+export function refusal(error: unknown, fallback: string): string {
   if (!(error instanceof ApiProblemError)) return fallback;
   return error.problem.errors?.[0]?.message ?? fallback;
 }
@@ -53,7 +53,7 @@ export function awaitedPayment(order: Order): OrderPayment | undefined {
     : order.payments.find((payment) => payment.status === "requires_payment");
 }
 
-function isStale(error: unknown): boolean {
+export function isStale(error: unknown): boolean {
   return (
     error instanceof ApiProblemError &&
     error.problem.code === "order_version_conflict"
@@ -93,6 +93,10 @@ export function OrderPayments({
   const money = (minor: number) => formatMoney(minor, order.currency, locale);
   const canceled = order.status === "canceled";
   const awaited = awaitedPayment(order);
+  // What went back is no longer paid: the two together are what came in.
+  const refunded = order.refunded_minor ?? 0;
+  const owed = order.refund_owed_minor ?? 0;
+  const kept = order.paid_minor - owed;
 
   async function takeBack(payment: OrderPayment) {
     setBusy(true);
@@ -203,13 +207,29 @@ export function OrderPayments({
       </h2>
       <dl className="max-w-sm space-y-1.5 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-muted-foreground">
-            {canceled && order.paid_minor > 0 ? t("paidToReturn") : t("paid")}
-          </dt>
+          <dt className="text-muted-foreground">{t("paid")}</dt>
           <dd className="font-medium tabular-nums">
-            {money(order.paid_minor)}
+            {money(order.paid_minor + refunded)}
           </dd>
         </div>
+        {refunded > 0 ? (
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{t("refunded")}</dt>
+            <dd className="font-medium tabular-nums">{money(refunded)}</dd>
+          </div>
+        ) : null}
+        {owed > 0 ? (
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{t("refundOwed")}</dt>
+            <dd className="font-medium tabular-nums">{money(owed)}</dd>
+          </div>
+        ) : null}
+        {canceled && kept > 0 ? (
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{t("kept")}</dt>
+            <dd className="font-medium tabular-nums">{money(kept)}</dd>
+          </div>
+        ) : null}
         {canceled ? null : (
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">
@@ -228,10 +248,18 @@ export function OrderPayments({
       ) : null}
       {awaited?.due_at ? (
         <p className="max-w-prose text-sm" role="note">
-          {t("awaited", {
-            amount: money(awaited.amount_minor),
-            date: formatDateTime(awaited.due_at, locale),
-          })}
+          {t(
+            awaited.kind !== "balance"
+              ? "awaited"
+              : // A late balance cancels nothing: the company decides.
+                new Date(awaited.due_at) < new Date()
+                ? "balanceOverdue"
+                : "balanceAwaited",
+            {
+              amount: money(awaited.amount_minor),
+              date: formatDateTime(awaited.due_at, locale),
+            },
+          )}
         </p>
       ) : null}
       <DataTable
@@ -380,7 +408,7 @@ function RecordPaymentDialog({
               {t("recordTitle", { number: order.number })}
             </DialogTitle>
             <DialogDescription>
-              {awaited
+              {awaited && awaited.kind !== "balance"
                 ? t("recordHintAwaited", {
                     amount: money(awaited.amount_minor),
                     due: money(order.due_minor),

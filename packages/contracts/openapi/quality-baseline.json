@@ -146,7 +146,6 @@
     "POST /api/v1/billing/portal/": {"fingerprint": "c7144cb33aeb0022", "violations": ["summary", "description", "idempotency-key"]},
     "POST /api/v1/billing/trial-activation/": {"fingerprint": "b309ce5281f26fa2", "violations": ["summary", "description", "idempotency-key"]},
     "POST /api/v1/billing/webhooks/stripe/": {"fingerprint": "7422b6a1fd1399e0", "violations": ["summary", "description", "idempotency-key", "error-400"]},
-    "POST /api/v1/booking/appointments/{appointment_id}/cancel/": {"fingerprint": "3d8d3632d57f14d5", "violations": ["operation-id", "summary", "description", "error-400"]},
     "POST /api/v1/booking/appointments/{appointment_id}/complete/": {"fingerprint": "fcf4115362f76dec", "violations": ["operation-id", "summary", "error-400"]},
     "POST /api/v1/booking/appointments/{appointment_id}/crew/": {"fingerprint": "84d6d7c6d7c0c988", "violations": ["operation-id", "summary"]},
     "POST /api/v1/booking/catalog/": {"fingerprint": "6001148bab63f686", "violations": ["operation-id", "summary", "description", "idempotency-key"]},

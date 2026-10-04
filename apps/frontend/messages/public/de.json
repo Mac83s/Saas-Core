@@ -130,7 +130,9 @@
     "chosenTeam": "Gewähltes Team: {team}",
     "seenBy": "Sie werden betreut von: {name}",
     "newPrice": "Zu dieser Zeit gilt ein anderer Preis. Prüfen Sie ihn, bevor Sie den Termin verschieben.",
-    "rescheduleAtPrice": "Zu diesem Preis verschieben"
+    "rescheduleAtPrice": "Zu diesem Preis verschieben",
+    "cancelGivesBack": "Sie haben {paid} gezahlt. Wenn Sie jetzt stornieren, erhalten Sie gemäß den Buchungsbedingungen {refund} zurück.",
+    "canceledGivesBack": "Sie haben {paid} gezahlt. Gemäß den Buchungsbedingungen erstattet das Unternehmen {refund}."
   },
   "Marketing": {
     "nav": {
@@ -183,14 +185,23 @@
     "deposit": "Rückzahlbare Kaution: {amount}",
     "payOnSite": "Zahlung vor Ort.",
     "prepayDeposit": "Vorauszahlung: {amount} per Überweisung innerhalb von {days, plural, one {# Tag} other {# Tagen}}. Den Rest zahlen Sie vor Ort.",
+    "prepayDepositAhead": "Vorauszahlung: {amount} per Überweisung innerhalb von {days, plural, one {# Tag} other {# Tagen}}.",
+    "balanceBefore": "Den Rest, {amount}, überweisen Sie {days, plural, =0 {spätestens am Tag des Buchungsbeginns} one {spätestens # Tag vor Buchungsbeginn} other {spätestens # Tage vor Buchungsbeginn}}.",
     "prepayFull": "Zahlung im Voraus: {amount} per Überweisung innerhalb von {days, plural, one {# Tag} other {# Tagen}}.",
     "transferTitle": "Überweisungsdaten",
     "transferHint": "Ihre Buchung wartet auf eine Zahlung von {amount}. Bitte überweisen Sie bis {due}. Geht die Zahlung nicht rechtzeitig ein, verfällt die Buchung.",
+    "balanceHint": "Es sind noch {amount} zu zahlen. Bitte überweisen Sie bis {due}.",
+    "balanceOverdueHint": "Die Restzahlung von {amount} war bis {due} fällig. Bitte überweisen Sie so bald wie möglich. Ihre Buchung bleibt bestehen.",
     "transferAmount": "Betrag",
     "transferHolder": "Empfänger",
     "transferAccount": "Kontonummer",
     "transferBank": "Bank",
-    "transferReference": "Verwendungszweck"
+    "transferReference": "Verwendungszweck",
+    "refundTitle": "Stornierung und Erstattung",
+    "refundRow": "{days, plural, =0 {Bis zum Tag des Beginns} one {Mindestens # Tag vor Beginn} other {Mindestens # Tage vor Beginn}}: {percent}% Erstattung",
+    "refundLater": "Später: keine Erstattung",
+    "refundOfDeposit": "Die Erstattung wird von der Vorauszahlung berechnet; weitere Zahlungen erhalten Sie vollständig zurück.",
+    "refundOfPaid": "Die Erstattung wird von allen Zahlungen berechnet."
   },
   "CustomerDocument": {
     "kinds": {

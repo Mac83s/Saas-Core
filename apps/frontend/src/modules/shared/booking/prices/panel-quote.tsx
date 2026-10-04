@@ -8,6 +8,7 @@ import {
   type BookingQuoteLine,
 } from "@saas-core/api-client";
 
+import { RefundThresholds } from "../quote-summary";
 import { formatMoney } from "./money";
 
 /**
@@ -29,6 +30,8 @@ export function PanelQuote({
   title?: string;
 }) {
   const t = useTranslations("PriceList");
+  // The customer's own words for the rest due by a transfer.
+  const price = useTranslations("BookingPrice");
   const locale = useLocale();
   const money = (minor: number) => formatMoney(minor, quote.currency, locale);
   const heading = title ?? t("quoteTitle");
@@ -104,15 +107,30 @@ export function PanelQuote({
       {quote.prepayment ? (
         <p className="text-muted-foreground">
           {t(
-            quote.prepayment.kind === "deposit"
-              ? "prepayDeposit"
-              : "prepayFull",
+            quote.prepayment.kind !== "deposit"
+              ? "prepayFull"
+              : quote.prepayment.balance_due_days_before != null
+                ? "prepayDepositAhead"
+                : "prepayDeposit",
             {
               amount: money(quote.prepayment.amount_minor),
               days: quote.prepayment.transfer_due_days,
             },
           )}
         </p>
+      ) : null}
+      {quote.prepayment?.kind === "deposit" &&
+      quote.prepayment.balance_due_days_before != null ? (
+        <p className="text-muted-foreground">
+          {price("balanceBefore", {
+            amount: money(quote.gross_minor - quote.prepayment.amount_minor),
+            days: quote.prepayment.balance_due_days_before,
+          })}
+        </p>
+      ) : null}
+      {/* The terms the booking is given up under, as the customer reads them. */}
+      {quote.cancellation ? (
+        <RefundThresholds cancellation={quote.cancellation} />
       ) : null}
     </section>
   );

@@ -35,6 +35,8 @@ import {
   ApiProblemError,
   answerBookingRequest,
   cancelBookingAppointment,
+  readAppointmentSettlement,
+  type AppointmentSettlement,
   completeBookingAppointment,
   markBookingAppointmentNoShow,
   createBookingAppointment,
@@ -54,6 +56,7 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
+import { Checkbox } from "@saas-core/ui/components/checkbox";
 import {
   Combobox,
   ComboboxContent,
@@ -87,6 +90,7 @@ import { cn } from "@saas-core/ui/lib/utils";
 
 import { Link } from "#i18n/navigation";
 import { useCompanyLocales } from "#lib/company-locales";
+import { formatMoney } from "#lib/money";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import type {
   ProductVisitBooked,
@@ -2472,14 +2476,47 @@ function CancelDialog({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [result, setResult] = useState<BookingAppointment>();
+  // What the customer paid and what calling the visit off gives back
+  // (ADR-073 §8): read when the question is asked, the server's numbers.
+  const [settlement, setSettlement] = useState<AppointmentSettlement | null>(
+    null,
+  );
+  // Called off for a balance not paid in time (29a): settled by the
+  // booking's refund thresholds instead of giving everything back.
+  const [forLateBalance, setForLateBalance] = useState(false);
   const idempotencyKey = useRef("");
+  const locale = useLocale();
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    readAppointmentSettlement(appointment.id).then(
+      (next) => {
+        if (active) setSettlement(next);
+      },
+      // Without it the dialog says nothing about money, as before.
+      () => undefined,
+    );
+    return () => {
+      active = false;
+    };
+  }, [appointment.id, open]);
 
   async function confirm() {
     setBusy(true);
     setProblem(undefined);
     try {
       setResult(
-        await cancelBookingAppointment(appointment.id, idempotencyKey.current),
+        forLateBalance && settlement?.balance_overdue
+          ? await cancelBookingAppointment(
+              appointment.id,
+              idempotencyKey.current,
+              "balance_overdue",
+            )
+          : await cancelBookingAppointment(
+              appointment.id,
+              idempotencyKey.current,
+            ),
       );
       setOpen(false);
     } catch (error) {
@@ -2518,6 +2555,37 @@ function CancelDialog({
         <p className="text-sm">
           {t("cancelText")} {t("noCustomerMessage")}
         </p>
+        {settlement ? (
+          <div className="space-y-2 text-sm" role="note">
+            <p>
+              {t("cancelRefund", {
+                paid: formatMoney(
+                  settlement.paid_minor,
+                  settlement.currency,
+                  locale,
+                ),
+                refund: formatMoney(
+                  forLateBalance
+                    ? settlement.by_terms.refund_minor
+                    : settlement.paid_minor,
+                  settlement.currency,
+                  locale,
+                ),
+              })}
+            </p>
+            {settlement.balance_overdue ? (
+              <label className="flex min-h-11 items-center gap-3">
+                <Checkbox
+                  checked={forLateBalance}
+                  onCheckedChange={(checked) =>
+                    setForLateBalance(checked === true)
+                  }
+                />
+                {t("cancelForLateBalance")}
+              </label>
+            ) : null}
+          </div>
+        ) : null}
         {problem ? (
           <p className="text-sm text-destructive" role="alert">
             {problem}

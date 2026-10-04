@@ -14,8 +14,13 @@ draft (`place_order(..., draft=True)`: no number, no payment) and calls
 A source that confirms only after a payment asks for it right after placing
 the order — `request_prepayment(order, …)` answers until when it holds its
 record — and registers a handler (`OrderHandler`) to hear which came first,
-the money or the date (§5). Whether the company can be paid by a transfer at
-all is `transfer_account()`; a module whose offers ask for one says so with
+the money or the date (§5). The rest of a confirmed record's price, due by a
+transfer before what was sold begins, is planned with `plan_balance(order,
+due_at=…)`; late, it cancels nothing. When the source takes its record back it
+says what its own terms give back of what was paid (`cancel_order(…,
+refund_minor=…)`, from `order_money(order)`); `money_of(source, reference)`
+reads the same for the source's pages. Whether the company can be paid by a
+transfer at all is `transfer_account()`; a module whose offers ask for one says so with
 `register_transfer_account_use`. `orders_of(source, references)` names the
 orders of a list of records for whoever may read orders,
 `order_references(order, source)` the records an order stands for, and
@@ -25,6 +30,7 @@ where.
 Commerce never imports a source and works out no price.
 """
 
+from .balance import plan_balance
 from .models import Amounts, Order, OrderChannel, OrderLineKind, OrderStatus, TaxRate
 from .names import COMMERCE_ENABLED
 from .orders import (
@@ -37,7 +43,7 @@ from .orders import (
     place_order,
     reprice_order,
 )
-from .payments import awaited_transfer, request_prepayment
+from .payments import awaited_transfer, money_of, order_money, request_prepayment
 from .sources import OrderHandler, register_order_source
 from .transfer_account import TransferAccount, register_transfer_account_use, transfer_account
 
@@ -58,10 +64,13 @@ __all__ = [
     "accept_order",
     "awaited_transfer",
     "cancel_order",
+    "money_of",
     "order_for",
+    "order_money",
     "order_references",
     "orders_of",
     "place_order",
+    "plan_balance",
     "register_order_source",
     "register_transfer_account_use",
     "reprice_order",

@@ -14,7 +14,7 @@ from django.db import IntegrityError, OperationalError, connection, transaction
 from django.db.models import Prefetch, Q, QuerySet
 from django.utils import timezone, translation
 from django.utils.formats import date_format
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import (
@@ -41,6 +41,7 @@ from saas_core.modules.shared.notifications.services import queue_email
 from . import materials as stock
 from . import notify, orders
 from .availability import _zone, free_at, validate_start
+from .cancellation import BALANCE_OVERDUE
 from .company_settings import (
     refuse_beyond_horizon,
     refuse_missing_contact,
@@ -997,15 +998,20 @@ def reschedule_appointment(
 
 @transaction.atomic
 def cancel_appointment(
-    *, appointment_id: UUID, idempotency_key: str, principal_ref: str
+    *, appointment_id: UUID, idempotency_key: str, principal_ref: str, reason: str = ""
 ) -> Appointment:
+    """Calls a booking off. What its customer paid is settled with its order
+    (ADR-073 §8): a customer who gives it up gets back what the thresholds
+    frozen in the booking give; the company's own calling off gives everything
+    back — unless its `reason` is a balance not paid in time (`balance_overdue`,
+    owner decision 29a), which is settled like the customer's own."""
     context = require_tenant_context()
     # The order before the booking, as commerce takes them (`orders.lock`).
     orders.lock(appointment_id)
     appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
     if not appointment:
         raise NotFound("Rezerwacja nie istnieje.")
-    request_hash = _hash({"cancel": True})
+    request_hash = _hash({"cancel": True, **({"reason": reason} if reason else {})})
     existing = BookingMutation.all_objects.filter(
         action="cancel", principal_ref=principal_ref, idempotency_key=idempotency_key
     ).first()
@@ -1017,12 +1023,25 @@ def cancel_appointment(
         # A visit that took place is not called off afterwards.
         raise AppointmentNotChangeable
     _refuse_customer_change(context.role_key, appointment, "cancel")
+    public = context.role_key == PUBLIC_BOOKING_ROLE
     if appointment.status != AppointmentStatus.CANCELED:
+        late = reason == BALANCE_OVERDUE
+        if late and (public or not orders.balance_overdue(appointment)):
+            raise ValidationError({
+                "reason": [
+                    ErrorDetail(
+                        "Ta rezerwacja nie ma dopłaty po terminie.", code="balance_not_overdue"
+                    )
+                ]
+            })
         old = appointment.status
         crew = crew_of(appointment)
-        _call_off(appointment)
+        _call_off(appointment, reason=reason)
         stock.release(context.organization_id, appointment.id)
-        orders.canceled(appointment)
+        # One that still waited was never confirmed: everything goes back.
+        orders.canceled(
+            appointment, by_terms=(public or late) and old not in PENDING_STATUSES
+        )
         customer = appointment.customer
         if customer.email:
             queue_email(
@@ -1048,7 +1067,7 @@ def cancel_appointment(
         # (ADR-072 §9).
         if old not in PENDING_STATUSES:
             notify.staff_canceled(appointment, crew)
-        if context.role_key == PUBLIC_BOOKING_ROLE:
+        if public:
             notify.office_told(appointment, notify.OFFICE_CANCELED, crew=crew)
         if old not in PENDING_STATUSES:
             _announce(

@@ -27,7 +27,9 @@ const { api } = vi.hoisted(() => ({
     readCommerceOptions: vi.fn(),
     readOrder: vi.fn(),
     recordOrderPayment: vi.fn(),
+    recordOrderRefund: vi.fn(),
     voidOrderPayment: vi.fn(),
+    voidOrderRefund: vi.fn(),
   },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -768,7 +770,12 @@ test("a payment marked by mistake is taken back after a question, and a canceled
   first.unmount();
 
   api.readOrder.mockResolvedValue(
-    order({ ...paid, status: "canceled", due_minor: 0 }),
+    order({
+      ...paid,
+      status: "canceled",
+      due_minor: 0,
+      refund_owed_minor: 20000,
+    }),
   );
   wrap(
     <OrderPanel
@@ -777,8 +784,200 @@ test("a payment marked by mistake is taken back after a question, and a canceled
     />,
   );
   expect(
-    await screen.findByText("Wpłacono (do oddania klientowi)"),
-  ).toBeTruthy();
+    (await screen.findByText("Do oddania klientowi")).nextElementSibling
+      ?.textContent,
+  ).toMatch(/200,00/);
   expect(screen.queryByText("Zostało do zapłaty")).toBeNull();
+  expect(screen.queryByText("Zostaje po anulowaniu")).toBeNull();
   expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
+});
+
+test("a canceled order says what its terms give back, and the company marks the refund (ADR-073 §8)", async () => {
+  const canceled = order({
+    status: "canceled",
+    version: 4,
+    paid_minor: 6000,
+    due_minor: 14000,
+    refunded_minor: 0,
+    refund_owed_minor: 3000,
+    refunds: [],
+    payments: [{ ...payment, amount_minor: 6000 }],
+  });
+  const refund = {
+    id: "0199a000-0000-7000-8000-0000000000e1",
+    method: "transfer" as const,
+    status: "succeeded" as const,
+    amount_minor: 3000,
+    reason: "",
+    refunded_at: "2026-10-04T10:00:00Z",
+    recorded_by: "Ola Właścicielka",
+  };
+  const refunded = order({
+    ...canceled,
+    version: 5,
+    paid_minor: 3000,
+    refunded_minor: 3000,
+    refund_owed_minor: 0,
+    refunds: [refund],
+  });
+  api.readOrder.mockResolvedValue(canceled);
+  api.recordOrderRefund.mockResolvedValue(refunded);
+  api.voidOrderRefund.mockResolvedValue(
+    order({
+      ...canceled,
+      version: 6,
+      refunds: [{ ...refund, status: "canceled" }],
+    }),
+  );
+  const { container } = wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+
+  // Half of the prepayment goes back; the other half stays with the company.
+  const owed = await screen.findByText("Do oddania klientowi");
+  expect(owed.nextElementSibling?.textContent).toMatch(/30,00/);
+  expect(
+    screen.getByText("Zostaje po anulowaniu").nextElementSibling?.textContent,
+  ).toMatch(/30,00/);
+  const refunds = screen.getByRole("region", { name: "Zwroty" });
+  expect(
+    within(refunds).getByText(/Do oddania klientowi: 30,00\szł\. Kwota wynika/),
+  ).toBeTruthy();
+  expect(
+    within(refunds).getByText("Nikt jeszcze nie oznaczył zwrotu."),
+  ).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Oznacz zwrot" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Oznacz zwrot do zamówienia R/2026/0001",
+  });
+  const amount = within(dialog).getByLabelText("Kwota (PLN)");
+  // The amount starts at what the terms owe; within it no reason is asked for.
+  await waitFor(() => expect(amount).toHaveValue("30,00"));
+  expect(
+    within(dialog).getByLabelText("Powód zwrotu (opcjonalnie)"),
+  ).toBeTruthy();
+  // Beyond the terms the company says why — before anything is sent.
+  fireEvent.change(amount, { target: { value: "50" } });
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole("button", { name: "Zapisz zwrot" }),
+    ).toBeEnabled(),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz zwrot" }));
+  expect(
+    await within(dialog).findByText(
+      "Podaj powód zwrotu ponad to, co wynika z warunków zamówienia.",
+    ),
+  ).toBeTruthy();
+  expect(api.recordOrderRefund).not.toHaveBeenCalled();
+  expect((await axe.run(dialog)).violations).toEqual([]);
+  fireEvent.change(amount, { target: { value: "30" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz zwrot" }));
+  await waitFor(() =>
+    expect(api.recordOrderRefund).toHaveBeenCalledWith(
+      "0199a000-0000-7000-8000-000000000001",
+      {
+        amount_minor: 3000,
+        method: "transfer",
+        reason: "",
+        expected_version: 4,
+      },
+    ),
+  );
+  expect(await screen.findByText(/Zapisano zwrot: 30,00/)).toBeTruthy();
+  expect(
+    screen.getByText("Zwrócono klientowi").nextElementSibling?.textContent,
+  ).toMatch(/30,00/);
+  // What came in is still said whole: 30 stayed and 30 went back.
+  expect(screen.getByText("Wpłacono").nextElementSibling?.textContent).toMatch(
+    /60,00/,
+  );
+  expect(screen.queryByText("Do oddania klientowi")).toBeNull();
+  expect((await axe.run(container)).violations).toEqual([]);
+
+  // A refund marked by mistake is taken back after a question.
+  const row = within(screen.getByRole("region", { name: "Zwroty" }));
+  fireEvent.click(row.getByRole("button", { name: "Wycofaj" }));
+  const question = await screen.findByRole("dialog", {
+    name: /Wycofać zwrot 30,00/,
+  });
+  fireEvent.click(
+    within(question).getByRole("button", { name: "Wycofaj zwrot" }),
+  );
+  await waitFor(() =>
+    expect(api.voidOrderRefund).toHaveBeenCalledWith(
+      "0199a000-0000-7000-8000-000000000001",
+      refund.id,
+      5,
+    ),
+  );
+  expect(await screen.findByText(/Wycofano zwrot: 30,00/)).toBeTruthy();
+  expect(await screen.findByText("Wycofany")).toBeTruthy();
+});
+
+test("the rest due by a transfer is said without a threat, and late it is the company's decision", async () => {
+  vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
+  vi.setSystemTime(new Date("2026-10-04T12:00:00Z"));
+  const balance: OrderPayment = {
+    ...payment,
+    id: "0199a000-0000-7000-8000-0000000000f2",
+    kind: "balance",
+    status: "requires_payment",
+    amount_minor: 14000,
+    due_at: "2026-10-20T08:00:00Z",
+    paid_at: null,
+    recorded_by: "",
+  };
+  const partly = order({
+    status: "partially_paid",
+    version: 3,
+    paid_minor: 6000,
+    due_minor: 14000,
+    payments: [{ ...payment, amount_minor: 6000 }, balance],
+  });
+  api.readOrder.mockResolvedValue(partly);
+  const first = wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+  expect(
+    await screen.findByText(/Reszta ceny, 140,00\szł, ma wpłynąć przelewem do/),
+  ).toBeTruthy();
+  expect(screen.queryByText(/rezerwacja wygaśnie/)).toBeNull();
+  // Marking it promises no confirmation: the booking is confirmed already.
+  fireEvent.click(screen.getByRole("button", { name: "Oznacz wpłatę" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).queryByText(/potwierdzi rezerwację/)).toBeNull();
+  await waitFor(() =>
+    expect(within(dialog).getByLabelText("Kwota (PLN)")).toHaveValue("140,00"),
+  );
+  first.unmount();
+
+  api.readOrder.mockResolvedValue(
+    order({
+      ...partly,
+      payments: [
+        { ...payment, amount_minor: 6000 },
+        { ...balance, due_at: "2026-10-01T08:00:00Z" },
+      ],
+    }),
+  );
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+  expect(
+    await screen.findByText(
+      /Dopłata 140,00\szł miała wpłynąć do .* Rezerwacja pozostaje potwierdzona/,
+    ),
+  ).toBeTruthy();
+  vi.useRealTimers();
 });

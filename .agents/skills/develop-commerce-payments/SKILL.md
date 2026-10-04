@@ -21,9 +21,12 @@ date: the company's bank account (the settings group `commerce.transfer`), a
 payment a source asks for before it confirms (`request_prepayment`), the
 source's handler and the deadlines' task („Rozstrzygnięcia plastra 4f-2”).
 Slice 4g added draft orders for bookings that wait for the company's answer.
-Refunds, a balance's reminders and online payments come with the next slices
-of the ADR — do not put an operator's field or a refund anywhere ahead of
-them.
+Slice 4h added what goes back and what is still to come: refund thresholds
+frozen in the booking, the settlement at cancellation (`refund_due_minor`),
+refunds the company marks by hand (`Refund`, `refunds.py`) and the balance
+due by a transfer (`balance.py`; „Rozstrzygnięcia plastra 4h”). Online
+payments and refunds through an operator come with phase 7 — do not put an
+operator's field anywhere ahead of them.
 
 ## The rules that decide the design
 
@@ -94,7 +97,21 @@ them.
   so the numbering has no gaps („Rozstrzygnięcia plastra 4g”).
 - **A late balance cancels nothing** (owner decision 29a). Only the kinds in
   `PREPAYMENT_KINDS` expire an order; taking a payment back never un-confirms
-  what the source confirmed.
+  what the source confirmed. A `balance` is planned by the source
+  (`plan_balance`, after its prepayment came), reminded of and reported late
+  by the deadlines' task — the buyer and the people who mark payments are
+  told — and stays `requires_payment`.
+- **The source says what goes back, the order remembers it.** When a source
+  takes back what it sold it works the refund out from its own terms and
+  what was paid (`order_money`) and passes it to `cancel_order(…,
+  refund_minor=…)`; None gives everything back. `refund_due_minor` is that
+  verdict; what is still owed is it less the ledger's refunds
+  (`ledger.refund_owed`). Never work a refund out in commerce.
+- **A refund is the company's own act, marked afterwards.** `record_refund`
+  writes a `refund` ledger entry (negative) and moves no money. Within what
+  the terms owe it asks for nothing; beyond it the company gives its reason
+  (`reason_required`) — words that stay on the order's page, out of the audit
+  and of every mail, and go when the customer is anonymised.
 - **The deadlines' task reads a route, not a tenant.** `commerce_paymentroute`
   carries ids and a date, never a buyer's data, and a `service` contract of
   the role `commerce_deadlines`; a module's own scheduled work for the

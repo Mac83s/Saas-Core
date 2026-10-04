@@ -14,6 +14,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .orders import list_orders, options, read_order
 from .payments import record_payment, void_payment
+from .refunds import record_refund, void_refund
 from .serializers import (
     CommerceOptionsSerializer,
     OrderPageSerializer,
@@ -22,6 +23,8 @@ from .serializers import (
     PaymentEffectSerializer,
     PaymentRecordInputSerializer,
     PaymentVoidInputSerializer,
+    RefundEffectSerializer,
+    RefundRecordInputSerializer,
 )
 
 _TAGS = ["commerce"]
@@ -168,3 +171,74 @@ class PaymentVoidView(APIView):
         serializer.is_valid(raise_exception=True)
         data = cast(dict[str, Any], serializer.validated_data)
         return Response(void_payment(order_id, payment_id, **data))
+
+
+class RefundPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="commerce_order_refund_preview",
+        summary="What marking a refund would do",
+        description="Checks the refund exactly as the write does — the order's version, "
+        "the method, the amount against what the customer has paid — and says what would "
+        "stay paid, what the order's terms would still owe back and whether the amount "
+        "needs a reason. Writes nothing.",
+        tags=_TAGS,
+        request=RefundRecordInputSerializer,
+        responses={200: RefundEffectSerializer, **_WRITE_PROBLEMS},
+        extensions={"x-dry-run": True},
+    )
+    def post(self, request: Request, order_id: UUID) -> Response:
+        serializer = RefundRecordInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        return Response(record_refund(order_id, preview=True, **data))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class RefundListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="commerce_order_refund_record",
+        summary="Mark money the company gave back",
+        description="The company returned money to the order's customer itself — a "
+        "transfer back or cash at the desk: writes the refund and its ledger entry, so "
+        "the order's `paid_minor` goes down by it. More than the customer has paid is "
+        "refused (`refund_exceeds_paid`). Within what the order's terms give back "
+        "(`refund_owed_minor`, settled when the order was canceled) no reason is asked "
+        "for; beyond it the company says why (`reason_required`). Nothing is sent to the "
+        "customer and no money moves: it records what the company did. Answers with the "
+        "order.",
+        tags=_TAGS,
+        request=RefundRecordInputSerializer,
+        responses={201: OrderSerializer, **_WRITE_PROBLEMS},
+        extensions=_VERSION_LOCKED,
+    )
+    def post(self, request: Request, order_id: UUID) -> Response:
+        serializer = RefundRecordInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        return Response(record_refund(order_id, **data), status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class RefundVoidView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="commerce_order_refund_void",
+        summary="Take back a refund marked by mistake",
+        description="The refund stays in the order's history as `canceled` and the ledger "
+        "gets the opposite entry, so the order is paid that amount again and, where its "
+        "terms said so, owes it back again. Answers with the order.",
+        tags=_TAGS,
+        request=PaymentVoidInputSerializer,
+        responses={200: OrderSerializer, **_WRITE_PROBLEMS},
+        extensions=_VERSION_LOCKED,
+    )
+    def post(self, request: Request, order_id: UUID, refund_id: UUID) -> Response:
+        serializer = PaymentVoidInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        return Response(void_refund(order_id, refund_id, **data))

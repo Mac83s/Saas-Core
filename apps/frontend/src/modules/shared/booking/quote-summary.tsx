@@ -60,9 +60,12 @@ export function QuoteSummary({
       {quote.prepayment && !settled ? (
         <p className="font-medium">
           {t(
-            quote.prepayment.kind === "deposit"
-              ? "prepayDeposit"
-              : "prepayFull",
+            quote.prepayment.kind !== "deposit"
+              ? "prepayFull"
+              : // The rest on site, or by a transfer said just below.
+                quote.prepayment.balance_due_days_before != null
+                ? "prepayDepositAhead"
+                : "prepayDeposit",
             {
               amount: money(quote.prepayment.amount_minor),
               days: quote.prepayment.transfer_due_days,
@@ -70,6 +73,57 @@ export function QuoteSummary({
           )}
         </p>
       ) : null}
+      {/* The rest by a transfer before the start — it stays due after the
+          prepayment came. */}
+      {quote.prepayment?.kind === "deposit" &&
+      quote.prepayment.balance_due_days_before != null ? (
+        <p>
+          {t("balanceBefore", {
+            amount: money(quote.gross_minor - quote.prepayment.amount_minor),
+            days: quote.prepayment.balance_due_days_before,
+          })}
+        </p>
+      ) : null}
+      {quote.cancellation ? (
+        <RefundThresholds cancellation={quote.cancellation} />
+      ) : null}
     </section>
+  );
+}
+
+/** What giving the booking up gives back, as the offer said when it was
+ *  booked (ADR-072 §8): the thresholds, the longest notice first. */
+export function RefundThresholds({
+  cancellation,
+}: {
+  cancellation: NonNullable<BookingPublicQuote["cancellation"]>;
+}) {
+  const t = useTranslations("BookingPrice");
+  const last = cancellation.refunds.at(-1);
+  return (
+    <div className="space-y-1 border-t pt-2">
+      <p className="font-medium">{t("refundTitle")}</p>
+      <ul className="space-y-0.5 text-muted-foreground">
+        {cancellation.refunds.map((row) => (
+          <li key={row.min_days_before}>
+            {t("refundRow", {
+              days: row.min_days_before,
+              percent: row.refund_percent,
+            })}
+          </li>
+        ))}
+        {/* Less notice than the last threshold gives nothing back. */}
+        {last && last.min_days_before > 0 && last.refund_percent > 0 ? (
+          <li>{t("refundLater")}</li>
+        ) : null}
+      </ul>
+      <p className="text-muted-foreground">
+        {t(
+          cancellation.applies_to === "deposit"
+            ? "refundOfDeposit"
+            : "refundOfPaid",
+        )}
+      </p>
+    </div>
   );
 }

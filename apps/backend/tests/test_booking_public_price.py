@@ -121,6 +121,8 @@ def test_the_form_shows_the_gross_price_and_books_at_the_price_shown() -> None:
         "payment_policy": "on_site",
         # Nothing is paid before the booking is confirmed.
         "prepayment": None,
+        # The offer has no refund thresholds: everything paid goes back.
+        "cancellation": None,
         "digest": quote["digest"],
     }
 

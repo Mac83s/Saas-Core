@@ -44,7 +44,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
-from . import orders
+from . import cancellation, orders
 from .availability import _zone
 from .item_translations import localized_texts, source_locale, translatable
 from .models import (
@@ -157,9 +157,14 @@ class Quote:
     payment_policy: str
     #: What is paid before the booking is confirmed, where the offer asks for
     #: it and the company can be paid ahead: `{"kind": "deposit" | "full",
-    #: "amount_minor", "transfer_due_days"}`. None: nothing is — the price is
-    #: paid as `payment_policy` says, or on site.
+    #: "amount_minor", "transfer_due_days"}`, and with a `deposit` whose rest
+    #: is due by a transfer, `"balance_due_days_before"`. None: nothing is —
+    #: the price is paid as `payment_policy` says, or on site.
     prepayment: dict[str, Any] | None
+    #: What giving the booking up gives back: `{"applies_to", "refunds":
+    #: [{"min_days_before", "refund_percent"}]}` (`cancellation.py`). None:
+    #: the offer has no thresholds, everything paid goes back.
+    cancellation: dict[str, Any] | None
     net_minor: int
     vat_minor: int
     gross_minor: int
@@ -182,6 +187,7 @@ class Quote:
             "security_deposit_minor": self.security_deposit_minor,
             "payment_policy": self.payment_policy,
             "prepayment": self.prepayment,
+            "cancellation": self.cancellation,
             "net_minor": self.net_minor,
             "vat_minor": self.vat_minor,
             "gross_minor": self.gross_minor,
@@ -537,6 +543,7 @@ def customer_quote(snapshot: Mapping[str, Any] | None) -> dict[str, Any] | None:
         "security_deposit_minor": snapshot.get("security_deposit_minor", 0),
         "payment_policy": snapshot.get("payment_policy", PaymentPolicy.NONE.value),
         "prepayment": snapshot.get("prepayment"),
+        "cancellation": snapshot.get("cancellation"),
         "digest": snapshot["digest"],
     }
 
@@ -774,6 +781,8 @@ def _total(
         "gross_minor": sum(line.gross_minor for line in taxed),
     }
     prepayment = _prepayment(service, sums["gross_minor"])
+    # What giving the booking up gives back — only where something has a price.
+    terms = cancellation.terms(service, prepayment) if taxed else None
     # What the customer is told: an offer that asks for money ahead where none
     # can be paid ahead is paid on site (ADR-073 §5).
     policy = (
@@ -802,6 +811,9 @@ def _total(
         # Only where there is one: the digest of every other quote stays what
         # bookings made before prepayments froze.
         **({"prepayment": prepayment} if prepayment else {}),
+        # The same for the refund terms: a quote of an offer without
+        # thresholds keeps the digest it had before them.
+        **({"cancellation": terms} if terms else {}),
         **sums,
     }
     return Quote(
@@ -813,6 +825,7 @@ def _total(
         security_deposit_minor=picked.deposit,
         payment_policy=policy,
         prepayment=prepayment,
+        cancellation=terms,
         digest=canonical_json_hash(essence),
         **sums,
     )
@@ -834,10 +847,18 @@ def _prepayment(service: Service, gross_minor: int) -> dict[str, Any] | None:
         share = (gross_minor * service.deposit_percent + 50) // 100
         if share <= 0:
             return None
+        partly = share < gross_minor
         return {
-            "kind": "deposit" if share < gross_minor else "full",
+            "kind": "deposit" if partly else "full",
             "amount_minor": min(share, gross_minor),
             "transfer_due_days": service.transfer_due_days,
+            # The rest by a transfer before the start, where the offer says
+            # so; without the key it is paid on site, as before 4h.
+            **(
+                {"balance_due_days_before": service.balance_due_days_before}
+                if partly and service.balance_due_days_before is not None
+                else {}
+            ),
         }
     return {
         "kind": "full",

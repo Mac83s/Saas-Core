@@ -29,7 +29,16 @@ from saas_core.modules.shared.billing.decisions import FeatureOperation, decide_
 from saas_core.modules.shared.customers.api import Customer, consents_of
 from saas_core.modules.shared.notifications.api import scrub_messages
 
-from .ledger import MANUAL_METHODS, paid_minor, payments_of, status_for
+from . import emails
+from .ledger import (
+    MANUAL_METHODS,
+    paid_minor,
+    payments_of,
+    refund_owed,
+    refunded_minor,
+    refunds_of,
+    status_for,
+)
 from .models import (
     Amounts,
     Order,
@@ -41,6 +50,7 @@ from .models import (
     Payment,
     PaymentRoute,
     PaymentStatus,
+    Refund,
     TaxRate,
 )
 from .names import COMMERCE_ENABLED, ORDERS_READ
@@ -255,17 +265,36 @@ def reprice_order(order: Order, *, amounts: str, lines: Sequence[OrderLineInput]
     return order
 
 
-def cancel_order(order: Order, *, awaited: str = PaymentStatus.CANCELED, reason: str = "") -> Order:
+def cancel_order(
+    order: Order,
+    *,
+    awaited: str = PaymentStatus.CANCELED,
+    reason: str = "",
+    refund_minor: int | None = None,
+) -> Order:
     """The source took back what it sold: its booking was canceled. A payment
     the order still waited for is closed with it (`awaited`: called off, or
     expired when its date did it) and its date no longer comes; `reason` says
-    in the company's history why, when it was not a person's decision."""
+    in the company's history why, when it was not a person's decision.
+
+    What the customer paid is settled here (§8): `refund_minor` is what the
+    source's own terms give back — the source works it out, commerce works
+    out no amount — and None gives everything back. The order remembers it
+    (`refund_due_minor`), the buyer is told, and the company marks the refund
+    when it has given the money back (`refunds.record_refund`)."""
     context = require_tenant_context()
     if order.status == OrderStatus.CANCELED:
         return order
+    paid = paid_minor(order)
+    back = 0
+    if paid > 0:
+        back = paid if refund_minor is None else max(min(refund_minor, paid), 0)
+        # Counted with what went back before: what is owed is this less the
+        # ledger's refunds, so nothing given back earlier is owed twice.
+        order.refund_due_minor = refunded_minor(order) + back
     order.status = OrderStatus.CANCELED
     order.version += 1
-    order.save(update_fields=["status", "version", "updated_at"])
+    order.save(update_fields=["status", "refund_due_minor", "version", "updated_at"])
     waiting = Payment.all_objects.filter(
         organization_id=order.organization_id,
         order=order,
@@ -273,21 +302,34 @@ def cancel_order(order: Order, *, awaited: str = PaymentStatus.CANCELED, reason:
     )
     PaymentRoute.objects.filter(payment_id__in=list(waiting.values_list("id", flat=True))).delete()
     waiting.update(status=awaited, version=F("version") + 1, updated_at=timezone.now())
-    _audit(context, order, "commerce.order.canceled", **({"reason": reason} if reason else {}))
+    _audit(
+        context,
+        order,
+        "commerce.order.canceled",
+        **({"reason": reason} if reason else {}),
+        **({"paid_minor": paid, "refund_minor": back} if paid > 0 else {}),
+    )
+    if paid > 0:
+        emails.refund_settled(order, paid_minor=paid, refund_minor=back)
     return order
 
 
 def strip_buyer(customer: Customer) -> None:
     """What orders keep of a customer goes with the customer (§9): the buyer's
-    name and contact, and the stored copies of the mails commerce sent them
-    (the transfer's details). Numbers, lines and amounts stay. Called by
-    `customers.strip_customer`, inside its transaction and tenant."""
+    name and contact, the stored copies of the mails commerce sent them (the
+    transfer's details, a balance's reminders, what came back) and the
+    company's own words about a refund, which may name them. Numbers, lines
+    and amounts stay. Called by `customers.strip_customer`, inside its
+    transaction and tenant."""
     orders = Order.all_objects.filter(organization_id=customer.organization_id, customer=customer)
     scrub_messages(
         customer.organization_id,
         [f"commerce-order:{order_id}" for order_id in orders.values_list("id", flat=True)],
         to_customers_only=True,
     )
+    Refund.all_objects.filter(
+        organization_id=customer.organization_id, order__in=orders
+    ).exclude(reason="").update(reason="", updated_at=timezone.now())
     orders.update(
         buyer_name=customer.display_name,
         buyer_email="",
@@ -403,7 +445,10 @@ def order_detail(order: Order) -> dict[str, Any]:
         "version": order.version,
         "paid_minor": paid,
         "due_minor": order.gross_minor - paid,
+        "refunded_minor": refunded_minor(order),
+        "refund_owed_minor": refund_owed(order, paid),
         "payments": payments_of(order),
+        "refunds": refunds_of(order),
         "lines": _named(
             order,
             list(

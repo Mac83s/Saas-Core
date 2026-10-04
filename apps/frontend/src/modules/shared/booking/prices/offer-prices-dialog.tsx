@@ -32,6 +32,7 @@ import { ExtrasList } from "./extras-list";
 import type { PriceBook, PriceSetup } from "./price-book";
 import { refusal } from "./price-dialog";
 import { PriceList } from "./price-list";
+import { RefundTerms } from "./refund-terms";
 
 /** How the customer pays (ADR-072 §8). The last three ask for money before
  *  the booking is confirmed: it waits for the transfer (ADR-073 §5). */
@@ -83,6 +84,14 @@ export function OfferPricesDialog({
   );
   const [percent, setPercent] = useState(String(service.deposit_percent ?? 30));
   const [days, setDays] = useState(String(service.transfer_due_days ?? 3));
+  // The rest of a prepaid price: on site, or by a transfer some days before
+  // the start (ADR-073 §5).
+  const [balanceAhead, setBalanceAhead] = useState(
+    service.balance_due_days_before != null,
+  );
+  const [balanceDays, setBalanceDays] = useState(
+    String(service.balance_due_days_before ?? 14),
+  );
   const ahead = AHEAD.includes(policy);
 
   async function pay(next: PaymentPolicy, terms = false) {
@@ -94,6 +103,19 @@ export function OfferPricesDialog({
       return setProblem(t("depositPercentInvalid"));
     if (terms && !(due >= 1 && due <= 30))
       return setProblem(t("transferDaysInvalid"));
+    const before = Number(balanceDays);
+    if (
+      terms &&
+      next === "deposit" &&
+      balanceAhead &&
+      !(
+        balanceDays.trim() !== "" &&
+        Number.isInteger(before) &&
+        before >= 0 &&
+        before <= 365
+      )
+    )
+      return setProblem(t("balanceDaysInvalid"));
     try {
       await updateSetupService(
         service.id,
@@ -102,7 +124,12 @@ export function OfferPricesDialog({
           ...(terms
             ? {
                 transfer_due_days: due,
-                ...(next === "deposit" ? { deposit_percent: share } : {}),
+                ...(next === "deposit"
+                  ? {
+                      deposit_percent: share,
+                      balance_due_days_before: balanceAhead ? before : null,
+                    }
+                  : {}),
               }
             : {}),
           expected_version: service.version,
@@ -232,10 +259,50 @@ export function OfferPricesDialog({
                       value={days}
                     />
                   </Field>
+                  {policy === "deposit" ? (
+                    <Field className="w-72">
+                      <FieldLabel htmlFor="offer-balance">
+                        {t("balance")}
+                      </FieldLabel>
+                      <NativeSelect
+                        id="offer-balance"
+                        onChange={(event) =>
+                          setBalanceAhead(event.target.value === "transfer")
+                        }
+                        value={balanceAhead ? "transfer" : "on_site"}
+                      >
+                        <option value="on_site">{t("balance_on_site")}</option>
+                        <option value="transfer">
+                          {t("balance_transfer")}
+                        </option>
+                      </NativeSelect>
+                    </Field>
+                  ) : null}
+                  {policy === "deposit" && balanceAhead ? (
+                    <Field className="w-44">
+                      <FieldLabel htmlFor="offer-balance-days">
+                        {t("balanceDays")}
+                      </FieldLabel>
+                      <Input
+                        id="offer-balance-days"
+                        inputMode="numeric"
+                        max={365}
+                        min={0}
+                        onChange={(event) => setBalanceDays(event.target.value)}
+                        type="number"
+                        value={balanceDays}
+                      />
+                    </Field>
+                  ) : null}
                   <Button type="submit" variant="outline">
                     {t("paymentTermsSave")}
                   </Button>
                 </div>
+                {policy === "deposit" && balanceAhead ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("balanceHint")}
+                  </p>
+                ) : null}
               </form>
             ) : null}
             <p
@@ -250,6 +317,14 @@ export function OfferPricesDialog({
               </p>
             ) : null}
           </Field>
+          {/* Refund thresholds matter where money comes before the visit. */}
+          {ahead || (service.cancellation_refunds ?? []).length ? (
+            <RefundTerms
+              deposit={policy === "deposit"}
+              onSetupChanged={onSetupChanged}
+              service={service}
+            />
+          ) : null}
         </div>
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" />}>

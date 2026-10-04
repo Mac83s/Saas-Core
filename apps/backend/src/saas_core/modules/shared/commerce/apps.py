@@ -16,10 +16,11 @@ class CommerceConfig(AppConfig):
         from saas_core.modules.core.organizations.erasure_checks import register_erasure_rows
         from saas_core.modules.shared.customers.api import register_customer_anonymizer
 
+        from .balance import register_balance_settings
         from .emails import register_templates
         from .models import PaymentRoute
+        from .names import DEADLINES_PERMISSIONS, DEADLINES_ROLE
         from .orders import holds_amounts, name_orders, strip_buyer
-        from .payments import DEADLINES_PERMISSIONS, DEADLINES_ROLE
         from .transfer_account import register_transfer_settings
 
         # The buyer on an order goes when the customer is stripped (ADR-073 §9).
@@ -30,6 +31,8 @@ class CommerceConfig(AppConfig):
         register_history_target("order", name_orders)
         # The company's bank account for its customers' transfers (ADR-073 §5).
         register_transfer_settings()
+        # When a customer is reminded of the rest of a price due by a transfer.
+        register_balance_settings()
         # The transfer's details, sent to the buyer.
         register_templates()
         # The deadlines' task acts as the organization's own job, for one purpose.

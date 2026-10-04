@@ -49,6 +49,13 @@ export function SelfServiceBooking({ token }: { token: string }) {
     cancel: true,
     until: null,
   };
+  // What comes back of what the customer paid: the server's numbers, by
+  // the terms the booking was made under (ADR-073 §8).
+  const settlement = appointment?.settlement;
+  const money = (minor: number, currency: string) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency }).format(
+      minor / 100,
+    );
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { starts_at: "" },
@@ -138,7 +145,8 @@ export function SelfServiceBooking({ token }: { token: string }) {
                 </p>
               ) : null}
             </div>
-            {/* The booking waits for this transfer before it is confirmed. */}
+            {/* The booking waits for this transfer before it is confirmed,
+                or the rest of its price is due by one. */}
             {appointment.payment ? (
               <TransferDetails
                 payment={appointment.payment}
@@ -153,6 +161,14 @@ export function SelfServiceBooking({ token }: { token: string }) {
                   appointment.status !== "pending_request"
                 }
               />
+            ) : null}
+            {appointment.status === "canceled" && settlement ? (
+              <p className="text-sm" role="status">
+                {t("canceledGivesBack", {
+                  paid: money(settlement.paid_minor, settlement.currency),
+                  refund: money(settlement.refund_minor, settlement.currency),
+                })}
+              </p>
             ) : null}
             {/* A request waits for the company's answer until a date. */}
             {appointment.status === "pending_request" &&
@@ -195,6 +211,18 @@ export function SelfServiceBooking({ token }: { token: string }) {
                       {offered ? t("rescheduleAtPrice") : t("reschedule")}
                     </Button>
                   </form>
+                ) : null}
+                {/* Said before the click: giving up settles the money. */}
+                {terms.cancel && settlement ? (
+                  <p className="text-sm" role="note">
+                    {t("cancelGivesBack", {
+                      paid: money(settlement.paid_minor, settlement.currency),
+                      refund: money(
+                        settlement.refund_minor,
+                        settlement.currency,
+                      ),
+                    })}
+                  </p>
                 ) : null}
                 {terms.cancel ? (
                   <Button onClick={() => void cancel()} variant="destructive">

@@ -9,6 +9,12 @@ the booking then waits (`pending_payment`) until the date commerce names, and
 commerce tells booking which came first — the money (`_prepaid` confirms the
 booking) or the date (`_expired` lets its time go).
 
+What a booking given up gives back is booking's to work out, from the terms
+frozen in its quote (`cancellation.py`), and commerce's to keep: `canceled`
+tells the order what goes back, and `settlement` says the same before
+anybody decides. An offer whose rest is due by a transfer before the start
+has that planned with commerce once its prepayment came (`_plan_balance`).
+
 Commerce is no dependency of booking: without the module everything here is
 silent, and its API is imported late (the pattern of `materials.py`). A booking
 made before orders, or without a price, has none and gets none.
@@ -17,17 +23,19 @@ made before orders, or without a price, has none and gets none.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
 from django.conf import settings
+from django.utils import timezone
 
 from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.history import HistoryTarget
 from saas_core.modules.shared.customers.api import Customer
 
-from .models import Appointment, PaymentPolicy, Service
+from . import cancellation
+from .models import Appointment, AppointmentStatus, PaymentPolicy, Service
 from .security import PUBLIC_BOOKING_ROLE
 
 #: The order source bookings register as, and the prefix of their numbers.
@@ -56,7 +64,7 @@ def register() -> None:
             SOURCE,
             PREFIX,
             targets=_targets,
-            handler=OrderHandler(prepaid=_prepaid, expired=_expired),
+            handler=OrderHandler(prepaid=_prepaid, expired=_expired, link=_link),
         )
         # The company's account stays while an offer asks for a transfer.
         register_transfer_account_use(_asks_for_transfer)
@@ -170,16 +178,104 @@ def repriced(appointment: Appointment) -> None:
     order = order_for(LINE_SOURCE, str(appointment.id))
     if order is not None:
         reprice_order(order, amounts=quote["amounts"], lines=_lines(appointment, quote))
+        # A balance already planned follows the booking: its new start, and
+        # what is left of its new price.
+        _plan_balance(appointment, order, planned_only=True)
 
 
-def canceled(appointment: Appointment) -> None:
+def canceled(appointment: Appointment, *, by_terms: bool = False) -> None:
+    """The booking was called off: its order is canceled and what its
+    customer paid is settled (ADR-073 §8). `by_terms`: by the thresholds
+    frozen in the booking — its customer gave it up, or the company called it
+    off for a balance not paid in time (29a); otherwise everything goes back."""
     if not enabled():
         return
-    from saas_core.modules.shared.commerce.api import cancel_order, order_for  # noqa: PLC0415
+    from saas_core.modules.shared.commerce.api import (  # noqa: PLC0415
+        cancel_order,
+        order_for,
+        order_money,
+    )
 
     order = order_for(LINE_SOURCE, str(appointment.id))
-    if order is not None:
-        cancel_order(order)
+    if order is None:
+        return
+    back = None
+    if by_terms:
+        paid = order_money(order)["paid_minor"]
+        back = _by_terms(appointment.quote, appointment, paid).refund_minor
+    cancel_order(order, refund_minor=back)
+
+
+def settlement(appointment: Appointment) -> dict[str, Any] | None:
+    """The booking's money, for whoever is about to call it off or has: what
+    its customer paid, what giving it up now gives back by its own terms
+    (`by_terms`), whether its balance is late, and — once it is called off —
+    what is still owed back. None where the booking has no order or nothing
+    was paid: there is nothing to settle."""
+    if not enabled():
+        return None
+    from saas_core.modules.shared.commerce.api import money_of  # noqa: PLC0415
+
+    money = money_of(LINE_SOURCE, str(appointment.id))
+    if money is None or money["paid_minor"] <= 0:
+        return None
+    waited = appointment.status in (
+        AppointmentStatus.PENDING_PAYMENT,
+        AppointmentStatus.PENDING_REQUEST,
+    )
+    terms = _by_terms(None if waited else appointment.quote, appointment, money["paid_minor"])
+    return {
+        "currency": money["currency"],
+        "paid_minor": money["paid_minor"],
+        "refund_owed_minor": money["refund_owed_minor"],
+        "balance_overdue": money["balance_overdue"],
+        "by_terms": {
+            "refund_minor": terms.refund_minor,
+            "percent": terms.percent,
+            "days_before": terms.days_before,
+        },
+    }
+
+
+def balance_overdue(appointment: Appointment) -> bool:
+    """Whether the rest of the booking's price was due and is not paid."""
+    if not enabled():
+        return False
+    from saas_core.modules.shared.commerce.api import money_of  # noqa: PLC0415
+
+    money = money_of(LINE_SOURCE, str(appointment.id))
+    return bool(money and money["balance_overdue"])
+
+
+def _by_terms(
+    quote: Mapping[str, Any] | None, appointment: Appointment, paid_minor: int
+) -> cancellation.Refund:
+    """What the thresholds of `quote` give back now; without a quote —
+    a booking that still waited and was never confirmed — everything."""
+    return cancellation.refund(
+        quote,
+        paid_minor=paid_minor,
+        starts_at=appointment.starts_at,
+        zone=appointment.timezone,
+        now=timezone.now(),
+    )
+
+
+def _plan_balance(appointment: Appointment, order: Any, *, planned_only: bool = False) -> None:
+    """Where the booking's quote says the rest is due by a transfer some days
+    before the start, commerce plans that payment (ADR-073 §5) — once the
+    prepayment came and the booking is confirmed."""
+    from saas_core.modules.shared.commerce.api import plan_balance  # noqa: PLC0415
+
+    days = ((appointment.quote or {}).get("prepayment") or {}).get("balance_due_days_before")
+    if days is None or appointment.status != AppointmentStatus.CONFIRMED:
+        return
+    plan_balance(
+        order,
+        due_at=appointment.starts_at - timedelta(days=days),
+        link=_link(order, appointment),
+        planned_only=planned_only,
+    )
 
 
 def lock(appointment_id: UUID) -> None:
@@ -235,6 +331,7 @@ def _prepaid(order: Any) -> None:
     appointment = _booked(order)
     if appointment is not None:
         confirm_pending(appointment)
+        _plan_balance(appointment, order)
 
 
 def _expired(order: Any) -> None:
@@ -244,6 +341,32 @@ def _expired(order: Any) -> None:
     appointment = _booked(order)
     if appointment is not None:
         expire_pending(appointment)
+
+
+def _link(order: Any, appointment: Appointment | None = None) -> str:
+    """Commerce: the customer's own page of the booking an order is for, in
+    their language — for a mail it sends later than the order. Empty once the
+    link is dead."""
+    from saas_core.modules.shared.notifications.security import decrypt_secret  # noqa: PLC0415
+
+    from .notify import manage_url  # noqa: PLC0415
+
+    if appointment is None:
+        from saas_core.modules.shared.commerce.api import order_references  # noqa: PLC0415
+
+        appointment = (
+            Appointment.all_objects.select_related("customer")
+            .filter(
+                organization_id=order.organization_id,
+                pk__in=order_references(order, LINE_SOURCE),
+            )
+            .first()
+        )
+    if appointment is None or not appointment.self_service_token_ciphertext:
+        return ""
+    return manage_url(
+        decrypt_secret(appointment.self_service_token_ciphertext), appointment.customer.locale
+    )
 
 
 def _asks_for_transfer(organization_id: UUID) -> bool:

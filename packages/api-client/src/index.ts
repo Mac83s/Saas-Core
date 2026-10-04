@@ -3765,9 +3765,14 @@ export async function createBookingAppointment(
   return data;
 }
 
+/** The company calls a booking off. What the customer paid is settled with
+ *  its order: everything goes back — or, with `reason` `balance_overdue`
+ *  (the rest was not paid by its date), what the booking's refund thresholds
+ *  give (ADR-073 §8). */
 export async function cancelBookingAppointment(
   appointmentId: string,
   idempotencyKey: string,
+  reason?: "balance_overdue",
 ): Promise<BookingAppointment> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
@@ -3777,12 +3782,34 @@ export async function cancelBookingAppointment(
         path: { appointment_id: appointmentId },
         header: { "Idempotency-Key": idempotencyKey },
       },
+      body: reason ? { reason } : {},
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+export type AppointmentSettlement =
+  components["schemas"]["AppointmentSettlement"];
+
+/** A booking's money, read before calling it off: what its customer paid,
+ *  what its refund thresholds give back now and whether its balance is late.
+ *  Null where nothing was paid. */
+export async function readAppointmentSettlement(
+  appointmentId: string,
+): Promise<AppointmentSettlement | null> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/appointments/{appointment_id}/settlement/",
+    {
+      params: { path: { appointment_id: appointmentId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.settlement;
 }
 
 /** The company's answer to a booking made „on request” (ADR-072 §9):
@@ -6720,6 +6747,69 @@ export async function voidOrderPayment(
     "/api/v1/commerce/orders/{order_id}/payments/{payment_id}/void/",
     {
       params: { path: { order_id: orderId, payment_id: paymentId } },
+      body: { expected_version: expectedVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export type OrderRefund = components["schemas"]["OrderRefund"];
+export type RefundRecordInput = components["schemas"]["RefundRecordInput"];
+export type RefundEffect = components["schemas"]["RefundEffect"];
+
+/** What marking a refund would do — whether the amount needs a reason, what
+ *  would stay paid — writing nothing. */
+export async function previewOrderRefund(
+  orderId: string,
+  input: RefundRecordInput,
+): Promise<RefundEffect> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/commerce/orders/{order_id}/refunds/preview/",
+    {
+      params: { path: { order_id: orderId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Marks money the company gave back to an order's customer and answers
+ *  with the order (ADR-073 §8). Beyond what the order's terms give back the
+ *  company says why (`reason_required`). */
+export async function recordOrderRefund(
+  orderId: string,
+  input: RefundRecordInput,
+): Promise<Order> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/commerce/orders/{order_id}/refunds/",
+    {
+      params: { path: { order_id: orderId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Takes back a refund marked by mistake; it stays in the order's history
+ *  as canceled. */
+export async function voidOrderRefund(
+  orderId: string,
+  refundId: string,
+  expectedVersion: number,
+): Promise<Order> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/commerce/orders/{order_id}/refunds/{refund_id}/void/",
+    {
+      params: { path: { order_id: orderId, refund_id: refundId } },
       body: { expected_version: expectedVersion },
       credentials: "same-origin",
       headers: { "X-CSRFToken": await getCsrfToken() },

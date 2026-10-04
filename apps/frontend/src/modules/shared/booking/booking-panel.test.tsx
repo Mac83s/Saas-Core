@@ -52,6 +52,7 @@ const api = vi.hoisted(() => ({
   moveStay: vi.fn(),
   previewStayMove: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
+  readAppointmentSettlement: vi.fn(),
   rescheduleSelfServiceBooking: vi.fn(),
   setBookingAppointmentPlace: vi.fn(),
 }));
@@ -249,6 +250,8 @@ beforeEach(() => {
     online: { paused: false, resume_on: null },
   });
   api.listBookingAppointments.mockResolvedValue([appointment, completed]);
+  // Nothing was paid for a visit unless its test says so.
+  api.readAppointmentSettlement.mockResolvedValue(null);
   api.listTeams.mockResolvedValue([]);
   // One person's day: the day view stays a list (the board is in day-board.test).
   api.listPeople.mockResolvedValue([]);
@@ -2689,6 +2692,130 @@ test("the terms of a prepayment are an instruction only while it is awaited", as
   );
   expect(await screen.findByRole("region", { name: "Price" })).not.toBeNull();
   expect(screen.queryByText(/by bank transfer within/)).toBeNull();
+});
+
+test("calling off a paid visit says what goes back, and a late balance may be the reason (ADR-073 §8)", async () => {
+  api.readAppointmentSettlement.mockResolvedValue({
+    currency: "PLN",
+    paid_minor: 6000,
+    refund_owed_minor: 0,
+    balance_overdue: true,
+    by_terms: { refund_minor: 3000, percent: 50, days_before: 20 },
+  });
+  api.cancelBookingAppointment.mockResolvedValue({
+    ...appointment,
+    status: "canceled",
+  });
+  renderCalendar({}, "pl");
+  fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
+  const details = await screen.findByRole("dialog", { name: "Jan Kowalski" });
+  fireEvent.click(within(details).getByRole("button", { name: "Odwołaj" }));
+  const confirm = await screen.findByRole("dialog", {
+    name: "Odwołać wizytę?",
+  });
+  // The company's own calling off gives everything back…
+  expect(
+    await within(confirm).findByText(
+      /Klient wpłacił 60,00\szł\. Po odwołaniu do oddania klientowi: 60,00\szł\./,
+    ),
+  ).toBeInTheDocument();
+  expect(api.readAppointmentSettlement).toHaveBeenCalledWith(appointment.id);
+  // …unless it is for the balance not paid in time: then the thresholds.
+  fireEvent.click(
+    within(confirm).getByRole("checkbox", {
+      name: /dopłata nie wpłynęła w terminie/,
+    }),
+  );
+  expect(
+    within(confirm).getByText(/do oddania klientowi: 30,00\szł\./),
+  ).toBeInTheDocument();
+  expect((await axe.run(confirm)).violations).toHaveLength(0);
+  fireEvent.click(
+    within(confirm).getByRole("button", { name: "Tak, odwołaj" }),
+  );
+  await waitFor(() =>
+    expect(api.cancelBookingAppointment).toHaveBeenCalledWith(
+      appointment.id,
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
+      "balance_overdue",
+    ),
+  );
+});
+
+test("the customer's page says the refund terms and what giving up gives back (ADR-073 §8)", async () => {
+  const quote = {
+    ...priceOf(20000, "e".repeat(64)),
+    payment_policy: "deposit",
+    prepayment: {
+      kind: "deposit",
+      amount_minor: 6000,
+      transfer_due_days: 3,
+      balance_due_days_before: 14,
+    },
+    cancellation: {
+      applies_to: "deposit",
+      refunds: [
+        { min_days_before: 30, refund_percent: 100 },
+        { min_days_before: 14, refund_percent: 50 },
+      ],
+    },
+  };
+  const booked = {
+    ...publicAppointment,
+    quote,
+    // The rest of the price waits for a transfer; nothing expires with it.
+    payment: {
+      kind: "balance",
+      number: "R/2026/0007",
+      amount_minor: 14000,
+      currency: "PLN",
+      due_at: "2026-09-05T10:00:00Z",
+      account_holder: "Gabinet Anna Nowak",
+      account_number: "PL61 1090 1014 0000 0712 1981 2874",
+      bank_name: "",
+    },
+    settlement: { currency: "PLN", paid_minor: 6000, refund_minor: 3000 },
+    self_service: {
+      reschedule: false,
+      cancel: true,
+      until: "2026-09-18T07:00:00Z",
+    },
+  };
+  api.getSelfServiceBooking.mockResolvedValue(booked);
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SelfServiceBooking token="bk_terms" />
+    </NextIntlClientProvider>,
+  );
+  const transfer = await screen.findByRole("region", {
+    name: "Dane do przelewu",
+  });
+  expect(
+    within(transfer).getByText(/Do zapłaty pozostało 140,00\szł/),
+  ).toBeInTheDocument();
+  expect(within(transfer).queryByText(/wygaśnie/)).toBeNull();
+  const price = screen.getByRole("region", { name: "Cena" });
+  expect(
+    within(price).getByText(
+      /Resztę, 140,00\szł, wpłacasz przelewem najpóźniej 14 dni przed początkiem rezerwacji\./,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(price).getByText("Co najmniej 30 dni przed początkiem: zwrot 100%"),
+  ).toBeInTheDocument();
+  expect(
+    within(price).getByText("Co najmniej 14 dni przed początkiem: zwrot 50%"),
+  ).toBeInTheDocument();
+  expect(within(price).getByText("Później: bez zwrotu")).toBeInTheDocument();
+  expect(
+    within(price).getByText(/Zwrot liczymy od przedpłaty/),
+  ).toBeInTheDocument();
+  // Said before the click: giving up settles the money.
+  expect(
+    screen.getByText(
+      /Wpłacono 60,00\szł\. Jeśli zrezygnujesz teraz, zgodnie z warunkami rezerwacji wraca do Ciebie 30,00\szł\./,
+    ),
+  ).toBeInTheDocument();
 });
 
 test("a customer's request is accepted or declined in the visit's dialog (ADR-072 §9)", async () => {

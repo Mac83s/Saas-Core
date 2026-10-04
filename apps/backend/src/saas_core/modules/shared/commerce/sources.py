@@ -35,6 +35,10 @@ class OrderHandler:
     #: It has not come by its date: the order is canceled, and the source
     #: lets go of what it held for it.
     expired: Callable[[Order], None]
+    #: The buyer's own address of what the order is for — where they see it
+    #: and can give it up — for a mail commerce sends later than the order
+    #: (a balance's reminder). Empty when the source has none.
+    link: Callable[[Order], str] | None = None
 
 
 @dataclass(frozen=True, slots=True)

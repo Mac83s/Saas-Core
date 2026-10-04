@@ -877,3 +877,103 @@ Rozstrzygnięcia plastra 4g (2026-10-04, decyzje techniczne z powodem):
 - **Poza 4g**: osobna lista próśb w panelu (dziś: kalendarz, okno wizyty i
   powiadomienie), powód odmowy dla klienta, polecenia asystenta dla
   odpowiedzi na prośbę.
+
+Rozstrzygnięcia plastra 4h (2026-10-04, decyzje techniczne z powodem):
+
+- **Oferta niesie trzy pola**: `cancellation_refunds` — wiersze „co najmniej
+  `min_days_before` dni przed początkiem → `refund_percent` zwrotu”, od
+  najdłuższego wyprzedzenia, najwyżej sześć; `cancellation_applies_to`
+  (`deposit` — domyślnie, `paid`; przełącznik 28a) i `balance_due_days_before`
+  (0–365, puste: reszta na miejscu). Progi to lista, której rejestr ustawień
+  nie ma jako typu, więc ich granice żyją w stałej `REFUND_THRESHOLDS`
+  (`booking/cancellation.py`) wystawionej przez `GET /booking/setup/options/`;
+  pozostałe dwa to klucze `booking.offer.*`. Klucz przełącznika to
+  `booking.offer.cancellation_applies_to`, nie `…cancellation.applies_to` z
+  planu ustawień: klucz grupy encji ma postać `<grupa>.<pole>`. Serwis odmawia
+  progów, w których krótsze wyprzedzenie daje większy zwrot
+  (`thresholds_not_descending`), i dwóch wierszy na tę samą liczbę dni
+  (`duplicate_threshold`).
+- **Brak progów znaczy „wszystko wraca”.** Oferta bez progów nie zapisuje
+  niczego w migawce (`cancellation: null`, skrót wyceny bez zmian), a
+  rezygnacja klienta oddaje wszystko, co wpłacił — tak, jak panel mówił przed
+  4h („do oddania klientowi”). Mniej dni niż w ostatnim progu to 0%.
+- **Migawka niesie warunki, na których klient rezerwował**: `quote.cancellation
+  = {applies_to, refunds}` wchodzi do skrótu wyceny, więc zmiana progów między
+  pokazaniem ceny a rezerwacją to 409 `quote_changed`, jak zmiana ceny.
+  `applies_to` w migawce jest już rozstrzygnięte: `deposit` tylko tam, gdzie
+  wycena ma przedpłatę będącą częścią ceny, inaczej `paid` (ADR-072 §8).
+  Termin dopłaty jedzie w `quote.prepayment.balance_due_days_before`, tylko
+  gdy oferta go ma.
+- **Dni liczymy kalendarzem firmy**: data początku rezerwacji minus data
+  rezygnacji, obie w strefie rezerwacji — nie pełne doby. Klient i firma
+  sprawdzą to w kalendarzu bez godzin; rezygnacja o 23:30 liczy się jak
+  rezygnacja tego dnia.
+- **Kwotę liczy booking, pamięta commerce.** `booking.cancellation.refund`
+  bierze migawkę, to, co wpłacono (`commerce.api.order_money`), i dzień; próg
+  obejmuje przedpłatę (`min(wpłacono, przedpłata z migawki)`) albo wszystko, a
+  reszta wpłat wraca w całości; połówki w górę do całej jednostki. Wynik idzie
+  do `cancel_order(order, refund_minor=…)`; `None` znaczy „wszystko”. Commerce
+  nadal niczego nie wycenia.
+- **Kto odwołuje, ten rozstrzyga podstawę.** Rezygnacja klienta z linku —
+  według progów. Odwołanie przez firmę — wraca wszystko, chyba że firma poda
+  powód `balance_overdue` (29a), przyjmowany tylko wtedy, gdy dopłata jest po
+  terminie (inaczej 400 `balance_not_overdue`); wtedy według progów.
+  Rezerwacja, która jeszcze czekała (`pending_payment`, `pending_request`),
+  nie była potwierdzona, więc częściowa wpłata wraca w całości — także przy
+  wygaśnięciu terminu przedpłaty.
+- **Zamówienie pamięta, ile jest do oddania**: `Order.refund_due_minor` to
+  łączna kwota, która ma wrócić do klienta (z tym, co oddano wcześniej);
+  „jeszcze do oddania” to ta kwota minus zwroty z księgi, nigdy więcej niż
+  wpłacono (`ledger.refund_owed`). To nie jest przechowywana kwota wpłat: o
+  pieniądzach nadal rozstrzyga księga, a pole zapisuje werdykt warunków z
+  chwili odwołania, którego później nie da się odtworzyć.
+- **Zwrot ręczny** (`Refund`, `commerce_refund` z RLS i strażnikiem relacji):
+  firma oddaje pieniądze sama i oznacza zwrot — `POST
+  /commerce/orders/<id>/refunds/` (z `…/preview/`, pod wersją zamówienia,
+  `commerce.payments.manage`), wpis księgi `refund` z kwotą ujemną. Nie więcej,
+  niż klient wpłacił (`refund_exceeds_paid`); w granicach tego, co wynika z
+  warunków, bez powodu, ponad nie — z powodem słowami firmy (`reason_required`,
+  §8 „zwrot spoza progów wymaga powodu”). Zwrot oznaczony przez pomyłkę się
+  wycofuje (`…/refunds/<id>/void/`, wpis przeciwny). Powód widać tylko na
+  stronie zamówienia, nie w historii zmian ani w e-mailu, a anonimizacja
+  klienta go czyści — wolny tekst firmy może nazywać osobę. `Refund` nie wisi
+  na `Payment` (§4): zwrot ręczny dotyczy zamówienia, nie jednej wpłaty;
+  wskazanie płatności przyjdzie ze zwrotem przez operatora.
+- **Dopłata to planowana płatność `balance`.** Po wpłacie przedpłaty
+  (`prepaid`) booking woła `plan_balance(order, due_at=początek − dni)`;
+  commerce zakłada `Payment` (`balance`, `requires_payment`, przelew) na to, co
+  zostało do zapłaty. Bez rachunku firmy, gdy nic nie zostało albo termin już
+  minął, planu nie ma i reszta idzie na miejscu, jak przed 4h. Przeniesienie
+  rezerwacji przesuwa termin i kwotę tej samej płatności. Oznaczenie wpłaty
+  pokrywającej dopłatę przestawia ten wiersz na `succeeded`; mniejsza zostawia
+  resztę oczekiwaną — jak przy przedpłacie, tylko bez handlera `prepaid`.
+- **Spóźniona dopłata niczego nie odwołuje (29a).** Trasa terminu
+  (`commerce_paymentroute`) przy `balance` jest oglądana dwa razy: na
+  `commerce.balance.remind_days_before` dni przed terminem (ustawienie firmy,
+  0–30, domyślnie 3; 0 — bez przypomnienia) klient dostaje dane do przelewu
+  jeszcze raz, a w terminie, gdy wpłaty nie oznaczono — wiadomość, że termin
+  minął; osoby z `commerce.payments.manage` dostają wtedy powiadomienie w
+  panelu (`commerce.balance_overdue`) i e-mail. Rezerwacja zostaje
+  `confirmed`, płatność `requires_payment`. Plan ustawień (B19) proponował
+  „w dniu terminu i 3 dni po”; przypomnienie **przed** terminem daje klientowi
+  czas na przelew, a po terminie pierwszym ruchem jest decyzja firmy, nie
+  kolejny automat.
+- **E-maile** (pl, en, de dla klienta; pl, en dla firmy):
+  `commerce.balance_details` (przy zaplanowaniu i jako przypomnienie),
+  `commerce.balance_overdue`, `commerce.office_balance_overdue`,
+  `commerce.refund_settled` (przy anulowaniu zamówienia z wpłatą: ile
+  wpłacono i ile wraca). Link klienta do późniejszych wiadomości daje źródło
+  (`OrderHandler.link`), bo commerce go nie przechowuje. O samym oznaczeniu
+  zwrotu klient nie dostaje wiadomości — przelew jest potwierdzeniem.
+- **Ekrany**: „Cennik” oferty (reszta ceny: na miejscu albo przelewem N dni
+  przed; „Rezygnacja klienta i zwrot” z progami i przełącznikiem), strona
+  zamówienia („Do oddania klientowi”, „Zostaje po anulowaniu”, „Zwroty” z
+  „Oznacz zwrot”), okno „Odwołać wizytę?” (ile wpłacono i ile wraca — `GET
+  /booking/appointments/<id>/settlement/`; przy dopłacie po terminie pole
+  wyboru powodu), formularz i link klienta (warunki rezygnacji przy cenie,
+  „jeśli zrezygnujesz teraz, wraca…”, dane do przelewu dopłaty).
+- **Poza 4h**: polecenia asystenta dla progów, zwrotów i wpłat (razem z
+  poleceniami wpłat z 4f-2); e-mail do klienta o oznaczonym zwrocie; gotowy
+  preset z progami (Nocleg w wersji 1 je ma, ale jest zapowiedzią — wersja w
+  użyciu ich nie nazywa); status zamówienia `refunded`; dopłata planowana dla
+  rezerwacji bez przedpłaty; zwrot i dopłata online (faza 7).

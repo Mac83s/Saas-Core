@@ -379,11 +379,143 @@ test("cennik oferty: ceny tak, jak je wpisano, dopłaty z kaucją i sposób pła
         payment_policy: "deposit",
         transfer_due_days: 5,
         deposit_percent: 40,
+        // The rest on site, as before the balance could be planned.
+        balance_due_days_before: null,
         expected_version: 3,
       },
       expect.any(String),
     ),
   );
+  // …or by a transfer some days before the start (ADR-073 §5).
+  fireEvent.change(within(dialog).getByLabelText("Reszta ceny"), {
+    target: { value: "transfer" },
+  });
+  expect(
+    within(dialog).getByText(/Spóźniona dopłata niczego nie odwołuje/),
+  ).toBeInTheDocument();
+  fireEvent.change(within(dialog).getByLabelText("Ile dni przed początkiem"), {
+    target: { value: "400" },
+  });
+  api.updateSetupService.mockClear();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz warunki wpłaty" }),
+  );
+  expect(
+    await within(dialog).findByText(
+      "Dopłata przelewem: od 0 do 365 dni przed początkiem rezerwacji.",
+    ),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  fireEvent.change(within(dialog).getByLabelText("Ile dni przed początkiem"), {
+    target: { value: "14" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz warunki wpłaty" }),
+  );
+  await waitFor(() =>
+    expect(api.updateSetupService).toHaveBeenCalledWith(
+      VISIT,
+      {
+        payment_policy: "deposit",
+        transfer_due_days: 5,
+        deposit_percent: 40,
+        balance_due_days_before: 14,
+        expected_version: 3,
+      },
+      expect.any(String),
+    ),
+  );
+
+  // What a customer who gives up gets back: thresholds, and whether they
+  // cover the balance too (owner decision 28a).
+  const terms = within(dialog).getByRole("region", {
+    name: "Rezygnacja klienta i zwrot",
+  });
+  expect(
+    within(terms).getByText(
+      "Brak progów: klient, który zrezygnuje, dostaje z powrotem wszystko, co wpłacił.",
+    ),
+  ).toBeInTheDocument();
+  fireEvent.click(within(terms).getByRole("button", { name: "Dodaj próg" }));
+  fireEvent.click(within(terms).getByRole("button", { name: "Dodaj próg" }));
+  api.updateSetupService.mockClear();
+  fireEvent.click(
+    within(terms).getByRole("button", { name: "Zapisz warunki rezygnacji" }),
+  );
+  expect(
+    await within(terms).findByText(
+      "Każdy próg to liczba dni od 0 do 365 i zwrot od 0 do 100 procent.",
+    ),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  const fill = (label: string, value: string) =>
+    fireEvent.change(within(terms).getByLabelText(label), {
+      target: { value },
+    });
+  fill("Próg 1: dni przed początkiem", "14");
+  fill("Próg 1: procent zwrotu", "50");
+  fill("Próg 2: dni przed początkiem", "30");
+  fill("Próg 2: procent zwrotu", "100");
+  fireEvent.click(
+    within(terms).getByRole("switch", {
+      name: "Progi zwrotu obejmują też dopłatę",
+    }),
+  );
+  fireEvent.click(
+    within(terms).getByRole("button", { name: "Zapisz warunki rezygnacji" }),
+  );
+  await waitFor(() =>
+    expect(api.updateSetupService).toHaveBeenCalledWith(
+      VISIT,
+      {
+        cancellation_refunds: [
+          { min_days_before: 14, refund_percent: 50 },
+          { min_days_before: 30, refund_percent: 100 },
+        ],
+        cancellation_applies_to: "paid",
+        expected_version: 3,
+      },
+      expect.any(String),
+    ),
+  );
+  expect(
+    await within(terms).findByText("Zapisano warunki rezygnacji."),
+  ).toBeInTheDocument();
+  // Shown as the server keeps them: the longest notice first.
+  expect(
+    within(terms).getByLabelText("Próg 1: dni przed początkiem"),
+  ).toHaveValue(30);
+  // A refusal of the server is said in the panel's own words.
+  api.updateSetupService.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Validation",
+      status: 400,
+      code: "validation_error",
+      detail: "",
+      correlation_id: null,
+      errors: [
+        {
+          field: "cancellation_refunds",
+          code: "thresholds_not_descending",
+          message: "Krótsze wyprzedzenie…",
+        },
+      ],
+    }),
+  );
+  fireEvent.click(
+    within(terms).getByRole("button", { name: "Zapisz warunki rezygnacji" }),
+  );
+  expect(
+    await within(terms).findByText(
+      "Krótsze wyprzedzenie nie może dawać większego zwrotu niż dłuższe.",
+    ),
+  ).toBeInTheDocument();
+  fireEvent.click(within(terms).getByRole("button", { name: "Usuń próg 2" }));
+  expect(
+    within(terms).queryByLabelText("Próg 2: dni przed początkiem"),
+  ).toBeNull();
+  expect((await axe.run(terms, noContrast)).violations).toEqual([]);
 
   // The whole by transfer saves at once; without the company's account the
   // server refuses and the panel says where to give one.

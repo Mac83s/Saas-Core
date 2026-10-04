@@ -33,6 +33,7 @@ from .views import (
     AppointmentNoShowView,
     AppointmentPlaceView,
     AppointmentRescheduleView,
+    AppointmentSettlementView,
     BookingCatalogView,
     BookingClosureCopyYearPreviewView,
     BookingClosureCopyYearView,
@@ -348,6 +349,11 @@ urlpatterns = [
     ),
     path(
         "appointments/<uuid:appointment_id>/cancel/", AppointmentCancelView.as_view(), name="cancel"
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/settlement/",
+        AppointmentSettlementView.as_view(),
+        name="appointment-settlement",
     ),
     path(
         "appointments/<uuid:appointment_id>/accept/",

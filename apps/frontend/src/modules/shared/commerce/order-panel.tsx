@@ -19,6 +19,7 @@ import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
 import { formatMoney } from "#lib/money";
 import { OrderPayments } from "./order-payments";
+import { OrderRefunds } from "./order-refunds";
 import { STATUS_TONE } from "./orders-panel";
 
 type Failure = "notFound" | "orderLoadError";
@@ -56,6 +57,7 @@ export function OrderPanel({
   const [failure, setFailure] = useState<Failure>();
   const [attempt, setAttempt] = useState(0);
   const [marking, setMarking] = useState(false);
+  const [refunding, setRefunding] = useState(false);
   const [notice, setNotice] = useState<string>();
 
   useEffect(() => {
@@ -217,13 +219,27 @@ export function OrderPanel({
   return (
     <PanelPage
       actions={
-        order &&
-        canManagePayments &&
-        order.status !== "canceled" &&
-        // A draft waits for the company's answer to the request first.
-        order.status !== "draft" &&
-        order.due_minor > 0 ? (
-          <Button onClick={() => setMarking(true)}>{t("recordPayment")}</Button>
+        order && canManagePayments && order.status !== "draft" ? (
+          // A draft waits for the company's answer to the request first.
+          <>
+            {order.paid_minor > 0 ? (
+              // What the terms owe the customer is the page's next step;
+              // any other refund is the company's own idea.
+              <Button
+                onClick={() => setRefunding(true)}
+                variant={
+                  (order.refund_owed_minor ?? 0) > 0 ? "default" : "outline"
+                }
+              >
+                {t("recordRefund")}
+              </Button>
+            ) : null}
+            {order.status !== "canceled" && order.due_minor > 0 ? (
+              <Button onClick={() => setMarking(true)}>
+                {t("recordPayment")}
+              </Button>
+            ) : null}
+          </>
         ) : undefined
       }
       eyebrow={t("title")}
@@ -338,6 +354,22 @@ export function OrderPanel({
                 setNotice(text);
               }}
               onMarkingChange={setMarking}
+              onStale={(text) => {
+                setNotice(text);
+                setAttempt((value) => value + 1);
+              }}
+              order={order}
+            />
+          ) : null}
+          {order ? (
+            <OrderRefunds
+              canManage={canManagePayments}
+              marking={refunding}
+              onChanged={(next, text) => {
+                setOrder(next);
+                setNotice(text);
+              }}
+              onMarkingChange={setRefunding}
               onStale={(text) => {
                 setNotice(text);
                 setAttempt((value) => value + 1);

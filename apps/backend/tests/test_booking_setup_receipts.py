@@ -194,7 +194,10 @@ def test_the_offer_options_declare_what_the_input_accepts() -> None:
                 else (field.min_value, field.max_value)
             )
             assert bounds == (setting.minimum, setting.maximum)
-            assert setting.minimum <= setting.default <= setting.maximum
+            # No default says „not set” (the rest of a price is paid on site).
+            assert setting.default is None or (
+                setting.minimum <= setting.default <= setting.maximum
+            )
         assert setting.key == f"booking.offer.{setting.field}"
         assert set(setting.label) == {"pl", "en"}
 

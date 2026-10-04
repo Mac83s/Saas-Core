@@ -180,6 +180,14 @@ function headline(
     when: at(payload.starts_at),
     before: at(payload.previous_starts_at),
     category: named(payload.category),
+    // An order's number and what was due for it.
+    number: String(payload.number ?? ""),
+    amount: payload.currency
+      ? format.number(Number(payload.amount_minor ?? 0) / 100, {
+          style: "currency",
+          currency: String(payload.currency),
+        })
+      : "",
     // The first item of a low-stock notice; the count says how many more.
     first: String(
       (payload.items as { name?: string }[] | undefined)?.[0]?.name ?? "",
@@ -212,6 +220,8 @@ function headline(
       return t("profilesCategoryChanged", values);
     case "inventory.low_stock":
       return t("inventoryLowStock", values);
+    case "commerce.balance_overdue":
+      return t("commerceBalanceOverdue", values);
     default:
       return t("unknown");
   }
@@ -227,6 +237,10 @@ function noticeHref(item: AppNotification): string | null {
   switch (item.kind) {
     case "inventory.low_stock":
       return "/panel/inventory?low=1";
+    case "commerce.balance_overdue":
+      return payload.order_id
+        ? `/panel/orders/${String(payload.order_id)}`
+        : "/panel/orders";
     case "profiles.category_changed":
       return "/panel/profile";
     case "translation.job_problem":

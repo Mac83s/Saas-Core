@@ -1012,6 +1012,11 @@ SPECTACULAR_SETTINGS = {
             "expired",
         ],
         "ManualPaymentMethodEnum": ["cash", "transfer"],
+        "OrderRefundStatusEnum": ["succeeded", "canceled"],
+        # What an offer's refund thresholds are counted on, and why the company
+        # calls a booking off where the reason changes what goes back.
+        "RefundBasisEnum": ["deposit", "paid"],
+        "BookingCancelReasonEnum": ["balance_overdue"],
         "OrderStatusEnum": [
             "draft",
             "awaiting_payment",

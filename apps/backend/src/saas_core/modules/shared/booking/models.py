@@ -89,6 +89,16 @@ class PaymentPolicy(models.TextChoices):
 PREPAID_POLICIES = (PaymentPolicy.TRANSFER, PaymentPolicy.DEPOSIT, PaymentPolicy.FULL)
 
 
+class RefundBasis(models.TextChoices):
+    """What an offer's refund thresholds are counted on (owner decision 28a,
+    ADR-072 §8) — the switch „the thresholds cover the balance too”."""
+
+    #: The prepayment only; whatever else was paid goes back whole.
+    DEPOSIT = "deposit", "Tylko przedpłata"
+    #: Everything the customer paid.
+    PAID = "paid", "Wszystkie wpłaty"
+
+
 class ExtraBasis(models.TextChoices):
     """What an extra is charged for (ADR-072 §6)."""
 
@@ -381,6 +391,18 @@ class Service(TenantScopedModel):
     #: With a payment ahead by a transfer: how many days the customer has
     #: before the booking expires.
     transfer_due_days = models.PositiveSmallIntegerField(default=3)
+    #: With `deposit`: the rest is due by a transfer this many days before the
+    #: booking starts; empty: the rest is paid on site.
+    balance_due_days_before = models.PositiveSmallIntegerField(null=True, blank=True)
+    #: What a customer who gives the booking up gets back (ADR-072 §8): rows
+    #: `{"min_days_before", "refund_percent"}`, the longest notice first; less
+    #: notice than the last row gives nothing back. Empty: no thresholds —
+    #: everything paid goes back.
+    cancellation_refunds = models.JSONField(default=list, blank=True)
+    #: With `deposit`: what the thresholds are counted on (28a).
+    cancellation_applies_to = models.CharField(
+        max_length=8, choices=RefundBasis, default=RefundBasis.DEPOSIT
+    )
     active = models.BooleanField(default=True)
     #: Never switched on since it was made. Only a draft can be discarded
     #: (`setup.discard_draft`); switching the offer on ends it for good.

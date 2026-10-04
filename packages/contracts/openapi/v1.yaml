@@ -1799,7 +1799,15 @@ paths:
           description: ''
   /api/v1/booking/appointments/{appointment_id}/cancel/:
     post:
-      operationId: api_v1_booking_appointments_cancel_create
+      operationId: booking_appointment_cancel
+      description: 'The company calls a booking off; the customer is told by e-mail.
+        What the customer paid is settled with the booking''s order: everything goes
+        back — or, with the reason `balance_overdue`, what the booking''s refund thresholds
+        give (`GET …/settlement/` says both before anybody decides). The company then
+        marks the refund on the order when it has given the money back. A visit that
+        took place is 409 `appointment_not_changeable`; the same Idempotency-Key answers
+        the first result again.'
+      summary: Call a booking off
       parameters:
       - in: header
         name: Idempotency-Key
@@ -1814,6 +1822,17 @@ paths:
         required: true
       tags:
       - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCancel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppointmentCancel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppointmentCancel'
       security:
       - cookieAuth: []
       responses:
@@ -1822,6 +1841,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/appointments/{appointment_id}/candidates/:
     get:
@@ -2191,6 +2228,43 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/settlement/:
+    get:
+      operationId: booking_appointment_settlement_retrieve
+      description: What the customer has paid for the booking, what its own refund
+        thresholds give back now and whether the rest of its price is late — read
+        before calling it off. Writes nothing. Null where nothing was paid.
+      summary: What calling a booking off does with what its customer paid
+      parameters:
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentSettlementAnswer'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -8115,6 +8189,208 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/commerce/orders/{order_id}/refunds/:
+    post:
+      operationId: commerce_order_refund_record
+      description: 'The company returned money to the order''s customer itself — a
+        transfer back or cash at the desk: writes the refund and its ledger entry,
+        so the order''s `paid_minor` goes down by it. More than the customer has paid
+        is refused (`refund_exceeds_paid`). Within what the order''s terms give back
+        (`refund_owed_minor`, settled when the order was canceled) no reason is asked
+        for; beyond it the company says why (`reason_required`). Nothing is sent to
+        the customer and no money moves: it records what the company did. Answers
+        with the order.'
+      summary: Mark money the company gave back
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commerce
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRecordInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefundRecordInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefundRecordInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by the order''s version: a repeat at the same version
+          answers 409 and changes nothing.'
+  /api/v1/commerce/orders/{order_id}/refunds/{refund_id}/void/:
+    post:
+      operationId: commerce_order_refund_void
+      description: The refund stays in the order's history as `canceled` and the ledger
+        gets the opposite entry, so the order is paid that amount again and, where
+        its terms said so, owes it back again. Answers with the order.
+      summary: Take back a refund marked by mistake
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: refund_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commerce
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentVoidInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentVoidInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentVoidInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by the order''s version: a repeat at the same version
+          answers 409 and changes nothing.'
+  /api/v1/commerce/orders/{order_id}/refunds/preview/:
+    post:
+      operationId: commerce_order_refund_preview
+      description: Checks the refund exactly as the write does — the order's version,
+        the method, the amount against what the customer has paid — and says what
+        would stay paid, what the order's terms would still owe back and whether the
+        amount needs a reason. Writes nothing.
+      summary: What marking a refund would do
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commerce
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRecordInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefundRecordInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefundRecordInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundEffect'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/customers/documents/:
     get:
       operationId: customers_documents_list
@@ -13957,6 +14233,153 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BookingSelfServiceSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/commerce.balance/:
+    get:
+      operationId: organization_settings_commerce_balance_retrieve
+      description: When an offer asks for the rest by a transfer before the booking
+        starts, the customer gets the transfer's details, a reminder before the date
+        and a message after it. A late balance calls nothing off — that is your own
+        decision. The values that apply, where each comes from (code, platform or
+        the company) and the group's version token.
+      summary: 'Read the company''s settings: Balances by a transfer'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommerceBalanceSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_commerce_balance_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Balances by a transfer'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceBalanceSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceBalanceSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceBalanceSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommerceBalanceSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/commerce.balance/preview/:
+    post:
+      operationId: organization_settings_commerce_balance_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Balances by
+        a transfer'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommerceBalanceSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommerceBalanceSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommerceBalanceSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommerceBalanceSettingsPreview'
           description: ''
         '400':
           content:
@@ -24075,6 +24498,16 @@ components:
       - time_model
       - timezone
       - title
+    AppointmentCancel:
+      type: object
+      properties:
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/BookingCancelReasonEnum'
+          description: |-
+            `balance_overdue` — the rest of the price was not paid by its date: what the customer paid is then settled by the booking's refund thresholds, as when they give it up themselves (400 `balance_not_overdue` when no balance is late). Without a reason the company gives everything back.
+
+            * `balance_overdue` - balance_overdue
     AppointmentCreate:
       type: object
       properties:
@@ -24185,6 +24618,46 @@ components:
       required:
       - id
       - number
+    AppointmentSettlement:
+      type: object
+      description: A booking's money for whoever is about to call it off (ADR-073
+        §8).
+      properties:
+        currency:
+          type: string
+        paid_minor:
+          type: integer
+          description: What the customer has paid.
+        refund_owed_minor:
+          type: integer
+          description: 'Of a canceled booking: what is still to be given back.'
+        balance_overdue:
+          type: boolean
+          description: 'The rest of the price was due by a transfer and is not paid:
+            the company may call the booking off with the reason `balance_overdue`.'
+        by_terms:
+          allOf:
+          - $ref: '#/components/schemas/SettlementTerms'
+          description: What the booking's own refund thresholds give back now — what
+            the customer gets when they give it up, or when the company calls it off
+            for a late balance. The company's own calling off for any other reason
+            gives everything back.
+      required:
+      - balance_overdue
+      - by_terms
+      - currency
+      - paid_minor
+      - refund_owed_minor
+    AppointmentSettlementAnswer:
+      type: object
+      properties:
+        settlement:
+          oneOf:
+          - $ref: '#/components/schemas/AppointmentSettlement'
+          - type: 'null'
+          description: Null — nothing was paid, there is nothing to settle.
+      required:
+      - settlement
     AssistantConsentAnswer:
       type: object
       properties:
@@ -25404,6 +25877,11 @@ components:
         * `unit` - unit
         * `unit_group` - unit_group
         * `seat` - seat
+    BookingCancelReasonEnum:
+      enum:
+      - balance_overdue
+      type: string
+      description: '* `balance_overdue` - balance_overdue'
     BookingClosure:
       type: object
       properties:
@@ -25835,6 +26313,12 @@ components:
           - type: 'null'
           description: What a booking at this price waits for before it is confirmed;
             null — nothing, it is confirmed at once.
+        cancellation:
+          oneOf:
+          - $ref: '#/components/schemas/QuoteCancellation'
+          - type: 'null'
+          description: The refund thresholds a booking at this price is given up under;
+            null or absent — the offer has none, and everything paid goes back.
         net_minor:
           type: integer
         vat_minor:
@@ -27460,6 +27944,106 @@ components:
       - resource
       - resource_id
       - summary
+    CommerceBalanceSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/CommerceBalanceSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/CommerceBalanceSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    CommerceBalanceSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommerceBalanceSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        remind_days_before:
+          type:
+          - integer
+          - 'null'
+          maximum: 30
+          minimum: 0
+          description: How many days before a balance's due date the customer gets
+            a reminder with the transfer's details (0–30; 0 sends none before the
+            date). After the date the customer is told once more and the company's
+            people who manage payments get a notice; nothing is canceled automatically.
+      required:
+      - expected_version
+    CommerceBalanceSettingsChangeResetEnum:
+      enum:
+      - remind_days_before
+      type: string
+      description: '* `remind_days_before` - remind_days_before'
+    CommerceBalanceSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/CommerceBalanceSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    CommerceBalanceSettingsSources:
+      type: object
+      properties:
+        remind_days_before:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - remind_days_before
+    CommerceBalanceSettingsValues:
+      type: object
+      properties:
+        remind_days_before:
+          type: integer
+          maximum: 30
+          minimum: 0
+          description: How many days before a balance's due date the customer gets
+            a reminder with the transfer's details (0–30; 0 sends none before the
+            date). After the date the customer is told once more and the company's
+            people who manage payments get a notice; nothing is canceled automatically.
+      required:
+      - remind_days_before
     CommerceOptions:
       type: object
       properties:
@@ -34017,10 +34601,24 @@ components:
           type: integer
           description: 'What is left to pay: `gross_minor` less `paid_minor`. Negative
             when an order priced again came to less than was already paid.'
+        refunded_minor:
+          type: integer
+          description: What the company has given back; `paid_minor` is net of it.
+        refund_owed_minor:
+          type: integer
+          description: 'What is still to be given back by the terms of what was sold,
+            settled when the order was canceled: what a customer who gave a booking
+            up gets back by its refund thresholds, or everything when the company
+            called it off. 0 when nothing is owed — also for an order nobody settled.'
         payments:
           type: array
           items:
             $ref: '#/components/schemas/OrderPayment'
+          description: Oldest first.
+        refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderRefund'
           description: Oldest first.
         lines:
           type: array
@@ -34280,7 +34878,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/OrderPaymentStatusEnum'
           description: |-
-            `succeeded` counts as paid; `canceled` was marked by mistake and taken back, or called off with its order; `requires_payment` is awaited until `due_at` — what the order's source asked for before it confirms — and `expired` was not paid by then.
+            `succeeded` counts as paid; `canceled` was marked by mistake and taken back, or called off with its order; `requires_payment` is awaited until `due_at` — a `deposit` or `full` the order's source asked for before it confirms, which is `expired` when not paid by then, or a `balance`, the rest due by a transfer, which stays awaited after its date and cancels nothing.
 
             * `requires_payment` - requires_payment
             * `processing` - processing
@@ -34358,6 +34956,57 @@ components:
         * `failed` - failed
         * `canceled` - canceled
         * `expired` - expired
+    OrderRefund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        method:
+          allOf:
+          - $ref: '#/components/schemas/ManualPaymentMethodEnum'
+          description: |-
+            How the company gave the money back.
+
+            * `cash` - cash
+            * `transfer` - transfer
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderRefundStatusEnum'
+          description: |-
+            `succeeded` counts as given back; `canceled` was marked by mistake and taken back.
+
+            * `succeeded` - succeeded
+            * `canceled` - canceled
+        amount_minor:
+          type: integer
+          description: In minor units of the order's currency.
+        reason:
+          type: string
+          description: The company's own words for a refund its terms did not ask
+            for.
+        refunded_at:
+          type: string
+          format: date-time
+        recorded_by:
+          type: string
+          description: Who marked it, by name.
+      required:
+      - amount_minor
+      - id
+      - method
+      - reason
+      - recorded_by
+      - refunded_at
+      - status
+    OrderRefundStatusEnum:
+      enum:
+      - succeeded
+      - canceled
+      type: string
+      description: |-
+        * `succeeded` - succeeded
+        * `canceled` - canceled
     OrderRequest:
       type: object
       properties:
@@ -35880,6 +36529,27 @@ components:
           minimum: 0
           description: 'How many hours before the start the link stops allowing changes
             (0 to 168; 0: until the start). Frozen into each booking.'
+    PatchedCommerceBalanceSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommerceBalanceSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        remind_days_before:
+          type:
+          - integer
+          - 'null'
+          maximum: 30
+          minimum: 0
+          description: How many days before a balance's due date the customer gets
+            a reminder with the transfer's details (0–30; 0 sends none before the
+            date). After the date the customer is told once more and the company's
+            people who manage payments get a notice; nothing is canceled automatically.
     PatchedCommerceTransferSettingsChange:
       type: object
       properties:
@@ -36679,6 +37349,37 @@ components:
           description: 'With a payment before confirmation: how many days the customer
             has to pay by a transfer before the booking expires (1–30), never past
             the booking''s start.'
+        balance_due_days_before:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 0
+          description: 'With `payment_policy` `deposit`: how many days before the
+            booking''s start the rest of the price is due by a bank transfer (0–365).
+            Null: the rest is paid on site. A balance not paid by its date cancels
+            nothing: the customer gets reminders, the company a notice, and only the
+            company calls the booking off.'
+        cancellation_refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundThreshold'
+          description: 'What a customer who gives a booking of this service up gets
+            back of what they paid: rows „at least `min_days_before` days before the
+            start → `refund_percent` back”, the longest notice first, at most six;
+            less notice than the last row gives nothing back. Empty: no thresholds
+            — everything paid goes back. Frozen in each booking. A booking the company
+            itself calls off gives everything back, whatever the thresholds. More
+            back for less notice is refused (`thresholds_not_descending`), and so
+            are two rows for the same number of days (`duplicate_threshold`).'
+        cancellation_applies_to:
+          allOf:
+          - $ref: '#/components/schemas/RefundBasisEnum'
+          description: |-
+            With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+
+            * `deposit` - deposit
+            * `paid` - paid
         active:
           type: boolean
         staff_ids:
@@ -39111,8 +39812,15 @@ components:
           oneOf:
           - $ref: '#/components/schemas/PublicAwaitedPayment'
           - type: 'null'
-          description: What the customer has to transfer before the booking is confirmed,
-            and where; null when nothing is awaited.
+          description: What the customer is still to transfer, and where — before
+            the booking is confirmed, or the rest of a confirmed one's price; null
+            when nothing is awaited.
+        settlement:
+          oneOf:
+          - $ref: '#/components/schemas/PublicSettlement'
+          - type: 'null'
+          description: What comes back of what the customer paid; null when nothing
+            was paid.
         team_name:
           type:
           - string
@@ -39201,6 +39909,15 @@ components:
       type: object
       description: The transfer a booking waits for (ADR-073 §5).
       properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/PublicAwaitedPaymentKindEnum'
+          description: |-
+            `deposit`, `full` — awaited before the booking is confirmed; `balance` — the rest of a confirmed booking's price, which calls nothing off when late.
+
+            * `deposit` - deposit
+            * `full` - full
+            * `balance` - balance
         number:
           type: string
           description: 'The order''s number: the transfer''s title.'
@@ -39227,6 +39944,16 @@ components:
       - currency
       - due_at
       - number
+    PublicAwaitedPaymentKindEnum:
+      enum:
+      - deposit
+      - full
+      - balance
+      type: string
+      description: |-
+        * `deposit` - deposit
+        * `full` - full
+        * `balance` - balance
     PublicCatalog:
       type: object
       description: |-
@@ -39788,6 +40515,12 @@ components:
           - type: 'null'
           description: What the customer pays before the booking is confirmed; null
             — nothing.
+        cancellation:
+          oneOf:
+          - $ref: '#/components/schemas/QuoteCancellation'
+          - type: 'null'
+          description: What giving the booking up gives back of what was paid; null
+            — the service has no thresholds, and everything paid goes back.
         digest:
           type: string
           description: Send it back as `quote_digest` when booking.
@@ -39870,6 +40603,24 @@ components:
       - cancel
       - reschedule
       - until
+    PublicSettlement:
+      type: object
+      description: What comes back of what the customer paid (ADR-073 §8).
+      properties:
+        currency:
+          type: string
+        paid_minor:
+          type: integer
+          description: What the customer has paid.
+        refund_minor:
+          type: integer
+          description: 'Of a booking not canceled: what giving it up now would give
+            back, by the thresholds it was booked under. Of a canceled one: what the
+            company is still to give back.'
+      required:
+      - currency
+      - paid_minor
+      - refund_minor
     PublicSiteNotFound:
       type: object
       properties:
@@ -40403,6 +41154,29 @@ components:
       - unit_cost
       - units
       - waiting
+    QuoteCancellation:
+      type: object
+      description: |-
+        What giving the booking up gives back, as the offer said when it was
+        booked (ADR-072 §8, ADR-073 §8).
+      properties:
+        applies_to:
+          allOf:
+          - $ref: '#/components/schemas/RefundBasisEnum'
+          description: |-
+            `deposit` — the thresholds are counted on the prepayment and anything else paid goes back whole; `paid` — on everything paid.
+
+            * `deposit` - deposit
+            * `paid` - paid
+        refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundThreshold'
+          description: The longest notice first; less notice than the last row gives
+            nothing back.
+      required:
+      - applies_to
+      - refunds
     QuoteLine:
       type: object
       properties:
@@ -40487,6 +41261,10 @@ components:
           type: integer
           description: How many days the customer has to pay by a transfer before
             the booking expires; never past the booking's start.
+        balance_due_days_before:
+          type: integer
+          description: 'With `deposit`: the rest is due by a transfer this many days
+            before the booking''s start. Absent: the rest is paid on site.'
       required:
       - amount_minor
       - kind
@@ -40555,6 +41333,112 @@ components:
       description: |-
         * `owner` - owner
         * `editors` - editors
+    RefundBasisEnum:
+      enum:
+      - deposit
+      - paid
+      type: string
+      description: |-
+        * `deposit` - deposit
+        * `paid` - paid
+    RefundEffect:
+      type: object
+      properties:
+        amount_minor:
+          type: integer
+        paid_minor:
+          type: integer
+          description: What would stay paid after it.
+        refund_owed_minor:
+          type: integer
+          description: What the order's terms would still owe back after it.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          description: |-
+            The order's status after it.
+
+            * `draft` - draft
+            * `awaiting_payment` - awaiting_payment
+            * `partially_paid` - partially_paid
+            * `paid` - paid
+            * `fulfilled` - fulfilled
+            * `completed` - completed
+            * `canceled` - canceled
+            * `refunded` - refunded
+        reason_required:
+          type: boolean
+          description: 'Whether the amount is beyond what the order''s terms give
+            back: the write then needs a `reason`.'
+      required:
+      - amount_minor
+      - paid_minor
+      - reason_required
+      - refund_owed_minor
+      - status
+    RefundRecordInput:
+      type: object
+      properties:
+        amount_minor:
+          type: integer
+          minimum: 1
+          description: What the company gave back, in minor units of the order's currency;
+            at most what the customer has paid (`paid_minor`).
+        method:
+          allOf:
+          - $ref: '#/components/schemas/ManualPaymentMethodEnum'
+          description: |-
+            `transfer` — sent back to the customer's account; `cash` — at the desk.
+
+            * `cash` - cash
+            * `transfer` - transfer
+        reason:
+          type: string
+          description: Why, in the company's own words — needed for a refund beyond
+            what the order's terms give back (`refund_owed_minor`), 400 `reason_required`
+            without it. Read on the order's page only; never sent to the customer.
+          maxLength: 300
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The order's `version` the caller read.
+      required:
+      - amount_minor
+      - expected_version
+      - method
+    RefundThreshold:
+      type: object
+      description: One refund threshold of an offer (ADR-072 §8).
+      properties:
+        min_days_before:
+          type: integer
+          maximum: 365
+          minimum: 0
+          description: At least this many whole days of the company's calendar before
+            the booking's start.
+        refund_percent:
+          type: integer
+          maximum: 100
+          minimum: 0
+          description: The percent that goes back to a customer who gives the booking
+            up then.
+      required:
+      - min_days_before
+      - refund_percent
+    RefundThresholdBounds:
+      type: object
+      properties:
+        max_rows:
+          type: integer
+          description: How many thresholds an offer may have.
+        min_days_before:
+          $ref: '#/components/schemas/_Bounds'
+        refund_percent:
+          $ref: '#/components/schemas/_Bounds'
+      required:
+      - max_rows
+      - min_days_before
+      - refund_percent
     Registration:
       type: object
       properties:
@@ -41556,6 +42440,37 @@ components:
           description: 'With a payment before confirmation: how many days the customer
             has to pay by a transfer before the booking expires (1–30), never past
             the booking''s start.'
+        balance_due_days_before:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 0
+          description: 'With `payment_policy` `deposit`: how many days before the
+            booking''s start the rest of the price is due by a bank transfer (0–365).
+            Null: the rest is paid on site. A balance not paid by its date cancels
+            nothing: the customer gets reminders, the company a notice, and only the
+            company calls the booking off.'
+        cancellation_refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundThreshold'
+          description: 'What a customer who gives a booking of this service up gets
+            back of what they paid: rows „at least `min_days_before` days before the
+            start → `refund_percent` back”, the longest notice first, at most six;
+            less notice than the last row gives nothing back. Empty: no thresholds
+            — everything paid goes back. Frozen in each booking. A booking the company
+            itself calls off gives everything back, whatever the thresholds. More
+            back for less notice is refused (`thresholds_not_descending`), and so
+            are two rows for the same number of days (`duplicate_threshold`).'
+        cancellation_applies_to:
+          allOf:
+          - $ref: '#/components/schemas/RefundBasisEnum'
+          description: |-
+            With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+
+            * `deposit` - deposit
+            * `paid` - paid
         active:
           type: boolean
         appointment_kind:
@@ -41674,6 +42589,33 @@ components:
           description: 'With a payment before confirmation: how many days the customer
             has to pay by a transfer before the booking expires (1–30), never past
             the booking''s start.'
+        balance_due_days_before:
+          type:
+          - integer
+          - 'null'
+          description: 'With `payment_policy` `deposit`: how many days before the
+            booking''s start the rest of the price is due by a bank transfer (0–365).
+            Null: the rest is paid on site. A balance not paid by its date cancels
+            nothing: the customer gets reminders, the company a notice, and only the
+            company calls the booking off.'
+        cancellation_refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundThreshold'
+          description: 'What a customer who gives a booking of this service up gets
+            back of what they paid: rows „at least `min_days_before` days before the
+            start → `refund_percent` back”, the longest notice first, at most six;
+            less notice than the last row gives nothing back. Empty: no thresholds
+            — everything paid goes back. Frozen in each booking. A booking the company
+            itself calls off gives everything back, whatever the thresholds.'
+        cancellation_applies_to:
+          allOf:
+          - $ref: '#/components/schemas/RefundBasisEnum'
+          description: |-
+            With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+
+            * `deposit` - deposit
+            * `paid` - paid
         active:
           type: boolean
         draft:
@@ -41834,6 +42776,33 @@ components:
           description: 'With a payment before confirmation: how many days the customer
             has to pay by a transfer before the booking expires (1–30), never past
             the booking''s start.'
+        balance_due_days_before:
+          type:
+          - integer
+          - 'null'
+          description: 'With `payment_policy` `deposit`: how many days before the
+            booking''s start the rest of the price is due by a bank transfer (0–365).
+            Null: the rest is paid on site. A balance not paid by its date cancels
+            nothing: the customer gets reminders, the company a notice, and only the
+            company calls the booking off.'
+        cancellation_refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundThreshold'
+          description: 'What a customer who gives a booking of this service up gets
+            back of what they paid: rows „at least `min_days_before` days before the
+            start → `refund_percent` back”, the longest notice first, at most six;
+            less notice than the last row gives nothing back. Empty: no thresholds
+            — everything paid goes back. Frozen in each booking. A booking the company
+            itself calls off gives everything back, whatever the thresholds.'
+        cancellation_applies_to:
+          allOf:
+          - $ref: '#/components/schemas/RefundBasisEnum'
+          description: |-
+            With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+
+            * `deposit` - deposit
+            * `paid` - paid
         active:
           type: boolean
         draft:
@@ -42045,6 +43014,37 @@ components:
           description: 'With a payment before confirmation: how many days the customer
             has to pay by a transfer before the booking expires (1–30), never past
             the booking''s start.'
+        balance_due_days_before:
+          type:
+          - integer
+          - 'null'
+          maximum: 365
+          minimum: 0
+          description: 'With `payment_policy` `deposit`: how many days before the
+            booking''s start the rest of the price is due by a bank transfer (0–365).
+            Null: the rest is paid on site. A balance not paid by its date cancels
+            nothing: the customer gets reminders, the company a notice, and only the
+            company calls the booking off.'
+        cancellation_refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundThreshold'
+          description: 'What a customer who gives a booking of this service up gets
+            back of what they paid: rows „at least `min_days_before` days before the
+            start → `refund_percent` back”, the longest notice first, at most six;
+            less notice than the last row gives nothing back. Empty: no thresholds
+            — everything paid goes back. Frozen in each booking. A booking the company
+            itself calls off gives everything back, whatever the thresholds. More
+            back for less notice is refused (`thresholds_not_descending`), and so
+            are two rows for the same number of days (`duplicate_threshold`).'
+        cancellation_applies_to:
+          allOf:
+          - $ref: '#/components/schemas/RefundBasisEnum'
+          description: |-
+            With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+
+            * `deposit` - deposit
+            * `paid` - paid
         active:
           type: boolean
         staff_ids:
@@ -42448,6 +43448,23 @@ components:
       required:
       - areas
       - groups
+    SettlementTerms:
+      type: object
+      properties:
+        refund_minor:
+          type: integer
+          description: What the thresholds give back now.
+        percent:
+          type: integer
+          description: The percent of the threshold the notice reaches; 100 without
+            thresholds.
+        days_before:
+          type: integer
+          description: Whole days of the company's calendar until the booking's start.
+      required:
+      - days_before
+      - percent
+      - refund_minor
     Setup:
       type: object
       properties:
@@ -42565,6 +43582,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SetupOption'
+        refund_thresholds:
+          allOf:
+          - $ref: '#/components/schemas/RefundThresholdBounds'
+          description: The bounds of an offer's `cancellation_refunds` — a list, so
+            not one of `keys`.
+        cancel_reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingCancelReasonEnum'
+          description: The reasons the company may give when it calls a booking off
+            that change what goes back to the customer.
       required:
       - keys
     SetupPerson:
@@ -45803,6 +46831,16 @@ components:
       description: |-
         * `personal` - personal
         * `business` - business
+    _Bounds:
+      type: object
+      properties:
+        minimum:
+          type: integer
+        maximum:
+          type: integer
+      required:
+      - maximum
+      - minimum
   securitySchemes:
     cookieAuth:
       type: apiKey

@@ -31,7 +31,16 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.notifications.security import encrypt_secret
 
 from . import emails
-from .ledger import MANUAL_METHODS, PREPAYMENT_KINDS, awaited_prepayment, paid_minor, status_for
+from .balance import balance_due, overdue_balance
+from .ledger import (
+    MANUAL_METHODS,
+    PREPAYMENT_KINDS,
+    awaited_balance,
+    awaited_prepayment,
+    paid_minor,
+    refund_owed,
+    status_for,
+)
 from .models import (
     LedgerEntry,
     LedgerEntryKind,
@@ -44,15 +53,11 @@ from .models import (
     PaymentRoute,
     PaymentStatus,
 )
-from .names import COMMERCE_ENABLED, PAYMENTS_MANAGE
+from .names import COMMERCE_ENABLED, DEADLINES_PERMISSIONS, DEADLINES_ROLE, PAYMENTS_MANAGE
 from .orders import cancel_order, order_detail
 from .sources import order_source
 from .transfer_account import transfer_account
 
-#: The role the deadlines' task acts under: the organization's own job. The
-#: permission is a scope marker nobody's role carries.
-DEADLINES_ROLE = "commerce_deadlines"
-DEADLINES_PERMISSIONS = frozenset({"commerce.deadlines.run"})
 #: Why an order whose prepayment did not come is canceled, in its history.
 PAYMENT_EXPIRED = "payment_expired"
 
@@ -149,9 +154,11 @@ def request_prepayment(
 
 
 def awaited_transfer(source: str, reference: str) -> dict[str, Any] | None:
-    """What the buyer of a source's record still has to pay before it is
-    confirmed, and where: the order's number (the transfer's title), the
-    amount, the date and the company's account. None when nothing is awaited.
+    """What the buyer of a source's record is still to transfer, and where:
+    the order's number (the transfer's title), the amount, the date and the
+    company's account — and which payment it is (`kind`): one the record
+    waits for before it is confirmed (`deposit`, `full`), or the rest of a
+    confirmed one's price (`balance`). None when nothing is awaited.
     For the source's own answer to its customer — the page after booking, the
     customer's link — so it asks for no permission of the company's people."""
     context = require_tenant_context()
@@ -161,11 +168,12 @@ def awaited_transfer(source: str, reference: str) -> dict[str, Any] | None:
             organization_id=context.organization_id, source=source, source_reference=reference
         ).values("order_id"),
     ).first()
-    payment = awaited_prepayment(order) if order is not None else None
+    payment = _awaited(order) if order is not None else None
     account = transfer_account()
     if order is None or payment is None or account is None:
         return None
     return {
+        "kind": payment.kind,
         "number": order.number,
         "amount_minor": payment.amount_minor,
         "currency": payment.currency,
@@ -174,6 +182,32 @@ def awaited_transfer(source: str, reference: str) -> dict[str, Any] | None:
         "account_number": account.number,
         "bank_name": account.bank,
     }
+
+
+def order_money(order: Order) -> dict[str, Any]:
+    """An order's money as its source needs it to settle its record by its
+    own terms (§8): what the customer has paid, what the settlement still
+    owes back, and whether the rest of the price is late."""
+    paid = paid_minor(order)
+    return {
+        "currency": order.currency,
+        "paid_minor": paid,
+        "refund_owed_minor": refund_owed(order, paid),
+        "balance_overdue": overdue_balance(order),
+    }
+
+
+def money_of(source: str, reference: str) -> dict[str, Any] | None:
+    """`order_money` of the order a source's record stands on, read without
+    a lock — for the source's own pages. None where the record has no order."""
+    context = require_tenant_context()
+    order = Order.all_objects.filter(
+        organization_id=context.organization_id,
+        pk__in=OrderLine.all_objects.filter(
+            organization_id=context.organization_id, source=source, source_reference=reference
+        ).values("order_id"),
+    ).first()
+    return order_money(order) if order is not None else None
 
 
 def expire_prepayment(payment_id: UUID) -> bool:
@@ -208,6 +242,29 @@ def expire_prepayment(payment_id: UUID) -> bool:
     return True
 
 
+def payment_due(payment_id: UUID) -> tuple[bool, datetime | None]:
+    """The deadlines' task came to a payment, in the payment's own tenant:
+    says whether an order expired, and when to come back for the payment — a
+    balance is looked at twice, to remind before its date and to report it
+    late at it; None when there is nothing more to come for."""
+    context = require_tenant_context()
+    found = Payment.all_objects.filter(
+        organization_id=context.organization_id, pk=payment_id
+    ).first()
+    if found is None:
+        return False, None
+    if found.kind != PaymentKind.BALANCE:
+        return expire_prepayment(payment_id), None
+    # The order first, as every write on its payments locks it.
+    order = Order.all_objects.select_for_update().get(
+        organization_id=context.organization_id, pk=found.order_id
+    )
+    payment = awaited_balance(order)
+    if payment is None or payment.id != payment_id:
+        return False, None
+    return False, balance_due(payment, order)
+
+
 def record_payment(
     order_id: UUID,
     *,
@@ -223,18 +280,20 @@ def record_payment(
     order's version: a repeat at the version the first
     call saw is 409 and changes nothing, so a retry never marks twice.
 
-    Where the order waits for a prepayment, an amount that covers it is that
-    payment — however it came, the row that waited is the one marked — and the
-    source confirms what it held (`prepayment_met`); a smaller amount is a
-    payment of its own and leaves the rest awaited until the same date."""
+    Where the order waits for a payment, an amount that covers it is that
+    payment — however it came, the row that waited is the one marked; a
+    smaller amount is a payment of its own and leaves the rest awaited until
+    the same date. Covering a prepayment makes the source confirm what it
+    held (`prepayment_met`); a balance changes nothing but the money."""
     context = authorize_entitled(PAYMENTS_MANAGE, COMMERCE_ENABLED)
     with transaction.atomic():
         order = _locked(context, order_id, expected_version)
         paid = paid_minor(order)
         _refuse(order, amount_minor=amount_minor, method=method, due=order.gross_minor - paid)
         after = paid + amount_minor
-        awaited = awaited_prepayment(order)
-        met = awaited is not None and amount_minor >= awaited.amount_minor
+        awaited = _awaited(order)
+        covered = awaited is not None and amount_minor >= awaited.amount_minor
+        met = covered and awaited is not None and awaited.kind in PREPAYMENT_KINDS
         effect = {
             "amount_minor": amount_minor,
             "paid_minor": after,
@@ -260,7 +319,7 @@ def record_payment(
             "paid_at": now,
             "recorded_by": context.actor_id,
         }
-        if awaited is not None and met:
+        if awaited is not None and covered:
             payment = awaited
             for name, value in marked.items():
                 setattr(payment, name, value)
@@ -313,13 +372,19 @@ def void_payment(order_id: UUID, payment_id: UUID, *, expected_version: int) -> 
         payment.status = PaymentStatus.CANCELED
         payment.version += 1
         payment.save(update_fields=["status", "version", "updated_at"])
-        # A part of a prepayment still awaited is awaited again.
-        if (awaited := awaited_prepayment(order)) is not None:
+        # A part of a payment still awaited is awaited again.
+        if (awaited := _awaited(order)) is not None:
             _await(awaited, awaited.amount_minor + payment.amount_minor)
         _post(order, payment, -payment.amount_minor, timezone.now())
         _move(order, paid_minor(order))
         _audit(context, order, "commerce.payment.voided", payment)
         return order_detail(order)
+
+
+def _awaited(order: Order) -> Payment | None:
+    """The payment the order waits for: what its source asked for before it
+    confirms, else the rest due by a transfer."""
+    return awaited_prepayment(order) or awaited_balance(order)
 
 
 def _locked(context: TenantContext, order_id: UUID, expected_version: int) -> Order:

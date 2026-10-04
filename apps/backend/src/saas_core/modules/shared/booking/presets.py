@@ -154,7 +154,26 @@ def _local(value: str | None) -> time | None:
 #: company's plan or account.
 _PLAIN_POLICIES = (PaymentPolicy.NONE.value, PaymentPolicy.ON_SITE.value)
 #: A preset's terms of a prepayment as the offer's fields.
-_PAYMENT_TERMS = {"deposit_percent": "depositPercent", "transfer_due_days": "transferDueDays"}
+_PAYMENT_TERMS = {
+    "deposit_percent": "depositPercent",
+    "transfer_due_days": "transferDueDays",
+    "balance_due_days_before": "balanceDueDaysBefore",
+}
+
+
+def _refund_terms(preset: Preset) -> dict[str, Any]:
+    """A preset's refund thresholds as the offer's fields; nothing where the
+    preset says nothing of giving a booking up."""
+    terms = preset.raw.get("cancellation")
+    if not terms:
+        return {}
+    return {
+        "cancellation_applies_to": terms["appliesTo"],
+        "cancellation_refunds": [
+            {"min_days_before": row["minDaysBefore"], "refund_percent": row["refundPercent"]}
+            for row in terms["refunds"]
+        ],
+    }
 
 
 def apply_preset(
@@ -201,6 +220,10 @@ def apply_preset(
         # Its terms come with the offer, ready for that choice.
         "payment_policy": policy if policy in _PLAIN_POLICIES else PaymentPolicy.NONE,
         **{field: payment[key] for field, key in _PAYMENT_TERMS.items() if key in payment},
+        # What giving a booking up gives back comes with the offer too
+        # (ADR-072 §8): it asks nothing of the plan, and the company changes
+        # it in „Cennik” like every other term.
+        **_refund_terms(preset),
         # „Rezerwacja przez stronę — wkrótce”: the team books it in the panel.
         "online": preset.online_booking == READY,
         "active": False,

@@ -15,9 +15,11 @@ from .models import (
     PaymentKind,
     PaymentMethod,
     PaymentStatus,
+    RefundStatus,
     TaxRate,
 )
 from .orders import MAX_PAGE_SIZE
+from .refunds import REASON_MAX_LENGTH
 
 
 class OrderQuerySerializer(serializers.Serializer[dict[str, Any]]):
@@ -152,8 +154,9 @@ class OrderPaymentSerializer(serializers.Serializer[dict[str, Any]]):
         choices=PaymentStatus.values,
         help_text="`succeeded` counts as paid; `canceled` was marked by mistake and taken "
         "back, or called off with its order; `requires_payment` is awaited until `due_at` "
-        "— what the order's source asked for before it confirms — and `expired` was not "
-        "paid by then.",
+        "— a `deposit` or `full` the order's source asked for before it confirms, which "
+        "is `expired` when not paid by then, or a `balance`, the rest due by a transfer, "
+        "which stays awaited after its date and cancels nothing.",
     )
     amount_minor = serializers.IntegerField(
         help_text="In minor units of the order's currency. Of an awaited payment: what is "
@@ -168,6 +171,25 @@ class OrderPaymentSerializer(serializers.Serializer[dict[str, Any]]):
     recorded_by = serializers.CharField(
         allow_blank=True, help_text="Who marked it, by name; empty when no person did."
     )
+
+
+class OrderRefundSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    method = serializers.ChoiceField(
+        choices=MANUAL_METHODS, help_text="How the company gave the money back."
+    )
+    status = serializers.ChoiceField(
+        choices=RefundStatus.values,
+        help_text="`succeeded` counts as given back; `canceled` was marked by mistake and "
+        "taken back.",
+    )
+    amount_minor = serializers.IntegerField(help_text="In minor units of the order's currency.")
+    reason = serializers.CharField(
+        allow_blank=True,
+        help_text="The company's own words for a refund its terms did not ask for.",
+    )
+    refunded_at = serializers.DateTimeField()
+    recorded_by = serializers.CharField(allow_blank=True, help_text="Who marked it, by name.")
 
 
 class OrderSerializer(OrderSummarySerializer):
@@ -193,7 +215,18 @@ class OrderSerializer(OrderSummarySerializer):
         help_text="What is left to pay: `gross_minor` less `paid_minor`. Negative when an "
         "order priced again came to less than was already paid."
     )
+    refunded_minor = serializers.IntegerField(
+        required=False, help_text="What the company has given back; `paid_minor` is net of it."
+    )
+    refund_owed_minor = serializers.IntegerField(
+        required=False,
+        help_text="What is still to be given back by the terms of what was sold, settled "
+        "when the order was canceled: what a customer who gave a booking up gets back by "
+        "its refund thresholds, or everything when the company called it off. 0 when "
+        "nothing is owed — also for an order nobody settled.",
+    )
     payments = OrderPaymentSerializer(many=True, help_text="Oldest first.")
+    refunds = OrderRefundSerializer(many=True, required=False, help_text="Oldest first.")
     lines = OrderLineSerializer(many=True, help_text="The lines in force.")
     revisions = OrderRevisionSerializer(
         many=True, help_text="Every revision with what it came to, oldest first."
@@ -258,6 +291,44 @@ class PaymentEffectSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         help_text="Whether the amount covers the payment the order waits for before its "
         "source confirms: marking it confirms the booking the order is for.",
+    )
+
+
+class RefundRecordInputSerializer(serializers.Serializer[dict[str, Any]]):
+    amount_minor = serializers.IntegerField(
+        min_value=1,
+        help_text="What the company gave back, in minor units of the order's currency; at "
+        "most what the customer has paid (`paid_minor`).",
+    )
+    method = serializers.ChoiceField(
+        choices=MANUAL_METHODS,
+        help_text="`transfer` — sent back to the customer's account; `cash` — at the desk.",
+    )
+    reason = serializers.CharField(
+        max_length=REASON_MAX_LENGTH,
+        required=False,
+        allow_blank=True,
+        help_text="Why, in the company's own words — needed for a refund beyond what the "
+        "order's terms give back (`refund_owed_minor`), 400 `reason_required` without it. "
+        "Read on the order's page only; never sent to the customer.",
+    )
+    expected_version = serializers.IntegerField(
+        min_value=1, help_text="The order's `version` the caller read."
+    )
+
+
+class RefundEffectSerializer(serializers.Serializer[dict[str, Any]]):
+    amount_minor = serializers.IntegerField()
+    paid_minor = serializers.IntegerField(help_text="What would stay paid after it.")
+    refund_owed_minor = serializers.IntegerField(
+        help_text="What the order's terms would still owe back after it."
+    )
+    status = serializers.ChoiceField(
+        choices=OrderStatus.values, help_text="The order's status after it."
+    )
+    reason_required = serializers.BooleanField(
+        help_text="Whether the amount is beyond what the order's terms give back: the "
+        "write then needs a `reason`."
     )
 
 

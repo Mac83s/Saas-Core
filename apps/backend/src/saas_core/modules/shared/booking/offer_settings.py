@@ -12,7 +12,7 @@ from typing import Any
 
 from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec, schema_entry
 
-from .models import Confirmation, PaymentPolicy, RangeUnit, StaffChoice, TimeModel
+from .models import Confirmation, PaymentPolicy, RangeUnit, RefundBasis, StaffChoice, TimeModel
 
 #: The starts a service may be offered at, in minutes (B6, ADR-058 §5): every
 #: one divides an hour, so a grid never drifts across a person's day.
@@ -353,6 +353,65 @@ OFFER_SETTINGS: tuple[SettingSpec, ...] = (
             "With a payment before confirmation: how many days the customer has to pay by "
             "a transfer before the booking expires (1–30), never past the booking's start."
         ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.balance_due_days_before",
+        type="int",
+        default=None,
+        minimum=0,
+        maximum=365,
+        unit="day",
+        label={"pl": "Dopłata reszty przelewem", "en": "The rest by a transfer"},
+        help={
+            "pl": "Ile dni przed początkiem rezerwacji klient ma dopłacić resztę przelewem. "
+            "Puste: resztę płaci na miejscu. Spóźniona dopłata niczego nie odwołuje — "
+            "klient dostaje przypomnienie, a firma powiadomienie.",
+            "en": "How many days before the booking starts the customer transfers the "
+            "rest. Empty: the rest is paid on site. A late balance calls nothing off — "
+            "the customer is reminded and the company is told.",
+        },
+        model_description=(
+            "With `payment_policy` `deposit`: how many days before the booking's start "
+            "the rest of the price is due by a bank transfer (0–365). Null: the rest is "
+            "paid on site. A balance not paid by its date cancels nothing: the customer "
+            "gets reminders, the company a notice, and only the company calls the booking "
+            "off."
+        ),
+        depends_on="payment_policy == 'deposit'",
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.cancellation_applies_to",
+        type="enum",
+        default=RefundBasis.DEPOSIT.value,
+        values=(
+            (
+                RefundBasis.DEPOSIT.value,
+                {"pl": "Tylko przedpłaty", "en": "The prepayment only"},
+            ),
+            (
+                RefundBasis.PAID.value,
+                {"pl": "Wszystkich wpłat, także dopłaty", "en": "Everything paid, the rest too"},
+            ),
+        ),
+        label={"pl": "Progi zwrotu dotyczą", "en": "Refund thresholds cover"},
+        help={
+            "pl": "Domyślnie progi zwrotu dotyczą tylko przedpłaty, a dopłata wraca do "
+            "klienta w całości. Włącz „także dopłaty”, jeśli klient ma tracić również jej "
+            "część.",
+            "en": "By default the thresholds cover the prepayment only and the rest the "
+            "customer paid goes back whole. Choose „the rest too” when the customer is to "
+            "lose a part of that as well.",
+        },
+        model_description=(
+            "With `payment_policy` `deposit`: what the refund thresholds "
+            "(`cancellation_refunds`) are counted on when a customer gives a booking up — "
+            "`deposit`: the prepayment only, anything else paid goes back whole (the "
+            "default); `paid`: everything the customer paid. Without a prepayment that is "
+            "a part of the price the thresholds always cover everything paid."
+        ),
+        depends_on="payment_policy == 'deposit'",
     ),
     SettingSpec(
         scopes=("offer",),

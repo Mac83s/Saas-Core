@@ -11,11 +11,13 @@ from saas_core.modules.core.organizations.options import (
 )
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
+from .cancellation import CANCEL_REASONS, REFUND_THRESHOLDS
 from .models import (
     Confirmation,
     ExtraBasis,
     PaymentPolicy,
     RangeUnit,
+    RefundBasis,
     StaffChoice,
     TimeModel,
     TimeOffSource,
@@ -195,6 +197,43 @@ class QuotePrepaymentSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="How many days the customer has to pay by a transfer before the booking "
         "expires; never past the booking's start."
     )
+    balance_due_days_before = serializers.IntegerField(
+        required=False,
+        help_text="With `deposit`: the rest is due by a transfer this many days before the "
+        "booking's start. Absent: the rest is paid on site.",
+    )
+
+
+class RefundThresholdSerializer(serializers.Serializer[dict[str, Any]]):
+    """One refund threshold of an offer (ADR-072 §8)."""
+
+    min_days_before = serializers.IntegerField(
+        min_value=REFUND_THRESHOLDS["min_days_before"]["minimum"],
+        max_value=REFUND_THRESHOLDS["min_days_before"]["maximum"],
+        help_text="At least this many whole days of the company's calendar before the "
+        "booking's start.",
+    )
+    refund_percent = serializers.IntegerField(
+        min_value=REFUND_THRESHOLDS["refund_percent"]["minimum"],
+        max_value=REFUND_THRESHOLDS["refund_percent"]["maximum"],
+        help_text="The percent that goes back to a customer who gives the booking up then.",
+    )
+
+
+class QuoteCancellationSerializer(serializers.Serializer[dict[str, Any]]):
+    """What giving the booking up gives back, as the offer said when it was
+    booked (ADR-072 §8, ADR-073 §8)."""
+
+    applies_to = serializers.ChoiceField(
+        choices=RefundBasis.values,
+        help_text="`deposit` — the thresholds are counted on the prepayment and anything "
+        "else paid goes back whole; `paid` — on everything paid.",
+    )
+    refunds = RefundThresholdSerializer(
+        many=True,
+        help_text="The longest notice first; less notice than the last row gives nothing "
+        "back.",
+    )
 
 
 class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
@@ -221,6 +260,12 @@ class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         help_text="What a booking at this price waits for before it is confirmed; null — "
         "nothing, it is confirmed at once.",
+    )
+    cancellation = QuoteCancellationSerializer(
+        allow_null=True,
+        required=False,
+        help_text="The refund thresholds a booking at this price is given up under; null "
+        "or absent — the offer has none, and everything paid goes back.",
     )
     net_minor = serializers.IntegerField()
     vat_minor = serializers.IntegerField()
@@ -407,6 +452,12 @@ class PublicQuoteSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         help_text="What the customer pays before the booking is confirmed; null — nothing.",
     )
+    cancellation = QuoteCancellationSerializer(
+        allow_null=True,
+        required=False,
+        help_text="What giving the booking up gives back of what was paid; null — the "
+        "service has no thresholds, and everything paid goes back.",
+    )
     digest = serializers.CharField(help_text="Send it back as `quote_digest` when booking.")
 
 
@@ -586,6 +637,12 @@ class PublicSelfServiceSerializer(serializers.Serializer[dict[str, Any]]):
 class PublicAwaitedPaymentSerializer(serializers.Serializer[dict[str, Any]]):
     """The transfer a booking waits for (ADR-073 §5)."""
 
+    kind = serializers.ChoiceField(
+        choices=["deposit", "full", "balance"],
+        required=False,
+        help_text="`deposit`, `full` — awaited before the booking is confirmed; `balance` "
+        "— the rest of a confirmed booking's price, which calls nothing off when late.",
+    )
     number = serializers.CharField(help_text="The order's number: the transfer's title.")
     amount_minor = serializers.IntegerField(help_text="Gross, in minor units.")
     currency = serializers.CharField()
@@ -593,6 +650,64 @@ class PublicAwaitedPaymentSerializer(serializers.Serializer[dict[str, Any]]):
     account_holder = serializers.CharField()
     account_number = serializers.CharField()
     bank_name = serializers.CharField(allow_blank=True)
+
+
+class PublicSettlementSerializer(serializers.Serializer[dict[str, Any]]):
+    """What comes back of what the customer paid (ADR-073 §8)."""
+
+    currency = serializers.CharField()
+    paid_minor = serializers.IntegerField(help_text="What the customer has paid.")
+    refund_minor = serializers.IntegerField(
+        help_text="Of a booking not canceled: what giving it up now would give back, by "
+        "the thresholds it was booked under. Of a canceled one: what the company is still "
+        "to give back."
+    )
+
+
+class SettlementTermsSerializer(serializers.Serializer[dict[str, Any]]):
+    refund_minor = serializers.IntegerField(help_text="What the thresholds give back now.")
+    percent = serializers.IntegerField(
+        help_text="The percent of the threshold the notice reaches; 100 without thresholds."
+    )
+    days_before = serializers.IntegerField(
+        help_text="Whole days of the company's calendar until the booking's start."
+    )
+
+
+class AppointmentSettlementSerializer(serializers.Serializer[dict[str, Any]]):
+    """A booking's money for whoever is about to call it off (ADR-073 §8)."""
+
+    currency = serializers.CharField()
+    paid_minor = serializers.IntegerField(help_text="What the customer has paid.")
+    refund_owed_minor = serializers.IntegerField(
+        help_text="Of a canceled booking: what is still to be given back."
+    )
+    balance_overdue = serializers.BooleanField(
+        help_text="The rest of the price was due by a transfer and is not paid: the company "
+        "may call the booking off with the reason `balance_overdue`."
+    )
+    by_terms = SettlementTermsSerializer(
+        help_text="What the booking's own refund thresholds give back now — what the "
+        "customer gets when they give it up, or when the company calls it off for a late "
+        "balance. The company's own calling off for any other reason gives everything back."
+    )
+
+
+class AppointmentSettlementAnswerSerializer(serializers.Serializer[dict[str, Any]]):
+    settlement = AppointmentSettlementSerializer(
+        allow_null=True, help_text="Null — nothing was paid, there is nothing to settle."
+    )
+
+
+class AppointmentCancelSerializer(serializers.Serializer[dict[str, Any]]):
+    reason = serializers.ChoiceField(
+        choices=CANCEL_REASONS,
+        required=False,
+        help_text="`balance_overdue` — the rest of the price was not paid by its date: "
+        "what the customer paid is then settled by the booking's refund thresholds, as when "
+        "they give it up themselves (400 `balance_not_overdue` when no balance is late). "
+        "Without a reason the company gives everything back.",
+    )
 
 
 class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
@@ -615,8 +730,13 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     payment = PublicAwaitedPaymentSerializer(
         required=False,
         allow_null=True,
-        help_text="What the customer has to transfer before the booking is confirmed, and "
-        "where; null when nothing is awaited.",
+        help_text="What the customer is still to transfer, and where — before the booking "
+        "is confirmed, or the rest of a confirmed one's price; null when nothing is awaited.",
+    )
+    settlement = PublicSettlementSerializer(
+        required=False,
+        allow_null=True,
+        help_text="What comes back of what the customer paid; null when nothing was paid.",
     )
     #: The team the customer chose, by name.
     team_name = serializers.CharField(allow_null=True)
@@ -727,6 +847,15 @@ class TeamUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+_REFUNDS_HELP = (
+    "What a customer who gives a booking of this service up gets back of what they paid: "
+    "rows „at least `min_days_before` days before the start → `refund_percent` back”, the "
+    "longest notice first, at most six; less notice than the last row gives nothing back. "
+    "Empty: no thresholds — everything paid goes back. Frozen in each booking. A booking "
+    "the company itself calls off gives everything back, whatever the thresholds."
+)
+
+
 class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     """A service as Ustawienia › Usługi i grafik edits it (team phase 3c)."""
 
@@ -764,6 +893,19 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     )
     transfer_due_days = serializers.IntegerField(
         required=False, help_text=offer_setting("transfer_due_days").model_description
+    )
+    balance_due_days_before = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text=offer_setting("balance_due_days_before").model_description,
+    )
+    cancellation_refunds = RefundThresholdSerializer(
+        many=True, required=False, help_text=_REFUNDS_HELP
+    )
+    cancellation_applies_to = serializers.ChoiceField(
+        choices=RefundBasis.values,
+        required=False,
+        help_text=offer_setting("cancellation_applies_to").model_description,
     )
     active = serializers.BooleanField()
     draft = serializers.BooleanField(
@@ -896,8 +1038,30 @@ class SetupOptionSerializer(serializers.Serializer[dict[str, Any]]):
     strategy = serializers.ChoiceField(choices=SETTING_STRATEGIES)
 
 
+class _BoundsSerializer(serializers.Serializer[dict[str, Any]]):
+    minimum = serializers.IntegerField()
+    maximum = serializers.IntegerField()
+
+
+class RefundThresholdBoundsSerializer(serializers.Serializer[dict[str, Any]]):
+    max_rows = serializers.IntegerField(help_text="How many thresholds an offer may have.")
+    min_days_before = _BoundsSerializer()
+    refund_percent = _BoundsSerializer()
+
+
 class SetupOptionsSerializer(serializers.Serializer[dict[str, Any]]):
     keys = SetupOptionSerializer(many=True)
+    refund_thresholds = RefundThresholdBoundsSerializer(
+        required=False,
+        help_text="The bounds of an offer's `cancellation_refunds` — a list, so not one of "
+        "`keys`.",
+    )
+    cancel_reasons = serializers.ListField(
+        child=serializers.ChoiceField(choices=CANCEL_REASONS),
+        required=False,
+        help_text="The reasons the company may give when it calls a booking off that change "
+        "what goes back to the customer.",
+    )
 
 
 class PresetTextSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1044,6 +1208,21 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     response_hours = _bounded("response_hours", required=False)
     deposit_percent = _bounded("deposit_percent", required=False)
     transfer_due_days = _bounded("transfer_due_days", required=False)
+    balance_due_days_before = _bounded("balance_due_days_before", required=False, allow_null=True)
+    cancellation_refunds = RefundThresholdSerializer(  # type: ignore[call-arg]
+        many=True,
+        required=False,
+        # The list's own bound (DRF passes it to the list serializer).
+        max_length=REFUND_THRESHOLDS["max_rows"],
+        help_text=_REFUNDS_HELP
+        + " More back for less notice is refused (`thresholds_not_descending`), and so "
+        "are two rows for the same number of days (`duplicate_threshold`).",
+    )
+    cancellation_applies_to = serializers.ChoiceField(
+        choices=RefundBasis.values,
+        required=False,
+        help_text=offer_setting("cancellation_applies_to").model_description,
+    )
     active = serializers.BooleanField(required=False)
     #: A new service only: the kind of visit a module provides (ADR-050).
     appointment_kind = serializers.CharField(max_length=64, required=False, allow_blank=True)

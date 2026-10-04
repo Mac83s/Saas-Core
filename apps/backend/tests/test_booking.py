@@ -513,6 +513,8 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         # company's account to transfer to (ADR-073 §5) — the company's data.
         "hold_expires_at",
         "payment",
+        # What comes back of what the customer themselves paid (ADR-073 §8).
+        "settlement",
         "team_name",
         "person_name",
         # What the customer's link may still do (B4): about the booking, not people.

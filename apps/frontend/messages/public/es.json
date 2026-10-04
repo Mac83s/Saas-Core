@@ -29,14 +29,23 @@
   },
   "BookingPrice": {
     "prepayDeposit": "Pago anticipado: {amount} por transferencia en un plazo de {days, plural, one {# día} other {# días}}. El resto se paga en el lugar.",
+    "prepayDepositAhead": "Pago anticipado: {amount} por transferencia en un plazo de {days, plural, one {# día} other {# días}}.",
+    "balanceBefore": "El resto, {amount}, se paga por transferencia {days, plural, =0 {a más tardar el día en que empieza la reserva} one {a más tardar # día antes del inicio de la reserva} other {a más tardar # días antes del inicio de la reserva}}.",
     "prepayFull": "Pago por adelantado: {amount} por transferencia en un plazo de {days, plural, one {# día} other {# días}}.",
     "transferTitle": "Datos para la transferencia",
     "transferHint": "Su reserva está a la espera de un pago de {amount}. Realice la transferencia antes del {due}. Si el pago no llega a tiempo, la reserva caducará.",
+    "balanceHint": "Quedan {amount} por pagar. Por favor, haga la transferencia antes de: {due}.",
+    "balanceOverdueHint": "El plazo para pagar el resto, {amount}, venció: {due}. Por favor, haga la transferencia lo antes posible. Su reserva sigue en pie.",
     "transferAmount": "Importe",
     "transferHolder": "Beneficiario",
     "transferAccount": "Número de cuenta",
     "transferBank": "Banco",
-    "transferReference": "Concepto"
+    "transferReference": "Concepto",
+    "refundTitle": "Cancelación y reembolso",
+    "refundRow": "{days, plural, =0 {Hasta el día del inicio} one {Al menos # día antes del inicio} other {Al menos # días antes del inicio}}: reembolso del {percent}%",
+    "refundLater": "Después: sin reembolso",
+    "refundOfDeposit": "El reembolso se calcula sobre el pago anticipado; los demás pagos se devuelven íntegros.",
+    "refundOfPaid": "El reembolso se calcula sobre todos los pagos."
   },
   "PublicBooking": {
     "pending": "Su reserva está a la espera del pago",
@@ -54,6 +63,8 @@
     "cancelUntil": "Puede cancelar la reserva hasta el {when}.",
     "answerBy": "La empresa responderá a su solicitud antes del {when}. Hasta entonces le reservamos la fecha.",
     "pending_payment": "a la espera del pago",
-    "pending_request": "a la espera de la respuesta de la empresa"
+    "pending_request": "a la espera de la respuesta de la empresa",
+    "cancelGivesBack": "Ha pagado {paid}. Si cancela ahora, según las condiciones de la reserva se le devuelven {refund}.",
+    "canceledGivesBack": "Ha pagado {paid}. Según las condiciones de la reserva, la empresa le devolverá {refund}."
   }
 }

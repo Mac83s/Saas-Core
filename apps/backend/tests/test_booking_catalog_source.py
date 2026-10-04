@@ -382,7 +382,10 @@ def test_a_visit_keeps_the_service_in_the_customers_language_and_older_ones_fall
     assert (visit.service_name, visit.customer_service_name) == ("Wizyta", "Termin")
     # A visit from before TL12c: the name it was booked with, the company's.
     Appointment.all_objects.filter(pk=visit.pk).update(customer_service_name="")
+    from saas_core.modules.shared.booking.security import public_booking_context
     from saas_core.modules.shared.booking.views import _public_appointment_payload
 
     visit.refresh_from_db()
-    assert _public_appointment_payload(visit)["service_name"] == "Wizyta"
+    # As the customer's link reads it: inside the company it names.
+    with public_booking_context(visit.organization_id):
+        assert _public_appointment_payload(visit)["service_name"] == "Wizyta"

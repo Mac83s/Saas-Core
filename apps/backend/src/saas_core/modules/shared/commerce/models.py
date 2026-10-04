@@ -92,6 +92,11 @@ class Order(TenantScopedModel):
     #: Goes up with every change; a write names the one it saw.
     version = models.PositiveIntegerField(default=1)
     placed_at = models.DateTimeField(null=True, blank=True)
+    #: What goes back to the customer in all, by the terms of what was sold,
+    #: once its source took it back (§8) — worked out by the source and counted
+    #: with whatever was given back before. Empty: nothing was settled. What
+    #: is still owed is this less the ledger's refunds (`ledger.refund_owed`).
+    refund_due_minor = models.BigIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -228,6 +233,42 @@ class Payment(TenantScopedModel):
     class Meta:
         indexes = [
             models.Index(fields=["organization", "order"], name="commerce_payment_order_idx"),
+        ]
+        ordering = ("order_id", "created_at", "id")
+
+
+class RefundStatus(models.TextChoices):
+    SUCCEEDED = "succeeded", "Zwrócono"
+    #: Marked by mistake and taken back.
+    CANCELED = "canceled", "Wycofany"
+
+
+class Refund(TenantScopedModel):
+    """Money given back to the customer (ADR-073 §8): the company returned it
+    itself — by a transfer or at the desk — and marks that here. What was
+    given back is decided by the ledger; this row says how, why and who
+    marked it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="refunds")
+    method = models.CharField(max_length=24, choices=PaymentMethod.choices)
+    status = models.CharField(max_length=24, choices=RefundStatus.choices)
+    amount_minor = models.BigIntegerField()
+    currency = models.CharField(max_length=3)
+    #: The company's own words for a refund its terms did not ask for. Never
+    #: sent to anybody; read on the order's page.
+    reason = models.CharField(max_length=300, blank=True)
+    refunded_at = models.DateTimeField()
+    #: The person who marked it — an id, as on a payment.
+    recorded_by = models.UUIDField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "order"], name="commerce_refund_order_idx"),
         ]
         ordering = ("order_id", "created_at", "id")
 

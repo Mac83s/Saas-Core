@@ -42,8 +42,8 @@ from saas_core.modules.core.organizations.models import Organization, Organizati
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.billing.decisions import FeatureOperation
 
+from . import cancellation, orders
 from . import materials as stock
-from . import orders
 from .models import (
     PREPAID_POLICIES,
     Appointment,
@@ -97,6 +97,9 @@ _SERVICE_FIELDS = (
     "payment_policy",
     "deposit_percent",
     "transfer_due_days",
+    "balance_due_days_before",
+    "cancellation_refunds",
+    "cancellation_applies_to",
     "active",
 )
 #: What decides how a customer pays ahead; checked when one of them changes.
@@ -621,6 +624,8 @@ def _write_service(
     resource_ids = values.pop("resource_ids", None)
     group_ids = values.pop("group_ids", None)
     materials = values.pop("materials", None)
+    if "cancellation_refunds" in values:
+        values["cancellation_refunds"] = cancellation.normalized(values["cancellation_refunds"])
     if service_id is None:
         _assert_appointment_kind_available(organization, values.get("appointment_kind", ""))
         service = Service(

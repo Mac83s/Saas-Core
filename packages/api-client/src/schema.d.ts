@@ -675,7 +675,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["api_v1_booking_appointments_cancel_create"];
+        /**
+         * Call a booking off
+         * @description The company calls a booking off; the customer is told by e-mail. What the customer paid is settled with the booking's order: everything goes back — or, with the reason `balance_overdue`, what the booking's refund thresholds give (`GET …/settlement/` says both before anybody decides). The company then marks the refund on the order when it has given the money back. A visit that took place is 409 `appointment_not_changeable`; the same Idempotency-Key answers the first result again.
+         */
+        post: operations["booking_appointment_cancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -824,6 +828,26 @@ export interface paths {
          * @description Moves a confirmed visit with its people; all of them have to be free then, or 409 `slot_unavailable` names who is not. A visit that has a price is priced again for the new time; with `quote_digest` a price other than the one shown is 409 `quote_changed`. A stay moves by its dates (400 `stay_moves_by_dates`).
          */
         post: operations["booking_appointment_reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/settlement/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What calling a booking off does with what its customer paid
+         * @description What the customer has paid for the booking, what its own refund thresholds give back now and whether the rest of its price is late — read before calling it off. Writes nothing. Null where nothing was paid.
+         */
+        get: operations["booking_appointment_settlement_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2829,6 +2853,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/orders/{order_id}/refunds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark money the company gave back
+         * @description The company returned money to the order's customer itself — a transfer back or cash at the desk: writes the refund and its ledger entry, so the order's `paid_minor` goes down by it. More than the customer has paid is refused (`refund_exceeds_paid`). Within what the order's terms give back (`refund_owed_minor`, settled when the order was canceled) no reason is asked for; beyond it the company says why (`reason_required`). Nothing is sent to the customer and no money moves: it records what the company did. Answers with the order.
+         */
+        post: operations["commerce_order_refund_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/orders/{order_id}/refunds/{refund_id}/void/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a refund marked by mistake
+         * @description The refund stays in the order's history as `canceled` and the ledger gets the opposite entry, so the order is paid that amount again and, where its terms said so, owes it back again. Answers with the order.
+         */
+        post: operations["commerce_order_refund_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/orders/{order_id}/refunds/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What marking a refund would do
+         * @description Checks the refund exactly as the write does — the order's version, the method, the amount against what the customer has paid — and says what would stay paid, what the order's terms would still owe back and whether the amount needs a reason. Writes nothing.
+         */
+        post: operations["commerce_order_refund_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/documents/": {
         parameters: {
             query?: never;
@@ -4725,6 +4809,50 @@ export interface paths {
          * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
          */
         post: operations["organization_settings_booking_self_service_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/commerce.balance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the company's settings: Balances by a transfer
+         * @description When an offer asks for the rest by a transfer before the booking starts, the customer gets the transfer's details, a reminder before the date and a message after it. A late balance calls nothing off — that is your own decision. The values that apply, where each comes from (code, platform or the company) and the group's version token.
+         */
+        get: operations["organization_settings_commerce_balance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the company's settings: Balances by a transfer
+         * @description Changes the given fields, guarded by `expected_version` (a stale one answers 409 settings_version_conflict). A field left out or null stays as it is; `reset` gives fields back to the default. A repeat with the same Idempotency-Key answers the first change.
+         */
+        patch: operations["organization_settings_commerce_balance_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/settings/commerce.balance/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * See what a change of the company's settings would do: Balances by a transfer
+         * @description The same checks as the change, and nothing saved: the values after, what changes and what that does (e.g. reminders it re-plans).
+         */
+        post: operations["organization_settings_commerce_balance_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7945,6 +8073,14 @@ export interface components {
             /** @description The price frozen when the booking was made or last moved; null for a booking from before quotes. */
             quote?: components["schemas"]["BookingQuote"] | null;
         };
+        AppointmentCancel: {
+            /**
+             * @description `balance_overdue` — the rest of the price was not paid by its date: what the customer paid is then settled by the booking's refund thresholds, as when they give it up themselves (400 `balance_not_overdue` when no balance is late). Without a reason the company gives everything back.
+             *
+             *     * `balance_overdue` - balance_overdue
+             */
+            reason?: components["schemas"]["BookingCancelReasonEnum"];
+        };
         AppointmentCreate: {
             /** Format: uuid */
             service_id: string;
@@ -7989,6 +8125,22 @@ export interface components {
              */
             id: string;
             number: string;
+        };
+        /** @description A booking's money for whoever is about to call it off (ADR-073 §8). */
+        AppointmentSettlement: {
+            currency: string;
+            /** @description What the customer has paid. */
+            paid_minor: number;
+            /** @description Of a canceled booking: what is still to be given back. */
+            refund_owed_minor: number;
+            /** @description The rest of the price was due by a transfer and is not paid: the company may call the booking off with the reason `balance_overdue`. */
+            balance_overdue: boolean;
+            /** @description What the booking's own refund thresholds give back now — what the customer gets when they give it up, or when the company calls it off for a late balance. The company's own calling off for any other reason gives everything back. */
+            by_terms: components["schemas"]["SettlementTerms"];
+        };
+        AppointmentSettlementAnswer: {
+            /** @description Null — nothing was paid, there is nothing to settle. */
+            settlement: components["schemas"]["AppointmentSettlement"] | null;
         };
         AssistantConsentAnswer: {
             /** @description Consent group id → the token its click minted. A group without a token does not run. */
@@ -8542,6 +8694,11 @@ export interface components {
          * @enum {string}
          */
         BookedSubjectEnum: "staff" | "unit" | "unit_group" | "seat";
+        /**
+         * @description * `balance_overdue` - balance_overdue
+         * @enum {string}
+         */
+        BookingCancelReasonEnum: "balance_overdue";
         BookingClosure: {
             /** Format: uuid */
             id: string;
@@ -8764,6 +8921,8 @@ export interface components {
             payment_policy: components["schemas"]["PaymentPolicyEnum"];
             /** @description What a booking at this price waits for before it is confirmed; null — nothing, it is confirmed at once. */
             prepayment?: components["schemas"]["QuotePrepayment"] | null;
+            /** @description The refund thresholds a booking at this price is given up under; null or absent — the offer has none, and everything paid goes back. */
+            cancellation?: components["schemas"]["QuoteCancellation"] | null;
             net_minor: number;
             vat_minor: number;
             /** @description What the customer pays. */
@@ -9417,6 +9576,50 @@ export interface components {
             resource: string;
             resource_id: string;
             summary: components["schemas"]["LocalizedText"];
+        };
+        CommerceBalanceSettings: {
+            group: string;
+            /** @description The group's version token. */
+            version: string;
+            /** @description The values that apply, by field. */
+            values: components["schemas"]["CommerceBalanceSettingsValues"];
+            /** @description Where each value comes from. */
+            sources: components["schemas"]["CommerceBalanceSettingsSources"];
+            can_change: boolean;
+            locked: string;
+        };
+        CommerceBalanceSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["CommerceBalanceSettingsChangeResetEnum"][];
+            /** @description How many days before a balance's due date the customer gets a reminder with the transfer's details (0–30; 0 sends none before the date). After the date the customer is told once more and the company's people who manage payments get a notice; nothing is canceled automatically. */
+            remind_days_before?: number | null;
+        };
+        /**
+         * @description * `remind_days_before` - remind_days_before
+         * @enum {string}
+         */
+        CommerceBalanceSettingsChangeResetEnum: "remind_days_before";
+        CommerceBalanceSettingsPreview: {
+            /** @description The version token the preview read. */
+            version: string;
+            /** @description The values after the change, by field. */
+            values: components["schemas"]["CommerceBalanceSettingsValues"];
+            /** @description Each field that would change: {from, to}. */
+            changes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            effects: components["schemas"]["SettingEffect"][];
+        };
+        CommerceBalanceSettingsSources: {
+            remind_days_before: components["schemas"]["SettingSourceEnum"];
+        };
+        CommerceBalanceSettingsValues: {
+            /** @description How many days before a balance's due date the customer gets a reminder with the transfer's details (0–30; 0 sends none before the date). After the date the customer is told once more and the company's people who manage payments get a notice; nothing is canceled automatically. */
+            remind_days_before: number;
         };
         CommerceOptions: {
             /** @description The company's currency: every order is in it. */
@@ -12330,8 +12533,14 @@ export interface components {
             paid_minor: number;
             /** @description What is left to pay: `gross_minor` less `paid_minor`. Negative when an order priced again came to less than was already paid. */
             due_minor: number;
+            /** @description What the company has given back; `paid_minor` is net of it. */
+            refunded_minor?: number;
+            /** @description What is still to be given back by the terms of what was sold, settled when the order was canceled: what a customer who gave a booking up gets back by its refund thresholds, or everything when the company called it off. 0 when nothing is owed — also for an order nobody settled. */
+            refund_owed_minor?: number;
             /** @description Oldest first. */
             payments: components["schemas"]["OrderPayment"][];
+            /** @description Oldest first. */
+            refunds?: components["schemas"]["OrderRefund"][];
             /** @description The lines in force. */
             lines: components["schemas"]["OrderLine"][];
             /** @description Every revision with what it came to, oldest first. */
@@ -12466,7 +12675,7 @@ export interface components {
              */
             method: components["schemas"]["OrderPaymentMethodEnum"];
             /**
-             * @description `succeeded` counts as paid; `canceled` was marked by mistake and taken back, or called off with its order; `requires_payment` is awaited until `due_at` — what the order's source asked for before it confirms — and `expired` was not paid by then.
+             * @description `succeeded` counts as paid; `canceled` was marked by mistake and taken back, or called off with its order; `requires_payment` is awaited until `due_at` — a `deposit` or `full` the order's source asked for before it confirms, which is `expired` when not paid by then, or a `balance`, the rest due by a transfer, which stays awaited after its date and cancels nothing.
              *
              *     * `requires_payment` - requires_payment
              *     * `processing` - processing
@@ -12516,6 +12725,38 @@ export interface components {
          * @enum {string}
          */
         OrderPaymentStatusEnum: "requires_payment" | "processing" | "authorized" | "succeeded" | "failed" | "canceled" | "expired";
+        OrderRefund: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description How the company gave the money back.
+             *
+             *     * `cash` - cash
+             *     * `transfer` - transfer
+             */
+            method: components["schemas"]["ManualPaymentMethodEnum"];
+            /**
+             * @description `succeeded` counts as given back; `canceled` was marked by mistake and taken back.
+             *
+             *     * `succeeded` - succeeded
+             *     * `canceled` - canceled
+             */
+            status: components["schemas"]["OrderRefundStatusEnum"];
+            /** @description In minor units of the order's currency. */
+            amount_minor: number;
+            /** @description The company's own words for a refund its terms did not ask for. */
+            reason: string;
+            /** Format: date-time */
+            refunded_at: string;
+            /** @description Who marked it, by name. */
+            recorded_by: string;
+        };
+        /**
+         * @description * `succeeded` - succeeded
+         *     * `canceled` - canceled
+         * @enum {string}
+         */
+        OrderRefundStatusEnum: "succeeded" | "canceled";
         OrderRequest: {
             /** @description The (object, language) pairs to translate. */
             targets: components["schemas"]["Target"][];
@@ -13188,6 +13429,14 @@ export interface components {
             /** @description How many hours before the start the link stops allowing changes (0 to 168; 0: until the start). Frozen into each booking. */
             cutoff_hours?: number | null;
         };
+        PatchedCommerceBalanceSettingsChange: {
+            /** @description The version token read with the values; a stale one is a 409. */
+            expected_version?: string;
+            /** @description Fields given back to the default (the platform's or the code's). */
+            reset?: components["schemas"]["CommerceBalanceSettingsChangeResetEnum"][];
+            /** @description How many days before a balance's due date the customer gets a reminder with the transfer's details (0–30; 0 sends none before the date). After the date the customer is told once more and the company's people who manage payments get a notice; nothing is canceled automatically. */
+            remind_days_before?: number | null;
+        };
         PatchedCommerceTransferSettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
             expected_version?: string;
@@ -13594,6 +13843,17 @@ export interface components {
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
             transfer_due_days?: number;
+            /** @description With `payment_policy` `deposit`: how many days before the booking's start the rest of the price is due by a bank transfer (0–365). Null: the rest is paid on site. A balance not paid by its date cancels nothing: the customer gets reminders, the company a notice, and only the company calls the booking off. */
+            balance_due_days_before?: number | null;
+            /** @description What a customer who gives a booking of this service up gets back of what they paid: rows „at least `min_days_before` days before the start → `refund_percent` back”, the longest notice first, at most six; less notice than the last row gives nothing back. Empty: no thresholds — everything paid goes back. Frozen in each booking. A booking the company itself calls off gives everything back, whatever the thresholds. More back for less notice is refused (`thresholds_not_descending`), and so are two rows for the same number of days (`duplicate_threshold`). */
+            cancellation_refunds?: components["schemas"]["RefundThreshold"][];
+            /**
+             * @description With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+             *
+             *     * `deposit` - deposit
+             *     * `paid` - paid
+             */
+            cancellation_applies_to?: components["schemas"]["RefundBasisEnum"];
             active?: boolean;
             staff_ids?: string[];
             location_ids?: string[];
@@ -14657,8 +14917,10 @@ export interface components {
             status: string;
             /** Format: date-time */
             hold_expires_at?: string | null;
-            /** @description What the customer has to transfer before the booking is confirmed, and where; null when nothing is awaited. */
+            /** @description What the customer is still to transfer, and where — before the booking is confirmed, or the rest of a confirmed one's price; null when nothing is awaited. */
             payment?: components["schemas"]["PublicAwaitedPayment"] | null;
+            /** @description What comes back of what the customer paid; null when nothing was paid. */
+            settlement?: components["schemas"]["PublicSettlement"] | null;
             team_name: string | null;
             person_name: string | null;
             self_service_token?: string;
@@ -14693,6 +14955,14 @@ export interface components {
         };
         /** @description The transfer a booking waits for (ADR-073 §5). */
         PublicAwaitedPayment: {
+            /**
+             * @description `deposit`, `full` — awaited before the booking is confirmed; `balance` — the rest of a confirmed booking's price, which calls nothing off when late.
+             *
+             *     * `deposit` - deposit
+             *     * `full` - full
+             *     * `balance` - balance
+             */
+            kind?: components["schemas"]["PublicAwaitedPaymentKindEnum"];
             /** @description The order's number: the transfer's title. */
             number: string;
             /** @description Gross, in minor units. */
@@ -14707,6 +14977,13 @@ export interface components {
             account_number: string;
             bank_name: string;
         };
+        /**
+         * @description * `deposit` - deposit
+         *     * `full` - full
+         *     * `balance` - balance
+         * @enum {string}
+         */
+        PublicAwaitedPaymentKindEnum: "deposit" | "full" | "balance";
         /**
          * @description The catalogue without the staff list: only teams by name and people the
          *     company shows its customers (ADR-058 §8).
@@ -14963,6 +15240,8 @@ export interface components {
             payment_policy: components["schemas"]["PaymentPolicyEnum"];
             /** @description What the customer pays before the booking is confirmed; null — nothing. */
             prepayment?: components["schemas"]["QuotePrepayment"] | null;
+            /** @description What giving the booking up gives back of what was paid; null — the service has no thresholds, and everything paid goes back. */
+            cancellation?: components["schemas"]["QuoteCancellation"] | null;
             /** @description Send it back as `quote_digest` when booking. */
             digest: string;
         };
@@ -14998,6 +15277,14 @@ export interface components {
              * @description Until when the link allows changes; null when it allows none.
              */
             until: string | null;
+        };
+        /** @description What comes back of what the customer paid (ADR-073 §8). */
+        PublicSettlement: {
+            currency: string;
+            /** @description What the customer has paid. */
+            paid_minor: number;
+            /** @description Of a booking not canceled: what giving it up now would give back, by the thresholds it was booked under. Of a canceled one: what the company is still to give back. */
+            refund_minor: number;
         };
         PublicSiteNotFound: {
             /** @description Always `about:blank`; `code` names the problem. */
@@ -15227,6 +15514,21 @@ export interface components {
             };
             lines: components["schemas"]["QuoteLine"][];
         };
+        /**
+         * @description What giving the booking up gives back, as the offer said when it was
+         *     booked (ADR-072 §8, ADR-073 §8).
+         */
+        QuoteCancellation: {
+            /**
+             * @description `deposit` — the thresholds are counted on the prepayment and anything else paid goes back whole; `paid` — on everything paid.
+             *
+             *     * `deposit` - deposit
+             *     * `paid` - paid
+             */
+            applies_to: components["schemas"]["RefundBasisEnum"];
+            /** @description The longest notice first; less notice than the last row gives nothing back. */
+            refunds: components["schemas"]["RefundThreshold"][];
+        };
         QuoteLine: {
             source_key: string;
             /** Format: uuid */
@@ -15271,6 +15573,8 @@ export interface components {
             amount_minor: number;
             /** @description How many days the customer has to pay by a transfer before the booking expires; never past the booking's start. */
             transfer_due_days: number;
+            /** @description With `deposit`: the rest is due by a transfer this many days before the booking's start. Absent: the rest is paid on site. */
+            balance_due_days_before?: number;
         };
         /**
          * @description * `deposit` - deposit
@@ -15320,6 +15624,62 @@ export interface components {
          * @enum {string}
          */
         RecipientsD00Enum: "owner" | "editors";
+        /**
+         * @description * `deposit` - deposit
+         *     * `paid` - paid
+         * @enum {string}
+         */
+        RefundBasisEnum: "deposit" | "paid";
+        RefundEffect: {
+            amount_minor: number;
+            /** @description What would stay paid after it. */
+            paid_minor: number;
+            /** @description What the order's terms would still owe back after it. */
+            refund_owed_minor: number;
+            /**
+             * @description The order's status after it.
+             *
+             *     * `draft` - draft
+             *     * `awaiting_payment` - awaiting_payment
+             *     * `partially_paid` - partially_paid
+             *     * `paid` - paid
+             *     * `fulfilled` - fulfilled
+             *     * `completed` - completed
+             *     * `canceled` - canceled
+             *     * `refunded` - refunded
+             */
+            status: components["schemas"]["OrderStatusEnum"];
+            /** @description Whether the amount is beyond what the order's terms give back: the write then needs a `reason`. */
+            reason_required: boolean;
+        };
+        RefundRecordInput: {
+            /** @description What the company gave back, in minor units of the order's currency; at most what the customer has paid (`paid_minor`). */
+            amount_minor: number;
+            /**
+             * @description `transfer` — sent back to the customer's account; `cash` — at the desk.
+             *
+             *     * `cash` - cash
+             *     * `transfer` - transfer
+             */
+            method: components["schemas"]["ManualPaymentMethodEnum"];
+            /** @description Why, in the company's own words — needed for a refund beyond what the order's terms give back (`refund_owed_minor`), 400 `reason_required` without it. Read on the order's page only; never sent to the customer. */
+            reason?: string;
+            /** @description The order's `version` the caller read. */
+            expected_version: number;
+        };
+        /** @description One refund threshold of an offer (ADR-072 §8). */
+        RefundThreshold: {
+            /** @description At least this many whole days of the company's calendar before the booking's start. */
+            min_days_before: number;
+            /** @description The percent that goes back to a customer who gives the booking up then. */
+            refund_percent: number;
+        };
+        RefundThresholdBounds: {
+            /** @description How many thresholds an offer may have. */
+            max_rows: number;
+            min_days_before: components["schemas"]["_Bounds"];
+            refund_percent: components["schemas"]["_Bounds"];
+        };
         Registration: {
             /** Format: email */
             email: string;
@@ -15791,6 +16151,17 @@ export interface components {
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
             transfer_due_days?: number;
+            /** @description With `payment_policy` `deposit`: how many days before the booking's start the rest of the price is due by a bank transfer (0–365). Null: the rest is paid on site. A balance not paid by its date cancels nothing: the customer gets reminders, the company a notice, and only the company calls the booking off. */
+            balance_due_days_before?: number | null;
+            /** @description What a customer who gives a booking of this service up gets back of what they paid: rows „at least `min_days_before` days before the start → `refund_percent` back”, the longest notice first, at most six; less notice than the last row gives nothing back. Empty: no thresholds — everything paid goes back. Frozen in each booking. A booking the company itself calls off gives everything back, whatever the thresholds. More back for less notice is refused (`thresholds_not_descending`), and so are two rows for the same number of days (`duplicate_threshold`). */
+            cancellation_refunds?: components["schemas"]["RefundThreshold"][];
+            /**
+             * @description With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+             *
+             *     * `deposit` - deposit
+             *     * `paid` - paid
+             */
+            cancellation_applies_to?: components["schemas"]["RefundBasisEnum"];
             active?: boolean;
             appointment_kind?: string;
             staff_ids?: string[];
@@ -15845,6 +16216,17 @@ export interface components {
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
             transfer_due_days?: number;
+            /** @description With `payment_policy` `deposit`: how many days before the booking's start the rest of the price is due by a bank transfer (0–365). Null: the rest is paid on site. A balance not paid by its date cancels nothing: the customer gets reminders, the company a notice, and only the company calls the booking off. */
+            balance_due_days_before?: number | null;
+            /** @description What a customer who gives a booking of this service up gets back of what they paid: rows „at least `min_days_before` days before the start → `refund_percent` back”, the longest notice first, at most six; less notice than the last row gives nothing back. Empty: no thresholds — everything paid goes back. Frozen in each booking. A booking the company itself calls off gives everything back, whatever the thresholds. */
+            cancellation_refunds?: components["schemas"]["RefundThreshold"][];
+            /**
+             * @description With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+             *
+             *     * `deposit` - deposit
+             *     * `paid` - paid
+             */
+            cancellation_applies_to?: components["schemas"]["RefundBasisEnum"];
             active: boolean;
             /** @description Never switched on since it was made; only a draft can be discarded. */
             draft: boolean;
@@ -15908,6 +16290,17 @@ export interface components {
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
             transfer_due_days?: number;
+            /** @description With `payment_policy` `deposit`: how many days before the booking's start the rest of the price is due by a bank transfer (0–365). Null: the rest is paid on site. A balance not paid by its date cancels nothing: the customer gets reminders, the company a notice, and only the company calls the booking off. */
+            balance_due_days_before?: number | null;
+            /** @description What a customer who gives a booking of this service up gets back of what they paid: rows „at least `min_days_before` days before the start → `refund_percent` back”, the longest notice first, at most six; less notice than the last row gives nothing back. Empty: no thresholds — everything paid goes back. Frozen in each booking. A booking the company itself calls off gives everything back, whatever the thresholds. */
+            cancellation_refunds?: components["schemas"]["RefundThreshold"][];
+            /**
+             * @description With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+             *
+             *     * `deposit` - deposit
+             *     * `paid` - paid
+             */
+            cancellation_applies_to?: components["schemas"]["RefundBasisEnum"];
             active: boolean;
             /** @description Never switched on since it was made; only a draft can be discarded. */
             draft: boolean;
@@ -16004,6 +16397,17 @@ export interface components {
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
             transfer_due_days?: number;
+            /** @description With `payment_policy` `deposit`: how many days before the booking's start the rest of the price is due by a bank transfer (0–365). Null: the rest is paid on site. A balance not paid by its date cancels nothing: the customer gets reminders, the company a notice, and only the company calls the booking off. */
+            balance_due_days_before?: number | null;
+            /** @description What a customer who gives a booking of this service up gets back of what they paid: rows „at least `min_days_before` days before the start → `refund_percent` back”, the longest notice first, at most six; less notice than the last row gives nothing back. Empty: no thresholds — everything paid goes back. Frozen in each booking. A booking the company itself calls off gives everything back, whatever the thresholds. More back for less notice is refused (`thresholds_not_descending`), and so are two rows for the same number of days (`duplicate_threshold`). */
+            cancellation_refunds?: components["schemas"]["RefundThreshold"][];
+            /**
+             * @description With `payment_policy` `deposit`: what the refund thresholds (`cancellation_refunds`) are counted on when a customer gives a booking up — `deposit`: the prepayment only, anything else paid goes back whole (the default); `paid`: everything the customer paid. Without a prepayment that is a part of the price the thresholds always cover everything paid.
+             *
+             *     * `deposit` - deposit
+             *     * `paid` - paid
+             */
+            cancellation_applies_to?: components["schemas"]["RefundBasisEnum"];
             active?: boolean;
             staff_ids?: string[];
             location_ids?: string[];
@@ -16178,6 +16582,14 @@ export interface components {
             areas: components["schemas"]["SettingArea"][];
             groups: components["schemas"]["SettingsGroupSchema"][];
         };
+        SettlementTerms: {
+            /** @description What the thresholds give back now. */
+            refund_minor: number;
+            /** @description The percent of the threshold the notice reaches; 100 without thresholds. */
+            percent: number;
+            /** @description Whole days of the company's calendar until the booking's start. */
+            days_before: number;
+        };
         Setup: {
             services: components["schemas"]["ServiceSetup"][];
             locations: components["schemas"]["PlaceSetup"][];
@@ -16213,6 +16625,10 @@ export interface components {
         };
         SetupOptions: {
             keys: components["schemas"]["SetupOption"][];
+            /** @description The bounds of an offer's `cancellation_refunds` — a list, so not one of `keys`. */
+            refund_thresholds?: components["schemas"]["RefundThresholdBounds"];
+            /** @description The reasons the company may give when it calls a booking off that change what goes back to the customer. */
+            cancel_reasons?: components["schemas"]["BookingCancelReasonEnum"][];
         };
         SetupPerson: {
             /** Format: uuid */
@@ -17653,6 +18069,10 @@ export interface components {
          * @enum {string}
          */
         WorkspaceKindEnum: "personal" | "business";
+        _Bounds: {
+            minimum: number;
+            maximum: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -19580,7 +20000,7 @@ export interface operations {
             };
         };
     };
-    api_v1_booking_appointments_cancel_create: {
+    booking_appointment_cancel: {
         parameters: {
             query?: never;
             header: {
@@ -19591,7 +20011,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AppointmentCancel"];
+                "application/x-www-form-urlencoded": components["schemas"]["AppointmentCancel"];
+                "multipart/form-data": components["schemas"]["AppointmentCancel"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -19599,6 +20025,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -19926,6 +20376,43 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_appointment_settlement_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentSettlementAnswer"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -25437,6 +25924,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentEffect"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_refund_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRecordInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefundRecordInput"];
+                "multipart/form-data": components["schemas"]["RefundRecordInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_refund_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                refund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentVoidInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PaymentVoidInput"];
+                "multipart/form-data": components["schemas"]["PaymentVoidInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_refund_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRecordInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefundRecordInput"];
+                "multipart/form-data": components["schemas"]["RefundRecordInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundEffect"];
                 };
             };
             400: {
@@ -31611,6 +32276,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingSelfServiceSettingsPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_commerce_balance_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommerceBalanceSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_commerce_balance_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCommerceBalanceSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCommerceBalanceSettingsChange"];
+                "multipart/form-data": components["schemas"]["PatchedCommerceBalanceSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommerceBalanceSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    organization_settings_commerce_balance_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommerceBalanceSettingsChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["CommerceBalanceSettingsChange"];
+                "multipart/form-data": components["schemas"]["CommerceBalanceSettingsChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommerceBalanceSettingsPreview"];
                 };
             };
             400: {
