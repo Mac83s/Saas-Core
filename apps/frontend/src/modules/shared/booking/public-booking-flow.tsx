@@ -49,7 +49,10 @@ import {
   contactShape,
   DocumentBoxes,
   ExtrasPicker,
+  LanguageUnavailable,
+  otherLanguages,
   pickedExtras,
+  ticked,
 } from "./public-booking-parts";
 import { PublicStayFlow } from "./public-stay-flow";
 import { QuoteSummary } from "./quote-summary";
@@ -76,6 +79,16 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   >([]);
   const [accepted, setAccepted] = useState<Record<string, boolean>>({});
   const [unaccepted, setUnaccepted] = useState(false);
+  // The marketing consent the company asks for, and whether it is ticked —
+  // never by us.
+  const [statement, setStatement] = useState<string>();
+  const [offers, setOffers] = useState(false);
+  const marketing = statement
+    ? { statement, checked: offers, onChange: setOffers }
+    : undefined;
+  // The booking terms have no text in the page's language: the languages to
+  // offer instead of a form the server would refuse.
+  const [elsewhere, setElsewhere] = useState<string[]>();
   // The search the days belong to, the days it found, the day chosen and its
   // times; an unset list is one still being asked for.
   const [query, setQuery] = useState<
@@ -156,7 +169,11 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   }, [locale, publicSlug, t]);
   useEffect(() => {
     void getPublicBookingConsents(publicSlug, locale)
-      .then((value) => setDocuments(value.documents))
+      .then((value) => {
+        setDocuments(value.documents);
+        setStatement(value.marketing?.statement);
+        if (!value.bookable) setElsewhere(value.bookable_locales);
+      })
       .catch(() => undefined);
   }, [locale, publicSlug]);
 
@@ -276,15 +293,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             ...(extras.length ? { extras } : {}),
             // The price shown: another one by now is asked about, not charged.
             ...(quote ? { quote_digest: quote.digest } : {}),
-            // The texts ticked: another one in force by now is shown and
-            // asked about, never accepted for the customer.
-            ...(documents.length
-              ? {
-                  consents: {
-                    documents: documents.map((document) => document.text_id),
-                  },
-                }
-              : {}),
+            ...ticked(documents, marketing),
             customer: {
               display_name,
               email,
@@ -318,6 +327,11 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           setAccepted({});
           setUnaccepted(false);
           setProblem(t("documentsChanged"));
+          return;
+        }
+        const languages = otherLanguages(error);
+        if (languages) {
+          setElsewhere(languages);
           return;
         }
         setProblem(t("createError"));
@@ -367,6 +381,8 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         </CardHeader>
       </Card>
     );
+  if (elsewhere)
+    return <LanguageUnavailable locales={elsewhere} publicSlug={publicSlug} />;
   const stay = stayId ?? (catalog?.services.length ? undefined : stays[0]?.id);
   if (catalog && stay && stays.some((item) => String(item.id) === stay))
     return (
@@ -374,8 +390,10 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         catalog={catalog}
         documents={documents}
         key={String(stay)}
+        marketing={marketing}
         offerId={String(stay)}
         onDocuments={setDocuments}
+        onElsewhere={setElsewhere}
         onOffer={pickOffer}
         publicSlug={publicSlug}
       />
@@ -545,6 +563,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           <DocumentBoxes
             accepted={accepted}
             documents={documents}
+            marketing={marketing}
             onAccept={(textId, checked) =>
               setAccepted({ ...accepted, [textId]: checked })
             }

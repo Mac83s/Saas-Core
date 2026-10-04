@@ -1,6 +1,8 @@
 """What a customer agrees to while booking (phase 4c; ADR-073 §9): the public
 form shows the company's documents in force in the booking's language, and a
-booking appends its lines to the consent journal in its own transaction."""
+booking appends its lines to the consent journal in its own transaction. A
+language the booking terms have no text in is not booked in online, and the
+marketing consent is one optional box the company may switch off."""
 
 from __future__ import annotations
 
@@ -13,16 +15,24 @@ from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Membership
+from saas_core.modules.core.organizations.settings_service import change_settings, read_group
 from saas_core.modules.shared.booking.consents import (
     DOCUMENT_STATEMENTS,
     SOURCE,
     BookingConsents,
+    BookingLanguageUnavailable,
     DocumentsChanged,
 )
 from saas_core.modules.shared.booking.models import Appointment, PublicBookingRoute
 from saas_core.modules.shared.booking.periods import book_stay
 from saas_core.modules.shared.booking.services import create_appointment
-from saas_core.modules.shared.customers.api import Customer, current_document
+from saas_core.modules.shared.customers.api import (
+    MARKETING_WORDING,
+    Customer,
+    current_document,
+    document_locales,
+    marketing_wording,
+)
 from saas_core.modules.shared.customers.documents import add_text, read_document
 from saas_core.modules.shared.customers.models import ConsentRecord
 from test_booking import company_today, tenant
@@ -92,6 +102,29 @@ def in_force_version(owner: Membership, kind: str) -> int:
         return int(read_document(kind)["document"]["version"])
 
 
+def english_text(owner: Membership, kind: str, text: str) -> None:
+    with tenant(owner), stepped_up():
+        add_text(
+            kind, number=1, locale="en", text=text, expected_version=in_force_version(owner, kind)
+        )
+
+
+def online(owner: Membership, **changes: Any) -> None:
+    """The company's `booking.online` settings, changed."""
+    with tenant(owner):
+        change_settings(
+            "booking.online",
+            changes=changes,
+            expected_version=read_group("booking.online").version,
+            idempotency_key=f"online-{sorted(changes.items())}",
+        )
+
+
+def offers(owner: Membership, locale: str = "pl") -> str:
+    """The marketing consent as the company's customer reads it."""
+    return marketing_wording(locale, owner.organization.name)
+
+
 def journal(owner: Membership) -> list[ConsentRecord]:
     return list(
         ConsentRecord.all_objects.filter(organization_id=owner.organization_id).order_by("id")
@@ -101,21 +134,22 @@ def journal(owner: Membership) -> list[ConsentRecord]:
 def test_the_form_shows_the_documents_in_force_in_the_bookings_language() -> None:
     configured = form("zgody-formularz")
     owner: Membership = configured["owner"]
-    # Nothing published: nothing to show, and nothing is asked of a booking.
-    assert shown(configured) == {"locale": "pl", "documents": []}
+    # Nothing published: nothing to show, nothing is asked of a booking, and
+    # every language of the company is booked in.
+    marketing = {"statement": offers(owner)}
+    assert shown(configured) == {
+        "locale": "pl",
+        "documents": [],
+        "bookable": True,
+        "bookable_locales": ["pl", "en"],
+        "marketing": marketing,
+    }
     assert book(configured, "bez-dokumentow").status_code == 201
     assert journal(owner) == []
 
     approved(owner, PRIVACY_TEXT, PRIVACY)
     approved(owner, TERMS_TEXT, TERMS)
-    with tenant(owner), stepped_up():
-        add_text(
-            PRIVACY,
-            number=1,
-            locale="en",
-            text="The controller is Studio.",
-            expected_version=in_force_version(owner, PRIVACY),
-        )
+    english_text(owner, PRIVACY, "The controller is Studio.")
     terms, privacy = in_force(owner, TERMS), in_force(owner, PRIVACY)
     english = in_force(owner, PRIVACY, "en")
 
@@ -123,6 +157,10 @@ def test_the_form_shows_the_documents_in_force_in_the_bookings_language() -> Non
     # The terms first, then the privacy policy: two separate statements.
     assert polish == {
         "locale": "pl",
+        "bookable": True,
+        # The terms have no English text: English is not booked in.
+        "bookable_locales": ["pl"],
+        "marketing": marketing,
         "documents": [
             {
                 "kind": TERMS,
@@ -142,11 +180,13 @@ def test_the_form_shows_the_documents_in_force_in_the_bookings_language() -> Non
             },
         ],
     }
-    # The terms have no English text: an English booking is not shown the
-    # Polish ones instead, and is not asked to accept them.
-    assert [
-        (x["kind"], x["text_id"], x["statement"]) for x in shown(configured, "en")["documents"]
-    ] == [(PRIVACY, str(english.text_id), "I have read the privacy policy")]
+    # The terms have no English text: an English visitor is not shown the
+    # Polish ones instead — they are told where they can book.
+    in_english = shown(configured, "en")
+    assert [(x["kind"], x["text_id"], x["statement"]) for x in in_english["documents"]] == [
+        (PRIVACY, str(english.text_id), "I have read the privacy policy")
+    ]
+    assert (in_english["bookable"], in_english["bookable_locales"]) == (False, ["pl"])
     # A language the company does not have is booked in its first one.
     assert shown(configured, "de") == polish
     assert shown(configured) == polish
@@ -216,23 +256,18 @@ def test_the_bookings_language_decides_and_no_other_language_stands_in() -> None
     owner: Membership = configured["owner"]
     approved(owner, TERMS_TEXT, TERMS)
     approved(owner, PRIVACY_TEXT, PRIVACY)
-    with tenant(owner), stepped_up():
-        add_text(
-            PRIVACY,
-            number=1,
-            locale="en",
-            text="The controller is Studio.",
-            expected_version=in_force_version(owner, PRIVACY),
-        )
-    polish, english = in_force(owner, PRIVACY), in_force(owner, PRIVACY, "en")
+    english_text(owner, TERMS, "A visit can be cancelled a day before at the latest.")
+    english_text(owner, PRIVACY, "The controller is Studio.")
+    polish = [in_force(owner, kind) for kind in (TERMS, PRIVACY)]
+    english = [in_force(owner, kind, "en") for kind in (TERMS, PRIVACY)]
 
-    # Booking in English: the Polish text the customer did not read is not
-    # the one they accept.
+    # Booking in English: the Polish texts the customer did not read are not
+    # the ones they accept.
     wrong = book(
         configured,
         "en-pl",
         customer={"locale": "en"},
-        consents={"documents": [str(polish.text_id)]},
+        consents={"documents": [str(x.text_id) for x in polish]},
     )
     assert (wrong.status_code, wrong.json()["code"]) == (409, "documents_changed")
     assert wrong.json()["detail"]["locale"] == "en"
@@ -240,11 +275,180 @@ def test_the_bookings_language_decides_and_no_other_language_stands_in() -> None
         configured,
         "en-en",
         customer={"locale": "en"},
-        consents={"documents": [str(english.text_id)]},
+        consents={"documents": [str(x.text_id) for x in english]},
     )
     assert booked.status_code == 201
-    # One line: the terms have no English text, so nothing was shown or asked.
-    assert [(x.document_text_id, x.locale) for x in journal(owner)] == [(english.text_id, "en")]
+    assert [(x.document_text_id, x.locale) for x in journal(owner)] == [
+        (x.text_id, "en") for x in english
+    ]
+
+
+def test_a_language_the_terms_have_no_text_in_is_not_booked_in_online(settings: Any) -> None:
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+    configured = form("zgody-bez-jezyka", locales=("pl", "en", "de"))
+    owner: Membership = configured["owner"]
+    approved(owner, TERMS_TEXT, TERMS)
+    approved(owner, PRIVACY_TEXT, PRIVACY)
+    # Only the terms decide: a privacy policy in English opens nothing.
+    english_text(owner, PRIVACY, "The controller is Studio.")
+    privacy = in_force(owner, PRIVACY, "en")
+    with tenant(owner):
+        assert document_locales(TERMS) == ("pl",)
+        assert document_locales(PRIVACY) == ("en", "pl")
+
+    refused = book(
+        configured,
+        "po-angielsku",
+        customer={"locale": "en"},
+        consents={"documents": [str(privacy.text_id)]},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (409, "booking_language_unavailable")
+    # The answer names the language asked for and the ones to offer instead.
+    assert (refused.json()["detail"]["locale"], refused.json()["detail"]["locales"]) == (
+        "en",
+        ["pl"],
+    )
+    assert not Appointment.all_objects.filter(organization_id=owner.organization_id).exists()
+    assert not Customer.all_objects.filter(organization_id=owner.organization_id).exists()
+    assert journal(owner) == []
+
+    def visit(key: str, hour: int, **extra: Any) -> Any:
+        return create_appointment(
+            service_id=configured["service"].id,
+            location_id=configured["location"].id,
+            starts_at=at(configured["day"], hour),
+            customer_data={"display_name": "John", "email": f"{key}@example.test", "locale": "en"},
+            idempotency_key=key,
+            principal_ref="test",
+            **extra,
+        )
+
+    with tenant(owner):
+        # The office books an English-speaking customer as before; a caller
+        # that showed the documents itself is held to the language too.
+        visit("biuro-en", 9)
+        with pytest.raises(BookingLanguageUnavailable):
+            visit("produkt-en", 10, consents=BookingConsents(documents=(privacy.text_id,)))
+
+    # The company adds the terms in English: English is booked in, German
+    # still is not.
+    english_text(owner, TERMS, "A visit can be cancelled a day before at the latest.")
+    terms = in_force(owner, TERMS, "en")
+    opened = shown(configured, "en")
+    assert (opened["bookable"], opened["bookable_locales"]) == (True, ["pl", "en"])
+    in_german = shown(configured, "de")
+    assert (in_german["locale"], in_german["bookable"]) == ("de", False)
+    assert in_german["marketing"] == {"statement": offers(owner, "de")}
+    booked = book(
+        configured,
+        "po-angielsku-2",
+        hour=11,
+        customer={"locale": "en"},
+        consents={"documents": [str(terms.text_id), str(privacy.text_id)]},
+    )
+    assert booked.status_code == 201
+
+
+def test_a_stay_is_not_booked_in_a_language_without_terms_either() -> None:
+    owner = with_second_factor(company("zgody-pobyt-jezyk"))
+    setup = cottages(owner, units=1)
+    approved(owner, TERMS_TEXT, TERMS)
+    first = saturday_after(30)
+    body = {
+        "service_id": str(setup["service"].id),
+        "group_id": str(setup["group"].id),
+        "start_date": first.isoformat(),
+        "end_date": (first + timedelta(days=2)).isoformat(),
+    }
+
+    def stay(key: str, locale: str, documents: list[str]) -> Any:
+        return APIClient().post(
+            "/api/v1/booking/public/zgody-pobyt-jezyk/stays/",
+            {
+                **body,
+                "customer": {"display_name": "Guest", "email": f"{key}@example.test"}
+                | {"locale": locale},
+                "consents": {"documents": documents},
+            },
+            format="json",
+            HTTP_IDEMPOTENCY_KEY=key,
+        )
+
+    refused = stay("pobyt-en", "en", [])
+    assert (refused.status_code, refused.json()["code"]) == (409, "booking_language_unavailable")
+    assert refused.json()["detail"]["locales"] == ["pl"]
+    assert not Appointment.all_objects.filter(organization_id=owner.organization_id).exists()
+    assert stay("pobyt-pl", "pl", [str(in_force(owner, TERMS).text_id)]).status_code == 201
+
+
+def test_a_customer_may_tick_the_marketing_consent_and_the_company_may_not_ask() -> None:
+    configured = form("zgody-oferty")
+    owner: Membership = configured["owner"]
+    assert shown(configured)["marketing"] == {
+        "statement": f"Chcę otrzymywać oferty i promocje od {owner.organization.name} e-mailem."
+    }
+    assert shown(configured, "en")["marketing"] == {"statement": offers(owner, "en")}
+
+    # Unticked is the default and writes nothing; ticked is one line, in the
+    # words shown.
+    assert book(configured, "bez-zgody", hour=9).status_code == 201
+    assert book(configured, "bez-zgody-2", hour=10, consents={}).status_code == 201
+    assert journal(owner) == []
+    ticked = book(configured, "ze-zgoda", hour=11, consents={"marketing": True})
+    assert ticked.status_code == 201
+    assert [
+        (x.kind, x.document_text_id, x.text_hash, x.locale, x.granted, x.source, x.source_reference)
+        for x in journal(owner)
+    ] == [
+        (
+            "marketing",
+            None,
+            hashlib.sha256(offers(owner).encode()).hexdigest(),
+            "pl",
+            True,
+            SOURCE,
+            ticked.json()["id"],
+        )
+    ]
+    # The same key answers the first booking again and writes no second line.
+    assert book(configured, "ze-zgoda", hour=11, consents={"marketing": True}).status_code == 200
+    assert len(journal(owner)) == 1
+
+    # Offers go out by e-mail: a customer who left none agreed to nothing.
+    online(owner, contact="phone")
+    by_phone = APIClient().post(
+        f"{configured['url']}/appointments/",
+        {
+            "service_id": str(configured["service"].id),
+            "location_id": str(configured["location"].id),
+            "starts_at": at(configured["day"], 12).isoformat(),
+            "customer": {"display_name": "Bez adresu", "phone": "+48 600 100 200"},
+            "consents": {"marketing": True},
+        },
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="telefon",
+    )
+    assert by_phone.status_code == 201, by_phone.data
+    assert len(journal(owner)) == 1
+
+    # The company switches the box off: the form does not show it, and a
+    # form opened before the change records nothing.
+    online(owner, marketing_consent=False, contact="email")
+    assert shown(configured)["marketing"] is None
+    late = book(configured, "po-wylaczeniu", hour=13, consents={"marketing": True})
+    assert late.status_code == 201
+    assert len(journal(owner)) == 1
+
+
+def test_the_marketing_consent_is_one_sentence_per_language() -> None:
+    assert set(MARKETING_WORDING) == {"pl", "en", "de"}
+    for sentence in MARKETING_WORDING.values():
+        assert sentence.count("{company}") == 1
+    assert marketing_wording("de", "Mazurskie Hytte") == (
+        "Ich möchte Angebote und Aktionen von Mazurskie Hytte per E-Mail erhalten."
+    )
+    # A language without its own sentence has none — never another one's.
+    assert marketing_wording("es", "Studio") == ""
 
 
 def test_the_team_books_without_documents_and_a_caller_that_showed_them_is_held_to_them() -> None:
@@ -280,7 +484,6 @@ def test_a_stay_writes_the_same_lines_and_a_marketing_consent_is_a_line_of_its_o
     setup = cottages(owner, units=1)
     approved(owner, TERMS_TEXT, TERMS)
     terms = in_force(owner, TERMS)
-    wording = "Chcę dostawać oferty Studia na podany adres e-mail."
     first = saturday_after(30)
 
     with tenant(owner):
@@ -292,7 +495,7 @@ def test_a_stay_writes_the_same_lines_and_a_marketing_consent_is_a_line_of_its_o
             customer_data={"display_name": "Gość", "email": "gosc@example.test"},
             idempotency_key="pobyt-zgody",
             principal_ref="test",
-            consents=BookingConsents(documents=(terms.text_id,), marketing=wording),
+            consents=BookingConsents(documents=(terms.text_id,), marketing=True),
         )
     stay = booked.appointment
     assert [
@@ -303,7 +506,7 @@ def test_a_stay_writes_the_same_lines_and_a_marketing_consent_is_a_line_of_its_o
         (
             "marketing",
             None,
-            hashlib.sha256(wording.encode()).hexdigest(),
+            hashlib.sha256(offers(owner).encode()).hexdigest(),
             "pl",
             SOURCE,
             str(stay.id),

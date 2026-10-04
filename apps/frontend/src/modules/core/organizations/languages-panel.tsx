@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
 import { PlusIcon } from "lucide-react";
 
@@ -40,6 +47,15 @@ import { useDataTableLabels } from "#lib/data-table-labels";
 import { organizationErrorMessage } from "./problem";
 
 type Row = { code: string; name: string; first: boolean; protectedBy?: string };
+
+const CompanyLanguages = createContext<string[] | undefined>(undefined);
+
+/** The company's languages as the screen has them now — for a section a page
+ *  puts under the table, which says something about each of them and must
+ *  say it again after one is added or removed. Unset until they are read. */
+export function useCompanyLanguages(): string[] | undefined {
+  return useContext(CompanyLanguages);
+}
 
 /**
  * Ustawienia › Języki i tłumaczenia (ADR-071 pkt 4–7): the languages the
@@ -265,7 +281,9 @@ export function LanguagesPanel({ children }: { children?: ReactNode } = {}) {
           ) : null}
         </>
       )}
-      {children}
+      <CompanyLanguages value={state?.public_locales}>
+        {children}
+      </CompanyLanguages>
 
       <Dialog
         onOpenChange={(next) => (next ? undefined : setAdding(false))}

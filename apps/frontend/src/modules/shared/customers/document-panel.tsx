@@ -42,6 +42,7 @@ import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { useStepUp } from "../../core/organizations/step-up";
+import { TermsLanguagesWarning, termsLanguagesOff } from "./terms-languages";
 import { TranslateMissing } from "../translation/translate-missing";
 import { translationComposed } from "../translation/use-translation";
 
@@ -471,6 +472,11 @@ export function CustomerDocumentPanel({
           {problem}
         </p>
       ) : null}
+      {/* Booking terms without a text in a language of the company close
+          online booking in it (ADR-073 §9). */}
+      <TermsLanguagesWarning
+        languages={termsLanguagesOff(document, options?.locales ?? [])}
+      />
 
       {document && canManage ? (
         <section
@@ -617,11 +623,16 @@ export function CustomerDocumentPanel({
           ) : null}
           {approval?.effect.locales_without_text.length ? (
             <p className="text-sm">
-              {t("approveMissing", {
-                languages: approval.effect.locales_without_text
-                  .map(nativeName)
-                  .join(", "),
-              })}
+              {t(
+                kind === "booking_terms"
+                  ? "approveMissingTerms"
+                  : "approveMissing",
+                {
+                  languages: approval.effect.locales_without_text
+                    .map(nativeName)
+                    .join(", "),
+                },
+              )}
             </p>
           ) : null}
           <p className="text-sm text-muted-foreground">{t("approveFinal")}</p>

@@ -1067,7 +1067,7 @@ export interface paths {
         put?: never;
         /**
          * Book a visit from a company's booking form
-         * @description Books a free start of a service the company offers online; the server picks the people, within the team or the person the customer chose. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The company's documents in force in the booking's language (`GET …/consents/`) must be named in `consents.documents`: one missing or replaced is 409 `documents_changed` with the ones to show in `detail.documents`; each accepted document becomes a line of the consent journal. The same Idempotency-Key answers the first booking again (200).
+         * @description Books a free start of a service the company offers online; the server picks the people, within the team or the person the customer chose. The price is worked out and frozen in the booking (`quote`); a visit with a price needs the `quote_digest` of the quote shown (`POST …/quote/`): without it, or with another price by now, the answer is 409 `quote_changed` with the quote in `detail.quote`. A taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The company's documents in force in the booking's language (`GET …/consents/`) must be named in `consents.documents`: one missing or replaced is 409 `documents_changed` with the ones to show in `detail.documents`; each accepted document becomes a line of the consent journal, and so does a ticked marketing consent. A language the booking terms have no text in is 409 `booking_language_unavailable` with the languages that have one in `detail.locales`. The same Idempotency-Key answers the first booking again (200).
          */
         post: operations["public_booking_appointment_create"];
         delete?: never;
@@ -1085,7 +1085,7 @@ export interface paths {
         };
         /**
          * What a customer accepts before booking
-         * @description The company's booking terms and privacy policy in force, each with the statement the customer ticks and the address where it is read. Only documents with a text in the booking's language are listed — never a text in another language. Send each `text_id` back in `consents.documents` when booking.
+         * @description The company's booking terms and privacy policy in force, each with the statement the customer ticks and the address where it is read. Only documents with a text in the booking's language are listed — never a text in another language. Send each `text_id` back in `consents.documents` when booking. Booking terms in force without a text in this language close online booking in it: `bookable` is false and `bookable_locales` names the languages to offer instead. `marketing` is the optional marketing consent to show, unticked.
          */
         get: operations["public_booking_consents"];
         put?: never;
@@ -1164,7 +1164,7 @@ export interface paths {
         put?: never;
         /**
          * Book a stay or a rental from a company's booking form
-         * @description Books an offer from `stays` from–to on the unit named, or on the least busy free unit of the group named that takes the people who come. The price is worked out and frozen in the booking (`quote`); a stay with a price needs the `quote_digest` of the quote shown (`POST …/stays/quote/`): without it, or with another price by now, the answer is 409 `quote_changed` with the quote in `detail.quote`. Refusals as in the quote; a paused form is 409 `booking_paused`, an arrival past `online.period_last_day` 409 `beyond_booking_horizon`. The company's documents in force in the booking's language (`GET …/consents/`) must be named in `consents.documents` (409 `documents_changed` otherwise). An offer that asks for money first answers `pending_payment` with the transfer's details in `payment`; one taken on request `pending_request`. The same Idempotency-Key answers the first booking again (200).
+         * @description Books an offer from `stays` from–to on the unit named, or on the least busy free unit of the group named that takes the people who come. The price is worked out and frozen in the booking (`quote`); a stay with a price needs the `quote_digest` of the quote shown (`POST …/stays/quote/`): without it, or with another price by now, the answer is 409 `quote_changed` with the quote in `detail.quote`. Refusals as in the quote; a paused form is 409 `booking_paused`, an arrival past `online.period_last_day` 409 `beyond_booking_horizon`. The company's documents in force in the booking's language (`GET …/consents/`) must be named in `consents.documents` (409 `documents_changed` otherwise); a language the booking terms have no text in is 409 `booking_language_unavailable` with the languages that have one in `detail.locales`. An offer that asks for money first answers `pending_payment` with the transfer's details in `payment`; one taken on request `pending_request`. The same Idempotency-Key answers the first booking again (200).
          */
         post: operations["public_booking_stay_create"];
         delete?: never;
@@ -8986,15 +8986,18 @@ export interface components {
              *     * `email_and_phone` - email_and_phone
              */
             contact?: components["schemas"]["ContactA7eEnum"] | components["schemas"]["NullEnum"];
+            /** @description On: the booking form on the company's site shows one optional box, unticked by default, asking the customer whether they want the company's offers and promotions by e-mail; a ticked box is a line of the consent journal. Off: the form does not ask. */
+            marketing_consent?: boolean | null;
         };
         /**
          * @description * `paused` - paused
          *     * `resume_on` - resume_on
          *     * `horizon_days` - horizon_days
          *     * `contact` - contact
+         *     * `marketing_consent` - marketing_consent
          * @enum {string}
          */
-        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on" | "horizon_days" | "contact";
+        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on" | "horizon_days" | "contact" | "marketing_consent";
         BookingOnlineSettingsPreview: {
             /** @description The version token the preview read. */
             version: string;
@@ -9013,6 +9016,7 @@ export interface components {
             resume_on: components["schemas"]["SettingSourceEnum"];
             horizon_days: components["schemas"]["SettingSourceEnum"];
             contact: components["schemas"]["SettingSourceEnum"];
+            marketing_consent: components["schemas"]["SettingSourceEnum"];
         };
         BookingOnlineSettingsValues: {
             /** @description Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. */
@@ -9033,6 +9037,8 @@ export interface components {
              *     * `email_and_phone` - email_and_phone
              */
             contact: components["schemas"]["ContactA7eEnum"];
+            /** @description On: the booking form on the company's site shows one optional box, unticked by default, asking the customer whether they want the company's offers and promotions by e-mail; a ticked box is a line of the consent journal. Off: the form does not ask. */
+            marketing_consent: boolean;
         };
         /**
          * @description A booking's price (ADR-072 §7): whole minor units, the tax worked out on
@@ -13507,6 +13513,8 @@ export interface components {
              *     * `email_and_phone` - email_and_phone
              */
             contact?: components["schemas"]["ContactA7eEnum"] | components["schemas"]["NullEnum"];
+            /** @description On: the booking form on the company's site shows one optional box, unticked by default, asking the customer whether they want the company's offers and promotions by e-mail; a ticked box is a line of the consent journal. Off: the form does not ask. */
+            marketing_consent?: boolean | null;
         };
         PatchedBookingRemindersSettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
@@ -15110,9 +15118,9 @@ export interface components {
             customer_notes?: string;
             /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
             extras?: components["schemas"]["ExtraPick"][];
-            /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
+            /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
-            /** @description The company's documents the customer accepted; required as soon as the company has one in force in the booking's language. */
+            /** @description The company's documents the customer accepted — required as soon as the company has one in force in the booking's language — and the marketing consent, when they gave it. */
             consents?: components["schemas"]["PublicConsentsInput"];
         };
         /** @description The transfer a booking waits for (ADR-073 §5). */
@@ -15198,11 +15206,19 @@ export interface components {
             locale: string;
             /** @description The documents in force that have a text in this language, in the order to show them; empty when the company has published none. Never a text in another language. */
             documents: components["schemas"]["PublicDocument"][];
+            /** @description Whether a customer can book online in this language. False when the company's booking terms in force have no text in it: the form says so and offers `bookable_locales`, and a booking is 409 `booking_language_unavailable`. */
+            bookable: boolean;
+            /** @description The company's languages a customer can book online in, in the company's order: all of them until booking terms are in force, then those the terms have a text in. */
+            bookable_locales: string[];
+            /** @description The marketing consent to offer: one optional box, unticked by default. Null when the company does not ask for it (booking.online.marketing_consent) or the language has no wording. Send `consents.marketing: true` when it was ticked. */
+            marketing: components["schemas"]["PublicMarketingConsent"] | null;
         };
         /** @description What the customer accepted on the booking form (ADR-073 §9). */
         PublicConsentsInput: {
             /** @description The `text_id` of every document shown and accepted, as `GET …/consents/` gave them. One in force that is missing here, or another text by now, is 409 `documents_changed` with the documents to show in `detail.documents`. */
             documents?: string[];
+            /** @description The customer ticked the marketing consent `GET …/consents/` gave (`marketing.statement`): a line of its own in the consent journal. Optional and never ticked for the customer; ignored when the company does not ask for it or the customer left no e-mail. */
+            marketing?: boolean;
         };
         PublicCustomerDocument: {
             kind: components["schemas"]["CustomerDocumentKindEnum"];
@@ -15333,6 +15349,10 @@ export interface components {
             reviewed: boolean;
             /** @description Show the visitor a notice that a machine translated this version: the operator's switch is on and nobody has accepted the version yet. */
             notice: boolean;
+        };
+        PublicMarketingConsent: {
+            /** @description What the customer states by ticking, in the booking's language, with the company's name in it. */
+            statement: string;
         };
         PublicName: {
             /** Format: uuid */
@@ -15608,9 +15628,9 @@ export interface components {
             extras?: components["schemas"]["ExtraPick"][];
             customer: components["schemas"]["CustomerInput"];
             customer_notes?: string;
-            /** @description The `digest` of the quote the customer was shown. Required as soon as the stay has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
+            /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
-            /** @description The company's documents the customer accepted; required as soon as the company has one in force in the booking's language. */
+            /** @description The company's documents the customer accepted — required as soon as the company has one in force in the booking's language — and the marketing consent, when they gave it. */
             consents?: components["schemas"]["PublicConsentsInput"];
         };
         /**
@@ -15641,7 +15661,7 @@ export interface components {
              * @description The new departure day or last day.
              */
             end_date: string;
-            /** @description The `digest` of the quote the customer was shown. Required as soon as the stay has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
+            /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
         };
         PublicStayMovePreview: {

@@ -62,6 +62,18 @@ UNIT_KIND = "text"
 TRANSLATION_SOURCE = "customers.document"
 #: In an accepted translation's provenance: the write that made the row.
 ACCEPTED_WRITE = "write"
+
+#: What a customer ticks to get the company's offers by e-mail (ADR-073 §9;
+#: the owner's wording of 2026-10-04): one sentence for every form, with the
+#: company's name in it. The journal keeps only its hash, so this is the one
+#: place the words live — a form shows them and the panel's list of consents
+#: reads them back through `marketing_wording`. A language without its own
+#: sentence has none: a consent is never asked for in another language.
+MARKETING_WORDING: dict[str, str] = {
+    "pl": "Chcę otrzymywać oferty i promocje od {company} e-mailem.",
+    "en": "I want to receive offers and promotions from {company} by e-mail.",
+    "de": "Ich möchte Angebote und Aktionen von {company} per E-Mail erhalten.",
+}
 _PLATFORM_DEFAULT_LOCALE = "pl"
 
 
@@ -758,6 +770,29 @@ def current_document(kind: str, locale: str) -> DocumentInForce | None:
         text_hash=row.text_hash,
         url=document_url(route.public_id, locale),
     )
+
+
+def document_locales(kind: str) -> tuple[str, ...] | None:
+    """The languages the company's document in force today has a text in, or
+    None when it has none in force — what `current_document` does not tell
+    apart: „no such document” from „no text in this language”. The caller
+    holds the company's tenant, as for `current_document`."""
+    context = require_tenant_context()
+    organization = _organization(context.organization_id)
+    document = _document(organization.id, kind)
+    version = _in_force(document, organization.local_today()) if document else None
+    if version is None:
+        return None
+    return tuple(sorted(_current_texts(version)))
+
+
+def marketing_wording(locale: str, company: str) -> str:
+    """The marketing consent as a customer of `company` reads it in `locale`
+    (`MARKETING_WORDING`); empty when that language has no sentence. Pass the
+    result to `record_consent(kind="marketing", wording=…)`: the journal keeps
+    its hash (`text_hash`), which is how a line is matched to these words."""
+    sentence = MARKETING_WORDING.get(locale)
+    return sentence.format(company=company) if sentence else ""
 
 
 def record_consent(

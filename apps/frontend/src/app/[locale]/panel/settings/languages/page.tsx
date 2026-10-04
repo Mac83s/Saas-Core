@@ -9,6 +9,7 @@ import {
   LanguagesPanel,
   SettingsSearch,
 } from "../../../../../modules/core/organizations";
+import { TermsLanguagesNotice } from "../../../../../modules/shared/customers";
 import { SearchVisibility } from "../../../../../modules/shared/sites";
 import { TranslationSettingsSection } from "../../../../../modules/shared/translation/translation-settings";
 
@@ -25,6 +26,16 @@ export default async function LanguagesSettingsPage() {
   ) {
     return (
       <LanguagesPanel>
+        {/* A language the booking terms have no text in is not booked in
+            online: said here too, for whoever reads the company's documents
+            (ADR-073 §9). */}
+        {allows(access, { module: "shared.booking" }) &&
+        allows(access, {
+          module: "shared.customers",
+          permission: "customers.read",
+        }) ? (
+          <TermsLanguagesNotice />
+        ) : null}
         {/* How translations are made, where the engine is composed (TL16e). */}
         {allows(access, {
           module: "shared.translation",

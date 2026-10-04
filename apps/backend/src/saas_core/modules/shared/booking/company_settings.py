@@ -10,6 +10,8 @@ Two groups on core's settings registry:
 - `booking.online` — online booking paused: the form on the company's site says
   so and refuses new bookings (409 `booking_paused`), while the team books in
   the panel as before; optionally until a day, when it resumes by itself.
+  Also what the form asks of a customer: which contact, and whether it shows
+  the marketing consent (`booking.online.marketing_consent`, on by default).
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ SELF_SERVICE_MODE = "booking.self_service.mode"
 SELF_SERVICE_CUTOFF = "booking.self_service.cutoff_hours"
 HORIZON_DAYS = "booking.online.horizon_days"
 CONTACT = "booking.online.contact"
+MARKETING_CONSENT = "booking.online.marketing_consent"
 OFFICE_NOTICES = "booking.notices.office"
 
 
@@ -262,6 +265,28 @@ ONLINE = SettingGroup(
             model_description="What the booking form on the company's site requires: an "
             "e-mail, a phone, either, or both. Without an e-mail the customer gets no "
             "confirmation or self-service link.",
+        ),
+        SettingSpec(
+            key=MARKETING_CONSENT,
+            type="bool",
+            default=True,
+            scopes=("organization",),
+            label={
+                "pl": "Pytaj o zgodę na oferty i promocje",
+                "en": "Ask for consent to offers and promotions",
+            },
+            help={
+                "pl": "Formularz pokazuje nieobowiązkowe pole „Chcę otrzymywać oferty i "
+                "promocje od (nazwa firmy) e-mailem.”, domyślnie odznaczone. Każda zgoda "
+                "trafia do dziennika zgód.",
+                "en": "The form shows an optional box “I want to receive offers and "
+                "promotions from (company name) by e-mail.”, unticked by default. Every "
+                "consent goes to the consent journal.",
+            },
+            model_description="On: the booking form on the company's site shows one optional "
+            "box, unticked by default, asking the customer whether they want the company's "
+            "offers and promotions by e-mail; a ticked box is a line of the consent journal. "
+            "Off: the form does not ask.",
         ),
     ),
     commands=("booking.settings_online.read@1", "booking.settings_online.update@1"),

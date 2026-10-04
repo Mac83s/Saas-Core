@@ -25,7 +25,6 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import Organization
 
-from .consents import BookingConsents
 from .models import Appointment
 from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
 from .quote import QuoteChanged, customer_quote
@@ -38,12 +37,14 @@ from .serializers import (
     PublicQuoteSerializer,
     _extras,
     _participants,
+    _shown_digest,
 )
 from .services import CreatedAppointment
 from .views import (
     _PREVIEW,
     IDEMPOTENCY,
     BookingThrottle,
+    _accepted,
     _idem,
     _public_appointment_payload,
     _query_date,
@@ -75,18 +76,6 @@ _TARGET = [
         "unit the offer lists.",
     ),
 ]
-
-
-def _required_digest() -> serializers.CharField:
-    return serializers.CharField(
-        required=False,
-        allow_blank=True,
-        max_length=64,
-        help_text="The `digest` of the quote the customer was shown. Required as soon as "
-        "the stay has a price: without it, or when the price is another one by now, the "
-        "answer is 409 `quote_changed` with the quote to show in `detail.quote`, and "
-        "nothing is saved.",
-    )
 
 
 class _StayTargetSerializer(serializers.Serializer[dict[str, Any]]):
@@ -141,18 +130,19 @@ class PublicStayCreateSerializer(_StayTargetSerializer):
     customer = CustomerInputSerializer()
     #: „Uwagi”: for the company's eyes only, never in an e-mail.
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
-    quote_digest = _required_digest()
+    quote_digest = _shown_digest()
     consents = PublicConsentsInputSerializer(
         required=False,
-        help_text="The company's documents the customer accepted; required as soon as the "
-        "company has one in force in the booking's language.",
+        help_text="The company's documents the customer accepted — required as soon as the "
+        "company has one in force in the booking's language — and the marketing consent, "
+        "when they gave it.",
     )
 
 
 class PublicStayMoveSerializer(serializers.Serializer[dict[str, Any]]):
     start_date = serializers.DateField(help_text="The new arrival day or first day.")
     end_date = serializers.DateField(help_text="The new departure day or last day.")
-    quote_digest = _required_digest()
+    quote_digest = _shown_digest()
 
 
 class PublicStayMovePreviewSerializer(serializers.Serializer[dict[str, Any]]):
@@ -292,7 +282,9 @@ class PublicStayCreateView(_PublicStayView):
         "`detail.quote`. Refusals as in the quote; a paused form is 409 `booking_paused`, "
         "an arrival past `online.period_last_day` 409 `beyond_booking_horizon`. The "
         "company's documents in force in the booking's language (`GET …/consents/`) must be "
-        "named in `consents.documents` (409 `documents_changed` otherwise). An offer that "
+        "named in `consents.documents` (409 `documents_changed` otherwise); a language the "
+        "booking terms have no text in is 409 `booking_language_unavailable` with the "
+        "languages that have one in `detail.locales`. An offer that "
         "asks for money first answers `pending_payment` with the transfer's details in "
         "`payment`; one taken on request `pending_request`. The same Idempotency-Key "
         "answers the first booking again (200).",
@@ -307,9 +299,7 @@ class PublicStayCreateView(_PublicStayView):
         s.is_valid(raise_exception=True)
         data = dict(s.validated_data)
         customer = data.pop("customer")
-        accepted = BookingConsents(
-            documents=tuple((data.pop("consents", None) or {}).get("documents", ()))
-        )
+        accepted = _accepted(data.pop("consents", None))
         data["customer_notes"] = data.pop("customer_notes", "").strip()
         with public_booking_context(route.organization_id):
             try:

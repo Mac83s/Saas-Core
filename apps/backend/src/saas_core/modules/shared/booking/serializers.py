@@ -155,6 +155,20 @@ def _quote_digest() -> serializers.CharField:
     )
 
 
+def _shown_digest() -> serializers.CharField:
+    """The digest a customer's own booking carries: they never book at a
+    price they were not shown (ADR-072 §7), a visit or a stay."""
+    return serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=64,
+        help_text="The `digest` of the quote the customer was shown. Required as soon as "
+        "the booking has a price: without it, or when the price is another one by now, the "
+        "answer is 409 `quote_changed` with the quote to show in `detail.quote`, and "
+        "nothing is saved.",
+    )
+
+
 class BookingQuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(
         choices=["price", "extra_person", "category", "discount", "extra"],
@@ -384,6 +398,13 @@ class PublicConsentsInputSerializer(serializers.Serializer[dict[str, Any]]):
         "gave them. One in force that is missing here, or another text by now, is 409 "
         "`documents_changed` with the documents to show in `detail.documents`.",
     )
+    marketing = serializers.BooleanField(
+        required=False,
+        help_text="The customer ticked the marketing consent `GET …/consents/` gave "
+        "(`marketing.statement`): a line of its own in the consent journal. Optional and "
+        "never ticked for the customer; ignored when the company does not ask for it or "
+        "the customer left no e-mail.",
+    )
 
 
 class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -400,11 +421,12 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     #: „Uwagi”: for the company's eyes only, never in an e-mail (answer 1A).
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
     extras = _extras()
-    quote_digest = _quote_digest()
+    quote_digest = _shown_digest()
     consents = PublicConsentsInputSerializer(
         required=False,
-        help_text="The company's documents the customer accepted; required as soon as the "
-        "company has one in force in the booking's language.",
+        help_text="The company's documents the customer accepted — required as soon as the "
+        "company has one in force in the booking's language — and the marketing consent, "
+        "when they gave it.",
     )
 
 
@@ -1693,6 +1715,13 @@ class PublicDocumentSerializer(serializers.Serializer[dict[str, Any]]):
     url = serializers.CharField(help_text="Where anybody reads the document.")
 
 
+class PublicMarketingConsentSerializer(serializers.Serializer[dict[str, Any]]):
+    statement = serializers.CharField(
+        help_text="What the customer states by ticking, in the booking's language, with "
+        "the company's name in it."
+    )
+
+
 class PublicConsentsSerializer(serializers.Serializer[dict[str, Any]]):
     """What a booking form shows before the customer books (ADR-073 §9)."""
 
@@ -1705,6 +1734,23 @@ class PublicConsentsSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="The documents in force that have a text in this language, in the order "
         "to show them; empty when the company has published none. Never a text in "
         "another language.",
+    )
+    bookable = serializers.BooleanField(
+        help_text="Whether a customer can book online in this language. False when the "
+        "company's booking terms in force have no text in it: the form says so and offers "
+        "`bookable_locales`, and a booking is 409 `booking_language_unavailable`."
+    )
+    bookable_locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The company's languages a customer can book online in, in the company's "
+        "order: all of them until booking terms are in force, then those the terms have a "
+        "text in.",
+    )
+    marketing = PublicMarketingConsentSerializer(
+        allow_null=True,
+        help_text="The marketing consent to offer: one optional box, unticked by default. "
+        "Null when the company does not ask for it (booking.online.marketing_consent) or "
+        "the language has no wording. Send `consents.marketing: true` when it was ticked.",
     )
 
 

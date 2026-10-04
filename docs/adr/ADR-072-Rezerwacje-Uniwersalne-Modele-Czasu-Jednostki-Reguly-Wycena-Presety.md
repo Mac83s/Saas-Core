@@ -633,6 +633,7 @@ prowadzi.
 | --- | --- | --- | --- |
 | **5a** | Publiczne API pobytu: w katalogu formularza osobna lista `stays` (oferty okresu oferowane online, z tym, co gość wybiera, kategoriami uczestników i dopłatami), kalendarz przyjazdów i wyjazdów, plan pobytu z wyceną, rezerwacja ze skrótem wyceny i zgodami — z zamówieniem, przedpłatą przelewem i „na prośbę” tak jak przy terminie; link klienta dla pobytu: odczyt z jednostką i przeniesienie datami | — | brak (API); rezerwacja z formularza w „Obłożeniu” |
 | **5b** | Formularz publiczny pobytu na stronie rezerwacji firmy (`/<język>/book/<slug>`): oferta, co rezerwuję, daty z kalendarza, goście, dopłaty, cena z kaucją i warunkami zwrotu, dane, zgody; potwierdzenie z danymi do przelewu albo terminem odpowiedzi; link klienta pokazuje pobyt i przenosi go datami; presety „Nocleg”, „Wypożyczalnia” i „Pobyt z opieką” w wersji 3 bez „wkrótce” | — | formularz publiczny, link klienta, wzorce ofert |
+| **zgody** | Krok zgód obu formularzy (ADR-073, „Uzupełnienie 2026-10-04: krok zgód formularzy publicznych”): język bez tekstu regulaminu nie jest rezerwowany online — karta z językami, które go mają, i ostrzeżenia w panelu; nieobowiązkowa zgoda marketingowa z przełącznikiem firmy; zbyt częste pytanie o cenę mówi „spróbuj za chwilę” | — | formularz publiczny; Ustawienia › Dokumenty dla klientów, Języki, Rezerwacje |
 | **5c** | Jednostka jako treść: zdjęcia, wyposażenie, flaga „publiczna”, `public_slug`, miasto ze słownika i współrzędne (tylko na serwerze); „od X zł/noc” z funkcji wyceny; pola w panelu i w katalogu formularza | booking | Ustawienia › Usługi i grafik (jednostka) |
 | **5d** | Bloki Site Studio: lista jednostek, widget rezerwacji okresu (daty i goście prowadzą do formularza), kalendarz dostępności; formularz przyjmuje ofertę, jednostkę, daty i gości z adresu | — (kontrakt bloków) | edytor strony, strona firmy |
 | **5e** | Systemowa strona jednostki na każdej opublikowanej stronie firmy (galeria, wyposażenie, kalendarz, rezerwacja) i blok mapy | według plastra | strona firmy |
@@ -676,8 +677,10 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   przeniesienie pobytu z kontekstu formularza, gdy wycena ma cokolwiek do
   pokazania, wymagają `quote_digest`: brak albo inny skrót to 409
   `quote_changed` z wyceną w `detail.quote` i nic się nie zapisuje. Przy
-  terminach skrót zostaje opcjonalny (§7) — zmiana tamtej ścieżki to osobna
-  decyzja, bo dotyka formularzy produktów.
+  terminach skrót zostaje opcjonalny dla zespołu (§7); wizyta z ceną
+  rezerwowana z formularza wymaga go tak samo — od fazy 3d w kodzie, od
+  kroku zgód (ADR-073, „Uzupełnienie 2026-10-04: krok zgód formularzy
+  publicznych”) także w kontrakcie.
 - **Pobyt przenosi się z linku datami.** Link klienta dostaje
   `…/self-service/<token>/stay/` (z podglądem): te same warunki co
   przełożenie wizyty (tryb samoobsługi, odcięcie, tylko `confirmed`), ta sama

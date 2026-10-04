@@ -3307,10 +3307,14 @@
     "stayLater": "Późniejsze terminy",
     "stayNoDays": "Od {from} do {to} nie ma wolnych terminów.",
     "stayChecking": "Sprawdzam termin i cenę…",
-    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Za dużo osób.} other {Za dużo osób: zmieści się najwyżej #.}}} slot_unavailable {Ten termin jest już zajęty. Wybierz inny.} price_missing {Na ten termin nie ma jeszcze ceny. Skontaktuj się z firmą.} rule_min_length {W tym terminie pobyt musi być dłuższy.} rule_max_length {W tym terminie pobyt musi być krótszy.} rule_notice {Na ten termin jest już za późno.} beyond_booking_horizon {Tak odległego terminu nie można jeszcze zarezerwować online.} other {Tego terminu nie można zarezerwować. Wybierz inny.}}",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Za dużo osób.} other {Za dużo osób: zmieści się najwyżej #.}}} slot_unavailable {Ten termin jest już zajęty. Wybierz inny.} price_missing {Na ten termin nie ma jeszcze ceny. Skontaktuj się z firmą.} rule_min_length {W tym terminie pobyt musi być dłuższy.} rule_max_length {W tym terminie pobyt musi być krótszy.} rule_notice {Na ten termin jest już za późno.} beyond_booking_horizon {Tak odległego terminu nie można jeszcze zarezerwować online.} throttled {Za dużo zapytań naraz. Spróbuj za chwilę.} other {Tego terminu nie można zarezerwować. Wybierz inny.}}",
     "stayTaken": "Ktoś właśnie zarezerwował ten termin. Wybierz inny.",
     "stayCreateError": "Nie udało się zapisać rezerwacji. Sprawdź dane i spróbuj ponownie.",
-    "stayNotesHint": "Coś, co firma powinna wiedzieć przed tym terminem. Zobaczy to tylko firma."
+    "stayNotesHint": "Coś, co firma powinna wiedzieć przed tym terminem. Zobaczy to tylko firma.",
+    "languageUnavailable": "W tym języku nie można zarezerwować online: regulamin rezerwacji nie ma wersji w tym języku.",
+    "languageOffer": "Zarezerwuj w języku, w którym regulamin jest dostępny:",
+    "languageNone": "Aby zarezerwować, skontaktuj się z firmą.",
+    "marketingHint": "Nieobowiązkowe. Zgodę możesz wycofać w każdej chwili."
   },
   "BookingMaterials": {
     "title": "Produkty z magazynu",
@@ -6299,7 +6303,11 @@
     "translationWaits": "Tłumaczenie AI ({language}) czeka na Twoją akceptację.",
     "translationReview": "Tłumaczenia → Do akceptacji",
     "translationReviewPlain": "Tłumaczenia do akceptacji",
-    "versionsTitle": "Wersje"
+    "versionsTitle": "Wersje",
+    "termsLanguagesOff": "{count, plural, =1 {Regulamin rezerwacji nie ma wersji w języku {languages} — rezerwacja online w tym języku jest wyłączona.} other {Regulamin rezerwacji nie ma wersji w językach: {languages} — rezerwacja online w tych językach jest wyłączona.}}",
+    "termsLanguagesAdd": "Dodaj tekst regulaminu",
+    "termsLanguagesAddHere": "Dodaj tekst niżej, przy wersji obowiązującej, żeby ją włączyć.",
+    "approveMissingTerms": "Nowa wersja będzie miała tekst tylko w języku szkicu. Od dnia, w którym zacznie obowiązywać, rezerwacja online w językach: {languages} będzie wyłączona, dopóki nie dodasz tekstu w tych językach."
   },
   "CustomerDocument": {
     "kinds": {

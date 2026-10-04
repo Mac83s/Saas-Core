@@ -453,7 +453,8 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
 - **Czytnik nie zastępuje języka.** `customers.api.current_document(kind,
   locale)` zwraca dokument tylko wtedy, gdy obowiązująca wersja ma wiersz w tym
   języku; inaczej nic. Zgoda na tekst w języku, którego klient nie wybrał, nie
-  byłaby zgodą.
+  byłaby zgodą. Co z tego wynika dla rezerwacji w języku bez tekstu
+  regulaminu — „Uzupełnienie 2026-10-04: krok zgód formularzy publicznych”.
 - **Dziennik zgód przyjmuje podmiot bez klienta** (`customer` puste): pytający
   z formularza kontaktowego nie ma rekordu `Customer`, a wpis wskazuje go tylko
   przez `source` i `source_reference` (identyfikator zapytania). Jeden dziennik
@@ -528,7 +529,9 @@ Rozstrzygnięcia plastra 4c (2026-10-04, decyzje techniczne z powodem):
   „Akceptuję regulamin” i „Zapoznałem się z polityką prywatności” (robocze do
   odpowiedzi z listy prawnej). Słowa idą do formularza z API, więc zmiana to
   jedna stała, a nie pliki tłumaczeń frontendu.
-- **Zgoda marketingowa to osobny wpis, którego formularz jeszcze nie zbiera.**
+- **Zgoda marketingowa to osobny wpis, którego formularz jeszcze nie zbiera**
+  (stan plastra 4c; formularz zbiera ją od „Uzupełnienia 2026-10-04: krok zgód
+  formularzy publicznych”).
   `BookingConsents.marketing` (treść zgody) dopisuje wpis `kind="marketing"`
   ze skrótem treści obok wpisów dokumentów. Pole w formularzu publicznym
   przyjdzie razem z treścią zgody od prawnika i z miejscem, w którym firma
@@ -1058,3 +1061,66 @@ Uzupełnienie plastrów 4b–4g (2026-10-04, drobne zaległości zamknięte raze
   powiadomienia `booking.office_*`; „Do akceptacji” wymienia dokumenty dla
   klientów obok strony i wizytówki.
 
+## Uzupełnienie 2026-10-04: krok zgód formularzy publicznych
+
+Decyzje właściciela z 2026-10-04 (po scaleniu formularza pobytów, ADR-072
+plastry 5a–5b), wspólne dla formularza wizyty i pobytu, bez migracji:
+
+- **Język bez tekstu regulaminu zamyka rezerwację online w tym języku.** Gdy
+  firma ma obowiązujący regulamin rezerwacji, ale bez tekstu w języku
+  rezerwacji, nikt w tym języku nie rezerwuje przez formularz: zapis to 409
+  `booking_language_unavailable` z `detail.locales` — językami firmy, w
+  których regulamin ma tekst — a `GET …/consents/` mówi to z góry (`bookable`,
+  `bookable_locales`), więc formularz pokazuje kartę „w tym języku nie można
+  zarezerwować online” z odnośnikami do formularza w tamtych językach, jak
+  kartę pauzy. Powód: czytnik nie zastępuje języka (wyżej), więc dotąd klient
+  w takim języku rezerwował bez żadnego regulaminu — umowa bez warunków, na
+  które się zgodził. Reguła zmienia zdanie ADR-071 pkt 21 „rezerwacji nie
+  odmawia się z powodu języka” w jednym miejscu: język, którego firma w ogóle
+  nie ma, nadal przechodzi na jej pierwszy; odmowa dotyczy języka firmy bez
+  tekstu regulaminu.
+- **Blokuje tylko regulamin rezerwacji.** Polityka prywatności bez tekstu w
+  języku nie jest pokazywana ani wymagana i niczego nie zamyka (obowiązek
+  informacyjny firma spełnia też inaczej; umowy bez warunków — nie). Firma bez
+  obowiązującego regulaminu rezerwuje we wszystkich swoich językach jak dotąd.
+- **Reguła obowiązuje każdego, kto rezerwuje sam albo sam pokazał dokumenty**
+  (kontekst formularza publicznego albo przekazane `BookingConsents`) — to ten
+  sam warunek co przy `documents_changed`, w tym samym miejscu
+  (`booking.consents.record`). Biuro w panelu rezerwuje klienta w dowolnym
+  języku jak dotąd. Języki regulaminu czyta `customers.api.document_locales`
+  (None: brak obowiązującej wersji), bo `current_document` nie odróżnia
+  „nie ma dokumentu” od „nie ma tekstu w tym języku”.
+- **Panel ostrzega tam, gdzie firma ustawia dokumenty i języki**: lista
+  dokumentów, ekran regulaminu rezerwacji i Ustawienia › Języki mówią
+  „Regulamin rezerwacji nie ma wersji w języku English — rezerwacja online w
+  tym języku jest wyłączona”, a zatwierdzenie nowej wersji regulaminu mówi, że
+  pozostałe języki zostaną zamknięte od dnia, w którym wersja zacznie
+  obowiązywać (nowa wersja zaczyna od jednego języka). Ostrzeżenie liczy
+  panel z listy dokumentów (`in_force.locales` wobec języków firmy); ekran
+  języków dostaje je jako sekcję składaną przez stronę i odświeża po zmianie
+  listy języków (`useCompanyLanguages`).
+- **Zgoda marketingowa: jedno nieobowiązkowe pole, domyślnie odznaczone.**
+  Brzmienie jest jedno i stałe: „Chcę otrzymywać oferty i promocje od {firma}
+  e-mailem.” (en, de tak samo), w `customers.documents.MARKETING_WORDING`,
+  czytane przez `customers.api.marketing_wording(locale, firma)`. Formularz
+  dostaje zdanie z `GET …/consents/` (`marketing.statement`) i odsyła tylko
+  `consents.marketing: true` — słowa wpisu wyznacza serwer, nie przeglądarka.
+  Zaznaczone pole to osobny wpis dziennika `kind="marketing"` ze skrótem
+  zdania, które klient widział (z nazwą firmy), i językiem. Dziennik trzyma
+  tylko skrót, więc lista zgód w panelu rozpoznaje brzmienie tą samą funkcją.
+  Język bez własnego zdania nie ma pola (zgody nie zbiera się w cudzym
+  języku), a klient, który nie podał e-maila, nie zostawia wpisu — zgoda
+  dotyczy e-maili.
+- **Firma może pola nie pokazywać**: ustawienie `booking.online.marketing_consent`
+  (grupa „Rezerwacja online”, domyślnie włączone). Wyłączone — formularz pola
+  nie dostaje, a `consents.marketing` z formularza otwartego wcześniej niczego
+  nie zapisuje.
+- **Skrót wyceny na publicznej ścieżce terminów jest wymagany** — tak jak dla
+  pobytu: wizyta z ceną rezerwowana z formularza bez `quote_digest` albo z inną
+  ceną to 409 `quote_changed` z wyceną (zachowanie z fazy 3d, `seen=None` w
+  `_visit_quote`; kontrakt i ADR-072 mówiły dotąd „opcjonalny”). Przełożenie
+  wizyty z linku klienta nadal nie wymaga skrótu, dopóki cena się nie zmienia.
+- **Poza tym krokiem:** cofnięcie zgody marketingowej i lista zgód w panelu
+  (dziennik i ekran — osobna praca nad `shared.customers`); brzmienia w
+  językach poza pl, en, de; strona prawna witryny z dokumentów firmy (ADR-072,
+  plaster 5f).

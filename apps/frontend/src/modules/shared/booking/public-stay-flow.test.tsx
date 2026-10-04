@@ -34,6 +34,7 @@ const FLAT = "33333333-3333-4333-8333-333333333333";
 const CHILD = "44444444-4444-4444-8444-444444444444";
 const LINEN = "55555555-5555-4555-8555-555555555555";
 const TERMS = "66666666-6666-4666-8666-666666666666";
+const OFFERS = "Chcę otrzymywać oferty i promocje od Dokumenty Demo e-mailem.";
 
 const catalog = {
   locations: [],
@@ -213,6 +214,9 @@ beforeEach(() => {
         url: "/pl/documents/regulamin",
       },
     ],
+    bookable: true,
+    bookable_locales: ["pl"],
+    marketing: { statement: OFFERS },
   });
   api.getPublicStayStarts.mockResolvedValue(["2026-11-07", "2026-11-14"]);
   api.getPublicStayEnds.mockResolvedValue(["2026-11-09", "2026-11-10"]);
@@ -306,6 +310,9 @@ test("a guest books at the price shown, with the documents accepted", async () =
   fireEvent.click(
     screen.getByRole("checkbox", { name: /Akceptuję regulamin/ }),
   );
+  // The marketing consent is offered and never ticked for the guest: left
+  // alone, nothing about it is sent.
+  expect(screen.getByRole("checkbox", { name: OFFERS })).not.toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
   await waitFor(() => expect(api.createPublicStay).toHaveBeenCalledTimes(1));
   expect(api.createPublicStay.mock.calls[0][1]).toEqual({
@@ -334,6 +341,91 @@ test("a guest books at the price shown, with the documents accepted", async () =
   expect(
     screen.getByRole("link", { name: "Zobacz rezerwację lub zrezygnuj" }),
   ).toHaveAttribute("href", "/pl/booking/bk_token");
+});
+
+async function fillAndAccept() {
+  await pickDates();
+  await screen.findByText(/1350,00\szł/);
+  fireEvent.change(screen.getByLabelText("Imię i nazwisko"), {
+    target: { value: "Jan Gość" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "jan@example.test" },
+  });
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Akceptuję regulamin/ }),
+  );
+}
+
+test("a ticked marketing consent goes with the booking; a company that does not ask shows no box", async () => {
+  const first = show();
+  await fillAndAccept();
+  fireEvent.click(screen.getByRole("checkbox", { name: OFFERS }));
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() => expect(api.createPublicStay).toHaveBeenCalledTimes(1));
+  expect(api.createPublicStay.mock.calls[0][1].consents).toEqual({
+    documents: [TERMS],
+    marketing: true,
+  });
+  first.unmount();
+
+  // The company switched the box off, and has no documents: nothing to tick.
+  api.getPublicBookingConsents.mockResolvedValue({
+    locale: "pl",
+    documents: [],
+    bookable: true,
+    bookable_locales: ["pl"],
+    marketing: null,
+  });
+  show();
+  await pickDates();
+  await screen.findByText(/1350,00\szł/);
+  expect(screen.queryByRole("checkbox", { name: OFFERS })).toBeNull();
+});
+
+test("a language the terms have no text in shows where to book instead of a form", async () => {
+  api.getPublicBookingConsents.mockResolvedValue({
+    locale: "pl",
+    documents: [],
+    bookable: false,
+    bookable_locales: ["en", "de"],
+    marketing: { statement: OFFERS },
+  });
+  const { container } = show();
+
+  expect(
+    await screen.findByText(/W tym języku nie można zarezerwować online/),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
+    "href",
+    "/en/book/dokumenty-demo",
+  );
+  expect(screen.getByRole("link", { name: "Deutsch" })).toHaveAttribute(
+    "href",
+    "/de/book/dokumenty-demo",
+  );
+  expect(screen.queryByRole("button", { name: "Zarezerwuj" })).toBeNull();
+  const results = await axe.run(container);
+  expect(results.violations).toEqual([]);
+});
+
+test("a booking the server refuses over the language ends on the same card", async () => {
+  api.createPublicStay.mockRejectedValueOnce(
+    problem(409, "booking_language_unavailable", {
+      detail: { message: "x", locale: "pl", locales: [] },
+    }),
+  );
+  show();
+  await fillAndAccept();
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+
+  expect(
+    await screen.findByText(/W tym języku nie można zarezerwować online/),
+  ).toBeInTheDocument();
+  // No language has the terms: the guest is sent to the company.
+  expect(
+    screen.getByText("Aby zarezerwować, skontaktuj się z firmą."),
+  ).toBeInTheDocument();
 });
 
 test("another price by now is shown and asked about, never booked", async () => {
@@ -380,6 +472,17 @@ test("what the server refuses is said in the guest's words", async () => {
     await screen.findByText("Za dużo osób: zmieści się najwyżej 6."),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Zarezerwuj" })).toBeDisabled();
+});
+
+test("too many questions at once is said as such, not as a date that cannot be booked", async () => {
+  api.getPublicStayPlan.mockRejectedValue(problem(429, "throttled"));
+  show();
+  await pickDates();
+
+  expect(
+    await screen.findByText("Za dużo zapytań naraz. Spróbuj za chwilę."),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Tego terminu nie można/)).toBeNull();
 });
 
 test("visits and stays share „Usługa”: a stay opens its form, a visit the one by the hour", async () => {

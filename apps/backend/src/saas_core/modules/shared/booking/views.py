@@ -1364,6 +1364,14 @@ class PublicBookingCatalogView(APIView):
             })
 
 
+def _accepted(consents: Mapping[str, Any] | None) -> BookingConsents:
+    """What the customer ticked on a public form, a visit's or a stay's."""
+    given = consents or {}
+    return BookingConsents(
+        documents=tuple(given.get("documents", ())), marketing=bool(given.get("marketing"))
+    )
+
+
 class PublicBookingConsentsView(APIView):
     authentication_classes: list[type] = []
     permission_classes = [AllowAny]
@@ -1375,7 +1383,10 @@ class PublicBookingConsentsView(APIView):
         description="The company's booking terms and privacy policy in force, each with the "
         "statement the customer ticks and the address where it is read. Only documents with "
         "a text in the booking's language are listed — never a text in another language. "
-        "Send each `text_id` back in `consents.documents` when booking.",
+        "Send each `text_id` back in `consents.documents` when booking. Booking terms in "
+        "force without a text in this language close online booking in it: `bookable` is "
+        "false and `bookable_locales` names the languages to offer instead. `marketing` is "
+        "the optional marketing consent to show, unticked.",
         tags=["public-booking"],
         parameters=[
             OpenApiParameter(
@@ -1528,14 +1539,17 @@ class PublicBookingCreateView(APIView):
         summary="Book a visit from a company's booking form",
         description="Books a free start of a service the company offers online; the server "
         "picks the people, within the team or the person the customer chose. The price is "
-        "worked out and frozen in the booking (`quote`); with `quote_digest` a price other "
-        "than the one shown is 409 `quote_changed`, with the new one in `detail.quote`. A "
+        "worked out and frozen in the booking (`quote`); a visit with a price needs the "
+        "`quote_digest` of the quote shown (`POST …/quote/`): without it, or with another "
+        "price by now, the answer is 409 `quote_changed` with the quote in `detail.quote`. A "
         "taken time is 409 `slot_unavailable`, a paused form 409 `booking_paused`. The "
         "company's documents in force in the booking's language (`GET …/consents/`) must be "
         "named in `consents.documents`: one missing or replaced is 409 `documents_changed` "
         "with the ones to show in `detail.documents`; each accepted document becomes a line "
-        "of the consent journal. The same Idempotency-Key answers the first booking again "
-        "(200).",
+        "of the consent journal, and so does a ticked marketing consent. A language the "
+        "booking terms have no text in is 409 `booking_language_unavailable` with the "
+        "languages that have one in `detail.locales`. The same Idempotency-Key answers the "
+        "first booking again (200).",
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=PublicAppointmentCreateSerializer,
@@ -1557,9 +1571,7 @@ class PublicBookingCreateView(APIView):
         team = data.pop("team_id", None)
         person = data.pop("person_id", None)
         notes = data.pop("customer_notes", "").strip()
-        accepted = BookingConsents(
-            documents=tuple((data.pop("consents", None) or {}).get("documents", ()))
-        )
+        accepted = _accepted(data.pop("consents", None))
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.manage", BOOKING_ENABLED)
             # A choice the service does not offer is refused, not dropped.

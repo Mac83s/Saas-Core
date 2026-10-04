@@ -126,10 +126,14 @@
     "stayLater": "Spätere Termine",
     "stayNoDays": "Vom {from} bis {to} gibt es keine freien Termine.",
     "stayChecking": "Zeitraum und Preis werden geprüft…",
-    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Zu viele Personen.} other {Zu viele Personen: höchstens #.}}} slot_unavailable {Dieser Zeitraum ist bereits belegt. Wählen Sie einen anderen.} price_missing {Für diesen Zeitraum gibt es noch keinen Preis. Wenden Sie sich an das Unternehmen.} rule_min_length {In diesem Zeitraum muss der Aufenthalt länger sein.} rule_max_length {In diesem Zeitraum muss der Aufenthalt kürzer sein.} rule_notice {Für diesen Zeitraum ist es bereits zu spät.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} other {Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen.}}",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Zu viele Personen.} other {Zu viele Personen: höchstens #.}}} slot_unavailable {Dieser Zeitraum ist bereits belegt. Wählen Sie einen anderen.} price_missing {Für diesen Zeitraum gibt es noch keinen Preis. Wenden Sie sich an das Unternehmen.} rule_min_length {In diesem Zeitraum muss der Aufenthalt länger sein.} rule_max_length {In diesem Zeitraum muss der Aufenthalt kürzer sein.} rule_notice {Für diesen Zeitraum ist es bereits zu spät.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} throttled {Zu viele Anfragen auf einmal. Versuchen Sie es gleich noch einmal.} other {Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen.}}",
     "stayTaken": "Dieser Zeitraum wurde gerade gebucht. Wählen Sie einen anderen.",
     "stayCreateError": "Die Buchung konnte nicht gespeichert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.",
-    "stayNotesHint": "Alles, was das Unternehmen vorab wissen sollte. Nur das Unternehmen sieht es."
+    "stayNotesHint": "Alles, was das Unternehmen vorab wissen sollte. Nur das Unternehmen sieht es.",
+    "languageUnavailable": "In dieser Sprache ist keine Online-Buchung möglich: Die Buchungsbedingungen liegen in dieser Sprache nicht vor.",
+    "languageOffer": "Buchen Sie in einer Sprache, in der die Bedingungen vorliegen:",
+    "languageNone": "Für eine Buchung wenden Sie sich bitte an das Unternehmen.",
+    "marketingHint": "Freiwillig. Sie können Ihre Einwilligung jederzeit widerrufen."
   },
   "BookingSelfService": {
     "changesUntil": "Sie können den Termin bis {when} ändern oder absagen.",

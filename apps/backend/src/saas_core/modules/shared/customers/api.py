@@ -12,10 +12,20 @@ form's service context is enough: `current_document(kind, locale)` gives the
 text in force in exactly that language (or None — never another language),
 and `record_consent(...)` appends who saw which text row to the journal;
 `consents_of(source, references)` reads the lines written for a source's
-records back, for the screen that shows the record.
+records back, for the screen that shows the record. `document_locales(kind)`
+says which languages the document in force has, and `marketing_wording`
+(over `MARKETING_WORDING`) is the one sentence of a marketing consent.
 """
 
-from .documents import DocumentInForce, consents_of, current_document, record_consent
+from .documents import (
+    MARKETING_WORDING,
+    DocumentInForce,
+    consents_of,
+    current_document,
+    document_locales,
+    marketing_wording,
+    record_consent,
+)
 from .models import ConsentKind, Customer, DocumentKind
 from .services import (
     CustomerAnonymizer,
@@ -28,6 +38,7 @@ CUSTOMER_MODEL = "customers.Customer"
 
 __all__ = [
     "CUSTOMER_MODEL",
+    "MARKETING_WORDING",
     "ConsentKind",
     "Customer",
     "CustomerAnonymizer",
@@ -35,6 +46,8 @@ __all__ = [
     "DocumentKind",
     "consents_of",
     "current_document",
+    "document_locales",
+    "marketing_wording",
     "match_or_create",
     "record_consent",
     "register_customer_anonymizer",

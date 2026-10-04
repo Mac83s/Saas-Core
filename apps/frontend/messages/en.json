@@ -3307,10 +3307,14 @@
     "stayLater": "Later dates",
     "stayNoDays": "No free dates from {from} to {to}.",
     "stayChecking": "Checking the dates and the price…",
-    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Too many people.} other {Too many people: # at most.}}} slot_unavailable {These dates are already taken. Choose others.} price_missing {There is no price for these dates yet. Contact the company.} rule_min_length {A stay on these dates has to be longer.} rule_max_length {A stay on these dates has to be shorter.} rule_notice {It is too late to book these dates.} beyond_booking_horizon {Dates this far ahead cannot be booked online yet.} other {These dates cannot be booked. Choose others.}}",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Too many people.} other {Too many people: # at most.}}} slot_unavailable {These dates are already taken. Choose others.} price_missing {There is no price for these dates yet. Contact the company.} rule_min_length {A stay on these dates has to be longer.} rule_max_length {A stay on these dates has to be shorter.} rule_notice {It is too late to book these dates.} beyond_booking_horizon {Dates this far ahead cannot be booked online yet.} throttled {Too many requests at once. Try again in a moment.} other {These dates cannot be booked. Choose others.}}",
     "stayTaken": "Somebody has just booked these dates. Choose others.",
     "stayCreateError": "The booking could not be saved. Check the details and try again.",
-    "stayNotesHint": "Anything the company should know beforehand. Only the company sees it."
+    "stayNotesHint": "Anything the company should know beforehand. Only the company sees it.",
+    "languageUnavailable": "Online booking is not available in this language: the booking terms have no version in it.",
+    "languageOffer": "Book in a language the terms are available in:",
+    "languageNone": "To book, contact the company.",
+    "marketingHint": "Optional. You can withdraw your consent at any time."
   },
   "BookingMaterials": {
     "title": "Products from the warehouse",
@@ -6299,7 +6303,11 @@
     "translationWaits": "An AI translation ({language}) is waiting for you to accept it.",
     "translationReview": "Translations → To approve",
     "translationReviewPlain": "Translations to approve",
-    "versionsTitle": "Versions"
+    "versionsTitle": "Versions",
+    "termsLanguagesOff": "{count, plural, =1 {The booking terms have no version in {languages} — online booking in this language is switched off.} other {The booking terms have no version in: {languages} — online booking in these languages is switched off.}}",
+    "termsLanguagesAdd": "Add the terms' text",
+    "termsLanguagesAddHere": "Add the text below, at the version in force, to switch it on.",
+    "approveMissingTerms": "The new version will have a text in the draft's language only. From the day it takes force, online booking in: {languages} will be switched off until you add the text in those languages."
   },
   "CustomerDocument": {
     "kinds": {

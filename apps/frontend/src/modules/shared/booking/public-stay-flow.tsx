@@ -46,8 +46,11 @@ import {
   contactShape,
   DocumentBoxes,
   ExtrasPicker,
+  type MarketingBox,
+  otherLanguages,
   pickedExtras,
   refusalOf,
+  ticked,
 } from "./public-booking-parts";
 import { QuoteSummary } from "./quote-summary";
 
@@ -96,17 +99,24 @@ function choicesOf(offer: Offer | undefined): Choice[] {
 export function PublicStayFlow({
   catalog,
   documents,
+  marketing,
   offerId,
   onDocuments,
+  onElsewhere,
   onOffer,
   publicSlug,
 }: {
   catalog: BookingPublicCatalog;
   documents: Documents;
+  /** The marketing consent the company asks for, ticked or not. */
+  marketing?: MarketingBox;
   /** The stay offer chosen in „Usługa”. */
   offerId: string;
   /** Other documents are in force by now: the form shows those. */
   onDocuments: (documents: Documents) => void;
+  /** The booking terms have no text in this language by now: the languages
+   *  to offer instead. */
+  onElsewhere: (locales: string[]) => void;
   /** Another offer was chosen — a stay or a visit. */
   onOffer: (id: string) => void;
   publicSlug: string;
@@ -183,6 +193,8 @@ export function PublicStayFlow({
   }>();
   const plan = planned?.key === askedKey ? planned.plan : undefined;
   const refusal = planned?.key === askedKey ? planned.refusal : undefined;
+  // Counts the times a throttled question was put again.
+  const [attempt, setAttempt] = useState(0);
   const [accepted, setAccepted] = useState<Record<string, boolean>>({});
   const [tried, setTried] = useState(false);
   const [problem, setProblem] = useState<string>();
@@ -245,6 +257,7 @@ export function PublicStayFlow({
   useEffect(() => {
     if (!asked) return;
     let current = true;
+    let again: ReturnType<typeof setTimeout> | undefined;
     // A short pause: a count typed digit by digit asks once.
     const timer = setTimeout(() => {
       getPublicStayPlan(publicSlug, { ...asked, locale })
@@ -252,16 +265,23 @@ export function PublicStayFlow({
           if (current) setPlanned({ key: askedKey, plan: value });
         })
         .catch((error: unknown) => {
-          if (current) setPlanned({ key: askedKey, refusal: refusalOf(error) });
+          if (!current) return;
+          const reason = refusalOf(error);
+          setPlanned({ key: askedKey, refusal: reason });
+          // Too many questions at once is nothing about the dates: the same
+          // one is put again in a moment, as the guest was told.
+          if (reason === "throttled")
+            again = setTimeout(() => setAttempt((count) => count + 1), 5000);
         });
     }, 300);
     return () => {
       current = false;
       clearTimeout(timer);
+      clearTimeout(again);
     };
     // `asked` is named by its key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [askedKey, locale, publicSlug]);
+  }, [askedKey, attempt, locale, publicSlug]);
 
   // Another thing booked or another window: the days listed are not its own.
   function restart(next: { chosen?: string; from?: string }) {
@@ -293,15 +313,7 @@ export function PublicStayFlow({
           ...(notes.trim() ? { customer_notes: notes.trim() } : {}),
           // The price shown: another one by now is asked about, not charged.
           ...(plan.quote ? { quote_digest: plan.quote.digest } : {}),
-          // The texts ticked: another one in force by now is shown and asked
-          // about, never accepted for the customer.
-          ...(documents.length
-            ? {
-                consents: {
-                  documents: documents.map((document) => document.text_id),
-                },
-              }
-            : {}),
+          ...ticked(documents, marketing),
           // The page's language: the documents above are in it.
           customer: { ...customer, phone: customer.phone.trim(), locale },
         },
@@ -328,6 +340,11 @@ export function PublicStayFlow({
         setAccepted({});
         setTried(false);
         setProblem(t("documentsChanged"));
+        return;
+      }
+      const languages = otherLanguages(error);
+      if (languages) {
+        onElsewhere(languages);
         return;
       }
       if (code === "slot_unavailable") {
@@ -622,6 +639,7 @@ export function PublicStayFlow({
           <DocumentBoxes
             accepted={accepted}
             documents={documents}
+            marketing={marketing}
             onAccept={(textId, checked) =>
               setAccepted({ ...accepted, [textId]: checked })
             }

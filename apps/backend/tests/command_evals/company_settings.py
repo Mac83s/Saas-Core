@@ -112,6 +112,7 @@ EVALS = {
             "resume_on": None,
             "horizon_days": None,
             "contact": None,
+            "marketing_consent": None,
             "reset": None,
         },
         wrong_arguments={
@@ -119,6 +120,7 @@ EVALS = {
             "resume_on": None,
             "horizon_days": None,
             "contact": None,
+            "marketing_consent": None,
             "reset": None,
         },
         wrong_field="paused",

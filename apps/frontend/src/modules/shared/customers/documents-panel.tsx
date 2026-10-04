@@ -20,6 +20,7 @@ import {
 import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { TermsLanguagesWarning, termsLanguagesOff } from "./terms-languages";
 
 /**
  * Ustawienia › Dokumenty dla klientów (ADR-073 §9): the company's terms and
@@ -179,14 +180,23 @@ export function CustomerDocumentsPanel() {
           </Button>
         </div>
       ) : (
-        <DataTable
-          caption={t("caption")}
-          columns={columns}
-          data={state?.documents ?? []}
-          getRowId={(row) => row.kind}
-          labels={labels}
-          loading={!state}
-        />
+        <>
+          <TermsLanguagesWarning
+            languages={termsLanguagesOff(
+              state?.documents.find((row) => row.kind === "booking_terms"),
+              companyLocales,
+            )}
+            link
+          />
+          <DataTable
+            caption={t("caption")}
+            columns={columns}
+            data={state?.documents ?? []}
+            getRowId={(row) => row.kind}
+            labels={labels}
+            loading={!state}
+          />
+        </>
       )}
     </PanelPage>
   );

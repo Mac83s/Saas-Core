@@ -116,6 +116,37 @@ beforeEach(() => {
   api.readCustomerDocument.mockResolvedValue({ document: privacy(), options });
 });
 
+test("booking terms without a text in a language of the company say that online booking is off in it", async () => {
+  const terms = { ...privacy(), kind: "booking_terms" } as CustomerDocument;
+  api.listCustomerDocuments.mockResolvedValue({
+    documents: [terms, privacy()],
+    options,
+  });
+  const list = wrap(<CustomerDocumentsPanel />);
+  const warning = await screen.findByTestId("terms-languages-off");
+  expect(warning.textContent).toContain(
+    "Regulamin rezerwacji nie ma wersji w języku English — rezerwacja online w tym języku jest wyłączona.",
+  );
+  // The privacy policy lacks English too and closes nothing.
+  expect(screen.getAllByTestId("terms-languages-off")).toHaveLength(1);
+  expect(
+    within(warning).getByRole("link", { name: "Dodaj tekst regulaminu" }),
+  ).toHaveAttribute("href", "/panel/settings/documents/booking_terms");
+  list.unmount();
+
+  // The document's own screen says it too; the privacy policy's does not.
+  api.readCustomerDocument.mockResolvedValue({ document: terms, options });
+  const own = wrap(<CustomerDocumentPanel canManage kind="booking_terms" />);
+  expect(
+    (await screen.findByTestId("terms-languages-off")).textContent,
+  ).toContain("rezerwacja online w tym języku jest wyłączona");
+  own.unmount();
+  api.readCustomerDocument.mockResolvedValue({ document: privacy(), options });
+  wrap(<CustomerDocumentPanel canManage kind="privacy_policy" />);
+  await screen.findByText(/Wersja 2 od/);
+  expect(screen.queryByTestId("terms-languages-off")).toBeNull();
+});
+
 test("the list says what is in force, in which languages, and where a draft waits", async () => {
   const { container } = wrap(<CustomerDocumentsPanel />);
 

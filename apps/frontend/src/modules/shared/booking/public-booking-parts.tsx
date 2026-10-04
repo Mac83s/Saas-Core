@@ -29,6 +29,7 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { nativeName } from "#lib/company-locales";
 import { dateFormat, formatWhen, wallClock } from "./calendar-time";
 import { QuoteSummary } from "./quote-summary";
 import { TransferDetails } from "./transfer-details";
@@ -162,17 +163,95 @@ export function ContactFields({
 
 type PublicDocument = BookingPublicConsents["documents"][number];
 
+/** The marketing consent the company asks for: its sentence, and whether the
+ *  customer ticked it. */
+export type MarketingBox = {
+  statement: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+};
+
+/** What the customer ticked, as a booking takes it: the texts shown — another
+ *  one in force by now is shown and asked about, never accepted for the
+ *  customer — and the marketing consent, when they gave it. */
+export function ticked(documents: PublicDocument[], marketing?: MarketingBox) {
+  const consents: { documents?: string[]; marketing?: boolean } = {};
+  if (documents.length)
+    consents.documents = documents.map((document) => document.text_id);
+  if (marketing?.checked) consents.marketing = true;
+  return consents.documents || consents.marketing ? { consents } : {};
+}
+
+/** The languages to offer instead, when the server refused a booking because
+ *  the booking terms have no text in this one (`booking_language_unavailable`). */
+export function otherLanguages(error: unknown): string[] | undefined {
+  if (
+    !(error instanceof ApiProblemError) ||
+    error.problem.code !== "booking_language_unavailable"
+  )
+    return undefined;
+  return (error.problem.detail as { locales?: string[] }).locales ?? [];
+}
+
+/** The company's booking terms have no text in the page's language, so
+ *  nobody books online in it (ADR-073 §9): said plainly, with the languages
+ *  that have them — like the card of a paused form. */
+export function LanguageUnavailable({
+  locales,
+  publicSlug,
+}: {
+  locales: string[];
+  publicSlug: string;
+}) {
+  const t = useTranslations("PublicBooking");
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("title")}</CardTitle>
+        <CardDescription role="status">
+          {t("languageUnavailable")}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm">
+          {t(locales.length ? "languageOffer" : "languageNone")}
+        </p>
+        {locales.length ? (
+          <ul className="flex flex-wrap gap-3">
+            {locales.map((code) => (
+              <li key={code}>
+                <a
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
+                  href={`/${code}/book/${encodeURIComponent(publicSlug)}`}
+                  hrefLang={code}
+                  lang={code}
+                >
+                  {nativeName(code)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** The company's documents in force (ADR-073 §9): each a box to tick, with
  *  where the text is read. `unaccepted` — a booking was tried: an empty box
- *  is said together with the fields left empty. */
+ *  is said together with the fields left empty. Below them the marketing
+ *  consent, where the company asks for it: optional, never ticked for the
+ *  customer. */
 export function DocumentBoxes({
   accepted,
   documents,
+  marketing,
   onAccept,
   unaccepted,
 }: {
   accepted: Record<string, boolean>;
   documents: PublicDocument[];
+  marketing?: MarketingBox;
   onAccept: (textId: string, checked: boolean) => void;
   unaccepted: boolean;
 }) {
@@ -218,6 +297,27 @@ export function DocumentBoxes({
           </Field>
         );
       })}
+      {marketing ? (
+        <Field>
+          <label
+            className="flex min-h-11 items-center gap-2 text-sm"
+            htmlFor="booking-marketing"
+          >
+            <input
+              aria-describedby="booking-marketing-hint"
+              checked={marketing.checked}
+              className="size-4 shrink-0"
+              id="booking-marketing"
+              onChange={(event) => marketing.onChange(event.target.checked)}
+              type="checkbox"
+            />
+            {marketing.statement}
+          </label>
+          <FieldDescription id="booking-marketing-hint">
+            {t("marketingHint")}
+          </FieldDescription>
+        </Field>
+      ) : null}
     </>
   );
 }
@@ -316,6 +416,8 @@ export function pickedExtras(picked: Record<string, number>) {
  *  (`PublicBooking.stayRefused`); anything else is said as „nie można
  *  zarezerwować”. */
 const REFUSALS = [
+  // Too many questions at once: nothing is wrong with the dates.
+  "throttled",
   "unit_capacity_exceeded",
   "slot_unavailable",
   "price_missing",
