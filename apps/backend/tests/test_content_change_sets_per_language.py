@@ -424,6 +424,8 @@ def test_on_a_proposed_page_the_language_version_waits_for_a_person() -> None:
     snapshot = Site.all_objects.get(pk=site_id).current_publication.snapshot
     entry = next(item for item in snapshot["pages"][0]["locales"] if item["locale"] == "en")
     assert entry["blocks"][0]["data"]["title"] == "Welcome to the studio"
+    # The accepted description went out with it, not one publication later.
+    assert entry["description"] == "A design studio."
     assert snapshot["pages"][0]["blocks"][0]["data"]["title"] == "Witaj"
 
 

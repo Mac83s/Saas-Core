@@ -452,19 +452,20 @@ def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
     }
     if reviewed != expected:
         raise ProposalReviewMismatch
+    if translation is not None and proposal.metadata_pending:
+        _save_metadata(
+            proposal, translation, proposal.metadata_after, f"proposal-accept-{proposal.id}"
+        )
     published = False
     if language is not None:
         # Through the language version: a waiting body becomes the working one
-        # and goes out when it may, as accepting a translation does.
+        # and goes out when it may, as accepting a translation does. After the
+        # titles, so what goes out carries the accepted ones.
         published = accept_proposed_version(
             language, proposal.locale_version_id, f"proposal-accept-{proposal.id}"
         )
         language.refresh_from_db(fields=["body_version"])
         current_version = language.body_version
-    if translation is not None and proposal.metadata_pending:
-        _save_metadata(
-            proposal, translation, proposal.metadata_after, f"proposal-accept-{proposal.id}"
-        )
     proposal.review_state = "accepted"
     proposal.decision_version = current_version
     proposal.decided_at = timezone.now()
