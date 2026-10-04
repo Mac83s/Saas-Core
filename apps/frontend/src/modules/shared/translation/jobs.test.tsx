@@ -616,6 +616,41 @@ test("„Zadania” says when the automation is held and „Wstrzymane” lists 
   ).toBeTruthy();
 });
 
+test("choosing „Wstrzymane” in the phone's filter sheet keeps the sheet open", async () => {
+  api.listTranslationJobs.mockResolvedValue(page([job()]));
+  api.listTranslationDemand.mockResolvedValue({
+    items: [held()],
+    count: 1,
+    next_cursor: null,
+  });
+  view(<TranslationJobsPanel />);
+  await screen.findByRole("table", { name: "Zadania tłumaczeń" });
+
+  // A phone shows one button; the filter is in the sheet it opens.
+  fireEvent.click(screen.getByRole("button", { name: "Filtry" }));
+  const sheet = await screen.findByRole("dialog", { name: "Filtry" });
+  fireEvent.change(within(sheet).getByLabelText("Stan"), {
+    target: { value: "held" },
+  });
+
+  // The list under it changes (behind the sheet, so hidden from the tree);
+  // the sheet stays until the person closes it.
+  await screen.findByRole("table", {
+    name: "Wstrzymane zmiany do przetłumaczenia",
+    hidden: true,
+  });
+  const still = screen.getByRole("dialog", { name: "Filtry" });
+  expect(
+    (within(still).getByLabelText("Stan") as HTMLSelectElement).value,
+  ).toBe("held");
+  // And back, the same way.
+  fireEvent.change(within(still).getByLabelText("Stan"), {
+    target: { value: "" },
+  });
+  await screen.findByRole("table", { name: "Zadania tłumaczeń", hidden: true });
+  expect(screen.getByRole("dialog", { name: "Filtry" })).toBeTruthy();
+});
+
 test("„Wstrzymane” opened from a notice: nothing held, a failed read, English", async () => {
   api.listTranslationJobs.mockResolvedValue(page([]));
   const empty = view(<TranslationJobsPanel initialView="held" />, "en");

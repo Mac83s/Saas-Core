@@ -7,7 +7,7 @@
  *  says it wherever translations are looked at; the list is „Wstrzymane” in
  *  „Zadania”. */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { SettingsIcon } from "lucide-react";
 import {
@@ -23,7 +23,7 @@ import {
 } from "@saas-core/ui/components/data-table";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
-import { SOURCE_KINDS } from "./job-words";
+import { SOURCE_KINDS, useObjectName } from "./job-words";
 import { translationComposed } from "./use-translation";
 
 const PAGE_SIZE = 20;
@@ -113,17 +113,13 @@ type Answer = {
   problem?: string;
 };
 
-/** „Wstrzymane”: the list itself, under the filter of „Zadania”. */
-export function HeldDemandTable({
-  filters,
-  onClear,
-}: {
-  /** The filter of „Zadania”, which chose this view. */
-  filters: ReactNode;
-  onClear: () => void;
-}) {
+/** „Wstrzymane”: the list itself, under the filter of „Zadania” — which
+ *  stands above it, in the panel, so that choosing this view on a phone does
+ *  not close the sheet the choice was made in. */
+export function HeldDemandTable({ onClear }: { onClear: () => void }) {
   const t = useTranslations("Translations.held");
   const review = useTranslations("Translations.review");
+  const objectName = useObjectName();
   const reasonText = useHeldReason();
   const format = useFormatter();
   const labels = useDataTableLabels();
@@ -198,7 +194,7 @@ export function HeldDemandTable({
     });
   const kindOf = (row: TranslationDemand) =>
     review(`kinds.${SOURCE_KINDS[row.source_key] ?? "other"}`);
-  const nameOf = (row: TranslationDemand) => row.label || kindOf(row);
+  const nameOf = (row: TranslationDemand) => objectName(row) || kindOf(row);
 
   const columns: ColumnDef<TranslationDemand, unknown>[] = [
     {
@@ -289,7 +285,6 @@ export function HeldDemandTable({
             {review("clearFilters")}
           </Button>
         }
-        filters={filters}
         getRowId={(row) => row.id}
         labels={{ ...labels, empty: t("empty") }}
         loading={loading}

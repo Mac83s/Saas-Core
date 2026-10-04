@@ -18,6 +18,7 @@ import { Button } from "@saas-core/ui/components/button";
 import {
   DataTable,
   DataTableFilter,
+  FilterSheet,
   RowActions,
   type ColumnDef,
 } from "@saas-core/ui/components/data-table";
@@ -251,17 +252,11 @@ export function TranslationJobsPanel({
     </DataTableFilter>
   );
 
-  if (which === "held")
-    return (
-      <PanelPage
-        description={t("description")}
-        eyebrow={nav("website")}
-        title={review("title")}
-      >
-        <TranslationTabs />
-        <HeldDemandTable filters={filter} onClear={() => setWhich("")} />
-      </PanelPage>
-    );
+  const held = which === "held";
+  // One filter for both lists, outside them: „Wstrzymane” swaps the table,
+  // and a filter living in the table would close the phone's sheet with it.
+  // Hidden like a table's own while there is nothing to narrow (UX-021).
+  const narrowable = which !== "" || loading || rows.length > 0;
 
   return (
     <PanelPage
@@ -270,8 +265,16 @@ export function TranslationJobsPanel({
       title={review("title")}
     >
       <TranslationTabs />
-      <AutomationHeld />
-      {problem || (answer?.problem && !loading) ? (
+      {held ? null : <AutomationHeld />}
+      {narrowable ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <FilterSheet active={which ? 1 : 0} labels={labels}>
+            {filter}
+          </FilterSheet>
+        </div>
+      ) : null}
+      {held ? <HeldDemandTable onClear={() => setWhich("")} /> : null}
+      {!held && (problem || (answer?.problem && !loading)) ? (
         <div
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
           role="alert"
@@ -289,29 +292,30 @@ export function TranslationJobsPanel({
           ) : null}
         </div>
       ) : null}
-      <DataTable
-        activeFilters={which ? 1 : 0}
-        caption={t("caption")}
-        columns={columns}
-        data={rows}
-        emptyAction={
-          which ? (
-            <Button
-              onClick={() => setWhich("")}
-              type="button"
-              variant="outline"
-            >
-              {review("clearFilters")}
-            </Button>
-          ) : undefined
-        }
-        filters={filter}
-        getRowId={(row) => row.id}
-        labels={{ ...labels, empty: which ? labels.empty : t("empty") }}
-        loading={loading}
-        pageSize={PAGE_SIZE}
-      />
-      {answer?.cursor && !loading ? (
+      {held ? null : (
+        <DataTable
+          activeFilters={which ? 1 : 0}
+          caption={t("caption")}
+          columns={columns}
+          data={rows}
+          emptyAction={
+            which ? (
+              <Button
+                onClick={() => setWhich("")}
+                type="button"
+                variant="outline"
+              >
+                {review("clearFilters")}
+              </Button>
+            ) : undefined
+          }
+          getRowId={(row) => row.id}
+          labels={{ ...labels, empty: which ? labels.empty : t("empty") }}
+          loading={loading}
+          pageSize={PAGE_SIZE}
+        />
+      )}
+      {!held && answer?.cursor && !loading ? (
         <Button
           disabled={loadingMore}
           onClick={() => answer.cursor && void loadMore(answer.cursor)}
