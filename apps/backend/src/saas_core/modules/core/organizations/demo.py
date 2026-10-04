@@ -183,8 +183,8 @@ _STUDIO_PATHS = (
     DemoPath(
         "Prośby o termin: oferta „na prośbę” czeka na odpowiedź firmy",
         "{panel}/panel/calendar/requests",
-        see="Dzisiejsza prośba o „Warsztat indywidualny” czeka — „Przyjmij” albo „Odmów” "
-        "z powodem; wcześniejsze są przyjęte, odrzucone albo wygasły.",
+        see="Dzisiejsza prośba o „Warsztat indywidualny” czeka — „✓” przyjmuje, „✕” odmawia "
+        "(z powodem); wcześniejsze są przyjęte, odrzucone albo wygasły.",
     ),
     DemoPath(
         "Zamówienia: czeka na przelew, opłacone na miejscu, anulowane, zwrócone",
@@ -525,8 +525,8 @@ class DemoRun:
                     detail = getattr(error, "detail", None) or getattr(error, "messages", error)
                     story.stopped = str(detail)
                     self.log(f"! {story.key} · {step.do} ({step.at:%d.%m %H:%M}): {detail}")
-                # A handler's `transaction.atomic` may have reset the tenant
-                # of the outer transaction's later statements: say it again.
+                # A refused step's savepoint takes back what it set, the
+                # tenant included: said again for the steps that follow.
                 set_local_organization_id(organization.id)
 
     # --- core's own part -------------------------------------------------------

@@ -174,7 +174,7 @@ Adresy z prefiksem panelu i strony komenda wypisuje dla danego stosu (lokalnie
 
 1. `/panel/calendar` — wizyty z ostatnich dni, dzisiejsze i przyszłe; w
    `/panel/calendar/queue` „Sesja we dwoje” czeka na drugą osobę.
-2. `/panel/calendar/requests` — dzisiejsza prośba czeka: „Przyjmij” albo „Odmów”.
+2. `/panel/calendar/requests` — dzisiejsza prośba czeka: „✓” przyjmuje, „✕” odmawia.
 3. `/panel/orders` — filtr „Stan”: czeka na przelew, opłacone, anulowane, zwrócone.
 4. `/panel/settings/services` — cennik z ceną sobotnią i dodatkiem; „Wzorce ofert”
    (`/panel/settings/services/presets`) z zapisem na „Zajęcia grupowe”.
@@ -233,4 +233,8 @@ Produkt:
 - dodaje własne kroki — `register_demo_step(name, handler)` — i własne części, które
   grają historie przez `DemoRun.play(key, stories)`. Krok dostaje historię z notatkami
   poprzednich kroków (`story.memo`: `appointment_id`, `customer_id`, `order`) i sam
-  rozpoznaje, co zrobił we wcześniejszym uruchomieniu.
+  rozpoznaje, co zrobił we wcześniejszym uruchomieniu;
+- wizytę własnego rodzaju (ADR-067) rezerwuje własnym krokiem przez swoje API:
+  `booking.demo.found(run, key, story)` znajduje rezerwację wcześniejszego uruchomienia,
+  `booking_key(run, key, story)` daje jej klucz, a `remember(story, appointment)`
+  zostawia kolejnym krokom (wpłata, odwołanie) rezerwację i jej zamówienie.

@@ -647,6 +647,26 @@ def test_a_document_of_the_seed_gets_a_language_the_company_added_since() -> Non
     assert any("dopisane języki de" in line for line in lines)
 
 
+def small_company(**data: Any) -> demo.DemoScenario:
+    """One company with a team and only the modules' data a test names: what
+    runs the same in the core's profile and in a product's."""
+    return demo.DemoScenario(
+        organizations=(
+            demo.DemoOrganization(
+                key="mala",
+                name="Mała Firma",
+                slug="mala-firma",
+                owner=demo.DemoPerson("wlasciciel@saas.test", "Anna", "Właścicielka"),
+                members=(
+                    demo.DemoPerson("kierownik@saas.test", "Marek", "Kierownik", "manager"),
+                    demo.DemoPerson("pracownik@saas.test", "Paweł", "Pracownik", "staff"),
+                ),
+                data=data,
+            ),
+        )
+    )
+
+
 def test_an_item_whose_category_the_profile_lacks_goes_without_one(monkeypatch) -> None:
     # A product's organization type has its own categories (HoofCare: blocks,
     # dressings): the Business demo's "material" must not stop the seed there.
@@ -654,10 +674,12 @@ def test_an_item_whose_category_the_profile_lacks_goes_without_one(monkeypatch) 
 
     data = {**warehouse.BUSINESS, "items": [dict(item) for item in warehouse.BUSINESS["items"]]}
     data["items"][3]["category"] = "nie-ma-takiej"
-    monkeypatch.setattr(warehouse, "BUSINESS", data)
-    seeded(only=["studio"])
+    monkeypatch.setattr(demo, "_scenario", lambda: small_company(inventory=data))
+    lines: list[str] = []
+    seeded(lines=lines)
     gloves = InventoryItem.all_objects.get(sku="DEMO-GLV")
     assert gloves.category is None
+    assert StockDocument.all_objects.filter(status="posted").count() == 5
 
 
 def test_the_seed_takes_over_neither_somebody_elses_company_nor_an_operator() -> None:
@@ -706,9 +728,10 @@ def test_the_password_comes_from_stdin_and_is_never_short(monkeypatch) -> None:
     with pytest.raises(CommandError, match="co najmniej 12"):
         call_command("seed_demo", "--password-stdin")
 
+    monkeypatch.setattr(demo, "_scenario", small_company)
     monkeypatch.setattr("sys.stdin", io.StringIO(f"{PASSWORD}\n"))
     output = io.StringIO()
-    call_command("seed_demo", "--password-stdin", "--scenario", "studio", stdout=output)
+    call_command("seed_demo", "--password-stdin", stdout=output)
     assert "Dane demo gotowe." in output.getvalue()
     assert User.objects.get(email="kierownik@saas.test").check_password(PASSWORD)
 

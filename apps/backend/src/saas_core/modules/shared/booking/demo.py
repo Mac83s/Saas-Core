@@ -16,6 +16,10 @@ companies take theirs from `demo_data.py`):
   to it afterwards follows as steps: accepted, paid, called off, completed.
   The 30.09 shape — `visits` with a day offset, booked now — still works.
 
+A product's vertical module tells its own stories with the same `Plan`, adds
+its steps with `register_demo_step` and, for a kind of visit it books itself,
+writes its own booking step with `found`, `booking_key` and `remember`.
+
 What exists stays: a place, a unit, an offer, an extra or a season of the same
 name is reused and left as the company has it; a price list is added only
 where the offer, group or unit has no price yet. A booking carries an
@@ -833,14 +837,17 @@ def _legacy_visits(plan: Plan, visits: Sequence[Mapping[str, Any]]) -> None:
 # --- the steps -------------------------------------------------------------------
 
 
-def _found(run: DemoRun, key: str, story: DemoStory) -> Appointment | None:
-    """The booking this story made on an earlier run, whoever made it."""
+def found(run: DemoRun, key: str, story: DemoStory) -> Appointment | None:
+    """The booking this story made on an earlier run, whoever made it. A
+    product's own booking step asks this first, books under
+    `booking_key` and calls `remember` — the steps that follow (paying,
+    calling off) then find the booking and its order."""
     organization = run.organizations[key]
     mutation = (
         BookingMutation.all_objects.filter(
             organization_id=organization.id,
             action="create",
-            idempotency_key=_idempotency_key(run, key, story),
+            idempotency_key=booking_key(run, key, story),
         )
         .select_related("appointment")
         .first()
@@ -848,11 +855,11 @@ def _found(run: DemoRun, key: str, story: DemoStory) -> Appointment | None:
     return mutation.appointment if mutation else None
 
 
-def _idempotency_key(run: DemoRun, key: str, story: DemoStory) -> str:
+def booking_key(run: DemoRun, key: str, story: DemoStory) -> str:
     return f"seed-demo:{run.organizations[key].slug}:{story.key}"
 
 
-def _remember(story: DemoStory, appointment: Appointment) -> None:
+def remember(story: DemoStory, appointment: Appointment) -> None:
     story.memo["appointment_id"] = appointment.id
     story.memo["customer_id"] = appointment.customer_id
     # What an order of this booking is found by (`commerce.api.order_for`).
@@ -882,9 +889,9 @@ def _book(
     booking: Callable[[str, booking_consents.BookingConsents | None, bool], Appointment],
 ) -> None:
     plan: Plan = story.memo["plan"]
-    existing = _found(run, key, story)
+    existing = found(run, key, story)
     if existing is not None:
-        _remember(story, existing)
+        remember(story, existing)
         return
     data = step.data
     locale = data["customer"].get("locale") or "pl"
@@ -902,7 +909,7 @@ def _book(
         story.stopped = "termin zajęty"
         return
     plan.booked += 1
-    _remember(story, appointment)
+    remember(story, appointment)
 
 
 def _visit(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
@@ -932,7 +939,7 @@ def _visit(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
             location_id=catalogue.location.id,
             starts_at=data["starts_at"],
             customer_data=data["customer"],
-            idempotency_key=_idempotency_key(run, key, story),
+            idempotency_key=booking_key(run, key, story),
             principal_ref=principal,
             extras=extras,
             quote_digest=digest,
@@ -991,7 +998,7 @@ def _stay(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
         booked = book_stay(
             **wanted,
             customer_data=data["customer"],
-            idempotency_key=_idempotency_key(run, key, story),
+            idempotency_key=booking_key(run, key, story),
             principal_ref=principal,
             quote_digest=digest,
             consents=agreed,
@@ -1012,7 +1019,7 @@ def _answer(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
             appointment_id=appointment.id,
             accept=step.do == "booking.accept",
             reason=step.data.get("reason", ""),
-            idempotency_key=f"{_idempotency_key(run, key, story)}:answer",
+            idempotency_key=f"{booking_key(run, key, story)}:answer",
             principal_ref=str(request.user.pk),
         )
 
@@ -1022,6 +1029,9 @@ def _expire(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
     the date comes, for this one request and under the request's own contract."""
     appointment = _appointment(story)
     if appointment is None or appointment.status != AppointmentStatus.PENDING_REQUEST:
+        return
+    if appointment.hold_expires_at is None or appointment.hold_expires_at > timezone.now():
+        # Not its time yet (an hour's shift of the clocks): the task will come.
         return
     route = RequestRoute.objects.filter(
         appointment_id=appointment.id, dispatched_at__isnull=True
@@ -1043,13 +1053,13 @@ def _cancel(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
     appointment = _appointment(story)
     if appointment is None or appointment.status == AppointmentStatus.CANCELED:
         return
-    idempotency_key = f"{_idempotency_key(run, key, story)}:cancel"
+    cancel_key = f"{booking_key(run, key, story)}:cancel"
     if by := step.data.get("by"):
         # The company calls it off: everything its customer paid goes back.
         with run.acting(key, by) as request:
             cancel_appointment(
                 appointment_id=appointment.id,
-                idempotency_key=idempotency_key,
+                idempotency_key=cancel_key,
                 principal_ref=str(request.user.pk),
             )
         return
@@ -1059,7 +1069,7 @@ def _cancel(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
     with public_booking_context(appointment.organization_id):
         cancel_appointment(
             appointment_id=appointment.id,
-            idempotency_key=idempotency_key,
+            idempotency_key=cancel_key,
             principal_ref=route.token_digest,
         )
 
@@ -1072,7 +1082,7 @@ def _complete(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
         close = mark_no_show if step.do == "booking.no_show" else complete_appointment
         close(
             appointment_id=appointment.id,
-            idempotency_key=f"{_idempotency_key(run, key, story)}:{step.do}",
+            idempotency_key=f"{booking_key(run, key, story)}:{step.do}",
             principal_ref=str(request.user.pk),
         )
 
