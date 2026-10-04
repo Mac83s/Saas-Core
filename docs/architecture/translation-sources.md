@@ -192,6 +192,8 @@ def notify_source_changed(*, context: ContentContext, source_key: str,
 # TL16g: what waits for a person, for a module's own list
 def register_review_reader(reader: Callable[[ContentContext], WaitingReviews]) -> None: ...  # the engine, once
 def waiting_reviews(context: ContentContext) -> dict[tuple[str, UUID, str], WaitingReview]: ...
+def register_review_closer(closer: Callable[[ContentContext, str, UUID, str], None]) -> None: ...  # the engine, once
+def review_decided(*, context: ContentContext, source_key: str, object_id: UUID, locale: str) -> None: ...
 ```
 
 `waiting_reviews` odpowiada, co ta osoba może teraz zaakceptować — po kluczu (źródło,
@@ -202,6 +204,14 @@ w komórce „Zaakceptuj”, nie importując `shared.translation`. Bez silnika w
 modułu w typie firmy albo bez `translation.request` odpowiedź jest pusta. Pozycje bez
 tekstu do akceptacji (`qa_failed`, `gate_failed`, `model_refused`) i pytanie o zdjęcie
 tłumaczenia (`source_withdrawn`) zostają we własnym widoku kolejki.
+
+`review_decided` woła moduł, gdy osoba rozstrzygnęła czekający wynik w jego własnym
+edytorze, obok kolejki — w tej samej transakcji (`shared.sites`: „Zaakceptuj” i „Odrzuć”
+w trybie języka edytora podstrony, akceptacja zbiorcza witryny). Silnik zamyka wtedy
+otwartą pozycję tej pary jako `superseded`: źródło nie ma już nic czekającego, więc
+pozycji nie dałoby się ani zaakceptować, ani odrzucić, a liczyłaby się w „Do akceptacji”
+bez końca. Decyzja podjęta przez kolejkę (`review=True`) niczego nie zgłasza — pozycję
+rozstrzyga sama kolejka; pytanie `source_withdrawn` zostaje otwarte.
 
 Rejestracja sprawdza deklarację od razu, więc zepsuty adapter zatrzymuje start, a nie
 zlecenie klienta: klucz `<etykieta aplikacji>.<rzecz>` (prefiks `testing.` tylko ze

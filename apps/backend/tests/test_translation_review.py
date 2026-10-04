@@ -38,6 +38,7 @@ from saas_core.testing.translation_sources import (
 )
 from test_booking import tenant
 from test_model_port import fake_models  # noqa: F401 — the port's fake models
+from test_sites_api import csrf_value
 from test_tenant_context import authenticated_client
 from test_translation_jobs import (
     JobSource,
@@ -492,3 +493,69 @@ def test_the_translations_overview_names_what_can_be_accepted_in_a_cell() -> Non
     owner = context_from_membership(Membership.objects.get(organization=organization))
     assert (PAGE_KEY, UUID(offer), "en") in waiting_reviews(owner)
     assert waiting_reviews(replace(owner, permissions=frozenset())) == {}
+
+
+def test_a_version_decided_in_the_pages_editor_leaves_nothing_in_the_queue() -> None:
+    """Accepted or rejected in the language editor, past „Do akceptacji”: the
+    queue's item for that version could no longer be accepted or discarded
+    (the page has nothing pending), so it must not stay open and counted."""
+    from test_site_language_decisions import _post, _published_site, _waiting
+    from test_site_language_versions_api import _url
+
+    client, organization, site_id, _home, offer, _host = _published_site("tl16g-editor-decides")
+
+    def queued(reason: str = "review_mode") -> TranslationReviewItem:
+        return TranslationReviewItem.all_objects.create(
+            organization_id=organization.id,
+            source_key="sites.page",
+            object_id=offer,
+            locale="en",
+            basis="published",
+            basis_version="v1",
+            reason=reason,
+        )
+
+    def waiting() -> int:
+        return client.get("/api/v1/translation/review/").json()["count"]
+
+    # Accepted in the editor.
+    row = _waiting(offer)
+    item = queued()
+    # Whether the original should come down too is another question: it stays.
+    withdrawal = queued("source_withdrawn")
+    assert waiting() == 2
+    accepted = _post(
+        client,
+        _url(offer, "en", "accept/"),
+        {"expected_body_version": row.body_version},
+        key="editor-accept",
+    )
+    assert accepted.status_code == 200, accepted.data
+    item.refresh_from_db()
+    assert (item.state, item.version, item.texts) == (ReviewState.SUPERSEDED, 2, {})
+    withdrawal.refresh_from_db()
+    assert withdrawal.state == ReviewState.OPEN
+    assert waiting() == 1
+    # A decision still sent on the closed item is told so, not half-applied.
+    stale = client.post(
+        "/api/v1/translation/review/accept/",
+        {"items": [{"id": str(item.id), "version": 1}]},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="stale-accept",
+    )
+    assert (stale.status_code, stale.json()["code"]) == (409, "translation_review_changed")
+
+    # Rejected in the editor.
+    row = _waiting(offer)
+    item = queued()
+    rejected = _post(
+        client,
+        _url(offer, "en", "reject/"),
+        {"expected_body_version": row.body_version},
+        key="editor-reject",
+    )
+    assert rejected.status_code == 200, rejected.data
+    item.refresh_from_db()
+    assert item.state == ReviewState.SUPERSEDED
+

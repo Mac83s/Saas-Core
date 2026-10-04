@@ -9,6 +9,7 @@ class TranslationConfig(AppConfig):
 
     def ready(self) -> None:
         from saas_core.content_protocol.registry import (
+            register_review_closer,
             register_review_reader,
             register_source_change_listener,
             register_translation_policy,
@@ -25,9 +26,11 @@ class TranslationConfig(AppConfig):
         register_translation_policy(ENGINE_POLICY)
         register_source_change_listener(on_source_change)
         # A module's own list offers the decision where the result stands (TL16g).
-        from .review import waiting_reviews
+        from .review import close_decided_elsewhere, waiting_reviews
 
         register_review_reader(waiting_reviews)
+        # …and a decision taken in a source's own editor closes the queue's item.
+        register_review_closer(close_decided_elsewhere)
         # The registry checks the profile's settingsDefaults for these keys at
         # start, and organizations.E101 any other translation.* key.
         register_setting_area(LANGUAGES_AREA)

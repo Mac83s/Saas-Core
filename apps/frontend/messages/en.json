@@ -2471,7 +2471,7 @@
       },
       "translations": {
         "title": "Translations",
-        "description": "Every page and every article in the site's other languages: what is translated, what waits for a decision and what is missing."
+        "description": "Pages, articles, the header and footer, the card and the services in the site's other languages: what is translated, what waits for a decision and what is missing."
       },
       "publication": {
         "title": "Publishing",

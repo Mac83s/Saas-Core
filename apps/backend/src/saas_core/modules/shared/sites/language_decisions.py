@@ -24,6 +24,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
+from saas_core.content_protocol import registry
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import current_tenant_context
@@ -57,6 +58,7 @@ from .services import (
     _idempotency_key,
     assert_person_required,
 )
+from .source_changes import PAGE_SOURCE_KEY
 
 LOCALE_ACCEPTED = "sites.page.locale_accepted"
 LOCALE_REJECTED = "sites.page.locale_rejected"
@@ -182,6 +184,8 @@ def accept_locale_versions(
         ):
             _lock_slug(translation)
         _audit(context, LOCALE_ACCEPTED, page, translation, publication)
+        if not review:
+            _decided_here(context, page, translation)
     return [
         LanguageDecision(decision.page, decision.translation, publication, decision.skipped)
         for decision in decisions
@@ -225,6 +229,8 @@ def reject_locale_version(
         updated_at=timezone.now(),
     )
     _audit(context, LOCALE_REJECTED, page, translation, None)
+    if not review:
+        _decided_here(context, page, translation)
     return LanguageDecision(page, translation, None)
 
 
@@ -293,6 +299,17 @@ def withdraw_locale_version(
     )
     _audit(context, LOCALE_WITHDRAWN, page, translation, publication)
     return LanguageDecision(page, translation, publication)
+
+
+def _decided_here(context: Any, page: Page, translation: PageTranslation) -> None:
+    """The waiting version was decided in the page's own editor, not through
+    the translation review: what the review's queue holds for it is moot."""
+    registry.review_decided(
+        context=context,
+        source_key=PAGE_SOURCE_KEY,
+        object_id=page.id,
+        locale=translation.locale,
+    )
 
 
 def _person(permission: str, gate: str = PERSON_GATE) -> Any:

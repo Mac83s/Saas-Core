@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from django.db.models import F
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import APIException, NotFound
@@ -111,6 +112,28 @@ def waiting_reviews(context: ContentContext) -> dict[tuple[str, UUID, str], Wait
         )
         for row in rows.order_by("created_at", "id")
     }
+
+
+def close_decided_elsewhere(
+    context: ContentContext, source_key: str, object_id: UUID, locale: str
+) -> None:
+    """The registry's review closer: a person decided what waited for this
+    pair in its source's own editor, so the queue's item is moot — left open
+    it could be neither accepted nor discarded (the source has nothing
+    pending any more) and would count in „Do akceptacji” for good. The
+    question whether to take a translation down is not that decision."""
+    TranslationReviewItem.all_objects.filter(
+        organization_id=context.organization_id,
+        source_key=source_key,
+        object_id=object_id,
+        locale=locale,
+        state=ReviewState.OPEN,
+    ).exclude(reason=SOURCE_WITHDRAWN).update(
+        state=ReviewState.SUPERSEDED,
+        texts={},
+        version=F("version") + 1,
+        updated_at=timezone.now(),
+    )
 
 
 def list_review(

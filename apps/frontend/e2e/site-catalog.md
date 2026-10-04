@@ -197,3 +197,27 @@ Bez `SITE_TRANSLATION_E2E=1` test jest pomijany. Konto
 `site-catalog-run.sh` plus wpis na listę atrapy (`translation_e2e_fixture on`,
 operator `operator@saas.test` albo `SITE_TRANSLATION_OPERATOR`) i miesięczna
 pula 50 kredytów, z której zlecenie blokuje swój koszt. Trwa ok. 20 s.
+
+## Test centrum tłumaczeń (`translation-centre.spec.ts`)
+
+Prowadzi „Strona internetowa → Tłumaczenia” od zlecenia do decyzji (TL16g), z tą
+samą atrapą i tym samym kontem pomocniczym (`site-translation-run.sh`): firma
+włącza niemiecki i tryb „po akceptacji”, publikuje polską witrynę z jedną stroną
+i wypełnia wizytówkę; w przeglądzie widzi stronę, a pod „Rodzaj: Nagłówek i
+stopka, wizytówka, usługi” — wizytówkę; „Przetłumacz brakujące i nieaktualne
+(AI)” zleca obie naraz, okno podaje znaki i koszt i prowadzi zlecenie do
+„Tłumaczenie gotowe”; propozycję wizytówki osoba czyta obok źródła i akceptuje
+z komórki przeglądu (wizytówka ma potem teksty atrapy), wersję strony odrzuca w
+„Do akceptacji” (filtr powodu pyta serwer, `/de/` nie odpowiada 200), zleca ją
+jeszcze raz z wiersza, akceptuje w „Do akceptacji” — `/de/` odpowiada po
+niemiecku, a komórka prowadzi „Otwórz na stronie” pod `/de/`; „Zadania” pokazują
+oba zlecenia, „Wstrzymane” jest puste; włączenie automatu zmian w „Języki i
+tłumaczenia” zapisuje zgodę osoby. Zero błędów JS w panelu.
+
+```bash
+cd apps/frontend
+SITE_TRANSLATION_E2E=1 pnpm test:e2e e2e/translation-centre.spec.ts --output <katalog>
+```
+
+Bez `SITE_TRANSLATION_E2E=1` test jest pomijany. Konto
+`w6-e2e-centre-<losowe>@example.test`; trwa ok. 25 s.

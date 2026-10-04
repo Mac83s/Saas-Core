@@ -71,6 +71,7 @@ _sources: dict[str, TranslationSource] = {}
 _policy: list[TranslationPolicyProvider] = []
 _listeners: list[Callable[[SourceChangeNotice], None]] = []
 _review_readers: list[Callable[[ContentContext], WaitingReviews]] = []
+_review_closers: list[Callable[[ContentContext, str, UUID, str], None]] = []
 
 
 def register_translation_source(source: TranslationSource, *, _testing: bool = False) -> None:
@@ -192,6 +193,24 @@ def waiting_reviews(context: ContentContext) -> dict[tuple[str, UUID, str], Wait
     for reader in _review_readers:
         found.update(reader(context))
     return found
+
+
+def register_review_closer(closer: Callable[[ContentContext, str, UUID, str], None]) -> None:
+    """The engine, once: how it learns that a person decided a waiting result
+    in the module's own editor, past the review queue."""
+    if closer not in _review_closers:
+        _review_closers.append(closer)
+
+
+def review_decided(
+    *, context: ContentContext, source_key: str, object_id: UUID, locale: str
+) -> None:
+    """A module's own decision on what waited for (object, language) — its
+    editor's „Zaakceptuj” or „Odrzuć” — in the transaction that made it: the
+    queue's item for the pair is moot and must not wait on. Nothing without
+    the engine."""
+    for closer in _review_closers:
+        closer(context, source_key, object_id, locale)
 
 
 def notify_source_changed(
