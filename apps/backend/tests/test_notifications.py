@@ -421,3 +421,104 @@ def test_reading_preferences_saves_nothing_and_follows_the_account_language() ->
         upsert_preferences(locale="pl", marketing_enabled=True)
         again = get_preferences()
     assert (again.locale, again.marketing_enabled) == ("pl", True)
+
+
+def _queue_to(member: Membership, monkeypatch: pytest.MonkeyPatch, address: str, key: str):
+    monkeypatch.setattr(
+        "saas_core.modules.shared.notifications.tasks.deliver_email_task.delay",
+        lambda *_args: None,
+    )
+    with tenant(member):
+        message, _ = queue_email(
+            recipient_email=address,
+            template_key="system.activity",
+            template_version=1,
+            locale="pl",
+            template_context={"display_name": "Jan", "message": "Zmiana konta"},
+            idempotency_key=key,
+            causation_id="test-hold",
+        )
+    return message
+
+
+@pytest.mark.parametrize(
+    ("address", "held"),
+    [
+        ("x@firma.test", True),
+        ("X@FIRMA.TEST", True),
+        ("x@a.b.example", True),
+        ("x@host.invalid", True),
+        ("x@box.localhost", True),
+        ("x@example.com", True),
+        ("x@EXAMPLE.Org", True),
+        ("x@mail.example.net", True),
+        ("x@testing.pl", False),
+        ("x@mytest.com", False),
+        ("x@test.pl", False),
+        ("x@notexample.com", False),
+        ("not-an-address", False),
+        ("x@", False),
+        ("", False),
+    ],
+)
+def test_reserved_address_table(address: str, held: bool) -> None:
+    from saas_core.mail_hold import is_reserved_address
+
+    assert is_reserved_address(address) is held
+
+
+def test_hold_on_suppresses_reserved_recipient_without_provider_or_suppression_row(
+    monkeypatch: pytest.MonkeyPatch, settings: Any, mailoutbox: list[Any]
+) -> None:
+    settings.EMAIL_HOLD_RESERVED_DOMAINS = True
+    member = membership(slug="hold-on")
+    message = _queue_to(member, monkeypatch, "x@firma.test", "hold-1")
+    provider = FakeEmailProvider()
+    with tenant(member):
+        delivered = deliver_email(message.id, provider=provider)
+        assert delivered.status == DeliveryStatus.SUPPRESSED
+        assert delivered.last_error_code == "reserved_domain"
+        assert not EmailSuppression.all_objects.exists()
+    assert provider.calls == 0
+    assert mailoutbox == []
+
+
+def test_hold_on_still_sends_to_an_ordinary_domain(
+    monkeypatch: pytest.MonkeyPatch, settings: Any
+) -> None:
+    settings.EMAIL_HOLD_RESERVED_DOMAINS = True
+    member = membership(slug="hold-ordinary")
+    message = _queue_to(member, monkeypatch, "x@firma.pl", "hold-2")
+    with tenant(member):
+        assert deliver_email(message.id, provider=FakeEmailProvider()).status == (
+            DeliveryStatus.SENT
+        )
+
+
+def test_hold_off_sends_to_a_test_address_as_before(
+    monkeypatch: pytest.MonkeyPatch, settings: Any
+) -> None:
+    settings.EMAIL_HOLD_RESERVED_DOMAINS = False
+    member = membership(slug="hold-off")
+    message = _queue_to(member, monkeypatch, "x@firma.test", "hold-3")
+    with tenant(member):
+        assert deliver_email(message.id, provider=FakeEmailProvider()).status == (
+            DeliveryStatus.SENT
+        )
+
+
+def test_core_senders_skip_a_reserved_address_and_send_an_ordinary_one(
+    settings: Any, mailoutbox: list[Any]
+) -> None:
+    from saas_core.modules.core.identity.email import DjangoVerificationEmailSender
+    from saas_core.modules.core.organizations.email import DjangoInvitationEmailSender
+
+    settings.EMAIL_HOLD_RESERVED_DOMAINS = True
+    verify = DjangoVerificationEmailSender()
+    invite = DjangoInvitationEmailSender()
+    verify.send(email="a@firma.test", locale="pl", token="t")
+    invite.send(email="a@firma.test", locale="pl", organization_name="F", role_name="r", token="t")
+    assert mailoutbox == []
+    verify.send(email="a@firma.pl", locale="pl", token="t")
+    invite.send(email="b@firma.pl", locale="pl", organization_name="F", role_name="r", token="t")
+    assert [m.to for m in mailoutbox] == [["a@firma.pl"], ["b@firma.pl"]]

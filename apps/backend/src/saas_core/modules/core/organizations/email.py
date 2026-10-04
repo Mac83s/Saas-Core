@@ -6,6 +6,8 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.core.mail import send_mail
 
+from saas_core.mail_hold import holds_address
+
 
 class InvitationEmailDeliveryError(RuntimeError):
     pass
@@ -50,6 +52,8 @@ class DjangoInvitationEmailSender:
                 f"Otrzymujesz zaproszenie do {organization_name} z rolą {role_name}.\n\n"
                 f"Przyjmij zaproszenie:\n{link}\n"
             )
+        if holds_address(email):
+            return
         try:
             delivered = send_mail(
                 subject,

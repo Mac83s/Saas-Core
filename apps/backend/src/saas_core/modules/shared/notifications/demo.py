@@ -3,9 +3,10 @@ messages a run queued.
 
 The seed sends what the product sends — a booking's confirmation, a transfer's
 details, a refund's notice — because it goes through the same services. Every
-address is in `.test`, so nothing reaches anybody; on a developer's machine the
-messages land in Mailpit. The scenarios keep the number small (customers of the
-past have a phone and no e-mail), and the run says the number, per company.
+address is in `.test`, and `EMAIL_HOLD_RESERVED_DOMAINS` (default on) stops mail
+to reserved domains before any provider, so nothing leaves the host; a developer's
+stack sets it off and the messages land in Mailpit.
+The scenarios keep the number small (customers of the past have a phone and no e-mail), and the run says the number, per company.
 """
 
 from __future__ import annotations

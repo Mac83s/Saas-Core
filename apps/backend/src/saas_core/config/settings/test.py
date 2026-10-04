@@ -35,6 +35,7 @@ MIDDLEWARE = [  # noqa: F405
 ]
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+EMAIL_HOLD_RESERVED_DOMAINS = False
 CELERY_TASK_ALWAYS_EAGER = True
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False

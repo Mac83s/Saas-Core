@@ -6,6 +6,8 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.core.mail import send_mail
 
+from saas_core.mail_hold import holds_address
+
 
 class EmailDeliveryError(RuntimeError):
     """A transient provider failure that Celery may retry."""
@@ -18,8 +20,7 @@ class VerificationEmailSender(Protocol):
 class DjangoVerificationEmailSender:
     def send(self, *, email: str, locale: str, token: str) -> None:
         link = (
-            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/verify-email?"
-            f"{urlencode({'token': token})}"
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/verify-email?{urlencode({'token': token})}"
         )
         if locale == "en":
             subject = "Verify your email address"
@@ -37,8 +38,7 @@ class PasswordResetEmailSender(Protocol):
 class DjangoPasswordResetEmailSender:
     def send(self, *, email: str, locale: str, token: str) -> None:
         link = (
-            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?"
-            f"{urlencode({'token': token})}"
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?{urlencode({'token': token})}"
         )
         if locale == "en":
             subject = "Reset your password"
@@ -118,6 +118,8 @@ def get_operator_mfa_reset_email_sender() -> MfaLockedEmailSender:
 
 
 def _deliver(*, email: str, subject: str, message: str) -> None:
+    if holds_address(email):
+        return
     try:
         delivered = send_mail(
             subject,

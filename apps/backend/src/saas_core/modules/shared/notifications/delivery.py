@@ -10,6 +10,8 @@ from uuid import UUID
 from django.db import transaction
 from django.utils import timezone
 
+from saas_core.mail_hold import holds_address
+
 from .attachments import Attachment, resolve_attachment
 from .customer_mail import customer_sender, with_company_note
 from .metrics import DELIVERY_RESULTS, PROVIDER_STATUSES
@@ -85,9 +87,17 @@ def deliver_email(
                 marketing_enabled=False,
             ).exists()
         )
-        if suppressed or marketing_disabled:
+        # Not a bounce: no EmailSuppression row, the address is simply never sent to.
+        reserved = holds_address(message.recipient_email)
+        if suppressed or marketing_disabled or reserved:
             message.status = DeliveryStatus.SUPPRESSED
-            message.last_error_code = "suppression" if suppressed else "marketing_opt_out"
+            message.last_error_code = (
+                "suppression"
+                if suppressed
+                else "marketing_opt_out"
+                if marketing_disabled
+                else "reserved_domain"
+            )
             message.save(update_fields=["status", "last_error_code", "updated_at"])
             DELIVERY_RESULTS.labels(channel="email", outcome="suppressed").inc()
             return message

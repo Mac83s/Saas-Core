@@ -574,6 +574,12 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = secret_setting("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in {"1", "true", "yes"}
 EMAIL_FILE_PATH = os.environ.get("EMAIL_FILE_PATH")
+# Reserved domains (.test, example.com, ...) never reach the mail provider.
+EMAIL_HOLD_RESERVED_DOMAINS = os.environ.get("EMAIL_HOLD_RESERVED_DOMAINS", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+}
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "SaaS Core <noreply@localhost>")
 NOTIFICATIONS_EMAIL_PROVIDER = os.environ.get(
     "NOTIFICATIONS_EMAIL_PROVIDER",
