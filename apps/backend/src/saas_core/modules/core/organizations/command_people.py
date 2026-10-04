@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import base64
 import re
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -32,8 +32,6 @@ from rest_framework.exceptions import ErrorDetail, ValidationError
 
 from .context import require_tenant_context
 
-#: A handle as it stands in a tool result and in a model's words.
-HANDLE = re.compile(r"(?<![\w:])[a-z]{2,20}:[a-z2-7]{5,32}(?![\w:])")
 _PREFIX = re.compile(r"^[a-z]{2,20}$")
 _SHORTEST = 5
 
@@ -120,9 +118,19 @@ def resolve_person(kind: str, handle: str, *, field: str) -> UUID:
     return found[1]
 
 
-def handles_in(text: str) -> list[str]:
-    """What looks like a handle in a text, in the order it is written."""
-    return list(dict.fromkeys(HANDLE.findall(text)))
+def handles_in(text: str, book: Iterable[str]) -> list[str]:
+    """The handles of a book that a text names, in the order it names them.
+
+    Looked for one by one, not by what a handle looks like: a model writes a
+    colon, a bracket or a comma straight after one („- klient:k7m2q: pasuje
+    nazwisko”), and a card must not depend on its punctuation. A handle
+    followed by more letters or digits is another word."""
+    found = []
+    for handle in book:
+        match = re.search(rf"(?<!\w){re.escape(handle)}(?![A-Za-z0-9])", text)
+        if match is not None:
+            found.append((match.start(), handle))
+    return [handle for _at, handle in sorted(found)]
 
 
 def person_cards(people: Mapping[str, tuple[str, UUID]]) -> dict[str, dict[str, Any]]:

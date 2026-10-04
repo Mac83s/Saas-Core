@@ -825,10 +825,9 @@ def _write_result(
     content = _tool_content(status, code, errors, output)
     # Beside the result, never in it: which record each handle the model now
     # reads stands for. The panel makes the cards from these.
+    book = people or {}
     carried = {
-        handle: [people[handle][0], str(people[handle][1])]
-        for handle in handles_in(content)
-        if people and handle in people
+        handle: [book[handle][0], str(book[handle][1])] for handle in handles_in(content, book)
     }
     append_message(
         turn,

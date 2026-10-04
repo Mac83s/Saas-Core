@@ -418,8 +418,13 @@ def test_the_person_at_the_screen_reads_a_card_where_the_model_wrote_a_handle(ta
     }
     # The model was shown the handle and its own words, never the card.
     assert leaked(wire(len(FAKE.calls) - 1), "") == []
+    # However the model punctuates around it — a colon straight after, as in a
+    # list (found in the browser walk of 04.10: the card was missing).
+    FAKE.script(FakeReply(text=f"Pasuje jedna osoba:\n- {handle}: pasuje nazwisko"))
+    chat.say("Kto pasuje?", key="t2b")
+    assert [card["name"] for card in chat.last()["items"][-1]["people"]] == [ZENOBIA[0]]
     # A handle nobody issued stays plain text: no card can be made up.
-    FAKE.script(FakeReply(text="To klient:aaaaa albo klient:1."))
+    FAKE.script(FakeReply(text=f"To klient:aaaaa albo klient:1, albo {handle}x."))
     chat.say("A inni?", key="t3")
     assert chat.last()["items"][-1].get("people", []) == []
 

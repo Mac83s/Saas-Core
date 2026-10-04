@@ -565,17 +565,15 @@ def _show_people(turns: list[dict[str, Any]], messages: list[AssistantMessage]) 
     stays the text it is."""
     book = people_of(messages)
     texts = [item for turn in turns for item in turn["items"] if item["kind"] == "text"]
-    named = {
-        handle: book[handle]
-        for item in texts
-        for handle in handles_in(item["text"])
-        if handle in book
-    }
-    if not named:
+    if not book:
         return
-    cards = person_cards(named)
+    named = {item["text"]: handles_in(item["text"], book) for item in texts}
+    mentioned = {handle: book[handle] for handles in named.values() for handle in handles}
+    if not mentioned:
+        return
+    cards = person_cards(mentioned)
     for item in texts:
-        people = [cards[handle] for handle in handles_in(item["text"]) if handle in cards]
+        people = [cards[handle] for handle in named[item["text"]]]
         if people:
             item["people"] = people
 
