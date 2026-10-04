@@ -2510,7 +2510,7 @@
       "onSite": "on the site",
       "notOnSite": "not on the site yet",
       "translateAll": "Translate missing and outdated (AI)",
-      "nothingToTranslate": "Every page is translated.",
+      "nothingToTranslate": "Every page and article is translated.",
       "entryHint": "To translate an article by hand, use its “Language versions” card in the blog.",
       "oneLanguage": "This site has one language for now.",
       "addLanguage": "Add a language in Settings › Languages and translations",
@@ -5406,7 +5406,11 @@
         "finishedMeanwhile": "This job has already ended.",
         "alreadyReverted": "This job was already taken back.",
         "forbidden": "This decision belongs to a person who may order translations — in person, not the assistant.",
-        "failed": "It did not work. Try again."
+        "failed": "It did not work. Try again.",
+        "creditsLineAutomatic": "settled {settled, plural, one {# credit} other {# credits}} · held now {held} · at most {quoted}",
+        "carryHint": "The automation pays for whole thousands of characters. Characters that have not yet made up a thousand carry over to the next job — so a short change may cost 0 credits and is settled together with the following ones.",
+        "notLatest": "Only the latest job that wrote something can be taken back — another one came after this job.",
+        "stillRunning": "This job is still running. Stop it first."
       }
     },
     "unavailable": {
@@ -5459,6 +5463,153 @@
         "partial": "The translation is partly ready — some fragments need your attention.",
         "failed": "The translation failed. Credits for what was not delivered are returned.",
         "canceled": "The translation was cancelled."
+      }
+    },
+    "settings": {
+      "title": "AI translations",
+      "description": "Whether translations go out at once or wait for you, whether changes to published content translate themselves, and how many credits a month that may use.",
+      "loading": "Loading the translation settings…",
+      "loadError": "The translation settings could not be loaded.",
+      "retry": "Try again",
+      "readOnly": "An administrator or the owner of the company changes these settings.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "The translation settings were saved.",
+      "saveError": "The translation settings could not be saved. Try again.",
+      "conflict": "Somebody changed these settings meanwhile — these are the current ones. Make your change again.",
+      "forbidden": "This is the decision of a person who may manage translation settings — in person, not the assistant or an integration.",
+      "restore": "Restore the default",
+      "source": {
+        "code": "Default",
+        "platform": "Platform default",
+        "product": "Product default",
+        "organization": "Set for the company",
+        "operator": "Set by the platform operator",
+        "default": "Goes back to the default when saved"
+      },
+      "modeHelp": {
+        "automatic": "A finished translation goes onto the site at once.",
+        "review": "A finished translation waits in “Translations › To approve” until somebody approves it."
+      },
+      "legalNote": "Legal documents always wait for approval.",
+      "lock": {
+        "operator_forced_review": "Every translation waits for approval now — the platform operator decided so.",
+        "kill_switch": "AI translations are switched off on the whole platform now.",
+        "processor_not_listed": "AI translations are off until the platform chooses a translation provider.",
+        "organization_paused": "The platform operator paused AI translations for this company.",
+        "other": "The platform operator decides this value now."
+      },
+      "operatorReason": "Reason: {reason}",
+      "automation": {
+        "on": "Automatic translation of changes is on. It acts on your behalf.",
+        "off": "Automatic translation of changes is off.",
+        "confirmed": "Confirmed. The automation acts on your behalf now.",
+        "consent": "Acts on behalf of: {name} — consent of {date}.",
+        "consentLost": "The automation is stopped: {name} can no longer manage translations in this company. Confirm it again and it will act on your behalf.",
+        "somebody": "the person who turned it on",
+        "confirmAgain": "Confirm again"
+      },
+      "limit": {
+        "unit": "credits a month",
+        "invalid": "Enter a whole number from 0 to 100,000.",
+        "capped": "The platform operator capped the limit — {limit} applies now."
+      },
+      "usage": {
+        "line": "This month the automation has used {used} of {limit, plural, one {# credit} other {# credits}}.",
+        "resets": "The count starts anew on {date}.",
+        "exhausted": "The limit is used up: changes wait and translate themselves after {date}, or once you raise the limit."
+      },
+      "processing": {
+        "title": "Content processing by AI providers",
+        "why": "Before your first translation, confirm once that you know where the content goes. AI translations do not start without it.",
+        "statement": "I confirm that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area.",
+        "confirm": "Confirm",
+        "saved": "The confirmation was saved. You can order AI translations.",
+        "done": "On {date} the company confirmed that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area."
+      },
+      "consentDialog": {
+        "title": "Turn on automatic translation of changes?",
+        "titleAgain": "Confirm the automation on your own behalf?",
+        "what": "Whenever published content changes, its translations refresh themselves, without asking.",
+        "price": "Price: {credits, plural, one {# credit} other {# credits}} for {characters} characters of text in one language.",
+        "priceUnknown": "The platform has not set the price of translations yet — the automation does not start until it does.",
+        "platformPays": "The platform covers the cost.",
+        "limit": "Limit: at most {limit, plural, one {# credit} other {# credits}} a month.",
+        "limitZero": "The limit is 0 now — the automation starts only once you raise it.",
+        "asYou": "This is your consent: the automation acts on your behalf and with your permissions until somebody turns it off.",
+        "confirm": "Turn on and consent",
+        "confirmAgain": "I confirm"
+      },
+      "glossary": {
+        "title": "Glossary",
+        "description": "Names and phrases the translations keep as they are or render your way — a brand, a surname, the name of a service. It applies to every AI translation.",
+        "caption": "Glossary terms",
+        "empty": "The glossary is empty. Add the names a translation should not change.",
+        "add": "Add a term",
+        "addTitle": "New term",
+        "editTitle": "Edit the term",
+        "dialogDescription": "A term is a short phrase on one line — as it stands in the text.",
+        "colTerm": "Term",
+        "colRule": "What a translation does",
+        "colLanguages": "Languages",
+        "colActions": "Actions",
+        "actionsFor": "Actions for the term {term}",
+        "edit": "Edit: {term}",
+        "remove": "Remove: {term}",
+        "formsLine": "Forms: {forms}",
+        "languagePair": "{source} → {target}",
+        "languageAll": "{source} → every language",
+        "ruleLine": {
+          "keep": "Keeps it unchanged",
+          "name": "A person’s name: unchanged, written phonetically in Cyrillic",
+          "translate_as": "Translates it as “{translation}”"
+        },
+        "rules": {
+          "keep": "Keep unchanged",
+          "name": "A person’s name",
+          "translate_as": "Translate as…"
+        },
+        "ruleHelp": {
+          "keep": "A brand or a proper name: it stays exactly the same in every language.",
+          "name": "A person’s first name or surname: unchanged in the Latin alphabet, written phonetically in Cyrillic.",
+          "translate_as": "Your own translation of this phrase."
+        },
+        "fieldTerm": "Term",
+        "fieldTermHelp": "At most 120 characters, one line.",
+        "fieldRule": "What a translation should do",
+        "fieldTranslation": "Translation",
+        "fieldSource": "The language the term stands in",
+        "fieldTarget": "Applies to translations into",
+        "everyLanguage": "Every language",
+        "fieldForms": "Forms of the term",
+        "fieldFormsHelp": "Forms the term takes in the text (inflected or plural) — one per line, at most 10.",
+        "save": "Save the term",
+        "saved": "The term “{term}” was saved.",
+        "added": "The term “{term}” was added.",
+        "removed": "The term “{term}” was removed.",
+        "removeTitle": "Remove the term “{term}”?",
+        "removeDescription": "Further translations stop taking it into account. Translations already made stay as they are.",
+        "removeConfirm": "Remove the term",
+        "loadError": "The glossary could not be loaded.",
+        "retry": "Try again",
+        "loadMore": "Load more",
+        "saveError": "The term could not be saved. Try again.",
+        "removeError": "The term could not be removed. Try again.",
+        "conflict": "Somebody changed this term meanwhile — the list was refreshed. Open it again.",
+        "forbidden": "An administrator or the owner of the company changes the glossary.",
+        "errors": {
+          "glossary_term_exists": "This term is already in the glossary for these languages.",
+          "glossary_limit_reached": "The glossary already has the most terms it can ({limit}). Remove one to add another.",
+          "glossary_term_empty": "Enter the term.",
+          "glossary_term_too_long": "At most 120 characters.",
+          "glossary_term_forbidden_characters": "A term is one line with no control characters or markers.",
+          "glossary_translation_required": "Enter the translation of the term.",
+          "glossary_too_many_forms": "Enter at most 10 forms.",
+          "locale_not_in_registry": "The platform does not have this language.",
+          "same_as_source": "Choose a language other than the one the term stands in.",
+          "not_for_rule": "A translation is given only for the rule “Translate as…”.",
+          "other": "Invalid value."
+        }
       }
     }
   },

@@ -31,6 +31,7 @@ from saas_core.modules.shared.translation.automation import (
     CREDITS_EXHAUSTED,
     MONTHLY_LIMIT,
     _next_month,
+    automatic_credits_this_month,
     start_due_demand,
 )
 from saas_core.modules.shared.translation.demand import reconcile_demand
@@ -47,6 +48,7 @@ from saas_core.testing.clock import never_backwards
 from saas_core.testing.translation_sources import FakeSourceDriver
 from test_booking import tenant
 from test_model_port import fake_models  # noqa: F401 — the port's fake models
+from test_tenant_context import authenticated_client
 from test_translation_jobs import (
     SOURCE,
     JobSource,
@@ -162,6 +164,40 @@ def test_the_automation_pays_whole_thousands_and_carries_the_rest(source: JobSou
     assert (entry.amount, entry.operation_quantity) == (-2, 1)
     settings_row.refresh_from_db()
     assert settings_row.auto_carry_characters == 1_198 - 1_000
+
+
+def test_the_settings_say_what_the_automation_spent_this_month(source: JobSource) -> None:
+    """TL16e: the panel's „zużyto n z limitu” is the count the limit is held to."""
+    owner = automated("tl16e-usage", limit=50)
+    source.live_locales.add("de")
+    client = authenticated_client(owner)
+
+    def read() -> dict[str, Any]:
+        answer = client.get("/api/v1/translation/settings/").json()["automation"]
+        return dict(answer)
+
+    assert (read()["month_credits"], read()["consent_name"]) == (0, owner.user.email)
+    # 1,599 characters without a click: one thousand billed, the rest carried.
+    due(owner, page(source, "Strzyżenie psów " * 100))
+    job = run(TranslationJob.all_objects.get(pk=start_due_demand(owner.organization_id)))
+    # The part held two thousands and paid for one: its credits are what it
+    # paid, not what it held.
+    (part,) = job.parts.all()
+    assert (part.units, part.settled_units, part.settled_credits) == (2, 1, 2)
+    # A clicked order is not the automation's month.
+    run(order(owner, [page(source, "Beta")]))
+    now = timezone.now()
+    answer = read()
+    assert answer["month_credits"] == automatic_credits_this_month(owner.organization_id, now) == 2
+    assert datetime.fromisoformat(answer["month_resets_at"]) == _next_month(now)
+    # The change's own answer carries it too: the panel redraws from it.
+    saved = client.patch(
+        "/api/v1/translation/settings/",
+        {"auto_monthly_limit": 10, "expected_version": 2},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="tl16e-usage-limit",
+    )
+    assert saved.status_code == 200 and saved.json()["automation"]["month_credits"] == 2
 
 
 def test_a_job_created_just_before_the_clock_steps_back_still_runs(

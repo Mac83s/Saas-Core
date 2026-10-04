@@ -7300,7 +7300,7 @@ export interface paths {
         put?: never;
         /**
          * Take back a translation job
-         * @description Returns every source the job wrote to its texts from before it, through one derived publication each. Credits are not returned. A person's decision: 403 `person_required` otherwise.
+         * @description Returns every source the job wrote to its texts from before it, through one derived publication each. Credits are not returned. Only the newest job that wrote anything, once it has ended (`revertable` in the job's detail): 400 with `job_running`, `not_latest_job` or `already_reverted` on `job_id` otherwise. A person's decision: 403 `person_required` otherwise.
          */
         post: operations["translation_job_revert"];
         delete?: never;
@@ -7448,7 +7448,7 @@ export interface paths {
         head?: never;
         /**
          * Change the company's translation settings
-         * @description Changes the publication mode, the automation and its monthly limit. An absent or null field stays as it is; `reset` takes keys back to the inherited value. Turning the automation on, and acknowledging processing, is the consent of the person sending it and is refused to API keys and to the assistant on its own. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `translation_idempotency_conflict`. `expected_version` is the version the change was made on; another one is 409 `translation_version_conflict`.
+         * @description Changes the publication mode, the automation and its monthly limit. An absent or null field stays as it is; `reset` takes keys back to the inherited value. Turning the automation on, and acknowledging processing, is the consent of the person sending it and is refused to API keys and to the assistant on its own; `auto_changes: true` sent while the automation runs on another person's consent makes the sender that person. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `translation_idempotency_conflict`. `expected_version` is the version the change was made on; another one is 409 `translation_version_conflict`.
          */
         patch: operations["translation_settings_update"];
         trace?: never;
@@ -8141,15 +8141,6 @@ export interface components {
          * @enum {string}
          */
         AutomationPolicyEnum: "manual" | "proposed" | "automated";
-        AutomationState: {
-            /**
-             * Format: uuid
-             * @description The person whose consent the automation acts on.
-             */
-            consent_membership_id: string | null;
-            /** Format: date-time */
-            consent_at: string | null;
-        };
         AwayInterval: {
             /** Format: date-time */
             starts_at: string;
@@ -12918,7 +12909,7 @@ export interface components {
              *     * `review` - review
              */
             mode?: components["schemas"]["TranslationModeEnum"] | components["schemas"]["NullEnum"];
-            /** @description Translate changes automatically. Turning it on is your consent: the automation will act as you. */
+            /** @description Translate changes automatically. Turning it on is your consent: the automation will act as you. True sent again by another person confirms it as them. */
             auto_changes?: boolean | null;
             /** @description Credits a month translations without a click may spend; 0 turns it off. */
             auto_monthly_limit?: number | null;
@@ -15199,6 +15190,26 @@ export interface components {
             value: string;
             label: components["schemas"]["LocalizedText"];
         };
+        SettingsAutomation: {
+            /**
+             * Format: uuid
+             * @description The person whose consent the automation acts on.
+             */
+            consent_membership_id: string | null;
+            /** Format: date-time */
+            consent_at: string | null;
+            /** @description That person as the team sees them: the name, or the e-mail when no name is set. Null without a consent, and when the person is no longer in the company. */
+            consent_name: string | null;
+            /** @description That person is still active here and may still manage translations, so the automation can run as them. False while it is on stops it (`consent_lost`) until somebody sends `auto_changes: true` again. */
+            consent_holds: boolean;
+            /** @description Credits the automation spent or holds this month; the monthly limit is measured against it. */
+            month_credits: number;
+            /**
+             * Format: date-time
+             * @description When the month's count starts anew.
+             */
+            month_resets_at: string;
+        };
         SettingsGroupSchema: {
             /** @description The group, e.g. booking.reminders. */
             key: string;
@@ -16398,7 +16409,7 @@ export interface components {
             values: {
                 [key: string]: components["schemas"]["SettingValue"];
             };
-            automation: components["schemas"]["AutomationState"];
+            automation: components["schemas"]["SettingsAutomation"];
             /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA. */
             processing_acknowledged: boolean;
             /** Format: date-time */
@@ -16412,7 +16423,7 @@ export interface components {
             values: {
                 [key: string]: components["schemas"]["SettingValue"];
             };
-            automation: components["schemas"]["AutomationState"];
+            automation: components["schemas"]["SettingsAutomation"];
             /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA. */
             processing_acknowledged: boolean;
             /** Format: date-time */
@@ -16430,7 +16441,7 @@ export interface components {
              *     * `review` - review
              */
             mode?: components["schemas"]["TranslationModeEnum"] | components["schemas"]["NullEnum"];
-            /** @description Translate changes automatically. Turning it on is your consent: the automation will act as you. */
+            /** @description Translate changes automatically. Turning it on is your consent: the automation will act as you. True sent again by another person confirms it as them. */
             auto_changes?: boolean | null;
             /** @description Credits a month translations without a click may spend; 0 turns it off. */
             auto_monthly_limit?: number | null;

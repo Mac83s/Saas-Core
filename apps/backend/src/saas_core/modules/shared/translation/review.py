@@ -435,7 +435,9 @@ def job_detail(job_id: UUID, *, labels: bool = False) -> dict[str, Any]:
 
 def revert_job(*, job_id: UUID, idempotency_key: str) -> Saved[TranslationJob]:
     """„Cofnij ostatnie zadanie”: every source the job wrote returns to its texts
-    from before it, through its own derived publication."""
+    from before it, through its own derived publication. Only the newest job
+    that wrote anything, once it has ended (`_revertable`); an older one is the
+    operator's to take back, with a reason (`translation_revert_job`)."""
     context = authorize(TRANSLATION_REQUEST)
     assert_person_required(context, JOB_REVERT)
     organization = Organization.objects.get(pk=context.organization_id)
@@ -444,6 +446,10 @@ def revert_job(*, job_id: UUID, idempotency_key: str) -> Saved[TranslationJob]:
         job = _job(organization, job_id, lock=True)
         if job.reverted_at is not None:
             raise field_errors({"job_id": "already_reverted"})
+        if job.state not in JOB_TERMINAL:
+            raise field_errors({"job_id": "job_running"})
+        if not _revertable(job):
+            raise field_errors({"job_id": "not_latest_job"})
         sources = sorted(
             set(
                 TranslationJobItem.all_objects.filter(job=job, state=ItemState.WRITTEN).values_list(

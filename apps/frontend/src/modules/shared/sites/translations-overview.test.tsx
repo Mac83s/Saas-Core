@@ -440,7 +440,8 @@ function action(onDone = vi.fn()) {
   );
 }
 
-test("the page's action gathers every page's missing languages across the server's pages", async () => {
+test("the page's action gathers every page's and article's missing languages across the server's pages", async () => {
+  const ENTRY = "0199f0a0-0000-7000-8000-0000000000e2";
   api.getSiteTranslationOverview
     .mockResolvedValueOnce({ ...PAGES, next_cursor: CONTACT })
     .mockResolvedValueOnce({
@@ -450,6 +451,21 @@ test("the page's action gathers every page's missing languages across the server
           cell("en", "outdated"),
           cell("de", "complete"),
         ]),
+      ],
+      next_cursor: null,
+    })
+    // Then the articles: only a missing version is ordered, by the entry
+    // in the site's own language.
+    .mockResolvedValueOnce({
+      locales: ["en", "de"],
+      items: [
+        {
+          kind: "entry",
+          id: "0199f0a0-0000-7000-8000-0000000000e1",
+          source_id: ENTRY,
+          title: "Jak dbać o włosy zimą",
+          cells: [cell("en", "draft"), cell("de", "missing")],
+        },
       ],
       next_cursor: null,
     });
@@ -478,12 +494,17 @@ test("the page's action gathers every page's missing languages across the server
     `${CONTACT}:en`,
     `${CONTACT}:de`,
     "0199f0a0-0000-7000-8000-0000000000a3:en",
+    `${ENTRY}:de`,
   ]);
-  expect(api.getSiteTranslationOverview).toHaveBeenLastCalledWith(SITE, {
-    kind: "page",
-    limit: 100,
-    cursor: CONTACT,
-  });
+  expect(
+    api.quoteTranslation.mock.calls[0]![0].map(
+      (target: { source_key: string }) => target.source_key,
+    ),
+  ).toEqual(["sites.page", "sites.page", "sites.page", "sites.entry"]);
+  expect(api.getSiteTranslationOverview.mock.calls.slice(-2)).toEqual([
+    [SITE, { kind: "page", limit: 100, cursor: CONTACT }],
+    [SITE, { kind: "entry", limit: 100 }],
+  ]);
 });
 
 test("the page's action says when nothing is left, and is absent without an engine", async () => {
@@ -499,7 +520,7 @@ test("the page's action says when nothing is left, and is absent without an engi
     }),
   );
   expect(
-    await screen.findByText("Wszystkie podstrony są przetłumaczone."),
+    await screen.findByText("Wszystkie podstrony i wpisy są przetłumaczone."),
   ).toBeTruthy();
   expect(screen.queryByRole("dialog")).toBeNull();
   first.unmount();

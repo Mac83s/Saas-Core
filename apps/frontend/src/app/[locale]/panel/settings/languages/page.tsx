@@ -10,6 +10,7 @@ import {
   SettingsSearch,
 } from "../../../../../modules/core/organizations";
 import { SearchVisibility } from "../../../../../modules/shared/sites";
+import { TranslationSettingsSection } from "../../../../../modules/shared/translation/translation-settings";
 
 export default async function LanguagesSettingsPage() {
   const [t, languages, organization] = await Promise.all([
@@ -24,6 +25,18 @@ export default async function LanguagesSettingsPage() {
   ) {
     return (
       <LanguagesPanel>
+        {/* How translations are made, where the engine is composed (TL16e). */}
+        {allows(access, {
+          module: "shared.translation",
+          permission: "translation.request",
+        }) ? (
+          <TranslationSettingsSection
+            canManage={allows(access, {
+              module: "shared.translation",
+              permission: "translation.manage",
+            })}
+          />
+        ) : null}
         {/* The sites' own section, for whoever may see the sites (TL19). */}
         {allows(access, {
           module: "shared.sites",

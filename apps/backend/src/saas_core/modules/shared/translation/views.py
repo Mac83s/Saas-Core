@@ -153,7 +153,9 @@ class TranslationSettingsView(APIView):
         description="Changes the publication mode, the automation and its monthly limit. An "
         "absent or null field stays as it is; `reset` takes keys back to the inherited value. "
         "Turning the automation on, and acknowledging processing, is the consent of the person "
-        "sending it and is refused to API keys and to the assistant on its own." + _WRITE_NOTE,
+        "sending it and is refused to API keys and to the assistant on its own; "
+        "`auto_changes: true` sent while the automation runs on another person's consent makes "
+        "the sender that person." + _WRITE_NOTE,
         tags=["translation"],
         parameters=[IDEMPOTENCY],
         request=TranslationSettingsUpdateSerializer,
@@ -585,8 +587,10 @@ class JobRevertView(APIView):
         operation_id="translation_job_revert",
         summary="Take back a translation job",
         description="Returns every source the job wrote to its texts from before it, through "
-        "one derived publication each. Credits are not returned. A person's decision: 403 "
-        "`person_required` otherwise.",
+        "one derived publication each. Credits are not returned. Only the newest job that "
+        "wrote anything, once it has ended (`revertable` in the job's detail): 400 with "
+        "`job_running`, `not_latest_job` or `already_reverted` on `job_id` otherwise. A "
+        "person's decision: 403 `person_required` otherwise.",
         tags=["translation"],
         parameters=[IDEMPOTENCY],
         request=None,

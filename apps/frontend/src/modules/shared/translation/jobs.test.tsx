@@ -386,6 +386,65 @@ test("the last job is taken back after a question; the refusal of a person-only 
   ).toBeNull();
 });
 
+test("an older job the server will not take back says why; the automation's credits say what it paid", async () => {
+  api.getTranslationJob.mockResolvedValue(
+    job({
+      trigger: "automatic",
+      credits: 2,
+      parts: [
+        {
+          ...job().parts[0]!,
+          units: 1,
+          reserved_credits: 2,
+          settled_credits: 0,
+        },
+      ],
+    }),
+  );
+  view(<TranslationJobDetail jobId={JOB} />);
+  // „wycena 2 · rozliczone 0” read like a fault: it paid nothing yet, and why.
+  expect(
+    await screen.findByText(
+      "rozliczone 0 kredytów · zarezerwowane teraz 0 · najwyżej 2",
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(/Automat zmian płaci za pełne tysiące znaków/),
+  ).toBeTruthy();
+
+  api.revertTranslationJob.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      code: "validation_error",
+      detail: "",
+      errors: [{ field: "job_id", code: "not_latest_job", message: "" }],
+    } as ConstructorParameters<typeof ApiProblemError>[0]),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Cofnij ostatnie zadanie" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Cofnąć to zadanie?",
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Cofnij zadanie" }),
+  );
+  expect((await within(dialog).findByRole("alert")).textContent).toContain(
+    "Cofnąć można tylko ostatnie zadanie",
+  );
+});
+
+test("a clicked order keeps its quote line and gets no word about the automation", async () => {
+  api.getTranslationJob.mockResolvedValue(job());
+  view(<TranslationJobDetail jobId={JOB} />);
+  expect(
+    await screen.findByText("wycena 4 · zarezerwowane teraz 0 · rozliczone 4"),
+  ).toBeTruthy();
+  expect(screen.queryByText(/Automat zmian płaci/)).toBeNull();
+});
+
 test("a running job shows its progress and can be stopped; a job that is gone says so", async () => {
   api.getTranslationJob.mockResolvedValue(RUNNING);
   const running = view(<TranslationJobDetail jobId={JOB} />, "en");

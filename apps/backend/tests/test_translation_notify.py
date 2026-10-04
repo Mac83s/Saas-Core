@@ -167,6 +167,9 @@ def test_the_operator_takes_a_job_back_with_a_reason(pages: JobSource) -> None:
     object_id = page(pages, "Alfa")
     job = run(order(owner, [object_id]))
     assert FakeSourceDriver(pages).public_texts(object_id, "de") == [german("Alfa")]
+    # A later job wrote too: the company can no longer take the first one
+    # back in the panel, the operator still can.
+    run(order(owner, [page(pages, "Beta")], key="later"))
     staff = operator("tl6c3-revert-op@example.test")
     call_command(
         "translation_revert_job",

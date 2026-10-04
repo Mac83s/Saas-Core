@@ -689,7 +689,12 @@ def _settle(job: TranslationJob, part: TranslationJobPart) -> None:
     if part.reservation_key:
         with activate_tenant_context(_settlement_context(job)):
             reservation = settle_credits(part.reservation_key, units)
-        part.settled_credits = reservation.cost if reservation.state == "committed" else 0
+        # What was spent, not what was held: the hold of what was not
+        # delivered went back (an automatic part pays carried thousands).
+        unit_cost = reservation.unit_cost or reservation.cost // reservation.quantity
+        part.settled_credits = min(
+            (reservation.settled_quantity or 0) * unit_cost, reservation.cost
+        )
     part.delivered_characters = delivered
     part.settled_units = units
     part.settled_at = timezone.now()

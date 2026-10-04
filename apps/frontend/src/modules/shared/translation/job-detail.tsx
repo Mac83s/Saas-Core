@@ -159,6 +159,14 @@ export function TranslationJobDetail({ jobId }: { jobId: string }) {
         );
         setAsking(undefined);
         setReloads((value) => value + 1);
+      } else if (code === "not_latest_job" || code === "job_running") {
+        // The server keeps „only the latest, once it ended”: say which.
+        setDialogProblem(
+          t(
+            code === "job_running" ? "detail.stillRunning" : "detail.notLatest",
+          ),
+        );
+        setReloads((value) => value + 1);
       } else
         setDialogProblem(
           problem?.status === 403 ? t("detail.forbidden") : t("detail.failed"),
@@ -423,12 +431,24 @@ export function TranslationJobDetail({ jobId }: { jobId: string }) {
             </dt>
             <dd>
               {job.billing === "credits"
-                ? t("detail.creditsLine", {
-                    quoted: job.credits,
-                    held: credits.held,
-                    settled: credits.settled,
-                  })
+                ? t(
+                    // The automation pays carried thousands: „wycena 1 ·
+                    // rozliczone 0” read like a fault, so it says what it paid.
+                    job.trigger === "automatic"
+                      ? "detail.creditsLineAutomatic"
+                      : "detail.creditsLine",
+                    {
+                      quoted: job.credits,
+                      held: credits.held,
+                      settled: credits.settled,
+                    },
+                  )
                 : t("detail.platformBudget")}
+              {job.billing === "credits" && job.trigger === "automatic" ? (
+                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                  {t("detail.carryHint")}
+                </p>
+              ) : null}
             </dd>
           </div>
         </dl>

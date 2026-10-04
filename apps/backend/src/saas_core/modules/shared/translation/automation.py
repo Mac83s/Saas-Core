@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid7
 
 from django.db import transaction
@@ -101,6 +102,24 @@ def automatic_credits_this_month(organization_id: UUID, now: datetime) -> int:
         ).values_list("units", "job__unit_cost")
     )
     return int(settled or 0) + held
+
+
+def automation_reading(
+    organization_id: UUID, consent_membership_id: UUID | None, now: datetime | None = None
+) -> dict[str, Any]:
+    """What a reader of the settings sees beside the switch: whether the
+    consent still holds — the check a run makes — and what the monthly limit
+    is measured against, with when the count starts anew."""
+    now = now or timezone.now()
+    return {
+        "consent_holds": consent_membership_id is not None
+        and person_context(
+            organization_id, consent_membership_id, TRANSLATION_MANAGE, TRANSLATION_REQUEST
+        )
+        is not None,
+        "month_credits": automatic_credits_this_month(organization_id, now),
+        "month_resets_at": _next_month(now),
+    }
 
 
 def run_due_demand() -> int:

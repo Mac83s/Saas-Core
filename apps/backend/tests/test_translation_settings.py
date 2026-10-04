@@ -192,6 +192,44 @@ def test_turning_the_automation_on_is_a_persons_consent() -> None:
 
 
 @override_settings(MODEL_PORT_PROCESSOR_LISTED=True, SETTINGS_DEFAULTS={})
+def test_whoever_confirms_the_automation_again_becomes_its_person() -> None:
+    """ADR-069 pkt 14: the automation acts as the person who consented; another
+    person's `true` is their confirmation, the same person's changes nothing."""
+    owner = membership("tl16e-consent")
+    admin = member_with_role(owner, "admin", "tl16e-consent-a")
+    admin.user.first_name, admin.user.last_name = "Ada", "Nowak"
+    admin.user.save()
+    with tenant(owner):
+        change_settings(changes={AUTO: True}, expected_version=0, idempotency_key=key())
+        same = change_settings(changes={AUTO: True}, expected_version=1, idempotency_key=key())
+        assert same.changes == {} and same.version == 1
+        assert same.value["automation"]["consent_name"] == owner.user.email
+    with tenant(admin) as context:
+        preview = change_settings(changes={AUTO: True}, expected_version=1, preview=True)
+        assert preview.changes == {"auto_consent": {"from": str(owner.id), "to": str(admin.id)}}
+        acting = replace(context, acting_via="assistant", acting_ref=f"conversation:{uuid4()}")
+        with activate_tenant_context(acting), pytest.raises(PersonRequired):
+            change_settings(changes={AUTO: True}, expected_version=1, idempotency_key=key())
+        saved = change_settings(changes={AUTO: True}, expected_version=1, idempotency_key=key())
+    assert saved.version == 2
+    automation = saved.value["automation"]
+    assert (automation["consent_membership_id"], automation["consent_name"]) == (
+        admin.id,
+        "Ada Nowak",
+    )
+    # The person leaves: the settings say the consent no longer holds, as a run would find.
+    assert automation["consent_holds"] is True
+    Membership.objects.filter(pk=admin.pk).update(status="suspended")
+    with tenant(owner):
+        lost = read_settings()["automation"]
+    assert (lost["consent_holds"], lost["consent_name"]) == (False, "Ada Nowak")
+    entry = OrganizationAuditEntry.objects.filter(
+        organization=owner.organization, action="translation.settings_changed"
+    ).latest("occurred_at")
+    assert entry.actor_user_id == admin.user_id and "auto_consent" in entry.metadata["changes"]
+
+
+@override_settings(MODEL_PORT_PROCESSOR_LISTED=True, SETTINGS_DEFAULTS={})
 def test_a_manager_reads_the_settings_but_does_not_change_them() -> None:
     owner = membership("tl6a-manager")
     manager = member_with_role(owner, "manager", "tl6a-manager-m")

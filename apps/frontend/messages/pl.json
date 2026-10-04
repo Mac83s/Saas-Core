@@ -2510,7 +2510,7 @@
       "onSite": "na stronie",
       "notOnSite": "jeszcze nie na stronie",
       "translateAll": "Przetłumacz brakujące i nieaktualne (AI)",
-      "nothingToTranslate": "Wszystkie podstrony są przetłumaczone.",
+      "nothingToTranslate": "Wszystkie podstrony i wpisy są przetłumaczone.",
       "entryHint": "Ręcznie wpis tłumaczysz w jego karcie „Wersje językowe” w blogu.",
       "oneLanguage": "Ta strona ma na razie jeden język.",
       "addLanguage": "Dodaj język w Ustawienia › Języki i tłumaczenia",
@@ -5406,7 +5406,11 @@
         "finishedMeanwhile": "To zadanie zdążyło się już zakończyć.",
         "alreadyReverted": "To zadanie zostało już cofnięte.",
         "forbidden": "Tę decyzję podejmuje osoba z prawem do tłumaczeń — sama, nie asystent.",
-        "failed": "Nie udało się. Spróbuj ponownie."
+        "failed": "Nie udało się. Spróbuj ponownie.",
+        "creditsLineAutomatic": "rozliczone {settled, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}} · zarezerwowane teraz {held} · najwyżej {quoted}",
+        "carryHint": "Automat zmian płaci za pełne tysiące znaków. Znaki, które nie złożyły się jeszcze na tysiąc, przechodzą na kolejne zadanie — dlatego krótka zmiana może kosztować 0 kredytów, a rozliczy się razem z następnymi.",
+        "notLatest": "Cofnąć można tylko ostatnie zadanie, które coś zapisało — po tym zadaniu było już następne.",
+        "stillRunning": "To zadanie jeszcze trwa. Najpierw je zatrzymaj."
       }
     },
     "unavailable": {
@@ -5459,6 +5463,153 @@
         "partial": "Tłumaczenie gotowe częściowo — część fragmentów wymaga Twojej uwagi.",
         "failed": "Nie udało się przetłumaczyć. Kredyty za niedostarczone fragmenty wracają.",
         "canceled": "Tłumaczenie zostało anulowane."
+      }
+    },
+    "settings": {
+      "title": "Tłumaczenia AI",
+      "description": "Czy tłumaczenia wychodzą od razu, czy czekają na Ciebie, czy zmiany opublikowanych treści tłumaczą się same i ile kredytów miesięcznie mogą na to pójść.",
+      "loading": "Wczytuję ustawienia tłumaczeń…",
+      "loadError": "Nie udało się wczytać ustawień tłumaczeń.",
+      "retry": "Spróbuj ponownie",
+      "readOnly": "Te ustawienia zmienia administrator albo właściciel firmy.",
+      "save": "Zapisz zmiany",
+      "saving": "Zapisywanie…",
+      "saved": "Zapisano ustawienia tłumaczeń.",
+      "saveError": "Nie udało się zapisać ustawień tłumaczeń. Spróbuj ponownie.",
+      "conflict": "Ktoś w międzyczasie zmienił te ustawienia — pokazujemy aktualne. Wprowadź zmianę jeszcze raz.",
+      "forbidden": "Tę decyzję podejmuje osoba z prawem do ustawień tłumaczeń — sama, nie asystent ani integracja.",
+      "restore": "Przywróć domyślne",
+      "source": {
+        "code": "Domyślne",
+        "platform": "Domyślne platformy",
+        "product": "Domyślne produktu",
+        "organization": "Ustawione dla firmy",
+        "operator": "Ustawione przez operatora platformy",
+        "default": "Po zapisaniu wróci do domyślnej"
+      },
+      "modeHelp": {
+        "automatic": "Gotowe tłumaczenie trafia na stronę od razu.",
+        "review": "Gotowe tłumaczenie czeka w „Tłumaczenia › Do akceptacji”, aż ktoś je zatwierdzi."
+      },
+      "legalNote": "Dokumenty prawne zawsze czekają na akceptację.",
+      "lock": {
+        "operator_forced_review": "Teraz każde tłumaczenie czeka na akceptację — tak zdecydował operator platformy.",
+        "kill_switch": "Tłumaczenia AI są teraz wyłączone na całej platformie.",
+        "processor_not_listed": "Tłumaczenia AI są wyłączone, dopóki platforma nie wybierze dostawcy tłumaczeń.",
+        "organization_paused": "Operator platformy wstrzymał tłumaczenia AI dla tej firmy.",
+        "other": "Tę wartość ustala teraz operator platformy."
+      },
+      "operatorReason": "Powód: {reason}",
+      "automation": {
+        "on": "Automatyczne tłumaczenie zmian jest włączone. Działa w Twoim imieniu.",
+        "off": "Automatyczne tłumaczenie zmian jest wyłączone.",
+        "confirmed": "Potwierdzono. Automat działa teraz w Twoim imieniu.",
+        "consent": "Działa w imieniu: {name} — zgoda z {date}.",
+        "consentLost": "Automat stoi: {name} nie może już zarządzać tłumaczeniami w tej firmie. Potwierdź go ponownie, a będzie działał w Twoim imieniu.",
+        "somebody": "osoba, która go włączyła",
+        "confirmAgain": "Potwierdź ponownie"
+      },
+      "limit": {
+        "unit": "kredytów miesięcznie",
+        "invalid": "Podaj liczbę całkowitą od 0 do 100 000.",
+        "capped": "Operator platformy ograniczył limit — teraz obowiązuje {limit}."
+      },
+      "usage": {
+        "line": "W tym miesiącu automat wykorzystał {used} z {limit, plural, one {# kredytu} other {# kredytów}}.",
+        "resets": "Licznik zaczyna się od nowa {date}.",
+        "exhausted": "Limit jest wyczerpany: zmiany czekają i przetłumaczą się same po {date} albo po podniesieniu limitu."
+      },
+      "processing": {
+        "title": "Przetwarzanie treści przez dostawców AI",
+        "why": "Zanim zlecisz pierwsze tłumaczenie, potwierdź raz, że wiesz, dokąd trafia treść. Bez tego tłumaczenia AI nie ruszą.",
+        "statement": "Potwierdzam, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym.",
+        "confirm": "Potwierdź",
+        "saved": "Potwierdzenie zapisane. Możesz zlecać tłumaczenia AI.",
+        "done": "Firma potwierdziła {date}, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym."
+      },
+      "consentDialog": {
+        "title": "Włączyć automatyczne tłumaczenie zmian?",
+        "titleAgain": "Potwierdzić automat w swoim imieniu?",
+        "what": "Po każdej zmianie opublikowanej treści jej tłumaczenia odświeżą się same, bez pytania.",
+        "price": "Cena: {credits, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}} za {characters} znaków tekstu w jednym języku.",
+        "priceUnknown": "Platforma nie ustaliła jeszcze ceny tłumaczeń — do tego czasu automat nie ruszy.",
+        "platformPays": "Koszt pokrywa platforma.",
+        "limit": "Limit: najwyżej {limit, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}} miesięcznie.",
+        "limitZero": "Limit wynosi teraz 0 — automat ruszy dopiero, gdy go podniesiesz.",
+        "asYou": "To Twoja zgoda: automat działa w Twoim imieniu i z Twoimi uprawnieniami, dopóki ktoś go nie wyłączy.",
+        "confirm": "Włącz i wyraź zgodę",
+        "confirmAgain": "Potwierdzam"
+      },
+      "glossary": {
+        "title": "Glosariusz",
+        "description": "Nazwy i zwroty, które tłumaczenia mają zostawić bez zmian albo oddać po Twojemu — marka, nazwisko, nazwa usługi. Działa przy każdym tłumaczeniu AI.",
+        "caption": "Terminy glosariusza",
+        "empty": "Glosariusz jest pusty. Dodaj nazwy, których tłumaczenie nie powinno zmieniać.",
+        "add": "Dodaj termin",
+        "addTitle": "Nowy termin",
+        "editTitle": "Edytuj termin",
+        "dialogDescription": "Termin to krótki zwrot w jednej linii — tak, jak występuje w tekście.",
+        "colTerm": "Termin",
+        "colRule": "Co robi tłumaczenie",
+        "colLanguages": "Języki",
+        "colActions": "Działania",
+        "actionsFor": "Działania dla terminu {term}",
+        "edit": "Edytuj: {term}",
+        "remove": "Usuń: {term}",
+        "formsLine": "Odmiany: {forms}",
+        "languagePair": "{source} → {target}",
+        "languageAll": "{source} → wszystkie języki",
+        "ruleLine": {
+          "keep": "Zostawia bez zmian",
+          "name": "Imię lub nazwisko: bez zmian, w cyrylicy zapisane fonetycznie",
+          "translate_as": "Tłumaczy jako „{translation}”"
+        },
+        "rules": {
+          "keep": "Zostaw bez zmian",
+          "name": "Imię lub nazwisko",
+          "translate_as": "Tłumacz jako…"
+        },
+        "ruleHelp": {
+          "keep": "Marka albo nazwa własna: w każdym języku zostaje dokładnie taka sama.",
+          "name": "Imię lub nazwisko osoby: w alfabecie łacińskim bez zmian, w cyrylicy zapisane fonetycznie.",
+          "translate_as": "Twoje własne tłumaczenie tego zwrotu."
+        },
+        "fieldTerm": "Termin",
+        "fieldTermHelp": "Najwyżej 120 znaków, jedna linia.",
+        "fieldRule": "Co ma zrobić tłumaczenie",
+        "fieldTranslation": "Tłumaczenie",
+        "fieldSource": "Język, w którym termin występuje",
+        "fieldTarget": "Dotyczy tłumaczeń na",
+        "everyLanguage": "Wszystkie języki",
+        "fieldForms": "Odmiany terminu",
+        "fieldFormsHelp": "Formy, w których termin pojawia się w tekście (np. „Studia Alfa”, „Studiu Alfa”) — każda w osobnej linii, najwyżej 10.",
+        "save": "Zapisz termin",
+        "saved": "Zapisano termin „{term}”.",
+        "added": "Dodano termin „{term}”.",
+        "removed": "Usunięto termin „{term}”.",
+        "removeTitle": "Usunąć termin „{term}”?",
+        "removeDescription": "Kolejne tłumaczenia przestaną go uwzględniać. Tłumaczenia już zrobione zostają bez zmian.",
+        "removeConfirm": "Usuń termin",
+        "loadError": "Nie udało się wczytać glosariusza.",
+        "retry": "Spróbuj ponownie",
+        "loadMore": "Wczytaj więcej",
+        "saveError": "Nie udało się zapisać terminu. Spróbuj ponownie.",
+        "removeError": "Nie udało się usunąć terminu. Spróbuj ponownie.",
+        "conflict": "Ktoś w międzyczasie zmienił ten termin — odświeżyliśmy listę. Otwórz go jeszcze raz.",
+        "forbidden": "Glosariusz zmienia administrator albo właściciel firmy.",
+        "errors": {
+          "glossary_term_exists": "Ten termin już jest w glosariuszu dla tych języków.",
+          "glossary_limit_reached": "Glosariusz ma już najwięcej terminów ({limit}). Usuń któryś, żeby dodać nowy.",
+          "glossary_term_empty": "Wpisz termin.",
+          "glossary_term_too_long": "Najwyżej 120 znaków.",
+          "glossary_term_forbidden_characters": "Termin to jedna linia bez znaków sterujących i znaczników.",
+          "glossary_translation_required": "Podaj tłumaczenie terminu.",
+          "glossary_too_many_forms": "Podaj najwyżej 10 odmian.",
+          "locale_not_in_registry": "Tego języka nie ma na platformie.",
+          "same_as_source": "Wybierz inny język niż ten, w którym termin występuje.",
+          "not_for_rule": "Tłumaczenie podaje się tylko dla reguły „Tłumacz jako…”.",
+          "other": "Nieprawidłowa wartość."
+        }
       }
     }
   },

@@ -5922,6 +5922,124 @@ export async function getTranslationOffer(): Promise<TranslationOffer> {
   return data;
 }
 
+/** The company's translation settings: each value with its source and lock,
+ *  who consented to the automation and what it spent this month. */
+export type TranslationSettings = components["schemas"]["TranslationSettings"];
+/** A change: an absent field stays as it is, `reset` takes keys back to the
+ *  inherited value. `auto_changes: true` is the sender's own consent. */
+export type TranslationSettingsChange = Omit<
+  components["schemas"]["PatchedTranslationSettingsUpdate"],
+  "expected_version"
+>;
+
+export async function getTranslationSettings(): Promise<TranslationSettings> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/settings/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateTranslationSettings(
+  change: TranslationSettingsChange,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<TranslationSettings> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/translation/settings/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: { ...change, expected_version: expectedVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** A term the translations keep or render the company's way. */
+export type GlossaryTerm = components["schemas"]["GlossaryTerm"];
+export type GlossaryPage = components["schemas"]["GlossaryPage"];
+export type GlossaryTermInput = components["schemas"]["GlossaryTermInput"];
+
+/** The glossary by language and term, paged by `cursor`. */
+export async function listGlossaryTerms(
+  query: { cursor?: string; limit?: number } = {},
+): Promise<GlossaryPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/glossary/",
+    { params: { query }, credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createGlossaryTerm(
+  term: GlossaryTermInput,
+  idempotencyKey: string,
+): Promise<GlossaryTerm> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/translation/glossary/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: term,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Replaces the term's fields at the version the person saw. */
+export async function updateGlossaryTerm(
+  termId: string,
+  term: GlossaryTermInput,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<GlossaryTerm> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/translation/glossary/{term_id}/",
+    {
+      params: {
+        path: { term_id: termId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { ...term, expected_version: expectedVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function deleteGlossaryTerm(
+  termId: string,
+  expectedVersion: number,
+  idempotencyKey: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/translation/glossary/{term_id}/",
+    {
+      params: {
+        path: { term_id: termId },
+        query: { expected_version: expectedVersion },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
 /** What a person's or an integration's text gets: left alone, a proposal
  *  that waits for a person (the default), or overwritten — a person's choice. */
 export type TranslationProtected = "skip" | "propose" | "overwrite";

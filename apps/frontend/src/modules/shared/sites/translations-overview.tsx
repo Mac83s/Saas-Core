@@ -91,18 +91,20 @@ function rowTargets(row: Row): TranslationTarget[] {
     }));
 }
 
-/** Every page of the site that has a language to translate. */
+/** Every page and article of the site that has a language to translate. */
 async function siteTargets(siteId: string): Promise<TranslationTarget[]> {
   const targets: TranslationTarget[] = [];
-  let cursor: string | null = null;
-  do {
-    const answer: TranslationOverview = await getSiteTranslationOverview(
-      siteId,
-      { kind: "page", limit: 100, ...(cursor ? { cursor } : {}) },
-    );
-    targets.push(...answer.items.flatMap(rowTargets));
-    cursor = answer.next_cursor;
-  } while (cursor);
+  for (const kind of ["page", "entry"] as const) {
+    let cursor: string | null = null;
+    do {
+      const answer: TranslationOverview = await getSiteTranslationOverview(
+        siteId,
+        { kind, limit: 100, ...(cursor ? { cursor } : {}) },
+      );
+      targets.push(...answer.items.flatMap(rowTargets));
+      cursor = answer.next_cursor;
+    } while (cursor);
+  }
   return targets;
 }
 

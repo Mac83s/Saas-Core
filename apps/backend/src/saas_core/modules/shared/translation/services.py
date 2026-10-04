@@ -36,7 +36,7 @@ from saas_core.modules.core.organizations.audit import field_changes, record_aud
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.canonical import canonical_json_hash
 from saas_core.modules.core.organizations.context import TenantContext
-from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.models import Membership, Organization
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 from saas_core.modules.core.organizations.settings_registry import check_value
@@ -273,9 +273,39 @@ def settings_state(organization_id: UUID) -> dict[str, Any]:
     }
 
 
+def settings_answer(organization_id: UUID) -> dict[str, Any]:
+    """`settings_state` as a reader gets it: with the name of the person who
+    consented, whether that consent still holds and what the automation spent
+    this month against its limit.
+    The engine's own reads stay with `settings_state` — they run at every
+    published change."""
+    from .automation import automation_reading  # noqa: PLC0415 — automation imports this module
+
+    state = settings_state(organization_id)
+    consent = state["automation"]["consent_membership_id"]
+    member = (
+        Membership.objects.select_related("user")
+        .filter(pk=consent, organization_id=organization_id)
+        .first()
+    )
+    name = (
+        " ".join(filter(None, [member.user.first_name, member.user.last_name])) or member.user.email
+        if member
+        else None
+    )
+    return {
+        **state,
+        "automation": {
+            **state["automation"],
+            "consent_name": name,
+            **automation_reading(organization_id, consent),
+        },
+    }
+
+
 def read_settings() -> dict[str, Any]:
     context = authorize(TRANSLATION_REQUEST)
-    return settings_state(context.organization_id)
+    return settings_answer(context.organization_id)
 
 
 def _validate_settings(changes: Mapping[str, Any], reset: Sequence[str]) -> dict[str, str]:
@@ -315,7 +345,8 @@ def change_settings(
     """Changes the company's translation settings (`translation.manage`).
 
     Turning the automation on is the consent of the person doing it: they
-    become the person it acts as. The one-off acknowledgement that content
+    become the person it acts as, and so does whoever sends `true` again while
+    it runs on somebody else's consent. The one-off acknowledgement that content
     goes to OpenRouter is recorded the same way, and only ever turned on.
     """
     context = authorize(TRANSLATION_MANAGE)
@@ -337,13 +368,18 @@ def change_settings(
             "auto_monthly_limit": row.auto_monthly_limit,
         }
         acknowledged = row.processing_ack_at is not None
+        consent_before = row.auto_consent_membership_id
         now = timezone.now()
         if changes.get(MODE.key) is not None:
             row.mode = changes[MODE.key]
         if changes.get(AUTO_MONTHLY_LIMIT.key) is not None:
             row.auto_monthly_limit = changes[AUTO_MONTHLY_LIMIT.key]
         auto = changes.get(AUTO_CHANGES.key)
-        if auto is True and row.auto_changes is not True:
+        # `true` sent again by somebody else is their confirmation: they
+        # become the person the automation acts as (ADR-069 pkt 14).
+        if auto is True and (
+            row.auto_changes is not True or consent_before != context.membership_id
+        ):
             # Consent is one person's act: never an API key, a job or the
             # assistant on its own — its click opens this for the run, so a
             # preview only shows the change and the run checks the person.
@@ -373,6 +409,11 @@ def change_settings(
             "auto_monthly_limit": row.auto_monthly_limit,
         }
         diff = field_changes(before, after)
+        if before["auto_changes"] and row.auto_consent_membership_id not in (None, consent_before):
+            diff["auto_consent"] = {
+                "from": str(consent_before) if consent_before else None,
+                "to": str(row.auto_consent_membership_id),
+            }
         if not acknowledged and row.processing_ack_at is not None:
             diff["processing_acknowledged"] = {"from": False, "to": True}
         if diff or created:
@@ -387,7 +428,7 @@ def change_settings(
                 metadata={"group": SETTINGS_GROUP, "changes": diff, "version": row.version},
             )
         return Saved(
-            value=settings_state(organization.id),
+            value=settings_answer(organization.id),
             item_id=row.id,
             version=row.version,
             created=created,
@@ -395,7 +436,7 @@ def change_settings(
         )
 
     def replay(_row_id: UUID) -> Saved[dict[str, Any]]:
-        state = settings_state(organization.id)
+        state = settings_answer(organization.id)
         return Saved(state, _row_id, state["version"], created=False, replayed=True)
 
     return translation_write(

@@ -687,6 +687,8 @@ def _preview_settings(arguments: Mapping[str, Any], call: Any) -> Preview:
     enabling = changes.get(AUTO_CHANGES.key) is True and not values[AUTO_CHANGES.key]["effective"]
     limit = changes.get(AUTO_MONTHLY_LIMIT.key)
     raising = limit is not None and limit > values[AUTO_MONTHLY_LIMIT.key]["effective"]
+    # Confirming a running automation again makes this person the one it acts as.
+    enabling = enabling or "auto_consent" in saved.changes
     changed = ", ".join(sorted(saved.changes)) or "—"
     return Preview(
         effects=(

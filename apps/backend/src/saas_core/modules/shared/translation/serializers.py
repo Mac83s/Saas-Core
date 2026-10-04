@@ -33,6 +33,24 @@ class AutomationStateSerializer(serializers.Serializer[dict[str, Any]]):
     consent_at = serializers.DateTimeField(allow_null=True)
 
 
+class SettingsAutomationSerializer(AutomationStateSerializer):
+    consent_name = serializers.CharField(
+        allow_null=True,
+        help_text="That person as the team sees them: the name, or the e-mail when no name "
+        "is set. Null without a consent, and when the person is no longer in the company.",
+    )
+    consent_holds = serializers.BooleanField(
+        help_text="That person is still active here and may still manage translations, so "
+        "the automation can run as them. False while it is on stops it (`consent_lost`) until "
+        "somebody sends `auto_changes: true` again."
+    )
+    month_credits = serializers.IntegerField(
+        help_text="Credits the automation spent or holds this month; the monthly limit is "
+        "measured against it."
+    )
+    month_resets_at = serializers.DateTimeField(help_text="When the month's count starts anew.")
+
+
 class TranslationSettingsSerializer(serializers.Serializer[dict[str, Any]]):
     group = serializers.CharField()
     version = serializers.IntegerField(help_text="Send it back as `expected_version`.")
@@ -40,7 +58,7 @@ class TranslationSettingsSerializer(serializers.Serializer[dict[str, Any]]):
         child=SettingValueSerializer(),
         help_text="By setting key: translation.settings.mode, .auto_changes, .auto_monthly_limit.",
     )
-    automation = AutomationStateSerializer()
+    automation = SettingsAutomationSerializer()
     processing_acknowledged = serializers.BooleanField(
         help_text="The company confirmed that content goes to OpenRouter and model providers "
         "outside the EEA."
@@ -63,7 +81,7 @@ class TranslationSettingsUpdateSerializer(serializers.Serializer[dict[str, Any]]
         required=False,
         allow_null=True,
         help_text="Translate changes automatically. Turning it on is your consent: the "
-        "automation will act as you.",
+        "automation will act as you. True sent again by another person confirms it as them.",
     )
     auto_monthly_limit = serializers.IntegerField(
         required=False,

@@ -366,6 +366,15 @@ def test_a_jobs_detail_names_its_items_and_says_whether_it_can_be_taken_back(
     # A later job wrote too: it is the one to take back now, and only once.
     second = run(order(owner, [page(pages, "Beta")], key="job-b"))
     assert (detail(first)["revertable"], detail(second)["revertable"]) == (False, True)
+    # The server holds the same line as the screen: an older job stays the
+    # operator's to take back (`translation_revert_job`).
+    older = client.post(
+        f"/api/v1/translation/jobs/{first.id}/revert/", HTTP_IDEMPOTENCY_KEY="take-back-older"
+    )
+    assert older.status_code == 400
+    assert [(e["field"], e["code"]) for e in older.json()["errors"]] == [
+        ("job_id", "not_latest_job")
+    ]
     with tenant(owner):
         revert_job(job_id=second.id, idempotency_key="take-back")
     assert detail(second)["revertable"] is False
@@ -373,6 +382,9 @@ def test_a_jobs_detail_names_its_items_and_says_whether_it_can_be_taken_back(
     # The list keeps the jobs still running apart from those that ended.
     waiting = order(owner, [page(pages, "Gamma")], key="job-c")
     assert detail(waiting)["revertable"] is False
+    with tenant(owner), pytest.raises(Exception) as running:
+        revert_job(job_id=waiting.id, idempotency_key="take-back-running")
+    assert running.value.get_codes() == {"job_id": ["job_running"]}  # type: ignore[attr-defined]
 
     def listed(query: str) -> list[str]:
         answer = client.get(f"/api/v1/translation/jobs/{query}").json()

@@ -22295,8 +22295,10 @@ paths:
     post:
       operationId: translation_job_revert
       description: 'Returns every source the job wrote to its texts from before it,
-        through one derived publication each. Credits are not returned. A person''s
-        decision: 403 `person_required` otherwise.'
+        through one derived publication each. Credits are not returned. Only the newest
+        job that wrote anything, once it has ended (`revertable` in the job''s detail):
+        400 with `job_running`, `not_latest_job` or `already_reverted` on `job_id`
+        otherwise. A person''s decision: 403 `person_required` otherwise.'
       summary: Take back a translation job
       parameters:
       - in: header
@@ -22663,13 +22665,15 @@ paths:
           description: ''
     patch:
       operationId: translation_settings_update
-      description: Changes the publication mode, the automation and its monthly limit.
+      description: 'Changes the publication mode, the automation and its monthly limit.
         An absent or null field stays as it is; `reset` takes keys back to the inherited
         value. Turning the automation on, and acknowledging processing, is the consent
         of the person sending it and is refused to API keys and to the assistant on
-        its own. A repeated Idempotency-Key answers the first result again; the key
-        reused on another request is 409 `translation_idempotency_conflict`. `expected_version`
-        is the version the change was made on; another one is 409 `translation_version_conflict`.
+        its own; `auto_changes: true` sent while the automation runs on another person''s
+        consent makes the sender that person. A repeated Idempotency-Key answers the
+        first result again; the key reused on another request is 409 `translation_idempotency_conflict`.
+        `expected_version` is the version the change was made on; another one is 409
+        `translation_version_conflict`.'
       summary: Change the company's translation settings
       parameters:
       - in: header
@@ -24285,23 +24289,6 @@ components:
         * `manual` - manual
         * `proposed` - proposed
         * `automated` - automated
-    AutomationState:
-      type: object
-      properties:
-        consent_membership_id:
-          type:
-          - string
-          - 'null'
-          format: uuid
-          description: The person whose consent the automation acts on.
-        consent_at:
-          type:
-          - string
-          - 'null'
-          format: date-time
-      required:
-      - consent_at
-      - consent_membership_id
     AwayInterval:
       type: object
       properties:
@@ -35164,7 +35151,8 @@ components:
           - boolean
           - 'null'
           description: 'Translate changes automatically. Turning it on is your consent:
-            the automation will act as you.'
+            the automation will act as you. True sent again by another person confirms
+            it as them.'
         auto_monthly_limit:
           type:
           - integer
@@ -40318,6 +40306,47 @@ components:
       required:
       - label
       - value
+    SettingsAutomation:
+      type: object
+      properties:
+        consent_membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: The person whose consent the automation acts on.
+        consent_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        consent_name:
+          type:
+          - string
+          - 'null'
+          description: 'That person as the team sees them: the name, or the e-mail
+            when no name is set. Null without a consent, and when the person is no
+            longer in the company.'
+        consent_holds:
+          type: boolean
+          description: 'That person is still active here and may still manage translations,
+            so the automation can run as them. False while it is on stops it (`consent_lost`)
+            until somebody sends `auto_changes: true` again.'
+        month_credits:
+          type: integer
+          description: Credits the automation spent or holds this month; the monthly
+            limit is measured against it.
+        month_resets_at:
+          type: string
+          format: date-time
+          description: When the month's count starts anew.
+      required:
+      - consent_at
+      - consent_holds
+      - consent_membership_id
+      - consent_name
+      - month_credits
+      - month_resets_at
     SettingsGroupSchema:
       type: object
       properties:
@@ -43080,7 +43109,7 @@ components:
           description: 'By setting key: translation.settings.mode, .auto_changes,
             .auto_monthly_limit.'
         automation:
-          $ref: '#/components/schemas/AutomationState'
+          $ref: '#/components/schemas/SettingsAutomation'
         processing_acknowledged:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
@@ -43112,7 +43141,7 @@ components:
           description: 'By setting key: translation.settings.mode, .auto_changes,
             .auto_monthly_limit.'
         automation:
-          $ref: '#/components/schemas/AutomationState'
+          $ref: '#/components/schemas/SettingsAutomation'
         processing_acknowledged:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
@@ -43151,7 +43180,8 @@ components:
           - boolean
           - 'null'
           description: 'Translate changes automatically. Turning it on is your consent:
-            the automation will act as you.'
+            the automation will act as you. True sent again by another person confirms
+            it as them.'
         auto_monthly_limit:
           type:
           - integer
