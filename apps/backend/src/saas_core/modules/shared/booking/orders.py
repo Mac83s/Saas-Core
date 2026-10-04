@@ -90,18 +90,21 @@ def prepayment_available() -> bool:
     return orders_available() and transfer_account_set()
 
 
-def place(appointment: Appointment, customer: Customer, *, hold: bool = True) -> datetime | None:
+def place(
+    appointment: Appointment, customer: Customer, *, hold: bool = True, draft: bool = False
+) -> datetime | None:
     """A new booking with a price becomes an order. Where its quote asks for
     a prepayment, commerce is asked for it and the answer is until when the
     booking waits — None: nothing is awaited, the booking is confirmed.
-    `hold` false is for a booking that never waits (a visit under way)."""
+    `hold` false is for a booking that never waits (a visit under way).
+    `draft`: the booking waits for the company's answer first — its order has
+    no number and asks for nothing until `accepted`."""
     quote = appointment.quote
     if not enabled() or not quote or not quote["lines"]:
         return None
     from saas_core.modules.shared.commerce.api import (  # noqa: PLC0415
         OrderChannel,
         place_order,
-        request_prepayment,
     )
 
     public = require_tenant_context().role_key == PUBLIC_BOOKING_ROLE
@@ -112,9 +115,33 @@ def place(appointment: Appointment, customer: Customer, *, hold: bool = True) ->
         amounts=quote["amounts"],
         lines=_lines(appointment, quote),
         channel=OrderChannel.COMPANY_SITE if public else OrderChannel.OFFICE,
+        draft=draft,
     )
-    terms = quote.get("prepayment")
-    if order is None or not terms or not hold:
+    if order is None or draft or not hold:
+        return None
+    return _prepayment(appointment, order)
+
+
+def accepted(appointment: Appointment) -> datetime | None:
+    """The company accepted the request: its order gets its number, and where
+    the quote asks for a prepayment the booking now waits for that — the
+    answer is until when, None when nothing is awaited."""
+    if not enabled():
+        return None
+    from saas_core.modules.shared.commerce.api import accept_order, order_for  # noqa: PLC0415
+
+    order = order_for(LINE_SOURCE, str(appointment.id))
+    if order is None:
+        return None
+    return _prepayment(appointment, accept_order(order))
+
+
+def _prepayment(appointment: Appointment, order: Any) -> datetime | None:
+    """Asks commerce for what the booking's quote wants paid ahead."""
+    from saas_core.modules.shared.commerce.api import request_prepayment  # noqa: PLC0415
+
+    terms = (appointment.quote or {}).get("prepayment")
+    if not terms:
         return None
     return request_prepayment(
         order,

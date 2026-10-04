@@ -16,8 +16,11 @@ from saas_core.modules.shared.customers.api import CUSTOMER_MODEL
 
 
 class AppointmentStatus(models.TextChoices):
-    #: Waits for a payment the offer asks for before confirming (ADR-072 §9):
-    #: it holds its time like a confirmed one, until `hold_expires_at`.
+    #: Waits for the company's answer (an offer booked „on request”, ADR-072
+    #: §9): it holds its time like a confirmed one, until `hold_expires_at`.
+    PENDING_REQUEST = "pending_request", "Czeka na odpowiedź"
+    #: Waits for a payment the offer asks for before confirming: it holds its
+    #: time the same way, until `hold_expires_at`.
     PENDING_PAYMENT = "pending_payment", "Czeka na wpłatę"
     CONFIRMED = "confirmed", "Potwierdzona"
     COMPLETED = "completed", "Zakończona"
@@ -51,6 +54,19 @@ class PriceBasis(models.TextChoices):
     PER_PERSON = "per_person", "Za osobę"
     #: One price for the group that comes, whatever its size.
     PER_GROUP = "per_group", "Za grupę"
+
+
+#: A booking that holds its time before it is confirmed.
+PENDING_STATUSES = (AppointmentStatus.PENDING_REQUEST, AppointmentStatus.PENDING_PAYMENT)
+
+
+class Confirmation(models.TextChoices):
+    """Who confirms a booking a customer makes (ADR-072 §8)."""
+
+    #: Booked is booked.
+    INSTANT = "instant", "Od razu"
+    #: The company answers each request; the time is held meanwhile.
+    ON_REQUEST = "on_request", "Na prośbę"
 
 
 class PaymentPolicy(models.TextChoices):
@@ -352,6 +368,14 @@ class Service(TenantScopedModel):
     payment_policy = models.CharField(
         max_length=16, choices=PaymentPolicy, default=PaymentPolicy.NONE
     )
+    #: Whether a customer's booking is confirmed at once or waits for the
+    #: company's answer; the team's own bookings never wait for one.
+    confirmation = models.CharField(
+        max_length=16, choices=Confirmation, default=Confirmation.INSTANT
+    )
+    #: With `on_request`: how many hours the company has to answer before the
+    #: request expires.
+    response_hours = models.PositiveSmallIntegerField(default=24)
     #: With `deposit`: the part of the price paid ahead, in percent.
     deposit_percent = models.PositiveSmallIntegerField(default=30)
     #: With a payment ahead by a transfer: how many days the customer has
@@ -1132,6 +1156,32 @@ class ReminderRoute(models.Model):
     due_at = models.DateTimeField()
     dispatched_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return str(self.appointment_id)
+
+
+class RequestRoute(models.Model):
+    """Which request's time to answer runs out when (ADR-072 §9): what the
+    task reads before it knows a tenant — identifiers and a date, never a
+    customer's data, with the organization's own contract (the pattern of
+    `ReminderRoute`)."""
+
+    appointment_id = models.UUIDField(primary_key=True)
+    organization_id = models.UUIDField()
+    signed_tenant_context = models.TextField()
+    due_at = models.DateTimeField()
+    dispatched_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["due_at"],
+                condition=models.Q(dispatched_at__isnull=True),
+                name="booking_requestroute_due_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return str(self.appointment_id)

@@ -7,7 +7,9 @@ the transaction that writes what it sells, hands the priced lines over:
 company's plan has no orders. Afterwards the source finds its order with
 `order_for(source, reference)` (locked) and tells it what changed:
 `reprice_order` when it priced the thing again, `cancel_order` when it took it
-back. `ORDER_MODEL` is for a module's own table of details about an order.
+back. A source that first has to accept what the customer asked for places a
+draft (`place_order(..., draft=True)`: no number, no payment) and calls
+`accept_order` when it does. `ORDER_MODEL` is for a module's own table of details about an order.
 
 A source that confirms only after a payment asks for it right after placing
 the order — `request_prepayment(order, …)` answers until when it holds its
@@ -27,6 +29,7 @@ from .models import Amounts, Order, OrderChannel, OrderLineKind, OrderStatus, Ta
 from .names import COMMERCE_ENABLED
 from .orders import (
     OrderLineInput,
+    accept_order,
     cancel_order,
     order_for,
     order_references,
@@ -52,6 +55,7 @@ __all__ = [
     "OrderStatus",
     "TaxRate",
     "TransferAccount",
+    "accept_order",
     "awaited_transfer",
     "cancel_order",
     "order_for",

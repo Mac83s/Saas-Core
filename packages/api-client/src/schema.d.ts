@@ -646,6 +646,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/{appointment_id}/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a booking request
+         * @description The company takes a booking that waits for its answer (`pending_request`): its order gets its number and the booking is confirmed — or, where the offer asks for money first, waits for that payment (`pending_payment`) and the customer gets the transfer's details. A booking that no longer waits for an answer is 409 `appointment_not_changeable`. The same Idempotency-Key answers the first result again.
+         */
+        post: operations["booking_appointment_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/appointments/{appointment_id}/cancel/": {
         parameters: {
             query?: never;
@@ -707,6 +727,26 @@ export interface paths {
         put?: never;
         /** @description Puts exactly these people on a visit; the same people again is „Zostaw”. */
         post: operations["api_v1_booking_appointments_crew_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/decline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a booking request
+         * @description The company does not take a booking that waits for its answer (`pending_request`): the booking lets its time go (`canceled`), its draft order is canceled and the customer is told. A booking that no longer waits for an answer is 409 `appointment_not_changeable`. The same Idempotency-Key answers the first result again.
+         */
+        post: operations["booking_appointment_decline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7835,11 +7875,11 @@ export interface components {
              * @description The offer it was booked from.
              */
             service_id: string;
-            /** @description `confirmed`, `completed`, `canceled`, `no_show` (the customer did not come) or `pending_payment`: the offer asks for money before confirming, and the booking holds its time until `hold_expires_at` — it is confirmed when the company marks the payment in its order, and expires (`canceled`) when the date comes first. */
+            /** @description `confirmed`, `completed`, `canceled`, `no_show` (the customer did not come), `pending_request` — a customer's booking of an offer taken on request: it holds its time until `hold_expires_at` and waits for the company to accept or decline it (`…/accept/`, `…/decline/`) — or `pending_payment`: the offer asks for money before confirming, and the booking holds its time until `hold_expires_at` — it is confirmed when the company marks the payment in its order. Either expires (`canceled`) when the date comes first. */
             status: string;
             /**
              * Format: date-time
-             * @description Until when a `pending_payment` booking waits for its payment; null otherwise.
+             * @description Until when a `pending_request` booking waits for the company's answer, or a `pending_payment` one for its payment; null otherwise.
              */
             hold_expires_at?: string | null;
             /** @description The booking's order, for a caller who may read orders (`commerce.orders.read`); null for a booking without a price, without orders in the company's plan, or for anybody else. */
@@ -9450,6 +9490,12 @@ export interface components {
             /** @description The bank's name shown beside the account, when the company wants it said. */
             bank_name: string;
         };
+        /**
+         * @description * `instant` - Od razu
+         *     * `on_request` - Na prośbę
+         * @enum {string}
+         */
+        ConfirmationEnum: "instant" | "on_request";
         /**
          * @description * `email` - email
          *     * `phone` - phone
@@ -13512,6 +13558,15 @@ export interface components {
              *     * `full` - Całość z góry
              */
             payment_policy?: components["schemas"]["PaymentPolicyEnum"];
+            /**
+             * @description Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation?: components["schemas"]["ConfirmationEnum"];
+            /** @description With `confirmation` `on_request`: how many hours the company has to accept or decline a customer's request before it expires (1–168), never past the booking's start. */
+            response_hours?: number;
             /** @description With `payment_policy` `deposit`: the percent of the booking's price the customer pays before the booking is confirmed (1–99), rounded to a whole minor unit. The rest is paid on site. */
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
@@ -14575,7 +14630,7 @@ export interface components {
             timezone: string;
             service_name: string;
             location_name: string;
-            /** @description `pending_payment`: the booking waits for the payment in `payment` until `hold_expires_at`, then expires; otherwise `confirmed`, `completed`, `canceled` or `no_show`. */
+            /** @description `pending_request`: the booking waits for the company's answer until `hold_expires_at`; `pending_payment`: it waits for the payment in `payment` until `hold_expires_at`; either then expires. Otherwise `confirmed`, `completed`, `canceled` or `no_show`. */
             status: string;
             /** Format: date-time */
             hold_expires_at?: string | null;
@@ -14658,6 +14713,15 @@ export interface components {
             public_slug: string;
             duration_minutes: number;
             appointment_kind: string;
+            /**
+             * @description `on_request` — a booking of this service waits for the company's answer (`pending_request`) before it is confirmed.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation?: components["schemas"]["ConfirmationEnum"];
+            /** @description With `on_request`: how many hours the company has to answer. */
+            response_hours?: number;
             staff_choice: string;
             team_ids: string[];
             person_ids: string[];
@@ -15052,11 +15116,11 @@ export interface components {
              * @description The offer it was booked from.
              */
             service_id: string;
-            /** @description `confirmed`, `completed`, `canceled`, `no_show` (the customer did not come) or `pending_payment`: the offer asks for money before confirming, and the booking holds its time until `hold_expires_at` — it is confirmed when the company marks the payment in its order, and expires (`canceled`) when the date comes first. */
+            /** @description `confirmed`, `completed`, `canceled`, `no_show` (the customer did not come), `pending_request` — a customer's booking of an offer taken on request: it holds its time until `hold_expires_at` and waits for the company to accept or decline it (`…/accept/`, `…/decline/`) — or `pending_payment`: the offer asks for money before confirming, and the booking holds its time until `hold_expires_at` — it is confirmed when the company marks the payment in its order. Either expires (`canceled`) when the date comes first. */
             status: string;
             /**
              * Format: date-time
-             * @description Until when a `pending_payment` booking waits for its payment; null otherwise.
+             * @description Until when a `pending_request` booking waits for the company's answer, or a `pending_payment` one for its payment; null otherwise.
              */
             hold_expires_at?: string | null;
             /** @description The booking's order, for a caller who may read orders (`commerce.orders.read`); null for a booking without a price, without orders in the company's plan, or for anybody else. */
@@ -15691,6 +15755,15 @@ export interface components {
              *     * `full` - Całość z góry
              */
             payment_policy?: components["schemas"]["PaymentPolicyEnum"];
+            /**
+             * @description Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation?: components["schemas"]["ConfirmationEnum"];
+            /** @description With `confirmation` `on_request`: how many hours the company has to accept or decline a customer's request before it expires (1–168), never past the booking's start. */
+            response_hours?: number;
             /** @description With `payment_policy` `deposit`: the percent of the booking's price the customer pays before the booking is confirmed (1–99), rounded to a whole minor unit. The rest is paid on site. */
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
@@ -15726,6 +15799,15 @@ export interface components {
             slot_step_minutes: number;
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online: boolean;
+            /**
+             * @description Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation?: components["schemas"]["ConfirmationEnum"];
+            /** @description With `confirmation` `on_request`: how many hours the company has to accept or decline a customer's request before it expires (1–168), never past the booking's start. */
+            response_hours?: number;
             /**
              * @description How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
              *
@@ -15780,6 +15862,15 @@ export interface components {
             slot_step_minutes: number;
             /** @description Whether the service is on the booking form on the company's site. Off: only the team books it, in the panel; its booked visits stay. */
             online: boolean;
+            /**
+             * @description Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation?: components["schemas"]["ConfirmationEnum"];
+            /** @description With `confirmation` `on_request`: how many hours the company has to accept or decline a customer's request before it expires (1–168), never past the booking's start. */
+            response_hours?: number;
             /**
              * @description How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
              *
@@ -15877,6 +15968,15 @@ export interface components {
              *     * `full` - Całość z góry
              */
             payment_policy?: components["schemas"]["PaymentPolicyEnum"];
+            /**
+             * @description Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation?: components["schemas"]["ConfirmationEnum"];
+            /** @description With `confirmation` `on_request`: how many hours the company has to accept or decline a customer's request before it expires (1–168), never past the booking's start. */
+            response_hours?: number;
             /** @description With `payment_policy` `deposit`: the percent of the booking's price the customer pays before the booking is confirmed (1–99), rounded to a whole minor unit. The rest is paid on site. */
             deposit_percent?: number;
             /** @description With a payment before confirmation: how many days the customer has to pay by a transfer before the booking expires (1–30), never past the booking's start. */
@@ -19418,6 +19518,45 @@ export interface operations {
             };
         };
     };
+    booking_appointment_accept: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_booking_appointments_cancel_create: {
         parameters: {
             query?: never;
@@ -19505,6 +19644,45 @@ export interface operations {
                 "multipart/form-data": components["schemas"]["CrewInput"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_appointment_decline: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

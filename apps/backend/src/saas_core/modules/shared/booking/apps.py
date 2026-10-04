@@ -19,7 +19,13 @@ class BookingConfig(AppConfig):
 
         from .catalog_terms import service_changed, service_names
         from .facts import register_core_facts
-        from .models import PublicBookingRoute, ReminderRoute, SelfServiceRoute, Service
+        from .models import (
+            PublicBookingRoute,
+            ReminderRoute,
+            RequestRoute,
+            SelfServiceRoute,
+            Service,
+        )
         from .notify import register_templates
         from .staff import link_on_join
 
@@ -94,6 +100,7 @@ class BookingConfig(AppConfig):
             ("public_route", PublicBookingRoute),
             ("self_service_route", SelfServiceRoute),
             ("reminder_route", ReminderRoute),
+            ("request_route", RequestRoute),
         ):
             register_erasure_rows(f"shared.booking.{name}", model, "organization_id")
 

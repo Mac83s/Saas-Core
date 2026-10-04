@@ -92,6 +92,8 @@ _SERVICE_FIELDS = (
     "public_staff_choice",
     "slot_step_minutes",
     "online",
+    "confirmation",
+    "response_hours",
     "payment_policy",
     "deposit_percent",
     "transfer_due_days",

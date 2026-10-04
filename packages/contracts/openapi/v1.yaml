@@ -1752,6 +1752,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/appointments/{appointment_id}/accept/:
+    post:
+      operationId: booking_appointment_accept
+      description: 'The company takes a booking that waits for its answer (`pending_request`):
+        its order gets its number and the booking is confirmed — or, where the offer
+        asks for money first, waits for that payment (`pending_payment`) and the customer
+        gets the transfer''s details. A booking that no longer waits for an answer
+        is 409 `appointment_not_changeable`. The same Idempotency-Key answers the
+        first result again.'
+      summary: Accept a booking request
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/appointments/{appointment_id}/cancel/:
     post:
       operationId: api_v1_booking_appointments_cancel_create
@@ -1864,6 +1909,50 @@ paths:
             schema:
               $ref: '#/components/schemas/CrewInput'
         required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/decline/:
+    post:
+      operationId: booking_appointment_decline
+      description: 'The company does not take a booking that waits for its answer
+        (`pending_request`): the booking lets its time go (`canceled`), its draft
+        order is canceled and the customer is told. A booking that no longer waits
+        for an answer is 409 `appointment_not_changeable`. The same Idempotency-Key
+        answers the first result again.'
+      summary: Decline a booking request
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
       security:
       - cookieAuth: []
       responses:
@@ -23796,17 +23885,20 @@ components:
         status:
           type: string
           description: '`confirmed`, `completed`, `canceled`, `no_show` (the customer
-            did not come) or `pending_payment`: the offer asks for money before confirming,
-            and the booking holds its time until `hold_expires_at` — it is confirmed
-            when the company marks the payment in its order, and expires (`canceled`)
-            when the date comes first.'
+            did not come), `pending_request` — a customer''s booking of an offer taken
+            on request: it holds its time until `hold_expires_at` and waits for the
+            company to accept or decline it (`…/accept/`, `…/decline/`) — or `pending_payment`:
+            the offer asks for money before confirming, and the booking holds its
+            time until `hold_expires_at` — it is confirmed when the company marks
+            the payment in its order. Either expires (`canceled`) when the date comes
+            first.'
         hold_expires_at:
           type:
           - string
           - 'null'
           format: date-time
-          description: Until when a `pending_payment` booking waits for its payment;
-            null otherwise.
+          description: Until when a `pending_request` booking waits for the company's
+            answer, or a `pending_payment` one for its payment; null otherwise.
         order:
           oneOf:
           - $ref: '#/components/schemas/AppointmentOrder'
@@ -27550,6 +27642,14 @@ components:
       - account_holder
       - account_number
       - bank_name
+    ConfirmationEnum:
+      enum:
+      - instant
+      - on_request
+      type: string
+      description: |-
+        * `instant` - Od razu
+        * `on_request` - Na prośbę
     ContactA7eEnum:
       enum:
       - email
@@ -36492,6 +36592,21 @@ components:
             * `transfer` - Przelew przed wizytą
             * `deposit` - Przedpłata
             * `full` - Całość z góry
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          maximum: 168
+          minimum: 1
+          description: 'With `confirmation` `on_request`: how many hours the company
+            has to accept or decline a customer''s request before it expires (1–168),
+            never past the booking''s start.'
         deposit_percent:
           type: integer
           maximum: 99
@@ -38925,9 +39040,10 @@ components:
           type: string
         status:
           type: string
-          description: '`pending_payment`: the booking waits for the payment in `payment`
-            until `hold_expires_at`, then expires; otherwise `confirmed`, `completed`,
-            `canceled` or `no_show`.'
+          description: '`pending_request`: the booking waits for the company''s answer
+            until `hold_expires_at`; `pending_payment`: it waits for the payment in
+            `payment` until `hold_expires_at`; either then expires. Otherwise `confirmed`,
+            `completed`, `canceled` or `no_show`.'
         hold_expires_at:
           type:
           - string
@@ -39127,6 +39243,17 @@ components:
           type: integer
         appointment_kind:
           type: string
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            `on_request` — a booking of this service waits for the company's answer (`pending_request`) before it is confirmed.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          description: 'With `on_request`: how many hours the company has to answer.'
         staff_choice:
           type: string
         team_ids:
@@ -39980,17 +40107,20 @@ components:
         status:
           type: string
           description: '`confirmed`, `completed`, `canceled`, `no_show` (the customer
-            did not come) or `pending_payment`: the offer asks for money before confirming,
-            and the booking holds its time until `hold_expires_at` — it is confirmed
-            when the company marks the payment in its order, and expires (`canceled`)
-            when the date comes first.'
+            did not come), `pending_request` — a customer''s booking of an offer taken
+            on request: it holds its time until `hold_expires_at` and waits for the
+            company to accept or decline it (`…/accept/`, `…/decline/`) — or `pending_payment`:
+            the offer asks for money before confirming, and the booking holds its
+            time until `hold_expires_at` — it is confirmed when the company marks
+            the payment in its order. Either expires (`canceled`) when the date comes
+            first.'
         hold_expires_at:
           type:
           - string
           - 'null'
           format: date-time
-          description: Until when a `pending_payment` booking waits for its payment;
-            null otherwise.
+          description: Until when a `pending_request` booking waits for the company's
+            answer, or a `pending_payment` one for its payment; null otherwise.
         order:
           oneOf:
           - $ref: '#/components/schemas/AppointmentOrder'
@@ -41339,6 +41469,21 @@ components:
             * `transfer` - Przelew przed wizytą
             * `deposit` - Przedpłata
             * `full` - Całość z góry
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          maximum: 168
+          minimum: 1
+          description: 'With `confirmation` `on_request`: how many hours the company
+            has to accept or decline a customer''s request before it expires (1–168),
+            never past the booking''s start.'
         deposit_percent:
           type: integer
           maximum: 99
@@ -41437,6 +41582,19 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          description: 'With `confirmation` `on_request`: how many hours the company
+            has to accept or decline a customer''s request before it expires (1–168),
+            never past the booking''s start.'
         payment_policy:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
@@ -41584,6 +41742,19 @@ components:
           type: boolean
           description: 'Whether the service is on the booking form on the company''s
             site. Off: only the team books it, in the panel; its booked visits stay.'
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          description: 'With `confirmation` `on_request`: how many hours the company
+            has to accept or decline a customer''s request before it expires (1–168),
+            never past the booking''s start.'
         payment_policy:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
@@ -41787,6 +41958,21 @@ components:
             * `transfer` - Przelew przed wizytą
             * `deposit` - Przedpłata
             * `full` - Całość z góry
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            Who confirms a booking a customer makes on the company's site: `instant` — it is confirmed when booked; `on_request` — it holds its time as `pending_request` until the company accepts or declines it, and expires after `response_hours` without an answer. A booking the team enters in the panel never waits for an answer.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          maximum: 168
+          minimum: 1
+          description: 'With `confirmation` `on_request`: how many hours the company
+            has to accept or decline a customer''s request before it expires (1–168),
+            never past the booking''s start.'
         deposit_percent:
           type: integer
           maximum: 99

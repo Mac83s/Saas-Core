@@ -12,6 +12,7 @@ from saas_core.modules.core.organizations.options import (
 from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
 
 from .models import (
+    Confirmation,
     ExtraBasis,
     PaymentPolicy,
     RangeUnit,
@@ -447,16 +448,20 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     service_id = serializers.UUIDField(help_text="The offer it was booked from.")
     status = serializers.CharField(
         help_text=(
-            "`confirmed`, `completed`, `canceled`, `no_show` (the customer did not come) or "
-            "`pending_payment`: the offer asks for money before confirming, and the booking "
-            "holds its time until `hold_expires_at` — it is confirmed when the company marks "
-            "the payment in its order, and expires (`canceled`) when the date comes first."
+            "`confirmed`, `completed`, `canceled`, `no_show` (the customer did not come), "
+            "`pending_request` — a customer's booking of an offer taken on request: it holds "
+            "its time until `hold_expires_at` and waits for the company to accept or decline "
+            "it (`…/accept/`, `…/decline/`) — or `pending_payment`: the offer asks for money "
+            "before confirming, and the booking holds its time until `hold_expires_at` — it "
+            "is confirmed when the company marks the payment in its order. Either expires "
+            "(`canceled`) when the date comes first."
         )
     )
     hold_expires_at = serializers.DateTimeField(
         required=False,
         allow_null=True,
-        help_text="Until when a `pending_payment` booking waits for its payment; null otherwise.",
+        help_text="Until when a `pending_request` booking waits for the company's answer, "
+        "or a `pending_payment` one for its payment; null otherwise.",
     )
     order = AppointmentOrderSerializer(
         required=False,
@@ -601,9 +606,10 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     service_name = serializers.CharField()
     location_name = serializers.CharField()
     status = serializers.CharField(
-        help_text="`pending_payment`: the booking waits for the payment in `payment` until "
-        "`hold_expires_at`, then expires; otherwise `confirmed`, `completed`, `canceled` or "
-        "`no_show`."
+        help_text="`pending_request`: the booking waits for the company's answer until "
+        "`hold_expires_at`; `pending_payment`: it waits for the payment in `payment` until "
+        "`hold_expires_at`; either then expires. Otherwise `confirmed`, `completed`, "
+        "`canceled` or `no_show`."
     )
     hold_expires_at = serializers.DateTimeField(required=False, allow_null=True)
     payment = PublicAwaitedPaymentSerializer(
@@ -742,6 +748,14 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
         help_text=offer_setting("slot_step_minutes").model_description
     )
     online = serializers.BooleanField(help_text=offer_setting("online").model_description)
+    confirmation = serializers.ChoiceField(
+        choices=Confirmation.choices,
+        required=False,
+        help_text=offer_setting("confirmation").model_description,
+    )
+    response_hours = serializers.IntegerField(
+        required=False, help_text=offer_setting("response_hours").model_description
+    )
     payment_policy = serializers.ChoiceField(
         choices=PaymentPolicy.choices, help_text=offer_setting("payment_policy").model_description
     )
@@ -1022,6 +1036,12 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         help_text=offer_setting("payment_policy").model_description,
     )
+    confirmation = serializers.ChoiceField(
+        choices=Confirmation.choices,
+        required=False,
+        help_text=offer_setting("confirmation").model_description,
+    )
+    response_hours = _bounded("response_hours", required=False)
     deposit_percent = _bounded("deposit_percent", required=False)
     transfer_due_days = _bounded("transfer_due_days", required=False)
     active = serializers.BooleanField(required=False)
@@ -1377,6 +1397,16 @@ class PublicServiceSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PublicChoiceServiceSerializer(PublicServiceSerializer):
+    confirmation = serializers.ChoiceField(
+        choices=Confirmation.choices,
+        required=False,
+        help_text="`on_request` — a booking of this service waits for the company's "
+        "answer (`pending_request`) before it is confirmed.",
+    )
+    response_hours = serializers.IntegerField(
+        required=False,
+        help_text="With `on_request`: how many hours the company has to answer.",
+    )
     #: „Do kogo?”: none, a team or a person (answer 2, 24.09).
     staff_choice = serializers.CharField()
     #: The teams able to take it, or the people shown to customers who do it.

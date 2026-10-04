@@ -55,10 +55,11 @@ def awaited_prepayment(order: Order) -> Payment | None:
 
 def status_for(order: Order, paid: int) -> str:
     """The order's shortcut for lists, from what its lines come to and what
-    the ledger says was paid. A canceled order stays canceled; nothing to pay
-    is paid."""
-    if order.status == OrderStatus.CANCELED:
-        return OrderStatus.CANCELED
+    the ledger says was paid. A canceled order stays canceled and a draft a
+    draft; nothing to pay is paid."""
+    if order.status in (OrderStatus.CANCELED, OrderStatus.DRAFT):
+        # Canceled stays canceled; a draft is placed by its source, not by money.
+        return order.status
     if paid >= order.gross_minor:
         return OrderStatus.PAID
     return OrderStatus.PARTIALLY_PAID if paid > 0 else OrderStatus.AWAITING_PAYMENT

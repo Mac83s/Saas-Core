@@ -53,6 +53,7 @@ from .consents import BookingConsents
 from .consents import record as record_consents
 from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
 from .models import (
+    PENDING_STATUSES,
     Appointment,
     AppointmentResourceAllocation,
     AppointmentStaffAllocation,
@@ -60,10 +61,12 @@ from .models import (
     AppointmentStatusHistory,
     AvailabilityRule,
     BookingMutation,
+    Confirmation,
     Location,
     PublicBookingRoute,
     QueueReason,
     ReminderRoute,
+    RequestRoute,
     Resource,
     SelfServiceRoute,
     Service,
@@ -89,6 +92,8 @@ from .security import (
     PUBLIC_BOOKING_ROLE,
     REMINDER_PERMISSIONS,
     REMINDER_ROLE,
+    REQUEST_PERMISSIONS,
+    REQUEST_ROLE,
     issue_self_service_token,
 )
 from .visibility import on_visit_q, own_visits_q, sees_others
@@ -104,6 +109,9 @@ BOOKING_ENABLED = "booking.enabled"
 #: Why a pending booking changed its status, in its history.
 HOLD_PAID = "paid"
 HOLD_EXPIRED = "payment_expired"
+REQUEST_ACCEPTED = "accepted"
+REQUEST_DECLINED = "declined"
+REQUEST_EXPIRED = "request_expired"
 
 
 class AppointmentNotChangeable(APIException):
@@ -1038,11 +1046,11 @@ def cancel_appointment(
         # The people and the observers heard of the booking when it was
         # confirmed; of one given up while it waited they hear nothing
         # (ADR-072 §9).
-        if old != AppointmentStatus.PENDING_PAYMENT:
+        if old not in PENDING_STATUSES:
             notify.staff_canceled(appointment, crew)
         if context.role_key == PUBLIC_BOOKING_ROLE:
             notify.office_told(appointment, notify.OFFICE_CANCELED, crew=crew)
-        if old != AppointmentStatus.PENDING_PAYMENT:
+        if old not in PENDING_STATUSES:
             _announce(
                 AppointmentChange(
                     change=CANCELED,
@@ -1098,6 +1106,8 @@ def _call_off(appointment: Appointment, *, reason: str = "") -> None:
     AppointmentStaffAllocation.all_objects.filter(appointment=appointment).update(active=False)
     AppointmentResourceAllocation.all_objects.filter(appointment=appointment).update(active=False)
     SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(revoked_at=timezone.now())
+    # Nobody's answer is awaited any more.
+    RequestRoute.objects.filter(appointment_id=appointment.id).delete()
     AppointmentStatusHistory.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -1110,23 +1120,27 @@ def _call_off(appointment: Appointment, *, reason: str = "") -> None:
 
 def confirm_pending(appointment: Appointment) -> None:
     """The payment a booking waited for has come — commerce's word, in the
-    payment's own transaction (`orders._prepaid`). The booking is confirmed,
-    and everything a confirmed booking gets follows now: the reminder, the
-    confirmation, the materials, the people's notices and the observers'
-    `CREATED` (ADR-072 §9)."""
+    payment's own transaction (`orders._prepaid`)."""
+    if appointment.status == AppointmentStatus.PENDING_PAYMENT:
+        _confirm(appointment, reason=HOLD_PAID)
+
+
+def _confirm(appointment: Appointment, *, reason: str) -> None:
+    """A booking that waited is confirmed, and everything a confirmed booking
+    gets follows now: the reminder, the confirmation, the materials, the
+    people's notices and the observers' `CREATED` (ADR-072 §9)."""
     context = require_tenant_context()
-    if appointment.status != AppointmentStatus.PENDING_PAYMENT:
-        return
     organization = Organization.objects.get(pk=context.organization_id)
+    waited = appointment.status
     appointment.status = AppointmentStatus.CONFIRMED
     appointment.hold_expires_at = None
     appointment.save(update_fields=["status", "hold_expires_at", "updated_at"])
     AppointmentStatusHistory.all_objects.create(
         organization=organization,
         appointment=appointment,
-        from_status=AppointmentStatus.PENDING_PAYMENT,
+        from_status=waited,
         to_status=AppointmentStatus.CONFIRMED,
-        reason=HOLD_PAID,
+        reason=reason,
         actor_kind=context.principal_kind,
     )
     customer = appointment.customer
@@ -1158,6 +1172,159 @@ def confirm_pending(appointment: Appointment) -> None:
             timezone=appointment.timezone,
         )
     )
+
+
+@transaction.atomic
+def answer_request(
+    *, appointment_id: UUID, accept: bool, idempotency_key: str, principal_ref: str
+) -> Appointment:
+    """The company answers a booking made „on request” (ADR-072 §9).
+
+    Accepted, its order gets its number and the booking is confirmed — or,
+    where the offer asks for money first, waits for that payment
+    (`pending_payment`) and the customer is told so. Declined, it lets its time
+    go and the customer is told. Answered once: a booking that no longer waits
+    for an answer — expired, given up, answered by somebody else — is 409
+    `appointment_not_changeable`; the same key again answers what the first
+    call did."""
+    context = require_tenant_context()
+    action = "accept" if accept else "decline"
+    # The order before the booking, as commerce takes them (`orders.lock`).
+    orders.lock(appointment_id)
+    appointment = (
+        Appointment.all_objects.select_for_update(of=("self",))
+        .select_related("customer", "service")
+        .filter(pk=appointment_id, organization_id=context.organization_id)
+        .first()
+    )
+    if appointment is None:
+        raise NotFound("Rezerwacja nie istnieje.")
+    request_hash = _hash({action: True})
+    existing = BookingMutation.all_objects.filter(
+        action=action, principal_ref=principal_ref, idempotency_key=idempotency_key
+    ).first()
+    if existing:
+        if existing.request_hash != request_hash or existing.appointment_id != appointment.id:
+            raise BookingIdempotencyConflict
+        return appointment
+    if appointment.status != AppointmentStatus.PENDING_REQUEST:
+        raise AppointmentNotChangeable
+    organization = Organization.objects.get(pk=context.organization_id)
+    customer = appointment.customer
+    mail = {
+        "organization_name": organization.name,
+        "starts_at": local_time(appointment.starts_at, appointment.timezone, customer.locale),
+    }
+    reaches = bool(customer.email) and not customer.anonymized_at
+    if accept:
+        RequestRoute.objects.filter(appointment_id=appointment.id).delete()
+        hold_until = orders.accepted(appointment)
+        if hold_until is None:
+            _confirm(appointment, reason=REQUEST_ACCEPTED)
+        else:
+            appointment.status = AppointmentStatus.PENDING_PAYMENT
+            appointment.hold_expires_at = hold_until
+            appointment.save(update_fields=["status", "hold_expires_at", "updated_at"])
+            AppointmentStatusHistory.all_objects.create(
+                organization=organization,
+                appointment=appointment,
+                from_status=AppointmentStatus.PENDING_REQUEST,
+                to_status=AppointmentStatus.PENDING_PAYMENT,
+                reason=REQUEST_ACCEPTED,
+                actor_kind=context.principal_kind,
+            )
+            # The transfer's details come from commerce; this says why.
+            if reaches:
+                queue_email(
+                    recipient_email=customer.email,
+                    template_key="booking.request_accepted",
+                    template_version=1,
+                    locale=customer.locale,
+                    template_context=mail,
+                    idempotency_key=f"booking-request-accepted:{appointment.id}",
+                    causation_id=f"booking:{appointment.id}",
+                )
+    else:
+        _call_off(appointment, reason=REQUEST_DECLINED)
+        orders.canceled(appointment)
+        if reaches:
+            queue_email(
+                recipient_email=customer.email,
+                template_key="booking.request_declined",
+                template_version=1,
+                locale=customer.locale,
+                template_context=mail,
+                idempotency_key=f"booking-request-declined:{appointment.id}",
+                causation_id=f"booking:{appointment.id}",
+            )
+    BookingMutation.all_objects.create(
+        organization=organization,
+        appointment=appointment,
+        action=action,
+        principal_ref=principal_ref,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+    )
+    record_audit(
+        organization=organization,
+        action=f"booking.appointment.{'accepted' if accept else 'declined'}",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="appointment",
+        target_id=appointment.id,
+    )
+    return appointment
+
+
+def expire_request(appointment_id: UUID) -> bool:
+    """Nobody answered a request in its time: the booking lets its time go,
+    its draft order is canceled, the customer and the people who manage
+    bookings are told. In the caller's transaction and tenant (booking's own
+    task); says whether anything expired — a request answered or given up
+    meanwhile is left as it is."""
+    context = require_tenant_context()
+    orders.lock(appointment_id)
+    appointment = (
+        Appointment.all_objects.select_for_update(of=("self",))
+        .select_related("customer")
+        .filter(pk=appointment_id, organization_id=context.organization_id)
+        .first()
+    )
+    if (
+        appointment is None
+        or appointment.status != AppointmentStatus.PENDING_REQUEST
+        or appointment.hold_expires_at is None
+        or appointment.hold_expires_at > timezone.now()
+    ):
+        return False
+    _call_off(appointment, reason=REQUEST_EXPIRED)
+    orders.canceled(appointment)
+    organization = Organization.objects.get(pk=context.organization_id)
+    customer = appointment.customer
+    if customer.email and not customer.anonymized_at:
+        queue_email(
+            recipient_email=customer.email,
+            template_key="booking.request_expired",
+            template_version=1,
+            locale=customer.locale,
+            template_context={
+                "organization_name": organization.name,
+                "starts_at": local_time(
+                    appointment.starts_at, appointment.timezone, customer.locale
+                ),
+            },
+            idempotency_key=f"booking-request-expired:{appointment.id}",
+            causation_id=f"booking:{appointment.id}",
+        )
+    notify.office_told(appointment, notify.OFFICE_REQUEST_EXPIRED, always=True)
+    record_audit(
+        organization=organization,
+        action="booking.appointment.expired",
+        actor=None,
+        target_type="appointment",
+        target_id=appointment.id,
+        metadata={"reason": REQUEST_EXPIRED},
+    )
+    return True
 
 
 def expire_pending(appointment: Appointment) -> None:
@@ -1668,9 +1835,24 @@ def record_new_booking(
     # A booking with a price is an order, where the company has orders
     # (ADR-073 §3). An offer that asks for money first makes it wait: the
     # booking holds its time until the date commerce names (ADR-072 §9).
-    hold_until = orders.place(appointment, customer, hold=not walk_in)
-    if hold_until is not None:
+    # A customer's booking of an offer taken „on request” waits for the
+    # company's answer first; the team's own booking is the company's answer.
+    requested = (
+        not walk_in
+        and context.role_key == PUBLIC_BOOKING_ROLE
+        and appointment.service.confirmation == Confirmation.ON_REQUEST
+    )
+    hold_until = orders.place(appointment, customer, hold=not walk_in, draft=requested)
+    if requested:
+        appointment.status = AppointmentStatus.PENDING_REQUEST
+        # The hours the offer gives the company, never past the start.
+        hold_until = min(
+            timezone.now() + timedelta(hours=appointment.service.response_hours),
+            appointment.starts_at,
+        )
+    elif hold_until is not None:
         appointment.status = AppointmentStatus.PENDING_PAYMENT
+    if hold_until is not None:
         appointment.hold_expires_at = hold_until
         appointment.save(update_fields=["status", "hold_expires_at", "updated_at"])
     pending = hold_until is not None
@@ -1706,6 +1888,8 @@ def record_new_booking(
         target_id=appointment.id,
         metadata=metadata,
     )
+    if requested:
+        _await_answer(organization, appointment, customer, email=email, token=token)
     if pending:
         # Observers hear `CREATED` when the booking is confirmed, and nothing
         # of one that never is (ADR-072 §9).
@@ -1722,6 +1906,58 @@ def record_new_booking(
             timezone=appointment.timezone,
         )
     )
+
+
+def _await_answer(
+    organization: Organization,
+    appointment: Appointment,
+    customer: Customer,
+    *,
+    email: str,
+    token: str,
+) -> None:
+    """A request waits for the company's answer until `hold_expires_at`: the
+    date is armed as the organization's own job (the reminders' pattern,
+    ADR-058 §7), the customer is told what happens next, and the people who
+    manage bookings hear of it whatever their notices' switch says — an
+    unanswered request expires."""
+    assert appointment.hold_expires_at is not None
+    RequestRoute.objects.update_or_create(
+        appointment_id=appointment.id,
+        defaults={
+            "organization_id": appointment.organization_id,
+            "signed_tenant_context": encrypt_secret(
+                issue_service_task_contract(
+                    organization_id=appointment.organization_id,
+                    role_key=REQUEST_ROLE,
+                    permissions=REQUEST_PERMISSIONS,
+                    causation_id=f"booking:{appointment.id}",
+                )
+            ),
+            "due_at": appointment.hold_expires_at,
+            "dispatched_at": None,
+        },
+    )
+    if email:
+        queue_email(
+            recipient_email=email,
+            template_key="booking.request_received",
+            template_version=1,
+            locale=customer.locale,
+            template_context={
+                "organization_name": organization.name,
+                "starts_at": local_time(
+                    appointment.starts_at, appointment.timezone, customer.locale
+                ),
+                "answer_by": local_time(
+                    appointment.hold_expires_at, appointment.timezone, customer.locale
+                ),
+                "manage_url": notify.manage_url(token, customer.locale),
+            },
+            idempotency_key=f"booking-request:{appointment.id}",
+            causation_id=f"booking:{appointment.id}",
+        )
+    notify.office_told(appointment, notify.OFFICE_REQUEST, always=True)
 
 
 def _welcome(

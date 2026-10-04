@@ -87,6 +87,8 @@ def request_prepayment(
         raise RuntimeError("A prepayment is asked for inside the order's transaction.")
     if kind not in PREPAYMENT_KINDS or not 0 < amount_minor <= order.gross_minor:
         raise ValueError("A prepayment is a deposit or the whole, within the order's amount.")
+    if order.status == OrderStatus.DRAFT:
+        raise RuntimeError("A draft takes no payment: its source accepts it first.")
     if order_source(order.source).handler is None:
         raise RuntimeError(f"Order source {order.source!r} asks for a payment and hears nothing.")
     account = transfer_account()
@@ -330,6 +332,16 @@ def _refuse(order: Order, *, amount_minor: int, method: str, due: int) -> None:
     if order.status == OrderStatus.CANCELED:
         raise ValidationError({
             "order": [ErrorDetail("Zamówienie jest anulowane.", code="order_canceled")]
+        })
+    if order.status == OrderStatus.DRAFT:
+        raise ValidationError({
+            "order": [
+                ErrorDetail(
+                    "Zamówienie czeka na przyjęcie rezerwacji. Najpierw odpowiedz na prośbę "
+                    "klienta.",
+                    code="order_not_placed",
+                )
+            ]
         })
     if method not in MANUAL_METHODS:
         raise ValidationError({

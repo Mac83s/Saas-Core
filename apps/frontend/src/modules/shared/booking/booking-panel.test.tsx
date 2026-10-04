@@ -26,6 +26,7 @@ const api = vi.hoisted(() => ({
   listInventoryBalances: vi.fn(),
   listInventoryItems: vi.fn(),
   setBookingAppointmentMaterials: vi.fn(),
+  answerBookingRequest: vi.fn(),
   createBookingAppointment: vi.fn(),
   createPublicBookingAppointment: vi.fn(),
   getBookingCatalog: vi.fn(),
@@ -2652,6 +2653,175 @@ test("the customer's page shows the transfer a waiting booking asks for (ADR-073
   ).toHaveTextContent("R/2026/0007");
   // No bank was given: the row is left out.
   expect(within(transfer).queryByText("Bank")).toBeNull();
+  expect(screen.getByRole("button", { name: "Cancel booking" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
+});
+
+test("a customer's request is accepted or declined in the visit's dialog (ADR-072 §9)", async () => {
+  const request = {
+    ...appointment,
+    status: "pending_request",
+    hold_expires_at: "2026-08-19T20:00:00Z",
+  };
+  const confirmed = { ...appointment, hold_expires_at: null };
+  api.listBookingAppointments.mockResolvedValue([request]);
+  api.answerBookingRequest.mockResolvedValue(confirmed);
+  renderCalendar();
+  fireEvent.click(await screen.findByText("Jan Kowalski"));
+  let dialog = await screen.findByRole("dialog");
+  // The calendar reads its visits again after the answer.
+  api.listBookingAppointments.mockResolvedValue([confirmed]);
+  expect(within(dialog).getByText("Awaiting answer")).toBeInTheDocument();
+  expect(within(dialog).getByText("Answer by").nextSibling).toHaveTextContent(
+    /August 19/,
+  );
+  // A request is answered, not moved or closed.
+  expect(
+    within(dialog).queryByRole("button", { name: "Reschedule" }),
+  ).toBeNull();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Accept the booking" }),
+  );
+  await waitFor(() =>
+    expect(api.answerBookingRequest).toHaveBeenCalledWith(
+      appointment.id,
+      "accept",
+      expect.any(String),
+    ),
+  );
+  expect(
+    await within(dialog).findByText(/Booking accepted and confirmed/),
+  ).toBeInTheDocument();
+  // The dialog now shows a confirmed visit: nothing left to answer.
+  await waitFor(() =>
+    expect(
+      within(dialog).queryByRole("button", { name: "Accept the booking" }),
+    ).toBeNull(),
+  );
+  fireEvent.keyDown(dialog, { key: "Escape" });
+
+  // Declining asks first: the customer is told.
+  const declined = {
+    ...appointment,
+    status: "canceled",
+    hold_expires_at: null,
+  };
+  api.listBookingAppointments.mockResolvedValue([request]);
+  api.answerBookingRequest.mockResolvedValue(declined);
+  cleanup();
+  renderCalendar();
+  fireEvent.click(await screen.findByText("Jan Kowalski"));
+  dialog = await screen.findByRole("dialog");
+  api.listBookingAppointments.mockResolvedValue([declined]);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Decline" }));
+  const question = await screen.findByRole("dialog", {
+    name: "Decline this booking?",
+  });
+  expect(
+    within(question).getByText(/the customer gets an e-mail/),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    within(question).getByRole("button", { name: "Decline the booking" }),
+  );
+  await waitFor(() =>
+    expect(api.answerBookingRequest).toHaveBeenLastCalledWith(
+      appointment.id,
+      "decline",
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText(/Booking declined\. The customer was told/),
+  ).toBeInTheDocument();
+});
+
+test("the public form says a service is taken on request and what happens to the request (ADR-072 §9)", async () => {
+  api.getPublicBookingCatalog.mockResolvedValue({
+    locations: catalog.locations,
+    services: [
+      {
+        ...catalog.services[0],
+        confirmation: "on_request",
+        response_hours: 12,
+      },
+    ],
+    resources: catalog.resources,
+    timezone: "Europe/Warsaw",
+    online: { paused: false, resume_on: null },
+  });
+  api.createPublicBookingAppointment.mockResolvedValue({
+    ...publicAppointment,
+    status: "pending_request",
+    hold_expires_at: "2026-08-19T20:00:00Z",
+    self_service_token: "bk_request",
+  });
+  renderPublic();
+  await searchPublic();
+  expect(
+    await screen.findByText(/you will get an answer within 12 hours/),
+  ).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Book" })).toBeNull();
+  await waitFor(() => expect(api.getPublicBookingDays).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      within(screen.getByLabelText("Day")).getAllByRole("option").length,
+    ).toBeGreaterThan(1),
+  );
+  fireEvent.change(screen.getByLabelText("Day"), {
+    target: { value: "2026-08-20" },
+  });
+  await waitFor(() => expect(api.getPublicBookingTimes).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      within(screen.getByLabelText("Time")).getAllByRole("option").length,
+    ).toBeGreaterThan(1),
+  );
+  fireEvent.change(screen.getByLabelText("Time"), {
+    target: { value: "2026-08-20T08:30:00Z" },
+  });
+  fireEvent.change(screen.getByLabelText("Full name"), {
+    target: { value: "Anna Nowak" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "anna@example.test" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Send a booking request" }),
+  );
+  expect(
+    await screen.findByText("Your booking request was sent"),
+  ).not.toBeNull();
+  expect(screen.getByText("Awaiting the company's answer")).not.toBeNull();
+  expect(screen.getByText("Answer by").nextSibling).toHaveTextContent(
+    /August 19, 2026/,
+  );
+  // Not in the calendar yet: the request may still be declined.
+  expect(screen.queryByText("Add to calendar")).toBeNull();
+});
+
+test("the customer's page says a request waits for the company and lets them withdraw it", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    status: "pending_request",
+    hold_expires_at: "2026-08-19T20:00:00Z",
+    payment: null,
+    self_service: {
+      reschedule: false,
+      cancel: true,
+      until: "2026-08-20T07:00:00Z",
+    },
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_request" />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    await screen.findByText("awaiting the company's answer"),
+  ).not.toBeNull();
+  expect(screen.getByRole("note")).toHaveTextContent(
+    /The company will answer your request by .*August 19, 2026/,
+  );
   expect(screen.getByRole("button", { name: "Cancel booking" })).not.toBeNull();
   expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
 });

@@ -22,6 +22,7 @@ import {
   ClockAlertIcon,
   HourglassIcon,
   MapPinIcon,
+  MessageCircleQuestionIcon,
   NavigationIcon,
   PhoneIcon,
   UserXIcon,
@@ -32,6 +33,7 @@ import {
 
 import {
   ApiProblemError,
+  answerBookingRequest,
   cancelBookingAppointment,
   completeBookingAppointment,
   markBookingAppointmentNoShow,
@@ -131,7 +133,13 @@ const STATUS_STYLES: Record<
   string,
   { className: string; border: string; icon: LucideIcon }
 > = {
-  // Holds its time while it waits for a payment (ADR-072 §9).
+  // Holds its time while it waits — for the company's answer, or for a
+  // payment (ADR-072 §9).
+  pending_request: {
+    className: "bg-warning text-warning-foreground",
+    border: "border-l-warning-foreground",
+    icon: MessageCircleQuestionIcon,
+  },
   pending_payment: {
     className: "bg-warning text-warning-foreground",
     border: "border-l-warning-foreground",
@@ -1689,11 +1697,18 @@ function AppointmentDetails({
           <CrewBadges appointment={appointment} />
           <FlagBadges flags={appointment.flags} />
         </dd>
-        {/* A booking that waits for its payment says until when (ADR-072 §9). */}
-        {appointment.status === "pending_payment" &&
+        {/* A booking that waits says until when (ADR-072 §9). */}
+        {(appointment.status === "pending_payment" ||
+          appointment.status === "pending_request") &&
         appointment.hold_expires_at ? (
           <>
-            <dt className="text-muted-foreground">{t("holdUntil")}</dt>
+            <dt className="text-muted-foreground">
+              {t(
+                appointment.status === "pending_request"
+                  ? "answerUntil"
+                  : "holdUntil",
+              )}
+            </dt>
             <dd className="font-medium">
               {dateFormat(locale, {
                 day: "numeric",
@@ -1880,6 +1895,31 @@ function AppointmentDetails({
             when={when}
           />
         </DialogFooter>
+      ) : null}
+      {/* A customer's request waits for the company's answer (ADR-072 §9). */}
+      {appointment.status === "pending_request" ? (
+        <>
+          <p className="text-sm text-muted-foreground">{t("requestHint")}</p>
+          {canManage ? (
+            <AnswerRequest
+              appointment={appointment}
+              onDone={(updated) => {
+                setNotice(
+                  t(
+                    updated.status === "canceled"
+                      ? "requestDeclined"
+                      : updated.status === "pending_payment"
+                        ? "requestAcceptedAwaiting"
+                        : "requestAccepted",
+                  ),
+                );
+                onChanged(updated);
+              }}
+              returnFocus={title}
+              when={when}
+            />
+          ) : null}
+        </>
       ) : null}
       {/* A booking that waits for its payment is confirmed in its order —
           the payment is marked there — or called off; it is never moved. */}
@@ -2296,6 +2336,120 @@ function NoShowDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** „Przyjmij” and „Odmów” for a booking made on request: accepting acts at
+ *  once, declining asks first — the customer is told either way. */
+function AnswerRequest({
+  appointment,
+  onDone,
+  returnFocus,
+  when,
+}: {
+  appointment: BookingAppointment;
+  onDone: (appointment: BookingAppointment) => void;
+  /** The answered request loses these buttons, so focus needs another home. */
+  returnFocus: RefObject<HTMLElement | null>;
+  when: string;
+}) {
+  const t = useTranslations("Calendar");
+  const common = useTranslations("Common");
+  const [declining, setDeclining] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string>();
+  const [declined, setDeclined] = useState<BookingAppointment>();
+  // One key per answer: a double click or a retry answers once.
+  const keys = useRef<{ accept?: string; decline?: string }>({});
+
+  async function answer(kind: "accept" | "decline") {
+    setBusy(true);
+    setProblem(undefined);
+    keys.current[kind] ??= crypto.randomUUID();
+    try {
+      const updated = await answerBookingRequest(
+        appointment.id,
+        kind,
+        keys.current[kind],
+      );
+      if (kind === "accept") {
+        returnFocus.current?.focus();
+        onDone(updated);
+      } else {
+        setDeclined(updated);
+        setDeclining(false);
+      }
+    } catch (error) {
+      setProblem(problemText(error, t, "answerError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {problem && !declining ? (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      <DialogFooter>
+        <Button
+          disabled={busy}
+          onClick={() => void answer("accept")}
+          type="button"
+        >
+          {t("acceptRequest")}
+        </Button>
+        <Dialog
+          onOpenChange={(next) => {
+            setProblem(undefined);
+            setDeclining(next);
+          }}
+          // Report only once the dialog is gone: the report removes its trigger.
+          onOpenChangeComplete={(isOpen) => {
+            if (!isOpen && declined) onDone(declined);
+          }}
+          open={declining}
+        >
+          <DialogTrigger
+            render={<Button type="button" variant="destructive" />}
+          >
+            {t("declineRequest")}
+          </DialogTrigger>
+          <DialogContent
+            closeLabel={common("close")}
+            finalFocus={() => (declined ? returnFocus.current : true)}
+          >
+            <DialogHeader>
+              <DialogTitle>{t("declineTitle")}</DialogTitle>
+              <DialogDescription>
+                {visitName(appointment)} · {when}
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm">{t("declineText")}</p>
+            {problem ? (
+              <p className="text-sm text-destructive" role="alert">
+                {problem}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>
+                {t("keep")}
+              </DialogClose>
+              <Button
+                disabled={busy}
+                onClick={() => void answer("decline")}
+                type="button"
+                variant="destructive"
+              >
+                {t("declineConfirm")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </DialogFooter>
+    </>
   );
 }
 

@@ -61,6 +61,11 @@ OFFICE_WAITING = "booking.office_waiting"
 OFFICE_CANCELED = "booking.office_canceled"
 #: A booking that waited for its payment let its time go (ADR-072 §9).
 OFFICE_EXPIRED = "booking.office_expired"
+#: A customer asked for a booking the company answers itself, and one nobody
+#: answered in its time. Told whatever the notices' switch says: an
+#: unanswered request expires.
+OFFICE_REQUEST = "booking.office_request"
+OFFICE_REQUEST_EXPIRED = "booking.office_request_expired"
 #: Who manages bookings: the queue and the calendar of everybody.
 MANAGE_BOOKINGS = "booking.appointment.manage"
 
@@ -131,13 +136,16 @@ def customer_person_changed(appointment: Appointment, *, previous_lead_id: UUID)
         )
 
 
-def office_told(appointment: Appointment, kind: str, *, crew: Iterable[UUID] = ()) -> None:
+def office_told(
+    appointment: Appointment, kind: str, *, crew: Iterable[UUID] = (), always: bool = False
+) -> None:
     """Everyone who manages bookings hears about a new online booking, a visit
     waiting for someone or a customer's cancellation — when the company says
-    so (W8). The people on the visit heard already; nobody hears twice."""
+    so (W8), or `always` for what waits for the company's own answer. The
+    people on the visit heard already; nobody hears twice."""
     from .company_settings import OFFICE_NOTICES  # noqa: PLC0415 — it imports services
 
-    if not setting(OFFICE_NOTICES):
+    if not always and not setting(OFFICE_NOTICES):
         return
     told = set(
         StaffMember.all_objects.filter(pk__in=list(crew), membership__isnull=False).values_list(
@@ -380,6 +388,29 @@ def register_templates() -> None:
             },
         ),
         (
+            OFFICE_REQUEST,
+            {"pl": "Prośba o rezerwację czeka na odpowiedź", "en": "A booking request waits"},
+            {
+                "pl": "<p>{organization_name}: klient prosi o rezerwację na {starts_at}. "
+                "Przyjmij ją albo odmów — bez odpowiedzi prośba wygaśnie.</p>",
+                "en": "<p>{organization_name}: a customer asks for a booking for "
+                "{starts_at}. Accept or decline it — unanswered, the request expires.</p>",
+            },
+        ),
+        (
+            OFFICE_REQUEST_EXPIRED,
+            {
+                "pl": "Prośba o rezerwację wygasła bez odpowiedzi",
+                "en": "A booking request expired unanswered",
+            },
+            {
+                "pl": "<p>{organization_name}: prośba o rezerwację na {starts_at} wygasła, bo "
+                "nikt na nią nie odpowiedział. Termin jest znowu wolny.</p>",
+                "en": "<p>{organization_name}: the request for a booking for {starts_at} "
+                "expired because nobody answered it. The time is free again.</p>",
+            },
+        ),
+        (
             OFFICE_EXPIRED,
             {"pl": "Rezerwacja wygasła bez wpłaty", "en": "A booking expired unpaid"},
             {
@@ -465,6 +496,120 @@ def register_templates() -> None:
                 "die Zahlung nicht rechtzeitig eingegangen ist.</p>"
                 "<p>Ist Ihre Überweisung bereits unterwegs oder möchten Sie erneut buchen, "
                 "wenden Sie sich bitte an {organization_name}.</p>"
+            ),
+        },
+        {"organization_name", "starts_at"},
+        audience=AUDIENCE_CUSTOMER,
+    )
+    # A booking the company answers itself (ADR-072 §9): what the customer
+    # hears when they ask, and each way the answer can go.
+    _template(
+        "booking.request_received",
+        {
+            "pl": "Prośba o rezerwację została wysłana",
+            "en": "Your booking request was sent",
+            "de": "Ihre Buchungsanfrage wurde gesendet",
+        },
+        {
+            "pl": (
+                "<p>{organization_name} dostała Twoją prośbę o rezerwację na {starts_at}. "
+                "Termin jest dla Ciebie wstrzymany, a odpowiedź dostaniesz do {answer_by}.</p>"
+                '<p><a href="{manage_url}">Zobacz prośbę albo z niej zrezygnuj</a></p>'
+            ),
+            "en": (
+                "<p>{organization_name} has received your booking request for {starts_at}. "
+                "The time is held for you, and you will get an answer by {answer_by}.</p>"
+                '<p><a href="{manage_url}">See your request or withdraw it</a></p>'
+            ),
+            "de": (
+                "<p>{organization_name} hat Ihre Buchungsanfrage für {starts_at} erhalten. "
+                "Der Termin ist für Sie reserviert; eine Antwort erhalten Sie bis "
+                "{answer_by}.</p>"
+                '<p><a href="{manage_url}">Anfrage ansehen oder zurückziehen</a></p>'
+            ),
+        },
+        {"organization_name", "starts_at", "answer_by", "manage_url"},
+        audience=AUDIENCE_CUSTOMER,
+    )
+    _template(
+        "booking.request_accepted",
+        {
+            "pl": "Prośba o rezerwację została przyjęta",
+            "en": "Your booking request was accepted",
+            "de": "Ihre Buchungsanfrage wurde angenommen",
+        },
+        {
+            "pl": (
+                "<p>{organization_name} przyjęła Twoją prośbę o rezerwację na {starts_at}.</p>"
+                "<p>Rezerwacja czeka teraz na wpłatę — dane do przelewu wysyłamy w osobnej "
+                "wiadomości. Potwierdzenie przyjdzie po wpłacie.</p>"
+            ),
+            "en": (
+                "<p>{organization_name} has accepted your booking request for {starts_at}.</p>"
+                "<p>The booking now waits for your payment — the transfer details come in a "
+                "separate message. The confirmation follows once the payment arrives.</p>"
+            ),
+            "de": (
+                "<p>{organization_name} hat Ihre Buchungsanfrage für {starts_at} "
+                "angenommen.</p>"
+                "<p>Die Buchung wartet nun auf Ihre Zahlung — die Überweisungsdaten senden "
+                "wir in einer separaten Nachricht. Die Bestätigung folgt nach "
+                "Zahlungseingang.</p>"
+            ),
+        },
+        {"organization_name", "starts_at"},
+        audience=AUDIENCE_CUSTOMER,
+    )
+    _template(
+        "booking.request_declined",
+        {
+            "pl": "Prośba o rezerwację nie została przyjęta",
+            "en": "Your booking request was declined",
+            "de": "Ihre Buchungsanfrage wurde abgelehnt",
+        },
+        {
+            "pl": (
+                "<p>Niestety {organization_name} nie może przyjąć Twojej rezerwacji na "
+                "{starts_at}.</p>"
+                "<p>Jeśli chcesz umówić inny termin, skontaktuj się z {organization_name}.</p>"
+            ),
+            "en": (
+                "<p>Unfortunately {organization_name} cannot take your booking for "
+                "{starts_at}.</p>"
+                "<p>If you would like another time, please contact {organization_name}.</p>"
+            ),
+            "de": (
+                "<p>Leider kann {organization_name} Ihre Buchung für {starts_at} nicht "
+                "annehmen.</p>"
+                "<p>Für einen anderen Termin wenden Sie sich bitte an {organization_name}.</p>"
+            ),
+        },
+        {"organization_name", "starts_at"},
+        audience=AUDIENCE_CUSTOMER,
+    )
+    _template(
+        "booking.request_expired",
+        {
+            "pl": "Prośba o rezerwację wygasła",
+            "en": "Your booking request has expired",
+            "de": "Ihre Buchungsanfrage ist verfallen",
+        },
+        {
+            "pl": (
+                "<p>{organization_name} nie odpowiedziała w terminie na Twoją prośbę o "
+                "rezerwację na {starts_at}, więc prośba wygasła.</p>"
+                "<p>Jeśli nadal chcesz zarezerwować, skontaktuj się z {organization_name}.</p>"
+            ),
+            "en": (
+                "<p>{organization_name} did not answer your booking request for {starts_at} "
+                "in time, so the request has expired.</p>"
+                "<p>If you still want to book, please contact {organization_name}.</p>"
+            ),
+            "de": (
+                "<p>{organization_name} hat Ihre Buchungsanfrage für {starts_at} nicht "
+                "rechtzeitig beantwortet, daher ist die Anfrage verfallen.</p>"
+                "<p>Wenn Sie weiterhin buchen möchten, wenden Sie sich bitte an "
+                "{organization_name}.</p>"
             ),
         },
         {"organization_name", "starts_at"},

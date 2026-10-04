@@ -22,10 +22,12 @@ from .translation_views import (
     ItemTranslationView,
 )
 from .views import (
+    AppointmentAcceptView,
     AppointmentCancelView,
     AppointmentCandidatesView,
     AppointmentCompleteView,
     AppointmentCrewView,
+    AppointmentDeclineView,
     AppointmentListCreateView,
     AppointmentMaterialsView,
     AppointmentNoShowView,
@@ -346,6 +348,16 @@ urlpatterns = [
     ),
     path(
         "appointments/<uuid:appointment_id>/cancel/", AppointmentCancelView.as_view(), name="cancel"
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/accept/",
+        AppointmentAcceptView.as_view(),
+        name="accept-request",
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/decline/",
+        AppointmentDeclineView.as_view(),
+        name="decline-request",
     ),
     path(
         "appointments/<uuid:appointment_id>/complete/",

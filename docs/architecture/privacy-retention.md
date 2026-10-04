@@ -141,6 +141,7 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 | `OrganizationAuditEntry` zamówień | numer, źródło, kanał, kwota | zostaje | bez danych kupującego |
 | E-mail z danymi do przelewu (`commerce.transfer_details`, ADR-073 §5) | adres klienta i treść wiadomości (numer zamówienia, kwota, rachunek firmy) | **usuwane** — zapisane kopie czyści `strip_buyer` od razu, jak e-maile rezerwacji | adres to dana klienta |
 | `commerce_paymentroute` (trasy terminów wpłat) | identyfikator płatności i firmy, termin, kontrakt zadania | zostaje do usunięcia firmy | bez danych klienta |
+| `booking_requestroute` (trasy terminów odpowiedzi na prośby, ADR-072 §9) | identyfikator rezerwacji i firmy, termin, kontrakt zadania | znika z odpowiedzią albo wygaśnięciem prośby, najpóźniej z usunięciem firmy | bez danych klienta |
 | `Payment`, `LedgerEntry` (`shared.commerce`, ADR-073 §4) | kwoty, sposób zapłaty, czas i identyfikator osoby z firmy, która oznaczyła wpłatę | zostaje | bez danych klienta; księga jest tylko do dopisywania |
 | Dziennik zgód (`customers_consentrecord`, ADR-073 §9) | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu, źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany |
 | Karta gospodarstwa (`shared.farms`) | dane hodowcy | **zostaje — własna reguła** | dlatego grupy nie ma w profilu z gospodarstwami (wyżej) |

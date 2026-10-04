@@ -33,6 +33,10 @@ PUBLIC_BOOKING_ROLE = "public_booking"
 #: queues one mail. The permission is a scope marker nobody's role carries.
 REMINDER_ROLE = "booking_reminder"
 REMINDER_PERMISSIONS = frozenset({"booking.reminder.send"})
+#: The organization's own job that lets an unanswered request go (ADR-072
+#: §9), in the reminders' pattern.
+REQUEST_ROLE = "booking_requests"
+REQUEST_PERMISSIONS = frozenset({"booking.request.expire"})
 #: Booking's mails to the people on a visit (ADR-058 §9) are signed as the
 #: organization's own job, with no permission of their own — not as the office
 #: member who clicked, whose membership may be gone by the time a retry
@@ -48,6 +52,7 @@ def register_service_scopes() -> None:
     register_service_scope(PUBLIC_BOOKING_ROLE, PUBLIC_BOOKING_PERMISSIONS)
     # A reminder does one thing: its contract carries exactly its scope.
     register_service_scope(REMINDER_ROLE, REMINDER_PERMISSIONS, exact=True)
+    register_service_scope(REQUEST_ROLE, REQUEST_PERMISSIONS, exact=True)
     register_service_scope(NOTIFY_ROLE)
 
 

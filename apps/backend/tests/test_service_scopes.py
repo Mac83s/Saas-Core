@@ -29,6 +29,7 @@ DECLARED = {
     "shared.booking": [
         ("public_booking", {"booking.public.read", "booking.public.manage"}, False),
         ("booking_reminder", {"booking.reminder.send"}, True),
+        ("booking_requests", {"booking.request.expire"}, True),
         ("booking_notify", set(), False),
     ],
     "shared.sites": [("public_site_inquiry", {"sites.inquiry.submit"}, True)],

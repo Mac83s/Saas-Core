@@ -3785,6 +3785,32 @@ export async function cancelBookingAppointment(
   return data;
 }
 
+/** The company's answer to a booking made „on request” (ADR-072 §9):
+ *  accepted, it is confirmed or waits for its payment; declined, it lets its
+ *  time go. A booking that no longer waits for an answer is 409. */
+export async function answerBookingRequest(
+  appointmentId: string,
+  answer: "accept" | "decline",
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    answer === "accept"
+      ? "/api/v1/booking/appointments/{appointment_id}/accept/"
+      : "/api/v1/booking/appointments/{appointment_id}/decline/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 /** The visit took place: its products leave the warehouse (ADR-055). */
 export async function completeBookingAppointment(
   appointmentId: string,

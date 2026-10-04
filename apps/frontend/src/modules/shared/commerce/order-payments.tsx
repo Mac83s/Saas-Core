@@ -221,6 +221,11 @@ export function OrderPayments({
           </div>
         )}
       </dl>
+      {order.status === "draft" ? (
+        <p className="max-w-prose text-sm" role="note">
+          {t("draftHint")}
+        </p>
+      ) : null}
       {awaited?.due_at ? (
         <p className="max-w-prose text-sm" role="note">
           {t("awaited", {

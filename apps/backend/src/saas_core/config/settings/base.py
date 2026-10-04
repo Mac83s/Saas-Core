@@ -851,6 +851,11 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
             "task": "saas_core.modules.shared.booking.tasks.dispatch_booking_reminders",
             "schedule": 60.0,
         },
+        # A request nobody answered in its time lets its time go (ADR-072 §9).
+        "booking-expire-requests": {
+            "task": "saas_core.modules.shared.booking.tasks.expire_pending_requests",
+            "schedule": 60.0,
+        },
     },
 }
 

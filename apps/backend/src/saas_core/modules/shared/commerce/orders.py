@@ -78,11 +78,17 @@ def place_order(
     amounts: str,
     lines: Sequence[OrderLineInput],
     channel: str,
+    draft: bool = False,
 ) -> Order | None:
     """Places the order for what `source` is selling in this transaction, with
     the next number of the source's prefix, and returns it — or None where the
     company's plan has no orders (`commerce.enabled`), and the source goes on
-    as it did before orders. The buyer is the customer as they are now."""
+    as it did before orders. The buyer is the customer as they are now.
+
+    `draft`: the source has not accepted what the customer asked for yet (a
+    booking „on request”). The order is written without a number and takes no
+    payment until the source accepts it (`accept_order`) — the counter moves
+    only for orders the company took, so a request declined leaves no gap."""
     context = require_tenant_context()
     if not connection.in_atomic_block:
         raise RuntimeError("An order is placed inside its source's transaction.")
@@ -97,7 +103,7 @@ def place_order(
     totals = _totals(lines)
     order = Order.all_objects.create(
         organization=organization,
-        number=_next_number(organization, registered.prefix),
+        number="" if draft else _next_number(organization, registered.prefix),
         source=source,
         customer=customer,
         buyer_name=customer.display_name,
@@ -109,11 +115,42 @@ def place_order(
         placed_at=now,
         **totals,
         # Nothing to pay is paid; from here on the ledger decides.
-        status=OrderStatus.AWAITING_PAYMENT if totals["gross_minor"] > 0 else OrderStatus.PAID,
+        status=OrderStatus.DRAFT if draft else _placed_status(totals["gross_minor"]),
     )
     _write_lines(order, lines)
-    _audit(context, order, "commerce.order.placed", channel=channel, gross_minor=order.gross_minor)
+    _audit(
+        context,
+        order,
+        "commerce.order.drafted" if draft else "commerce.order.placed",
+        channel=channel,
+        gross_minor=order.gross_minor,
+    )
     return order
+
+
+def accept_order(order: Order) -> Order:
+    """The source accepted what the customer asked for: the draft gets its
+    number — the next of the source's prefix, now — and is to be paid like any
+    placed order. An order that already has its number is left as it is."""
+    context = require_tenant_context()
+    if order.status != OrderStatus.DRAFT:
+        return order
+    order.number = _next_number(order.organization, order_source(order.source).prefix)
+    order.status = _placed_status(order.gross_minor)
+    order.version += 1
+    order.save(update_fields=["number", "status", "version", "updated_at"])
+    _audit(
+        context,
+        order,
+        "commerce.order.placed",
+        channel=order.channel,
+        gross_minor=order.gross_minor,
+    )
+    return order
+
+
+def _placed_status(gross_minor: int) -> str:
+    return OrderStatus.AWAITING_PAYMENT if gross_minor > 0 else OrderStatus.PAID
 
 
 def order_for(source: str, reference: str) -> Order | None:
@@ -268,7 +305,10 @@ def name_orders(organization_id: UUID, ids: Sequence[UUID]) -> dict[UUID, Histor
     """An order in the company's history is its number."""
     return {
         order.id: HistoryTarget(
-            label=order.number, href=f"/panel/orders/{order.id}", at=order.placed_at
+            # A draft — a request not accepted yet — has no number.
+            label=order.number or "—",
+            href=f"/panel/orders/{order.id}",
+            at=order.placed_at,
         )
         for order in Order.all_objects.filter(organization_id=organization_id, pk__in=ids)
     }

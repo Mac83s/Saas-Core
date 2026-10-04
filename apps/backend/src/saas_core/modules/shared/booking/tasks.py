@@ -10,9 +10,9 @@ from saas_core.modules.core.organizations.tasks import InvalidTenantTaskContext,
 from saas_core.modules.shared.notifications.security import decrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
 
-from .models import Appointment, AppointmentStatus, ReminderRoute
+from .models import Appointment, AppointmentStatus, ReminderRoute, RequestRoute
 from .notify import manage_url
-from .services import local_time
+from .services import expire_request, local_time
 
 logger = logging.getLogger("saas_core.security")
 
@@ -95,7 +95,44 @@ def dispatch_booking_reminders() -> int:
     return dispatched
 
 
-def _contract(route: ReminderRoute) -> str:
+@shared_task  # type: ignore[untyped-decorator]
+def expire_pending_requests() -> int:
+    """A request nobody answered in its time lets its time go (ADR-072 §9).
+    Reads the routes — no tenant's data — and opens each booking's own
+    organization for it; answers how many requests expired."""
+    expired = 0
+    routes = list(
+        RequestRoute.objects.filter(
+            dispatched_at__isnull=True, due_at__lte=timezone.now()
+        ).order_by("due_at")[:100]
+    )
+    for route in routes:
+        try:
+            with tenant_task_context(
+                _contract(route),
+                expected_causation_id=f"booking:{route.appointment_id}",
+                # Due when the offer's hours say, which can be past the TTL.
+                expires=False,
+            ):
+                expired += expire_request(route.appointment_id)
+        except InvalidTenantTaskContext as error:
+            # A contract that does not open now never will (ADR-058 §7).
+            logger.warning(
+                "booking_request_route_rejected",
+                extra={
+                    "security_event": "booking.request_route_rejected",
+                    "route_id": str(route.pk),
+                    "reason": str(error),
+                },
+            )
+        with transaction.atomic():
+            RequestRoute.objects.filter(pk=route.pk, dispatched_at__isnull=True).update(
+                dispatched_at=timezone.now()
+            )
+    return expired
+
+
+def _contract(route: ReminderRoute | RequestRoute) -> str:
     try:
         return decrypt_secret(route.signed_tenant_context)
     except RuntimeError as error:

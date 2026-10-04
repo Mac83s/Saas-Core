@@ -651,6 +651,25 @@ test("an order that waits for a prepayment says until when, and marking starts f
   await waitFor(() => expect(screen.queryByRole("note")).toBeNull());
 });
 
+test("a draft — a request the company has not answered — has no number and takes no payment", async () => {
+  api.readOrder.mockResolvedValue(order({ number: "", status: "draft" }));
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+
+  expect(
+    await screen.findByRole("heading", { name: "Zamówienie bez numeru" }),
+  ).toBeTruthy();
+  expect(screen.getByText("Szkic")).toBeTruthy();
+  expect(await screen.findByRole("note")).toHaveTextContent(
+    /czeka, aż firma odpowie na prośbę klienta/,
+  );
+  expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
+});
+
 test("the server's refusal is shown in the dialog and a stale order is read again", async () => {
   api.readOrder.mockResolvedValue(order());
   api.recordOrderPayment.mockRejectedValueOnce(

@@ -429,7 +429,7 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał (token pochodzenia — niżej, „Rozstrzygnięcia plastra 4e”); `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0004 (wersje planów publikuje 0004) | Zamówienia (lista, szczegół) |
 | **4f-1** | Wpłaty ręczne (§4): `Payment`, `LedgerEntry` (tylko do dopisywania), oznaczenie wpłaty przez firmę (na miejscu, przelew) z podglądem, wycofanie wpłaty oznaczonej przez pomyłkę, status zamówienia z księgi (`partially_paid`, `paid`), `commerce.payments.manage` | commerce 0005–0007 | wpłaty w zamówieniu |
 | **4f-2** | Przelew z terminem (§5): rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, handler źródła w rejestrze, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, e-maile z numerem zamówienia i danymi do przelewu | commerce 0008, booking 0030 | oferta („Cennik”), zamówienie, wizyta, Ustawienia › „Płatności klientów”, formularz publiczny i link klienta |
-| **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
+| **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking 0031 | kalendarz (wizyta), oferta („Edytuj usługę”), zamówienie, formularz publiczny i link klienta |
 | **4h** | Progi anulowania (przeniesione z 3d) i zwroty ręczne (§8): progi i `appliesTo` w ofercie i migawce, wyliczenie zwrotu przy rezygnacji gościa i odwołaniu przez firmę, zwrot ręczny w księdze, przypomnienia dopłaty i alert dla firmy (29a) | booking, commerce | oferta, zamówienie, link samoobsługi |
 | **4i** | Wyjątek retencji dla klientów z zapisami sprzedaży w okresie ustawowym i historia cen przed promocjami (niżej) | commerce, booking | Prywatność i dane (podgląd) |
 
@@ -768,3 +768,53 @@ Rozstrzygnięcia plastra 4f-2 (2026-10-04, decyzje techniczne z powodem):
   (`id`, `number`) tylko dla wywołującego z `commerce.orders.read`.
 - **Poza 4f-2** zostały polecenia asystenta dla wpłat (zgoda z kliknięcia,
   ADR-033) — osobny przegląd razem z paczką asystenta.
+
+Rozstrzygnięcia plastra 4g (2026-10-04, decyzje techniczne z powodem):
+
+- **Oferta niesie `confirmation` (`instant`, `on_request`) i `response_hours`**
+  (1–168, domyślnie 24). `quote_request` zostaje w kontrakcie presetów do fazy
+  13; oferta go nie przyjmuje.
+- **Na odpowiedź czeka tylko rezerwacja klienta.** `pending_request` powstaje
+  dla rezerwacji z formularza publicznego oferty `on_request`; rezerwacja
+  wpisana przez zespół w panelu (albo przez produkt przez `booking.api`) jest
+  już odpowiedzią firmy, więc idzie od razu do `pending_payment` albo
+  `confirmed`. Rezerwacja oczekująca trzyma termin tymi samymi alokacjami co
+  potwierdzona, do `hold_expires_at` — godziny z oferty, nigdy później niż
+  początek rezerwacji.
+- **Zamówienie prośby to `draft` bez numeru.** `place_order(..., draft=True)`
+  zapisuje zamówienie z pozycjami wyceny, bez numeru i bez ruchu licznika;
+  `accept_order` nadaje numer przy akceptacji (historia: `commerce.order.drafted`,
+  potem `commerce.order.placed`). Odmowa, rezygnacja i wygaśnięcie anulują
+  szkic — numer nie powstał, więc numeracja nie ma dziur. Szkic nie przyjmuje
+  wpłat (`order_not_placed`) i nie prosi o przedpłatę.
+- **Akceptacja prowadzi do `confirmed` albo `pending_payment`.** O przedpłatę
+  z zamrożonej wyceny booking prosi commerce dopiero przy akceptacji, więc
+  termin przelewu liczy się od odpowiedzi firmy, nie od prośby. Przy
+  `confirmed` klient dostaje zwykłe potwierdzenie; przy `pending_payment` —
+  wiadomość „prośba przyjęta, czeka na wpłatę” i dane do przelewu z commerce.
+- **Odpowiedź to dwa endpointy z kluczem**:
+  `POST /booking/appointments/<id>/accept/` i `…/decline/`
+  (`booking.appointment.manage`, `Idempotency-Key`). Rezerwacja, która już nie
+  czeka na odpowiedź (wygasła, klient zrezygnował, ktoś odpowiedział), to 409
+  `appointment_not_changeable`; ten sam klucz oddaje pierwszy wynik. Odmowa nie
+  ma pola na powód: wolny tekst firmy w e-mailu do klienta to osobna decyzja
+  (ADR-078, 36a — tekst bez linków), a powód w historii to `declined`.
+- **Wygaszanie należy do booking** (ADR-072 §9): `booking_requestroute`
+  (identyfikatory i termin, bez danych osobowych, kontrakt `service` roli
+  `booking_requests`) i zadanie `booking.tasks.expire_pending_requests` co
+  minutę. Prośba, na którą odpowiedziano w międzyczasie, zostaje.
+- **E-maile** (pl, en, de): `booking.request_received` (z terminem odpowiedzi i
+  linkiem do prośby — klient może z niej zrezygnować),
+  `booking.request_accepted` (tylko gdy po akceptacji czeka wpłata),
+  `booking.request_declined`, `booking.request_expired`. Osoby zarządzające
+  rezerwacjami dostają `booking.office_request` i
+  `booking.office_request_expired` **zawsze**, niezależnie od przełącznika
+  powiadomień biura — prośba bez odpowiedzi wygasa, więc nie może przejść
+  niezauważona.
+- **Formularz mówi, że usługa jest na prośbę**: katalog publiczny niesie
+  `confirmation` i `response_hours`, przycisk to „Wyślij prośbę o
+  rezerwację”, a strona po wysłaniu i link klienta pokazują stan „czeka na
+  odpowiedź firmy” z terminem. Plik kalendarza jest dopiero przy potwierdzonej.
+- **Poza 4g**: osobna lista próśb w panelu (dziś: kalendarz, okno wizyty i
+  powiadomienie), powód odmowy dla klienta, polecenia asystenta dla
+  odpowiedzi na prośbę.

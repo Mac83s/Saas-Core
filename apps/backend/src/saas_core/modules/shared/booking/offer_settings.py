@@ -12,7 +12,7 @@ from typing import Any
 
 from saas_core.modules.core.organizations.api import SettingGroup, SettingSpec, schema_entry
 
-from .models import PaymentPolicy, RangeUnit, StaffChoice, TimeModel
+from .models import Confirmation, PaymentPolicy, RangeUnit, StaffChoice, TimeModel
 
 #: The starts a service may be offered at, in minutes (B6, ADR-058 §5): every
 #: one divides an hour, so a grid never drifts across a person's day.
@@ -221,6 +221,57 @@ OFFER_SETTINGS: tuple[SettingSpec, ...] = (
             "Whether the service is on the booking form on the company's site. Off: only "
             "the team books it, in the panel; its booked visits stay."
         ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.confirmation",
+        type="enum",
+        default=Confirmation.INSTANT.value,
+        values=(
+            (Confirmation.INSTANT.value, {"pl": "Od razu", "en": "At once"}),
+            (
+                Confirmation.ON_REQUEST.value,
+                {"pl": "Na prośbę — firma odpowiada", "en": "On request — the company answers"},
+            ),
+        ),
+        label={"pl": "Potwierdzenie rezerwacji", "en": "Confirming a booking"},
+        help={
+            "pl": "Na prośbę: rezerwacja klienta trzyma termin i czeka, aż ją przyjmiesz albo "
+            "odmówisz. Bez odpowiedzi w terminie wygasa. Rezerwacje wpisane przez zespół "
+            "są potwierdzone od razu.",
+            "en": "On request: a customer's booking holds its time and waits for you to "
+            "accept or decline it. Unanswered in time, it expires. Bookings the team "
+            "enters are confirmed at once.",
+        },
+        model_description=(
+            "Who confirms a booking a customer makes on the company's site: `instant` — it "
+            "is confirmed when booked; `on_request` — it holds its time as "
+            "`pending_request` until the company accepts or declines it, and expires after "
+            "`response_hours` without an answer. A booking the team enters in the panel "
+            "never waits for an answer."
+        ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.response_hours",
+        type="int",
+        default=24,
+        minimum=1,
+        maximum=168,
+        unit="hour",
+        label={"pl": "Czas na odpowiedź", "en": "Time to answer"},
+        help={
+            "pl": "Ile godzin firma ma na odpowiedź, zanim prośba wygaśnie. Nigdy dłużej niż "
+            "do początku rezerwacji.",
+            "en": "How many hours the company has to answer before the request expires. "
+            "Never past the booking's start.",
+        },
+        model_description=(
+            "With `confirmation` `on_request`: how many hours the company has to accept or "
+            "decline a customer's request before it expires (1–168), never past the "
+            "booking's start."
+        ),
+        depends_on="confirmation == 'on_request'",
     ),
     SettingSpec(
         scopes=("offer",),

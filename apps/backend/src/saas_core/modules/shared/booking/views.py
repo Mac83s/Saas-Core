@@ -169,6 +169,7 @@ from .services import (
     BOOKING_MANAGE,
     CreatedAppointment,
     anonymize_customer,
+    answer_request,
     cancel_appointment,
     complete_appointment,
     configure_schedule,
@@ -437,9 +438,12 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
 def _self_service(value: Any) -> dict[str, Any]:
     """What the link may still do, by the booking's own terms (B4)."""
     now = timezone.now()
-    open_to = {"reschedule": ("confirmed",), "cancel": ("confirmed", "pending_payment")}
-    # A booking that waits for its payment can be given up, not moved
-    # (ADR-072 §9: only a confirmed one is moved).
+    open_to = {
+        "reschedule": ("confirmed",),
+        "cancel": ("confirmed", "pending_payment", "pending_request"),
+    }
+    # A booking that waits — for the company's answer or for its payment —
+    # can be given up, not moved (ADR-072 §9: only a confirmed one is moved).
     allows = {
         action: value.status in open_to[action] and self_service_allows(value, action, now)
         for action in ("reschedule", "cancel")
@@ -863,6 +867,72 @@ class AppointmentCancelView(APIView):
         )
 
 
+def _answer(request: Request, appointment_id: UUID, *, accept: bool) -> Response:
+    """The company's answer to a booking made „on request” (ADR-072 §9)."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    return Response(
+        _appointment_payload(
+            answer_request(
+                appointment_id=appointment_id,
+                accept=accept,
+                idempotency_key=_idem(request),
+                principal_ref=str(context.actor_id),
+            )
+        )
+    )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_appointment_accept",
+        summary="Accept a booking request",
+        description="The company takes a booking that waits for its answer "
+        "(`pending_request`): its order gets its number and the booking is confirmed — or, "
+        "where the offer asks for money first, waits for that payment (`pending_payment`) "
+        "and the customer gets the transfer's details. A booking that no longer waits for an "
+        "answer is 409 `appointment_not_changeable`. The same Idempotency-Key answers the "
+        "first result again.",
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=None,
+        responses={
+            200: AppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        return _answer(request, appointment_id, accept=True)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentDeclineView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_appointment_decline",
+        summary="Decline a booking request",
+        description="The company does not take a booking that waits for its answer "
+        "(`pending_request`): the booking lets its time go (`canceled`), its draft order is "
+        "canceled and the customer is told. A booking that no longer waits for an answer "
+        "is 409 `appointment_not_changeable`. The same Idempotency-Key answers the first "
+        "result again.",
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=None,
+        responses={
+            200: AppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        return _answer(request, appointment_id, accept=False)
+
+
 @method_decorator(csrf_protect, name="dispatch")
 class AppointmentCompleteView(APIView):
     """Wizyta się odbyła: produkty schodzą z magazynu (RW, WZ)."""
@@ -1131,10 +1201,18 @@ class PublicBookingCatalogView(APIView):
             if locale is not None:
                 _localize(payload, value, locale)
             paused, resume_on = online_paused(_zone().key)
-            kinds = {x.id: x.public_staff_choice for x in value["services"]}
+            offers = {x.id: x for x in value["services"]}
             for item in payload["services"]:
                 teams, people = choices.services.get(item["id"], ([], []))
-                item.update(staff_choice=kinds[item["id"]], team_ids=teams, person_ids=people)
+                offer = offers[item["id"]]
+                item.update(
+                    staff_choice=offer.public_staff_choice,
+                    team_ids=teams,
+                    person_ids=people,
+                    # Whether the booking waits for the company's answer.
+                    confirmation=offer.confirmation,
+                    response_hours=offer.response_hours,
+                )
             team_names = dict(choices.teams)
             if locale is not None:
                 names = localized_texts(
@@ -2109,6 +2187,8 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "public_staff_choice": service.public_staff_choice,
         "slot_step_minutes": service.slot_step_minutes,
         "online": service.online,
+        "confirmation": service.confirmation,
+        "response_hours": service.response_hours,
         "payment_policy": service.payment_policy,
         "deposit_percent": service.deposit_percent,
         "transfer_due_days": service.transfer_due_days,

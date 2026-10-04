@@ -440,6 +440,52 @@ test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", 
   expect(api.getBookingSetup).toHaveBeenCalledTimes(2);
 });
 
+test("usługa potwierdzana na prośbę zapisuje, kto potwierdza i ile ma czasu (ADR-072 §9)", async () => {
+  renderSettings();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Edytuj: Korekcja stada 60–150 krów",
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Edytuj usługę: Korekcja stada 60–150 krów",
+  });
+  // The time to answer is asked for only where the company answers.
+  expect(
+    within(dialog).queryByLabelText("Czas na odpowiedź (godz.)"),
+  ).toBeNull();
+  fireEvent.change(within(dialog).getByLabelText("Potwierdzenie rezerwacji"), {
+    target: { value: "on_request" },
+  });
+  const hours = await within(dialog).findByLabelText(
+    "Czas na odpowiedź (godz.)",
+  );
+  expect(hours).toHaveValue(24);
+  fireEvent.change(hours, { target: { value: "0" } });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  expect(
+    await within(dialog).findByText("Czas na odpowiedź to od 1 do 168 godzin."),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  fireEvent.change(hours, { target: { value: "12" } });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  await waitFor(() =>
+    expect(api.updateSetupService).toHaveBeenCalledWith(
+      HERD,
+      expect.objectContaining({
+        confirmation: "on_request",
+        response_hours: 12,
+        expected_version: 3,
+      }),
+      expect.any(String),
+    ),
+  );
+});
+
 test("gotowa usługa typu firmy otwiera formularz z nazwą i czasem", async () => {
   renderSettings({ organizationType: "farm-care" });
   fireEvent.click(

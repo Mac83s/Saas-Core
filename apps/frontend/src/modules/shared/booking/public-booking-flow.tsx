@@ -389,15 +389,21 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     : undefined;
 
   if (booked) {
-    // The offer asks for money first: the booking holds its time and waits
-    // for the transfer (ADR-072 §9).
-    const pending = booked.status === "pending_payment";
+    // The booking holds its time and waits (ADR-072 §9): for the company's
+    // answer where the offer is taken on request, or for the transfer where
+    // it asks for money first.
+    const state =
+      booked.status === "pending_request"
+        ? "requested"
+        : booked.status === "pending_payment"
+          ? "pending"
+          : "confirmed";
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{t(pending ? "pending" : "confirmed")}</CardTitle>
+          <CardTitle>{t(state)}</CardTitle>
           <CardDescription>
-            {t(pending ? "pendingDescription" : "confirmedDescription", {
+            {t(`${state}Description`, {
               name: form.getValues("display_name").trim(),
               email: form.getValues("email"),
             })}
@@ -425,8 +431,26 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
             ) : null}
             <dt className="text-muted-foreground">{t("status")}</dt>
             <dd className="font-medium">
-              {t(pending ? "statusPending" : "statusConfirmed")}
+              {t(
+                state === "requested"
+                  ? "statusRequested"
+                  : state === "pending"
+                    ? "statusPending"
+                    : "statusConfirmed",
+              )}
             </dd>
+            {state === "requested" && booked.hold_expires_at ? (
+              <>
+                <dt className="text-muted-foreground">{t("answerBy")}</dt>
+                <dd className="font-medium">
+                  {dateFormat(locale, {
+                    dateStyle: "full",
+                    timeStyle: "short",
+                    timeZone: booked.timezone,
+                  }).format(new Date(booked.hold_expires_at))}
+                </dd>
+              </>
+            ) : null}
           </dl>
           {booked.payment ? (
             <TransferDetails payment={booked.payment} zone={booked.timezone} />
@@ -441,13 +465,17 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
                 {t("manage")}
               </a>
             ) : null}
-            <a
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
-              download="wizyta.ics"
-              href={`data:text/calendar;charset=utf-8,${encodeURIComponent(calendarFile(booked))}`}
-            >
-              {t("addToCalendar")}
-            </a>
+            {/* Into the calendar once it is certain: a booking that waits
+                may still expire or be declined. */}
+            {state === "confirmed" ? (
+              <a
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
+                download="wizyta.ics"
+                href={`data:text/calendar;charset=utf-8,${encodeURIComponent(calendarFile(booked))}`}
+              >
+                {t("addToCalendar")}
+              </a>
+            ) : null}
           </div>
           <p className="text-sm text-muted-foreground">{t("manageHint")}</p>
         </CardContent>
@@ -786,8 +814,14 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               {problem}
             </p>
           ) : null}
+          {/* The company answers each booking of this service itself. */}
+          {service?.confirmation === "on_request" ? (
+            <p className="text-sm text-muted-foreground" role="note">
+              {t("onRequestHint", { hours: service.response_hours ?? 24 })}
+            </p>
+          ) : null}
           <Button disabled={form.formState.isSubmitting} type="submit">
-            {t("book")}
+            {t(service?.confirmation === "on_request" ? "request" : "book")}
           </Button>
         </form>
       </CardContent>

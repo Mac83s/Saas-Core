@@ -77,12 +77,17 @@ type ServiceValues = {
   choice: Choice;
   step: number;
   online: boolean;
+  confirmation: Confirmation;
+  responseHours: number;
   staffIds: string[];
   locationIds: string[];
   resourceIds: string[];
 };
 
 const CHOICES: Choice[] = ["none", "team", "person"];
+/** Who confirms a customer's booking (ADR-072 §8). */
+const CONFIRMATIONS = ["instant", "on_request"] as const;
+type Confirmation = (typeof CONFIRMATIONS)[number];
 /** How often a visit may start (B6): each divides an hour. */
 const SLOT_STEPS = [5, 10, 15, 20, 30, 60] as const;
 type SlotStep = (typeof SLOT_STEPS)[number];
@@ -198,6 +203,9 @@ export function ServiceDialog({
         choice: z.enum(CHOICES),
         step: z.number().int(),
         online: z.boolean(),
+        confirmation: z.enum(CONFIRMATIONS),
+        // Asked for only where the company answers each request.
+        responseHours: z.number().or(z.nan()),
         staffIds: z.array(z.string()),
         locationIds: z.array(z.string()),
         resourceIds: z.array(z.string()),
@@ -209,6 +217,14 @@ export function ServiceDialog({
             values.duration >= 5 &&
             values.duration <= 1440),
         { message: t("durationRange"), path: ["duration"] },
+      )
+      .refine(
+        (values) =>
+          values.confirmation !== "on_request" ||
+          (Number.isInteger(values.responseHours) &&
+            values.responseHours >= 1 &&
+            values.responseHours <= 168),
+        { message: t("responseHoursRange"), path: ["responseHours"] },
       )
       .refine(
         (values) =>
@@ -253,23 +269,34 @@ export function ServiceDialog({
       choice: (service?.public_staff_choice as Choice | undefined) ?? "none",
       step: service?.slot_step_minutes ?? 5,
       online: service?.online ?? true,
+      confirmation:
+        (service?.confirmation as Confirmation | undefined) ?? "instant",
+      responseHours: service?.response_hours ?? 24,
       staffIds: service?.staff_ids ?? only(people),
       locationIds: service?.location_ids ?? only(places),
       resourceIds: service?.resource_ids ?? [],
     },
   });
-  const [staffCount, staffIds, locationIds, resourceIds, timeModel, groupIds] =
-    useWatch({
-      control: form.control,
-      name: [
-        "staffCount",
-        "staffIds",
-        "locationIds",
-        "resourceIds",
-        "timeModel",
-        "groupIds",
-      ],
-    });
+  const [
+    staffCount,
+    staffIds,
+    locationIds,
+    resourceIds,
+    timeModel,
+    groupIds,
+    confirmation,
+  ] = useWatch({
+    control: form.control,
+    name: [
+      "staffCount",
+      "staffIds",
+      "locationIds",
+      "resourceIds",
+      "timeModel",
+      "groupIds",
+      "confirmation",
+    ],
+  });
   const stay = timeModel === "range";
   const groups = (setup.groups ?? []).filter(
     (group) => group.active || service?.group_ids.includes(group.id),
@@ -311,6 +338,17 @@ export function ServiceDialog({
       buffer_after_minutes: values.after,
       minimum_notice_minutes: values.notice,
       online: values.online,
+      // Who confirms a customer's booking: sent when it was changed.
+      ...(values.confirmation !== (service?.confirmation ?? "instant") ||
+      (values.confirmation === "on_request" &&
+        values.responseHours !== (service?.response_hours ?? 24))
+        ? {
+            confirmation: values.confirmation,
+            ...(values.confirmation === "on_request"
+              ? { response_hours: values.responseHours }
+              : {}),
+          }
+        : {}),
       location_ids: values.locationIds,
       resource_ids: values.resourceIds,
       ...(!service && template?.appointmentKind
@@ -604,6 +642,40 @@ export function ServiceDialog({
               </label>
               <FieldDescription>{t("onlineHint")}</FieldDescription>
             </Field>
+            <Field>
+              <FieldLabel htmlFor="service-confirmation">
+                {t("confirmation")}
+              </FieldLabel>
+              <NativeSelect
+                id="service-confirmation"
+                {...form.register("confirmation")}
+              >
+                {CONFIRMATIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`confirmation_${value}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+              <FieldDescription>{t("confirmationHint")}</FieldDescription>
+            </Field>
+            {confirmation === "on_request" ? (
+              <Field data-invalid={Boolean(errors.responseHours)}>
+                <FieldLabel htmlFor="service-response-hours">
+                  {t("responseHours")}
+                </FieldLabel>
+                <Input
+                  aria-invalid={Boolean(errors.responseHours)}
+                  id="service-response-hours"
+                  inputMode="numeric"
+                  max={168}
+                  min={1}
+                  type="number"
+                  {...form.register("responseHours", { valueAsNumber: true })}
+                />
+                <FieldDescription>{t("responseHoursHint")}</FieldDescription>
+                <FieldError errors={[errors.responseHours]} />
+              </Field>
+            ) : null}
             <Field data-invalid={Boolean(errors.choice)}>
               <FieldLabel htmlFor="service-choice">{t("choice")}</FieldLabel>
               <NativeSelect

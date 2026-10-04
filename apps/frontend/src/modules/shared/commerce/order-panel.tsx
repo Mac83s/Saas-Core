@@ -220,6 +220,8 @@ export function OrderPanel({
         order &&
         canManagePayments &&
         order.status !== "canceled" &&
+        // A draft waits for the company's answer to the request first.
+        order.status !== "draft" &&
         order.due_minor > 0 ? (
           <Button onClick={() => setMarking(true)}>{t("recordPayment")}</Button>
         ) : undefined

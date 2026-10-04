@@ -148,8 +148,22 @@ export function SelfServiceBooking({ token }: { token: string }) {
             {appointment.quote ? (
               <QuoteSummary quote={appointment.quote} />
             ) : null}
+            {/* A request waits for the company's answer until a date. */}
+            {appointment.status === "pending_request" &&
+            appointment.hold_expires_at ? (
+              <p className="text-sm" role="note">
+                {t("answerBy", {
+                  when: new Intl.DateTimeFormat(locale, {
+                    dateStyle: "full",
+                    timeStyle: "short",
+                    timeZone: appointment.timezone,
+                  }).format(new Date(appointment.hold_expires_at)),
+                })}
+              </p>
+            ) : null}
             {appointment.status === "confirmed" ||
-            appointment.status === "pending_payment" ? (
+            appointment.status === "pending_payment" ||
+            appointment.status === "pending_request" ? (
               <>
                 {/* What the link may still do: the booking's own terms (B4). */}
                 {terms.reschedule ? (
