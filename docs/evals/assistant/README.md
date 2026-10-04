@@ -355,9 +355,10 @@ ADR-076, uzupełnienie „zamówienia, wpłaty i prośby o rezerwację”. Promp
   starych ten przebieg nie powtarza — ich ostatni wynik to 20 / 20 z 04.10 rano, na
   tym samym prompcie, przed dwoma nowymi obszarami i zmianą słów „zł”/„PLN” (dobór
   narzędzi dla nich pilnują testy `test_assistant_topics.py`, nie model).
-- **Przebieg szedł na kodzie gałęzi przed scaleniem** (podgląd obok stosu :8080,
-  commit `7e95d94c` plus poprawka słów terminu prośby, która nie zmienia żadnej
-  definicji narzędzia). Po przebiegu nie zmieniło się nic, co model dostaje.
+- **Przebieg szedł na kodzie gałęzi przed scaleniem** (podgląd obok stosu :8080, stan
+  gałęzi z commita, który w `main` jest `02a3ce89`). Po przebiegu doszła poprawka słów
+  terminu prośby w oknie zgody i przeniesienie na `main` z fazą 5b (Nocleg w wersji 4
+  zamiast 3) — żadna z tych zmian nie rusza promptu, definicji narzędzi ani ich doboru.
 - **Cache dostawcy trafiał rzadziej niż rano**: 25% tokenów wejścia z cache (rano
   63%), także w wywołaniach o identycznym początku wysłanych dwie sekundy po sobie.
   Stąd `rename_pl` za USD 0,036 (rano USD 0,026) przy tym samym zestawie narzędzi.
@@ -407,5 +408,11 @@ przyjęcie i odmowa z własnym kliknięciem i zdaniem serwera, odczyt zamówień
 wywołań, USD 0,21: rozmowa o prośbach USD 0,029 za trzy wiadomości, rozmowa o
 zamówieniach USD 0,083 za trzy (sześć z siedmiu wywołań bez trafienia w cache),
 pytanie o tłumaczenia USD 0,040, plan oferty z presetu USD 0,058. Wszystkie wywołania
-z celem `eval` (konto dowodowe). Wydatek pakietu z celem `eval`: przebieg USD 0,26,
-przejścia przed scaleniem USD 0,26.
+z celem `eval` (konto dowodowe).
+
+Po scaleniu to samo przejście na stosie :8080 zbudowanym z `c87de721`: „walk: PASSED”
+(asystent 55 kontroli, panel 34), cztery rozmowy, 18 wywołań, USD 0,21 — rozmowa o
+prośbach USD 0,049, o zamówieniach USD 0,061, pytanie o tłumaczenia USD 0,041, plan
+oferty z presetu USD 0,057. Wydatek pakietu z celem `eval`: USD 0,72 (przebieg 0,26,
+przejścia przed scaleniem 0,26 — z nieudanymi podejściami skryptu — i po scaleniu
+0,21); w dniu żadnej osoby USD 0,00.
