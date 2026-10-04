@@ -55,25 +55,29 @@ vi.mock("#i18n/navigation", () => ({
   ),
 }));
 
-// A type with one ready-made service, as a product's type brings them.
+// Both shapes are explicit, so the file reads the same under core's and under
+// a product's deployment profile: "plain-care" brings no services of its own,
+// "farm-care" brings one ready-made service, as a product's type does.
 vi.mock("#lib/organization-types", async (original) => {
   const real = await original<typeof import("#lib/organization-types")>();
   return {
     ...real,
     organizationType: (key?: string | null) =>
-      key === "farm-care"
-        ? {
-            ...real.organizationType(),
-            serviceTemplates: [
-              {
-                key: "herd",
-                label: { pl: "Korekcja stada", en: "Herd trimming" },
-                durationMinutes: 300,
-                appointmentKind: "farm_visit",
-              },
-            ],
-          }
-        : real.organizationType(key),
+      key === "plain-care"
+        ? { ...real.organizationType(), serviceTemplates: [] }
+        : key === "farm-care"
+          ? {
+              ...real.organizationType(),
+              serviceTemplates: [
+                {
+                  key: "herd",
+                  label: { pl: "Korekcja stada", en: "Herd trimming" },
+                  durationMinutes: 300,
+                  appointmentKind: "farm_visit",
+                },
+              ],
+            }
+          : real.organizationType(key),
   };
 });
 
@@ -200,7 +204,7 @@ function renderSettings({
   canManageBilling = true,
   canUseInventory = false,
   locale = "pl",
-  organizationType,
+  organizationType = "plain-care",
 }: {
   canManageBilling?: boolean;
   canUseInventory?: boolean;
@@ -508,7 +512,7 @@ test("usługa potwierdzana na prośbę zapisuje, kto potwierdza i ile ma czasu (
 });
 
 test("core's presets are offered where the organization type brings no services of its own", async () => {
-  const plain = renderSettings();
+  const plain = renderSettings({ organizationType: "plain-care" });
   expect(
     await screen.findByRole("link", { name: "Zacznij od wzorca" }),
   ).toHaveAttribute("href", "/panel/settings/services/presets");
