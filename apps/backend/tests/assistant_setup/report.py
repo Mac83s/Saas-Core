@@ -172,8 +172,8 @@ def render(
         ),
         *(
             f"- rodzaj rezerwacji „{labels[preset]}”: firma ustawia ofertę i ceny, rezerwacje "
-            "wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, "
-            "faza 5: formularz publiczny)"
+            "wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji: "
+            "formularz publiczny tego rodzaju)"
             for preset in sorted(panel_only)
         ),
         *(

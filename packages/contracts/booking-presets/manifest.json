@@ -33,26 +33,29 @@
     },
     {
       "id": "core.lodging",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "versions": {
         "1": "core.lodging.v1.json",
-        "2": "core.lodging.v2.json"
+        "2": "core.lodging.v2.json",
+        "3": "core.lodging.v3.json"
       }
     },
     {
       "id": "core.rental",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "versions": {
         "1": "core.rental.v1.json",
-        "2": "core.rental.v2.json"
+        "2": "core.rental.v2.json",
+        "3": "core.rental.v3.json"
       }
     },
     {
       "id": "core.care_stay",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "versions": {
         "1": "core.care_stay.v1.json",
-        "2": "core.care_stay.v2.json"
+        "2": "core.care_stay.v2.json",
+        "3": "core.care_stay.v3.json"
       }
     },
     {

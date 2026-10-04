@@ -106,7 +106,30 @@
     "extraQuantity": "{name}: Anzahl",
     "priceChanged": "Der Preis hat sich geändert, bevor wir Ihre Buchung gespeichert haben. Prüfen Sie den neuen Preis und bestätigen Sie erneut.",
     "documentRequired": "Bitte kreuzen Sie dieses Feld an, um zu buchen.",
-    "documentsChanged": "Die Dokumente des Unternehmens haben sich geändert, bevor wir Ihre Buchung gespeichert haben. Bitte lesen Sie die aktuellen und kreuzen Sie sie erneut an."
+    "documentsChanged": "Die Dokumente des Unternehmens haben sich geändert, bevor wir Ihre Buchung gespeichert haben. Bitte lesen Sie die aktuellen und kreuzen Sie sie erneut an.",
+    "stayTitle": "Zeitraum buchen",
+    "stayDescription": "Wählen Sie die Tage und die Personenzahl. Den Preis sehen Sie vor der Buchung.",
+    "stayHours": "{unit, select, day {Abholung ab {start}, Rückgabe bis {end}} other {Check-in ab {start}, Check-out bis {end}}}",
+    "stayWhen": "{range} · {unit, select, day {{count, plural, one {# Tag} other {# Tage}}} other {{count, plural, one {# Nacht} other {# Nächte}}}}",
+    "unit": "Zugewiesen",
+    "stayChoice": "Was möchten Sie buchen?",
+    "stayChoiceRequired": "Wählen Sie aus, was Sie buchen möchten.",
+    "stayCapacity": "{count, plural, one {für # Person} other {bis zu # Personen}}",
+    "stayPeople": "Personen",
+    "stayArrival": "Anreise",
+    "stayDeparture": "Abreise",
+    "stayFirstDay": "Erster Tag",
+    "stayLastDay": "Letzter Tag",
+    "stayEndOption": "{day} — {unit, select, day {{count, plural, one {# Tag} other {# Tage}}} other {{count, plural, one {# Nacht} other {# Nächte}}}}",
+    "stayDatesRequired": "Wählen Sie den Zeitraum.",
+    "stayEarlier": "Frühere Termine",
+    "stayLater": "Spätere Termine",
+    "stayNoDays": "Vom {from} bis {to} gibt es keine freien Termine.",
+    "stayChecking": "Zeitraum und Preis werden geprüft…",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Zu viele Personen.} other {Zu viele Personen: höchstens #.}}} slot_unavailable {Dieser Zeitraum ist bereits belegt. Wählen Sie einen anderen.} price_missing {Für diesen Zeitraum gibt es noch keinen Preis. Wenden Sie sich an das Unternehmen.} rule_min_length {In diesem Zeitraum muss der Aufenthalt länger sein.} rule_max_length {In diesem Zeitraum muss der Aufenthalt kürzer sein.} rule_notice {Für diesen Zeitraum ist es bereits zu spät.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} other {Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen.}}",
+    "stayTaken": "Dieser Zeitraum wurde gerade gebucht. Wählen Sie einen anderen.",
+    "stayCreateError": "Die Buchung konnte nicht gespeichert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.",
+    "stayNotesHint": "Alles, was das Unternehmen vorab wissen sollte. Nur das Unternehmen sieht es."
   },
   "BookingSelfService": {
     "changesUntil": "Sie können den Termin bis {when} ändern oder absagen.",
@@ -132,7 +155,13 @@
     "newPrice": "Zu dieser Zeit gilt ein anderer Preis. Prüfen Sie ihn, bevor Sie den Termin verschieben.",
     "rescheduleAtPrice": "Zu diesem Preis verschieben",
     "cancelGivesBack": "Sie haben {paid} gezahlt. Wenn Sie jetzt stornieren, erhalten Sie gemäß den Buchungsbedingungen {refund} zurück.",
-    "canceledGivesBack": "Sie haben {paid} gezahlt. Gemäß den Buchungsbedingungen erstattet das Unternehmen {refund}."
+    "canceledGivesBack": "Sie haben {paid} gezahlt. Gemäß den Buchungsbedingungen erstattet das Unternehmen {refund}.",
+    "stayStart": "{unit, select, day {Erster Tag} other {Anreise}}",
+    "stayEnd": "{unit, select, day {Letzter Tag} other {Abreise}}",
+    "stayCheck": "Zeitraum prüfen",
+    "stayPlan": "Neuer Zeitraum: {when}.",
+    "stayMove": "Buchung verschieben",
+    "stayMoveError": "Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen."
   },
   "Marketing": {
     "nav": {

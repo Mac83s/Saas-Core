@@ -158,8 +158,9 @@ def _preset(
         "place": place,
         "required_inputs": list(required_inputs),
         "catalog_category": catalog_category,
-        # Only a visit at the company's place is booked through the site.
-        "online_booking": readiness if (time_model, place) == ("slot", "business") else "soon",
+        # A visit at the company's place, a stay and a rental are booked through
+        # the site; a visit at the customer's is the team's to book.
+        "online_booking": "soon" if place == "customer" else readiness,
     }
 
 

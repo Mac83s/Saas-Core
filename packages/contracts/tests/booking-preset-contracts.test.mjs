@@ -84,10 +84,14 @@ const ENGINE = {
   // Paying before the stay comes with orders (ADR-073, phase 4).
   paymentPolicy: ["none", "on_site"],
 };
-// What the public booking form takes today: a visit by the clock at the
-// company's place. Every other ready preset says "soon" for booking through
-// the site (owner decision 67a): the team books it in the panel.
-const ONLINE = { timeModel: "slot", place: "business" };
+// What the public booking form takes today, by time model and place: a visit
+// by the clock at the company's place, and — since phase 5b — a stay or a
+// rental booked from–to. Every other ready preset says "soon" for booking
+// through the site (owner decision 67a): the team books it in the panel.
+const ONLINE = {
+  slot: ["business"],
+  range: ["business", "pickup_return"],
+};
 
 const PREPAID = ["transfer", "deposit", "full"];
 
@@ -354,8 +358,17 @@ test("a ready preset uses only what this core's booking engine runs", async () =
     // Nothing asks the company for inputs no command can save yet.
     assert.equal(preset.requiredInputs, undefined, where(item));
     if ((preset.onlineBooking ?? "ready") === "ready") {
-      assert.equal(preset.timeModel, ONLINE.timeModel, where(item));
-      assert.equal(preset.place, ONLINE.place, where(item));
+      assert.ok(
+        ONLINE[preset.timeModel]?.includes(preset.place),
+        `${where(item)}: not booked through the site yet`,
+      );
+      // What is booked through the site does not say it is coming.
+      assert.doesNotMatch(preset.labels.pl.description, /wkrótce/, where(item));
+      assert.doesNotMatch(
+        preset.labels.en.description,
+        /coming soon/,
+        where(item),
+      );
     } else {
       // Said plainly where the company reads it, in both languages.
       assert.match(
@@ -384,15 +397,17 @@ test("what the engine runs today is ready, the rest is announced", async () => {
   // Owner decisions 67a and 68a (03.10.2026): stays, rentals and care stays
   // are ready once the price list is there, and the service at the
   // customer's in a reduced version — without waiting for the public form.
+  // Version 3 of the three kinds booked from–to came with that form (phase
+  // 5b): customers book them through the site.
   assert.deepEqual(readiness, {
     "core.specialist_visit": "ready v1",
     "core.online_visit": "soon v1",
     "core.service_at_customer": "ready v2",
     "core.hourly_space": "soon v1",
     "core.table_or_group": "soon v1",
-    "core.lodging": "ready v2",
-    "core.rental": "ready v2",
-    "core.care_stay": "ready v2",
+    "core.lodging": "ready v3",
+    "core.rental": "ready v3",
+    "core.care_stay": "ready v3",
     "core.exclusive_date": "soon v1",
     "core.group_class": "soon v1",
     "core.ticketed_event": "soon v1",

@@ -76,20 +76,25 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
         "business",
     )
     assert visit.labels["pl"]["name"] == "Wizyta u specjalisty"
-    # A visit at the company's place is booked through the site; a stay is ready
-    # for the panel, and says that the site comes later (owner decision 67a).
+    # A visit at the company's place is booked through the site, and since the
+    # public form of stays (phase 5b) so is a stay: its words no longer say
+    # that the site comes later (owner decision 67a).
     assert visit.online_booking == "ready"
     lodging = next(item for item in listed if item.id == "core.lodging")
-    assert (lodging.version, lodging.readiness, lodging.online_booking) == (2, "ready", "soon")
-    assert "rezerwacja przez stronę — wkrótce" in lodging.labels["pl"]["description"]
+    assert (lodging.version, lodging.readiness, lodging.online_booking) == (3, "ready", "ready")
+    assert "wkrótce" not in lodging.labels["pl"]["description"]
+    # A visit at the customer's is still the team's to book.
+    at_customer = next(item for item in listed if item.id == "core.service_at_customer")
+    assert (at_customer.readiness, at_customer.online_booking) == ("ready", "soon")
+    assert "wkrótce" in at_customer.labels["pl"]["description"]
     assert lodging.required_inputs == ()
     assert lodging.catalog_category == "turystyka-i-noclegi"
     assert {item.id: item.version for item in listed if item.readiness == "ready"} == {
         "core.specialist_visit": 1,
         "core.service_at_customer": 2,
-        "core.lodging": 2,
-        "core.rental": 2,
-        "core.care_stay": 2,
+        "core.lodging": 3,
+        "core.rental": 3,
+        "core.care_stay": 3,
     }
     # Hours are not booked yet: the preset is announced, and so not online either.
     hourly = next(item for item in listed if item.id == "core.hourly_space")
@@ -149,7 +154,7 @@ def test_a_named_preset_is_found_or_refused_with_a_code_on_its_field() -> None:
     assert _refused("core.specialist_visit", 7) == (["preset_id"], ["preset_unknown"])
     assert _refused("core.hourly_space", None) == (["preset_id"], ["preset_not_ready"])
     # A version that was only announced stays so, whatever came after it.
-    assert find_preset("core.lodging", None).version == 2
+    assert find_preset("core.lodging", None).version == 3
     assert _refused("core.lodging", 1) == (["preset_id"], ["preset_not_ready"])
 
 
@@ -230,9 +235,10 @@ def test_a_stay_preset_makes_an_offer_the_team_books_in_the_panel(
     # A stay takes a unit and nobody's time; the company adds its units itself.
     assert (service.duration_minutes, service.staff_count) == (None, 0)
     assert (saved.value.resource_ids, saved.value.group_ids) == ([], [])
-    # „Rezerwacja przez stronę — wkrótce”: hidden from the public form.
-    assert (service.active, service.draft, service.online) == (False, True, False)
-    assert (service.payment_policy, service.preset_version) == (policy, 2)
+    # A draft, switched off until the company has set it up — and then on the
+    # public form: customers book it through the site (phase 5b).
+    assert (service.active, service.draft, service.online) == (False, True, True)
+    assert (service.payment_policy, service.preset_version) == (policy, 3)
     assert service.vocabulary["timeUnit"] in ("noc", "doba")
     # Prices and units are never a preset's.
     assert not PriceRule.all_objects.filter(organization=owner.organization).exists()
@@ -246,7 +252,7 @@ def test_a_presets_prepayment_is_the_companys_own_choice_and_its_terms_come_read
     without orders or a bank account too: the policy stays the company's to
     choose in „Cennik”, with the preset's percent and days already there."""
     owner = membership("wzorce-przedplata")
-    lodging = find_preset("core.lodging", 2)
+    lodging = find_preset("core.lodging", None)
     monkeypatch.setitem(
         lodging.raw,
         "payment",

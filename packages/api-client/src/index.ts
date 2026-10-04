@@ -308,6 +308,12 @@ export type BookingAppointment = components["schemas"]["Appointment"];
 export type BookingPublicAppointment =
   components["schemas"]["PublicAppointment"];
 export type BookingPublicQuote = components["schemas"]["PublicQuote"];
+/** A stay from the public form as the server plans and prices it: its
+ *  instants, its length and the customer's quote (ADR-072, phase 5a). */
+export type BookingPublicStayPlan = components["schemas"]["PublicStayPlan"];
+/** The customer's booking of a stay: the offer, a group or a unit of it, the
+ *  days and who comes; which unit of a group it is, is the server's pick. */
+export type BookingPublicStayInput = components["schemas"]["PublicStayCreate"];
 /** What a customer accepts before booking: the company's documents in force
  *  in the booking's language (ADR-073 §9). */
 export type BookingPublicConsents = components["schemas"]["PublicConsents"];
@@ -3997,12 +4003,21 @@ export async function rescheduleBookingAppointment(
   return data;
 }
 
+/** `locale`: the page's language — names come in it where the company
+ *  translated them (TL12b). */
 export async function getPublicBookingCatalog(
   publicSlug: string,
+  locale?: string,
 ): Promise<BookingPublicCatalog> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/public/{public_slug}/",
-    { params: { path: { public_slug: publicSlug } }, cache: "no-store" },
+    {
+      params: {
+        path: { public_slug: publicSlug },
+        ...(locale ? { query: { locale } } : {}),
+      },
+      cache: "no-store",
+    },
   );
   if (error || !data) throwProblem(error, response);
   return data;
@@ -4096,6 +4111,74 @@ export async function getPublicBookingQuote(
   return data.quote;
 }
 
+/** What of a stay offer is asked about: a group — any free unit of it — or
+ *  one unit. */
+export type BookingPublicStayTarget = { service_id: string } & (
+  { group_id: string } | { resource_id: string }
+);
+
+/** The days a stay from the public form can begin on (ADR-072 §5). One
+ *  search spans 92 days at most. */
+export async function getPublicStayStarts(
+  publicSlug: string,
+  query: BookingPublicStayTarget & { from: string; to: string },
+): Promise<string[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/public/{public_slug}/stays/starts/",
+    { params: { path: { public_slug: publicSlug }, query }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+/** The days a stay beginning on `start` can end on. */
+export async function getPublicStayEnds(
+  publicSlug: string,
+  query: BookingPublicStayTarget & { start: string },
+): Promise<string[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/public/{public_slug}/stays/ends/",
+    { params: { path: { public_slug: publicSlug }, query }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+/** The stay as a booking would take it — refused exactly as the booking
+ *  would be — with its price as the customer reads it. Nothing is saved. */
+export async function getPublicStayPlan(
+  publicSlug: string,
+  input: components["schemas"]["PublicStayQuoteInput"],
+): Promise<BookingPublicStayPlan> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/public/{public_slug}/stays/quote/",
+    { params: { path: { public_slug: publicSlug } }, body: input },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Books a stay from the public form. A stay with a price needs the
+ *  `quote_digest` of the quote shown: 409 `quote_changed` otherwise. */
+export async function createPublicStay(
+  publicSlug: string,
+  input: BookingPublicStayInput,
+  idempotencyKey: string,
+): Promise<BookingPublicAppointment> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/public/{public_slug}/stays/",
+    {
+      params: {
+        path: { public_slug: publicSlug },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function getSelfServiceBooking(
   token: string,
 ): Promise<BookingPublicAppointment> {
@@ -4127,6 +4210,43 @@ export async function rescheduleSelfServiceBooking(
         starts_at: startsAt,
         ...(quoteDigest ? { quote_digest: quoteDigest } : {}),
       },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What moving one's own stay to other dates would give: its instants, its
+ *  length and its price. Nothing is saved. */
+export async function previewSelfServiceStayMove(
+  token: string,
+  dates: { start_date: string; end_date: string },
+): Promise<BookingPublicStayPlan> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/self-service/{token}/stay/preview/",
+    { params: { path: { token } }, body: dates },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Moves one's own stay by its dates. `quoteDigest`: the price the customer
+ *  was shown for the new dates — a stay with a price is not moved without it
+ *  (409 `quote_changed`, ADR-072 §7). */
+export async function moveSelfServiceStay(
+  token: string,
+  dates: { start_date: string; end_date: string },
+  idempotencyKey: string,
+  quoteDigest?: string,
+): Promise<BookingPublicAppointment> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/self-service/{token}/stay/",
+    {
+      params: {
+        path: { token },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { ...dates, ...(quoteDigest ? { quote_digest: quoteDigest } : {}) },
     },
   );
   if (error || !data) throwProblem(error, response);

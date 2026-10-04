@@ -38,59 +38,35 @@ import {
   FieldLegend,
   FieldSet,
 } from "@saas-core/ui/components/field";
-import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
-import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { addDays, dateFormat, formatDay, wallClock } from "./calendar-time";
 import {
-  addDays,
-  dateFormat,
-  formatDay,
-  formatWhen,
-  wallClock,
-} from "./calendar-time";
+  BookedCard,
+  ContactFields,
+  type ContactValues,
+  contactIssues,
+  contactShape,
+  DocumentBoxes,
+  ExtrasPicker,
+  pickedExtras,
+} from "./public-booking-parts";
+import { PublicStayFlow } from "./public-stay-flow";
 import { QuoteSummary } from "./quote-summary";
-import { TransferDetails } from "./transfer-details";
 
-type Values = {
+type Values = ContactValues & {
   service_id: string;
   location_id: string;
   starts_at: string;
-  display_name: string;
-  email: string;
-  phone: string;
-  notes: string;
 };
-
-/** An .ics file for the customer's own calendar: when, what and where. */
-function calendarFile(visit: BookingPublicAppointment): string {
-  const stamp = (value: string | Date) =>
-    new Date(value)
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .replace(/\.\d{3}/, "");
-  const text = (value: string) => value.replace(/[\\,;]/g, "\\$&");
-  return [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//SaaS Core//Booking//PL",
-    "BEGIN:VEVENT",
-    `UID:${visit.id}@booking`,
-    `DTSTAMP:${stamp(new Date())}`,
-    `DTSTART:${stamp(visit.starts_at)}`,
-    `DTEND:${stamp(visit.ends_at)}`,
-    `SUMMARY:${text(visit.service_name)}`,
-    `LOCATION:${text(visit.location_name)}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
-}
 
 export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const t = useTranslations("PublicBooking");
-  const documentNames = useTranslations("CustomerDocument");
   const locale = useLocale();
   const [catalog, setCatalog] = useState<BookingPublicCatalog>();
+  // An offer booked from–to chosen in „Usługa”: it has its own form
+  // (ADR-072, phase 5b). A company that offers nothing else opens on it.
+  const [stayId, setStayId] = useState<string>();
   // The company's documents in force in the page's language (ADR-073 §9),
   // the ones ticked, and whether a booking was tried without them. A list
   // that did not load is not a way round them: the server answers a booking
@@ -124,33 +100,9 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           service_id: z.string().uuid(t("required")),
           location_id: z.string().uuid(t("required")),
           starts_at: z.string().min(1, t("pickTime")),
-          display_name: z.string().trim().min(1, t("required")).max(160),
-          email: z.union([z.literal(""), z.email(t("invalidEmail"))]),
-          phone: z.string().trim().max(40),
-          notes: z.string().trim().max(500, t("notesTooLong")),
+          ...contactShape(t),
         })
-        .superRefine((values, issues) => {
-          const email = Boolean(values.email);
-          const phone = Boolean(values.phone);
-          if (["email", "email_and_phone"].includes(contact) && !email)
-            issues.addIssue({
-              code: "custom",
-              path: ["email"],
-              message: t("invalidEmail"),
-            });
-          if (["phone", "email_and_phone"].includes(contact) && !phone)
-            issues.addIssue({
-              code: "custom",
-              path: ["phone"],
-              message: t("phoneRequired"),
-            });
-          if (contact === "email_or_phone" && !email && !phone)
-            issues.addIssue({
-              code: "custom",
-              path: ["email"],
-              message: t("contactRequired"),
-            });
-        }),
+        .superRefine(contactIssues(contact, t)),
     [contact, t],
   );
   const form = useForm<Values>({
@@ -185,13 +137,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     (x) => String(x.service_id) === serviceId && !x.mandatory,
   );
   const [picked, setPicked] = useState<Record<string, number>>({});
-  const extras = useMemo(
-    () =>
-      Object.entries(picked)
-        .filter(([, quantity]) => quantity > 0)
-        .map(([extra_id, quantity]) => ({ extra_id, quantity })),
-    [picked],
-  );
+  const extras = useMemo(() => pickedExtras(picked), [picked]);
   // The price of what is chosen now; an answer for an earlier choice is not
   // shown. No price shown never stops a booking: the server prices it anyway.
   const startsAt = useWatch({ control: form.control, name: "starts_at" });
@@ -202,16 +148,12 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     quote: BookingPublicQuote | null;
   }>();
   const quote = priced?.key === quoteKey ? priced.quote : undefined;
-  const money = (minor: number, currency: string) =>
-    new Intl.NumberFormat(locale, { style: "currency", currency }).format(
-      minor / 100,
-    );
 
   useEffect(() => {
-    void getPublicBookingCatalog(publicSlug)
+    void getPublicBookingCatalog(publicSlug, locale)
       .then(setCatalog)
       .catch(() => setProblem(t("loadError")));
-  }, [publicSlug, t]);
+  }, [locale, publicSlug, t]);
   useEffect(() => {
     void getPublicBookingConsents(publicSlug, locale)
       .then((value) => setDocuments(value.documents))
@@ -293,6 +235,16 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   function choose(next: BookingPublicChoice) {
     setChoice(next);
     reset();
+  }
+  // „Usługa” lists visits and stays together: a stay opens its own form, a
+  // visit this one.
+  const stays = catalog?.stays ?? [];
+  function pickOffer(id: string) {
+    const stay = stays.some((item) => String(item.id) === id);
+    setStayId(stay ? id : undefined);
+    form.setValue("service_id", stay ? "" : id);
+    setPicked({});
+    choose({});
   }
   function pickDay(value: string) {
     setDay(value);
@@ -388,106 +340,14 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       })
     : undefined;
 
-  if (booked) {
-    // The booking holds its time and waits (ADR-072 §9): for the company's
-    // answer where the offer is taken on request, or for the transfer where
-    // it asks for money first.
-    const state =
-      booked.status === "pending_request"
-        ? "requested"
-        : booked.status === "pending_payment"
-          ? "pending"
-          : "confirmed";
+  if (booked)
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t(state)}</CardTitle>
-          <CardDescription>
-            {t(`${state}Description`, {
-              name: form.getValues("display_name").trim(),
-              email: form.getValues("email"),
-            })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">{t("when")}</dt>
-            <dd className="font-medium">
-              {formatWhen(booked, locale, booked.timezone)}
-            </dd>
-            <dt className="text-muted-foreground">{t("service")}</dt>
-            <dd className="font-medium">{booked.service_name}</dd>
-            {booked.team_name ? (
-              <>
-                <dt className="text-muted-foreground">{t("chosenTeam")}</dt>
-                <dd className="font-medium">{booked.team_name}</dd>
-              </>
-            ) : null}
-            {booked.person_name ? (
-              <>
-                <dt className="text-muted-foreground">{t("seenBy")}</dt>
-                <dd className="font-medium">{booked.person_name}</dd>
-              </>
-            ) : null}
-            <dt className="text-muted-foreground">{t("status")}</dt>
-            <dd className="font-medium">
-              {t(
-                state === "requested"
-                  ? "statusRequested"
-                  : state === "pending"
-                    ? "statusPending"
-                    : "statusConfirmed",
-              )}
-            </dd>
-            {state === "requested" && booked.hold_expires_at ? (
-              <>
-                <dt className="text-muted-foreground">{t("answerBy")}</dt>
-                <dd className="font-medium">
-                  {dateFormat(locale, {
-                    dateStyle: "full",
-                    timeStyle: "short",
-                    timeZone: booked.timezone,
-                  }).format(new Date(booked.hold_expires_at))}
-                </dd>
-              </>
-            ) : null}
-          </dl>
-          {booked.payment ? (
-            <TransferDetails payment={booked.payment} zone={booked.timezone} />
-          ) : null}
-          {booked.quote ? (
-            <QuoteSummary
-              quote={booked.quote}
-              settled={state === "confirmed"}
-            />
-          ) : null}
-          <div className="flex flex-wrap gap-3">
-            {booked.self_service_token ? (
-              <a
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
-                href={`/${locale}/booking/${encodeURIComponent(booked.self_service_token)}`}
-              >
-                {/* A booking that waits can be given up, not moved. */}
-                {t(state === "confirmed" ? "manage" : "manageWaiting")}
-              </a>
-            ) : null}
-            {/* Into the calendar once it is certain: a booking that waits
-                may still expire or be declined. */}
-            {state === "confirmed" ? (
-              <a
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
-                download="wizyta.ics"
-                href={`data:text/calendar;charset=utf-8,${encodeURIComponent(calendarFile(booked))}`}
-              >
-                {t("addToCalendar")}
-              </a>
-            ) : null}
-          </div>
-          <p className="text-sm text-muted-foreground">{t("manageHint")}</p>
-        </CardContent>
-      </Card>
+      <BookedCard
+        booked={booked}
+        email={form.getValues("email")}
+        name={form.getValues("display_name").trim()}
+      />
     );
-  }
   // The company paused online booking (ADR-078, booking.online): say so
   // instead of a form the server would refuse.
   if (catalog?.online.paused)
@@ -507,6 +367,19 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         </CardHeader>
       </Card>
     );
+  const stay = stayId ?? (catalog?.services.length ? undefined : stays[0]?.id);
+  if (catalog && stay && stays.some((item) => String(item.id) === stay))
+    return (
+      <PublicStayFlow
+        catalog={catalog}
+        documents={documents}
+        key={String(stay)}
+        offerId={String(stay)}
+        onDocuments={setDocuments}
+        onOffer={pickOffer}
+        publicSlug={publicSlug}
+      />
+    );
   return (
     <Card>
       <CardHeader>
@@ -522,16 +395,19 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
                 aria-invalid={Boolean(errors.service_id)}
                 id="booking-service"
                 {...form.register("service_id", {
-                  onChange: () => {
-                    setPicked({});
-                    choose({});
-                  },
+                  onChange: (event: { target: { value: string } }) =>
+                    pickOffer(event.target.value),
                 })}
               >
                 <option value="">{t("choose")}</option>
                 {catalog?.services.map((x) => (
                   <option key={String(x.id)} value={String(x.id)}>
                     {String(x.name)}
+                  </option>
+                ))}
+                {stays.map((x) => (
+                  <option key={String(x.id)} value={String(x.id)}>
+                    {x.name}
                   </option>
                 ))}
               </NativeSelect>
@@ -654,167 +530,26 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               <FieldError errors={[errors.starts_at]} />
             </Field>
           </div>
-          {options.length ? (
-            <FieldSet>
-              <FieldLegend variant="label">{t("extrasLegend")}</FieldLegend>
-              <div className="grid gap-1">
-                {options.map((option) => {
-                  const id = String(option.id);
-                  const label = t("extraOption", {
-                    name: option.name,
-                    amount: money(
-                      option.unit_gross_minor,
-                      catalog?.currency ?? "PLN",
-                    ),
-                    basis: option.basis,
-                  });
-                  return option.max_quantity > 1 ? (
-                    <label
-                      className="flex min-h-11 items-center justify-between gap-3 text-sm"
-                      key={id}
-                    >
-                      <span className="min-w-0 wrap-anywhere">{label}</span>
-                      {/* The select's box is this narrow: `NativeSelect`
-                          draws its arrow at the right edge of its own box,
-                          which otherwise is the whole row. */}
-                      <span className="w-20 shrink-0">
-                        <NativeSelect
-                          aria-label={t("extraQuantity", { name: option.name })}
-                          onChange={(event) =>
-                            setPicked({
-                              ...picked,
-                              [id]: Number(event.target.value),
-                            })
-                          }
-                          value={picked[id] ?? 0}
-                        >
-                          {Array.from(
-                            { length: option.max_quantity + 1 },
-                            (_, count) => (
-                              <option key={count} value={count}>
-                                {count}
-                              </option>
-                            ),
-                          )}
-                        </NativeSelect>
-                      </span>
-                    </label>
-                  ) : (
-                    <label
-                      className="flex min-h-11 items-center gap-2 text-sm"
-                      key={id}
-                    >
-                      <input
-                        checked={Boolean(picked[id])}
-                        className="size-4"
-                        onChange={(event) =>
-                          setPicked({
-                            ...picked,
-                            [id]: event.target.checked ? 1 : 0,
-                          })
-                        }
-                        type="checkbox"
-                      />
-                      {label}
-                    </label>
-                  );
-                })}
-              </div>
-            </FieldSet>
-          ) : null}
+          <ExtrasPicker
+            currency={catalog?.currency ?? "PLN"}
+            onPick={setPicked}
+            options={options}
+            picked={picked}
+          />
           {quote ? <QuoteSummary quote={quote} /> : null}
-          <Field data-invalid={Boolean(errors.display_name)}>
-            <FieldLabel htmlFor="booking-name">{t("name")}</FieldLabel>
-            <Input
-              aria-invalid={Boolean(errors.display_name)}
-              id="booking-name"
-              {...form.register("display_name")}
-            />
-            <FieldError errors={[errors.display_name]} />
-          </Field>
-          <Field data-invalid={Boolean(errors.email)}>
-            <FieldLabel htmlFor="booking-email">
-              {["email", "email_and_phone"].includes(contact)
-                ? t("email")
-                : t("emailOptional")}
-            </FieldLabel>
-            <Input
-              aria-invalid={Boolean(errors.email)}
-              autoComplete="email"
-              id="booking-email"
-              type="email"
-              {...form.register("email")}
-            />
-            <FieldError errors={[errors.email]} />
-          </Field>
-          {contact === "email" ? null : (
-            <Field data-invalid={Boolean(errors.phone)}>
-              <FieldLabel htmlFor="booking-phone">
-                {contact === "email_or_phone" ? t("phoneOptional") : t("phone")}
-              </FieldLabel>
-              <Input
-                aria-invalid={Boolean(errors.phone)}
-                autoComplete="tel"
-                id="booking-phone"
-                type="tel"
-                {...form.register("phone")}
-              />
-              <FieldError errors={[errors.phone]} />
-            </Field>
-          )}
-          <Field data-invalid={Boolean(errors.notes)}>
-            <FieldLabel htmlFor="booking-notes">{t("notes")}</FieldLabel>
-            <Textarea
-              aria-invalid={Boolean(errors.notes)}
-              id="booking-notes"
-              maxLength={500}
-              rows={3}
-              {...form.register("notes")}
-            />
-            <FieldDescription>{t("notesHint")}</FieldDescription>
-            <FieldError errors={[errors.notes]} />
-          </Field>
-          {documents.map((document) => {
-            const missing = unaccepted && !accepted[document.text_id];
-            const id = `booking-document-${document.kind}`;
-            return (
-              <Field data-invalid={missing} key={document.text_id}>
-                <label
-                  className="flex min-h-11 items-center gap-2 text-sm"
-                  htmlFor={id}
-                >
-                  <input
-                    aria-describedby={`${id}-read`}
-                    aria-invalid={missing}
-                    checked={Boolean(accepted[document.text_id])}
-                    className="size-4 shrink-0"
-                    id={id}
-                    onChange={(event) =>
-                      setAccepted({
-                        ...accepted,
-                        [document.text_id]: event.target.checked,
-                      })
-                    }
-                    type="checkbox"
-                  />
-                  {document.statement}
-                </label>
-                <FieldDescription id={`${id}-read`}>
-                  <a
-                    className="underline underline-offset-4"
-                    href={document.url}
-                    rel="noopener"
-                    target="_blank"
-                  >
-                    {documentNames(`kinds.${document.kind}`)}
-                  </a>
-                </FieldDescription>
-                {missing ? (
-                  <FieldError errors={[{ message: t("documentRequired") }]} />
-                ) : null}
-              </Field>
-            );
-          })}
+          <ContactFields
+            contact={contact}
+            errors={errors}
+            register={(name) => form.register(name)}
+          />
+          <DocumentBoxes
+            accepted={accepted}
+            documents={documents}
+            onAccept={(textId, checked) =>
+              setAccepted({ ...accepted, [textId]: checked })
+            }
+            unaccepted={unaccepted}
+          />
           {problem ? (
             <p className="text-sm text-destructive" role="alert">
               {problem}

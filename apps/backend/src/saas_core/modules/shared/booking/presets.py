@@ -12,9 +12,11 @@ Only a `ready` preset applies, and a ready one uses nothing the engine cannot
 do (the contract's test keeps that), so the copy needs no checks of its own.
 
 Ready does not always mean bookable through the site (owner decision 67a): a
-preset whose `online_booking` is `soon` — a stay, a rental, a visit at the
-customer's — makes an offer the team books in the panel, hidden from the
-public form until a later version of the preset says otherwise.
+preset whose `online_booking` is `soon` — today a visit at the customer's —
+makes an offer the team books in the panel, hidden from the public form until
+a later version of the preset says otherwise. Stays, rentals and care stays
+said so until the public form took offers booked from–to (phase 5b, their
+version 3).
 """
 
 from __future__ import annotations

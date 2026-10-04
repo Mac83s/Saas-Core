@@ -731,3 +731,58 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   daty, a podgląd mówi, czy pasują — jak „Zmień daty” w panelu); okno naprzód
   dla oferty bez sezonu (dziś tylko reguła sezonu i granica platformy);
   wymagany skrót na publicznej ścieżce terminów.
+
+### Rozstrzygnięcia plastra 5b (formularz publiczny pobytu)
+
+- **Jedno pole „Usługa” dla terminów i pobytów.** Strona rezerwacji firmy
+  (`/<język>/book/<slug>`) wymienia w „Usługa” wizyty i oferty okresu razem;
+  wybór oferty okresu otwiera jej formularz (`public-stay-flow.tsx`), wybór
+  wizyty — dotychczasowy. Firma, która ma tylko oferty okresu, zaczyna od
+  formularza pobytu. Wspólne części obu formularzy — dane klienta, dokumenty
+  do akceptacji, dopłaty, karta „zarezerwowano” — są w
+  `public-booking-parts.tsx`; formularz wizyty zachował swoje pola i
+  identyfikatory.
+- **Daty z list, nie z wpisywania.** „Przyjazd” wymienia dni, w które pobyt
+  może się zacząć (okno 92 dni, „Późniejsze terminy” przesuwa je dalej),
+  „Wyjazd” — dni, w które pobyt z tego przyjazdu może się skończyć, każdy z
+  liczbą nocy albo dni. Formularz nie pokaże terminu, którego serwer nie
+  przyjmie, i nie liczy niczego sam. Kalendarz w siatce przychodzi z blokiem
+  kalendarza dostępności (5d) — te same odczyty, inny widok.
+- **Cena i dostępność są odpowiedzią serwera na to, co wybrane.** Po każdej
+  zmianie gości, dat albo dopłat formularz pyta o plan z wyceną
+  (`…/stays/quote/`) i pokazuje go; do czasu odpowiedzi i po odmowie przycisk
+  rezerwacji jest nieaktywny. Rezerwacja wysyła skrót wyceny, którą gość
+  widzi; 409 `quote_changed` podmienia cenę i prosi o potwierdzenie jeszcze raz.
+- **Odmowa słowami gościa.** Kody odmów, które gość może naprawić wyborem
+  (`unit_capacity_exceeded`, `slot_unavailable`, `rule_min_length`,
+  `rule_max_length`, `rule_notice`, `price_missing`,
+  `beyond_booking_horizon`), mają własne zdania w językach gościa (pl, en, de);
+  pozostałe mówią „tego terminu nie można zarezerwować”. Komunikaty serwera
+  po polsku nie trafiają na stronę w innym języku. Pełne tłumaczenie odmów to 5i.
+- **Goście to „Osoby” i kategorie firmy.** Osoby bez kategorii liczą się jak
+  w wycenie (osoba standardowa); kategorie firmy („Dziecko”, „Pies”) mają
+  własne pola. Ile osób mieści jednostka, mówi serwer w odmowie, a formularz
+  pokazuje pojemność przy wyborze.
+- **Link klienta: sprawdź, potem przenieś.** Klient podaje nowe dni, podgląd
+  (`…/stay/preview/`) pokazuje nowy termin i cenę, i dopiero drugi przycisk
+  przenosi pobyt ze skrótem tej ceny. Rezerwacja oczekująca (na wpłatę albo na
+  odpowiedź) nie ma przenoszenia — tylko rezygnację, jak wizyta.
+- **Presety w wersji 3.** „Nocleg”, „Wypożyczalnia” i „Pobyt z opieką” mają
+  `onlineBooking` `ready` i opis bez dopisku; oferta z wersji 3 powstaje z
+  włączonym „W rezerwacji online na stronie” (nadal jako wyłączona wersja
+  robocza). Oferty założone z wersji 2 zostają ukryte przed formularzem, dopóki
+  firma nie włączy ich sama. Test kontraktu wie, co formularz przyjmuje
+  (`ONLINE`: termin w miejscu firmy, okres w miejscu firmy albo z odbiorem i
+  zwrotem), i pilnuje, żeby preset rezerwowany przez stronę nie mówił „wkrótce”.
+- **Przełącznik oferty zaczyna znaczyć to, co mówi.** Oferta okresu założona
+  ręcznie miała „W rezerwacji online na stronie” włączone domyślnie, choć
+  formularz jej nie pokazywał. Od 5b taka oferta — aktywna, z jednostką —
+  jest na formularzu. Firma, która tego nie chce, wyłącza przełącznik; nota
+  wydania mówi o tym wprost.
+- **Katalog formularza w języku strony.** Formularz pyta katalog z `locale`
+  strony (TL12b), więc nazwy ofert, jednostek, kategorii i dopłat — także usług
+  terminowych — przychodzą w języku gościa tam, gdzie firma je przetłumaczyła.
+- **Poza 5b:** kalendarz w siatce i daty w adresie formularza (5d); słowa
+  oferty z presetu („Goście”, „Domek”) w formularzu i tłumaczenie wszystkich
+  odmów (5i); wzorzec „Nocleg” z przedpłatą i progami zwrotu to osobna, kolejna
+  wersja presetu (praca równoległa po fazie 4).

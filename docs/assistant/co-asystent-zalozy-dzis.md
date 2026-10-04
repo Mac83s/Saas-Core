@@ -23,9 +23,7 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 
 ## Czego dziś brakuje w produkcie
 
-- rodzaj rezerwacji „Nocleg”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
-- rodzaj rezerwacji „Wypożyczalnia”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
-- rodzaj rezerwacji „Usługa u klienta”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji, faza 5: formularz publiczny)
+- rodzaj rezerwacji „Usługa u klienta”: firma ustawia ofertę i ceny, rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce (plan rezerwacji: formularz publiczny tego rodzaju)
 - cennik poza ceną podstawową (ceny sezonów, ceny weekendowe, dopłaty, kaucje): rozmowa ustawiająca firmę o nie nie pyta — właściciel wpisuje je w panelu albo zleca asystentowi w zwykłej rozmowie (`booking.price.save`, `booking.extra.save`)
 - sezony pobytów i wynajmu: rozmowa ustawiająca firmę zapisuje daty sezonu, najkrótszy pobyt i dni przyjazdu, gdy właściciel sam o nich powie — nie pyta o nie; pozostałe zasady (najdłuższy pobyt, dni wyjazdu, wyprzedzenie, termin zamknięty) właściciel ustawia w panelu, w Sezonach, albo zleca asystentowi w zwykłej rozmowie (`booking.season.save`)
 - cofnięcie: usługę usuniętą z notatek, której wersję roboczą założyła rozmowa ustawiająca firmę, asystent proponuje usunąć z konta osobnym kliknięciem (`booking.offer.discard`); usługi choć raz włączonej nie usuwa nikt — wyłącza ją właściciel

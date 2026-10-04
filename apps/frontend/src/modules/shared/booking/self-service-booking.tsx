@@ -10,9 +10,12 @@ import {
   ApiProblemError,
   cancelSelfServiceBooking,
   getSelfServiceBooking,
+  moveSelfServiceStay,
+  previewSelfServiceStayMove,
   rescheduleSelfServiceBooking,
   type BookingPublicAppointment,
   type BookingPublicQuote,
+  type BookingPublicStayPlan,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -26,16 +29,155 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { Label } from "@saas-core/ui/components/label";
 
+import { refusalOf, useStayHours, useStayWhen } from "./public-booking-parts";
 import { QuoteSummary } from "./quote-summary";
 import { TransferDetails } from "./transfer-details";
 
 const schema = z.object({ starts_at: z.string().min(1) });
+
+/**
+ * A stay is moved by its dates (ADR-072, phase 5): the customer names the
+ * new days, the server says whether they fit and at what price, and only
+ * then the stay moves — never to a price the customer was not shown.
+ */
+function StayMove({
+  appointment,
+  onMoved,
+  token,
+}: {
+  appointment: BookingPublicAppointment;
+  onMoved: (moved: BookingPublicAppointment) => void;
+  token: string;
+}) {
+  const t = useTranslations("BookingSelfService");
+  const refused = useTranslations("PublicBooking");
+  const stayWhen = useStayWhen();
+  const unit = appointment.range_unit === "day" ? "day" : "night";
+  const [dates, setDates] = useState({ start_date: "", end_date: "" });
+  // The plan of the dates typed now; other dates are checked again.
+  const [plan, setPlan] = useState<BookingPublicStayPlan>();
+  const [problem, setProblem] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const change = (field: "start_date" | "end_date", value: string) => {
+    setDates({ ...dates, [field]: value });
+    setPlan(undefined);
+    setProblem(undefined);
+  };
+  const check = async () => {
+    setBusy(true);
+    try {
+      setPlan(await previewSelfServiceStayMove(token, dates));
+      setProblem(undefined);
+    } catch (error) {
+      setProblem(
+        refused("stayRefused", { reason: refusalOf(error), count: 0 }),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const move = async () => {
+    if (!plan) return;
+    setBusy(true);
+    try {
+      onMoved(
+        await moveSelfServiceStay(
+          token,
+          dates,
+          crypto.randomUUID(),
+          plan.quote?.digest,
+        ),
+      );
+      setDates({ start_date: "", end_date: "" });
+      setPlan(undefined);
+      setProblem(undefined);
+    } catch (error) {
+      if (
+        error instanceof ApiProblemError &&
+        error.problem.code === "quote_changed"
+      ) {
+        // Another price by now: shown first, taken with the next click.
+        const detail = error.problem.detail as {
+          quote?: BookingPublicQuote | null;
+        };
+        setPlan({ ...plan, quote: detail.quote ?? null });
+        setProblem(t("newPrice"));
+        return;
+      }
+      setPlan(undefined);
+      setProblem(t("stayMoveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <fieldset className="space-y-3">
+      <legend className="text-sm font-medium">{t("newTime")}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="self-service-stay-start">
+            {t("stayStart", { unit })}
+          </Label>
+          <Input
+            id="self-service-stay-start"
+            onChange={(event) => change("start_date", event.target.value)}
+            type="date"
+            value={dates.start_date}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="self-service-stay-end">
+            {t("stayEnd", { unit })}
+          </Label>
+          <Input
+            id="self-service-stay-end"
+            min={dates.start_date || undefined}
+            onChange={(event) => change("end_date", event.target.value)}
+            type="date"
+            value={dates.end_date}
+          />
+        </div>
+      </div>
+      {problem ? (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      {plan ? (
+        <div className="space-y-2" role="status">
+          <p className="text-sm">
+            {t("stayPlan", {
+              when: stayWhen({ ...plan, timezone: appointment.timezone }),
+            })}
+          </p>
+          {plan.quote ? <QuoteSummary quote={plan.quote} /> : null}
+        </div>
+      ) : null}
+      {plan ? (
+        <Button disabled={busy} onClick={() => void move()} type="button">
+          {t("stayMove")}
+        </Button>
+      ) : (
+        <Button
+          disabled={busy || !dates.start_date || !dates.end_date}
+          onClick={() => void check()}
+          type="button"
+          variant="outline"
+        >
+          {t("stayCheck")}
+        </Button>
+      )}
+    </fieldset>
+  );
+}
 
 export function SelfServiceBooking({ token }: { token: string }) {
   const t = useTranslations("BookingSelfService");
   const locale = useLocale();
   const [appointment, setAppointment] = useState<BookingPublicAppointment>();
   const [problem, setProblem] = useState<string>();
+  const stayWhen = useStayWhen();
+  const stayHours = useStayHours();
   // The price of the time just asked for, when it is another one than the
   // visit has: shown first, taken with the next click (ADR-072 §7).
   const [offered, setOffered] = useState<{
@@ -126,14 +268,30 @@ export function SelfServiceBooking({ token }: { token: string }) {
                 <p className="font-medium">{appointment.service_name}</p>
                 <Badge variant="outline">{t(appointment.status)}</Badge>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {new Intl.DateTimeFormat(undefined, {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                  timeZone: appointment.timezone,
-                }).format(new Date(appointment.starts_at))}
+              {/* A stay is told by its days and its unit, a visit by its time. */}
+              {appointment.time_model === "range" ? (
+                <>
+                  <p className="mt-1 text-sm font-medium">
+                    {stayWhen(appointment)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {stayHours(appointment)}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                    timeZone: appointment.timezone,
+                  }).format(new Date(appointment.starts_at))}
+                </p>
+              )}
+              <p className="text-sm">
+                {appointment.unit_name
+                  ? `${appointment.unit_name} · ${appointment.location_name}`
+                  : appointment.location_name}
               </p>
-              <p className="text-sm">{appointment.location_name}</p>
               {appointment.team_name ? (
                 <p className="text-sm">
                   {t("chosenTeam", { team: appointment.team_name })}
@@ -188,7 +346,16 @@ export function SelfServiceBooking({ token }: { token: string }) {
             appointment.status === "pending_request" ? (
               <>
                 {/* What the link may still do: the booking's own terms (B4). */}
-                {terms.reschedule ? (
+                {terms.reschedule && appointment.time_model === "range" ? (
+                  <StayMove
+                    appointment={appointment}
+                    onMoved={(moved) => {
+                      setAppointment(moved);
+                      setProblem(undefined);
+                    }}
+                    token={token}
+                  />
+                ) : terms.reschedule ? (
                   <form className="space-y-3" onSubmit={reschedule}>
                     <Label htmlFor="self-service-start">{t("newTime")}</Label>
                     <Input

@@ -209,12 +209,12 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
     ]
     with activate_tenant_context(acting):
         (group,) = preview_plan(plan).groups
-    # Said before the click: what the assistant does not make, and that the
-    # site's form comes later (owner decision 67a).
+    # Said before the click: what the assistant does not make. A stay is
+    # booked through the site (phase 5b), so nothing says the form comes later.
     (effect,) = group.calls[0].preview.effects
     assert "Jednostki i ceny dodasz w następnym kroku albo w panelu." in effect.summary["pl"]
-    assert "rezerwacja przez stronę — wkrótce" in effect.summary["pl"]
-    assert "booking through the site is coming soon" in effect.summary["en"]
+    assert "wkrótce" not in effect.summary["pl"]
+    assert "coming soon" not in effect.summary["en"]
 
     tokens = clicked(person, acting, plan)
     with activate_tenant_context(acting):
@@ -222,9 +222,9 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
         (read,) = execute_plan([invocation("booking.setup.read@1", {})])
 
     assert result.status == "done", result
-    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 2)
+    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 3)
     stay = next(item for item in read.output["services"] if item["name"] == "Domek nad wodą")
     # A stay's check-in and check-out are read as the week's hours are written.
     assert (stay["time_model"], stay["range_unit"]) == ("range", "night")
     assert (stay["range_start_local"], stay["range_end_local"]) == ("16:00", "11:00")
-    assert (stay["online"], stay["active"], stay["draft"]) == (False, False, True)
+    assert (stay["online"], stay["active"], stay["draft"]) == (True, False, True)
