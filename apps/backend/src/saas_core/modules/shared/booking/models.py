@@ -312,6 +312,21 @@ class Resource(TenantScopedModel):
     #: How many people it takes; empty where the question makes no sense.
     capacity = models.PositiveSmallIntegerField(null=True, blank=True)
     description = models.TextField(max_length=2000, blank=True)
+    #: Shown to guests as content — its pictures, what it has, where it is
+    #: (ADR-072 §3, slice 5c). A unit that is not is still booked, by its name.
+    public = models.BooleanField(default=False)
+    #: Its address segment where it has a page of its own; one per company.
+    public_slug = models.SlugField(max_length=80, blank=True)
+    #: Keys of `unit_content.UNIT_AMENITIES`, in the dictionary's order.
+    amenities = ArrayField(models.CharField(max_length=40), default=list, blank=True)
+    #: Its town, from the catalogue's dictionary (`profiles.api.cities`).
+    city_slug = models.SlugField(max_length=80, blank=True)
+    #: For the company and the server — a map, a search nearby; never part of
+    #: an answer to a guest.
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    #: Media assets in the order shown; the first is the cover.
+    photos = ArrayField(models.UUIDField(), default=list, blank=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -323,6 +338,28 @@ class Resource(TenantScopedModel):
             models.CheckConstraint(
                 condition=models.Q(capacity__isnull=True) | models.Q(capacity__gte=1),
                 name="booking_resource_capacity_ck",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "public_slug"],
+                condition=~models.Q(public_slug=""),
+                name="booking_resource_public_slug_uq",
+            ),
+            # What guests are shown has an address.
+            models.CheckConstraint(
+                condition=models.Q(public=False) | ~models.Q(public_slug=""),
+                name="booking_resource_public_slug_ck",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(latitude__isnull=True, longitude__isnull=True)
+                    | models.Q(
+                        latitude__gte=-90,
+                        latitude__lte=90,
+                        longitude__gte=-180,
+                        longitude__lte=180,
+                    )
+                ),
+                name="booking_resource_coordinates_ck",
             ),
         ]
 
@@ -355,6 +392,10 @@ class Service(TenantScopedModel):
     buffer_before_minutes = models.PositiveSmallIntegerField(default=0)
     buffer_after_minutes = models.PositiveSmallIntegerField(default=0)
     minimum_notice_minutes = models.PositiveIntegerField(default=60)
+    #: A `range` offer: at most this many days ahead of its first day a
+    #: booking can be made. A season's own window comes first (`BookingRule.
+    #: window_days`); empty — only the platform's bound.
+    booking_window_days = models.PositiveIntegerField(null=True, blank=True)
     #: Produkty z magazynu, które wizyta tej usługi zabiera (ADR-055):
     #: `[{"item_id", "quantity", "mode": "consume" | "sale"}]`. Magazyn nie
     #: jest zależnością rezerwacji, więc bez kluczy obcych — sprawdza je

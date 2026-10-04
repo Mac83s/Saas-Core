@@ -133,7 +133,11 @@
     "languageUnavailable": "In dieser Sprache ist keine Online-Buchung möglich: Die Buchungsbedingungen liegen in dieser Sprache nicht vor.",
     "languageOffer": "Buchen Sie in einer Sprache, in der die Bedingungen vorliegen:",
     "languageNone": "Für eine Buchung wenden Sie sich bitte an das Unternehmen.",
-    "marketingHint": "Freiwillig. Sie können Ihre Einwilligung jederzeit widerrufen."
+    "marketingHint": "Freiwillig. Sie können Ihre Einwilligung jederzeit widerrufen.",
+    "stayFrom": "{per, select, night {ab {amount} pro Nacht} day {ab {amount} pro Tag} other {ab {amount}}}",
+    "stayMoreAmenities": "und {count} weitere",
+    "stayPhotos": "Bilder: {name}",
+    "stayPhoto": "{name} – Bild {number}"
   },
   "BookingSelfService": {
     "changesUntil": "Sie können den Termin bis {when} ändern oder absagen.",

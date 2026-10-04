@@ -51,6 +51,11 @@ import {
   type MaterialDraft,
 } from "./materials-editor";
 import { problemText } from "./people/person-dialogs";
+import {
+  coordinatesOf,
+  UnitContentFields,
+  unitContentOf,
+} from "./unit-content-fields";
 
 /** A ready-made service of the organization's type, to start a new one from. */
 export type ServiceTemplate = {
@@ -73,6 +78,7 @@ type ServiceValues = {
   before: number;
   after: number;
   notice: number;
+  window: number;
   staffCount: number;
   choice: Choice;
   step: number;
@@ -199,6 +205,13 @@ export function ServiceDialog({
         before: minutes(1440),
         after: minutes(1440),
         notice: minutes(129600),
+        // Empty — no window of the offer's own.
+        window: z
+          .number()
+          .int(t("bookingWindowRange"))
+          .min(1, t("bookingWindowRange"))
+          .max(731, t("bookingWindowRange"))
+          .or(z.nan()),
         staffCount: z.number().or(z.nan()),
         choice: z.enum(CHOICES),
         step: z.number().int(),
@@ -265,6 +278,7 @@ export function ServiceDialog({
       before: service?.buffer_before_minutes ?? 0,
       after: service?.buffer_after_minutes ?? 0,
       notice: service?.minimum_notice_minutes ?? 60,
+      window: service?.booking_window_days ?? Number.NaN,
       staffCount: service?.staff_count ?? 1,
       choice: (service?.public_staff_choice as Choice | undefined) ?? "none",
       step: service?.slot_step_minutes ?? 5,
@@ -318,6 +332,9 @@ export function ServiceDialog({
             range_unit: values.rangeUnit,
             range_start_local: values.rangeStart || null,
             range_end_local: values.rangeEnd || null,
+            booking_window_days: Number.isNaN(values.window)
+              ? null
+              : values.window,
             group_ids: values.groupIds,
             staff_count: 0,
             public_staff_choice: "none" as const,
@@ -492,6 +509,26 @@ export function ServiceDialog({
                     {...form.register("rangeEnd")}
                   />
                   <FieldError errors={[errors.rangeEnd]} />
+                </Field>
+                <Field
+                  className="sm:col-span-3"
+                  data-invalid={Boolean(errors.window)}
+                >
+                  <FieldLabel htmlFor="service-window">
+                    {t("bookingWindow")}
+                  </FieldLabel>
+                  <Input
+                    aria-invalid={Boolean(errors.window)}
+                    className="sm:max-w-40"
+                    id="service-window"
+                    inputMode="numeric"
+                    max={731}
+                    min={1}
+                    type="number"
+                    {...form.register("window", { valueAsNumber: true })}
+                  />
+                  <FieldDescription>{t("bookingWindowHint")}</FieldDescription>
+                  <FieldError errors={[errors.window]} />
                 </Field>
               </div>
             ) : null}
@@ -763,6 +800,12 @@ export function ItemDialog({
   const [description, setDescription] = useState(
     item && "description" in item ? item.description : "",
   );
+  // What guests see of a unit (ADR-072, slice 5c): asked only of a company
+  // with an offer booked from–to — a chair or a room of a visit has no page.
+  const stays =
+    kind === "resource" &&
+    Boolean(setup?.services.some((service) => service.time_model === "range"));
+  const [content, setContent] = useState(() => unitContentOf(unit));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -784,6 +827,17 @@ export function ItemDialog({
     }
     if (badCapacity) {
       setProblem(t("capacityRange"));
+      return;
+    }
+    const coordinates = stays ? coordinatesOf(content) : undefined;
+    if (typeof coordinates === "string") {
+      setProblem(
+        t(
+          coordinates === "incomplete"
+            ? "unitCoordinatesBoth"
+            : "unitCoordinatesRange",
+        ),
+      );
       return;
     }
     setBusy(true);
@@ -814,6 +868,16 @@ export function ItemDialog({
           location_id: placeId || null,
           capacity: people,
           description: description.trim(),
+          ...(coordinates
+            ? {
+                public: content.shown,
+                public_slug: content.slug.trim(),
+                city_slug: content.town,
+                ...coordinates,
+                amenities: content.amenities,
+                photo_ids: content.photos,
+              }
+            : {}),
         };
         await (item
           ? updateSetupResource(
@@ -829,6 +893,9 @@ export function ItemDialog({
         problemText(error, t("failed"), t("forbidden"), {
           booking_version_conflict: t("versionConflict"),
           name_taken: t("groupNameTaken"),
+          slug_taken: t("unitSlugTaken"),
+          photo_unavailable: t("unitPhotoUnavailable"),
+          city_unknown: t("unitTownUnknown"),
         }),
       );
     } finally {
@@ -846,6 +913,10 @@ export function ItemDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open>
       <DialogContent
+        // A unit's content makes the form long: it scrolls in place.
+        className={
+          stays ? "max-h-[90vh] overflow-y-auto sm:max-w-2xl" : undefined
+        }
         closeLabel={common("close")}
         finalFocus={() => finalFocus ?? true}
       >
@@ -971,6 +1042,13 @@ export function ItemDialog({
                 value={description}
               />
             </Field>
+          ) : null}
+          {stays && setup ? (
+            <UnitContentFields
+              content={content}
+              onChange={setContent}
+              options={setup.unit_options}
+            />
           ) : null}
           {problem ? (
             <p className="text-sm text-destructive" role="alert">

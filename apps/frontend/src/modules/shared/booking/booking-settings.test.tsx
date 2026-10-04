@@ -33,6 +33,8 @@ const api = vi.hoisted(() => ({
   listParticipantCategories: vi.fn(),
   listInventoryBalances: vi.fn(),
   listInventoryItems: vi.fn(),
+  getMediaAssetPreview: vi.fn(),
+  readCatalogDictionary: vi.fn(),
   updateSetupGroup: vi.fn(),
   updateSetupLocation: vi.fn(),
   updateSetupResource: vi.fn(),
@@ -147,9 +149,24 @@ const SETUP = {
       location_id: BASE,
       capacity: null,
       description: "",
+      public: false,
+      public_slug: "",
+      amenities: [] as string[],
+      city_slug: "",
+      latitude: null as number | null,
+      longitude: null as number | null,
+      photo_ids: [] as string[],
       version: 1,
     },
   ],
+  unit_options: {
+    amenities: [
+      { key: "wifi", label: { pl: "Wi-Fi", en: "Wi-Fi", de: "WLAN" } },
+      { key: "sauna", label: { pl: "Sauna", en: "Sauna", de: "Sauna" } },
+      { key: "fireplace", label: { pl: "Kominek", en: "Fireplace" } },
+    ],
+    max_photos: 2,
+  },
   groups: [
     {
       id: GROUP,
@@ -231,6 +248,9 @@ beforeEach(() => {
   }));
   api.listInventoryItems.mockResolvedValue([]);
   api.listInventoryBalances.mockResolvedValue([]);
+  // A unit's pictures are previews the panel asks for; none comes in a test.
+  api.getMediaAssetPreview.mockReturnValue(new Promise(() => undefined));
+  api.readCatalogDictionary.mockResolvedValue({ cities: [], categories: [] });
 });
 
 test("usługi, miejsca i zasoby w listach, z tym, co trzeba poprawić", async () => {
@@ -680,6 +700,113 @@ test("grupa jednostek i jednostka w grupie z pojemnością", async () => {
   );
 });
 
+test("jednostka firmy z pobytami: co widzi gość — adres, miejscowość, współrzędne, wyposażenie i zdjęcia", async () => {
+  // A company with visits only is asked nothing about content.
+  const visits = renderSettings();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Edytuj: Poskrom" }),
+  );
+  const plain = await screen.findByRole("dialog", {
+    name: "Edytuj zasób: Poskrom",
+  });
+  expect(within(plain).queryByLabelText("Pokaż jednostkę gościom")).toBeNull();
+  visits.unmount();
+
+  const stay = service({
+    id: "stay",
+    name: "Pobyt w domku",
+    time_model: "range",
+    range_unit: "night",
+    duration_minutes: null,
+    staff_count: 0,
+    staff_ids: [],
+    group_ids: [GROUP],
+  });
+  const PHOTO = "66666666-6666-4666-8666-666666666666";
+  const COVER = "77777777-7777-4777-8777-777777777777";
+  api.getBookingSetup.mockResolvedValue({
+    ...SETUP,
+    services: [stay],
+    resources: [
+      {
+        ...SETUP.resources[0],
+        name: "Domek 1",
+        public: true,
+        public_slug: "domek-1",
+        amenities: ["sauna"],
+        photo_ids: [PHOTO, COVER],
+      },
+    ],
+  });
+  api.readCatalogDictionary.mockResolvedValue({
+    cities: [
+      { slug: "mragowo", name: "Mrągowo", voivodeship: "warmińsko-mazurskie" },
+    ],
+    categories: [],
+  });
+  api.updateSetupResource.mockImplementation(async (id, input) => ({
+    ...SETUP.resources[0],
+    ...input,
+    id,
+  }));
+  renderSettings();
+  // The list says which units guests are shown, and that the stay — shown
+  // online — is booked on the site's form by its dates.
+  expect(await screen.findByText("widoczna dla gości")).toBeInTheDocument();
+  expect(screen.getByText("Tak, gość wybiera daty")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edytuj: Domek 1" }));
+  const unit = await screen.findByRole("dialog", {
+    name: "Edytuj zasób: Domek 1",
+  });
+  expect(within(unit).getByLabelText("Pokaż jednostkę gościom")).toBeChecked();
+  expect(within(unit).getByLabelText("Adres jednostki")).toHaveValue("domek-1");
+  expect(within(unit).getByLabelText("Sauna")).toBeChecked();
+  // Two pictures are the most this unit takes: nothing more to add.
+  expect(within(unit).queryByText("Dodaj zdjęcie")).toBeNull();
+  await within(unit).findByRole("option", { name: "Mrągowo" });
+  fireEvent.change(within(unit).getByLabelText("Miejscowość"), {
+    target: { value: "mragowo" },
+  });
+  fireEvent.click(within(unit).getByLabelText("Kominek"));
+  fireEvent.click(
+    within(unit).getByRole("button", { name: "Ustaw zdjęcie 2 jako okładkę" }),
+  );
+  // One coordinate without the other is said before anything is sent.
+  fireEvent.change(within(unit).getByLabelText("Szerokość geograficzna"), {
+    target: { value: "53,8645" },
+  });
+  fireEvent.click(within(unit).getByRole("button", { name: "Zapisz" }));
+  expect(await within(unit).findByRole("alert")).toHaveTextContent(
+    "Podaj obie współrzędne albo żadnej.",
+  );
+  expect(api.updateSetupResource).not.toHaveBeenCalled();
+  fireEvent.change(within(unit).getByLabelText("Długość geograficzna"), {
+    target: { value: "21.305" },
+  });
+  fireEvent.click(within(unit).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.updateSetupResource).toHaveBeenCalledWith(
+      ROOM,
+      {
+        name: "Domek 1",
+        group_id: null,
+        location_id: BASE,
+        capacity: null,
+        description: "",
+        public: true,
+        public_slug: "domek-1",
+        city_slug: "mragowo",
+        latitude: "53.864500",
+        longitude: "21.305000",
+        amenities: ["sauna", "fireplace"],
+        photo_ids: [COVER, PHOTO],
+        expected_version: 1,
+      },
+      expect.any(String),
+    ),
+  );
+});
+
 test("pobyt na noce: grupa jednostek, zameldowanie i wymeldowanie, bez osób", async () => {
   renderSettings();
   fireEvent.click(await screen.findByRole("button", { name: "Dodaj usługę" }));
@@ -695,6 +822,18 @@ test("pobyt na noce: grupa jednostek, zameldowanie i wymeldowanie, bez osób", a
     "16:00",
   );
   fireEvent.click(within(dialog).getByLabelText("Poskrom mobilny"));
+  // The offer's own booking window: empty until the company sets one.
+  const window = within(dialog).getByLabelText("Okno rezerwacji (dni)");
+  expect(window).toHaveValue(null);
+  fireEvent.change(window, { target: { value: "900" } });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  expect(
+    await within(dialog).findByText("Okno to od 1 do 731 dni albo puste pole."),
+  ).toBeInTheDocument();
+  expect(api.createSetupService).not.toHaveBeenCalled();
+  fireEvent.change(window, { target: { value: "180" } });
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Zapisz usługę" }),
   );
@@ -706,6 +845,7 @@ test("pobyt na noce: grupa jednostek, zameldowanie i wymeldowanie, bez osób", a
     range_unit: "night",
     range_start_local: "16:00",
     range_end_local: "11:00",
+    booking_window_days: 180,
     group_ids: [GROUP],
     staff_count: 0,
     staff_ids: [],

@@ -67,17 +67,17 @@ before touching time models, units, rules, prices, pending bookings or presets.
   and `ends_at <= now`, derived, never stored. The payload says it as `passed`;
   the panel uses `hasPassed`/`shownStatus` from `appointment-dialogs.tsx`, and
   counting uses `took_place_q`. Do not compare `ends_at` with now anywhere
-  else. A passed visit is not ahead
-  („Najbliższe”), and a vacancy on it is nobody's work (no Wakat, no queue). It
-  took place by default (3A), unless its kind is in the module's
+  else. A passed visit is not ahead („Najbliższe”), and a vacancy on it is
+  nobody's work (no Wakat, no queue). It took place by default (3A), unless
+  its kind is in the module's
   `appointmentKindsCompletedExplicitly` (`closes_explicitly`; `""` names the
   plain service). The customer who did not come is `mark_no_show` — from the
   visit's start, no undo; it counts as `no_shows`, never as done.
 - **What the calendar shows but does not own** (UX-078) comes from a source in
   `apps/frontend/src/lib/calendar-sources.ts`, gated like a menu entry — today
   the companies' visits on a farm's calendar, from `shared.farms`. They are
-  read-only cards beside the bookings, never `BookingAppointment`s: do not put
-  them into the appointments state, the day board or any count of the team.
+  read-only cards, never `BookingAppointment`s: keep them out of the
+  appointments state, the day board and any count of the team.
 - **Whose visits a person sees is one rule (UX-023), in `visibility.py`.**
   Everyone's by default; a product that declares
   `appointmentsOfOthersPermission` (MedPlano: a doctor does not see another
@@ -124,24 +124,26 @@ not in PostgreSQL.
   (`booking.public.read`, `booking.public.manage`) — never a membership or
   global fallback. Stays too (`public_stay_views.py`): only what is online,
   and a write needs the shown `quote_digest`.
+- **A guest gets a unit's content only when it is `public`**
+  (`unit_content.py`, ADR-072 5c): pictures, amenities, town — never
+  coordinates.
 - **Who books for themselves accepts the company's documents** (ADR-073 §9,
   `consents.py`): the form reads those in force in the booking's language
   (`shown`) and sends their `text_id`s; `record` checks and journals them,
   else 409 `documents_changed`. Terms with no text in that language close
   online booking in it (409 `booking_language_unavailable`); a ticked
   `consents.marketing` is a journal line. The team's bookings ask nothing.
-- Confirmations and reminders go through the durable queue, never sent inline in
-  the request. Content stays generic: organization, time, safe link. No medical
-  detail, ever, in an email or a log line.
+- Confirmations and reminders go through the durable queue, never inline in
+  the request. Content stays generic: organization, time, safe link. No
+  medical detail, ever, in an email or a log line.
 
 ## Traps
 
 - **The routing tables have no tenant policy on purpose.**
   `booking_publicbookingroute`, `booking_selfserviceroute` and
-  `booking_reminderroute` are lookup tables that say *which* tenant to set
-  before anything else is read. They carry identifiers, never customer data — if
-  you are tempted to add a name to one, that is the signal you are on the wrong
-  table.
+  `booking_reminderroute` say *which* tenant to set before anything else is
+  read. They carry identifiers, never customer data — a name does not belong
+  in one.
 - **Everything else in Booking is under forced RLS.** Read `change-tenant-data`
   before adding a model or a task here.
 - **A reminder route is the organization's, not the booker's.** It is signed
@@ -152,16 +154,17 @@ not in PostgreSQL.
   ADR-072 §6–§9; money lives in the order (ADR-073).** Never add an amount to
   `Service` or `Appointment` beyond the frozen quote: a price is a `PriceRule`,
   a charge or a deposit an `Extra`. What an offer carries is policy — how the
-  customer pays (`payment_policy`), the prepayment's terms (see develop-commerce-payments) — declared
-  in `offer_settings.py` and frozen into each booking's quote. Refund thresholds cover only the deposit unless the offer's
-  switch says otherwise (`appliesTo`, owner decision 28a) — a setting the API
-  reads and writes, not a column only the panel knows; an unpaid balance
-  never cancels a booking on its own (29a).
+  customer pays (`payment_policy`), the prepayment's terms (see
+  develop-commerce-payments) — declared in `offer_settings.py` and frozen into
+  each booking's quote. Refund thresholds cover only the deposit unless the
+  offer's switch says otherwise (`appliesTo`, decision 28a) — a setting of the
+  API, not a column only the panel knows; an unpaid balance never cancels a
+  booking on its own (29a).
 - **A person is a `StaffMember`, with an account or without one** (ADR-058 §1,
   `booking/staff.py`). The account joins the entry in one place:
   `staff.link_on_join`, registered through `organizations.joining` because
-  core may not import booking. A second linking path next to it — a signal,
-  a sweep — would link one person twice or not at all.
+  core may not import booking. A second path — a signal, a sweep — would link
+  one person twice or not at all.
 
 ## Operable by the AI assistant
 

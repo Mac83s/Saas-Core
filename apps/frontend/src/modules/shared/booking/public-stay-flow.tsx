@@ -51,6 +51,10 @@ import {
   pickedExtras,
   refusalOf,
   ticked,
+  UnitCover,
+  UnitFacts,
+  UnitGallery,
+  type UnitContent,
 } from "./public-booking-parts";
 import { QuoteSummary } from "./quote-summary";
 
@@ -62,7 +66,7 @@ type Offer = NonNullable<BookingPublicCatalog["stays"]>[number];
 const WINDOW_DAYS = 91;
 /** What the offer lets a guest choose: a group — the server picks the unit
  *  (ADR-072 §3) — or a unit listed by itself. */
-type Choice = {
+type Choice = UnitContent & {
   key: string;
   target: { group_id: string } | { resource_id: string };
   name: string;
@@ -74,18 +78,14 @@ function choicesOf(offer: Offer | undefined): Choice[] {
   if (!offer) return [];
   return [
     ...offer.groups.map((group) => ({
+      ...group,
       key: `group:${group.id}`,
       target: { group_id: String(group.id) },
-      name: group.name,
-      description: group.description,
-      capacity: group.capacity,
     })),
     ...offer.units.map((unit) => ({
+      ...unit,
       key: `unit:${unit.id}`,
       target: { resource_id: String(unit.id) },
-      name: unit.name,
-      description: unit.description,
-      capacity: unit.capacity,
     })),
   ];
 }
@@ -428,6 +428,7 @@ export function PublicStayFlow({
                       onChange={() => restart({ chosen: item.key })}
                       type="radio"
                     />
+                    <UnitCover name={item.name} photos={item.photos} />
                     <span className="min-w-0">
                       <span className="font-medium">{item.name}</span>
                       {item.capacity ? (
@@ -441,6 +442,7 @@ export function PublicStayFlow({
                           {item.description}
                         </span>
                       ) : null}
+                      <UnitFacts unit={item} />
                     </span>
                   </label>
                 ))}
@@ -463,7 +465,12 @@ export function PublicStayFlow({
                   {choice.description}
                 </span>
               ) : null}
+              <UnitFacts unit={choice} />
             </p>
+          ) : null}
+          {/* What is chosen, in pictures: each opens large in a new tab. */}
+          {choice ? (
+            <UnitGallery name={choice.name} photos={choice.photos} />
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>

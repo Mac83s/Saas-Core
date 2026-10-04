@@ -78,6 +78,7 @@ from .views import (
     PublicBookingQuoteView,
     PublicBookingSlotsView,
     PublicBookingTimesView,
+    PublicUnitPhotoView,
     SelfServiceAppointmentView,
     SelfServiceCancelView,
     SelfServiceRescheduleView,
@@ -413,6 +414,11 @@ urlpatterns = [
         name="customer-anonymize-preview",
     ),
     path("public/<slug:public_slug>/", PublicBookingCatalogView.as_view(), name="public-catalog"),
+    path(
+        "public/<slug:public_slug>/photos/<uuid:asset_id>/<str:variant>/",
+        PublicUnitPhotoView.as_view(),
+        name="public-unit-photo",
+    ),
     path(
         "public/<slug:public_slug>/consents/",
         PublicBookingConsentsView.as_view(),

@@ -36,6 +36,9 @@ const LINEN = "55555555-5555-4555-8555-555555555555";
 const TERMS = "66666666-6666-4666-8666-666666666666";
 const OFFERS = "Chcę otrzymywać oferty i promocje od Dokumenty Demo e-mailem.";
 
+/** A unit the company does not show as content, without a price list. */
+const plain = { photos: [], amenities: [], town: null, from_price: null };
+
 const catalog = {
   locations: [],
   services: [],
@@ -59,6 +62,7 @@ const catalog = {
           description: "Dwie sypialnie i taras.",
           capacity: 6,
           units: 2,
+          ...plain,
         },
       ],
       units: [
@@ -67,6 +71,8 @@ const catalog = {
           name: "Apartament na piętrze",
           description: "",
           capacity: 2,
+          public_slug: "",
+          ...plain,
         },
       ],
     },
@@ -244,6 +250,79 @@ test("a company with stays only opens the stay form, which passes axe", async ()
   expect(screen.getByText(/do 6 osób/)).toBeInTheDocument();
   // Nothing is searched before the guest says what they book.
   expect(api.getPublicStayStarts).not.toHaveBeenCalled();
+  const results = await axe.run(container);
+  expect(results.violations).toEqual([]);
+});
+
+test("a choice shows what the company shows of the unit: its cover, town, lowest price and amenities", async () => {
+  const photo = (id: string) => ({
+    id,
+    thumbnail_url: `/api/v1/booking/public/dokumenty-demo/photos/${id}/thumbnail/`,
+    preview_url: `/api/v1/booking/public/dokumenty-demo/photos/${id}/preview/`,
+  });
+  const [stay] = catalog.stays ?? [];
+  api.getPublicBookingCatalog.mockResolvedValue({
+    ...catalog,
+    stays: [
+      {
+        ...stay,
+        groups: [
+          {
+            ...stay?.groups[0],
+            photos: [photo("a"), photo("b")],
+            amenities: [
+              "Wi-Fi",
+              "Kominek",
+              "Sauna",
+              "Taras lub balkon",
+              "Grill",
+              "Pomost",
+              "Rowery",
+              "Parking",
+            ].map((label, index) => ({ key: `k${index}`, label })),
+            town: { slug: "mragowo", name: "Mrągowo" },
+            from_price: { gross_minor: 25000, currency: "PLN", per: "night" },
+          },
+        ],
+      },
+    ],
+  });
+  const { container } = show();
+
+  const cottage = await screen.findByRole("radio", {
+    name: /Domek nad jeziorem/,
+  });
+  const card = cottage.closest("label") as HTMLElement;
+  expect(card.querySelector("img")).toHaveAttribute(
+    "src",
+    "/api/v1/booking/public/dokumenty-demo/photos/a/thumbnail/",
+  );
+  expect(card).toHaveTextContent(/Mrągowo · od 250,00\szł za noc/);
+  // Six amenities by name, the rest counted.
+  expect(card).toHaveTextContent("Wi-Fi · Kominek · Sauna");
+  expect(card).toHaveTextContent("Pomost · i 2 więcej");
+  expect(card).not.toHaveTextContent("Rowery");
+  // A unit that is not shown stays a name with its capacity.
+  const flat = screen
+    .getByRole("radio", { name: /Apartament na piętrze/ })
+    .closest("label") as HTMLElement;
+  expect(flat.querySelector("img")).toBeNull();
+  expect(flat).not.toHaveTextContent(/zł/);
+
+  // Chosen, its pictures open large in a new tab.
+  fireEvent.click(cottage);
+  const gallery = await screen.findByRole("list", {
+    name: "Zdjęcia: Domek nad jeziorem",
+  });
+  const links = gallery.querySelectorAll("a");
+  expect(links).toHaveLength(2);
+  expect(links[1]).toHaveAttribute(
+    "href",
+    "/api/v1/booking/public/dokumenty-demo/photos/b/preview/",
+  );
+  expect(
+    screen.getByAltText("Domek nad jeziorem — zdjęcie 2"),
+  ).toBeInTheDocument();
   const results = await axe.run(container);
   expect(results.violations).toEqual([]);
 });

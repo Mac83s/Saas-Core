@@ -412,6 +412,110 @@ export function pickedExtras(picked: Record<string, number>) {
     .map(([extra_id, quantity]) => ({ extra_id, quantity }));
 }
 
+type StayOffer = NonNullable<BookingPublicCatalog["stays"]>[number];
+
+/** What a guest sees of a unit the company shows (ADR-072, slice 5c): its
+ *  pictures, what it has, its town and „od X zł/noc” — the server's, as the
+ *  form's catalogue gives them for a unit and for a group alike. */
+export type UnitContent = Pick<
+  StayOffer["units"][number],
+  "photos" | "amenities" | "town" | "from_price"
+>;
+
+/** How many of a unit's amenities a choice names before „+N”. */
+const AMENITIES_SHOWN = 6;
+
+/** The unit's cover beside its name; nothing for a unit without pictures. */
+export function UnitCover({
+  name,
+  photos,
+}: {
+  name: string;
+  photos: UnitContent["photos"];
+}) {
+  const cover = photos[0];
+  if (!cover) return null;
+  return (
+    // The server's own WebP copy at the form's address: nothing for the
+    // image optimizer to fetch from elsewhere.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt={name}
+      className="size-16 shrink-0 rounded-md object-cover sm:size-20"
+      decoding="async"
+      loading="lazy"
+      src={cover.thumbnail_url}
+    />
+  );
+}
+
+/** „Mrągowo · od 250,00 zł za noc” and what the unit has. */
+export function UnitFacts({ unit }: { unit: UnitContent }) {
+  const t = useTranslations("PublicBooking");
+  const locale = useLocale();
+  const price = unit.from_price;
+  const facts = [
+    unit.town?.name,
+    price
+      ? t("stayFrom", {
+          per: price.per,
+          amount: new Intl.NumberFormat(locale, {
+            style: "currency",
+            currency: price.currency,
+          }).format(price.gross_minor / 100),
+        })
+      : undefined,
+  ].filter(Boolean);
+  const more = unit.amenities.length - AMENITIES_SHOWN;
+  return (
+    <>
+      {facts.length ? <span className="block">{facts.join(" · ")}</span> : null}
+      {unit.amenities.length ? (
+        <span className="block wrap-anywhere text-muted-foreground">
+          {unit.amenities
+            .slice(0, AMENITIES_SHOWN)
+            .map((amenity) => amenity.label)
+            .join(" · ")}
+          {more > 0 ? ` · ${t("stayMoreAmenities", { count: more })}` : null}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+/** The pictures of what is chosen: each opens large in a new tab. */
+export function UnitGallery({
+  name,
+  photos,
+}: {
+  name: string;
+  photos: UnitContent["photos"];
+}) {
+  const t = useTranslations("PublicBooking");
+  if (photos.length < 2) return null;
+  return (
+    <ul
+      aria-label={t("stayPhotos", { name })}
+      className="flex gap-2 overflow-x-auto"
+    >
+      {photos.map((photo, index) => (
+        <li className="shrink-0" key={photo.id}>
+          <a href={photo.preview_url} rel="noopener" target="_blank">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={t("stayPhoto", { name, number: index + 1 })}
+              className="size-20 rounded-md object-cover"
+              decoding="async"
+              loading="lazy"
+              src={photo.thumbnail_url}
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The refusals of a stay the pages have their own words for
  *  (`PublicBooking.stayRefused`); anything else is said as „nie można
  *  zarezerwować”. */

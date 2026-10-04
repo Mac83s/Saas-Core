@@ -24,6 +24,7 @@ from .models import (
     VatCode,
 )
 from .offer_settings import SLOT_STEPS, offer_setting
+from .unit_content import MAX_UNIT_PHOTOS, UNIT_AMENITIES
 
 
 def _changes() -> serializers.DictField:
@@ -927,6 +928,9 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     buffer_before_minutes = serializers.IntegerField()
     buffer_after_minutes = serializers.IntegerField()
     minimum_notice_minutes = serializers.IntegerField()
+    booking_window_days = serializers.IntegerField(
+        allow_null=True, help_text=offer_setting("booking_window_days").model_description
+    )
     staff_count = serializers.IntegerField()
     public_staff_choice = serializers.CharField()
     slot_step_minutes = serializers.IntegerField(
@@ -1020,6 +1024,31 @@ class ResourceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     )
     capacity = serializers.IntegerField(allow_null=True, help_text="How many people it takes.")
     description = serializers.CharField()
+    public = serializers.BooleanField(
+        help_text="Whether guests are shown the unit as content: its pictures, what it has "
+        "and its town. A unit that is not is still booked, by its name."
+    )
+    public_slug = serializers.CharField(
+        allow_blank=True, help_text="The unit's address segment; empty until it is shown."
+    )
+    amenities = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="What the unit has: keys of `unit_options.amenities`, in their order.",
+    )
+    city_slug = serializers.CharField(
+        allow_blank=True, help_text="Its town, a slug of the catalogue's dictionary."
+    )
+    latitude = serializers.FloatField(
+        allow_null=True,
+        help_text="Degrees north. For the company and the server only; never part of an "
+        "answer to a guest.",
+    )
+    longitude = serializers.FloatField(allow_null=True, help_text="Degrees east.")
+    photo_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        help_text="The unit's pictures — media assets — in the order shown; the first is "
+        "the cover.",
+    )
     version = serializers.IntegerField(
         help_text="The resource's version; a change names it (`expected_version`)."
     )
@@ -1171,11 +1200,32 @@ class PresetListSerializer(serializers.Serializer[dict[str, Any]]):
     presets = PresetSerializer(many=True)
 
 
+class UnitAmenitySerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField(help_text="Send it in a unit's `amenities`.")
+    label = serializers.DictField(  # type: ignore[assignment]
+        child=serializers.CharField(),
+        help_text="Its words by language (pl, en, de); guests read it in theirs.",
+    )
+
+
+class UnitOptionsSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a unit's content may be set to (ADR-072, slice 5c)."""
+
+    amenities = UnitAmenitySerializer(
+        many=True, help_text="The closed list a unit's `amenities` are picked from, in order."
+    )
+    max_photos = serializers.IntegerField(help_text="How many pictures one unit takes.")
+
+
 class SetupSerializer(serializers.Serializer[dict[str, Any]]):
     services = ServiceSetupSerializer(many=True)
     locations = PlaceSetupSerializer(many=True)
     resources = ResourceSetupSerializer(many=True)
     groups = GroupSetupSerializer(many=True)
+    unit_options = UnitOptionsSerializer(
+        help_text="What a unit's content may be set to; its towns are the catalogue's "
+        "dictionary (`GET /catalog/dictionary/`)."
+    )
     staff = SetupPersonSerializer(many=True)
     appointment_kinds = AppointmentKindSerializer(
         many=True,
@@ -1240,6 +1290,7 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
     buffer_before_minutes = _bounded("buffer_before_minutes", required=False)
     buffer_after_minutes = _bounded("buffer_after_minutes", required=False)
     minimum_notice_minutes = _bounded("minimum_notice_minutes", required=False)
+    booking_window_days = _bounded("booking_window_days", required=False, allow_null=True)
     staff_count = _bounded("staff_count", required=False)
     public_staff_choice = serializers.ChoiceField(choices=StaffChoice.choices, required=False)
     slot_step_minutes = serializers.ChoiceField(
@@ -1366,6 +1417,59 @@ class ResourceInputSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="How many people it takes; null where that makes no sense.",
     )
     description = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    public = serializers.BooleanField(
+        required=False,
+        help_text="Show the unit to guests as content — its pictures, what it has, its town "
+        "— on the booking form. Off by default: the unit is booked by its name alone.",
+    )
+    public_slug = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        help_text="The unit's address segment, unique in the company (400 `slug_taken`); "
+        "made a slug. A unit shown to guests without one gets it from its name.",
+    )
+    amenities = serializers.ListField(
+        child=serializers.CharField(max_length=40),
+        required=False,
+        max_length=len(UNIT_AMENITIES),
+        help_text="What the unit has: keys of `unit_options.amenities` of "
+        "`GET /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`.",
+    )
+    city_slug = serializers.CharField(
+        max_length=80,
+        required=False,
+        allow_blank=True,
+        help_text="Its town: a slug of the catalogue's dictionary (400 `city_unknown`); "
+        "empty takes it away.",
+    )
+    latitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        min_value=-90,
+        max_value=90,
+        required=False,
+        allow_null=True,
+        help_text="Degrees north, with `longitude` or not at all (400 "
+        "`coordinates_incomplete`). Kept for the company and the server; guests never get it.",
+    )
+    longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        min_value=-180,
+        max_value=180,
+        required=False,
+        allow_null=True,
+        help_text="Degrees east, with `latitude` or not at all.",
+    )
+    photo_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        max_length=MAX_UNIT_PHOTOS,
+        help_text="The unit's pictures in the order shown, the first the cover; replaces the "
+        "list. Each is a media asset of the company that is ready and not deleted (400 "
+        "`photo_unavailable`).",
+    )
 
 
 class GroupInputSerializer(serializers.Serializer[dict[str, Any]]):
@@ -1799,7 +1903,58 @@ class PublicExtraSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
-class PublicStayUnitSerializer(serializers.Serializer[dict[str, Any]]):
+class PublicUnitPhotoSerializer(serializers.Serializer[dict[str, Any]]):
+    """A picture of a unit the company shows, as our WebP copies."""
+
+    id = serializers.UUIDField()
+    thumbnail_url = serializers.CharField(help_text="The small copy (up to 320 px), same origin.")
+    preview_url = serializers.CharField(help_text="The large copy (up to 1280 px), same origin.")
+
+
+class PublicUnitAmenitySerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    label = serializers.CharField(  # type: ignore[assignment]
+        help_text="In the language asked for."
+    )
+
+
+class PublicUnitTownSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.CharField(help_text="The town's slug in the catalogue's dictionary.")
+    name = serializers.CharField()
+
+
+class PublicFromPriceSerializer(serializers.Serializer[dict[str, Any]]):
+    """„od X zł/noc”: an announcement, not a quote — `POST …/stays/quote/`
+    prices the dates the guest picks."""
+
+    gross_minor = serializers.IntegerField(
+        help_text="The least one night or day costs for one person in the next year, gross, "
+        "without extras — or the least a price charged once comes to."
+    )
+    currency = serializers.CharField()
+    per = serializers.ChoiceField(
+        choices=["night", "day", "stay"],
+        help_text="`night` or `day` — the price of one; `stay` — a price charged once.",
+    )
+
+
+class _PublicUnitContentSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a guest sees of a unit the company shows (`public`); empty lists
+    and null for a unit it does not."""
+
+    photos = PublicUnitPhotoSerializer(
+        many=True, help_text="Its pictures in order, the first the cover."
+    )
+    amenities = PublicUnitAmenitySerializer(many=True, help_text="What it has, in a fixed order.")
+    town = PublicUnitTownSerializer(
+        allow_null=True, help_text="Its town; coordinates are never given."
+    )
+    from_price = PublicFromPriceSerializer(
+        allow_null=True, help_text="Null when the price list has no price for it."
+    )
+
+
+class PublicStayUnitSerializer(_PublicUnitContentSerializer):
     """A unit an offer lists by itself: the guest books this very one."""
 
     id = serializers.UUIDField(help_text="Send it as `resource_id`.")
@@ -1808,11 +1963,15 @@ class PublicStayUnitSerializer(serializers.Serializer[dict[str, Any]]):
     capacity = serializers.IntegerField(
         allow_null=True, help_text="How many people it takes; null — nobody counts."
     )
+    public_slug = serializers.CharField(
+        allow_blank=True, help_text="Its address segment where the company shows it; else empty."
+    )
 
 
-class PublicStayGroupSerializer(serializers.Serializer[dict[str, Any]]):
+class PublicStayGroupSerializer(_PublicUnitContentSerializer):
     """A group of identical units: the guest books the group, the server picks
-    the unit (ADR-072 §3)."""
+    the unit (ADR-072 §3). Its content is that of its first unit the company
+    shows; its `from_price` the lowest of its units."""
 
     id = serializers.UUIDField(help_text="Send it as `group_id`.")
     name = serializers.CharField()

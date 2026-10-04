@@ -135,6 +135,8 @@ def test_the_form_lists_stays_apart_from_visits_with_what_a_guest_chooses() -> N
     # The visit calendar's list keeps offering visits only.
     assert [item["name"] for item in listing["services"]] == [visit["service"].name]
     (stay,) = listing["stays"]
+    # Units the company does not show as content, and no price list.
+    plain = {"photos": [], "amenities": [], "town": None, "from_price": None}
     assert stay == {
         "id": str(configured["service"].id),
         "name": "Pobyt w domku",
@@ -152,6 +154,7 @@ def test_the_form_lists_stays_apart_from_visits_with_what_a_guest_chooses() -> N
                 "description": "",
                 "capacity": 6,
                 "units": 2,
+                **plain,
             }
         ],
         "units": [
@@ -160,6 +163,8 @@ def test_the_form_lists_stays_apart_from_visits_with_what_a_guest_chooses() -> N
                 "name": "Apartament nad jeziorem",
                 "description": "Z tarasem.",
                 "capacity": 4,
+                "public_slug": "",
+                **plain,
             }
         ],
     }

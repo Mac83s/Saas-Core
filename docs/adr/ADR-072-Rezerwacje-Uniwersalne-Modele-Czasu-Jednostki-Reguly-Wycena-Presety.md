@@ -74,7 +74,8 @@ całodobowe.
   serwerze, flaga `public`, godziny otwarcia. Zdjęcia wskazuje niezmienna wersja
   ich zestawu, bo referencje mediów są tylko do dopisywania; sprzątanie mediów i
   publiczne źródła zdjęć (rejestr w `core.organizations`, ADR-074 pkt 7)
-  obejmują je jak zdjęcia produktu.
+  obejmują je jak zdjęcia produktu. (Plaster 5c zapisał zdjęcia jako listę na
+  jednostce, bez wersji zestawu — „Rozstrzygnięcia plastra 5c”.)
 - Grupa (`ResourceGroup`: „Domek 6-os.”) to pula identycznych jednostek;
   jednostka należy najwyżej do jednej, żeby dobór liczył jedną pulę. Na N sztuk
   serwer dobiera wolne najmniej obciążone (ADR-058 §4); brak N wolnych to
@@ -732,8 +733,9 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   pyta (stan sprzed fazy 5).
 - **Poza 5a:** ekran (5b); lista dni dla przeniesienia z linku (klient podaje
   daty, a podgląd mówi, czy pasują — jak „Zmień daty” w panelu); okno naprzód
-  dla oferty bez sezonu (dziś tylko reguła sezonu i granica platformy);
-  wymagany skrót na publicznej ścieżce terminów.
+  dla oferty bez sezonu (dziś tylko reguła sezonu i granica platformy; własne
+  okno oferty przyszło z 5c); wymagany skrót na publicznej ścieżce terminów
+  (kontrakt mówi o nim od kroku zgód).
 
 ### Rozstrzygnięcia plastra 5b (formularz publiczny pobytu)
 
@@ -789,3 +791,96 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   oferty z presetu („Goście”, „Domek”) w formularzu i tłumaczenie wszystkich
   odmów (5i); wzorzec „Nocleg” z przedpłatą i progami zwrotu to osobna, kolejna
   wersja presetu (praca równoległa po fazie 4).
+
+### Rozstrzygnięcia plastra 5c (jednostka jako treść)
+
+- **Treść jest na jednostce, a gość dostaje ją tylko od jednostki
+  „publicznej”.** `Resource` dostaje `public`, `public_slug`, `amenities`,
+  `city_slug`, `latitude`, `longitude` i `photos` (migracja booking 0033).
+  Jednostka niepubliczna zostaje rezerwowalna jak dotąd — z nazwą, opisem i
+  pojemnością — ale bez zdjęć, wyposażenia i miejscowości. Flaga jest osobna
+  od „W rezerwacji online” oferty: pierwsza mówi, co pokazujemy, druga — co
+  można zarezerwować. Od 5e ta sama flaga decyduje o własnej stronie jednostki.
+- **`public_slug` powstaje sam i jest jeden w firmie.** Jednostka publiczna
+  bez adresu dostaje go z nazwy (jak oferta i miejsce); firma może go
+  zmienić; zajęty to 400 `slug_taken`. Adresu nie używa jeszcze żadna strona
+  (5e, 5h) — zapisujemy go teraz, żeby strona jednostki nie zaczynała od
+  migracji danych.
+- **Wyposażenie to zamknięta lista, nie tekst firmy.** `UNIT_AMENITIES`
+  (`booking/unit_content.py`): klucz i słowa pl, en, de; gość dostaje słowa w
+  swoim języku, panel i asystent czytają listę z `unit_options` w
+  `GET /booking/setup/`. Powód: po wyposażeniu się filtruje i porównuje (katalog,
+  faza 16), a własny wpis firmy to kolejny tekst do tłumaczenia na każdy język.
+  To, czego lista nie ma, firma pisze w opisie jednostki (tłumaczonym jak
+  dotąd). Plan mówił „lista z presetu + własne” — własne wpisy i lista per
+  preset zostają na później; lista rośnie jak słownik miast.
+- **Miejscowość ze słownika katalogu, współrzędne tylko dla firmy.**
+  `city_slug` to wpis słownika `profiles.api.cities()` (400 `city_unknown`);
+  publiczna odpowiedź oddaje `town` (`slug`, `name`). Współrzędne (obie albo
+  żadna, zakresy w bazie) wracają tylko w odczycie konfiguracji dla zespołu —
+  żadna publiczna odpowiedź ich nie zawiera (plan, „Wolne terminy w
+  katalogu”).
+- **Zdjęcia to uporządkowana lista na jednostce — bez wersji zestawu i bez
+  referencji mediów** (zmienia zdanie §3 „Zdjęcia wskazuje niezmienna wersja
+  ich zestawu”). Wersja zestawu istniała po to, żeby dało się zapisać
+  referencje mediów, które są tylko do dopisywania. Referencje mają jednego
+  czytelnika, który tu ma znaczenie — sprzątanie usuniętych mediów — a ono dla
+  danych na żywo i tak pyta rejestr publicznych źródeł (ADR-074 pkt 7). Wiersz
+  wersji na każdą zmianę kolejności, nowy rodzaj właściciela i migracja
+  `shared.media` nie dawałyby więc nic, co ktoś czyta. Nowe zdjęcie musi być w
+  bibliotece mediów, przeskanowane i nieusunięte (400 `photo_unavailable`),
+  najwyżej 12 na jednostkę (`photos_too_many`).
+- **Rejestr publicznych źródeł powstaje w rdzeniu, w zakresie, którego 5c
+  potrzebuje.** `core.organizations.public_sources` (`PublicSource`,
+  `register_public_source`, `shown_media_ids`): źródło `booking.units` mówi,
+  które media pokazują jednostki firmy — wszystkie, także niepubliczne, bo
+  biblioteka nie zabiera zdjęcia jednostce, którą firma dopiero przygotowuje —
+  a `shared.media` nie usuwa obiektów usuniętego medium, dopóki jednostka je
+  pokazuje (jak przy publikacji strony). Adresy, fakty do JSON-LD i media
+  serwowane przez stronę firmy dojdą do tego samego rekordu z pierwszym
+  czytelnikiem (5d–5e, sklep).
+- **Zdjęcie ma publiczny adres przy formularzu.**
+  `GET /api/v1/booking/public/<slug>/photos/<id>/<kopia>/` (`thumbnail`,
+  `preview`) oddaje jedną z naszych kopii WebP — nigdy oryginał — tylko dla
+  zdjęcia jednostki publicznej i włączonej tej firmy; każde inne zdjęcie to 404
+  (cudza firma, jednostka niepubliczna albo wyłączona, plik spoza jednostek,
+  nieznana kopia), a formularz, którego nie ma albo którego plan firmy nie
+  obejmuje, odpowiada jak pozostałe adresy formularza (404, 403), bez treści.
+  Formularz żyje na hoście platformy, gdzie żadna opublikowana strona nie
+  ręczy za zdjęcie, więc ręczy za nie booking; bajty czyta
+  `media.api.read_public_variant`. Odpowiedź jest niezmienna (nowe zdjęcie to
+  nowy identyfikator), z długim `Cache-Control`. To zwykły widok Django, poza
+  kontraktem OpenAPI — adres do `<img>`, nie operacja — i bez limitu zapytań
+  formularza (30 na minutę), bo galeria kilku jednostek zużyłaby go sama.
+- **„od X zł/noc” liczy funkcja wyceny.** `quote.from_prices`: dla oferty i
+  jednostki najniższa cena jednej nocy albo dnia dla jednej osoby w ciągu
+  najbliższych 365 dni — własna cena pobytu tak, jak ją liczy `quote_stay`
+  (brutto, bez dopłat), z jednego odczytu cennika. Grupa mówi najniższą cenę
+  swoich jednostek. Cena liczona raz za pobyt mówi „od X zł” bez „za noc”
+  (`per`: `night`, `day` albo `stay`). To zapowiedź, nie wycena: nie patrzy na
+  zajętość ani reguły sezonu, a cenę terminu mówi dopiero `…/stays/quote/`.
+- **Wybór w formularzu niesie treść.** `stays[].units[]` i `stays[].groups[]`
+  w `GET /booking/public/<slug>/` dostają `photos` (`id`, `thumbnail_url`,
+  `preview_url`), `amenities`, `town` i `from_price`, a jednostka także
+  `public_slug`; grupa — pula identycznych jednostek — pokazuje treść swojej
+  pierwszej jednostki publicznej (po nazwie). Formularz rysuje przy wyborze
+  miniaturę, miejscowość, „od X zł/noc” i wyposażenie, a pod wyborem zdjęcia,
+  które otwierają się w dużej kopii. Liczba zapytań katalogu zostaje stała.
+- **Pola treści w panelu widzi firma z pobytami.** Okno jednostki pokazuje
+  sekcję „Co widzi gość” tylko wtedy, gdy firma ma ofertę okresu: gabinet albo
+  stanowisko wizyty nie ma strony ani gości. Dozwolone wyposażenie i limit
+  zdjęć panel czyta z `unit_options` w `GET /booking/setup/`, miejscowości ze
+  słownika katalogu. Zdjęcie wgrywa się w oknie jednostki (kadr 4:3) do
+  biblioteki mediów; zapis przed końcem skanowania to 400
+  `photo_unavailable` ze zdaniem „spróbuj za chwilę”.
+- **Oferta okresu ma własne okno naprzód.** `Service.booking_window_days`
+  (ustawienie `booking.offer.booking_window_days`, puste — granica platformy):
+  obowiązuje tam, gdzie reguła sezonu nie mówi własnego okna, tak jak
+  wyprzedzenie oferty ustępuje wyprzedzeniu sezonu. Przyjazd dalej to ta sama
+  odmowa `rule_window`.
+- **Poza 5c:** strona jednostki i jej adres w użyciu (5e, 5h); zdjęcia
+  jednostek serwowane przez stronę firmy i w blokach (5d); własne wpisy
+  wyposażenia i lista per preset; polecenie asystenta dla treści jednostki
+  (zapis idzie tym samym `save_resource`, więc polecenie to deklaracja, nie
+  nowa logika); ponowne sprzątanie obiektu, gdy jednostka przestaje pokazywać
+  usunięte zdjęcie (dziś zostaje, jak obiekt zdjęty z publikacji).

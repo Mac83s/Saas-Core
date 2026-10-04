@@ -150,6 +150,9 @@ __all__ = [
     "CATEGORY_CHANGED_NOTICE",
     "recategorize_organization_card",
     "catalog_changed",
+    # The catalogue's dictionary of towns, for whoever files something under
+    # one (a unit of a booking form).
+    "cities",
     "create_person_profile",
     "business_card_contact",
     "business_card_facts",

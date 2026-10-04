@@ -38069,6 +38069,53 @@ components:
         description:
           type: string
           maxLength: 2000
+        public:
+          type: boolean
+          description: 'Show the unit to guests as content — its pictures, what it
+            has, its town — on the booking form. Off by default: the unit is booked
+            by its name alone.'
+        public_slug:
+          type: string
+          description: The unit's address segment, unique in the company (400 `slug_taken`);
+            made a slug. A unit shown to guests without one gets it from its name.
+          maxLength: 80
+        amenities:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+          description: 'What the unit has: keys of `unit_options.amenities` of `GET
+            /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`.'
+          maxItems: 27
+        city_slug:
+          type: string
+          description: 'Its town: a slug of the catalogue''s dictionary (400 `city_unknown`);
+            empty takes it away.'
+          maxLength: 80
+        latitude:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`).
+            Kept for the company and the server; guests never get it.
+        longitude:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: Degrees east, with `latitude` or not at all.
+        photo_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The unit's pictures in the order shown, the first the cover;
+            replaces the list. Each is a media asset of the company that is ready
+            and not deleted (400 `photo_unavailable`).
+          maxItems: 12
         expected_version:
           type: integer
           minimum: 1
@@ -38155,6 +38202,16 @@ components:
           minimum: 0
           description: How many minutes before its start a visit can still be booked;
             0 allows booking up to the start.
+        booking_window_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 731
+          minimum: 1
+          description: 'For a `range` service: how many days ahead of its first day
+            a stay or a rental can be booked at most; a later one is refused (`rule_window`).
+            Null: only the platform''s bound applies. A season''s own window (`window_days`
+            of a booking rule) is used instead where it is set.'
         staff_count:
           type: integer
           maximum: 10
@@ -38605,6 +38662,16 @@ components:
       - date
       - items
       - timezone
+    PerEnum:
+      enum:
+      - night
+      - day
+      - stay
+      type: string
+      description: |-
+        * `night` - night
+        * `day` - day
+        * `stay` - stay
     Performance:
       type: object
       properties:
@@ -41138,6 +41205,32 @@ components:
       required:
       - atom
       - rss
+    PublicFromPrice:
+      type: object
+      description: |-
+        „od X zł/noc”: an announcement, not a quote — `POST …/stays/quote/`
+        prices the dates the guest picks.
+      properties:
+        gross_minor:
+          type: integer
+          description: The least one night or day costs for one person in the next
+            year, gross, without extras — or the least a price charged once comes
+            to.
+        currency:
+          type: string
+        per:
+          allOf:
+          - $ref: '#/components/schemas/PerEnum'
+          description: |-
+            `night` or `day` — the price of one; `stay` — a price charged once.
+
+            * `night` - night
+            * `day` - day
+            * `stay` - stay
+      required:
+      - currency
+      - gross_minor
+      - per
     PublicLanguageLink:
       type: object
       properties:
@@ -41878,8 +41971,29 @@ components:
       type: object
       description: |-
         A group of identical units: the guest books the group, the server picks
-        the unit (ADR-072 §3).
+        the unit (ADR-072 §3). Its content is that of its first unit the company
+        shows; its `from_price` the lowest of its units.
       properties:
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUnitPhoto'
+          description: Its pictures in order, the first the cover.
+        amenities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUnitAmenity'
+          description: What it has, in a fixed order.
+        town:
+          oneOf:
+          - $ref: '#/components/schemas/PublicUnitTown'
+          - type: 'null'
+          description: Its town; coordinates are never given.
+        from_price:
+          oneOf:
+          - $ref: '#/components/schemas/PublicFromPrice'
+          - type: 'null'
+          description: Null when the price list has no price for it.
         id:
           type: string
           format: uuid
@@ -41897,10 +42011,14 @@ components:
           type: integer
           description: How many units the group has.
       required:
+      - amenities
       - capacity
       - description
+      - from_price
       - id
       - name
+      - photos
+      - town
       - units
     PublicStayMove:
       type: object
@@ -42079,6 +42197,26 @@ components:
       type: object
       description: 'A unit an offer lists by itself: the guest books this very one.'
       properties:
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUnitPhoto'
+          description: Its pictures in order, the first the cover.
+        amenities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUnitAmenity'
+          description: What it has, in a fixed order.
+        town:
+          oneOf:
+          - $ref: '#/components/schemas/PublicUnitTown'
+          - type: 'null'
+          description: Its town; coordinates are never given.
+        from_price:
+          oneOf:
+          - $ref: '#/components/schemas/PublicFromPrice'
+          - type: 'null'
+          description: Null when the price list has no price for it.
         id:
           type: string
           format: uuid
@@ -42092,11 +42230,58 @@ components:
           - integer
           - 'null'
           description: How many people it takes; null — nobody counts.
+        public_slug:
+          type: string
+          description: Its address segment where the company shows it; else empty.
       required:
+      - amenities
       - capacity
       - description
+      - from_price
       - id
       - name
+      - photos
+      - public_slug
+      - town
+    PublicUnitAmenity:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+          description: In the language asked for.
+      required:
+      - key
+      - label
+    PublicUnitPhoto:
+      type: object
+      description: A picture of a unit the company shows, as our WebP copies.
+      properties:
+        id:
+          type: string
+          format: uuid
+        thumbnail_url:
+          type: string
+          description: The small copy (up to 320 px), same origin.
+        preview_url:
+          type: string
+          description: The large copy (up to 1280 px), same origin.
+      required:
+      - id
+      - preview_url
+      - thumbnail_url
+    PublicUnitTown:
+      type: object
+      properties:
+        slug:
+          type: string
+          description: The town's slug in the catalogue's dictionary.
+        name:
+          type: string
+      required:
+      - name
+      - slug
     PublicationAuthor:
       type: object
       properties:
@@ -42779,6 +42964,53 @@ components:
         description:
           type: string
           maxLength: 2000
+        public:
+          type: boolean
+          description: 'Show the unit to guests as content — its pictures, what it
+            has, its town — on the booking form. Off by default: the unit is booked
+            by its name alone.'
+        public_slug:
+          type: string
+          description: The unit's address segment, unique in the company (400 `slug_taken`);
+            made a slug. A unit shown to guests without one gets it from its name.
+          maxLength: 80
+        amenities:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+          description: 'What the unit has: keys of `unit_options.amenities` of `GET
+            /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`.'
+          maxItems: 27
+        city_slug:
+          type: string
+          description: 'Its town: a slug of the catalogue''s dictionary (400 `city_unknown`);
+            empty takes it away.'
+          maxLength: 80
+        latitude:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`).
+            Kept for the company and the server; guests never get it.
+        longitude:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: Degrees east, with `latitude` or not at all.
+        photo_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The unit's pictures in the order shown, the first the cover;
+            replaces the list. Each is a media asset of the company that is ready
+            and not deleted (400 `photo_unavailable`).
+          maxItems: 12
       required:
       - name
     ResourceSetup:
@@ -42810,17 +43042,60 @@ components:
           description: How many people it takes.
         description:
           type: string
+        public:
+          type: boolean
+          description: 'Whether guests are shown the unit as content: its pictures,
+            what it has and its town. A unit that is not is still booked, by its name.'
+        public_slug:
+          type: string
+          description: The unit's address segment; empty until it is shown.
+        amenities:
+          type: array
+          items:
+            type: string
+          description: 'What the unit has: keys of `unit_options.amenities`, in their
+            order.'
+        city_slug:
+          type: string
+          description: Its town, a slug of the catalogue's dictionary.
+        latitude:
+          type:
+          - number
+          - 'null'
+          format: double
+          description: Degrees north. For the company and the server only; never part
+            of an answer to a guest.
+        longitude:
+          type:
+          - number
+          - 'null'
+          format: double
+          description: Degrees east.
+        photo_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The unit's pictures — media assets — in the order shown; the
+            first is the cover.
         version:
           type: integer
           description: The resource's version; a change names it (`expected_version`).
       required:
       - active
+      - amenities
       - capacity
+      - city_slug
       - description
       - group_id
       - id
+      - latitude
       - location_id
+      - longitude
       - name
+      - photo_ids
+      - public
+      - public_slug
       - version
     ResourceSetupPreview:
       type: object
@@ -42852,6 +43127,42 @@ components:
           description: How many people it takes.
         description:
           type: string
+        public:
+          type: boolean
+          description: 'Whether guests are shown the unit as content: its pictures,
+            what it has and its town. A unit that is not is still booked, by its name.'
+        public_slug:
+          type: string
+          description: The unit's address segment; empty until it is shown.
+        amenities:
+          type: array
+          items:
+            type: string
+          description: 'What the unit has: keys of `unit_options.amenities`, in their
+            order.'
+        city_slug:
+          type: string
+          description: Its town, a slug of the catalogue's dictionary.
+        latitude:
+          type:
+          - number
+          - 'null'
+          format: double
+          description: Degrees north. For the company and the server only; never part
+            of an answer to a guest.
+        longitude:
+          type:
+          - number
+          - 'null'
+          format: double
+          description: Degrees east.
+        photo_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The unit's pictures — media assets — in the order shown; the
+            first is the cover.
         version:
           type: integer
           description: The resource's version; a change names it (`expected_version`).
@@ -42863,13 +43174,20 @@ components:
             for no change.'
       required:
       - active
+      - amenities
       - capacity
       - changes
+      - city_slug
       - description
       - group_id
       - id
+      - latitude
       - location_id
+      - longitude
       - name
+      - photo_ids
+      - public
+      - public_slug
       - version
     ResourceTypeEnum:
       enum:
@@ -42921,6 +43239,53 @@ components:
         description:
           type: string
           maxLength: 2000
+        public:
+          type: boolean
+          description: 'Show the unit to guests as content — its pictures, what it
+            has, its town — on the booking form. Off by default: the unit is booked
+            by its name alone.'
+        public_slug:
+          type: string
+          description: The unit's address segment, unique in the company (400 `slug_taken`);
+            made a slug. A unit shown to guests without one gets it from its name.
+          maxLength: 80
+        amenities:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+          description: 'What the unit has: keys of `unit_options.amenities` of `GET
+            /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`.'
+          maxItems: 27
+        city_slug:
+          type: string
+          description: 'Its town: a slug of the catalogue''s dictionary (400 `city_unknown`);
+            empty takes it away.'
+          maxLength: 80
+        latitude:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`).
+            Kept for the company and the server; guests never get it.
+        longitude:
+          type:
+          - string
+          - 'null'
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: Degrees east, with `latitude` or not at all.
+        photo_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The unit's pictures in the order shown, the first the cover;
+            replaces the list. Each is a media asset of the company that is ready
+            and not deleted (400 `photo_unavailable`).
+          maxItems: 12
         expected_version:
           type: integer
           minimum: 1
@@ -43628,6 +43993,16 @@ components:
           minimum: 0
           description: How many minutes before its start a visit can still be booked;
             0 allows booking up to the start.
+        booking_window_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 731
+          minimum: 1
+          description: 'For a `range` service: how many days ahead of its first day
+            a stay or a rental can be booked at most; a later one is refused (`rule_window`).
+            Null: only the platform''s bound applies. A season''s own window (`window_days`
+            of a booking rule) is used instead where it is set.'
         staff_count:
           type: integer
           maximum: 10
@@ -43795,6 +44170,14 @@ components:
           type: integer
         minimum_notice_minutes:
           type: integer
+        booking_window_days:
+          type:
+          - integer
+          - 'null'
+          description: 'For a `range` service: how many days ahead of its first day
+            a stay or a rental can be booked at most; a later one is refused (`rule_window`).
+            Null: only the platform''s bound applies. A season''s own window (`window_days`
+            of a booking rule) is used instead where it is set.'
         staff_count:
           type: integer
         public_staff_choice:
@@ -43915,6 +44298,7 @@ components:
       required:
       - active
       - appointment_kind
+      - booking_window_days
       - buffer_after_minutes
       - buffer_before_minutes
       - draft
@@ -43982,6 +44366,14 @@ components:
           type: integer
         minimum_notice_minutes:
           type: integer
+        booking_window_days:
+          type:
+          - integer
+          - 'null'
+          description: 'For a `range` service: how many days ahead of its first day
+            a stay or a rental can be booked at most; a later one is refused (`rule_window`).
+            Null: only the platform''s bound applies. A season''s own window (`window_days`
+            of a booking rule) is used instead where it is set.'
         staff_count:
           type: integer
         public_staff_choice:
@@ -44108,6 +44500,7 @@ components:
       required:
       - active
       - appointment_kind
+      - booking_window_days
       - buffer_after_minutes
       - buffer_before_minutes
       - changes
@@ -44202,6 +44595,16 @@ components:
           minimum: 0
           description: How many minutes before its start a visit can still be booked;
             0 allows booking up to the start.
+        booking_window_days:
+          type:
+          - integer
+          - 'null'
+          maximum: 731
+          minimum: 1
+          description: 'For a `range` service: how many days ahead of its first day
+            a stay or a rental can be booked at most; a later one is refused (`rule_window`).
+            Null: only the platform''s bound applies. A season''s own window (`window_days`
+            of a booking rule) is used instead where it is set.'
         staff_count:
           type: integer
           maximum: 10
@@ -44737,6 +45140,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GroupSetup'
+        unit_options:
+          allOf:
+          - $ref: '#/components/schemas/UnitOptions'
+          description: What a unit's content may be set to; its towns are the catalogue's
+            dictionary (`GET /catalog/dictionary/`).
         staff:
           type: array
           items:
@@ -44754,6 +45162,7 @@ components:
       - resources
       - services
       - staff
+      - unit_options
     SetupOption:
       type: object
       description: One setting of an offer, in the shape of the settings registry
@@ -47607,6 +48016,20 @@ components:
       - module_run.finished
       type: string
       description: '* `module_run.finished` - module_run.finished'
+    UnitAmenity:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Send it in a unit's `amenities`.
+        label:
+          type: object
+          additionalProperties:
+            type: string
+          description: Its words by language (pl, en, de); guests read it in theirs.
+      required:
+      - key
+      - label
     UnitBlock:
       type: object
       properties:
@@ -47691,6 +48114,21 @@ components:
         * `kg` - Kilogram
         * `m` - Metr
         * `hour` - Godzina
+    UnitOptions:
+      type: object
+      description: What a unit's content may be set to (ADR-072, slice 5c).
+      properties:
+        amenities:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnitAmenity'
+          description: The closed list a unit's `amenities` are picked from, in order.
+        max_photos:
+          type: integer
+          description: How many pictures one unit takes.
+      required:
+      - amenities
+      - max_photos
     UsageReport:
       type: object
       properties:

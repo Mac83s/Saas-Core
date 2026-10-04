@@ -95,6 +95,13 @@ class BookingConfig(AppConfig):
         from .translation_source import register_catalog_source
 
         register_catalog_source()
+
+        # The pictures units show are kept while they show them (ADR-074 pkt 7).
+        from saas_core.modules.core.organizations.api import PublicSource, register_public_source
+
+        from .unit_content import shown_photo_ids
+
+        register_public_source(PublicSource("booking.units", shown_photo_ids))
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")

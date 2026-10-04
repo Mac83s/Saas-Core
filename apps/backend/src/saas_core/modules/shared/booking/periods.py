@@ -763,6 +763,12 @@ class _Calendar:
             if rule is not None and rule.notice_hours is not None
             else timedelta(minutes=service.minimum_notice_minutes)
         )
+        # How far ahead: the season's own window, else the offer's.
+        window = (
+            rule.window_days
+            if rule is not None and rule.window_days is not None
+            else service.booking_window_days
+        )
         checks: Iterable[tuple[bool, str, str, str]] = (
             (
                 rule is not None and rule.closed,
@@ -777,10 +783,8 @@ class _Calendar:
                 "Na ten termin jest już za późno.",
             ),
             (
-                rule is not None
-                and rule.window_days is not None
-                and stay.first_day
-                > now.astimezone(self.zone).date() + timedelta(days=rule.window_days),
+                window is not None
+                and stay.first_day > now.astimezone(self.zone).date() + timedelta(days=window),
                 "start_date",
                 "rule_window",
                 "Tak daleko naprzód jeszcze nie przyjmujemy rezerwacji.",

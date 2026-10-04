@@ -25,6 +25,7 @@ from saas_core.modules.core.organizations.context import (
     require_tenant_context,
 )
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.public_sources import shown_media_ids
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
@@ -911,6 +912,10 @@ def cleanup_tombstoned_media_asset(
         owner_type=MediaReferenceOwner.PUBLICATION,
     ).exists():
         return asset
+    # A live record shows it — a unit of a booking form (ADR-074 pkt 7): the
+    # picture stays where guests see it, as on a published page.
+    if asset.id in shown_media_ids(context.organization_id):
+        return asset
 
     object_keys = _stored_object_keys(asset)
     object_storage = storage or get_object_storage()
@@ -982,6 +987,30 @@ def _reject_media_asset(
         metadata={"reason": code},
     )
     return asset
+
+
+def read_public_variant(
+    *, asset_id: UUID, variant: str, storage: ObjectStorage | None = None
+) -> bytes | None:
+    """One of our WebP copies of a ready picture, for a module that shows it
+    to the public itself: the caller holds the company's tenant and has
+    decided that the picture is public — a record of its own shows it. Never
+    the uploaded original. None when there is no such picture, copy or object.
+    A deleted asset is still read: its object stays while a record shows it
+    (`cleanup_tombstoned_media_asset`)."""
+    context = require_tenant_context()
+    asset = MediaAsset.all_objects.filter(
+        pk=asset_id, organization_id=context.organization_id, state=MediaAssetState.READY
+    ).first()
+    object_key = published_variant_key(asset, variant) if asset is not None else None
+    if object_key is None:
+        return None
+    try:
+        return (storage or get_object_storage()).read(
+            object_key=object_key, max_bytes=settings.MEDIA_MAX_UPLOAD_BYTES
+        )
+    except (ObjectNotFoundError, ObjectStorageError, ObjectTooLargeError):
+        return None
 
 
 def published_variant_key(asset: MediaAsset, kind: str) -> str | None:

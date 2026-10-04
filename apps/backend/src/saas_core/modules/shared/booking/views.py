@@ -7,13 +7,14 @@ from typing import Any, cast
 from uuid import UUID
 
 from django.conf import settings
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.decorators import method_decorator
+from django.views import View
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework.exceptions import NotFound, ParseError, ValidationError
+from rest_framework.exceptions import APIException, NotFound, ParseError, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -227,6 +228,7 @@ from .staff import (
 )
 from .teams import create_team, delete_team, list_teams, member_ids, update_team
 from .titles import appointment_titles
+from .unit_content import public_photo, unit_options
 from .units import UnitBlock, add_unit_block, list_unit_blocks, remove_unit_block
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
@@ -1349,7 +1351,7 @@ class PublicBookingCatalogView(APIView):
                     confirmation=offer.confirmation,
                     response_hours=offer.response_hours,
                 )
-            stays = public_stays(organization, locale)
+            stays = public_stays(organization, locale, public_slug)
             priced = [x for x in value["services"] if x.active] + list(
                 Service.all_objects.filter(
                     organization_id=org, pk__in=[item["id"] for item in stays]
@@ -1387,6 +1389,33 @@ class PublicBookingCatalogView(APIView):
                 },
                 "locales": list(organization_content_locales(organization)),
             })
+
+
+class PublicUnitPhotoView(View):
+    """A picture of a unit the company shows, at the form's own address
+    (ADR-072, slice 5c). Plain Django: the bytes are the response, and the
+    address is an `<img src>`, not an operation of the API. Anything that is
+    not such a picture is 404, whatever the reason; a form that does not
+    exist or is not on the company's plan answers as the form's other
+    addresses do (404, 403), without a body."""
+
+    def get(
+        self, request: HttpRequest, public_slug: str, asset_id: UUID, variant: str
+    ) -> HttpResponse:
+        del request
+        try:
+            route = _route(public_slug)
+            with public_booking_context(route.organization_id):
+                authorize_entitled("booking.public.read", BOOKING_ENABLED)
+                content = public_photo(asset_id, variant)
+        except APIException as refused:
+            return HttpResponse(status=refused.status_code)
+        if content is None:
+            return HttpResponseNotFound()
+        response = HttpResponse(content, content_type="image/webp")
+        # A picture never changes — another one is another id.
+        response["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
 
 def _accepted(consents: Mapping[str, Any] | None) -> BookingConsents:
@@ -2364,6 +2393,7 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "buffer_before_minutes": service.buffer_before_minutes,
         "buffer_after_minutes": service.buffer_after_minutes,
         "minimum_notice_minutes": service.minimum_notice_minutes,
+        "booking_window_days": service.booking_window_days,
         "staff_count": service.staff_count,
         "public_staff_choice": service.public_staff_choice,
         "slot_step_minutes": service.slot_step_minutes,
@@ -2410,6 +2440,13 @@ def _resource_payload(value: Resource) -> dict[str, Any]:
         "location_id": value.location_id,
         "capacity": value.capacity,
         "description": value.description,
+        "public": value.public,
+        "public_slug": value.public_slug,
+        "amenities": value.amenities,
+        "city_slug": value.city_slug,
+        "latitude": None if value.latitude is None else float(value.latitude),
+        "longitude": None if value.longitude is None else float(value.longitude),
+        "photo_ids": value.photos,
         "version": value.version,
     }
 
@@ -2459,6 +2496,7 @@ class BookingSetupView(APIView):
             "locations": [_place_payload(item) for item in value.locations],
             "resources": [_resource_payload(item) for item in value.resources],
             "groups": [_group_payload(item) for item in value.groups],
+            "unit_options": unit_options(),
             "staff": [
                 {"id": item.id, "name": item.display_name, "hours_version": item.hours_version}
                 for item in value.staff

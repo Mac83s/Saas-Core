@@ -470,7 +470,14 @@
       "sale_price_net_minor": "Cena sprzedaży netto",
       "author_name": "Autor",
       "excerpt": "Zajawka",
-      "gross_minor": "Kwota brutto"
+      "gross_minor": "Kwota brutto",
+      "public": "Widoczna dla gości",
+      "public_slug": "Adres",
+      "amenities": "Wyposażenie",
+      "latitude": "Szerokość geograficzna",
+      "longitude": "Długość geograficzna",
+      "photos": "Zdjęcia",
+      "booking_window_days": "Okno rezerwacji oferty (dni)"
     }
   },
   "Panel": {
@@ -3318,7 +3325,11 @@
     "languageUnavailable": "W tym języku nie można zarezerwować online: regulamin rezerwacji nie ma wersji w tym języku.",
     "languageOffer": "Zarezerwuj w języku, w którym regulamin jest dostępny:",
     "languageNone": "Aby zarezerwować, skontaktuj się z firmą.",
-    "marketingHint": "Nieobowiązkowe. Zgodę możesz wycofać w każdej chwili."
+    "marketingHint": "Nieobowiązkowe. Zgodę możesz wycofać w każdej chwili.",
+    "stayFrom": "{per, select, night {od {amount} za noc} day {od {amount} za dzień} other {od {amount}}}",
+    "stayMoreAmenities": "i {count} więcej",
+    "stayPhotos": "Zdjęcia: {name}",
+    "stayPhoto": "{name} — zdjęcie {number}"
   },
   "BookingMaterials": {
     "title": "Produkty z magazynu",
@@ -5094,7 +5105,38 @@
     "singleUnits": "Pojedyncze jednostki",
     "noUnits": "Wybierz grupę albo jednostkę — inaczej nie będzie czego rezerwować.",
     "rangeLength_night": "na noce",
-    "rangeLength_day": "na dni"
+    "rangeLength_day": "na dni",
+    "unitContentTitle": "Co widzi gość",
+    "unitPublic": "Pokaż jednostkę gościom",
+    "unitPublicHint": "Zdjęcia, wyposażenie i miejscowość pojawią się w formularzu rezerwacji. Bez zaznaczenia gość widzi tylko nazwę, opis i liczbę osób.",
+    "unitSlug": "Adres jednostki",
+    "unitSlugHint": "Fragment adresu strony jednostki, np. domek-nad-jeziorem. Puste — nadamy z nazwy, gdy pokażesz jednostkę gościom.",
+    "unitSlugTaken": "Ten adres ma już inna jednostka.",
+    "unitTown": "Miejscowość",
+    "unitTownNone": "— nie wybrano —",
+    "unitTownUnknown": "Tej miejscowości nie ma w słowniku.",
+    "unitLatitude": "Szerokość geograficzna",
+    "unitLongitude": "Długość geograficzna",
+    "unitCoordinatesHint": "Do mapy i wyszukiwania w okolicy. Gościom nie pokazujemy współrzędnych.",
+    "unitCoordinatesBoth": "Podaj obie współrzędne albo żadnej.",
+    "unitCoordinatesRange": "Szerokość to liczba od -90 do 90, długość od -180 do 180.",
+    "unitAmenities": "Wyposażenie",
+    "unitPhotos": "Zdjęcia",
+    "unitPhotosHint": "Najwyżej {max}. Pierwsze jest okładką.",
+    "unitAddPhoto": "Dodaj zdjęcie",
+    "unitPhotoAlt": "Zdjęcie {number}",
+    "unitPhotoCover": "Okładka",
+    "unitPhotoFirst": "Ustaw zdjęcie {number} jako okładkę",
+    "unitPhotoFirstShort": "Jako okładka",
+    "unitRemovePhoto": "Usuń zdjęcie {number}",
+    "unitRemovePhotoShort": "Usuń",
+    "unitPhotoUnavailable": "Zdjęcie jeszcze się sprawdza albo zostało usunięte z biblioteki. Spróbuj za chwilę.",
+    "unitShownBadge": "widoczna dla gości",
+    "bookingWindow": "Okno rezerwacji (dni)",
+    "bookingWindowHint": "Na ile dni naprzód gość może zarezerwować. Puste — bez własnego limitu. Sezon z własnym oknem ma pierwszeństwo.",
+    "bookingWindowRange": "Okno to od 1 do 731 dni albo puste pole.",
+    "public_stay": "Tak, gość wybiera daty",
+    "public_on_request": "Tak, na prośbę — firma odpowiada"
   },
   "Assistant": {
     "title": "Asystent",

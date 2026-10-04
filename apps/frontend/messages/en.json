@@ -470,7 +470,14 @@
       "sale_price_net_minor": "Net sale price",
       "author_name": "Author",
       "excerpt": "Excerpt",
-      "gross_minor": "Gross amount"
+      "gross_minor": "Gross amount",
+      "public": "Shown to guests",
+      "public_slug": "Address",
+      "amenities": "Amenities",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "photos": "Pictures",
+      "booking_window_days": "The offer's booking window (days)"
     }
   },
   "Panel": {
@@ -3318,7 +3325,11 @@
     "languageUnavailable": "Online booking is not available in this language: the booking terms have no version in it.",
     "languageOffer": "Book in a language the terms are available in:",
     "languageNone": "To book, contact the company.",
-    "marketingHint": "Optional. You can withdraw your consent at any time."
+    "marketingHint": "Optional. You can withdraw your consent at any time.",
+    "stayFrom": "{per, select, night {from {amount} a night} day {from {amount} a day} other {from {amount}}}",
+    "stayMoreAmenities": "and {count} more",
+    "stayPhotos": "Pictures: {name}",
+    "stayPhoto": "{name} — picture {number}"
   },
   "BookingMaterials": {
     "title": "Products from the warehouse",
@@ -5094,7 +5105,38 @@
     "singleUnits": "Single units",
     "noUnits": "Pick a group or a unit — otherwise there is nothing to book.",
     "rangeLength_night": "by the night",
-    "rangeLength_day": "by the day"
+    "rangeLength_day": "by the day",
+    "unitContentTitle": "What guests see",
+    "unitPublic": "Show the unit to guests",
+    "unitPublicHint": "Its pictures, amenities and town appear on the booking form. Unticked, a guest sees only its name, description and how many people it takes.",
+    "unitSlug": "The unit's address",
+    "unitSlugHint": "A segment of the unit's page address, e.g. lake-cottage. Empty — we make it from the name once you show the unit to guests.",
+    "unitSlugTaken": "Another unit already has this address.",
+    "unitTown": "Town",
+    "unitTownNone": "— not chosen —",
+    "unitTownUnknown": "This town is not in the dictionary.",
+    "unitLatitude": "Latitude",
+    "unitLongitude": "Longitude",
+    "unitCoordinatesHint": "For a map and for searching nearby. Guests are not shown the coordinates.",
+    "unitCoordinatesBoth": "Give both coordinates or neither.",
+    "unitCoordinatesRange": "Latitude is a number from -90 to 90, longitude from -180 to 180.",
+    "unitAmenities": "Amenities",
+    "unitPhotos": "Pictures",
+    "unitPhotosHint": "At most {max}. The first one is the cover.",
+    "unitAddPhoto": "Add a picture",
+    "unitPhotoAlt": "Picture {number}",
+    "unitPhotoCover": "Cover",
+    "unitPhotoFirst": "Make picture {number} the cover",
+    "unitPhotoFirstShort": "Make cover",
+    "unitRemovePhoto": "Remove picture {number}",
+    "unitRemovePhotoShort": "Remove",
+    "unitPhotoUnavailable": "The picture is still being checked or was deleted from the library. Try again in a moment.",
+    "unitShownBadge": "shown to guests",
+    "bookingWindow": "Booking window (days)",
+    "bookingWindowHint": "How many days ahead a guest can book. Empty — no limit of its own. A season with its own window comes first.",
+    "bookingWindowRange": "The window is 1 to 731 days, or an empty field.",
+    "public_stay": "Yes, the guest picks the dates",
+    "public_on_request": "Yes, on request — the company answers"
   },
   "Assistant": {
     "title": "Assistant",

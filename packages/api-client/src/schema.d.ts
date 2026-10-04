@@ -14092,6 +14092,26 @@ export interface components {
             /** @description How many people it takes; null where that makes no sense. */
             capacity?: number | null;
             description?: string;
+            /** @description Show the unit to guests as content — its pictures, what it has, its town — on the booking form. Off by default: the unit is booked by its name alone. */
+            public?: boolean;
+            /** @description The unit's address segment, unique in the company (400 `slug_taken`); made a slug. A unit shown to guests without one gets it from its name. */
+            public_slug?: string;
+            /** @description What the unit has: keys of `unit_options.amenities` of `GET /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`. */
+            amenities?: string[];
+            /** @description Its town: a slug of the catalogue's dictionary (400 `city_unknown`); empty takes it away. */
+            city_slug?: string;
+            /**
+             * Format: decimal
+             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests never get it.
+             */
+            latitude?: string | null;
+            /**
+             * Format: decimal
+             * @description Degrees east, with `latitude` or not at all.
+             */
+            longitude?: string | null;
+            /** @description The unit's pictures in the order shown, the first the cover; replaces the list. Each is a media asset of the company that is ready and not deleted (400 `photo_unavailable`). */
+            photo_ids?: string[];
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version?: number;
         };
@@ -14137,6 +14157,8 @@ export interface components {
             buffer_after_minutes?: number;
             /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
+            /** @description For a `range` service: how many days ahead of its first day a stay or a rental can be booked at most; a later one is refused (`rule_window`). Null: only the platform's bound applies. A season's own window (`window_days` of a booking rule) is used instead where it is set. */
+            booking_window_days?: number | null;
             /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
@@ -14353,6 +14375,13 @@ export interface components {
             timezone: string;
             items: components["schemas"]["PersonDay"][];
         };
+        /**
+         * @description * `night` - night
+         *     * `day` - day
+         *     * `stay` - stay
+         * @enum {string}
+         */
+        PerEnum: "night" | "day" | "stay";
         Performance: {
             /** Format: date */
             period_from: string;
@@ -15454,6 +15483,23 @@ export interface components {
              */
             atom: string;
         };
+        /**
+         * @description „od X zł/noc”: an announcement, not a quote — `POST …/stays/quote/`
+         *     prices the dates the guest picks.
+         */
+        PublicFromPrice: {
+            /** @description The least one night or day costs for one person in the next year, gross, without extras — or the least a price charged once comes to. */
+            gross_minor: number;
+            currency: string;
+            /**
+             * @description `night` or `day` — the price of one; `stay` — a price charged once.
+             *
+             *     * `night` - night
+             *     * `day` - day
+             *     * `stay` - stay
+             */
+            per: components["schemas"]["PerEnum"];
+        };
         PublicLanguageLink: {
             locale: string;
             /** @description The language's name in itself, e.g. Deutsch. */
@@ -15804,9 +15850,18 @@ export interface components {
         };
         /**
          * @description A group of identical units: the guest books the group, the server picks
-         *     the unit (ADR-072 §3).
+         *     the unit (ADR-072 §3). Its content is that of its first unit the company
+         *     shows; its `from_price` the lowest of its units.
          */
         PublicStayGroup: {
+            /** @description Its pictures in order, the first the cover. */
+            photos: components["schemas"]["PublicUnitPhoto"][];
+            /** @description What it has, in a fixed order. */
+            amenities: components["schemas"]["PublicUnitAmenity"][];
+            /** @description Its town; coordinates are never given. */
+            town: components["schemas"]["PublicUnitTown"] | null;
+            /** @description Null when the price list has no price for it. */
+            from_price: components["schemas"]["PublicFromPrice"] | null;
             /**
              * Format: uuid
              * @description Send it as `group_id`.
@@ -15930,6 +15985,14 @@ export interface components {
         };
         /** @description A unit an offer lists by itself: the guest books this very one. */
         PublicStayUnit: {
+            /** @description Its pictures in order, the first the cover. */
+            photos: components["schemas"]["PublicUnitPhoto"][];
+            /** @description What it has, in a fixed order. */
+            amenities: components["schemas"]["PublicUnitAmenity"][];
+            /** @description Its town; coordinates are never given. */
+            town: components["schemas"]["PublicUnitTown"] | null;
+            /** @description Null when the price list has no price for it. */
+            from_price: components["schemas"]["PublicFromPrice"] | null;
             /**
              * Format: uuid
              * @description Send it as `resource_id`.
@@ -15939,6 +16002,27 @@ export interface components {
             description: string;
             /** @description How many people it takes; null — nobody counts. */
             capacity: number | null;
+            /** @description Its address segment where the company shows it; else empty. */
+            public_slug: string;
+        };
+        PublicUnitAmenity: {
+            key: string;
+            /** @description In the language asked for. */
+            label: string;
+        };
+        /** @description A picture of a unit the company shows, as our WebP copies. */
+        PublicUnitPhoto: {
+            /** Format: uuid */
+            id: string;
+            /** @description The small copy (up to 320 px), same origin. */
+            thumbnail_url: string;
+            /** @description The large copy (up to 1280 px), same origin. */
+            preview_url: string;
+        };
+        PublicUnitTown: {
+            /** @description The town's slug in the catalogue's dictionary. */
+            slug: string;
+            name: string;
         };
         PublicationAuthor: {
             /** Format: uuid */
@@ -16275,6 +16359,26 @@ export interface components {
             /** @description How many people it takes; null where that makes no sense. */
             capacity?: number | null;
             description?: string;
+            /** @description Show the unit to guests as content — its pictures, what it has, its town — on the booking form. Off by default: the unit is booked by its name alone. */
+            public?: boolean;
+            /** @description The unit's address segment, unique in the company (400 `slug_taken`); made a slug. A unit shown to guests without one gets it from its name. */
+            public_slug?: string;
+            /** @description What the unit has: keys of `unit_options.amenities` of `GET /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`. */
+            amenities?: string[];
+            /** @description Its town: a slug of the catalogue's dictionary (400 `city_unknown`); empty takes it away. */
+            city_slug?: string;
+            /**
+             * Format: decimal
+             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests never get it.
+             */
+            latitude?: string | null;
+            /**
+             * Format: decimal
+             * @description Degrees east, with `latitude` or not at all.
+             */
+            longitude?: string | null;
+            /** @description The unit's pictures in the order shown, the first the cover; replaces the list. Each is a media asset of the company that is ready and not deleted (400 `photo_unavailable`). */
+            photo_ids?: string[];
         };
         ResourceSetup: {
             /** Format: uuid */
@@ -16294,6 +16398,26 @@ export interface components {
             /** @description How many people it takes. */
             capacity: number | null;
             description: string;
+            /** @description Whether guests are shown the unit as content: its pictures, what it has and its town. A unit that is not is still booked, by its name. */
+            public: boolean;
+            /** @description The unit's address segment; empty until it is shown. */
+            public_slug: string;
+            /** @description What the unit has: keys of `unit_options.amenities`, in their order. */
+            amenities: string[];
+            /** @description Its town, a slug of the catalogue's dictionary. */
+            city_slug: string;
+            /**
+             * Format: double
+             * @description Degrees north. For the company and the server only; never part of an answer to a guest.
+             */
+            latitude: number | null;
+            /**
+             * Format: double
+             * @description Degrees east.
+             */
+            longitude: number | null;
+            /** @description The unit's pictures — media assets — in the order shown; the first is the cover. */
+            photo_ids: string[];
             /** @description The resource's version; a change names it (`expected_version`). */
             version: number;
         };
@@ -16316,6 +16440,26 @@ export interface components {
             /** @description How many people it takes. */
             capacity: number | null;
             description: string;
+            /** @description Whether guests are shown the unit as content: its pictures, what it has and its town. A unit that is not is still booked, by its name. */
+            public: boolean;
+            /** @description The unit's address segment; empty until it is shown. */
+            public_slug: string;
+            /** @description What the unit has: keys of `unit_options.amenities`, in their order. */
+            amenities: string[];
+            /** @description Its town, a slug of the catalogue's dictionary. */
+            city_slug: string;
+            /**
+             * Format: double
+             * @description Degrees north. For the company and the server only; never part of an answer to a guest.
+             */
+            latitude: number | null;
+            /**
+             * Format: double
+             * @description Degrees east.
+             */
+            longitude: number | null;
+            /** @description The unit's pictures — media assets — in the order shown; the first is the cover. */
+            photo_ids: string[];
             /** @description The resource's version; a change names it (`expected_version`). */
             version: number;
             /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
@@ -16351,6 +16495,26 @@ export interface components {
             /** @description How many people it takes; null where that makes no sense. */
             capacity?: number | null;
             description?: string;
+            /** @description Show the unit to guests as content — its pictures, what it has, its town — on the booking form. Off by default: the unit is booked by its name alone. */
+            public?: boolean;
+            /** @description The unit's address segment, unique in the company (400 `slug_taken`); made a slug. A unit shown to guests without one gets it from its name. */
+            public_slug?: string;
+            /** @description What the unit has: keys of `unit_options.amenities` of `GET /booking/setup/`; replaces the list. An unknown key is 400 `amenity_unknown`. */
+            amenities?: string[];
+            /** @description Its town: a slug of the catalogue's dictionary (400 `city_unknown`); empty takes it away. */
+            city_slug?: string;
+            /**
+             * Format: decimal
+             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests never get it.
+             */
+            latitude?: string | null;
+            /**
+             * Format: decimal
+             * @description Degrees east, with `latitude` or not at all.
+             */
+            longitude?: string | null;
+            /** @description The unit's pictures in the order shown, the first the cover; replaces the list. Each is a media asset of the company that is ready and not deleted (400 `photo_unavailable`). */
+            photo_ids?: string[];
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
             expected_version: number;
         };
@@ -16663,6 +16827,8 @@ export interface components {
             buffer_after_minutes?: number;
             /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
+            /** @description For a `range` service: how many days ahead of its first day a stay or a rental can be booked at most; a later one is refused (`rule_window`). Null: only the platform's bound applies. A season's own window (`window_days` of a booking rule) is used instead where it is set. */
+            booking_window_days?: number | null;
             /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
@@ -16738,6 +16904,8 @@ export interface components {
             buffer_before_minutes: number;
             buffer_after_minutes: number;
             minimum_notice_minutes: number;
+            /** @description For a `range` service: how many days ahead of its first day a stay or a rental can be booked at most; a later one is refused (`rule_window`). Null: only the platform's bound applies. A season's own window (`window_days` of a booking rule) is used instead where it is set. */
+            booking_window_days: number | null;
             staff_count: number;
             public_staff_choice: string;
             /** @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid. */
@@ -16812,6 +16980,8 @@ export interface components {
             buffer_before_minutes: number;
             buffer_after_minutes: number;
             minimum_notice_minutes: number;
+            /** @description For a `range` service: how many days ahead of its first day a stay or a rental can be booked at most; a later one is refused (`rule_window`). Null: only the platform's bound applies. A season's own window (`window_days` of a booking rule) is used instead where it is set. */
+            booking_window_days: number | null;
             staff_count: number;
             public_staff_choice: string;
             /** @description How often a visit of this service may start, counted from the start of a person's working hours: 5, 10, 15, 20, 30 or 60 minutes. Free times and a booked start follow the same grid. */
@@ -16909,6 +17079,8 @@ export interface components {
             buffer_after_minutes?: number;
             /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
+            /** @description For a `range` service: how many days ahead of its first day a stay or a rental can be booked at most; a later one is refused (`rule_window`). Null: only the platform's bound applies. A season's own window (`window_days` of a booking rule) is used instead where it is set. */
+            booking_window_days?: number | null;
             /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
@@ -17146,6 +17318,8 @@ export interface components {
             locations: components["schemas"]["PlaceSetup"][];
             resources: components["schemas"]["ResourceSetup"][];
             groups: components["schemas"]["GroupSetup"][];
+            /** @description What a unit's content may be set to; its towns are the catalogue's dictionary (`GET /catalog/dictionary/`). */
+            unit_options: components["schemas"]["UnitOptions"];
             staff: components["schemas"]["SetupPerson"][];
             /** @description The kinds of visit the company's modules provide (ADR-050); empty when none. A service without one (`""`) is a plain visit. */
             appointment_kinds: components["schemas"]["AppointmentKind"][];
@@ -18389,6 +18563,14 @@ export interface components {
          * @enum {string}
          */
         TypeEnum: "module_run.finished";
+        UnitAmenity: {
+            /** @description Send it in a unit's `amenities`. */
+            key: string;
+            /** @description Its words by language (pl, en, de); guests read it in theirs. */
+            label: {
+                [key: string]: string;
+            };
+        };
         UnitBlock: {
             /** Format: uuid */
             id: string;
@@ -18436,6 +18618,13 @@ export interface components {
          * @enum {string}
          */
         UnitEnum: "piece" | "pack" | "ml" | "l" | "g" | "kg" | "m" | "hour";
+        /** @description What a unit's content may be set to (ADR-072, slice 5c). */
+        UnitOptions: {
+            /** @description The closed list a unit's `amenities` are picked from, in order. */
+            amenities: components["schemas"]["UnitAmenity"][];
+            /** @description How many pictures one unit takes. */
+            max_photos: number;
+        };
         UsageReport: {
             group: components["schemas"]["UsageReportGroupEnum"];
             /** @description How many rows the report has in all. */

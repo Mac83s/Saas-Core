@@ -6,7 +6,9 @@ chooses between (ADR-072, phase 5a).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -16,7 +18,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.profiles.api import person_names
 
 from .crew import crew_of
-from .item_translations import localized_texts, translatable
+from .item_translations import localized_texts, source_locale, translatable
 from .models import (
     Appointment,
     ParticipantCategory,
@@ -32,6 +34,12 @@ from .models import (
     StaffTeamMember,
     TimeModel,
 )
+from .quote import from_prices
+from .unit_content import amenities_in, photo_urls, town_of
+
+#: How far ahead „od X zł/noc” looks for the lowest price: a year has every
+#: season once.
+FROM_PRICE_DAYS = 365
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,13 +156,18 @@ def shown_to_customer(appointment: Appointment) -> tuple[str | None, str | None]
     return team, person
 
 
-def public_stays(organization: Organization, locale: str | None) -> list[dict[str, Any]]:
+def public_stays(
+    organization: Organization, locale: str | None, public_slug: str
+) -> list[dict[str, Any]]:
     """The offers booked from–to that the company takes on its form, each with
     what a guest chooses between: a group of identical units is one choice —
     the server picks the unit (ADR-072 §3) — and a unit the offer lists by
     itself is one. Only units at places offered online (B2); an offer with
     nothing left to book is not listed. Names in `locale` where the company
-    translated them. A fixed number of queries, whatever the company has."""
+    translated them. A choice carries the content of a unit the company shows
+    (slice 5c) — its pictures at the form's address (`public_slug`), what it
+    has, its town, never its coordinates — and „od X zł/noc” from the quote.
+    A fixed number of queries, whatever the company has."""
     offers = list(
         Service.all_objects.filter(
             organization=organization, time_model=TimeModel.RANGE, online=True, active=True
@@ -202,6 +215,40 @@ def public_stays(organization: Organization, locale: str | None) -> list[dict[st
             "description": found.get("description", item.description),
         }
 
+    # „od X zł/noc” for every offer and unit it can be booked on, worked out
+    # by the quote from one read of the price list.
+    today = organization.local_today()
+    lowest = from_prices(
+        organization,
+        [
+            (offer, unit)
+            for offer in offers
+            for unit in units
+            if unit.id in linked_units.get(offer.id, ())
+            or unit.group_id in linked_groups.get(offer.id, ())
+        ],
+        [today + timedelta(days=offset) for offset in range(FROM_PRICE_DAYS)],
+    )
+    language = locale or source_locale(organization)
+
+    def content(shown: Resource | None) -> dict[str, Any]:
+        """What a guest sees of a unit the company shows; nothing of another."""
+        if shown is None:
+            return {"photos": [], "amenities": [], "town": None}
+        return {
+            "photos": [photo_urls(public_slug, photo) for photo in shown.photos],
+            "amenities": amenities_in(shown.amenities, language),
+            "town": town_of(shown),
+        }
+
+    def cheapest(offer: Service, among: Iterable[Resource]) -> dict[str, Any] | None:
+        found = [lowest[offer.id, unit.id] for unit in among if (offer.id, unit.id) in lowest]
+        if not found:
+            return None
+        # What is charged per night or day before a price charged once.
+        best = min(found, key=lambda price: (price.per == "stay", price.gross_minor))
+        return {"gross_minor": best.gross_minor, "currency": best.currency, "per": best.per}
+
     listed = []
     for offer in offers:
         pooled = sorted(
@@ -216,6 +263,10 @@ def public_stays(organization: Organization, locale: str | None) -> list[dict[st
                         else max(unit.capacity or 0 for unit in pools[group.id])
                     ),
                     "units": len(pools[group.id]),
+                    # Identical units: the first one the company shows speaks
+                    # for the group.
+                    **content(next((unit for unit in pools[group.id] if unit.public), None)),
+                    "from_price": cheapest(offer, pools[group.id]),
                 }
                 for group in (groups.get(key) for key in linked_groups.get(offer.id, ()))
                 if group is not None and pools.get(group.id)
@@ -223,7 +274,14 @@ def public_stays(organization: Organization, locale: str | None) -> list[dict[st
             key=lambda item: (item["name"], str(item["id"])),
         )
         single = [
-            {"id": unit.id, **words("resource", unit), "capacity": unit.capacity}
+            {
+                "id": unit.id,
+                **words("resource", unit),
+                "capacity": unit.capacity,
+                "public_slug": unit.public_slug if unit.public else "",
+                **content(unit if unit.public else None),
+                "from_price": cheapest(offer, [unit]),
+            }
             for unit in units
             if unit.id in linked_units.get(offer.id, ())
         ]

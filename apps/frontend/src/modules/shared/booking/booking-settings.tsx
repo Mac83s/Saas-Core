@@ -366,11 +366,16 @@ export function BookingSettings({
       enableSorting: false,
       cell: ({ row: { original: service } }) => (
         <span className={dim(service)}>
-          {/* The site's form takes visits by the clock that are shown online;
-              a stay, a rental or a hidden offer is booked by the team. */}
-          {service.time_model !== "slot" || service.online === false
+          {/* What the site's form does with the offer: nothing when it is
+              hidden; otherwise a request the company answers, a stay or a
+              rental by its dates (phase 5b), or a visit by the clock. */}
+          {service.online === false
             ? t("public_off")
-            : t(`public_${service.public_staff_choice}` as "public_none")}
+            : service.confirmation === "on_request"
+              ? t("public_on_request")
+              : service.time_model !== "slot"
+                ? t("public_stay")
+                : t(`public_${service.public_staff_choice}` as "public_none")}
         </span>
       ),
     },
@@ -564,6 +569,11 @@ export function BookingSettings({
           <p className="font-medium wrap-anywhere">
             {thing.name}
             {thing.active ? null : inactive("inactiveResource")}
+            {thing.public ? (
+              <Badge className="ml-2" variant="secondary">
+                {t("unitShownBadge")}
+              </Badge>
+            ) : null}
           </p>
           {thing.capacity ? (
             <p className="text-sm text-muted-foreground">

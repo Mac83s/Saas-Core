@@ -76,6 +76,7 @@ from .services import (
     _assert_appointment_kind_available,
     organization_appointment_kinds,
 )
+from .unit_content import CONTENT_FIELDS, check_content
 
 #: What the history keeps of a service; the links go in as counts.
 _SERVICE_FIELDS = (
@@ -88,6 +89,7 @@ _SERVICE_FIELDS = (
     "buffer_before_minutes",
     "buffer_after_minutes",
     "minimum_notice_minutes",
+    "booking_window_days",
     "staff_count",
     "public_staff_choice",
     "slot_step_minutes",
@@ -105,7 +107,15 @@ _SERVICE_FIELDS = (
 #: What decides how a customer pays ahead; checked when one of them changes.
 _PAYMENT_FIELDS = ("payment_policy", "deposit_percent", "transfer_due_days")
 _PLACE_FIELDS = ("name", "address", "active", "online")
-_RESOURCE_FIELDS = ("name", "active", "capacity", "description", "group_id", "location_id")
+_RESOURCE_FIELDS = (
+    "name",
+    "active",
+    "capacity",
+    "description",
+    "group_id",
+    "location_id",
+    *CONTENT_FIELDS,
+)
 _GROUP_FIELDS = ("name", "description", "active")
 #: A protective bound, not a business rule: the units one offer's pool is
 #: brought up to in one write.
@@ -814,10 +824,8 @@ def _write_resource(
     for name, model in (("group_id", ResourceGroup), ("location_id", Location)):
         if data.get(name) is not None:
             _own(model, organization, [data[name]], name)
-    if resource_id is None:
-        resource = Resource(organization=organization, **data)
-        before: dict[str, Any] = {}
-    else:
+    found = None
+    if resource_id is not None:
         found = (
             Resource.all_objects.select_for_update()
             .filter(organization=organization, pk=resource_id)
@@ -826,6 +834,13 @@ def _write_resource(
         if found is None:
             raise NotFound("Nie ma takiego zasobu.")
         check_version(found.version, expected_version)
+    data = dict(data)
+    check_content(organization, found, data)
+    _unit_address(organization, found, data)
+    if found is None:
+        resource = Resource(organization=organization, **data)
+        before: dict[str, Any] = {}
+    else:
         resource = found
         before = audit_snapshot(resource, _RESOURCE_FIELDS)
         for name, value in data.items():
@@ -836,6 +851,27 @@ def _write_resource(
     resource.save()
     _audit(organization, context, "resource", resource.id, changes, created=not before)
     return _saved(resource, created=not before, changes=changes)
+
+
+def _unit_address(organization: Organization, unit: Resource | None, data: dict[str, Any]) -> None:
+    """A unit's address segment (ADR-072, slice 5c): what the company typed,
+    as a slug that no other unit of the company has (400 `slug_taken`); a unit
+    shown to guests without one gets it from its name."""
+    address = unit.public_slug if unit is not None else ""
+    if "public_slug" in data:
+        address = slugify(str(data["public_slug"] or "").translate(_FOLD))[:80]
+        others = Resource.all_objects.filter(organization=organization, public_slug=address)
+        if unit is not None:
+            others = others.exclude(pk=unit.pk)
+        if address and others.exists():
+            raise ValidationError({
+                "public_slug": [ErrorDetail("Ten adres ma już inna jednostka.", code="slug_taken")]
+            })
+        data["public_slug"] = address
+    shown = data.get("public", unit.public if unit is not None else False)
+    if shown and not address:
+        name = data.get("name", unit.name if unit is not None else "")
+        data["public_slug"] = _free_slug(Resource, organization, str(name))
 
 
 @transaction.atomic

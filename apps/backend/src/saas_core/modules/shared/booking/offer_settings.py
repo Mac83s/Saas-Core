@@ -149,6 +149,30 @@ OFFER_SETTINGS: tuple[SettingSpec, ...] = (
     ),
     SettingSpec(
         scopes=("offer",),
+        key="booking.offer.booking_window_days",
+        type="int",
+        default=None,
+        minimum=1,
+        # The widest window a period calendar spans (BOOKING_PERIOD_HORIZON_DAYS).
+        maximum=731,
+        unit="day",
+        depends_on="time_model == 'range'",
+        label={"pl": "Okno rezerwacji", "en": "Booking window"},
+        help={
+            "pl": "Na ile dni naprzód można zarezerwować. Puste — bez własnego limitu. "
+            "Sezon z własnym oknem ma pierwszeństwo.",
+            "en": "How many days ahead it can be booked. Empty — no limit of its own. "
+            "A season with its own window comes first.",
+        },
+        model_description=(
+            "For a `range` service: how many days ahead of its first day a stay or a rental "
+            "can be booked at most; a later one is refused (`rule_window`). Null: only the "
+            "platform's bound applies. A season's own window (`window_days` of a booking "
+            "rule) is used instead where it is set."
+        ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
         key="booking.offer.staff_count",
         type="int",
         default=1,

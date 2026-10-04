@@ -281,6 +281,18 @@ def _stay_lines(
             # off: a forgotten price must not read as free.
             raise _refused("start_date", f"„{unit.name}” nie ma ceny w cenniku.", "price_missing")
         return []
+    return _rule_lines(service, unit, days, party, names, rules)
+
+
+def _rule_lines(
+    service: Service,
+    unit: Resource,
+    days: Sequence[date],
+    party: Sequence[_Party],
+    names: _Names,
+    rules: Sequence[PriceRule],
+) -> list[QuoteLine]:
+    """The stay's own lines from the rules of its scope — no reads."""
 
     def on(day: date, among: Sequence[PriceRule]) -> PriceRule:
         rule = price_for(
@@ -344,6 +356,74 @@ def _stay_lines(
                 )
             )
     return lines
+
+
+@dataclass(frozen=True, slots=True)
+class FromPrice:
+    """„od X zł/noc”: the least a stay's own price comes to."""
+
+    gross_minor: int
+    currency: str
+    #: `night` or `day` — the price of one; `stay` — a price charged once.
+    per: str
+
+
+def from_prices(
+    organization: Organization,
+    pairs: Sequence[tuple[Service, Resource]],
+    days: Sequence[date],
+) -> dict[tuple[UUID, UUID], FromPrice]:
+    """For each offer and unit, the least one night or day costs on `days`
+    for one person: the stay's own price as `quote_stay` works it out for a
+    stay of that one day — gross, without extras. Nothing for a pair the price
+    list has no price for on any of the days. An announcement, not a quote: it
+    knows nothing of what is taken or of a season's rules. One read of the
+    price list, however many pairs and days."""
+    if not pairs:
+        return {}
+    rules = [
+        rule
+        for rule in PriceRule.all_objects.filter(organization=organization, active=True)
+        if rule.currency == organization.currency
+    ]
+    gross = amounts_are_gross()
+    party = [_Party(None, 1)]
+    names = _Names(source="", customer="", service=("", ""), categories={}, extras={})
+    found: dict[tuple[UUID, UUID], FromPrice] = {}
+    for service, unit in pairs:
+        scope = [
+            rule
+            for rule in rules
+            if rule.service_id == service.id
+            or rule.resource_id == unit.id
+            or (unit.group_id is not None and rule.group_id == unit.group_id)
+        ]
+        # The cheapest of what is charged per night or day; a price charged
+        # once only where the offer has no other.
+        best: dict[bool, int] = {}
+        seen: set[UUID] = set()
+        for day in days:
+            rule = price_for(
+                scope, day=day, service_id=service.id, group_id=unit.group_id, resource_id=unit.id
+            )
+            if rule is None or rule.id in seen:
+                continue
+            seen.add(rule.id)
+            try:
+                lines = _rule_lines(service, unit, [day], party, names, scope)
+            except QuoteRefused:
+                continue
+            amount = sum(_taxed(line, gross).gross_minor for line in lines)
+            timed = rule.basis == PriceBasis.PER_TIME_UNIT
+            best[timed] = min(amount, best.get(timed, amount))
+        if best:
+            timed = True in best
+            found[service.id, unit.id] = FromPrice(
+                gross_minor=best[timed],
+                currency=organization.currency,
+                per=service.range_unit if timed else "stay",
+            )
+    return found
 
 
 def quote_visit(

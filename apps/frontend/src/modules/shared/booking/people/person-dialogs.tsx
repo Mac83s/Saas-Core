@@ -50,7 +50,8 @@ import { addDays, zonedInstant } from "../calendar-time";
 
 /**
  * The server's own words when it has them, a generic line otherwise; `codes`
- * gives a stable problem code a sentence of the screen's own.
+ * gives a stable problem code — the problem's own, or its first field's — a
+ * sentence of the screen's own.
  */
 export function problemText(
   error: unknown,
@@ -59,7 +60,9 @@ export function problemText(
   codes: Record<string, string> = {},
 ): string {
   if (!(error instanceof ApiProblemError)) return fallback;
-  const known = error.problem.code ? codes[error.problem.code] : undefined;
+  const known =
+    codes[error.problem.code ?? ""] ??
+    codes[error.problem.errors?.[0]?.code ?? ""];
   if (known) return known;
   if (error.problem.status === 403) return forbidden;
   return typeof error.problem.detail === "string" && error.problem.detail
