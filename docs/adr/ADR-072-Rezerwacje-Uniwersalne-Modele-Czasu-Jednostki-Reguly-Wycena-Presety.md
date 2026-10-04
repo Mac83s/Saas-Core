@@ -617,3 +617,80 @@ Decyzje podjął 03.10 koordynator w imieniu właściciela.
   miejscu (polityki spoza tego, co oferta umie, są pomijane) i widoczność w
   rezerwacji online. Jednostek, cen, dopłat i kategorii uczestników nadal nie
   zakłada: preset je tylko podpowiada.
+
+## Uzupełnienie 2026-10-04: faza 5 w plastrach
+
+Faza 5 planu („Strona i formularz publiczny okresu”) to publiczna strona pobytów
+i wynajmów: formularz, treść jednostek, bloki strony, szablon „Noclegi”, presety
+przy zakładaniu firmy, katalog i języki. Jest za duża na jedno scalenie, więc
+idzie plastrami jak faza 4 (ADR-073, „Uzupełnienie 2026-10-03”): każdy scalany
+osobno po własnej pełnej bramce i każdy zostawia `main` działający bez
+następnych. Kolejność wynika z jednego celu: najpierw gość rezerwuje pobyt od
+początku do końca (5a, 5b), dopiero potem strona, która go do formularza
+prowadzi.
+
+| Plaster | Zakres | Migracje | Ekran |
+| --- | --- | --- | --- |
+| **5a** | Publiczne API pobytu: w katalogu formularza osobna lista `stays` (oferty okresu oferowane online, z tym, co gość wybiera, kategoriami uczestników i dopłatami), kalendarz przyjazdów i wyjazdów, plan pobytu z wyceną, rezerwacja ze skrótem wyceny i zgodami — z zamówieniem, przedpłatą przelewem i „na prośbę” tak jak przy terminie; link klienta dla pobytu: odczyt z jednostką i przeniesienie datami | — | brak (API); rezerwacja z formularza w „Obłożeniu” |
+| **5b** | Formularz publiczny pobytu na stronie rezerwacji firmy (`/<język>/book/<slug>`): oferta, co rezerwuję, daty z kalendarza, goście, dopłaty, cena z kaucją i warunkami zwrotu, dane, zgody; potwierdzenie z danymi do przelewu albo terminem odpowiedzi; link klienta pokazuje pobyt i przenosi go datami; presety „Nocleg”, „Wypożyczalnia” i „Pobyt z opieką” w wersji 3 bez „wkrótce” | — | formularz publiczny, link klienta, wzorce ofert |
+| **5c** | Jednostka jako treść: zdjęcia, wyposażenie, flaga „publiczna”, `public_slug`, miasto ze słownika i współrzędne (tylko na serwerze); „od X zł/noc” z funkcji wyceny; pola w panelu i w katalogu formularza | booking | Ustawienia › Usługi i grafik (jednostka) |
+| **5d** | Bloki Site Studio: lista jednostek, widget rezerwacji okresu (daty i goście prowadzą do formularza), kalendarz dostępności; formularz przyjmuje ofertę, jednostkę, daty i gości z adresu | — (kontrakt bloków) | edytor strony, strona firmy |
+| **5e** | Systemowa strona jednostki na każdej opublikowanej stronie firmy (galeria, wyposażenie, kalendarz, rezerwacja) i blok mapy | według plastra | strona firmy |
+| **5f** | Szablon „Noclegi” (start, domki, okolica, galeria, cennik, regulamin, kontakt z mapą) według listy „Szablony nastawione na konwersję”; strona prawna witryny z dokumentów firmy (ADR-073, „Otwarte technicznie”) | — | biblioteka szablonów, strona firmy |
+| **5g** | Presety przy ręcznym zakładaniu firmy: gotowe do zastosowania, „wkrótce” z zapisem i pytaniem „Czego Ci brakuje?”; preset podpowiada kategorię katalogu i szablon strony. Ścieżka ręczna jest pierwsza — asystent (faza A6 jego planu) korzysta z niej, nie odwrotnie | według plastra | zakładanie firmy, Ustawienia |
+| **5h** | Katalog: kategoria z presetu, odznaka i filtr „rezerwacja online” (rejestr profiles, §11), strona jednostki pod `/katalog/<miasto>/<firma>/<jednostka>`, podpisany token pochodzenia i kanał `catalog` na rezerwacji | booking (kanał na rezerwacji) | katalog |
+| **5i** | Języki profilu (pilot PL, EN, DE): wszystko, co widzi gość — formularz, kalendarz, komunikaty odmów, e-maile — w językach firmy; orientacyjne przeliczenie walut na stronie w obcym języku (decyzja 16) | — | formularz, strona firmy |
+| **5j** | Pola własne formularza (`booking.field`) z presetu i oferty | booking | oferta, formularz |
+
+Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
+
+- **Pobyty w katalogu formularza to osobna lista.** `GET /booking/public/<slug>/`
+  zostawia w `services` tylko terminy, a oferty okresu oddaje w `stays`. Zmiana
+  jest addytywna: formularz sprzed 5b (także w produkcie, który jeszcze nie
+  wziął rdzenia z 5b) nie pokaże oferty, której nie umie zarezerwować, a 5a
+  można scalić bez 5b.
+- **Gość wybiera to, co firma wystawiła, nie sztukę z puli.** Oferta okresu
+  wymienia grupy i jednostki wolnostojące; w formularzu grupa to jeden wybór
+  („Domek 6-os.”), a jednostkę z grupy dobiera serwer, najmniej obciążoną z
+  tych, które mieszczą gości (§3). Jednostka przypięta do oferty wprost jest
+  wyborem sama. API przyjmuje także brak wyboru (dowolna jednostka oferty), jak
+  panel.
+- **Jak daleko naprzód, mówi sezon, nie ustawienie terminów.** Ustawienie firmy
+  `booking.online.horizon_days` (1–62 dni, domyślnie 15) to okno wyszukiwania
+  wizyt i zostaje przy terminach — pobyt na lipiec rezerwuje się w styczniu.
+  Zasięg pobytu ogranicza „okno naprzód” reguły sezonu (`rule_window`, §5), a
+  bez reguły granica platformy `BOOKING_PERIOD_HORIZON_DAYS`; przyjazd dalej niż
+  ona to 409 `beyond_booking_horizon`. Jedno publiczne zapytanie o dni
+  przyjazdu obejmuje najwyżej 92 dni (stała ochronna modułu): kalendarz
+  formularza pyta miesiącami, a szerokie okno to zarazem wolne zapytanie i
+  powierzchnia do zbierania danych (ADR-030).
+- **Pauza, wymagany kontakt i miejsce „nie online” działają jak przy
+  terminach.** Wstrzymane rezerwacje online odmawiają także pobytu
+  (`booking_paused`), formularz wymaga kontaktu z `booking.online.contact`, a
+  jednostka w miejscu wyłączonym z rezerwacji online nie jest oferowana.
+- **Dostępność i cena to jedna odpowiedź.** `POST …/stays/quote/` planuje pobyt
+  tak jak rezerwacja (te same odmowy 400 i 409) i oddaje jego chwile, długość i
+  wycenę w postaci dla klienta (`customer_quote`). Formularz nie składa ceny
+  sam i nie pokazuje ceny terminu, którego nie da się zarezerwować.
+- **Publiczny zapis pobytu nie przejdzie bez skrótu wyceny.** Rezerwacja i
+  przeniesienie pobytu z kontekstu formularza, gdy wycena ma cokolwiek do
+  pokazania, wymagają `quote_digest`: brak albo inny skrót to 409
+  `quote_changed` z wyceną w `detail.quote` i nic się nie zapisuje. Przy
+  terminach skrót zostaje opcjonalny (§7) — zmiana tamtej ścieżki to osobna
+  decyzja, bo dotyka formularzy produktów.
+- **Pobyt przenosi się z linku datami.** Link klienta dostaje
+  `…/self-service/<token>/stay/` (z podglądem): te same warunki co
+  przełożenie wizyty (tryb samoobsługi, odcięcie, tylko `confirmed`), ta sama
+  funkcja `move_stay` z wyceną na nowo i zamówieniem. Odpowiedź linku mówi,
+  czy to pobyt (`time_model`, `range_unit`) i w jakiej jednostce (`unit_name`).
+- **Presety przestają mówić „wkrótce” w 5b, nie w 5a.** Dopisek znika, gdy
+  istnieje formularz, a nie samo API: wersja 3 presetów „Nocleg”,
+  „Wypożyczalnia” i „Pobyt z opieką” ma `onlineBooking` `ready` i opis bez
+  dopisku; poza tym niesie to samo co wersja 2. Wpłaty z góry nadal nie wybiera
+  za firmę (ADR-073, „Preset nie wybiera wpłaty z góry za firmę”).
+- **Token pochodzenia zostaje przy 5h.** Do pierwszego odnośnika z katalogu do
+  formularza kanał wynika z tego, co serwer wie sam (`company_site`, `office`;
+  ADR-073, „Rozstrzygnięcia plastra 4e”).
+- **Bloki czytają dane na żywo przez publiczne API rezerwacji** (5d–5e):
+  publikacja jest migawką, a wolne terminy i ceny nią być nie mogą. Blok niesie
+  tylko wybór (która oferta, która grupa, układ); resztę rozstrzyga plaster.
