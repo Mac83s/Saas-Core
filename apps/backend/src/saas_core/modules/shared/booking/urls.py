@@ -16,6 +16,14 @@ from .price_views import (
     PriceRuleListView,
     PriceRuleUpdatePreviewView,
 )
+from .public_stay_views import (
+    PublicStayCreateView,
+    PublicStayEndsView,
+    PublicStayQuoteView,
+    PublicStayStartsView,
+    SelfServiceStayMovePreviewView,
+    SelfServiceStayMoveView,
+)
 from .translation_views import (
     ItemTranslationListView,
     ItemTranslationPreviewView,
@@ -413,6 +421,22 @@ urlpatterns = [
         PublicBookingCreateView.as_view(),
         name="public-create",
     ),
+    path("public/<slug:public_slug>/stays/", PublicStayCreateView.as_view(), name="public-stays"),
+    path(
+        "public/<slug:public_slug>/stays/starts/",
+        PublicStayStartsView.as_view(),
+        name="public-stay-starts",
+    ),
+    path(
+        "public/<slug:public_slug>/stays/ends/",
+        PublicStayEndsView.as_view(),
+        name="public-stay-ends",
+    ),
+    path(
+        "public/<slug:public_slug>/stays/quote/",
+        PublicStayQuoteView.as_view(),
+        name="public-stay-quote",
+    ),
     path("self-service/<str:token>/", SelfServiceAppointmentView.as_view(), name="self-service"),
     path(
         "self-service/<str:token>/reschedule/",
@@ -420,4 +444,10 @@ urlpatterns = [
         name="self-reschedule",
     ),
     path("self-service/<str:token>/cancel/", SelfServiceCancelView.as_view(), name="self-cancel"),
+    path("self-service/<str:token>/stay/", SelfServiceStayMoveView.as_view(), name="self-stay"),
+    path(
+        "self-service/<str:token>/stay/preview/",
+        SelfServiceStayMovePreviewView.as_view(),
+        name="self-stay-preview",
+    ),
 ]

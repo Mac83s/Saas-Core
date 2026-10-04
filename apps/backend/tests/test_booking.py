@@ -508,6 +508,11 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "timezone",
         "service_name",
         "location_name",
+        # Whether it is a stay, and then its unit (phase 5a); a visit's room
+        # or chair stays the company's.
+        "time_model",
+        "range_unit",
+        "unit_name",
         "status",
         # While the booking waits for its payment: until when, and the
         # company's account to transfer to (ADR-073 §5) — the company's data.
@@ -531,6 +536,9 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "resources",
         "teams",
         "people",
+        # The offers booked from–to and who may come to them (phase 5a).
+        "stays",
+        "participant_categories",
         "timezone",
         "online",
         "locales",

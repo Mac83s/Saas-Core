@@ -121,8 +121,9 @@ not in PostgreSQL.
   bound to **one** appointment, expires, and is invalidated on cancellation.
 - **Public routing starts from a non-personal `public_slug`**, then activates an
   explicit `service` tenant context with the minimum scope
-  (`booking.public.read`, `booking.public.manage`). It is not a membership and
-  not a global fallback — a public request never reaches an arbitrary tenant.
+  (`booking.public.read`, `booking.public.manage`) — never a membership or
+  global fallback. Stays too (`public_stay_views.py`): only what is online,
+  and a write needs the shown `quote_digest`.
 - **Who books for themselves accepts the company's documents** (ADR-073 §9,
   `consents.py`): the form reads those in force in the booking's language
   (`shown`) and sends their `text_id`s; `record_new_booking` checks them and
@@ -248,7 +249,7 @@ pnpm backend:test
 pnpm api:check
 ```
 
-plus a test for the concurrent case — two bookings racing for one slot, and a
-reschedule that must not leave an allocation behind. The authorization matrix in
+plus a test for the concurrent case — two bookings racing for one slot, a
+reschedule that leaves no allocation behind. The authorization matrix in
 `docs/architecture/testing-strategy.md` applies to every public endpoint,
-including the one reached by a self-service token.
+self-service links included.

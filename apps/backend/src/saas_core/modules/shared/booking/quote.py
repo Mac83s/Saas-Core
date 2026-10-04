@@ -548,9 +548,15 @@ def customer_quote(snapshot: Mapping[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
-def assert_shown(quote: Quote, digest: str) -> None:
-    """The price is still the one the caller showed, or 409 `quote_changed`."""
-    if digest and digest != quote.digest:
+def assert_shown(quote: Quote, digest: str, *, required: bool = False) -> None:
+    """The price is still the one the caller showed, or 409 `quote_changed`.
+    `required` — the caller must have shown it: a quote with something for the
+    customer to read and no digest is refused the same way, because a customer
+    never gets a price they did not see."""
+    if digest:
+        if digest != quote.digest:
+            raise QuoteChanged(quote)
+    elif required and customer_quote(quote.snapshot()) is not None:
         raise QuoteChanged(quote)
 
 

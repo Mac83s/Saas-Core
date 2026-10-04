@@ -694,3 +694,40 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
 - **Bloki czytają dane na żywo przez publiczne API rezerwacji** (5d–5e):
   publikacja jest migawką, a wolne terminy i ceny nią być nie mogą. Blok niesie
   tylko wybór (która oferta, która grupa, układ); resztę rozstrzyga plaster.
+
+### Rozstrzygnięcia plastra 5a (publiczne API pobytu)
+
+- **Adresy.** `GET /booking/public/<slug>/` oddaje `stays`,
+  `participant_categories` i `online.period_last_day`; obok niego
+  `GET …/stays/starts/`, `GET …/stays/ends/`, `POST …/stays/quote/` i
+  `POST …/stays/` (z `Idempotency-Key`); na linku klienta
+  `POST /booking/self-service/<token>/stay/` i `…/stay/preview/`. Widoki są w
+  `public_stay_views.py`, a to, co gość wybiera — w `public.public_stays`
+  (stała liczba zapytań, przypięta testem).
+- **Jedna funkcja dla panelu i formularza.** Formularz woła te same
+  `stay_starts`, `stay_ends`, `book_stay` i `move_stay` co panel. O tym, kto
+  pyta, rozstrzyga kontekst: w zakresie formularza (`booking.public.read`,
+  `booking.public.manage`) `periods._offer` znajduje tylko ofertę oferowaną
+  online i jednostki w miejscach oferowanych online, reszta jest jak nieistniejąca
+  (404). Podgląd z formularza potrzebuje tylko zakresu odczytu.
+- **Przenoszona rezerwacja zachowuje to, w czym ją zarezerwowano.** Pobyt
+  przenoszony z linku klienta znajduje swoją ofertę i jednostkę także wtedy, gdy
+  firma zdjęła ofertę z formularza albo wyłączyła miejsce z rezerwacji online —
+  jak wizyta przekładana z linku. O tym, czy link może przenosić, mówią warunki
+  samoobsługi zapisane w rezerwacji (B4), a pauza formularza przenoszenia nie
+  zatrzymuje.
+- **Plan dla gościa nie nazywa jednostki.** `…/stays/quote/` oddaje chwile,
+  długość i wycenę, bez jednostki: z grupy rezerwacja bierze tę, która będzie
+  wolna w chwili zapisu. Jednostkę nazywa dopiero rezerwacja (`unit_name` w
+  odpowiedzi rezerwacji i linku, w języku klienta, gdy firma ją przetłumaczyła);
+  przy wizycie `unit_name` jest puste — sala albo fotel to sprawa firmy.
+- **Wymagany skrót to `assert_shown(…, required=True)`.** Jedno miejsce w
+  `quote.py`: skrót jest wymagany, gdy `customer_quote` ma cokolwiek do
+  pokazania (pozycje albo kaucję). Oferta bez cennika rezerwuje się bez skrótu.
+- **Kategorie uczestników są wspólne dla firmy**, więc katalog oddaje je raz,
+  i tylko gdy formularz ma pobyty; przy terminach formularz o uczestników nie
+  pyta (stan sprzed fazy 5).
+- **Poza 5a:** ekran (5b); lista dni dla przeniesienia z linku (klient podaje
+  daty, a podgląd mówi, czy pasują — jak „Zmień daty” w panelu); okno naprzód
+  dla oferty bez sezonu (dziś tylko reguła sezonu i granica platformy);
+  wymagany skrót na publicznej ścieżce terminów.

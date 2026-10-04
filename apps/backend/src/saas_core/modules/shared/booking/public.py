@@ -1,26 +1,36 @@
 """What a customer may choose on the public form (ADR-058 §8, answer 2 of
 24.09): a team by its name, or a person the company shows its customers —
-never the staff list itself.
+never the staff list itself; and of the offers booked from–to, what a guest
+chooses between (ADR-072, phase 5a).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from rest_framework.exceptions import ParseError
 
+from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.profiles.api import person_names
 
 from .crew import crew_of
+from .item_translations import localized_texts, translatable
 from .models import (
     Appointment,
+    ParticipantCategory,
+    Resource,
+    ResourceGroup,
     Service,
+    ServiceGroup,
+    ServiceResource,
     ServiceStaff,
     StaffChoice,
     StaffMember,
     StaffTeam,
     StaffTeamMember,
+    TimeModel,
 )
 
 
@@ -136,3 +146,120 @@ def shown_to_customer(appointment: Appointment) -> tuple[str | None, str | None]
     if lead is not None and lead.profile_id is not None and lead.id in crew_of(appointment):
         person = person_names(appointment.organization_id, [lead.profile_id]).get(lead.profile_id)
     return team, person
+
+
+def public_stays(organization: Organization, locale: str | None) -> list[dict[str, Any]]:
+    """The offers booked from–to that the company takes on its form, each with
+    what a guest chooses between: a group of identical units is one choice —
+    the server picks the unit (ADR-072 §3) — and a unit the offer lists by
+    itself is one. Only units at places offered online (B2); an offer with
+    nothing left to book is not listed. Names in `locale` where the company
+    translated them. A fixed number of queries, whatever the company has."""
+    offers = list(
+        Service.all_objects.filter(
+            organization=organization, time_model=TimeModel.RANGE, online=True, active=True
+        ).order_by("name", "id")
+    )
+    if not offers:
+        return []
+    linked_groups: dict[UUID, set[UUID]] = {}
+    for service_id, group_id in ServiceGroup.all_objects.filter(service__in=offers).values_list(
+        "service_id", "group_id"
+    ):
+        linked_groups.setdefault(service_id, set()).add(group_id)
+    linked_units: dict[UUID, set[UUID]] = {}
+    for service_id, resource_id in ServiceResource.all_objects.filter(
+        service__in=offers
+    ).values_list("service_id", "resource_id"):
+        linked_units.setdefault(service_id, set()).add(resource_id)
+    groups = {
+        group.id: group
+        for group in ResourceGroup.all_objects.filter(
+            organization=organization,
+            active=True,
+            pk__in={key for keys in linked_groups.values() for key in keys},
+        )
+    }
+    units = list(
+        Resource.all_objects.filter(organization=organization, active=True)
+        .exclude(location__online=False)
+        .order_by("name", "id")
+    )
+    pools: dict[UUID, list[Resource]] = {}
+    for unit in units:
+        if unit.group_id in groups:
+            pools.setdefault(unit.group_id, []).append(unit)
+    texts = {
+        "service": localized_texts(translatable("service"), offers, locale),
+        "group": localized_texts(translatable("group"), groups.values(), locale),
+        "resource": localized_texts(translatable("resource"), units, locale),
+    }
+
+    def words(kind: str, item: Any) -> dict[str, str]:
+        found = texts[kind].get(item.id, {})
+        return {
+            "name": found.get("name", item.name),
+            "description": found.get("description", item.description),
+        }
+
+    listed = []
+    for offer in offers:
+        pooled = sorted(
+            (
+                {
+                    "id": group.id,
+                    **words("group", group),
+                    # The most people one of its units takes; null — nobody counts.
+                    "capacity": (
+                        None
+                        if any(unit.capacity is None for unit in pools[group.id])
+                        else max(unit.capacity or 0 for unit in pools[group.id])
+                    ),
+                    "units": len(pools[group.id]),
+                }
+                for group in (groups.get(key) for key in linked_groups.get(offer.id, ()))
+                if group is not None and pools.get(group.id)
+            ),
+            key=lambda item: (item["name"], str(item["id"])),
+        )
+        single = [
+            {"id": unit.id, **words("resource", unit), "capacity": unit.capacity}
+            for unit in units
+            if unit.id in linked_units.get(offer.id, ())
+        ]
+        if not pooled and not single:
+            continue
+        listed.append({
+            "id": offer.id,
+            "name": texts["service"].get(offer.id, {}).get("name", offer.name),
+            "public_slug": offer.public_slug,
+            "range_unit": offer.range_unit,
+            "range_start_local": offer.range_start_local,
+            "range_end_local": offer.range_end_local,
+            "confirmation": offer.confirmation,
+            "response_hours": offer.response_hours,
+            "groups": pooled,
+            "units": single,
+        })
+    return listed
+
+
+def public_participant_categories(
+    organization: Organization, locale: str | None
+) -> list[dict[str, Any]]:
+    """Who may come besides standard people, as the form asks it („Dziecko”,
+    „Pies”): the company's categories that are switched on."""
+    categories = list(
+        ParticipantCategory.all_objects.filter(organization=organization, active=True).order_by(
+            "name", "id"
+        )
+    )
+    names = localized_texts(translatable("participant_category"), categories, locale)
+    return [
+        {
+            "id": category.id,
+            "name": names.get(category.id, {}).get("name", category.name),
+            "counts_towards_capacity": category.counts_towards_capacity,
+        }
+        for category in categories
+    ]

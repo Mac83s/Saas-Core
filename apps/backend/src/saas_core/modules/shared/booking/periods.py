@@ -45,6 +45,7 @@ from saas_core.modules.shared.notifications.services import queue_email
 
 from . import orders
 from .availability import _valid_instants, _zone, closed_days
+from .company_settings import BeyondHorizon, refuse_missing_contact, refuse_when_paused
 from .consents import BookingConsents
 from .crew import lost_slot_race
 from .models import (
@@ -66,7 +67,7 @@ from .models import (
 )
 from .observers import RESCHEDULED, AppointmentChange
 from .rules import rule_for
-from .security import issue_self_service_token
+from .security import PUBLIC_BOOKING_ROLE, issue_self_service_token
 from .services import (
     BOOKING_ENABLED,
     BOOKING_MANAGE,
@@ -74,6 +75,7 @@ from .services import (
     CreatedAppointment,
     SlotUnavailable,
     _announce,
+    _refuse_customer_change,
     _self_service_expiry,
     arm_reminder,
     local_time,
@@ -91,6 +93,10 @@ _MIN_LENGTH = 1
 _MAX_LENGTH = 90
 #: How far around a stay a unit's load is counted when the least busy one is picked.
 _LOAD_WINDOW = timedelta(days=30)
+#: The most days one search of arrival days from the public form spans: a
+#: calendar asks month by month, and a wide open window is a slow query and a
+#: scraping surface at once (ADR-030). A protective limit, not the company's.
+PUBLIC_WINDOW_DAYS = 92
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,13 +169,21 @@ def stay_starts(
     """The days a stay can begin on (ADR-072 §5, T7): a unit is free for the
     shortest stay the season allows from that day. One query per table for
     the whole window, which may span up to `BOOKING_PERIOD_HORIZON_DAYS`."""
-    _read()
-    if to_date < from_date or (to_date - from_date).days > settings.BOOKING_PERIOD_HORIZON_DAYS:
+    context = _read()
+    widest = (
+        PUBLIC_WINDOW_DAYS
+        if context.role_key == PUBLIC_BOOKING_ROLE
+        else settings.BOOKING_PERIOD_HORIZON_DAYS
+    )
+    if to_date < from_date or (to_date - from_date).days > widest:
         raise ValidationError({"to": "Zakres dni jest nieprawidłowy."}, code="invalid")
     service, units = _offer(service_id, resource_id, group_id)
     if not units:
         return []
     zone = _zone()
+    if context.role_key == PUBLIC_BOOKING_ROLE:
+        # The form offers no arrival the booking would refuse as too far ahead.
+        to_date = min(to_date, period_last_day(zone))
     calendar = _Calendar.load(service, units, from_date, to_date + timedelta(days=_MAX_LENGTH))
     moment = now or timezone.now()
     days: list[date] = []
@@ -191,11 +205,13 @@ def stay_ends(
 ) -> list[date]:
     """The days a stay beginning on `start_date` can end on (a night's
     departure day, a day's last day), for any free unit."""
-    _read()
+    context = _read()
     service, units = _offer(service_id, resource_id, group_id)
-    if not units:
-        return []
     zone = _zone()
+    if not units or (
+        context.role_key == PUBLIC_BOOKING_ROLE and start_date > period_last_day(zone)
+    ):
+        return []
     calendar = _Calendar.load(service, units, start_date, start_date + timedelta(days=366))
     moment = now or timezone.now()
     ends: set[date] = set()
@@ -219,7 +235,10 @@ def plan_stay(
     breaks, a closed day, or no free unit (409 `slot_unavailable`). With
     `people` — how many of those who come count towards capacity — only a
     unit that takes them is picked, the least busy of those."""
-    service, units = _offer(service_id, resource_id, group_id)
+    # A booking being moved keeps its own offer and unit, on the form or not.
+    service, units = _offer(
+        service_id, resource_id, group_id, booked=ignore_appointment_id is not None
+    )
     if not units:
         raise SlotUnavailable
     if people is not None:
@@ -304,8 +323,15 @@ def book_stay(
     preview: bool = False,
     consents: BookingConsents | None = None,
 ) -> CreatedAppointment | StayPlan:
-    """Books a stay from the panel; with `preview`, says which unit it would
-    take and refuses what the booking would, with nothing written.
+    """Books a stay — the team in the panel, or a customer on the company's
+    public form; with `preview`, says which unit it would take and refuses
+    what the booking would, with nothing written.
+
+    From the public form only an offer and units the company offers online
+    are found, the form's pause and required contact apply as for a visit,
+    and a price the customer was not shown is never booked: without the
+    `quote_digest` of a quote that has something to show the answer is 409
+    `quote_changed` with that quote.
 
     `participants` — who comes (`[{"category_id", "count"}]`; one standard
     person when empty); `extras` — the optional extras picked
@@ -315,7 +341,12 @@ def book_stay(
     price by now is 409 `quote_changed` (ADR-072 §7). `consents` — the
     documents the customer accepted, when the caller showed them
     (`consents.record`)."""
-    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    context = _write(preview=preview)
+    public = context.role_key == PUBLIC_BOOKING_ROLE
+    if public:
+        # How far ahead is the season's own window (`rule_window`), within
+        # the platform's bound (ADR-072 §5) — said by the preview too.
+        refuse_beyond_period_horizon(start_date, _zone())
     people = _people(context.organization_id, participants)
     if preview:
         plan = plan_stay(
@@ -383,6 +414,11 @@ def book_stay(
             decrypt_secret(existing.appointment.self_service_token_ciphertext),
             False,
         )
+    if public:
+        # Online booking paused (ADR-078, B1) and the contact the company
+        # requires online (B9), as for a visit.
+        refuse_when_paused(_zone().key)
+        refuse_missing_contact(customer_data)
     plan = plan_stay(
         service_id=service_id,
         start_date=start_date,
@@ -418,7 +454,7 @@ def book_stay(
     )
     unit = _hold(appointment, plan)
     # The unit that was held, not the one planned: a lost race takes another.
-    _freeze(appointment, unit, plan.stay, participants, extras, quote_digest)
+    _freeze(appointment, unit, plan.stay, participants, extras, quote_digest, required=public)
     record_new_booking(
         organization,
         appointment,
@@ -455,8 +491,14 @@ def move_stay(
 ) -> Appointment | StayPlan:
     """Moves a stay to other dates: its unit when it is free then, otherwise
     another free unit of the group it was booked in (ADR-072, Konsekwencje).
-    A stay that has a quote is priced again for the new dates."""
-    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    A stay that has a quote is priced again for the new dates.
+
+    A customer moves their own stay through their link within what the
+    booking allows (409 `appointment_not_changeable` otherwise), and never to
+    a price they were not shown: `quote_digest` is then required as in
+    `book_stay`."""
+    context = _write(preview=preview)
+    public = context.role_key == PUBLIC_BOOKING_ROLE
     appointment = (
         Appointment.all_objects.select_for_update()
         .filter(pk=appointment_id, organization_id=context.organization_id)
@@ -466,6 +508,9 @@ def move_stay(
         raise NotFound("Aktywna rezerwacja nie istnieje.")
     if appointment.service.time_model != TimeModel.RANGE:
         raise _refuse("appointment_id", "not_a_stay", "To nie jest pobyt.")
+    _refuse_customer_change(context.role_key, appointment, "reschedule")
+    if public:
+        refuse_beyond_period_horizon(start_date, _zone())
     request_hash = _hash({"start_date": start_date.isoformat(), "end_date": end_date.isoformat()})
     existing = BookingMutation.all_objects.filter(
         organization_id=context.organization_id,
@@ -551,6 +596,7 @@ def move_stay(
             appointment.quote.get("extras"),
             quote_digest,
             kept=True,
+            required=public,
         )
         orders.repriced(appointment)
     mutation = BookingMutation.all_objects.create(
@@ -840,7 +886,39 @@ class _Calendar:
 
 
 def _read() -> TenantContext:
-    return authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
+    return _authorize(FeatureOperation.READ)
+
+
+def _write(*, preview: bool = False) -> TenantContext:
+    return _authorize(FeatureOperation.WRITE, reads=preview)
+
+
+def _authorize(operation: FeatureOperation, *, reads: bool = False) -> TenantContext:
+    """Who plans and books stays: the team (`booking.appointment.manage`), or
+    the company's public form and a customer's own link under their service
+    scope (ADR-030) — which find only what the company offers online. `reads`
+    — a preview: it writes nothing, so from the form it needs only the read
+    scope."""
+    if require_tenant_context().role_key == PUBLIC_BOOKING_ROLE:
+        permission = (
+            "booking.public.read"
+            if reads or operation is FeatureOperation.READ
+            else "booking.public.manage"
+        )
+        return authorize_entitled(permission, BOOKING_ENABLED, operation=operation)
+    return authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=operation)
+
+
+def period_last_day(zone: ZoneInfo) -> date:
+    """The last arrival day the public form takes: the platform's bound of a
+    period calendar (ADR-072 §5). A season's own window narrows it
+    (`rule_window`); the company's days-ahead setting is about visits."""
+    return timezone.localdate(timezone=zone) + timedelta(days=settings.BOOKING_PERIOD_HORIZON_DAYS)
+
+
+def refuse_beyond_period_horizon(start_date: date, zone: ZoneInfo) -> None:
+    if start_date > period_last_day(zone):
+        raise BeyondHorizon
 
 
 def _offer(
@@ -849,12 +927,19 @@ def _offer(
     group_id: UUID | None,
     *,
     switched_off: bool = False,
+    booked: bool = False,
 ) -> tuple[Service, list[Resource]]:
     """The range offer and the units a stay of it may take: the one named, the
     group's, or every unit and group the offer lists. `switched_off` — an
-    offer nobody can book yet is found too."""
+    offer nobody can book yet is found too. The public form and a customer's
+    link find only an offer on the form and units at places offered online
+    (B2): anything else is as if it did not exist — except for `booked`, a
+    booking that is being moved, which keeps what it was booked in."""
     context = require_tenant_context()
+    public = context.role_key == PUBLIC_BOOKING_ROLE and not booked
     offers = Service.all_objects.filter(pk=service_id, organization_id=context.organization_id)
+    if public:
+        offers = offers.filter(online=True)
     service = (offers if switched_off else offers.filter(active=True)).first()
     if service is None or service.time_model != TimeModel.RANGE:
         raise NotFound("Nie ma takiej oferty pobytu.")
@@ -865,6 +950,8 @@ def _offer(
         ServiceGroup.all_objects.filter(service=service).values_list("group_id", flat=True)
     )
     units = Resource.all_objects.filter(organization_id=context.organization_id, active=True)
+    if public:
+        units = units.exclude(location__online=False)
     if resource_id is not None:
         units = units.filter(pk=resource_id).filter(
             Q(pk__in=linked_units) | Q(group_id__in=linked_groups)
@@ -971,8 +1058,10 @@ def _freeze(
     shown: str,
     *,
     kept: bool = False,
+    required: bool = False,
 ) -> None:
-    """Works the stay's price out inside the booking's transaction and keeps it."""
+    """Works the stay's price out inside the booking's transaction and keeps
+    it. `required` — the caller must have shown the price (`assert_shown`)."""
     from .quote import assert_shown, quote_stay
 
     quote = quote_stay(
@@ -984,7 +1073,7 @@ def _freeze(
         locale=appointment.customer.locale,
         kept=kept,
     )
-    assert_shown(quote, shown)
+    assert_shown(quote, shown, required=required)
     appointment.quote, appointment.quote_digest = quote.snapshot(), quote.digest
     appointment.save(update_fields=["quote", "quote_digest", "updated_at"])
 

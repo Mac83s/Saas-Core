@@ -731,6 +731,23 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     timezone = serializers.CharField()
     service_name = serializers.CharField()
     location_name = serializers.CharField()
+    time_model = serializers.CharField(
+        required=False,
+        help_text="`range` — a stay or a rental, told by its days and moved by its dates "
+        "(`…/stay/`); `slot` — a visit at a time.",
+    )
+    range_unit = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="With `range`: `night` — `ends_at` is the departure day's check-out; "
+        "`day` — `ends_at` is on the last day. Empty for a visit.",
+    )
+    unit_name = serializers.CharField(
+        required=False,
+        allow_null=True,
+        help_text="The unit of a stay (a cottage, a car), in the customer's language where "
+        "translated; null for a visit.",
+    )
     status = serializers.CharField(
         help_text="`pending_request`: the booking waits for the company's answer until "
         "`hold_expires_at`; `pending_payment`: it waits for the payment in `payment` until "
@@ -1648,7 +1665,13 @@ class PublicOnlineSerializer(serializers.Serializer[dict[str, Any]]):
     horizon_days = serializers.IntegerField(
         help_text="How many days, today included, the form offers (booking.online.horizon_days)."
     )
-    last_day = serializers.DateField(help_text="The last day a customer may book online.")
+    last_day = serializers.DateField(help_text="The last day a customer may book a visit online.")
+    period_last_day = serializers.DateField(
+        required=False,
+        help_text="The last day a stay booked online may begin: the platform's bound of a "
+        "period calendar. A season's own window ahead may end earlier (`rule_window`); "
+        "`horizon_days` is about visits and does not limit stays.",
+    )
     contact = serializers.ChoiceField(
         choices=["email", "phone", "email_or_phone", "email_and_phone"],
         help_text="What the form requires of the customer (booking.online.contact).",
@@ -1701,6 +1724,69 @@ class PublicExtraSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class PublicStayUnitSerializer(serializers.Serializer[dict[str, Any]]):
+    """A unit an offer lists by itself: the guest books this very one."""
+
+    id = serializers.UUIDField(help_text="Send it as `resource_id`.")
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    capacity = serializers.IntegerField(
+        allow_null=True, help_text="How many people it takes; null — nobody counts."
+    )
+
+
+class PublicStayGroupSerializer(serializers.Serializer[dict[str, Any]]):
+    """A group of identical units: the guest books the group, the server picks
+    the unit (ADR-072 §3)."""
+
+    id = serializers.UUIDField(help_text="Send it as `group_id`.")
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    capacity = serializers.IntegerField(
+        allow_null=True,
+        help_text="The most people one of its units takes; null — nobody counts.",
+    )
+    units = serializers.IntegerField(help_text="How many units the group has.")
+
+
+class PublicStayOfferSerializer(serializers.Serializer[dict[str, Any]]):
+    """An offer booked from–to on the form: nights or days."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    public_slug = serializers.CharField()
+    range_unit = serializers.CharField(
+        help_text="`night` — booked from the arrival day to the departure day; `day` — "
+        "from the first day to the last, both included."
+    )
+    range_start_local = serializers.TimeField(
+        allow_null=True, help_text="Check-in or pickup, the company's wall clock."
+    )
+    range_end_local = serializers.TimeField(
+        allow_null=True, help_text="Check-out or return, the company's wall clock."
+    )
+    confirmation = serializers.ChoiceField(
+        choices=Confirmation.choices,
+        help_text="`on_request` — a booking waits for the company's answer "
+        "(`pending_request`) before it is confirmed.",
+    )
+    response_hours = serializers.IntegerField(
+        help_text="With `on_request`: how many hours the company has to answer."
+    )
+    groups = PublicStayGroupSerializer(many=True)
+    units = PublicStayUnitSerializer(many=True)
+
+
+class PublicParticipantCategorySerializer(serializers.Serializer[dict[str, Any]]):
+    """Who may come besides standard people („Dziecko”, „Pies”)."""
+
+    id = serializers.UUIDField(help_text="Send it as `participants[].category_id`.")
+    name = serializers.CharField(help_text="In the language asked for, where translated.")
+    counts_towards_capacity = serializers.BooleanField(
+        help_text="Whether one of them takes a place in a unit's capacity."
+    )
+
+
 class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     """The catalogue without the staff list: only teams by name and people the
     company shows its customers (ADR-058 §8)."""
@@ -1710,6 +1796,19 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     resources = ResourceSerializer(many=True)
     teams = PublicNameSerializer(many=True)
     people = PublicNameSerializer(many=True)
+    stays = PublicStayOfferSerializer(
+        many=True,
+        required=False,
+        help_text="The offers booked from–to (nights, days) the company takes on its "
+        "form, each with what a guest chooses between; booked through `…/stays/`. An "
+        "offer with nothing to book online is not listed.",
+    )
+    participant_categories = PublicParticipantCategorySerializer(
+        many=True,
+        required=False,
+        help_text="Who may come to a stay besides standard people; empty when the form "
+        "has no stays.",
+    )
     extras = PublicExtraSerializer(
         many=True, required=False, help_text="What the services add to their price."
     )

@@ -61,10 +61,16 @@ from .models import (
 from .occupancy import MAX_DAYS as MAX_OCCUPANCY_DAYS
 from .occupancy import Held, books_stays, occupancy
 from .passing import closes_explicitly, has_passed
-from .periods import StayPlan, book_stay, move_stay, stay_ends, stay_starts
+from .periods import StayPlan, book_stay, move_stay, period_last_day, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
 from .presets import Preset, list_presets
-from .public import public_choices, public_people, shown_to_customer
+from .public import (
+    public_choices,
+    public_participant_categories,
+    public_people,
+    public_stays,
+    shown_to_customer,
+)
 from .quote import QuoteChanged, customer_quote, offered_extras, quote_offer, quote_visit
 from .rules import (
     copy_closures_to_next_year,
@@ -430,6 +436,10 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         # booking; a visit from before has only the company's (TL12c).
         "service_name": value.customer_service_name or value.service_name,
         "location_name": value.location.name,
+        # A stay is told by its days and its unit, a visit by its time.
+        "time_model": value.service.time_model,
+        "range_unit": value.service.range_unit,
+        "unit_name": _unit_name(value),
         "status": value.status,
         "hold_expires_at": value.hold_expires_at,
         # The transfer's details while the booking waits for its payment, and
@@ -444,6 +454,19 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "self_service": _self_service(value),
         "quote": customer_quote(value.quote),
     }
+
+
+def _unit_name(value: Any) -> str | None:
+    """The unit of a stay, in the customer's language where the company
+    translated it. Which room or chair a visit takes stays the company's."""
+    if value.service.time_model != TimeModel.RANGE or value.resource is None:
+        return None
+    name = (
+        localized_texts(translatable("resource"), [value.resource], value.customer.locale)
+        .get(value.resource.id, {})
+        .get("name")
+    )
+    return str(name or value.resource.name)
 
 
 def _customer_settlement(value: Any) -> dict[str, Any] | None:
@@ -1236,9 +1259,12 @@ class PublicBookingCatalogView(APIView):
         operation_id="public_booking_catalog",
         summary="What a company's booking form offers",
         description="The places, services and units a visitor can book, and the teams and "
-        "people the form lets them choose. With `locale` (a language of the company) names "
-        "come in that language where the company translated them, otherwise in its own; "
-        "`locale` in the answer is the language asked for when the company has it.",
+        "people the form lets them choose. `services` are visits booked at a time; `stays` "
+        "are the offers booked from–to (nights, days), each with the groups and units a "
+        "guest chooses between, booked through `…/stays/`. With `locale` (a language of the "
+        "company) names come in that language where the company translated them, otherwise "
+        "in its own; `locale` in the answer is the language asked for when the company has "
+        "it.",
         tags=["public-booking"],
         parameters=[
             OpenApiParameter(
@@ -1265,7 +1291,8 @@ class PublicBookingCatalogView(APIView):
             value: dict[str, list[Any]] = {
                 # Only what the company offers online (B2); the panel sees all.
                 "locations": list(Location.all_objects.filter(organization_id=org, online=True)),
-                # Stays are booked on the website from phase 5 (ADR-072 §1).
+                # Visits only: the offers booked from–to are `stays` below, so
+                # a form that books by the hour never lists one (ADR-072 §1).
                 "services": list(
                     Service.all_objects.filter(
                         organization_id=org, time_model=TimeModel.SLOT, online=True
@@ -1297,6 +1324,12 @@ class PublicBookingCatalogView(APIView):
                     confirmation=offer.confirmation,
                     response_hours=offer.response_hours,
                 )
+            stays = public_stays(organization, locale)
+            priced = [x for x in value["services"] if x.active] + list(
+                Service.all_objects.filter(
+                    organization_id=org, pk__in=[item["id"] for item in stays]
+                )
+            )
             team_names = dict(choices.teams)
             if locale is not None:
                 names = localized_texts(
@@ -1312,9 +1345,11 @@ class PublicBookingCatalogView(APIView):
                 "locale": locale or source_locale(organization),
                 "teams": [{"id": key, "name": name} for key, name in team_names.items()],
                 "people": [{"id": key, "name": name} for key, name in choices.people],
-                "extras": offered_extras(
-                    organization, [x for x in value["services"] if x.active], locale
+                "stays": stays,
+                "participant_categories": (
+                    public_participant_categories(organization, locale) if stays else []
                 ),
+                "extras": offered_extras(organization, priced, locale),
                 "timezone": _zone().key,
                 "currency": organization.currency,
                 "online": {
@@ -1322,6 +1357,7 @@ class PublicBookingCatalogView(APIView):
                     "resume_on": resume_on,
                     "horizon_days": setting(HORIZON_DAYS),
                     "last_day": online_last_day(_zone().key),
+                    "period_last_day": period_last_day(_zone()),
                     "contact": setting(CONTACT),
                 },
                 "locales": list(organization_content_locales(organization)),

@@ -2689,10 +2689,12 @@ paths:
     get:
       operationId: public_booking_catalog
       description: The places, services and units a visitor can book, and the teams
-        and people the form lets them choose. With `locale` (a language of the company)
-        names come in that language where the company translated them, otherwise in
-        its own; `locale` in the answer is the language asked for when the company
-        has it.
+        and people the form lets them choose. `services` are visits booked at a time;
+        `stays` are the offers booked from–to (nights, days), each with the groups
+        and units a guest chooses between, booked through `…/stays/`. With `locale`
+        (a language of the company) names come in that language where the company
+        translated them, otherwise in its own; `locale` in the answer is the language
+        asked for when the company has it.
       summary: What a company's booking form offers
       parameters:
       - in: query
@@ -2980,6 +2982,268 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SlotTimeList'
+          description: ''
+  /api/v1/booking/public/{public_slug}/stays/:
+    post:
+      operationId: public_booking_stay_create
+      description: 'Books an offer from `stays` from–to on the unit named, or on the
+        least busy free unit of the group named that takes the people who come. The
+        price is worked out and frozen in the booking (`quote`); a stay with a price
+        needs the `quote_digest` of the quote shown (`POST …/stays/quote/`): without
+        it, or with another price by now, the answer is 409 `quote_changed` with the
+        quote in `detail.quote`. Refusals as in the quote; a paused form is 409 `booking_paused`,
+        an arrival past `online.period_last_day` 409 `beyond_booking_horizon`. The
+        company''s documents in force in the booking''s language (`GET …/consents/`)
+        must be named in `consents.documents` (409 `documents_changed` otherwise).
+        An offer that asks for money first answers `pending_payment` with the transfer''s
+        details in `payment`; one taken on request `pending_request`. The same Idempotency-Key
+        answers the first booking again (200).'
+      summary: Book a stay or a rental from a company's booking form
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicStayCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicStayCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicStayCreate'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/public/{public_slug}/stays/ends/:
+    get:
+      operationId: public_booking_stay_ends
+      description: Departure days (nights) or last days (days) a stay from `start`
+        can have on a free unit, the season of the arrival day applied. An offer that
+        is not on the form is 404.
+      summary: List the days a stay beginning on a day can end on
+      parameters:
+      - in: query
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        description: Any unit of this group of the offer (`stays[].groups`).
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this unit of the offer (`stays[].units`). With neither,
+          any unit the offer lists.
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DateList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/public/{public_slug}/stays/quote/:
+    post:
+      operationId: public_booking_stay_quote
+      description: 'Plans the stay exactly as a booking would — a broken season rule
+        is 400 with its code (`rule_min_length`, `rule_start_weekday`, `closed_day`…),
+        more people than a unit takes 400 `unit_capacity_exceeded`, taken dates 409
+        `slot_unavailable` — and answers its instants, its length and its price as
+        the customer reads it: gross, the lines in their language, the deposit, how
+        they pay and what giving it up gives back. Nothing is saved or held. Send
+        `quote.digest` back as `quote_digest` when booking.'
+      summary: Check a stay from the booking form and work out what it would cost
+      parameters:
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicStayQuoteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicStayQuoteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicStayQuoteInput'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicStayPlan'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/public/{public_slug}/stays/starts/:
+    get:
+      operationId: public_booking_stay_starts
+      description: Days in the window on which a unit is free for the shortest stay
+        the season allows from that day — closed days, the season's rules and its
+        window ahead applied (ADR-072 §5). One search spans at most 92 days and never
+        goes past `online.period_last_day`. An offer that is not on the form is 404.
+      summary: List the days a stay booked on the form can begin on
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        description: Any unit of this group of the offer (`stays[].groups`).
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this unit of the offer (`stays[].units`). With neither,
+          any unit the offer lists.
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DateList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/public/{public_slug}/times/:
     get:
@@ -3301,6 +3565,124 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/self-service/{token}/stay/:
+    post:
+      operationId: booking_self_service_stay_move
+      description: 'The customer moves the stay their link names, within what the
+        booking allows (409 `appointment_not_changeable` otherwise): it keeps its
+        unit when that is free then, otherwise takes another free one of the group
+        it was booked in. The stay is priced again for the same people; one with a
+        price needs the `quote_digest` of the quote shown (`POST …/stay/preview/`),
+        409 `quote_changed` otherwise. Rules and taken dates as for a booking. An
+        unknown, expired or revoked link is 404.'
+      summary: Move one's own stay to other dates
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicStayMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicStayMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicStayMove'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAppointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/self-service/{token}/stay/preview/:
+    post:
+      operationId: booking_self_service_stay_move_preview
+      description: Answers what `booking_self_service_stay_move` would — the stay's
+        new instants, length and price as the customer reads it — or the same 400,
+        404 and 409. Nothing is saved.
+      summary: Check a move of one's own stay without making it
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicStayMovePreview'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicStayMovePreview'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicStayMovePreview'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicStayPlan'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/setup/:
     get:
       operationId: booking_setup_retrieve
@@ -39868,6 +40250,20 @@ components:
           type: string
         location_name:
           type: string
+        time_model:
+          type: string
+          description: '`range` — a stay or a rental, told by its days and moved by
+            its dates (`…/stay/`); `slot` — a visit at a time.'
+        range_unit:
+          type: string
+          description: 'With `range`: `night` — `ends_at` is the departure day''s
+            check-out; `day` — `ends_at` is on the last day. Empty for a visit.'
+        unit_name:
+          type:
+          - string
+          - 'null'
+          description: The unit of a stay (a cottage, a car), in the customer's language
+            where translated; null for a visit.
         status:
           type: string
           description: '`pending_request`: the booking waits for the company''s answer
@@ -40051,6 +40447,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicName'
+        stays:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicStayOffer'
+          description: The offers booked from–to (nights, days) the company takes
+            on its form, each with what a guest chooses between; booked through `…/stays/`.
+            An offer with nothing to book online is not listed.
+        participant_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicParticipantCategory'
+          description: Who may come to a stay besides standard people; empty when
+            the form has no stays.
         extras:
           type: array
           items:
@@ -40501,7 +40910,13 @@ components:
         last_day:
           type: string
           format: date
-          description: The last day a customer may book online.
+          description: The last day a customer may book a visit online.
+        period_last_day:
+          type: string
+          format: date
+          description: 'The last day a stay booked online may begin: the platform''s
+            bound of a period calendar. A season''s own window ahead may end earlier
+            (`rule_window`); `horizon_days` is about visits and does not limit stays.'
         contact:
           allOf:
           - $ref: '#/components/schemas/ContactA7eEnum'
@@ -40518,6 +40933,24 @@ components:
       - last_day
       - paused
       - resume_on
+    PublicParticipantCategory:
+      type: object
+      description: Who may come besides standard people („Dziecko”, „Pies”).
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Send it as `participants[].category_id`.
+        name:
+          type: string
+          description: In the language asked for, where translated.
+        counts_towards_capacity:
+          type: boolean
+          description: Whether one of them takes a place in a unit's capacity.
+      required:
+      - counts_towards_capacity
+      - id
+      - name
     PublicPlan:
       type: object
       properties:
@@ -40915,6 +41348,296 @@ components:
         * `none` - Nikogo
         * `team` - Zespół
         * `person` - Osobę
+    PublicStayCreate:
+      type: object
+      description: |-
+        The customer names the offer, what they book of it, the dates and who
+        comes; which unit of a group it is, is the server's pick (ADR-072 §3).
+      properties:
+        service_id:
+          type: string
+          format: uuid
+          description: An offer from `stays` of the form's catalogue.
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Any free unit of this group — the server picks the least busy
+            one that takes the people who come.
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: This very unit. With neither, any unit the offer lists.
+        start_date:
+          type: string
+          format: date
+          description: Arrival day (nights) or first day (days).
+        end_date:
+          type: string
+          format: date
+          description: Departure day (nights) or last day, included (days).
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+          description: Who comes; omitted — one standard person. The price and a unit's
+            capacity count them.
+          maxItems: 20
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
+          maxItems: 20
+        customer:
+          $ref: '#/components/schemas/CustomerInput'
+        customer_notes:
+          type: string
+          maxLength: 500
+        quote_digest:
+          type: string
+          description: 'The `digest` of the quote the customer was shown. Required
+            as soon as the stay has a price: without it, or when the price is another
+            one by now, the answer is 409 `quote_changed` with the quote to show in
+            `detail.quote`, and nothing is saved.'
+          maxLength: 64
+        consents:
+          allOf:
+          - $ref: '#/components/schemas/PublicConsentsInput'
+          description: The company's documents the customer accepted; required as
+            soon as the company has one in force in the booking's language.
+      required:
+      - customer
+      - end_date
+      - service_id
+      - start_date
+    PublicStayGroup:
+      type: object
+      description: |-
+        A group of identical units: the guest books the group, the server picks
+        the unit (ADR-072 §3).
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Send it as `group_id`.
+        name:
+          type: string
+        description:
+          type: string
+        capacity:
+          type:
+          - integer
+          - 'null'
+          description: The most people one of its units takes; null — nobody counts.
+        units:
+          type: integer
+          description: How many units the group has.
+      required:
+      - capacity
+      - description
+      - id
+      - name
+      - units
+    PublicStayMove:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date
+          description: The new arrival day or first day.
+        end_date:
+          type: string
+          format: date
+          description: The new departure day or last day.
+        quote_digest:
+          type: string
+          description: 'The `digest` of the quote the customer was shown. Required
+            as soon as the stay has a price: without it, or when the price is another
+            one by now, the answer is 409 `quote_changed` with the quote to show in
+            `detail.quote`, and nothing is saved.'
+          maxLength: 64
+      required:
+      - end_date
+      - start_date
+    PublicStayMovePreview:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date
+          description: The new arrival day or first day.
+        end_date:
+          type: string
+          format: date
+          description: The new departure day or last day.
+      required:
+      - end_date
+      - start_date
+    PublicStayOffer:
+      type: object
+      description: 'An offer booked from–to on the form: nights or days.'
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        range_unit:
+          type: string
+          description: '`night` — booked from the arrival day to the departure day;
+            `day` — from the first day to the last, both included.'
+        range_start_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: Check-in or pickup, the company's wall clock.
+        range_end_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: Check-out or return, the company's wall clock.
+        confirmation:
+          allOf:
+          - $ref: '#/components/schemas/ConfirmationEnum'
+          description: |-
+            `on_request` — a booking waits for the company's answer (`pending_request`) before it is confirmed.
+
+            * `instant` - Od razu
+            * `on_request` - Na prośbę
+        response_hours:
+          type: integer
+          description: 'With `on_request`: how many hours the company has to answer.'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicStayGroup'
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicStayUnit'
+      required:
+      - confirmation
+      - groups
+      - id
+      - name
+      - public_slug
+      - range_end_local
+      - range_start_local
+      - range_unit
+      - response_hours
+      - units
+    PublicStayPlan:
+      type: object
+      description: A stay that can be booked as asked, as the customer reads it.
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+          description: When the stay begins (check-in, pickup).
+        ends_at:
+          type: string
+          format: date-time
+          description: When it ends (check-out, return).
+        length:
+          type: integer
+          description: Nights or days.
+        range_unit:
+          type: string
+          description: '`night` or `day`.'
+        quote:
+          oneOf:
+          - $ref: '#/components/schemas/PublicQuote'
+          - type: 'null'
+          description: Null — the stay has no price to show.
+      required:
+      - ends_at
+      - length
+      - quote
+      - range_unit
+      - starts_at
+    PublicStayQuoteInput:
+      type: object
+      description: The stay a customer is about to book, to be checked and priced.
+      properties:
+        service_id:
+          type: string
+          format: uuid
+          description: An offer from `stays` of the form's catalogue.
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Any free unit of this group — the server picks the least busy
+            one that takes the people who come.
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: This very unit. With neither, any unit the offer lists.
+        start_date:
+          type: string
+          format: date
+          description: Arrival day (nights) or first day (days).
+        end_date:
+          type: string
+          format: date
+          description: Departure day (nights) or last day, included (days).
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+          description: Who comes; omitted — one standard person. The price and a unit's
+            capacity count them.
+          maxItems: 20
+        extras:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtraPick'
+          description: The optional extras picked, each with how many (1 when omitted).
+            The offer's mandatory extras are always charged.
+          maxItems: 20
+        locale:
+          type: string
+          description: The customer's language, for the lines' names; one the company
+            does not have is answered in its own.
+          maxLength: 10
+      required:
+      - end_date
+      - service_id
+      - start_date
+    PublicStayUnit:
+      type: object
+      description: 'A unit an offer lists by itself: the guest books this very one.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Send it as `resource_id`.
+        name:
+          type: string
+        description:
+          type: string
+        capacity:
+          type:
+          - integer
+          - 'null'
+          description: How many people it takes; null — nobody counts.
+      required:
+      - capacity
+      - description
+      - id
+      - name
     PublicationAuthor:
       type: object
       properties:

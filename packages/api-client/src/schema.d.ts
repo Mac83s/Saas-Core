@@ -1045,7 +1045,7 @@ export interface paths {
         };
         /**
          * What a company's booking form offers
-         * @description The places, services and units a visitor can book, and the teams and people the form lets them choose. With `locale` (a language of the company) names come in that language where the company translated them, otherwise in its own; `locale` in the answer is the language asked for when the company has it.
+         * @description The places, services and units a visitor can book, and the teams and people the form lets them choose. `services` are visits booked at a time; `stays` are the offers booked from–to (nights, days), each with the groups and units a guest chooses between, booked through `…/stays/`. With `locale` (a language of the company) names come in that language where the company translated them, otherwise in its own; `locale` in the answer is the language asked for when the company has it.
          */
         get: operations["public_booking_catalog"];
         put?: never;
@@ -1145,6 +1145,86 @@ export interface paths {
          *     so the backend and frontend of this change deploy together.
          */
         get: operations["api_v1_booking_public_slots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/stays/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a stay or a rental from a company's booking form
+         * @description Books an offer from `stays` from–to on the unit named, or on the least busy free unit of the group named that takes the people who come. The price is worked out and frozen in the booking (`quote`); a stay with a price needs the `quote_digest` of the quote shown (`POST …/stays/quote/`): without it, or with another price by now, the answer is 409 `quote_changed` with the quote in `detail.quote`. Refusals as in the quote; a paused form is 409 `booking_paused`, an arrival past `online.period_last_day` 409 `beyond_booking_horizon`. The company's documents in force in the booking's language (`GET …/consents/`) must be named in `consents.documents` (409 `documents_changed` otherwise). An offer that asks for money first answers `pending_payment` with the transfer's details in `payment`; one taken on request `pending_request`. The same Idempotency-Key answers the first booking again (200).
+         */
+        post: operations["public_booking_stay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/stays/ends/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the days a stay beginning on a day can end on
+         * @description Departure days (nights) or last days (days) a stay from `start` can have on a free unit, the season of the arrival day applied. An offer that is not on the form is 404.
+         */
+        get: operations["public_booking_stay_ends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/stays/quote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a stay from the booking form and work out what it would cost
+         * @description Plans the stay exactly as a booking would — a broken season rule is 400 with its code (`rule_min_length`, `rule_start_weekday`, `closed_day`…), more people than a unit takes 400 `unit_capacity_exceeded`, taken dates 409 `slot_unavailable` — and answers its instants, its length and its price as the customer reads it: gross, the lines in their language, the deposit, how they pay and what giving it up gives back. Nothing is saved or held. Send `quote.digest` back as `quote_digest` when booking.
+         */
+        post: operations["public_booking_stay_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/stays/starts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the days a stay booked on the form can begin on
+         * @description Days in the window on which a unit is free for the shortest stay the season allows from that day — closed days, the season's rules and its window ahead applied (ADR-072 §5). One search spans at most 92 days and never goes past `online.period_last_day`. An offer that is not on the form is 404.
+         */
+        get: operations["public_booking_stay_starts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1297,6 +1377,46 @@ export interface paths {
          * @description The customer moves the visit their link names, within what the booking allows (409 `appointment_not_changeable` otherwise). A taken time is 409 `slot_unavailable`; a visit that has a price is priced again for the new time. An unknown, expired or revoked link is 404.
          */
         post: operations["booking_self_service_reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/self-service/{token}/stay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move one's own stay to other dates
+         * @description The customer moves the stay their link names, within what the booking allows (409 `appointment_not_changeable` otherwise): it keeps its unit when that is free then, otherwise takes another free one of the group it was booked in. The stay is priced again for the same people; one with a price needs the `quote_digest` of the quote shown (`POST …/stay/preview/`), 409 `quote_changed` otherwise. Rules and taken dates as for a booking. An unknown, expired or revoked link is 404.
+         */
+        post: operations["booking_self_service_stay_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/self-service/{token}/stay/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a move of one's own stay without making it
+         * @description Answers what `booking_self_service_stay_move` would — the stay's new instants, length and price as the customer reads it — or the same 400, 404 and 409. Nothing is saved.
+         */
+        post: operations["booking_self_service_stay_move_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14949,6 +15069,12 @@ export interface components {
             timezone: string;
             service_name: string;
             location_name: string;
+            /** @description `range` — a stay or a rental, told by its days and moved by its dates (`…/stay/`); `slot` — a visit at a time. */
+            time_model?: string;
+            /** @description With `range`: `night` — `ends_at` is the departure day's check-out; `day` — `ends_at` is on the last day. Empty for a visit. */
+            range_unit?: string;
+            /** @description The unit of a stay (a cottage, a car), in the customer's language where translated; null for a visit. */
+            unit_name?: string | null;
             /** @description `pending_request`: the booking waits for the company's answer until `hold_expires_at`; `pending_payment`: it waits for the payment in `payment` until `hold_expires_at`; either then expires. Otherwise `confirmed`, `completed`, `canceled` or `no_show`. */
             status: string;
             /** Format: date-time */
@@ -15030,6 +15156,10 @@ export interface components {
             resources: components["schemas"]["Resource"][];
             teams: components["schemas"]["PublicName"][];
             people: components["schemas"]["PublicName"][];
+            /** @description The offers booked from–to (nights, days) the company takes on its form, each with what a guest chooses between; booked through `…/stays/`. An offer with nothing to book online is not listed. */
+            stays?: components["schemas"]["PublicStayOffer"][];
+            /** @description Who may come to a stay besides standard people; empty when the form has no stays. */
+            participant_categories?: components["schemas"]["PublicParticipantCategory"][];
             /** @description What the services add to their price. */
             extras?: components["schemas"]["PublicExtra"][];
             /** @description The currency of the company's prices, ISO 4217. */
@@ -15230,9 +15360,14 @@ export interface components {
             horizon_days: number;
             /**
              * Format: date
-             * @description The last day a customer may book online.
+             * @description The last day a customer may book a visit online.
              */
             last_day: string;
+            /**
+             * Format: date
+             * @description The last day a stay booked online may begin: the platform's bound of a period calendar. A season's own window ahead may end earlier (`rule_window`); `horizon_days` is about visits and does not limit stays.
+             */
+            period_last_day?: string;
             /**
              * @description What the form requires of the customer (booking.online.contact).
              *
@@ -15242,6 +15377,18 @@ export interface components {
              *     * `email_and_phone` - email_and_phone
              */
             contact: components["schemas"]["ContactA7eEnum"];
+        };
+        /** @description Who may come besides standard people („Dziecko”, „Pies”). */
+        PublicParticipantCategory: {
+            /**
+             * Format: uuid
+             * @description Send it as `participants[].category_id`.
+             */
+            id: string;
+            /** @description In the language asked for, where translated. */
+            name: string;
+            /** @description Whether one of them takes a place in a unit's capacity. */
+            counts_towards_capacity: boolean;
         };
         PublicPlan: {
             key: string;
@@ -15425,6 +15572,185 @@ export interface components {
          * @enum {string}
          */
         PublicStaffChoiceEnum: "none" | "team" | "person";
+        /**
+         * @description The customer names the offer, what they book of it, the dates and who
+         *     comes; which unit of a group it is, is the server's pick (ADR-072 §3).
+         */
+        PublicStayCreate: {
+            /**
+             * Format: uuid
+             * @description An offer from `stays` of the form's catalogue.
+             */
+            service_id: string;
+            /**
+             * Format: uuid
+             * @description Any free unit of this group — the server picks the least busy one that takes the people who come.
+             */
+            group_id?: string | null;
+            /**
+             * Format: uuid
+             * @description This very unit. With neither, any unit the offer lists.
+             */
+            resource_id?: string | null;
+            /**
+             * Format: date
+             * @description Arrival day (nights) or first day (days).
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description Departure day (nights) or last day, included (days).
+             */
+            end_date: string;
+            /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
+            participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
+            customer: components["schemas"]["CustomerInput"];
+            customer_notes?: string;
+            /** @description The `digest` of the quote the customer was shown. Required as soon as the stay has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
+            quote_digest?: string;
+            /** @description The company's documents the customer accepted; required as soon as the company has one in force in the booking's language. */
+            consents?: components["schemas"]["PublicConsentsInput"];
+        };
+        /**
+         * @description A group of identical units: the guest books the group, the server picks
+         *     the unit (ADR-072 §3).
+         */
+        PublicStayGroup: {
+            /**
+             * Format: uuid
+             * @description Send it as `group_id`.
+             */
+            id: string;
+            name: string;
+            description: string;
+            /** @description The most people one of its units takes; null — nobody counts. */
+            capacity: number | null;
+            /** @description How many units the group has. */
+            units: number;
+        };
+        PublicStayMove: {
+            /**
+             * Format: date
+             * @description The new arrival day or first day.
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description The new departure day or last day.
+             */
+            end_date: string;
+            /** @description The `digest` of the quote the customer was shown. Required as soon as the stay has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
+            quote_digest?: string;
+        };
+        PublicStayMovePreview: {
+            /**
+             * Format: date
+             * @description The new arrival day or first day.
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description The new departure day or last day.
+             */
+            end_date: string;
+        };
+        /** @description An offer booked from–to on the form: nights or days. */
+        PublicStayOffer: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            /** @description `night` — booked from the arrival day to the departure day; `day` — from the first day to the last, both included. */
+            range_unit: string;
+            /**
+             * Format: time
+             * @description Check-in or pickup, the company's wall clock.
+             */
+            range_start_local: string | null;
+            /**
+             * Format: time
+             * @description Check-out or return, the company's wall clock.
+             */
+            range_end_local: string | null;
+            /**
+             * @description `on_request` — a booking waits for the company's answer (`pending_request`) before it is confirmed.
+             *
+             *     * `instant` - Od razu
+             *     * `on_request` - Na prośbę
+             */
+            confirmation: components["schemas"]["ConfirmationEnum"];
+            /** @description With `on_request`: how many hours the company has to answer. */
+            response_hours: number;
+            groups: components["schemas"]["PublicStayGroup"][];
+            units: components["schemas"]["PublicStayUnit"][];
+        };
+        /** @description A stay that can be booked as asked, as the customer reads it. */
+        PublicStayPlan: {
+            /**
+             * Format: date-time
+             * @description When the stay begins (check-in, pickup).
+             */
+            starts_at: string;
+            /**
+             * Format: date-time
+             * @description When it ends (check-out, return).
+             */
+            ends_at: string;
+            /** @description Nights or days. */
+            length: number;
+            /** @description `night` or `day`. */
+            range_unit: string;
+            /** @description Null — the stay has no price to show. */
+            quote: components["schemas"]["PublicQuote"] | null;
+        };
+        /** @description The stay a customer is about to book, to be checked and priced. */
+        PublicStayQuoteInput: {
+            /**
+             * Format: uuid
+             * @description An offer from `stays` of the form's catalogue.
+             */
+            service_id: string;
+            /**
+             * Format: uuid
+             * @description Any free unit of this group — the server picks the least busy one that takes the people who come.
+             */
+            group_id?: string | null;
+            /**
+             * Format: uuid
+             * @description This very unit. With neither, any unit the offer lists.
+             */
+            resource_id?: string | null;
+            /**
+             * Format: date
+             * @description Arrival day (nights) or first day (days).
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description Departure day (nights) or last day, included (days).
+             */
+            end_date: string;
+            /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
+            participants?: components["schemas"]["ParticipantInput"][];
+            /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
+            extras?: components["schemas"]["ExtraPick"][];
+            /** @description The customer's language, for the lines' names; one the company does not have is answered in its own. */
+            locale?: string;
+        };
+        /** @description A unit an offer lists by itself: the guest books this very one. */
+        PublicStayUnit: {
+            /**
+             * Format: uuid
+             * @description Send it as `resource_id`.
+             */
+            id: string;
+            name: string;
+            description: string;
+            /** @description How many people it takes; null — nobody counts. */
+            capacity: number | null;
+        };
         PublicationAuthor: {
             /** Format: uuid */
             id: string;
@@ -21070,6 +21396,207 @@ export interface operations {
             };
         };
     };
+    public_booking_stay_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicStayCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicStayCreate"];
+                "multipart/form-data": components["schemas"]["PublicStayCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    public_booking_stay_ends: {
+        parameters: {
+            query: {
+                /** @description Any unit of this group of the offer (`stays[].groups`). */
+                group_id?: string;
+                /** @description Only this unit of the offer (`stays[].units`). With neither, any unit the offer lists. */
+                resource_id?: string;
+                service_id: string;
+                start: string;
+            };
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    public_booking_stay_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicStayQuoteInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicStayQuoteInput"];
+                "multipart/form-data": components["schemas"]["PublicStayQuoteInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStayPlan"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    public_booking_stay_starts: {
+        parameters: {
+            query: {
+                from: string;
+                /** @description Any unit of this group of the offer (`stays[].groups`). */
+                group_id?: string;
+                /** @description Only this unit of the offer (`stays[].units`). With neither, any unit the offer lists. */
+                resource_id?: string;
+                service_id: string;
+                to: string;
+            };
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_booking_public_times_retrieve: {
         parameters: {
             query: {
@@ -21330,6 +21857,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_self_service_stay_move: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicStayMove"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicStayMove"];
+                "multipart/form-data": components["schemas"]["PublicStayMove"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_self_service_stay_move_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicStayMovePreview"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicStayMovePreview"];
+                "multipart/form-data": components["schemas"]["PublicStayMovePreview"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStayPlan"];
                 };
             };
             400: {
