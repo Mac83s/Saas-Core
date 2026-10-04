@@ -12,6 +12,11 @@ poleceń rejestru dostępnych asystentowi. Cel wywołań to `eval`: płaci budż
 wdrożenia, żadna firma, żadne dane klientów. Narzędzia nie są wykonywane: odczyt
 odpowiada danymi scenariusza, zapis jego wynikiem (wykonano, bez zgody, odmowa).
 
+Od 04.10 rozmowa dostaje narzędzia obszarów, których dotyka, a nie cały rejestr, i
+prompt `assistant.operate@3`; runner robi to samo. **Liczby tej sekcji są sprzed tej
+zmiany** (prompt `@1`, wszystkie narzędzia naraz) — bateria zwykłej rozmowy nie była
+po niej powtarzana (niżej: „Słowa serwera, dobór narzędzi i koszt rozmowy”).
+
 Ocena jest deterministyczna (`evals/runner.py::grade`):
 
 - czy model wywołał właściwe polecenie z właściwymi argumentami (zmiana nazwy,
@@ -87,7 +92,7 @@ dostanie wybór narzędzi.
 
 Decyzja właściciela: _czeka_.
 
-## Rozmowa zakładająca firmę (A3-2, 03.10.2026; od 04.10 prompt `assistant.setup@3`)
+## Rozmowa zakładająca firmę (A3-2, 03.10.2026; od 04.10 prompt `assistant.setup@4`)
 
 `python manage.py assistant_eval --kind setup --model <model> --max-usd <limit>`
 przepuszcza 20 scenariuszy (18 po polsku, 2 po angielsku) przez prompt rozmowy
@@ -129,10 +134,12 @@ Ocena (`evals/setup_runner.py::grade_setup`):
 
 | Model | Prompt | Scenariusze | Koszt wiadomości | Czas wywołania p50 / p95 | Argumenty poza schematem |
 | --- | --- | --- | --- | --- | --- |
+| `anthropic/claude-sonnet-5.5` | `assistant.setup@4` | 20 / 20 | USD 0,016 | 1,5 s / 3,0 s | 0 |
 | `anthropic/claude-sonnet-5.5` | `assistant.setup@3` | 17 / 20 | USD 0,012 | 1,4 s / 2,6 s | 0 |
 | `anthropic/claude-haiku-4.5` | `assistant.setup@1` | 9 / 13 | USD 0,008 | 1,6 s / 2,3 s | 0 |
 
-Sonnet: jeden przebieg 04.10 (23:53 UTC 03.10) na prompcie `@3` i 20 scenariuszach —
+Wiersz `@4` opisuje ostatnia sekcja tej strony. Wiersz `@3` — Sonnet: jeden przebieg
+04.10 (23:53 UTC 03.10) na prompcie `@3` i 20 scenariuszach —
 17 dotychczasowych i trzy nowe (sezon, rodzaj zapowiedziany, cofnięcie); 61 wywołań
 modelu, USD 0,2425 z limitu USD 0,50 tego przebiegu. Poszedł na lokalnym stosie :8080
 po przebudowie z `main` `9a58c087` (`manage.py assistant_eval --kind setup` w
@@ -164,7 +171,8 @@ Na prompcie `@1` Sonnet miał 13 / 14 (USD 0,010 na wiadomość, p95 3,0 s). Hai
 przebieg wcześniejszy o cztery reguły promptu i cztery scenariusze — nie
 powtarzany, bo zostaje modelem zapasowym.
 
-Raporty: `anthropic_claude-sonnet-5.5-setup-20261003.json`,
+Raporty: `anthropic_claude-sonnet-5.5-setup-20261004.json` (`@4`),
+`anthropic_claude-sonnet-5.5-setup-20261003.json` (`@3`),
 `anthropic_claude-haiku-4.5-setup-20261003.json`.
 
 Co stoi za liczbami:
@@ -205,9 +213,10 @@ Co stoi za liczbami:
   ponosi platforma: przy 150 wiadomościach na firmę to ok. USD 1,50.
 - Zastrzeżenia jak wyżej: jeden przebieg na model, mała próba, ocena słów regułowa.
 
-Wydatek na evale rozmowy zakładającej: **USD 1,32** z limitu USD 3,00 (pytanie
+Wydatek na evale rozmowy zakładającej: **USD 1,63** z limitu USD 3,00 (pytanie
 73 a) — sześć przebiegów A3-2 za USD 0,88, liczone jak wyżej, z jednorazowych baz,
-jeden przebieg na prompcie `@2` za USD 0,20 i jeden na `@3` za USD 0,24.
+jeden przebieg na prompcie `@2` za USD 0,20, jeden na `@3` za USD 0,24 i jeden na
+`@4` za USD 0,31.
 
 Koszt zwykłej rozmowy zmierzony przy okazji (04.10, przejście w przeglądarce na
 :8080, telemetria `model_port_usageentry`): dwie świeże rozmowy po cztery wiadomości
@@ -215,6 +224,105 @@ z odczytem i zmianą ceny kosztowały USD 0,30 i USD 0,20, czyli **5–7 centów
 wiadomość** — przy 69 poleceniach w rejestrze i zimnym cache na początku każdej
 rozmowy. Liczba z tabeli A3-1 (USD 0,012 przy 46 poleceniach i ciepłym cache) już
 tego nie opisuje; dobór narzędzi do rozmowy, odłożony „do pomiaru”, ma teraz pomiar.
+(Ten sam pomiar po zmianach z 04.10: niżej.)
 
 Rekomendacja bez zmian: **Claude Sonnet 5.5** dla obu rodzajów rozmowy — to jedno
 zadanie portu (`assistant.conversation`), więc i jeden model.
+
+
+## Słowa serwera, dobór narzędzi i koszt rozmowy (pakiet L3, 04.10.2026)
+
+ADR-076, uzupełnienie „słowa serwera, dobór narzędzi i koszt rozmowy”. Kod: Saas-Core
+`main` `b07d3037`, `8e3f168b`, `0763d841`.
+
+### Czego ten pomiar nie obejmuje — najpierw
+
+- **Bateria zwykłej rozmowy nie była powtarzana.** Zmienił się jej prompt
+  (`assistant.operate@3`) i zestaw narzędzi (obszary zamiast całego rejestru), a
+  ADR-076 każe po takiej zmianie mierzyć od nowa. Zgoda była na jeden płatny przebieg
+  i poszedł on na rozmowę ustawiającą. O zwykłej rozmowie mówią dziś testy runnera na
+  atrapie modelu i dwa przejścia w przeglądarce (niżej) — nie 20 scenariuszy.
+- **Sama reguła promptu nadal nie wystarcza na formy z rodzajem.** W przebiegu `@4`
+  model znowu napisał taką formę w obu scenariuszach, które nie przeszły na `@3`
+  (`declined_pl`, `pasted_instructions_pl`) — widać to po liczbie wywołań (o jedno
+  więcej niż narzędzia i odpowiedź). Odpowiedzi poprawiła kontrola serwera, która
+  odsyła je raz do przepisania. Raport tego przebiegu nie liczy jeszcze przepisań;
+  od `8e3f168b` robi to pole `rewritten`.
+- **Wzorzec form z rodzajem był dziurawy.** Przebieg `@4` oceniał wzorzec z listą
+  rdzeni czasowników; przejście w przeglądarce pokazało potem „Tej nie zmieniałem”,
+  którego ta lista nie znała. Wzorzec jest od `8e3f168b` szerszy (każdy czasownik,
+  „będę sprawdzał”, „powinienem”). 20 odpowiedzi końcowych tego przebiegu ocenione
+  nim jeszcze raz, bez wywołań modelu: nadal 20 / 20 — ale kontrola w samym przebiegu
+  działała na starym wzorcu.
+- **Koszt wiadomości w tej baterii wzrósł** z USD 0,012 do USD 0,016 (67 wywołań
+  zamiast 61). Składają się na to dwa przepisania, znacznik cache na końcu transkryptu
+  (zapis do cache kosztuje 1,25 ceny, a rozmowa z jedną wiadomością nie zdąży tego
+  odzyskać) i nietrafienia cache dostawcy: w obu przebiegach około 28% tokenów
+  wejścia poszło poza cache, także w wywołaniach o identycznym początku — po stronie
+  dostawcy, poza naszym wpływem. W rozmowie z kilkoma wiadomościami znacznik się
+  zwraca (niżej: rozmowa ustawiająca z przeglądarki, 2 centy za wiadomość przy
+  transkrypcie 15–21 tys. tokenów).
+
+### Rozmowa ustawiająca na `assistant.setup@4`
+
+Jeden przebieg, 04.10 00:57 UTC, na stosie :8080 zbudowanym z `b07d3037`
+(`manage.py assistant_eval --kind setup` w kontenerze backendu): **20 / 20**, 67
+wywołań modelu, USD 0,3122 z limitu USD 0,40, USD 0,016 na wiadomość, p50 1,5 s, p95
+3,0 s, argumenty poza schematem 0. Raport: `anthropic_claude-sonnet-5.5-setup-20261004.json`.
+
+- `undo_pl` przeszedł. Sprawdzenie „osoba przeczytała, że tego nie da się cofnąć”
+  czyta teraz wszystko, co osoba widzi w rozmowie: słowa modelu i zdanie serwera obok
+  planu („Zanim się zgodzisz: tego kroku nie da się cofnąć…”). Zdanie pisze serwer,
+  więc ta część nie zależy już od modelu — pilnują jej testy, nie eval. Od modelu
+  zależy reszta scenariusza i ta przeszła: usługa zniknęła z notatek, plan został
+  zaproponowany, a po odmowie model napisał „Plan został odrzucony, więc nic się nie
+  zmieniło. Wersja robocza usługi „Domki” nadal jest w koncie.”
+- `declined_pl` i `pasted_instructions_pl` przeszły — po jednym przepisaniu każda
+  (wyżej).
+- Pozostałe 17 scenariuszy jak na `@2`.
+
+### Koszt zwykłej rozmowy — przed i po
+
+Telemetria stosu :8080 (`model_port_usageentry`, koszt podany przez dostawcę), ta sama
+rozmowa z czterech wiadomości w prawdziwej przeglądarce: odczyt ceny, zmiana ceny
+oferty wyłączonej, zmiana ceny oferty włączonej, przywrócenie. Skrypt i logi:
+`~/DEVELOPMENT/.local-dev/resume/package-l3/` (`proof.mjs`, `cost-before.log`,
+`cost-after-final.log`).
+
+| | Przed (03.10, `@1`, 69 definicji narzędzi) | Po (04.10, `@3`, `0763d841`) |
+| --- | --- | --- |
+| Cała rozmowa, 4 wiadomości | USD 0,297 (zimny cache) i USD 0,203 (ciepły) | USD 0,070 |
+| Na wiadomość | 7,4 i 5,1 centa | 1,7 centa |
+| Odczyt ceny jako pierwsza wiadomość | USD 0,098 (zimny), USD 0,035 (ciepły) | USD 0,014 |
+| Tokeny wejścia pierwszego wywołania | 27 740 | 2 257 |
+| Wynik odczytu w transkrypcie | cennik i całe ustawienie firmy, ok. 10 700 tokenów | sam cennik, ok. 2 500 |
+
+Drugi zwykły odczyt, w osobnej rozmowie („Jak nazywa się moja firma i w jakiej
+walucie prowadzi cennik?”): USD 0,016, dwa wywołania, oba bez trafienia w cache.
+Cel „najwyżej 2 centy za zwykły odczyt” jest spełniony w obu; odczyt ceny z
+nietrafionym cache w drugim wywołaniu kosztowałby ok. USD 0,019.
+
+Skąd różnica:
+
+- **Narzędzia według tematu.** Pytanie o cenę niesie `more_tools` i odczyt cennika
+  zamiast 69 definicji; polecenia zmieniające dochodzą przy „zmień…”.
+- **Transkrypt w cache.** Przedtem każde wywołanie po pierwszym odczycie płaciło
+  pełną cenę za wyniki narzędzi (ok. 2 centy za samo ich powtórzenie); teraz czyta je
+  z cache.
+- **Odczyt cennika wystarcza.** Nazywa usługi swoich cen i mówi, które są wyłączone,
+  więc model nie czyta całego ustawienia firmy; wyniki idą bez pól `null`.
+- **Co nadal kosztuje:** dołożenie narzędzi w trakcie rozmowy zapisuje cały jej cache
+  od nowa (wiadomość „zmień cenę” kosztowała USD 0,030, z czego USD 0,025 to to jedno
+  wywołanie), a dostawca czasem nie trafia w cache zapisany sekundę wcześniej.
+
+Rozmowa ustawiająca z przeglądarki (cztery wiadomości, cofnięcie szkicu z odmową i
+zgodą): USD 0,082 i USD 0,109 — ok. 2 centy za wiadomość.
+
+### Dowody liczone osobno
+
+Przejścia w przeglądarce szły z konta `dowody-asystenta@saas.test`
+(`ASSISTANT_PROOF_ACCOUNTS` na lokalnym stosie): 54 wywołania za USD 0,54 zapisane z
+celem `eval`, w dniu konta `wlasciciel@saas.test` — USD 0,00. Razem tego dnia z celem
+`eval`: przebieg evalu USD 0,31, przejścia USD 0,54 i próba cache dostawcy USD 0,04
+(trzy wywołania, przed zmianą: czy znacznik na wyniku narzędzia trafia do cache —
+trafia).
