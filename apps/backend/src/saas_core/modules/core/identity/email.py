@@ -20,7 +20,8 @@ class VerificationEmailSender(Protocol):
 class DjangoVerificationEmailSender:
     def send(self, *, email: str, locale: str, token: str) -> None:
         link = (
-            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/verify-email?{urlencode({'token': token})}"
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/verify-email?"
+            f"{urlencode({'token': token})}"
         )
         if locale == "en":
             subject = "Verify your email address"
@@ -38,7 +39,8 @@ class PasswordResetEmailSender(Protocol):
 class DjangoPasswordResetEmailSender:
     def send(self, *, email: str, locale: str, token: str) -> None:
         link = (
-            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?{urlencode({'token': token})}"
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?"
+            f"{urlencode({'token': token})}"
         )
         if locale == "en":
             subject = "Reset your password"
