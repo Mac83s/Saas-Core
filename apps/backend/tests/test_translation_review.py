@@ -559,3 +559,70 @@ def test_a_version_decided_in_the_pages_editor_leaves_nothing_in_the_queue() -> 
     item.refresh_from_db()
     assert item.state == ReviewState.SUPERSEDED
 
+
+def test_the_clean_up_closes_what_an_editors_decision_left_in_the_queue() -> None:
+    """`sites_close_decided_reviews`: items whose page has nothing waiting any
+    more (decided in the editor before it told the queue) are closed the way
+    the editor closes them now; the dry run only says so, a repeat finds
+    nothing, and what still waits — or was never a text to accept — stays."""
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    from test_site_language_decisions import _published_site, _waiting
+
+    _client, organization, _site, home, offer, _host = _published_site("q-review-clean-up")
+
+    def queued(page: Any, reason: str = "review_mode", locale: str = "en") -> TranslationReviewItem:
+        return TranslationReviewItem.all_objects.create(
+            organization_id=organization.id,
+            source_key="sites.page",
+            object_id=page,
+            locale=locale,
+            basis="published",
+            basis_version="v1",
+            reason=reason,
+        )
+
+    def run(*arguments: str) -> str:
+        out = StringIO()
+        call_command("sites_close_decided_reviews", *arguments, stdout=out)
+        return out.getvalue()
+
+    _waiting(offer)
+    still_waits = queued(offer)
+    orphan = queued(home)
+    # Whether the original should come down too is another question.
+    withdrawal = queued(home, "source_withdrawn")
+    # Never a text to accept, in a language with nothing else open: not the editor's.
+    refused = queued(home, "gate_failed", locale="de")
+    card = TranslationReviewItem.all_objects.create(
+        organization_id=organization.id,
+        source_key="profiles.public_profile",
+        object_id=uuid4(),
+        locale="en",
+        basis="published",
+        basis_version="v1",
+        reason="review_mode",
+        texts={"headline": ["x", {}]},
+    )
+
+    def states() -> list[str]:
+        rows = [still_waits, orphan, withdrawal, refused, card]
+        for row in rows:
+            row.refresh_from_db()
+        return [row.state for row in rows]
+
+    looked = run("--dry-run")
+    assert f"{organization.id}\t{home}\ten" in looked and "Do zamknięcia: 1" in looked
+    assert states() == [ReviewState.OPEN] * 5
+
+    assert "Zamknięto: 1" in run()
+    assert states() == [
+        ReviewState.OPEN,
+        ReviewState.SUPERSEDED,
+        ReviewState.OPEN,
+        ReviewState.OPEN,
+        ReviewState.OPEN,
+    ]
+    assert "Zamknięto: 0" in run()
