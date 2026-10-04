@@ -398,11 +398,11 @@ def test_the_company_marks_the_refund_and_takes_a_mistake_back() -> None:
     # The customer is written to about each refund — the amount and how, never
     # the company's reason — and about each one taken back.
     marked = mail("commerce.refund_marked")
-    assert [(item.context["amount"], item.context["method"]) for item in marked] == [
+    assert [(item.context["refund"], item.context["method"]) for item in marked] == [
         ("22,50 PLN", "przelewem"),
         ("10,00 PLN", "na miejscu"),
     ]
-    assert [item.context["amount"] for item in mail("commerce.refund_withdrawn")] == [
+    assert [item.context["refund"] for item in mail("commerce.refund_withdrawn")] == [
         "10,00 PLN",
         "22,50 PLN",
     ]

@@ -3516,6 +3516,7 @@
       "link_label": "Nazwa odnośnika",
       "paid": "Wpłacona kwota",
       "refund": "Kwota do zwrotu",
+      "method": "Sposób zwrotu",
       "reason": "Powód podany przez firmę"
     },
     "previewTitle": "Podgląd",

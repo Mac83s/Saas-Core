@@ -54,7 +54,7 @@ _REFUND_METHOD = {
     # At the desk: cash or the company's own card terminal.
     PaymentMethod.CASH.value: {"pl": "na miejscu", "en": "at the desk", "de": "vor Ort"},
 }
-_REFUND_CONTEXT = frozenset({"number", "organization_name", "subject", "amount", "method"})
+_REFUND_CONTEXT = frozenset({"number", "organization_name", "subject", "refund", "method"})
 
 _BALANCE_CONTEXT = frozenset({
     "number",
@@ -325,26 +325,26 @@ _TEMPLATES = (
         category="required",
         audience=AUDIENCE_CUSTOMER,
         subjects={
-            "pl": "Zamówienie {number} — zwrot {amount}",
-            "en": "Order {number} — refund of {amount}",
-            "de": "Bestellung {number} — Erstattung von {amount}",
+            "pl": "Zamówienie {number} — zwrot {refund}",
+            "en": "Order {number} — refund of {refund}",
+            "de": "Bestellung {number} — Erstattung von {refund}",
         },
         bodies={
             "pl": (
                 "<p>{organization_name} przekazuje zwrot za zamówienie {number} "
                 "({subject}).</p>"
-                "<p>Kwota: {amount}<br>Sposób: {method}</p>"
+                "<p>Kwota: {refund}<br>Sposób: {method}</p>"
                 "<p>Na pytania o zwrot odpowiada {organization_name}.</p>"
             ),
             "en": (
                 "<p>{organization_name} is returning money for order {number} ({subject}).</p>"
-                "<p>Amount: {amount}<br>How: {method}</p>"
+                "<p>Amount: {refund}<br>How: {method}</p>"
                 "<p>{organization_name} answers any questions about the refund.</p>"
             ),
             "de": (
                 "<p>{organization_name} erstattet Geld für die Bestellung {number} "
                 "({subject}).</p>"
-                "<p>Betrag: {amount}<br>Art: {method}</p>"
+                "<p>Betrag: {refund}<br>Art: {method}</p>"
                 "<p>Fragen zur Erstattung beantwortet {organization_name}.</p>"
             ),
         },
@@ -362,21 +362,21 @@ _TEMPLATES = (
         },
         bodies={
             "pl": (
-                "<p>Wiadomość o zwrocie {amount} ({method}) za zamówienie {number} "
+                "<p>Wiadomość o zwrocie {refund} ({method}) za zamówienie {number} "
                 "({subject}) została wysłana przez pomyłkę: {organization_name} wycofuje "
                 "ten wpis.</p>"
                 "<p>Ten zwrot nie został przekazany. Na pytania odpowiada "
                 "{organization_name}.</p>"
             ),
             "en": (
-                "<p>The message about a refund of {amount} ({method}) for order {number} "
+                "<p>The message about a refund of {refund} ({method}) for order {number} "
                 "({subject}) was sent by mistake: {organization_name} has taken that entry "
                 "back.</p>"
                 "<p>That refund was not made. {organization_name} answers any "
                 "questions.</p>"
             ),
             "de": (
-                "<p>Die Nachricht über eine Erstattung von {amount} ({method}) für die "
+                "<p>Die Nachricht über eine Erstattung von {refund} ({method}) für die "
                 "Bestellung {number} ({subject}) wurde irrtümlich gesendet: "
                 "{organization_name} hat den Eintrag zurückgenommen.</p>"
                 "<p>Diese Erstattung wurde nicht geleistet. Fragen beantwortet "
@@ -510,7 +510,7 @@ def _refund_mail(order: Order, refund: Refund, template: str, step: str) -> None
             "number": order.number,
             "organization_name": order.organization.name,
             "subject": _subject(order),
-            "amount": money(refund.amount_minor, refund.currency, locale),
+            "refund": money(refund.amount_minor, refund.currency, locale),
             "method": words.get(locale) or words["en"],
         },
         # One per refund and step: a refund is marked once and taken back once.

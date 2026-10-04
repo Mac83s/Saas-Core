@@ -3516,6 +3516,7 @@
       "link_label": "The link's name",
       "paid": "Amount paid",
       "refund": "Amount to be refunded",
+      "method": "How the refund was made",
       "reason": "The company's reason"
     },
     "previewTitle": "Preview",
