@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Protocol
@@ -53,9 +53,24 @@ class SourceChangeNotice:
     at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class WaitingReview:
+    """A result a person can accept now, at the version a decision names."""
+
+    id: UUID
+    version: int
+    # The waiting text is kept by the engine alone (a live record): it is read
+    # in the review's own comparison before the decision.
+    comparable: bool = False
+
+
+#: (source key, object, language) → what waits there for a person's decision.
+type WaitingReviews = Mapping[tuple[str, UUID, str], WaitingReview]
+
 _sources: dict[str, TranslationSource] = {}
 _policy: list[TranslationPolicyProvider] = []
 _listeners: list[Callable[[SourceChangeNotice], None]] = []
+_review_readers: list[Callable[[ContentContext], WaitingReviews]] = []
 
 
 def register_translation_source(source: TranslationSource, *, _testing: bool = False) -> None:
@@ -161,6 +176,22 @@ def unregister_source_change_listener(listener: Callable[[SourceChangeNotice], N
 def source_change_listeners() -> tuple[Callable[[SourceChangeNotice], None], ...]:
     """For test helpers only: who hears a notice now (the engine, once installed)."""
     return tuple(_listeners)
+
+
+def register_review_reader(reader: Callable[[ContentContext], WaitingReviews]) -> None:
+    """The engine, once: how a module's own list learns what waits for a
+    person in the engine's review queue without importing the engine."""
+    if reader not in _review_readers:
+        _review_readers.append(reader)
+
+
+def waiting_reviews(context: ContentContext) -> dict[tuple[str, UUID, str], WaitingReview]:
+    """What this person can accept now, by (source key, object, language).
+    Empty without the engine, or when the queue is not this person's to read."""
+    found: dict[tuple[str, UUID, str], WaitingReview] = {}
+    for reader in _review_readers:
+        found.update(reader(context))
+    return found
 
 
 def notify_source_changed(

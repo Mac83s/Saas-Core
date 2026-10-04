@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from rest_framework.exceptions import PermissionDenied
@@ -399,3 +399,96 @@ def test_a_jobs_detail_names_its_items_and_says_whether_it_can_be_taken_back(
     stranger = authenticated_client(company("tl16d-stranger"))
     assert stranger.get(f"/api/v1/translation/jobs/{first.id}/").status_code == 404
     assert stranger.get("/api/v1/translation/jobs/").json()["items"] == []
+
+
+def test_the_translations_overview_names_what_can_be_accepted_in_a_cell() -> None:
+    """„Zaakceptuj” in a cell of „Strona internetowa → Tłumaczenia” (TL16g):
+    the overview is the site module's, the queue is the engine's — the cell
+    learns what waits through the registry, never by importing the engine."""
+    from saas_core.modules.core.organizations.context import context_from_membership
+    from saas_core.modules.core.organizations.models import Membership
+    from saas_core.modules.shared.sites.models import PageTranslation
+    from saas_core.modules.shared.translation.review import waiting_reviews
+    from test_site_language_decisions import _published_site, _waiting
+    from test_site_translation_overview_sources import _other, _site_with_footer
+
+    PAGE_KEY = "sites.page"  # noqa: N806
+    client, site = _site_with_footer("tl16g-cell-texts")
+
+    def waits(source_key: str, object_id: Any, reason: str = "review_mode") -> Any:
+        return TranslationReviewItem.all_objects.create(
+            organization_id=site.organization_id,
+            source_key=source_key,
+            object_id=object_id,
+            locale="en",
+            basis="published",
+            basis_version="v1",
+            reason=reason,
+            keys=2,
+        )
+
+    def texts_cell() -> dict[str, Any]:
+        [row] = [
+            item
+            for item in _other(client, site.id, locale="en")["items"]
+            if item["source_key"] == "sites.site_texts"
+        ]
+        return row["cells"][0]
+
+    # A result with no text to accept, and the question whether to take a
+    # translation down, are the queue's own: the cell stays as it reads.
+    waits("sites.site_texts", site.id, reason="qa_failed")
+    waits("sites.site_texts", site.id, reason="source_withdrawn")
+    assert (texts_cell()["state"], texts_cell()["review_id"]) == ("missing", None)
+
+    item = waits("sites.site_texts", site.id)
+    cell = texts_cell()
+    assert (
+        cell["state"],
+        cell["review_id"],
+        cell["review_version"],
+        cell["review_comparable"],
+    ) == ("pending", str(item.id), item.version, False)
+    # A live record's text waits in the queue alone: the cell says to read it there.
+    TranslationReviewItem.all_objects.filter(pk=item.pk).update(
+        texts={"footer/text": ["Welcome", {}]}
+    )
+    assert texts_cell()["review_comparable"] is True
+    waiting_rows = _other(client, site.id, locale="en", state="pending")["items"]
+    assert [row["source_key"] for row in waiting_rows] == ["sites.site_texts"]
+
+    # Decided: nothing waits in the cell any more.
+    TranslationReviewItem.all_objects.filter(pk=item.pk).update(state=ReviewState.ACCEPTED)
+    assert texts_cell()["review_id"] is None
+
+    # A page's waiting version names its item only while it still waits.
+    pages_client, organization, site_id, _home, offer, _host = _published_site("tl16g-cell-page")
+    review = TranslationReviewItem.all_objects.create(
+        organization_id=organization.id,
+        source_key=PAGE_KEY,
+        object_id=offer,
+        locale="en",
+        basis="published",
+        basis_version="v1",
+        reason="review_mode",
+    )
+
+    def offer_cell() -> dict[str, Any]:
+        rows = pages_client.get(f"/api/v1/sites/{site_id}/translations/").json()["items"]
+        [row] = [row for row in rows if row["id"] == offer]
+        return next(cell for cell in row["cells"] if cell["locale"] == "en")
+
+    assert (offer_cell()["state"], offer_cell()["review_id"]) == ("complete", None)
+    row = _waiting(offer)
+    assert (offer_cell()["state"], offer_cell()["review_id"]) == ("pending", str(review.id))
+    # Decided in the page's editor: the item is still open, the cell offers nothing.
+    PageTranslation.all_objects.filter(pk=row.pk).update(
+        body_current=row.body_pending_id, body_pending=None, pending_reason=""
+    )
+    assert offer_cell()["review_id"] is None
+
+    # A person who may not read the queue learns nothing of it from the overview.
+    _waiting(offer)
+    owner = context_from_membership(Membership.objects.get(organization=organization))
+    assert (PAGE_KEY, UUID(offer), "en") in waiting_reviews(owner)
+    assert waiting_reviews(replace(owner, permissions=frozenset())) == {}

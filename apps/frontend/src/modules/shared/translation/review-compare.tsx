@@ -42,8 +42,8 @@ export function ReviewCompareDialog({
   onDiscard,
   onGone,
 }: {
-  /** The list row being read; nothing while the dialog is closed. */
-  row: TranslationReviewItem | undefined;
+  /** The waiting item being read; nothing while the dialog is closed. */
+  row: Pick<TranslationReviewItem, "id" | "locale"> | undefined;
   name: string;
   reason: string;
   /** A decision is being saved. */
@@ -53,7 +53,8 @@ export function ReviewCompareDialog({
   onClose: () => void;
   /** The decision at the version this dialog read. */
   onAccept: (detail: TranslationReviewDetail) => void;
-  onDiscard: (detail: TranslationReviewDetail) => void;
+  /** Offered only where discarding has its own question to ask. */
+  onDiscard?: (detail: TranslationReviewDetail) => void;
   /** The item was decided or replaced meanwhile. */
   onGone: () => void;
 }) {
@@ -225,7 +226,7 @@ export function ReviewCompareDialog({
           >
             {fields("close")}
           </Button>
-          {detail ? (
+          {detail && onDiscard ? (
             <Button
               disabled={busy}
               onClick={() => onDiscard(detail)}

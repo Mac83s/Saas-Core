@@ -24,9 +24,10 @@ from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.content_protocol.policy import Trigger
 from saas_core.content_protocol.provenance import Provenance
-from saas_core.content_protocol.registry import translation_source
+from saas_core.content_protocol.registry import WaitingReview, translation_source
 from saas_core.content_protocol.sources import (
     LIST_LIMIT,
+    ContentContext,
     ObjectRef,
     ReviewItem,
     WriteBatch,
@@ -36,11 +37,12 @@ from saas_core.content_protocol.sources import (
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.authorization import authorize
+from saas_core.modules.core.organizations.command_registry import organization_modules
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.person_gate import assert_person_required
 
-from .demand import SOURCE_WITHDRAWN
+from .demand import MODULE_ID, SOURCE_WITHDRAWN
 from .jobs import get_job, job_payload
 from .models import (
     JOB_TERMINAL,
@@ -88,6 +90,27 @@ def _open_rows(reason: str | None) -> Any:
 def count_review(*, reason: str | None = None) -> int:
     """How many results wait for a person (for this reason, when one is given)."""
     return int(_open_rows(reason).count())
+
+
+def waiting_reviews(context: ContentContext) -> dict[tuple[str, UUID, str], WaitingReview]:
+    """The registry's review reader: what this person can accept now, for a
+    module's own list (the translations overview offers „Zaakceptuj” in the
+    cell). Nothing where the company's type has no engine or the person may
+    not read the queue; a result with no text to accept, and the question
+    whether to take a translation down, stay in the queue's own view."""
+    if MODULE_ID not in organization_modules(context.organization_id):
+        return {}
+    if not context.has_permission(TRANSLATION_REQUEST):
+        return {}
+    rows = TranslationReviewItem.all_objects.filter(
+        organization_id=context.organization_id, state=ReviewState.OPEN
+    ).exclude(reason__in=[*NOT_ACCEPTABLE, SOURCE_WITHDRAWN])
+    return {
+        (row.source_key, row.object_id, row.locale): WaitingReview(
+            row.id, row.version, comparable=bool(row.texts)
+        )
+        for row in rows.order_by("created_at", "id")
+    }
 
 
 def list_review(

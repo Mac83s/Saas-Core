@@ -6016,7 +6016,7 @@ export interface paths {
         };
         /**
          * Every page or article of a site against every other language
-         * @description Pages: missing, pending, outdated, untranslated or complete per language, with the untranslated count and whether the version is on the site (`on_site`). Articles: published, draft or missing per language. `source_id` is what a translation order names. Filter by language and state; paginated by cursor.
+         * @description Pages: missing, pending, outdated, untranslated or complete per language, with the untranslated count, whether the version is on the site (`on_site`) and where (`path`). Articles: published, draft or missing per language. `kind=other`: the site's own texts, the company's cards and its booking catalogue, one row per object, in the page's states. `source_key` and `source_id` are what a translation order names; `review_id` is a result waiting in the cell that can be accepted. Filter by language and state; paginated by cursor.
          */
         get: operations["sites_translation_overview"];
         put?: never;
@@ -16866,6 +16866,16 @@ export interface components {
             metadata_complete: boolean | null;
             /** @description Pages: the site's current publication carries this language's own text — a `complete` version that is not on the site waits for a publication. Null for an article, whose state says it. */
             on_site: boolean | null;
+            /** @description Where visitors read this language's version now, after the site's address: a page that is on the site, a published article. Null otherwise. */
+            path: string | null;
+            /**
+             * Format: uuid
+             * @description A result waiting in this cell that the person can accept: the item of the translation review to send, with `review_version`, to `translation_review_accept`. Null where nothing waits, the product has no translation engine or the queue is not this person's to read.
+             */
+            review_id: string | null;
+            review_version: number | null;
+            /** @description The waiting text is kept in the review queue alone (a card, the booking catalogue): read it with `translation_review_retrieve` before deciding. False where the source shows it itself (a page's language editor, the site's texts). */
+            review_comparable: boolean | null;
         };
         /**
          * @description * `missing` - missing
@@ -16882,12 +16892,14 @@ export interface components {
             kind: components["schemas"]["TranslationOverviewRowKindEnum"];
             /**
              * Format: uuid
-             * @description The page, or the article's translation group.
+             * @description The page, the article's translation group, or the source's object.
              */
             id: string;
+            /** @description The translation source the row belongs to: `sites.page`, `sites.entry`, or for `other` rows the source holding the object — `sites.site_texts` (the site's tagline, footer, blog and tag names), `profiles.public_profile` (a card), `booking.catalog` (services and what is booked). */
+            source_key: string;
             /**
              * Format: uuid
-             * @description What a translation order names (`translation_quote_create`): the page itself (`sites.page`), or the article's entry in the site's own language (`sites.entry`); null when the article has no entry in that language.
+             * @description What a translation order names (`translation_quote_create`) together with `source_key`: the page itself, the article's entry in the site's own language (null when the article has no entry in that language), or the source's object.
              */
             source_id: string | null;
             title: string;
@@ -16896,9 +16908,10 @@ export interface components {
         /**
          * @description * `page` - page
          *     * `entry` - entry
+         *     * `other` - other
          * @enum {string}
          */
-        TranslationOverviewRowKindEnum: "page" | "entry";
+        TranslationOverviewRowKindEnum: "page" | "entry" | "other";
         TranslationSettings: {
             group: string;
             /** @description Send it back as `expected_version`. */
@@ -35200,8 +35213,9 @@ export interface operations {
                 /**
                  * @description * `page` - page
                  *     * `entry` - entry
+                 *     * `other` - other
                  */
-                kind?: "page" | "entry";
+                kind?: "page" | "entry" | "other";
                 limit?: number;
                 locale?: string;
                 /**

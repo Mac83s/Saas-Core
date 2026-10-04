@@ -199,6 +199,8 @@ export interface PageLanguageEditorProps {
   /** The language picker, shown in this mode's toolbar. */
   readonly languageSwitch: ReactNode;
   readonly appearance?: SiteAppearance;
+  /** The overview's „Podgląd”: this language's preview opens once it loads. */
+  readonly previewOnOpen?: boolean;
   readonly onSwitchToSource: () => void;
   /** Called after a save, so the language states around refresh. */
   readonly onChanged: () => void;
@@ -216,6 +218,7 @@ export function PageLanguageEditor({
   leading,
   languageSwitch,
   appearance,
+  previewOnOpen = false,
   onSwitchToSource,
   onChanged,
   onExitStateChange,
@@ -304,12 +307,33 @@ export function PageLanguageEditor({
     },
     [locale, page.id],
   );
+  // Read once: a later change of the prop must not reopen the preview.
+  const previewPending = useRef(previewOnOpen);
   // The studio keys this editor by page and language, so a new one loads.
   useEffect(() => {
     // Loading from the API sets state only once the answer comes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+    void load().then(async (loaded) => {
+      if (!previewPending.current) return;
+      previewPending.current = false;
+      // What the fields will show: the version that waits, else the language's own.
+      const pending = loaded?.pending?.in_units === true;
+      const versionId = pending
+        ? loaded?.pending?.version_id
+        : loaded?.version_id;
+      if (!versionId) return;
+      try {
+        const shown = await getLocaleBodyVersion(page.id, locale, versionId);
+        setPreview({
+          number: shown.version.number,
+          blocks: shown.blocks,
+          waiting: pending,
+        });
+      } catch {
+        // The editor is open either way; „Podgląd” in its toolbar asks again.
+      }
+    });
+  }, [load, locale, page.id]);
 
   const jobDone = translationJobFinished(job);
   useEffect(() => {

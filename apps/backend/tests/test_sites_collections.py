@@ -1300,6 +1300,14 @@ def test_an_article_gets_a_second_language_that_publishes_on_its_own() -> None:
         idempotency_key="i18n-en-draft",
     )
     publish(client, english.data["id"], idempotency_key="i18n-en-publish")
+    # Published: the overview says where visitors read it.
+    [article] = client.get(
+        f"/api/v1/sites/{site.data['id']}/translations/", {"kind": "entry"}
+    ).json()["items"]
+    assert article["source_key"] == "sites.entry"
+    assert [(cell["state"], cell["path"]) for cell in article["cells"]] == [
+        ("published", "/en/blog/in-english/")
+    ]
 
     with override_settings(PUBLIC_SITE_SCHEME="https"):
         both = PublicClient().get(

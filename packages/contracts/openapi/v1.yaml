@@ -17966,9 +17966,12 @@ paths:
     get:
       operationId: sites_translation_overview
       description: 'Pages: missing, pending, outdated, untranslated or complete per
-        language, with the untranslated count and whether the version is on the site
-        (`on_site`). Articles: published, draft or missing per language. `source_id`
-        is what a translation order names. Filter by language and state; paginated
+        language, with the untranslated count, whether the version is on the site
+        (`on_site`) and where (`path`). Articles: published, draft or missing per
+        language. `kind=other`: the site''s own texts, the company''s cards and its
+        booking catalogue, one row per object, in the page''s states. `source_key`
+        and `source_id` are what a translation order names; `review_id` is a result
+        waiting in the cell that can be accepted. Filter by language and state; paginated
         by cursor.'
       summary: Every page or article of a site against every other language
       parameters:
@@ -17985,12 +17988,14 @@ paths:
           enum:
           - page
           - entry
+          - other
           type: string
           default: page
           minLength: 1
         description: |-
           * `page` - page
           * `entry` - entry
+          * `other` - other
       - in: query
         name: limit
         schema:
@@ -44099,10 +44104,42 @@ components:
           description: 'Pages: the site''s current publication carries this language''s
             own text — a `complete` version that is not on the site waits for a publication.
             Null for an article, whose state says it.'
+        path:
+          type:
+          - string
+          - 'null'
+          description: 'Where visitors read this language''s version now, after the
+            site''s address: a page that is on the site, a published article. Null
+            otherwise.'
+        review_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'A result waiting in this cell that the person can accept:
+            the item of the translation review to send, with `review_version`, to
+            `translation_review_accept`. Null where nothing waits, the product has
+            no translation engine or the queue is not this person''s to read.'
+        review_version:
+          type:
+          - integer
+          - 'null'
+        review_comparable:
+          type:
+          - boolean
+          - 'null'
+          description: 'The waiting text is kept in the review queue alone (a card,
+            the booking catalogue): read it with `translation_review_retrieve` before
+            deciding. False where the source shows it itself (a page''s language editor,
+            the site''s texts).'
       required:
       - locale
       - metadata_complete
       - on_site
+      - path
+      - review_comparable
+      - review_id
+      - review_version
       - state
       - untranslated
     TranslationOverviewCellStateEnum:
@@ -44131,16 +44168,23 @@ components:
         id:
           type: string
           format: uuid
-          description: The page, or the article's translation group.
+          description: The page, the article's translation group, or the source's
+            object.
+        source_key:
+          type: string
+          description: 'The translation source the row belongs to: `sites.page`, `sites.entry`,
+            or for `other` rows the source holding the object — `sites.site_texts`
+            (the site''s tagline, footer, blog and tag names), `profiles.public_profile`
+            (a card), `booking.catalog` (services and what is booked).'
         source_id:
           type:
           - string
           - 'null'
           format: uuid
-          description: 'What a translation order names (`translation_quote_create`):
-            the page itself (`sites.page`), or the article''s entry in the site''s
-            own language (`sites.entry`); null when the article has no entry in that
-            language.'
+          description: 'What a translation order names (`translation_quote_create`)
+            together with `source_key`: the page itself, the article''s entry in the
+            site''s own language (null when the article has no entry in that language),
+            or the source''s object.'
         title:
           type: string
         cells:
@@ -44152,15 +44196,18 @@ components:
       - id
       - kind
       - source_id
+      - source_key
       - title
     TranslationOverviewRowKindEnum:
       enum:
       - page
       - entry
+      - other
       type: string
       description: |-
         * `page` - page
         * `entry` - entry
+        * `other` - other
     TranslationSettings:
       type: object
       properties:

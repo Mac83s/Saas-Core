@@ -207,6 +207,7 @@ export function SitesPanel({
   // The translations list is asked for again: the page's refresh, or an
   // order from its header that ended.
   const [translationsReload, setTranslationsReload] = useState(0);
+  const [translationsDecided, setTranslationsDecided] = useState(0);
   // Which site the pages, report and domains on screen belong to: until they
   // arrive the list is loading, not empty, and a page is not yet "gone".
   const [detailsFor, setDetailsFor] = useState<string>();
@@ -636,7 +637,10 @@ export function SitesPanel({
   return (
     <section className="space-y-6" aria-labelledby="sites-heading">
       {heading}
-      {section === "translations" ? <TranslationTabs /> : null}
+      {section === "translations" ? (
+        // Asked again when a result is accepted in the overview: less waits.
+        <TranslationTabs key={translationsDecided} />
+      ) : null}
 
       {problem && (
         <div
@@ -878,6 +882,10 @@ export function SitesPanel({
       {section === "translations" && selectedSiteId ? (
         <TranslationsOverview
           key={selectedSiteId}
+          onDecided={() => setTranslationsDecided((value) => value + 1)}
+          // An article is public by itself, so the address does not wait for
+          // the site's own publication.
+          publicBaseUrl={domains.length ? publicSiteUrl(domains) : null}
           reloadKey={translationsReload}
           siteId={selectedSiteId}
         />

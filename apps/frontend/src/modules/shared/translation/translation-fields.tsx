@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import type { TranslationUnitState } from "@saas-core/api-client";
@@ -31,6 +32,7 @@ export function TranslationFields({
   onChange,
   labelFor,
   multiline = () => false,
+  noteFor,
   disabled = false,
   idPrefix,
 }: {
@@ -40,6 +42,8 @@ export function TranslationFields({
   onChange: (key: string, text: string) => void;
   labelFor: (key: string) => string;
   multiline?: (key: string) => boolean;
+  /** What else a unit has to say under its field, e.g. a text that waits. */
+  noteFor?: (key: string) => ReactNode;
   disabled?: boolean;
   idPrefix: string;
 }) {
@@ -76,6 +80,7 @@ export function TranslationFields({
                 ? t(`origin_${unit.origin}` as "origin_human")
                 : null}
             </p>
+            {noteFor?.(unit.key)}
           </Field>
         );
       })}

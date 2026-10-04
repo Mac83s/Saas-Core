@@ -396,6 +396,7 @@ export function PageStudio({
               leading={leading}
               languageSwitch={languageSwitch}
               appearance={savedAppearance?.data}
+              previewOnOpen={previewOnOpen}
               onSwitchToSource={() => chooseLanguage(sourceLocale)}
               onChanged={() => {
                 setReloadReport((value) => value + 1);

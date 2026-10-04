@@ -24,6 +24,7 @@ from django.db.models import Max
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
+from saas_core.content_protocol import registry
 from saas_core.content_protocol.provenance import (
     ORIGIN_AI,
     ORIGIN_COPY,
@@ -33,12 +34,17 @@ from saas_core.content_protocol.provenance import (
     Provenance,
     unit_hash,
 )
+from saas_core.content_protocol.registry import WaitingReview
+from saas_core.content_protocol.sources import LIST_LIMIT, ContentContext, TranslationSource
+from saas_core.content_protocol.units import unit_state
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.command_registry import organization_modules
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_decoration import stored_block_payload
+from .localization import entry_path
 from .localized_bodies import (
     LocaleUnitsInvalid,
     TextUnit,
@@ -68,6 +74,7 @@ from .services import (
     _idempotency_key,
     _is_automation,
 )
+from .source_changes import ENTRY_SOURCE_KEY, PAGE_SOURCE_KEY
 
 LOCALE_BODY_SAVED = "sites.page.locale_body_saved"
 LOCALE_BODY_RESTORED = "sites.page.locale_body_restored"
@@ -942,7 +949,10 @@ OVERVIEW_STATES = (
     OVERVIEW_PUBLISHED,
     OVERVIEW_DRAFT,
 )
-OVERVIEW_KINDS = ("page", "entry")
+# `other`: what the remaining translation sources hold — the site's own texts
+# (tagline, footer, blog and tag names), the company's cards, its booking
+# catalogue.
+OVERVIEW_KINDS = ("page", "entry", "other")
 
 
 @dataclass(frozen=True, slots=True)
@@ -953,6 +963,11 @@ class OverviewCell:
     metadata_complete: bool | None = None
     # Pages: the site's publication carries this language's own body.
     on_site: bool | None = None
+    # Where visitors read this language's version now (pages on the site,
+    # published articles); joined to the site's address by the caller.
+    path: str | None = None
+    # A result waiting here that this person can accept (the engine's queue).
+    review: WaitingReview | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -961,9 +976,12 @@ class OverviewRow:
     id: UUID
     title: str
     cells: tuple[OverviewCell, ...]
-    # What a translation order names: the page itself, or the article's entry
-    # in the site's own language (None when the article has none).
+    # What a translation order names: the page itself, the article's entry in
+    # the site's own language (None when the article has none), or the
+    # source's object.
     source_id: UUID | None = None
+    # The translation source the row belongs to (`sites.page`, …).
+    source_key: str = PAGE_SOURCE_KEY
 
 
 def site_translation_overview(
@@ -981,9 +999,13 @@ def site_translation_overview(
     a translation waiting for review (`pending`), following an older source
     version (`outdated`), units still untranslated (`untranslated`),
     `complete` — and, apart from that, whether the site's publication carries
-    the language's own body (`on_site`). An article is a group of entries, one
-    per language, each `published`, `draft` or `missing`. `state` keeps the
-    rows with a cell in that state (in `locale`, when given).
+    the language's own body (`on_site`) and where (`path`). An article is a
+    group of entries, one per language, each `published`, `draft` or
+    `missing`. `other` lists what the remaining translation sources hold —
+    the site's own texts, the company's cards, its booking catalogue — with
+    the page's states read off their units. A cell with a result this person
+    can accept in the engine's review queue names it (`review`). `state`
+    keeps the rows with a cell in that state (in `locale`, when given).
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
     site = Site.all_objects.filter(pk=site_id, organization_id=context.organization_id).first()
@@ -993,22 +1015,34 @@ def site_translation_overview(
     shown = (locale,) if locale is not None else locales
     if kind == "entry":
         rows = _entry_rows(site, shown)
+    elif kind == "other":
+        rows = _other_rows(context, site, shown)
     else:
         snapshot = site.current_publication.snapshot if site.current_publication else {}
-        rows = _page_rows(site, shown, published=_published_bodies(snapshot))
+        rows = _page_rows(
+            site,
+            shown,
+            published=_published_bodies(snapshot),
+            waiting=registry.waiting_reviews(context),
+        )
     if state is not None:
         rows = [row for row in rows if any(cell.state == state for cell in row.cells)]
-    if cursor is not None:
+    if cursor is not None and kind == "other":
+        # These rows are not in id order: after the row the last answer ended on.
+        after = next((index for index, row in enumerate(rows) if row.id == cursor), None)
+        rows = rows[after + 1 :] if after is not None else []
+    elif cursor is not None:
         rows = [row for row in rows if row.id > cursor]
     page = rows[: limit + 1]
     next_cursor = page[limit - 1].id if len(page) > limit else None
     return page[:limit], next_cursor, shown
 
 
-def _published_bodies(snapshot: Mapping[str, Any]) -> set[tuple[str, str]]:
-    """The (page, language) pairs a publication carries with their own body."""
+def _published_bodies(snapshot: Mapping[str, Any]) -> dict[tuple[str, str], str]:
+    """The (page, language) pairs a publication carries with their own body,
+    each with the path it answers at."""
     return {
-        (str(page.get("page_id")), str(entry.get("locale")))
+        (str(page.get("page_id")), str(entry.get("locale"))): str(entry.get("path") or "")
         for page in snapshot.get("pages", [])
         if isinstance(page, dict)
         for entry in page.get("locales", [])
@@ -1017,7 +1051,11 @@ def _published_bodies(snapshot: Mapping[str, Any]) -> set[tuple[str, str]]:
 
 
 def _page_rows(
-    site: Site, locales: tuple[str, ...], *, published: set[tuple[str, str]] | None = None
+    site: Site,
+    locales: tuple[str, ...],
+    *,
+    published: Mapping[tuple[str, str], str] | None = None,
+    waiting: Mapping[tuple[str, UUID, str], WaitingReview] | None = None,
 ) -> list[OverviewRow]:
     pages = list(
         Page.all_objects.filter(
@@ -1047,6 +1085,7 @@ def _page_rows(
         for locale in locales:
             translation = translations.get((page.id, locale))
             on_site = None if published is None else (str(page.id), locale) in published
+            path = (published or {}).get((str(page.id), locale)) or None
             if translation is None:
                 cells.append(OverviewCell(locale, OVERVIEW_MISSING, on_site=on_site))
                 continue
@@ -1077,6 +1116,12 @@ def _page_rows(
                         translation.description.strip(),
                     )),
                     on_site=on_site,
+                    path=path,
+                    # Only while the version still waits: one decided in the
+                    # editor leaves nothing here to accept.
+                    review=(waiting or {}).get((PAGE_SOURCE_KEY, page.id, locale))
+                    if cell_state == OVERVIEW_PENDING
+                    else None,
                 )
             )
         rows.append(OverviewRow("page", page.id, page.name, tuple(cells), source_id=page.id))
@@ -1099,29 +1144,117 @@ def page_language_states(site: Site, snapshot: Mapping[str, Any]) -> dict[tuple[
 
 def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
     groups: dict[UUID, list[ContentEntry]] = {}
-    for entry in ContentEntry.all_objects.filter(
-        organization_id=site.organization_id, site_id=site.id
-    ).order_by("id"):
+    for entry in (
+        ContentEntry.all_objects.select_related("collection")
+        .filter(organization_id=site.organization_id, site_id=site.id)
+        .order_by("id")
+    ):
         groups.setdefault(entry.translation_group, []).append(entry)
+
+    def cell(locale: str, entry: ContentEntry | None) -> OverviewCell:
+        if entry is None:
+            return OverviewCell(locale, OVERVIEW_MISSING)
+        if entry.state != ContentEntryState.PUBLISHED:
+            return OverviewCell(locale, OVERVIEW_DRAFT)
+        return OverviewCell(
+            locale,
+            OVERVIEW_PUBLISHED,
+            path=entry_path(
+                default_locale=site.default_locale,
+                locale=locale,
+                base_path=entry.collection.base_path,
+                slug=entry.slug,
+            ),
+        )
+
     rows: list[OverviewRow] = []
     for group, entries in sorted(groups.items()):
         own = next((entry for entry in entries if entry.locale == site.default_locale), None)
         source = own or entries[0]
         by_locale = {entry.locale: entry for entry in entries}
-        cells = tuple(
-            OverviewCell(
-                locale,
-                OVERVIEW_MISSING
-                if locale not in by_locale
-                else (
-                    OVERVIEW_PUBLISHED
-                    if by_locale[locale].state == ContentEntryState.PUBLISHED
-                    else OVERVIEW_DRAFT
-                ),
-            )
-            for locale in locales
-        )
         rows.append(
-            OverviewRow("entry", group, source.title, cells, source_id=own.id if own else None)
+            OverviewRow(
+                "entry",
+                group,
+                source.title,
+                tuple(cell(locale, by_locale.get(locale)) for locale in locales),
+                source_id=own.id if own else None,
+                source_key=ENTRY_SOURCE_KEY,
+            )
         )
     return rows
+
+
+def _other_rows(context: ContentContext, site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
+    """One row per object of every other translation source the company's
+    type composes: this site's own texts first, then what belongs to the
+    whole company (its cards, its booking catalogue). A source the person may
+    not read, or whose plan is off, is left out."""
+    modules = organization_modules(context.organization_id)
+    scopes = {str(site.id), str(context.organization_id)}
+    waiting = registry.waiting_reviews(context)
+    rows: list[tuple[tuple[bool, int, str, str], OverviewRow]] = []
+    for source in registry.translation_sources():
+        if source.key in (PAGE_SOURCE_KEY, ENTRY_SOURCE_KEY) or source.module_id not in modules:
+            continue
+        try:
+            refs = source.list_objects(context=context, cursor=None, limit=LIST_LIMIT).items
+            for ref in refs:
+                if ref.scope not in scopes:
+                    continue
+                cells = tuple(
+                    cell
+                    for locale in locales
+                    if (cell := _source_cell(context, source, ref.object_id, locale, waiting))
+                )
+                if cells:
+                    order = (ref.scope != str(site.id), ref.priority, ref.label, str(ref.object_id))
+                    rows.append((
+                        order,
+                        OverviewRow(
+                            "other",
+                            ref.object_id,
+                            ref.label,
+                            cells,
+                            source_id=ref.object_id,
+                            source_key=source.key,
+                        ),
+                    ))
+        except APIException:
+            continue
+    return [row for _order, row in sorted(rows, key=lambda item: item[0])]
+
+
+def _source_cell(
+    context: ContentContext,
+    source: TranslationSource,
+    object_id: UUID,
+    locale: str,
+    waiting: Mapping[tuple[str, UUID, str], WaitingReview],
+) -> OverviewCell | None:
+    """A source's object in one language, in the page's words: every text
+    untranslated (`missing`), a result waiting for a person (`pending`), a
+    text translated from an earlier wording (`outdated`), texts still to
+    translate (`untranslated`), `complete`. None where the language is the
+    object's own, or the object has nothing to translate."""
+    read = source.read(context=context, object_id=object_id, locale=locale, basis="published")
+    if read.excluded is not None:
+        return None
+    statuses = [unit_state(unit, read.targets.get(unit.key)).status for unit in read.units]
+    # A slot to fill in and a text copied as it is are nobody's to translate.
+    statuses = [status for status in statuses if status not in ("blocked", "copied")]
+    if not statuses:
+        return None
+    missing = statuses.count("missing")
+    review = waiting.get((source.key, object_id, locale))
+    if review is not None:
+        state = OVERVIEW_PENDING
+    elif missing == len(statuses):
+        state = OVERVIEW_MISSING
+    elif "stale" in statuses:
+        state = OVERVIEW_OUTDATED
+    elif missing:
+        state = OVERVIEW_UNTRANSLATED
+    else:
+        state = OVERVIEW_COMPLETE
+    return OverviewCell(locale, state, untranslated=missing, review=review)

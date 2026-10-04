@@ -206,16 +206,43 @@ class TranslationOverviewCellSerializer(serializers.Serializer[dict[str, Any]]):
         "a `complete` version that is not on the site waits for a publication. Null for an "
         "article, whose state says it.",
     )
+    path = serializers.CharField(
+        allow_null=True,
+        help_text="Where visitors read this language's version now, after the site's address: "
+        "a page that is on the site, a published article. Null otherwise.",
+    )
+    review_id = serializers.UUIDField(
+        allow_null=True,
+        help_text="A result waiting in this cell that the person can accept: the item of the "
+        "translation review to send, with `review_version`, to `translation_review_accept`. "
+        "Null where nothing waits, the product has no translation engine or the queue is not "
+        "this person's to read.",
+    )
+    review_version = serializers.IntegerField(allow_null=True)
+    review_comparable = serializers.BooleanField(
+        allow_null=True,
+        help_text="The waiting text is kept in the review queue alone (a card, the booking "
+        "catalogue): read it with `translation_review_retrieve` before deciding. False where "
+        "the source shows it itself (a page's language editor, the site's texts).",
+    )
 
 
 class TranslationOverviewRowSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(choices=OVERVIEW_KINDS)
-    id = serializers.UUIDField(help_text="The page, or the article's translation group.")
+    id = serializers.UUIDField(
+        help_text="The page, the article's translation group, or the source's object."
+    )
+    source_key = serializers.CharField(
+        help_text="The translation source the row belongs to: `sites.page`, `sites.entry`, or "
+        "for `other` rows the source holding the object — `sites.site_texts` (the site's "
+        "tagline, footer, blog and tag names), `profiles.public_profile` (a card), "
+        "`booking.catalog` (services and what is booked)."
+    )
     source_id = serializers.UUIDField(
         allow_null=True,
-        help_text="What a translation order names (`translation_quote_create`): the page "
-        "itself (`sites.page`), or the article's entry in the site's own language "
-        "(`sites.entry`); null when the article has no entry in that language.",
+        help_text="What a translation order names (`translation_quote_create`) together with "
+        "`source_key`: the page itself, the article's entry in the site's own language (null "
+        "when the article has no entry in that language), or the source's object.",
     )
     title = serializers.CharField()
     cells = TranslationOverviewCellSerializer(many=True)
