@@ -65,6 +65,19 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   ścieżka 3DS/`incomplete` (`shared/billing/provider.py:398`), konto live i
   webhook z przypiętą wersją API; po stronie właściciela OSS, księgowość,
   dokumenty sprzedaży. `SubscriptionState.SUSPENDED` jest martwą wartością.
+- **Operacje treści per język (TL13, 04.10, lokalnie, niewdrożone; ops
+  mac-20261004-24, SCR mac-20261004-25):** `content-change-set.v1` przyjmuje
+  język jako wzorzec, a podstrona w języku innym niż źródłowy ma własną bazę i
+  zapis przez wersję językową (ADR-044 „Uzupełnienie 2026-10-04”, migracja
+  `sites.0051`). Otwarte: automatyzacja nie ma drzwi do publikacji wersji
+  językowej (publikuje osoba albo akceptacja wersji czekającej); status operacji
+  po kluczu i dzienny limit grantu nie widzą zestawu zmian, który w innym języku
+  zmienił tylko tytuły; wersja czekająca z zestawu zmian nie ma własnych
+  etykiet w centrum tłumaczeń (powód `change_set`, pochodzenie `integration`
+  pokazują się jako „inne”), a jej przyjęcie tam zostawia propozycję w kolejce
+  jako nieaktualną razem z czekającymi tytułami; `sites.entry.draft_saved` nie
+  niesie `locale`. SCR: korzystanie z pól inventory per język i rozróżnianie
+  nowych odmów to jego plan; Condictor — lista w worklogu pakietu T.
 - **Kredyty:** operacje content-ops zasiane jako nieaktywne do kontraktu SCR
   (`shared/billing/migrations/0016_seed_credit_catalog.py:89-100`);
   `shared.assistant` rozlicza na razie tylko `assistant.conversation_turn` (A3-1),
