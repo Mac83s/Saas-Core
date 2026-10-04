@@ -397,14 +397,15 @@ test("what the engine runs today is ready, the rest is announced", async () => {
   // Version 4 of the stay adds terms of paying ahead and of giving a stay up,
   // as a start the company changes (ADR-073, „Uzupełnienie po 4h”).
   // Version 3 of the three kinds booked from–to came with that form (phase
-  // 5b): customers book them through the site.
+  // 5b): customers book them through the site. Version 5 of the stay
+  // suggests the page template „Noclegi” (slice 5g).
   assert.deepEqual(readiness, {
     "core.specialist_visit": "ready v1",
     "core.online_visit": "soon v1",
     "core.service_at_customer": "ready v2",
     "core.hourly_space": "soon v1",
     "core.table_or_group": "soon v1",
-    "core.lodging": "ready v4",
+    "core.lodging": "ready v5",
     "core.rental": "ready v3",
     "core.care_stay": "ready v3",
     "core.exclusive_date": "soon v1",

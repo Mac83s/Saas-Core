@@ -2705,8 +2705,11 @@ paths:
     get:
       operationId: booking_presets_list
       description: 'The presets of ADR-072 §10 in the order a company sees them, each
-        in its latest version: ready ones can be applied, the rest are announced.
-        This list is the only source a panel, a site or the assistant chooses from.'
+        in its latest version: ready ones can be applied (`booking_preset_apply`),
+        the rest are announced — a company signs up to be told when one is ready (`booking_preset_interest_save`),
+        and `interest` is its sign-up. A preset may suggest a category of the public
+        catalogue and a page template for the company''s site. This list is the only
+        source a panel, a site or the assistant chooses from.'
       summary: List what the company may start an offer from
       tags:
       - booking
@@ -2725,6 +2728,220 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/presets/{preset_id}/interest/:
+    put:
+      operationId: booking_preset_interest_save
+      description: 'Puts the company on the list of a preset marked `soon`, with what
+        it says it lacks („Czego Ci brakuje?”) — or rewrites that note; one sign-up
+        per company and preset. A ready preset is applied, not waited for: 400 `preset_ready`
+        on `preset_id`. A preset nobody announced is 404. A repeated Idempotency-Key
+        answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.'
+      summary: Sign the company up for a preset that is not ready yet
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: preset_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresetInterestInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PresetInterestInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PresetInterestInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresetInterest'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: booking_preset_interest_withdraw
+      description: Removes the company's sign-up for the preset. A repeat, or a preset
+        the company never signed up for, removes nothing and answers 204 as well.
+      summary: Take the company off a preset's list
+      parameters:
+      - in: path
+        name: preset_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Removing the company''s own sign-up: a repeat removes nothing
+          and answers the same 204.'
+        error-400: Takes no body and no query; the preset is named by the path.
+  /api/v1/booking/presets/apply/:
+    post:
+      operationId: booking_preset_apply
+      description: 'Makes one offer from a ready preset: the preset decides how it
+        is booked, the company names it and — for a preset with time model `slot`
+        — says how long a visit takes. The offer is the company''s own copy, switched
+        off until the company switches it on; nobody, no place, no unit and no price
+        are made for it. `preset_unknown` and `preset_not_ready` come back on `preset_id`.
+        What the preset suggests besides — a catalogue category, a page template —
+        is in the presets list. A repeated Idempotency-Key answers the first result
+        again; the key reused on another request is 409 `booking_idempotency_conflict`.'
+      summary: Start an offer from a preset
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresetApplyInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PresetApplyInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PresetApplyInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/presets/apply/preview/:
+    post:
+      operationId: booking_preset_apply_preview
+      description: 'Validates what `booking_preset_apply` would make. Nothing is saved:
+        the answer is the item as the write would leave it, with `changes`, or the
+        same 400, 404 and 409 the write would answer.'
+      summary: Check an offer from a preset without making it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresetApplyInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PresetApplyInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PresetApplyInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSetupPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/public/{public_slug}/:
     get:
       operationId: public_booking_catalog
@@ -39888,6 +40105,18 @@ components:
           - string
           - 'null'
           description: A suggested category of the public catalogue.
+        page_template:
+          type:
+          - string
+          - 'null'
+          description: A suggested page template for the company's site (`core.lodging`),
+            from the page template catalogue; null when the preset suggests none.
+        interest:
+          oneOf:
+          - $ref: '#/components/schemas/PresetInterest'
+          - type: 'null'
+          description: The calling company's sign-up for this preset, when it is not
+            ready and the company asked to be told; null otherwise.
         online_booking:
           allOf:
           - $ref: '#/components/schemas/OnlineBookingEnum'
@@ -39901,13 +40130,92 @@ components:
       - booked_subject
       - catalog_category
       - id
+      - interest
       - labels
       - online_booking
+      - page_template
       - place
       - readiness
       - required_inputs
       - time_model
       - version
+    PresetApplyInput:
+      type: object
+      description: 'An offer started from a preset (ADR-072 §10): the offer only,
+        switched off.'
+      properties:
+        preset_id:
+          type: string
+          description: A preset's id from the presets list; only `ready` ones apply.
+          maxLength: 80
+        version:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          description: Null takes the latest version.
+        name:
+          type: string
+          maxLength: 160
+        duration_minutes:
+          type:
+          - integer
+          - 'null'
+          maximum: 1440
+          minimum: 5
+          description: How long one visit of a `slot` service takes, in minutes.
+        staff_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            format: uuid
+          description: Who does it; null leaves the offer with nobody yet — nobody
+            is picked.
+          maxItems: 100
+        location_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            format: uuid
+          description: Where it is offered; null leaves the offer without a place
+            yet.
+          maxItems: 50
+      required:
+      - name
+      - preset_id
+    PresetInterest:
+      type: object
+      description: |-
+        A company's sign-up for a preset that is announced and not ready yet
+        (ADR-072 §10, „wkrótce”).
+      properties:
+        preset_id:
+          type: string
+        note:
+          type: string
+          description: What the company says it lacks („Czego Ci brakuje?”).
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - note
+      - preset_id
+      - updated_at
+    PresetInterestInput:
+      type: object
+      properties:
+        note:
+          type: string
+          description: What the company lacks, in its own words; may be empty.
+          maxLength: 1000
     PresetLabels:
       type: object
       properties:

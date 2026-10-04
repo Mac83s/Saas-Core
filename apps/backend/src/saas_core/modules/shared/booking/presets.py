@@ -11,6 +11,10 @@ offer that remembers where it came from and is the company's own from then on.
 Only a `ready` preset applies, and a ready one uses nothing the engine cannot
 do (the contract's test keeps that), so the copy needs no checks of its own.
 
+A preset that is not ready is announced („wkrótce”): a company signs up to be
+told when it is, and may say what it lacks (`save_interest`, owner's answer
+14 a+b) — the platform's list of what to build next.
+
 Ready does not always mean bookable through the site (owner decision 67a): a
 preset whose `online_booking` is `soon` — today a visit at the customer's —
 makes an offer the team books in the panel, hidden from the public form until
@@ -31,16 +35,18 @@ from uuid import UUID
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from rest_framework.exceptions import ErrorDetail, ValidationError
+from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .item_translations import source_locale
-from .models import PaymentPolicy, Service
+from .models import PaymentPolicy, PresetInterest, Service
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
 from .setup import Saved, ServiceSetup, _manage, _saved_service, _write_service, setup_write
 
 READY = "ready"
+#: How much a company may write under „Czego Ci brakuje?”.
+INTEREST_NOTE_MAX = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +65,8 @@ class Preset:
     place: str
     required_inputs: tuple[str, ...]
     catalog_category: str | None
+    #: The page template it suggests for the company's site, or None.
+    page_template: str | None
     #: Whether a customer books it through the site: `ready`, or `soon` — the
     #: team books in the panel (`soon` too for a preset that is not ready).
     online_booking: str
@@ -110,6 +118,7 @@ def _preset(raw: dict[str, Any]) -> Preset:
         place=raw["place"],
         required_inputs=tuple(raw.get("requiredInputs", ())),
         catalog_category=raw.get("catalogCategory"),
+        page_template=raw.get("pageTemplate"),
         online_booking=raw.get("onlineBooking", raw["readiness"]),
         raw=raw,
     )
@@ -253,3 +262,90 @@ def apply_preset(
             replayed=True,
         ),
     )
+
+
+# --- „wkrótce”: a company's sign-up for a preset that is not ready ----------
+
+
+def _announced(preset_id: str) -> Preset:
+    """The preset a company signs up for: one that exists and is not ready.
+    A ready one is applied, not waited for (`preset_ready` on `preset_id`)."""
+    versions = dict(_catalogue()).get(preset_id)
+    if not versions:
+        raise NotFound("Nie ma takiego wzorca.")
+    preset = versions[max(versions)]
+    if preset.readiness == READY:
+        _refuse("Ten wzorzec jest już dostępny — możesz go użyć.", "preset_ready")
+    return preset
+
+
+def preset_interests() -> dict[str, PresetInterest]:
+    """What the calling company signed up for, by preset."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
+    return {
+        row.preset_id: row
+        for row in PresetInterest.all_objects.filter(organization_id=context.organization_id)
+    }
+
+
+def save_interest(
+    *, preset_id: str, note: str = "", idempotency_key: str = "", preview: bool = False
+) -> Saved[PresetInterest]:
+    """Signs the company up for a preset that is not ready yet, with what it
+    says it lacks — or rewrites that note. A setup write like every other:
+    the same key again answers the first result."""
+    context, organization = _manage()
+    preset = _announced(preset_id)
+    text = note.strip()
+    if len(text) > INTEREST_NOTE_MAX:
+        raise ValidationError({
+            "note": [ErrorDetail(f"Najwyżej {INTEREST_NOTE_MAX} znaków.", code="max_length")]
+        })
+
+    def write() -> Saved[PresetInterest]:
+        row, created = PresetInterest.all_objects.select_for_update().get_or_create(
+            organization=organization,
+            preset_id=preset.id,
+            defaults={
+                "preset_version": preset.version,
+                "note": text,
+                "created_by": context.actor_id,
+            },
+        )
+        changes: dict[str, Any] = {}
+        if not created and row.note != text:
+            changes["note"] = {"from": row.note, "to": text}
+            row.note = text
+            row.save(update_fields=["note", "updated_at"])
+        return Saved(row, row.id, 0, created, changes, False)
+
+    return setup_write(
+        context=context,
+        action="preset_interest.save",
+        target_id=None,
+        request={"preset_id": preset.id, "note": text},
+        idempotency_key=idempotency_key,
+        preview=preview,
+        write=write,
+        replay=lambda item_id: Saved(
+            _signed_up(organization.id, item_id), item_id, 0, False, {}, True
+        ),
+    )
+
+
+def _signed_up(organization_id: UUID, item_id: UUID) -> PresetInterest:
+    row = PresetInterest.all_objects.filter(organization_id=organization_id, pk=item_id).first()
+    if row is None:
+        # The key's first answer was a sign-up the company has withdrawn since.
+        raise NotFound("Ten zapis został wycofany.")
+    return row
+
+
+def withdraw_interest(*, preset_id: str) -> bool:
+    """Takes the company off a preset's list. True when it was on it; a repeat
+    changes nothing and says so."""
+    context, _organization = _manage()
+    removed, _ = PresetInterest.all_objects.filter(
+        organization_id=context.organization_id, preset_id=preset_id
+    ).delete()
+    return bool(removed)

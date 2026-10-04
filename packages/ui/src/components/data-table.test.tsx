@@ -307,6 +307,31 @@ test("a row whose only action is inline shows that button alone", () => {
   ).toBeNull();
 });
 
+test("a labelled inline action says its words beside the icon on a wide screen, and keeps one name", () => {
+  render(
+    <RowActions
+      items={[
+        {
+          label: "Use the preset",
+          onSelect: vi.fn(),
+          inline: true,
+          labelled: true,
+          icon: <svg />,
+        },
+      ]}
+      label="Actions: Stay"
+    />,
+  );
+  // One button, named once: the visible words are for the eye only.
+  const button = screen.getByRole("button", { name: "Use the preset" });
+  const words = button.querySelector("span");
+  expect(words?.textContent).toBe("Use the preset");
+  expect(words?.getAttribute("aria-hidden")).toBe("true");
+  // A phone's card has room for the icon alone.
+  expect(words?.className).toContain("max-md:hidden");
+  expect(button.getAttribute("title")).toBeNull();
+});
+
 test("two inline actions: „…” only on a phone, for the one that does not fit", () => {
   render(
     <RowActions

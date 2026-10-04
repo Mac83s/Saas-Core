@@ -507,6 +507,19 @@ test("usługa potwierdzana na prośbę zapisuje, kto potwierdza i ile ma czasu (
   );
 });
 
+test("core's presets are offered where the organization type brings no services of its own", async () => {
+  const plain = renderSettings();
+  expect(
+    await screen.findByRole("link", { name: "Zacznij od wzorca" }),
+  ).toHaveAttribute("href", "/panel/settings/services/presets");
+  plain.unmount();
+
+  // A product's type has its ready-made services instead (ADR-050).
+  renderSettings({ organizationType: "farm-care" });
+  await screen.findByRole("button", { name: "Korekcja stada" });
+  expect(screen.queryByRole("link", { name: "Zacznij od wzorca" })).toBeNull();
+});
+
 test("gotowa usługa typu firmy otwiera formularz z nazwą i czasem", async () => {
   renderSettings({ organizationType: "farm-care" });
   fireEvent.click(

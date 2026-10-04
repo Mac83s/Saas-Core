@@ -241,7 +241,7 @@ def test_the_options_say_what_a_threshold_may_be_and_a_preset_brings_its_own() -
         lodging = apply_preset(
             preset_id="core.lodging", name="Domek", idempotency_key=key()
         ).value.service
-    assert lodging.preset_version == 4
+    assert lodging.preset_version == 5
     assert lodging.cancellation_refunds == _refund_terms(first_lodging)["cancellation_refunds"]
     assert (
         lodging.payment_policy,

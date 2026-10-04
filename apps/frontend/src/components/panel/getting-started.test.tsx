@@ -10,6 +10,7 @@ import { GettingStarted } from "./getting-started";
 
 const { api } = vi.hoisted(() => ({
   api: {
+    getBookingSetup: vi.fn(),
     getCustomerBillingOverview: vi.fn(),
     listBookingAppointments: vi.fn(),
     listFarms: vi.fn(),
@@ -20,6 +21,18 @@ const { api } = vi.hoisted(() => ({
   },
 }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
+// The organization type's own ready-made services (ADR-050); none in core.
+const types = vi.hoisted(() => ({ templates: [] as unknown[] }));
+vi.mock("#lib/organization-types", async (original) => {
+  const actual = await original<typeof import("#lib/organization-types")>();
+  return {
+    ...actual,
+    organizationType: (key?: string | null) => ({
+      ...actual.organizationType(key),
+      serviceTemplates: types.templates,
+    }),
+  };
+});
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
   ...api,
@@ -74,6 +87,8 @@ function renderList(
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  types.templates = [];
+  api.getBookingSetup.mockResolvedValue({ services: [] });
   api.getCustomerBillingOverview.mockResolvedValue({ subscription: null });
   api.listBookingAppointments.mockResolvedValue([]);
   api.listFarms.mockResolvedValue([]);
@@ -96,12 +111,15 @@ test("pokazuje kroki typu organizacji z postępem liczonym z danych", async () =
   expect(
     await screen.findByRole("heading", { level: 2, name: "Na start" }),
   ).toBeInTheDocument();
-  expect(screen.getByText("Gotowe 2 z 6")).toBeInTheDocument();
+  expect(screen.getByText("Gotowe 2 z 7")).toBeInTheDocument();
   expect(
     screen.getAllByRole("listitem").map((item) => item.textContent),
   ).toEqual([
     expect.stringContaining("Wybierz planZrobione"),
     expect.stringContaining("Dodaj pierwsze gospodarstwoZrobione"),
+    // What customers book comes before the first visit: an offer started
+    // from a preset (ADR-072 §10, slice 5g).
+    expect.stringContaining("Ustaw pierwszą ofertęDo zrobienia"),
     expect.stringContaining("Zaplanuj pierwszą wizytęDo zrobienia"),
     expect.stringContaining("Zaproś kogoś do zespołuDo zrobienia"),
     // The business card sits before the website: it is what puts the company
@@ -111,9 +129,10 @@ test("pokazuje kroki typu organizacji z postępem liczonym z danych", async () =
   ]);
   // A step that is done offers no action; the first open one leads on.
   expect(screen.queryByRole("link", { name: /Wybierz plan/ })).toBeNull();
-  expect(
-    screen.getByRole("link", { name: /Otwórz kalendarz/ }),
-  ).toHaveAttribute("href", "/panel/calendar");
+  expect(screen.getByRole("link", { name: /Wybierz wzorzec/ })).toHaveAttribute(
+    "href",
+    "/panel/settings/services/presets",
+  );
 
   const results = await axe.run(container, {
     rules: { "color-contrast": { enabled: false } },
@@ -130,11 +149,12 @@ test("a type without a module is never asked for it, in English too", async () =
     "en",
   );
 
-  expect(await screen.findByText("0 of 3 done")).toBeInTheDocument();
+  expect(await screen.findByText("0 of 4 done")).toBeInTheDocument();
   expect(
     screen.getAllByRole("listitem").map((item) => item.textContent),
   ).toEqual([
     expect.stringContaining("Choose a plan"),
+    expect.stringContaining("Set up your first offer"),
     expect.stringContaining("Plan your first appointment"),
     expect.stringContaining("Invite someone to the team"),
   ]);
@@ -166,7 +186,7 @@ test("zaproszenie bez odpowiedzi zamyka krok zespołu", async () => {
   ]);
   renderList();
 
-  expect(await screen.findByText("Gotowe 1 z 6")).toBeInTheDocument();
+  expect(await screen.findByText("Gotowe 1 z 7")).toBeInTheDocument();
   expect(
     screen.getByText("Zaproś kogoś do zespołu").closest("li"),
   ).toHaveTextContent("Zrobione");
@@ -183,7 +203,7 @@ test("błąd odczytu daje ponowienie zamiast zmyślonego postępu", async () => 
 
   api.listFarms.mockResolvedValue([]);
   fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
-  expect(await screen.findByText("Gotowe 0 z 6")).toBeInTheDocument();
+  expect(await screen.findByText("Gotowe 0 z 7")).toBeInTheDocument();
 });
 
 test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async () => {
@@ -203,7 +223,7 @@ test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async 
     throw new Error("storage disabled");
   });
   renderList();
-  expect(await screen.findByText("Gotowe 0 z 6")).toBeInTheDocument();
+  expect(await screen.findByText("Gotowe 0 z 7")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Ukryj listę" }));
   await waitFor(() => expect(screen.queryByText("Na start")).toBeNull());
   failing.mockRestore();
@@ -211,6 +231,7 @@ test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async 
 
 test("a list already done folds to one line on any device and opens on demand", async () => {
   api.getCustomerBillingOverview.mockResolvedValue({ subscription: {} });
+  api.getBookingSetup.mockResolvedValue({ services: [{ id: "offer" }] });
   api.listBookingAppointments.mockResolvedValue([{ id: "visit" }]);
   api.listMemberships.mockResolvedValue([{ id: "me" }, { id: "you" }]);
   renderList(
@@ -222,9 +243,24 @@ test("a list already done folds to one line on any device and opens on demand", 
   );
   // Derived from data, so a new browser folds it too (UX-022).
   expect(
-    await screen.findByText("Getting started: 3 of 3 done"),
+    await screen.findByText("Getting started: 4 of 4 done"),
   ).toBeInTheDocument();
   expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Show" }));
-  expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  expect(screen.getAllByRole("listitem")).toHaveLength(4);
+});
+
+test("an organization type with ready-made services of its own is not sent to the presets", async () => {
+  types.templates = [
+    { key: "trim", label: { pl: "Korekcja", en: "Trimming" } },
+  ];
+  renderList(
+    access({
+      modules: ["core.organizations", "shared.billing", "shared.booking"],
+    }),
+  );
+
+  expect(await screen.findByText("Gotowe 0 z 3")).toBeInTheDocument();
+  expect(screen.queryByText("Ustaw pierwszą ofertę")).toBeNull();
+  expect(api.getBookingSetup).not.toHaveBeenCalled();
 });

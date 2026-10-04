@@ -2,6 +2,7 @@ export { crewSlots } from "./appointment-dialogs";
 export { BookingPanel } from "./booking-panel";
 export { CrewDialog } from "./dispatch/crew-dialog";
 export { BookingSettings } from "./booking-settings";
+export { OfferPresets } from "./offer-presets";
 export { PublicBookingFlow } from "./public-booking-flow";
 export { SelfServiceBooking } from "./self-service-booking";
 export { PeoplePanel } from "./people/people-panel";

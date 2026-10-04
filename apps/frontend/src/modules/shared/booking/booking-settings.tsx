@@ -7,6 +7,7 @@ import {
   CreditCardIcon,
   PencilIcon,
   PlusIcon,
+  WandSparklesIcon,
 } from "lucide-react";
 
 import {
@@ -613,8 +614,9 @@ export function BookingSettings({
 
   // The organization type's ready-made services not added yet (ADR-050).
   const names = new Set(services.map((service) => service.name));
-  const templates = organizationTypeInfo(organizationType)
-    .serviceTemplates.map((template) => ({
+  const typeInfo = organizationTypeInfo(organizationType);
+  const templates = typeInfo.serviceTemplates
+    .map((template) => ({
       key: template.key,
       name: typeText(template.label, locale),
       durationMinutes: template.durationMinutes,
@@ -652,14 +654,28 @@ export function BookingSettings({
       <PanelSection
         actions={
           setup ? (
-            <Button
-              onClick={(event) =>
-                open({ kind: "service" }, event.currentTarget)
-              }
-            >
-              <PlusIcon aria-hidden="true" />
-              {t("addService")}
-            </Button>
+            <>
+              {/* Presets are core's own kinds of booking; a product whose
+                  organization type brings ready-made services offers those
+                  instead (ADR-072 §10, slice 5g). */}
+              {typeInfo.serviceTemplates.length === 0 ? (
+                <Link
+                  className={buttonVariants({ variant: "outline" })}
+                  href="/panel/settings/services/presets"
+                >
+                  <WandSparklesIcon aria-hidden="true" />
+                  {t("presets.open")}
+                </Link>
+              ) : null}
+              <Button
+                onClick={(event) =>
+                  open({ kind: "service" }, event.currentTarget)
+                }
+              >
+                <PlusIcon aria-hidden="true" />
+                {t("addService")}
+              </Button>
+            </>
           ) : null
         }
         description={t("servicesHint")}

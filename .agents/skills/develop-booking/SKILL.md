@@ -192,14 +192,14 @@ as a number in a serializer or a component. A new setup write uses
 `setup_write`, `check_version` and the floor of `change-api-and-events`.
 
 Presets are data, read by `presets.py` from the image's copy of
-`packages/contracts/booking-presets` (`BOOKING_PRESET_CONTRACTS_PATH`, system
-check `booking.E010`); `GET /booking/presets/` is the only list a caller
-chooses from. `presets.apply_preset` is a setup write that copies a `ready`
-preset into a switched-off offer with its origin (`preset_id`,
-`preset_version`, `origin_ref`) and picks nobody, no place, no unit and no
-price for the company. Ready means the engine runs it (the contract test's
-`ENGINE` list), not that customers book it: `online_booking` `soon` (decision
-67a) makes an offer hidden from the public form, which the team books.
+`packages/contracts/booking-presets` (`BOOKING_PRESET_CONTRACTS_PATH`, check
+`booking.E010`); `GET /booking/presets/` is the only list a caller chooses
+from. `apply_preset` (the panel's „Wzorce ofert”, the assistant's command) is
+a setup write that copies a `ready` preset into a switched-off offer with its
+origin and picks nobody, no place, unit or price. A `soon` preset takes a
+sign-up (`save_interest`, `PresetInterest`). Ready means the engine runs it,
+not that customers book it: `online_booking` `soon` (67a) hides the offer
+from the public form.
 A service made switched off is a `draft` until somebody switches it on, and
 **only a draft without bookings is ever deleted** (`setup.discard_draft`, the
 undo of commands that make drafts). Every other service is switched off, never

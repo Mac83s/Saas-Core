@@ -738,6 +738,12 @@ export type RowAction = {
    */
   main?: boolean;
   icon?: ReactNode;
+  /**
+   * An inline action said in words on a wide screen, beside its icon: the
+   * one thing a chooser's row is for („Użyj wzorca”), where an icon alone
+   * would have to be guessed. A phone's card keeps the icon button.
+   */
+  labelled?: boolean;
   destructive?: boolean;
   /** Draws a separator above this item. */
   separated?: boolean;
@@ -790,14 +796,24 @@ export function RowActions({
         ) : (
           <Button
             aria-label={item.label}
-            className={cn(phone, "md:size-9")}
+            className={cn(
+              phone,
+              item.labelled
+                ? "md:h-9 md:w-auto md:gap-1.5 md:px-3"
+                : "md:size-9",
+            )}
             key={item.label}
             onClick={(event) => item.onSelect?.(event.currentTarget)}
             size="icon"
-            title={item.label}
-            variant="ghost"
+            title={item.labelled ? undefined : item.label}
+            variant={item.labelled ? "outline" : "ghost"}
           >
             {item.icon}
+            {item.labelled ? (
+              <span aria-hidden="true" className="max-md:hidden">
+                {item.label}
+              </span>
+            ) : null}
           </Button>
         );
       })}

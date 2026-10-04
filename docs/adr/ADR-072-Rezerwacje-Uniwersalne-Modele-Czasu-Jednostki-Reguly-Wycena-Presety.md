@@ -1247,3 +1247,65 @@ pokazuje bieżącą wersję dokumentu). Bez migracji.
   dostaje odnośników do dokumentów sama — firma dodaje je jak każdy odnośnik
   (adresy powyżej); dokument jako sekcja na własnej podstronie firmy; wersje
   archiwalne dokumentu na witrynie.
+
+### Rozstrzygnięcia plastra 5g (presety przy ręcznym zakładaniu firmy)
+
+Odpowiedź właściciela 14 a+b: firma widzi gotowe presety, a niegotowe z
+etykietą „wkrótce”, zapisem na listę i pytaniem „Czego Ci brakuje?”. Ścieżka
+ręczna powstaje pierwsza; asystent (faza A6 jego planu) korzysta z tych samych
+serwisów. Jedna migracja: booking 0036.
+
+- **Ekran „Wzorce ofert”** — podstrona „Usługi i grafik”
+  (`/panel/settings/services/presets`), do której prowadzą przycisk „Zacznij od
+  wzorca” przy liście usług i nowy krok listy „Na start” („Ustaw pierwszą
+  ofertę”, zrobiony, gdy firma ma jakąkolwiek usługę). Lista to
+  `GET /booking/presets/` w kolejności kontraktu: wzorzec, jak się go
+  rezerwuje, stan („Gotowy” albo „Wkrótce”) i jedno działanie.
+- **Gotowy wzorzec zakłada ofertę przez HTTP tym samym zapisem co polecenie
+  asystenta**: `POST /booking/presets/apply/` (i `…/apply/preview/`) woła
+  `presets.apply_preset` — ten sam serializer wejścia, te same odmowy na polu
+  `preset_id` (`preset_unknown`, `preset_not_ready`), klucz idempotencji i
+  pokwitowanie `service.create`. Firma podaje nazwę, a dla wzorca `slot` czas
+  wizyty; powstaje szkic, wyłączony. Dotąd zastosowanie istniało tylko jako
+  polecenie `booking.preset.apply@1`.
+- **„Wkrótce” to zapis firmy, nie formularz kontaktowy.**
+  `PUT /booking/presets/<id>/interest/` zapisuje firmę na wzorzec, który nie
+  jest gotowy, z tym, co napisała pod „Czego Ci brakuje?” (do 1000 znaków,
+  nieobowiązkowe); ponowny zapis zmienia notatkę, `DELETE` wypisuje. Jeden
+  wiersz na firmę i wzorzec (`PresetInterest`). Gotowy wzorzec nie przyjmuje
+  zapisu (400 `preset_ready` — używa się go), nieistniejący to 404. Lista
+  wzorców oddaje zapis firmy w polu `interest`. Zapis jest pismem ustawień
+  (`setup_write`, pokwitowanie `preset_interest.save`), wypisanie zwykłym
+  usunięciem — powtórzone niczego nie zmienia.
+- **Tabela zapisów jest tenantowa, z wymuszonym RLS** (`booking_presetinterest`,
+  booking 0036), nie tabelą platformy: notatka to słowa firmy. Operator czyta
+  listę poleceniem `python manage.py booking_preset_interest [--preset …]`,
+  które idzie firma po firmie (`SET LOCAL` przed każdym odczytem; zapytanie
+  przez wszystkie firmy naraz zwróciłoby pod RLS zero wierszy). Odczyt nie
+  zostawia wpisu w historii firmy: zapis jest skierowany do platformy. Ekran w
+  „Platforma” przyjdzie z planem ustawień platformy; deklaracja
+  `platformTables` wymagałaby zmiany deskryptora modułu i artefaktów
+  wszystkich profili dla listy, którą czyta się rzadko.
+- **Wzorzec podpowiada kategorię katalogu i szablon strony — niczego nie
+  ustawia.** „Nocleg” dostaje wersję 5 z `pageTemplate: core.lodging` (wersja
+  4 jest opublikowana i się nie zmienia; kategorię `turystyka-i-noclegi` niesie
+  od wersji 1). API oddaje `catalog_category` i `page_template`; po założeniu
+  oferty ekran mówi „Co dalej”: jednostki i ceny (albo osoby i miejsce) w
+  „Usługi i grafik”, kategoria — nazwą ze słownika katalogu — do ustawienia w
+  wizytówce, szablon — nazwą z galerii edytora — do użycia na nowej podstronie.
+  Podpowiedź kategorii widzi osoba, która może zmieniać wizytówkę, a szablonu —
+  osoba, która edytuje stronę; firma bez tych modułów nie dostaje żadnej (§10:
+  „pomijane, gdy typ organizacji ich nie ma”). Zastosowanie nie zmienia
+  wizytówki ani strony: kategoria i szablon to decyzje firmy, a oferta ze
+  wzorca jest szkicem.
+- **Produkt z własnymi gotowymi usługami nie odsyła do wzorców rdzenia.**
+  Przycisk „Zacznij od wzorca” i krok „Na start” pojawiają się tam, gdzie typ
+  organizacji nie ma własnych `serviceTemplates` (ADR-050) — korektor racic
+  nie dostaje „Noclegu” jako pierwszego kroku. Sam ekran i API działają w
+  każdej firmie z rezerwacjami. Presety produktu w profilu
+  (`organizationTypes[]`, §10) to osobna praca.
+- **Poza tym plastrem:** ekran listy zapisów dla operatora; polecenie
+  asystenta dla zapisu „wkrótce” (serwis `save_interest` jest gotowy, deklaracja
+  i ewaluacje przyjdą z A6); presety produktu w profilu; powiadomienie firm z
+  listy, gdy wzorzec stanie się gotowy; ustawienie kategorii i import szablonu
+  jednym kliknięciem z ekranu wzorców.

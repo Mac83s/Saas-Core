@@ -51,6 +51,7 @@ from .models import (
     BookingClosure,
     BookingRule,
     Location,
+    PresetInterest,
     PublicBookingRoute,
     Resource,
     ResourceGroup,
@@ -64,7 +65,14 @@ from .occupancy import Held, books_stays, occupancy
 from .passing import closes_explicitly, has_passed
 from .periods import StayPlan, book_stay, move_stay, period_last_day, stay_ends, stay_starts
 from .places import appointment_places, has_place_search, search_places
-from .presets import Preset, list_presets
+from .presets import (
+    Preset,
+    apply_preset,
+    list_presets,
+    preset_interests,
+    save_interest,
+    withdraw_interest,
+)
 from .public import (
     public_choices,
     public_participant_categories,
@@ -138,6 +146,9 @@ from .serializers import (
     PlaceSetupPreviewSerializer,
     PlaceSetupSerializer,
     PlaceUpdateSerializer,
+    PresetApplyInputSerializer,
+    PresetInterestInputSerializer,
+    PresetInterestSerializer,
     PresetListSerializer,
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
@@ -2529,7 +2540,16 @@ class BookingSetupOptionsView(APIView):
         })
 
 
-def _preset_payload(item: Preset) -> dict[str, Any]:
+def _interest_payload(row: PresetInterest) -> dict[str, Any]:
+    return {
+        "preset_id": row.preset_id,
+        "note": row.note,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
+def _preset_payload(item: Preset, interest: PresetInterest | None = None) -> dict[str, Any]:
     return {
         "id": item.id,
         "version": item.version,
@@ -2541,6 +2561,8 @@ def _preset_payload(item: Preset) -> dict[str, Any]:
         "place": item.place,
         "required_inputs": list(item.required_inputs),
         "catalog_category": item.catalog_category,
+        "page_template": item.page_template,
+        "interest": _interest_payload(interest) if interest is not None else None,
         "online_booking": item.online_booking,
     }
 
@@ -2552,14 +2574,114 @@ class BookingPresetListView(APIView):
         operation_id="booking_presets_list",
         summary="List what the company may start an offer from",
         description="The presets of ADR-072 §10 in the order a company sees them, each in "
-        "its latest version: ready ones can be applied, the rest are announced. This list "
-        "is the only source a panel, a site or the assistant chooses from.",
+        "its latest version: ready ones can be applied (`booking_preset_apply`), the rest "
+        "are announced — a company signs up to be told when one is ready "
+        "(`booking_preset_interest_save`), and `interest` is its sign-up. A preset may "
+        "suggest a category of the public catalogue and a page template for the company's "
+        "site. This list is the only source a panel, a site or the assistant chooses from.",
         tags=["booking"],
         responses={200: PresetListSerializer, 403: ProblemDetailsSerializer},
     )
     def get(self, request: Request) -> Response:
         del request
-        return Response({"presets": [_preset_payload(item) for item in list_presets()]})
+        presets = list_presets()
+        signed = preset_interests()
+        return Response({
+            "presets": [_preset_payload(item, signed.get(item.id)) for item in presets]
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingPresetApplyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_preset_apply",
+        summary="Start an offer from a preset",
+        description="Makes one offer from a ready preset: the preset decides how it is "
+        "booked, the company names it and — for a preset with time model `slot` — says how "
+        "long a visit takes. The offer is the company's own copy, switched off until the "
+        "company switches it on; nobody, no place, no unit and no price are made for it. "
+        "`preset_unknown` and `preset_not_ready` come back on `preset_id`. What the preset "
+        "suggests besides — a catalogue category, a page template — is in the presets "
+        "list." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=PresetApplyInputSerializer,
+        responses={201: ServiceSetupSerializer, **_SETUP_PROBLEMS},
+    )
+    def post(self, request: Request) -> Response:
+        s = PresetApplyInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = apply_preset(**s.validated_data, idempotency_key=_idem(request))
+        return Response(_service_setup_payload(saved.value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingPresetApplyPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_preset_apply_preview",
+        summary="Check an offer from a preset without making it",
+        description="Validates what `booking_preset_apply` would make." + _PREVIEW_NOTE,
+        tags=["booking"],
+        request=PresetApplyInputSerializer,
+        responses={200: ServiceSetupPreviewSerializer, **_SETUP_PROBLEMS},
+        extensions=_PREVIEW,
+    )
+    def post(self, request: Request) -> Response:
+        s = PresetApplyInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = apply_preset(**s.validated_data, preview=True)
+        return Response(_with_changes(_service_setup_payload(saved.value), saved.changes))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingPresetInterestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_preset_interest_save",
+        summary="Sign the company up for a preset that is not ready yet",
+        description="Puts the company on the list of a preset marked `soon`, with what it "
+        "says it lacks („Czego Ci brakuje?”) — or rewrites that note; one sign-up per "
+        "company and preset. A ready preset is applied, not waited for: 400 `preset_ready` "
+        "on `preset_id`. A preset nobody announced is 404." + _WRITE_NOTE,
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=PresetInterestInputSerializer,
+        responses={200: PresetInterestSerializer, **_SETUP_PROBLEMS},
+    )
+    def put(self, request: Request, preset_id: str) -> Response:
+        s = PresetInterestInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        saved = save_interest(
+            preset_id=preset_id,
+            note=s.validated_data.get("note", ""),
+            idempotency_key=_idem(request),
+        )
+        return Response(_interest_payload(saved.value))
+
+    @extend_schema(
+        operation_id="booking_preset_interest_withdraw",
+        summary="Take the company off a preset's list",
+        description="Removes the company's sign-up for the preset. A repeat, or a preset "
+        "the company never signed up for, removes nothing and answers 204 as well.",
+        tags=["booking"],
+        responses={204: None, 403: ProblemDetailsSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Removing the company's own sign-up: a repeat removes "
+                "nothing and answers the same 204.",
+                "error-400": "Takes no body and no query; the preset is named by the path.",
+            }
+        },
+    )
+    def delete(self, request: Request, preset_id: str) -> Response:
+        del request
+        withdraw_interest(preset_id=preset_id)
+        return Response(status=204)
 
 
 @method_decorator(csrf_protect, name="dispatch")

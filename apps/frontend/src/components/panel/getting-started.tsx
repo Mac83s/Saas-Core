@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 
 import {
+  getBookingSetup,
   getCustomerBillingOverview,
   listBookingAppointments,
   listFarms,
@@ -15,6 +16,7 @@ import {
 } from "@saas-core/api-client";
 import { Link } from "#i18n/navigation";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
+import { organizationType } from "#lib/organization-types";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   Card,
@@ -38,7 +40,8 @@ import { cn } from "@saas-core/ui/lib/utils";
  * Creating the organization is not an item: the panel does not open without
  * one — the layout sends an account without any to the first-run screen.
  */
-type StepKey = "plan" | "farm" | "appointment" | "team" | "profile" | "website";
+type StepKey =
+  "plan" | "farm" | "offer" | "appointment" | "team" | "profile" | "website";
 
 type Step = {
   key: StepKey;
@@ -73,6 +76,20 @@ const STEPS: readonly Step[] = [
     visible: (access) =>
       allows(access, { module: "shared.farms", permission: "farms.manage" }),
     load: async () => (await listFarms()).length > 0,
+  },
+  {
+    // What customers book, started from a preset (ADR-072 §10, slice 5g).
+    // An organization type that brings ready-made services of its own is not
+    // sent to core's presets.
+    key: "offer",
+    href: "/panel/settings/services/presets",
+    visible: (access) =>
+      allows(access, {
+        module: "shared.booking",
+        permission: "booking.appointment.manage",
+      }) &&
+      organizationType(access.organizationType).serviceTemplates.length === 0,
+    load: async () => (await getBookingSetup()).services.length > 0,
   },
   {
     key: "appointment",

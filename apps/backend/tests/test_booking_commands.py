@@ -238,7 +238,7 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
         (read,) = execute_plan([invocation("booking.setup.read@1", {})])
 
     assert result.status == "done", result
-    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 4)
+    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 5)
     stay = next(item for item in read.output["services"] if item["name"] == "Domek nad wodą")
     # A stay's check-in and check-out are read as the week's hours are written.
     assert (stay["time_model"], stay["range_unit"]) == ("range", "night")

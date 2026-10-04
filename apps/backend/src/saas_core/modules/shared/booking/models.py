@@ -1243,6 +1243,38 @@ class BookingSetupMutation(TenantScopedModel):
         ]
 
 
+class PresetInterest(TenantScopedModel):
+    """A company's sign-up for a kind of booking that is announced and not
+    ready yet (ADR-072 §10, owner's answer 14 a+b): which preset, and what the
+    company says it lacks („Czego Ci brakuje?”). One row per company and
+    preset; signing up again rewrites the note, withdrawing removes the row.
+    The company's own words, so the table is a tenant's like any other: the
+    platform reads the list one company at a time (`booking_preset_interest`).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    preset_id = models.CharField(max_length=80)
+    #: The version that was announced when the company signed up.
+    preset_version = models.PositiveIntegerField()
+    note = models.TextField(blank=True)
+    #: Who signed the company up; an id, the row outlives no account's name.
+    created_by = models.UUIDField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "preset_id"], name="booking_preset_interest_uq"
+            )
+        ]
+        ordering = ("organization_id", "preset_id")
+
+    def __str__(self) -> str:
+        return self.preset_id
+
+
 class PublicBookingRoute(models.Model):
     public_slug = models.SlugField(max_length=100, unique=True)
     organization_id = models.UUIDField(unique=True)

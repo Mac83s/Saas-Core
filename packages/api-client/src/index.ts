@@ -3344,6 +3344,80 @@ export async function createSetupService(
   return data;
 }
 
+export type BookingPreset = components["schemas"]["Preset"];
+export type BookingPresetApply = components["schemas"]["PresetApplyInput"];
+export type BookingPresetInterest = components["schemas"]["PresetInterest"];
+
+/** What the company may start an offer from (ADR-072 §10): ready presets and
+ *  announced ones, each with the company's own sign-up. */
+export async function listBookingPresets(): Promise<BookingPreset[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/presets/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.presets;
+}
+
+/** One offer from a ready preset: the company's own copy, switched off. */
+export async function applyBookingPreset(
+  input: BookingPresetApply,
+  idempotencyKey: string,
+): Promise<ServiceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/presets/apply/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Signs the company up for a preset that is not ready yet, with what it
+ *  says it lacks; signing up again rewrites the note. */
+export async function saveBookingPresetInterest(
+  presetId: string,
+  note: string,
+  idempotencyKey: string,
+): Promise<BookingPresetInterest> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/presets/{preset_id}/interest/",
+    {
+      params: {
+        path: { preset_id: presetId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { note },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Takes the company off a preset's list. */
+export async function withdrawBookingPresetInterest(
+  presetId: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/presets/{preset_id}/interest/",
+    {
+      params: { path: { preset_id: presetId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error) throwProblem(error, response);
+}
+
 /** Only the fields sent change; `expected_version` names the version read. */
 export async function updateSetupService(
   serviceId: string,

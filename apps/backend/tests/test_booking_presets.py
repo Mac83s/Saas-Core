@@ -81,7 +81,7 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
     # that the site comes later (owner decision 67a).
     assert visit.online_booking == "ready"
     lodging = next(item for item in listed if item.id == "core.lodging")
-    assert (lodging.version, lodging.readiness, lodging.online_booking) == (4, "ready", "ready")
+    assert (lodging.version, lodging.readiness, lodging.online_booking) == (5, "ready", "ready")
     assert "wkrótce" not in lodging.labels["pl"]["description"]
     # Its terms of paying and of giving a stay up are a start, and say so.
     assert "Warunki na start, do zmiany w „Cenniku”" in lodging.labels["pl"]["description"]
@@ -92,10 +92,13 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
     assert "wkrótce" in at_customer.labels["pl"]["description"]
     assert lodging.required_inputs == ()
     assert lodging.catalog_category == "turystyka-i-noclegi"
+    # … and, since its version 5, the page template of its kind of site.
+    assert lodging.page_template == "core.lodging"
+    assert visit.page_template is None
     assert {item.id: item.version for item in listed if item.readiness == "ready"} == {
         "core.specialist_visit": 1,
         "core.service_at_customer": 2,
-        "core.lodging": 4,
+        "core.lodging": 5,
         "core.rental": 3,
         "core.care_stay": 3,
     }
@@ -135,8 +138,17 @@ def test_the_list_is_for_whoever_sets_services_up() -> None:
         "place": "business",
         "required_inputs": [],
         "catalog_category": None,
+        "page_template": None,
+        "interest": None,
         "online_booking": "ready",
     }
+    # A stay suggests where the company stands in the catalogue and the page
+    # template of its site (slice 5g).
+    lodging = next(item for item in listed if item["id"] == "core.lodging")
+    assert (lodging["catalog_category"], lodging["page_template"]) == (
+        "turystyka-i-noclegi",
+        "core.lodging",
+    )
 
     worker = authenticated_client(member_of(owner, "wzorce-pracownik@example.test", "staff"))
     assert worker.get("/api/v1/booking/presets/").status_code == 403
@@ -157,7 +169,7 @@ def test_a_named_preset_is_found_or_refused_with_a_code_on_its_field() -> None:
     assert _refused("core.specialist_visit", 7) == (["preset_id"], ["preset_unknown"])
     assert _refused("core.hourly_space", None) == (["preset_id"], ["preset_not_ready"])
     # A version that was only announced stays so, whatever came after it.
-    assert find_preset("core.lodging", None).version == 4
+    assert find_preset("core.lodging", None).version == 5
     assert _refused("core.lodging", 1) == (["preset_id"], ["preset_not_ready"])
 
 
@@ -222,7 +234,7 @@ def test_the_words_come_in_the_companys_first_language() -> None:
     ("preset_id", "unit", "start", "end", "policy", "version"),
     [
         # A stay's prepayment is the company's to switch on: until then nothing is said.
-        ("core.lodging", "night", time(16), time(11), "none", 4),
+        ("core.lodging", "night", time(16), time(11), "none", 5),
         ("core.rental", "day", time(9), time(18), "on_site", 3),
         ("core.care_stay", "day", time(9), time(18), "on_site", 3),
     ],

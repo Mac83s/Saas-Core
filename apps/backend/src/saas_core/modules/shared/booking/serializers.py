@@ -1163,6 +1163,27 @@ class PresetLabelsSerializer(serializers.Serializer[dict[str, Any]]):
     en = PresetTextSerializer()
 
 
+class PresetInterestSerializer(serializers.Serializer[dict[str, Any]]):
+    """A company's sign-up for a preset that is announced and not ready yet
+    (ADR-072 §10, „wkrótce”)."""
+
+    preset_id = serializers.CharField()
+    note = serializers.CharField(
+        allow_blank=True, help_text="What the company says it lacks („Czego Ci brakuje?”)."
+    )
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class PresetInterestInputSerializer(serializers.Serializer[dict[str, Any]]):
+    note = serializers.CharField(
+        max_length=1000,
+        required=False,
+        allow_blank=True,
+        help_text="What the company lacks, in its own words; may be empty.",
+    )
+
+
 class PresetSerializer(serializers.Serializer[dict[str, Any]]):
     """What a company may start an offer from (ADR-072 §10)."""
 
@@ -1192,6 +1213,16 @@ class PresetSerializer(serializers.Serializer[dict[str, Any]]):
     )
     catalog_category = serializers.CharField(
         allow_null=True, help_text="A suggested category of the public catalogue."
+    )
+    page_template = serializers.CharField(
+        allow_null=True,
+        help_text="A suggested page template for the company's site (`core.lodging`), from "
+        "the page template catalogue; null when the preset suggests none.",
+    )
+    interest = PresetInterestSerializer(
+        allow_null=True,
+        help_text="The calling company's sign-up for this preset, when it is not ready and "
+        "the company asked to be told; null otherwise.",
     )
     online_booking = serializers.ChoiceField(
         choices=("ready", "soon"),

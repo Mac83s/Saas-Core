@@ -1045,11 +1045,75 @@ export interface paths {
         };
         /**
          * List what the company may start an offer from
-         * @description The presets of ADR-072 §10 in the order a company sees them, each in its latest version: ready ones can be applied, the rest are announced. This list is the only source a panel, a site or the assistant chooses from.
+         * @description The presets of ADR-072 §10 in the order a company sees them, each in its latest version: ready ones can be applied (`booking_preset_apply`), the rest are announced — a company signs up to be told when one is ready (`booking_preset_interest_save`), and `interest` is its sign-up. A preset may suggest a category of the public catalogue and a page template for the company's site. This list is the only source a panel, a site or the assistant chooses from.
          */
         get: operations["booking_presets_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/presets/{preset_id}/interest/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sign the company up for a preset that is not ready yet
+         * @description Puts the company on the list of a preset marked `soon`, with what it says it lacks („Czego Ci brakuje?”) — or rewrites that note; one sign-up per company and preset. A ready preset is applied, not waited for: 400 `preset_ready` on `preset_id`. A preset nobody announced is 404. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        put: operations["booking_preset_interest_save"];
+        post?: never;
+        /**
+         * Take the company off a preset's list
+         * @description Removes the company's sign-up for the preset. A repeat, or a preset the company never signed up for, removes nothing and answers 204 as well.
+         */
+        delete: operations["booking_preset_interest_withdraw"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/presets/apply/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an offer from a preset
+         * @description Makes one offer from a ready preset: the preset decides how it is booked, the company names it and — for a preset with time model `slot` — says how long a visit takes. The offer is the company's own copy, switched off until the company switches it on; nobody, no place, no unit and no price are made for it. `preset_unknown` and `preset_not_ready` come back on `preset_id`. What the preset suggests besides — a catalogue category, a page template — is in the presets list. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_preset_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/presets/apply/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check an offer from a preset without making it
+         * @description Validates what `booking_preset_apply` would make. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_preset_apply_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14899,6 +14963,10 @@ export interface components {
             required_inputs: string[];
             /** @description A suggested category of the public catalogue. */
             catalog_category: string | null;
+            /** @description A suggested page template for the company's site (`core.lodging`), from the page template catalogue; null when the preset suggests none. */
+            page_template: string | null;
+            /** @description The calling company's sign-up for this preset, when it is not ready and the company asked to be told; null otherwise. */
+            interest: components["schemas"]["PresetInterest"] | null;
             /**
              * @description Whether customers book it through the company's site. `soon`: the company sets the offer and its prices and the team books in the panel; an offer made from the preset starts hidden from online booking („rezerwacja przez stronę — wkrótce”).
              *
@@ -14906,6 +14974,37 @@ export interface components {
              *     * `soon` - soon
              */
             online_booking: components["schemas"]["OnlineBookingEnum"];
+        };
+        /** @description An offer started from a preset (ADR-072 §10): the offer only, switched off. */
+        PresetApplyInput: {
+            /** @description A preset's id from the presets list; only `ready` ones apply. */
+            preset_id: string;
+            /** @description Null takes the latest version. */
+            version?: number | null;
+            name: string;
+            /** @description How long one visit of a `slot` service takes, in minutes. */
+            duration_minutes?: number | null;
+            /** @description Who does it; null leaves the offer with nobody yet — nobody is picked. */
+            staff_ids?: string[] | null;
+            /** @description Where it is offered; null leaves the offer without a place yet. */
+            location_ids?: string[] | null;
+        };
+        /**
+         * @description A company's sign-up for a preset that is announced and not ready yet
+         *     (ADR-072 §10, „wkrótce”).
+         */
+        PresetInterest: {
+            preset_id: string;
+            /** @description What the company says it lacks („Czego Ci brakuje?”). */
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PresetInterestInput: {
+            /** @description What the company lacks, in its own words; may be empty. */
+            note?: string;
         };
         PresetLabels: {
             pl: components["schemas"]["PresetText"];
@@ -21772,6 +21871,211 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_preset_interest_save: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                preset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PresetInterestInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PresetInterestInput"];
+                "multipart/form-data": components["schemas"]["PresetInterestInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetInterest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_preset_interest_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_preset_apply: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetApplyInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PresetApplyInput"];
+                "multipart/form-data": components["schemas"]["PresetApplyInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_preset_apply_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetApplyInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PresetApplyInput"];
+                "multipart/form-data": components["schemas"]["PresetApplyInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSetupPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
