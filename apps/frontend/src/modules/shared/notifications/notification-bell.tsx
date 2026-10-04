@@ -217,12 +217,31 @@ function headline(
   }
 }
 
-/** Where a notice takes its reader: a visit's day, or the card to check. */
+/** Where a notice takes its reader: a visit's day, the card to check, the
+ *  translation job, what waits for a decision, or where a stopped automation
+ *  is put right — the credits, or the limit and the consent (TL16f). */
 function noticeHref(item: AppNotification): string | null {
   const day = calendarDay(item);
   if (day) return `/panel/calendar?view=day&date=${day}`;
-  if (item.kind === "inventory.low_stock") return "/panel/inventory?low=1";
-  return item.kind === "profiles.category_changed" ? "/panel/profile" : null;
+  const payload = (item.payload ?? {}) as Record<string, unknown>;
+  switch (item.kind) {
+    case "inventory.low_stock":
+      return "/panel/inventory?low=1";
+    case "profiles.category_changed":
+      return "/panel/profile";
+    case "translation.job_problem":
+      return payload.job_id
+        ? `/panel/sites/translations/jobs/${String(payload.job_id)}`
+        : "/panel/sites/translations/jobs";
+    case "translation.review_waiting":
+      return "/panel/sites/translations/review";
+    case "translation.automation_paused":
+      return payload.reason === "credits_exhausted"
+        ? "/panel/settings/credits"
+        : "/panel/settings/languages";
+    default:
+      return null;
+  }
 }
 
 /** The calendar day a visit's notice opens, in the business's own zone. */

@@ -3706,7 +3706,46 @@
     "packContents": "{count, plural, one {# credit} other {# credits}}, net",
     "ownerBuys": "The company owner buys credits.",
     "unavailableDemo": "Buying is switched off in the demo",
-    "nothingSpends": "Nothing spends credits in this version, so there is nothing to top up."
+    "nothingSpends": "Nothing spends credits in this version, so there is nothing to top up.",
+    "usage": {
+      "title": "Usage",
+      "description": "What the credits went on: the operation, the amount, the pool and the date. A translation’s row leads to its job.",
+      "colWhat": "Operation",
+      "colAmount": "Amount",
+      "colCredits": "Credits",
+      "colBucket": "Pool",
+      "colDate": "Date",
+      "colActions": "Actions",
+      "actionsFor": "Actions: {what}, {date}",
+      "openJob": "Open the translation job",
+      "filterShown": "Show",
+      "shownConsumed": "Usage",
+      "shownAll": "Every movement",
+      "emptyConsumed": "Nothing has used credits yet.",
+      "emptyAll": "No credits have moved yet.",
+      "loadError": "The credit usage could not be loaded.",
+      "retry": "Try again",
+      "loadMore": "Load more",
+      "thousandCharacters": "{count}k characters",
+      "times": "{count} ×",
+      "operations": {
+        "translation_characters": "AI translation",
+        "assistant_conversation_turn": "Conversation with the assistant",
+        "image_generation_generate": "AI image"
+      },
+      "kinds": {
+        "allowance_granted": "Plan credits for the new month",
+        "allowance_expired": "Unused plan credits expired",
+        "purchased": "Purchased credits",
+        "refunded": "Refund: {operation}",
+        "operator_adjustment": "Correction by the platform operator",
+        "other": "Another movement"
+      },
+      "bucket": {
+        "allowance": "From the plan",
+        "purchased": "Purchased"
+      }
+    }
   },
   "SeoGsc": {
     "title": "Google Search Console",

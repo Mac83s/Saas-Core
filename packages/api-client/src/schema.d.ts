@@ -498,7 +498,7 @@ export interface paths {
         };
         /**
          * List credit movements
-         * @description The company's credit ledger, newest first: allowance granted and expired, purchases, consumption with its units (e.g. 1,000 characters × language), refunds and operator corrections. Paged by `cursor`.
+         * @description The company's credit ledger, newest first: allowance granted and expired, purchases, consumption with its units (e.g. 1,000 characters × language), refunds and operator corrections; `kind` keeps one of them. A movement of a metered operation names the operation and, where there is one, what it was for (`subject`, e.g. a translation job to open). Paged by `cursor`.
          */
         get: operations["billing_credit_ledger_list"];
         put?: never;
@@ -9467,8 +9467,14 @@ export interface components {
             /** @description Stan tej puli po zmianie. */
             balance_after: number;
             operation_key: string;
+            /** @description Nazwa operacji z katalogu; pusta, gdy ruch nie jest operacją. */
+            operation_name: string;
+            /** @description Jednostka operacji z katalogu: operation albo np. 1000_characters. */
+            operation_unit: string;
             /** @description Jednostki operacji, np. 1000 znaków × język. */
             operation_quantity: number | null;
+            /** @description Za co był ten ruch, gdy da się to otworzyć (np. zadanie tłumaczenia); null w pozostałych przypadkach. */
+            subject: components["schemas"]["CreditSubject"] | null;
             reason: string;
         };
         CreditLedgerPage: {
@@ -9507,6 +9513,12 @@ export interface components {
          * @enum {string}
          */
         CreditPurchaseStatusEnum: "pending" | "succeeded" | "failed" | "canceled";
+        CreditSubject: {
+            /** @description Co to jest, np. translation.job. */
+            kind: string;
+            /** @description Identyfikator tej rzeczy u jej właściciela. */
+            id: string;
+        };
         CrewInput: {
             staff_ids: string[];
             /** Format: uuid */
@@ -18129,6 +18141,17 @@ export interface operations {
             query?: {
                 /** @description Ostatni wpis poprzedniej strony. */
                 cursor?: string | null;
+                /**
+                 * @description Tylko ruchy tego rodzaju, np. consumed (zużycie); bez niego wszystkie.
+                 *
+                 *     * `allowance_granted` - Przyznano pulę planu
+                 *     * `allowance_expired` - Wygasła pula planu
+                 *     * `purchased` - Zakup kredytów
+                 *     * `consumed` - Zużycie
+                 *     * `refunded` - Zwrot zużycia
+                 *     * `operator_adjustment` - Korekta operatora
+                 */
+                kind?: "allowance_granted" | "allowance_expired" | "purchased" | "consumed" | "refunded" | "operator_adjustment";
                 limit?: number;
             };
             header?: never;

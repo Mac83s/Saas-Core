@@ -33,12 +33,18 @@ class TranslationConfig(AppConfig):
         register_setting_group(ENGINE)
 
         from saas_core.modules.core.organizations.api import platform_setting
-        from saas_core.modules.shared.billing.api import register_credit_cost
+        from saas_core.modules.shared.billing.api import (
+            register_credit_cost,
+            register_credit_subject,
+        )
 
+        from .jobs import job_of_hold
         from .permissions import CREDIT_OPERATION
         from .settings_spec import PRICE
 
         register_credit_cost(CREDIT_OPERATION, lambda: int(platform_setting(PRICE.key)))
+        # A row of the credits page leads to the job it paid for (TL16f).
+        register_credit_subject(CREDIT_OPERATION, job_of_hold)
 
         from saas_core.modules.shared.model_port.api import register_task
 

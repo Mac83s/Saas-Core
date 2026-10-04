@@ -187,6 +187,42 @@ test("tłumaczenia w dzwonku: braki zlecenia i to, co czeka na decyzję", async 
       "Automatyczne tłumaczenie zmian wstrzymane: wykorzystano miesięczny limit automatu.",
     ),
   ).not.toBeNull();
+  // Each leads to where the thing is: the job, the queue, the limit.
+  const hrefOf = (text: RegExp) =>
+    screen.getByText(text).closest("a")?.getAttribute("href");
+  expect(hrefOf(/zakończone z brakami/)).toBe(
+    "/panel/sites/translations/jobs/j",
+  );
+  expect(hrefOf(/czekają na Twoją decyzję/)).toBe(
+    "/panel/sites/translations/review",
+  );
+  expect(hrefOf(/wstrzymane: wykorzystano/)).toBe("/panel/settings/languages");
+});
+
+test("automat wstrzymany z braku kredytów prowadzi do kredytów", async () => {
+  getNotificationInbox.mockResolvedValue({
+    unread: 1,
+    items: [
+      {
+        ...trialEnding,
+        kind: "translation.automation_paused",
+        severity: "info" as const,
+        payload: { reason: "credits_exhausted" },
+      },
+    ],
+  });
+  renderBell();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 1",
+    }),
+  );
+  const link = await screen.findByText(
+    "Automatyczne tłumaczenie zmian wstrzymane: brakuje kredytów.",
+  );
+  expect(link.closest("a")?.getAttribute("href")).toBe(
+    "/panel/settings/credits",
+  );
 });
 
 test("przeniesiona kategoria: nazwa w języku czytelnika i link do wizytówki", async () => {

@@ -3706,7 +3706,46 @@
     "packContents": "{count, plural, one {# kredyt} few {# kredyty} many {# kredytów} other {# kredytu}}, netto",
     "ownerBuys": "Kredyty dokupuje właściciel firmy.",
     "unavailableDemo": "Dokupowanie wyłączone w wersji demo",
-    "nothingSpends": "W tej wersji nic nie zużywa kredytów, więc nie ma czego dokupować."
+    "nothingSpends": "W tej wersji nic nie zużywa kredytów, więc nie ma czego dokupować.",
+    "usage": {
+      "title": "Zużycie",
+      "description": "Na co poszły kredyty: operacja, ilość, pula i data. Wiersz tłumaczenia prowadzi do swojego zadania.",
+      "colWhat": "Operacja",
+      "colAmount": "Ilość",
+      "colCredits": "Kredyty",
+      "colBucket": "Pula",
+      "colDate": "Data",
+      "colActions": "Działania",
+      "actionsFor": "Działania: {what}, {date}",
+      "openJob": "Otwórz zadanie tłumaczenia",
+      "filterShown": "Pokaż",
+      "shownConsumed": "Zużycie",
+      "shownAll": "Wszystkie ruchy",
+      "emptyConsumed": "Nic jeszcze nie zużyło kredytów.",
+      "emptyAll": "Nie było jeszcze żadnego ruchu kredytów.",
+      "loadError": "Nie udało się wczytać zużycia kredytów.",
+      "retry": "Spróbuj ponownie",
+      "loadMore": "Wczytaj więcej",
+      "thousandCharacters": "{count} tys. znaków",
+      "times": "{count} ×",
+      "operations": {
+        "translation_characters": "Tłumaczenie AI",
+        "assistant_conversation_turn": "Rozmowa z asystentem",
+        "image_generation_generate": "Obraz AI"
+      },
+      "kinds": {
+        "allowance_granted": "Kredyty z planu na nowy miesiąc",
+        "allowance_expired": "Niewykorzystane kredyty z planu wygasły",
+        "purchased": "Dokupione kredyty",
+        "refunded": "Zwrot: {operation}",
+        "operator_adjustment": "Korekta operatora platformy",
+        "other": "Inny ruch"
+      },
+      "bucket": {
+        "allowance": "Z planu",
+        "purchased": "Dokupione"
+      }
+    }
   },
   "SeoGsc": {
     "title": "Google Search Console",

@@ -1316,7 +1316,9 @@ paths:
       operationId: billing_credit_ledger_list
       description: 'The company''s credit ledger, newest first: allowance granted
         and expired, purchases, consumption with its units (e.g. 1,000 characters
-        × language), refunds and operator corrections. Paged by `cursor`.'
+        × language), refunds and operator corrections; `kind` keeps one of them. A
+        movement of a metered operation names the operation and, where there is one,
+        what it was for (`subject`, e.g. a translation job to open). Paged by `cursor`.'
       summary: List credit movements
       parameters:
       - in: query
@@ -1327,6 +1329,27 @@ paths:
           - 'null'
           format: uuid
         description: Ostatni wpis poprzedniej strony.
+      - in: query
+        name: kind
+        schema:
+          enum:
+          - allowance_granted
+          - allowance_expired
+          - purchased
+          - consumed
+          - refunded
+          - operator_adjustment
+          type: string
+          minLength: 1
+        description: |-
+          Tylko ruchy tego rodzaju, np. consumed (zużycie); bez niego wszystkie.
+
+          * `allowance_granted` - Przyznano pulę planu
+          * `allowance_expired` - Wygasła pula planu
+          * `purchased` - Zakup kredytów
+          * `consumed` - Zużycie
+          * `refunded` - Zwrot zużycia
+          * `operator_adjustment` - Korekta operatora
       - in: query
         name: limit
         schema:
@@ -27412,11 +27435,23 @@ components:
           description: Stan tej puli po zmianie.
         operation_key:
           type: string
+        operation_name:
+          type: string
+          description: Nazwa operacji z katalogu; pusta, gdy ruch nie jest operacją.
+        operation_unit:
+          type: string
+          description: 'Jednostka operacji z katalogu: operation albo np. 1000_characters.'
         operation_quantity:
           type:
           - integer
           - 'null'
           description: Jednostki operacji, np. 1000 znaków × język.
+        subject:
+          oneOf:
+          - $ref: '#/components/schemas/CreditSubject'
+          - type: 'null'
+          description: Za co był ten ruch, gdy da się to otworzyć (np. zadanie tłumaczenia);
+            null w pozostałych przypadkach.
         reason:
           type: string
       required:
@@ -27427,8 +27462,11 @@ components:
       - kind
       - occurred_at
       - operation_key
+      - operation_name
       - operation_quantity
+      - operation_unit
       - reason
+      - subject
     CreditLedgerPage:
       type: object
       properties:
@@ -27517,6 +27555,18 @@ components:
         * `succeeded` - succeeded
         * `failed` - failed
         * `canceled` - canceled
+    CreditSubject:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: Co to jest, np. translation.job.
+        id:
+          type: string
+          description: Identyfikator tej rzeczy u jej właściciela.
+      required:
+      - id
+      - kind
     CrewInput:
       type: object
       properties:

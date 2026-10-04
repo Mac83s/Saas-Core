@@ -706,6 +706,28 @@ export async function getCustomerCredits(): Promise<CustomerCreditsOverview> {
   return data;
 }
 
+/** One movement of credits: what it was (a grant, a purchase, the use of an
+ *  operation with its units) and, where there is something to open, what it
+ *  was for (`subject`, e.g. a translation job). */
+export type CreditLedgerEntry = components["schemas"]["CreditLedgerEntry"];
+export type CreditLedgerPage = components["schemas"]["CreditLedgerPage"];
+export type CreditLedgerQuery = NonNullable<
+  paths["/api/v1/billing/credits/ledger/"]["get"]["parameters"]["query"]
+>;
+
+/** The company's credit movements, newest first; `kind` keeps one kind
+ *  (`consumed`: what was used), `cursor` asks for the next page. */
+export async function listCreditLedger(
+  query: CreditLedgerQuery = {},
+): Promise<CreditLedgerPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/billing/credits/ledger/",
+    { params: { query }, credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function createCreditCheckout(
   pack: string,
   idempotencyKey: string,

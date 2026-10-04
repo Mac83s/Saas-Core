@@ -246,6 +246,10 @@ def test_no_credits_blocks_and_a_lost_consent_blocks_or_drops(source: JobSource)
     due(owner, object_id)
     assert start_due_demand(owner.organization_id) is None
     assert [(row.state, row.reason) for row in demand(owner)] == [("blocked", CREDITS_EXHAUSTED)]
+    paused = NotificationMessage.all_objects.get(
+        organization=owner.organization, template_key=AUTOMATION_PAUSED
+    )
+    assert paused.context["panel_url"].endswith("/panel/settings/credits")
     TranslationDemand.all_objects.filter(organization=owner.organization).delete()
     # The consenting person no longer active: the consent is gone with them.
     Membership.objects.filter(pk=owner.pk).update(status="suspended")
@@ -294,6 +298,8 @@ def test_a_paused_automation_tells_the_managers_once_a_period(source: JobSource)
     mail = NotificationMessage.all_objects.get(
         organization=owner.organization, template_key=AUTOMATION_PAUSED
     )
+    # To where the limit is raised; no credits would lead to the credits page.
+    assert mail.context["panel_url"].endswith("/panel/settings/languages")
     deliver_email_task.run(str(mail.id), mail.signed_tenant_context)
     assert NotificationMessage.all_objects.get(pk=mail.id).status == "sent"
     # Tried again within the month: still one notice.

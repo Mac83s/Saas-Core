@@ -46,6 +46,7 @@ import {
   formatDay,
   formatMoney,
 } from "./parts";
+import { CreditUsage } from "./credit-usage";
 import { useStepUp } from "../../core/organizations/step-up";
 import { deployment } from "../../../generated/deployment";
 
@@ -428,6 +429,9 @@ export function CreditsPanel({
               labels={{ ...labels, empty: t("historyEmpty") }}
             />
           </section>
+
+          {/* What the credits went on, where anything spends them (TL16f). */}
+          {spendsCredits() ? <CreditUsage /> : null}
         </>
       ) : null}
     </div>

@@ -306,7 +306,9 @@ class BillingCreditLedgerView(APIView):
         summary="List credit movements",
         description="The company's credit ledger, newest first: allowance granted and expired, "
         "purchases, consumption with its units (e.g. 1,000 characters × language), refunds "
-        "and operator corrections. Paged by `cursor`.",
+        "and operator corrections; `kind` keeps one of them. A movement of a metered "
+        "operation names the operation and, where there is one, what it was for (`subject`, "
+        "e.g. a translation job to open). Paged by `cursor`.",
         tags=["billing"],
         parameters=[CreditLedgerQuerySerializer],
         responses={
@@ -318,26 +320,12 @@ class BillingCreditLedgerView(APIView):
     def get(self, request: Request) -> Response:
         query = CreditLedgerQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
-        rows, next_cursor = credit_ledger_page(
-            cursor=query.validated_data.get("cursor"), limit=query.validated_data["limit"]
+        items, next_cursor = credit_ledger_page(
+            cursor=query.validated_data.get("cursor"),
+            limit=query.validated_data["limit"],
+            kind=query.validated_data.get("kind"),
         )
-        return Response({
-            "items": [
-                {
-                    "id": row.id,
-                    "occurred_at": row.occurred_at,
-                    "kind": row.kind,
-                    "bucket": row.bucket,
-                    "amount": row.amount,
-                    "balance_after": row.balance_after,
-                    "operation_key": row.operation_key,
-                    "operation_quantity": row.operation_quantity,
-                    "reason": row.reason,
-                }
-                for row in rows
-            ],
-            "next_cursor": next_cursor,
-        })
+        return Response({"items": items, "next_cursor": next_cursor})
 
 
 @method_decorator(csrf_protect, name="dispatch")

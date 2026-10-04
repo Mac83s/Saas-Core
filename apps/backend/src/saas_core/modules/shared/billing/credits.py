@@ -123,6 +123,28 @@ def register_credit_cost(operation_key: str, provider: Callable[[], int]) -> Non
     _cost_providers[operation_key] = provider
 
 
+#: What a hold was taken for, as the operation's owner names it: the
+#: operation's key → (the hold's key → (kind, id) or None).
+_subject_resolvers: dict[str, Callable[[str], tuple[str, str] | None]] = {}
+
+
+def register_credit_subject(
+    operation_key: str, resolver: Callable[[str], tuple[str, str] | None]
+) -> None:
+    """A module whose operation is taken for something a person can open (a
+    translation job), from its `AppConfig.ready`: given the hold's key it
+    answers the kind and the id, so the credits page can lead there while
+    billing knows no module by name."""
+    _subject_resolvers[operation_key] = resolver
+
+
+def credit_subject(operation_key: str, hold_key: str) -> dict[str, str] | None:
+    """What the entry of this operation and hold was for, or nothing to open."""
+    resolver = _subject_resolvers.get(operation_key)
+    found = resolver(hold_key) if resolver is not None and hold_key else None
+    return {"kind": found[0], "id": found[1]} if found else None
+
+
 def unit_cost(operation: CreditOperation) -> int:
     """Credits one unit of the operation costs now: its owner's setting, else
     the catalogue's; nothing while it is not metered yet."""

@@ -202,3 +202,34 @@ def test_the_credits_page_lists_movements_with_their_units() -> None:
     assert (first["kind"], first["amount"], first["operation_quantity"]) == ("consumed", -12, 4)
     assert page.data["next_cursor"] is not None
     assert [item["kind"] for item in rest.data["items"]] == ["allowance_granted"]
+    # The row names its operation from the catalogue; nobody registered what
+    # this one is for, so there is nothing to open. A grant is no operation.
+    operation = CreditOperation.objects.get(key=OPERATION)
+    assert (first["operation_name"], first["operation_unit"], first["subject"]) == (
+        operation.name,
+        operation.unit,
+        None,
+    )
+    assert (rest.data["items"][0]["operation_name"], rest.data["items"][0]["subject"]) == ("", None)
+    # „Zużycie” is the server's filter, and an unknown kind is refused on its field.
+    consumed = client.get("/api/v1/billing/credits/ledger/?kind=consumed")
+    assert [item["kind"] for item in consumed.data["items"]] == ["consumed"]
+    assert consumed.data["next_cursor"] is None
+    refused = client.get("/api/v1/billing/credits/ledger/?kind=spent")
+    assert refused.status_code == 400
+    assert [error["field"] for error in refused.json()["errors"]] == ["kind"]
+
+
+def test_the_owner_of_an_operation_says_what_a_row_was_for() -> None:
+    """Billing knows no module by name: the operation's owner registers how a
+    hold's key names the thing it paid for (a translation job)."""
+    from saas_core.modules.shared.billing import credits
+
+    assert credits.credit_subject(OPERATION, "job:8") is None
+    credits.register_credit_subject(OPERATION, lambda key: ("testing.job", key.partition(":")[2]))
+    try:
+        assert credits.credit_subject(OPERATION, "job:8") == {"kind": "testing.job", "id": "8"}
+        # A movement without a hold (a grant, a purchase) has nothing to open.
+        assert credits.credit_subject(OPERATION, "") is None
+    finally:
+        credits._subject_resolvers.pop(OPERATION, None)

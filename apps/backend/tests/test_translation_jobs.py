@@ -232,6 +232,17 @@ def test_an_order_holds_credits_runs_as_the_person_and_settles_what_was_delivere
     )
     assert (consumed.amount, consumed.operation_quantity) == (-2, 1)
     assert_ledger_matches_balance(owner.organization)
+    # The credits page reads the same row with the way to its job (TL16f).
+    (row,) = (
+        authenticated_client(owner)
+        .get("/api/v1/billing/credits/ledger/?kind=consumed")
+        .json()["items"]
+    )
+    assert (row["operation_unit"], row["operation_quantity"], row["subject"]) == (
+        "1000_characters",
+        1,
+        {"kind": "translation.job", "id": str(job.id)},
+    )
     actions = set(
         OrganizationAuditEntry.objects.filter(organization=owner.organization).values_list(
             "action", flat=True

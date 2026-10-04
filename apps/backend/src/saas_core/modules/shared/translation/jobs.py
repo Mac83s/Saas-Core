@@ -404,6 +404,14 @@ def _usd_estimate(characters: int) -> int:
         return 0
 
 
+def job_of_hold(key: str) -> tuple[str, str] | None:
+    """The job a credit hold of `start_part` belongs to, for the credits page
+    (`register_credit_subject`): the key is `translation:<job>:<part>`."""
+    prefix, _, rest = key.partition(":")
+    job_id = rest.rpartition(":")[0]
+    return ("translation.job", job_id) if prefix == "translation" and job_id else None
+
+
 def start_part(job: TranslationJob, part: TranslationJobPart) -> None:
     """Holds the part's credits and starts its deadline. The hold lasts as long
     as the longest wait could; settling releases what was not delivered."""

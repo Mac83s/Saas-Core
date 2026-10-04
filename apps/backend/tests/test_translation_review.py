@@ -372,8 +372,8 @@ def test_a_jobs_detail_names_its_items_and_says_whether_it_can_be_taken_back(
         f"/api/v1/translation/jobs/{first.id}/revert/", HTTP_IDEMPOTENCY_KEY="take-back-older"
     )
     assert older.status_code == 400
-    assert [(e["field"], e["code"]) for e in older.json()["errors"]] == [
-        ("job_id", "not_latest_job")
+    assert [(e["field"], e["code"], e["message"]) for e in older.json()["errors"]] == [
+        ("job_id", "not_latest_job", "Cofnąć można tylko ostatnie zadanie, które coś zapisało.")
     ]
     with tenant(owner):
         revert_job(job_id=second.id, idempotency_key="take-back")

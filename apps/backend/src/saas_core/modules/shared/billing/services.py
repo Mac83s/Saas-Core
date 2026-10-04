@@ -542,19 +542,29 @@ def create_customer_portal() -> PortalResult:
     return PortalResult(portal.id, portal.url)
 
 
-def credit_ledger_page(*, cursor: UUID | None, limit: int) -> tuple[list[Any], UUID | None]:
+def credit_ledger_page(
+    *, cursor: UUID | None, limit: int, kind: str | None = None
+) -> tuple[list[dict[str, Any]], UUID | None]:
     """The company's credit movements, newest first, a page at a time.
 
     What the credits page lists next to the balance: grants, purchases,
     consumption with its units (1,000 characters × language for translations),
-    refunds, expiry. Reading needs only membership, like the balance.
+    refunds, expiry — only one `kind` when asked. A movement of a metered
+    operation carries the operation's name and unit from the catalogue and,
+    where its owner registered one, what it was for (`subject`: a translation
+    job). Reading needs only membership, like the balance.
     """
     context = authorize(ORGANIZATION_READ)
-    from .models import CreditLedgerEntry
+    from .credits import credit_subject
+    from .models import CreditLedgerEntry, CreditOperation
 
-    entries = CreditLedgerEntry.all_objects.filter(
-        organization_id=context.organization_id
-    ).order_by("-occurred_at", "-id")
+    entries = (
+        CreditLedgerEntry.all_objects.filter(organization_id=context.organization_id)
+        .select_related("reservation")
+        .order_by("-occurred_at", "-id")
+    )
+    if kind:
+        entries = entries.filter(kind=kind)
     if cursor is not None:
         anchor = (
             CreditLedgerEntry.all_objects.filter(organization_id=context.organization_id, pk=cursor)
@@ -566,7 +576,34 @@ def credit_ledger_page(*, cursor: UUID | None, limit: int) -> tuple[list[Any], U
                 Q(occurred_at__lt=anchor[0]) | Q(occurred_at=anchor[0], id__lt=anchor[1])
             )
     rows = list(entries[: limit + 1])
-    return rows[:limit], rows[limit - 1].id if len(rows) > limit else None
+    next_cursor = rows[limit - 1].id if len(rows) > limit else None
+    rows = rows[:limit]
+    operations = {
+        operation.key: operation
+        for operation in CreditOperation.objects.filter(
+            key__in={row.operation_key for row in rows if row.operation_key}
+        )
+    }
+    items = []
+    for row in rows:
+        operation = operations.get(row.operation_key)
+        items.append({
+            "id": row.id,
+            "occurred_at": row.occurred_at,
+            "kind": row.kind,
+            "bucket": row.bucket,
+            "amount": row.amount,
+            "balance_after": row.balance_after,
+            "operation_key": row.operation_key,
+            "operation_name": operation.name if operation else "",
+            "operation_unit": operation.unit if operation else "",
+            "operation_quantity": row.operation_quantity,
+            "subject": credit_subject(
+                row.operation_key, row.reservation.idempotency_key if row.reservation else ""
+            ),
+            "reason": row.reason,
+        })
+    return items, next_cursor
 
 
 def customer_credits_overview() -> dict[str, Any]:

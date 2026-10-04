@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
+from django.apps import apps
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -72,14 +73,23 @@ def _as_the_organization(organization_id: UUID) -> Iterator[None]:
         yield
 
 
-#: Where a notice sends the person. The translations page comes with the panel
-#: work (TL15/TL16); until then the panel's start, never an address that 404s.
+#: Where a notice sends the person (TL16f): the job, what waits for a
+#: decision, the settings the automation stopped on. The centre is a part of
+#: the sites' section of the panel; a deployment without it gets the panel's
+#: start, never an address that 404s.
 PANEL_PATH = "/panel"
+JOB_PATH = "/panel/sites/translations/jobs/{job_id}"
+REVIEW_PATH = "/panel/sites/translations/review"
+SETTINGS_PATH = "/panel/settings/languages"
+CREDITS_PATH = "/panel/settings/credits"
+_CENTRE_APP = "saas_core.modules.shared.sites"
 
 
-def _panel(locale: str) -> str:
+def _panel(locale: str, path: str = PANEL_PATH) -> str:
     base = settings.FRONTEND_BASE_URL.rstrip("/") + ("/en" if locale == "en" else "")
-    return f"{base}{PANEL_PATH}"
+    if path.startswith("/panel/sites/") and not apps.is_installed(_CENTRE_APP):
+        path = PANEL_PATH
+    return f"{base}{path}"
 
 
 def notify_job_problem(job: TranslationJob, *, written: int, total: int) -> None:
@@ -106,7 +116,7 @@ def notify_job_problem(job: TranslationJob, *, written: int, total: int) -> None
                 "organization_name": organization.name,
                 "written": str(written),
                 "total": str(total),
-                "panel_url": _panel(locale),
+                "panel_url": _panel(locale, JOB_PATH.format(job_id=job.id)),
             },
             idempotency_key=key,
             causation_id=f"translation_job:{job.id}",
@@ -156,7 +166,7 @@ def notify_waiting_reviews() -> int:
                         template_context={
                             "organization_name": organization.name,
                             "count": str(count),
-                            "panel_url": _panel(locale),
+                            "panel_url": _panel(locale, REVIEW_PATH),
                         },
                         idempotency_key=f"{key}:{user.id}",
                         causation_id=f"translation_review:{today}",
@@ -199,7 +209,11 @@ def notify_automation_paused(organization_id: UUID, *, reason: str, period: str)
                 locale=locale,
                 template_context={
                     "organization_name": organization.name,
-                    "panel_url": _panel(locale),
+                    # Where the cause is lifted: the credits, or the limit and
+                    # the consent beside the automation's switch.
+                    "panel_url": _panel(
+                        locale, CREDITS_PATH if reason == "credits_exhausted" else SETTINGS_PATH
+                    ),
                 },
                 idempotency_key=f"{key}:{user.id}",
                 causation_id=f"translation_automation:{period}",

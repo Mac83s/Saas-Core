@@ -2,6 +2,8 @@ from typing import Any
 
 from rest_framework import serializers
 
+from .models import CreditLedgerKind
+
 
 class StripeWebhookReceiptSerializer(serializers.Serializer[dict[str, Any]]):
     received = serializers.BooleanField()
@@ -181,6 +183,16 @@ class CreditLedgerQuerySerializer(serializers.Serializer[dict[str, Any]]):
         required=False, allow_null=True, help_text="Ostatni wpis poprzedniej strony."
     )
     limit = serializers.IntegerField(min_value=1, max_value=100, default=50)
+    kind = serializers.ChoiceField(
+        choices=CreditLedgerKind.choices,
+        required=False,
+        help_text="Tylko ruchy tego rodzaju, np. consumed (zużycie); bez niego wszystkie.",
+    )
+
+
+class CreditSubjectSerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.CharField(help_text="Co to jest, np. translation.job.")
+    id = serializers.CharField(help_text="Identyfikator tej rzeczy u jej właściciela.")
 
 
 class CreditLedgerEntrySerializer(serializers.Serializer[dict[str, Any]]):
@@ -196,8 +208,20 @@ class CreditLedgerEntrySerializer(serializers.Serializer[dict[str, Any]]):
     )
     balance_after = serializers.IntegerField(help_text="Stan tej puli po zmianie.")
     operation_key = serializers.CharField(allow_blank=True)
+    operation_name = serializers.CharField(
+        allow_blank=True, help_text="Nazwa operacji z katalogu; pusta, gdy ruch nie jest operacją."
+    )
+    operation_unit = serializers.CharField(
+        allow_blank=True,
+        help_text="Jednostka operacji z katalogu: operation albo np. 1000_characters.",
+    )
     operation_quantity = serializers.IntegerField(
         allow_null=True, help_text="Jednostki operacji, np. 1000 znaków × język."
+    )
+    subject = CreditSubjectSerializer(
+        allow_null=True,
+        help_text="Za co był ten ruch, gdy da się to otworzyć (np. zadanie tłumaczenia); "
+        "null w pozostałych przypadkach.",
     )
     reason = serializers.CharField(allow_blank=True)
 

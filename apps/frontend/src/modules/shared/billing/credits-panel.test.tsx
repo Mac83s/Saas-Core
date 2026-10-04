@@ -15,13 +15,17 @@ import polishMessages from "../../../../messages/pl.json";
 import type { CustomerCreditsOverview } from "@saas-core/api-client";
 import { CreditsPanel } from "./credits-panel";
 
-const { createCreditCheckout, getCustomerCredits, searchParams } = vi.hoisted(
-  () => ({
-    createCreditCheckout: vi.fn(),
-    getCustomerCredits: vi.fn(),
-    searchParams: new URLSearchParams(),
-  }),
-);
+const {
+  createCreditCheckout,
+  getCustomerCredits,
+  listCreditLedger,
+  searchParams,
+} = vi.hoisted(() => ({
+  createCreditCheckout: vi.fn(),
+  getCustomerCredits: vi.fn(),
+  listCreditLedger: vi.fn(),
+  searchParams: new URLSearchParams(),
+}));
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => searchParams }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
@@ -29,6 +33,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   createCreditCheckout,
   getCustomerCredits,
+  listCreditLedger,
 }));
 
 const overview: CustomerCreditsOverview = {
@@ -61,6 +66,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   searchParams.delete("checkout");
   getCustomerCredits.mockResolvedValue(overview);
+  // „Zużycie” under the purchases has its own test (credit-usage.test.tsx).
+  listCreditLedger.mockResolvedValue({ items: [], next_cursor: null });
 });
 
 afterEach(cleanup);
@@ -75,6 +82,7 @@ function renderPanel(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? polishMessages : englishMessages}
+      timeZone="Europe/Warsaw"
     >
       <CreditsPanel canManageBilling={canManageBilling} />
     </NextIntlClientProvider>,
@@ -102,6 +110,12 @@ test.each([
     expect(await screen.findByText(allowance)).not.toBeNull();
     expect(screen.getByText(renews)).not.toBeNull();
     expect(screen.getByText(empty)).not.toBeNull();
+    // What the credits went on stands under the purchases.
+    expect(
+      await screen.findByRole("heading", {
+        name: locale === "pl" ? "Zużycie" : "Usage",
+      }),
+    ).not.toBeNull();
     expect((await axe.run(rendered.container)).violations).toHaveLength(0);
   },
 );

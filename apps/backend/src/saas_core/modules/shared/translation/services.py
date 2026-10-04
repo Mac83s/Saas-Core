@@ -180,6 +180,10 @@ _MESSAGES = {
     ),
     "glossary_translation_required": "Podaj tłumaczenie terminu.",
     "glossary_too_many_forms": "Podaj najwyżej 10 form.",
+    "already_reverted": "To zadanie zostało już cofnięte.",
+    "job_running": "To zadanie jeszcze trwa — najpierw je zatrzymaj.",
+    "job_finished": "To zadanie już się zakończyło.",
+    "not_latest_job": "Cofnąć można tylko ostatnie zadanie, które coś zapisało.",
 }
 
 

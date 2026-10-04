@@ -71,7 +71,22 @@ def test_a_job_with_gaps_tells_the_person_who_ordered_it(
         organization=owner.organization, template_key=JOB_PROBLEM
     )
     assert mail.recipient_email == owner.user.email
+    # The mail leads to the job itself, not to the panel's start (TL16f).
+    assert mail.context["panel_url"].endswith(f"/panel/sites/translations/jobs/{job.id}")
     assert delivered(mail) == "sent"
+
+
+def test_a_notice_leads_to_the_centre_only_where_the_panel_has_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saas_core.modules.shared.translation import notify  # noqa: PLC0415
+
+    assert notify._panel("en", notify.REVIEW_PATH).endswith("/en/panel/sites/translations/review")
+    assert notify._panel("pl", notify.SETTINGS_PATH).endswith("/panel/settings/languages")
+    # A deployment without the sites' section has no centre: the panel's start.
+    monkeypatch.setattr(notify.apps, "is_installed", lambda name: name != notify._CENTRE_APP)
+    assert notify._panel("pl", notify.REVIEW_PATH).endswith("/panel")
+    assert notify._panel("pl", notify.SETTINGS_PATH).endswith("/panel/settings/languages")
 
 
 def test_a_job_that_ends_while_its_holds_are_settled_still_sends_its_mail(
@@ -124,6 +139,7 @@ def test_once_a_day_the_managers_hear_what_waits(pages: JobSource) -> None:
     mail = NotificationMessage.all_objects.get(
         organization=owner.organization, template_key=REVIEW_WAITING
     )
+    assert mail.context["panel_url"].endswith("/panel/sites/translations/review")
     assert delivered(mail) == "sent"
 
 
