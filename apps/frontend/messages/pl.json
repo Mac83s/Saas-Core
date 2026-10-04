@@ -3944,7 +3944,11 @@
     "organization_ownership_transfer": "Przekazanie organizacji",
     "image_generation_run": "Generowanie obrazów AI",
     "translation_request": "Zlecanie tłumaczeń",
-    "translation_manage": "Ustawienia tłumaczeń"
+    "translation_manage": "Ustawienia tłumaczeń",
+    "customers_read": "Podgląd dokumentów dla klientów",
+    "customers_manage": "Zarządzanie dokumentami dla klientów",
+    "commerce_orders_read": "Podgląd zamówień",
+    "assistant_use": "Rozmowa z asystentem AI"
   },
   "Farms": {
     "eyebrow": "Rejestr gospodarstw",

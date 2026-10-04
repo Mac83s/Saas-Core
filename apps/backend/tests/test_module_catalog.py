@@ -18,6 +18,7 @@ from django.conf import settings
 
 MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 MODULE_APP_PREFIX = "saas_core.modules."
+MESSAGES = Path(__file__).resolve().parents[2] / "frontend" / "messages"
 
 
 def _descriptors() -> dict[str, dict[str, Any]]:
@@ -57,3 +58,24 @@ def test_active_profile_names_only_catalogued_modules() -> None:
     profile = json.loads(Path(settings.DEPLOYMENT_PROFILE_PATH).read_text(encoding="utf-8"))
 
     assert sorted(set(profile["modules"]) - set(_descriptors())) == []
+
+
+def test_every_permission_a_role_is_granted_has_words_in_both_languages() -> None:
+    """The role list (Zespół › Role) says what a role may do; a permission
+    without words shows there as its raw key — „customers.read” did, in every
+    product that took the module. A product's own permissions are named in the
+    product's messages and checked there."""
+    granted = sorted({
+        permission
+        for descriptor in _descriptors().values()
+        if descriptor["layer"] in {"core", "shared"}
+        for permissions in descriptor["backend"].get("roleGrants", {}).values()
+        for permission in permissions
+    })
+    assert granted
+    for locale in ("pl", "en"):
+        labels = json.loads((MESSAGES / f"{locale}.json").read_text(encoding="utf-8"))[
+            "Permissions"
+        ]
+        missing = [name for name in granted if name.replace(".", "_") not in labels]
+        assert not missing, f"Permissions ({locale}) nie nazywa: {', '.join(missing)}"
