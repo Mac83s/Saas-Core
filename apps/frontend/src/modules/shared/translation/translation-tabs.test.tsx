@@ -21,10 +21,10 @@ vi.mock("#i18n/navigation", () => ({
   usePathname: () => "/panel/sites/translations",
 }));
 
-function view(waiting?: number) {
+function view(waiting?: number, website?: boolean) {
   return render(
     <NextIntlClientProvider locale="pl" messages={messages}>
-      <TranslationTabs waiting={waiting} />
+      <TranslationTabs waiting={waiting} website={website} />
     </NextIntlClientProvider>,
   );
 }
@@ -60,4 +60,11 @@ test("a page that knows the number does not ask again", () => {
   view(0);
   expect(screen.getByRole("link", { name: "Do akceptacji" })).toBeTruthy();
   expect(api.listTranslationReview).not.toHaveBeenCalled();
+});
+
+test("an organization without websites gets no overview of pages", () => {
+  view(2, false);
+  expect(screen.getByRole("link", { name: "Do akceptacji (2)" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Zadania" })).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Przegląd" })).toBeNull();
 });

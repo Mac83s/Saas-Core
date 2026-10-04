@@ -3004,7 +3004,7 @@ export interface paths {
         put?: never;
         /**
          * Mark money the company gave back
-         * @description The company returned money to the order's customer itself — a transfer back or cash at the desk: writes the refund and its ledger entry, so the order's `paid_minor` goes down by it. More than the customer has paid is refused (`refund_exceeds_paid`). Within what the order's terms give back (`refund_owed_minor`, settled when the order was canceled) no reason is asked for; beyond it the company says why (`reason_required`). Nothing is sent to the customer and no money moves: it records what the company did. Answers with the order.
+         * @description The company returned money to the order's customer itself — a transfer back or cash at the desk: writes the refund and its ledger entry, so the order's `paid_minor` goes down by it. More than the customer has paid is refused (`refund_exceeds_paid`). Within what the order's terms give back (`refund_owed_minor`, settled when the order was canceled) no reason is asked for; beyond it the company says why (`reason_required`). No money moves: it records what the company did. The customer gets an e-mail with the amount and how it was given back, never with the reason. A canceled order whose terms owe nothing more becomes `refunded`. Answers with the order.
          */
         post: operations["commerce_order_refund_record"];
         delete?: never;
@@ -3024,7 +3024,7 @@ export interface paths {
         put?: never;
         /**
          * Take back a refund marked by mistake
-         * @description The refund stays in the order's history as `canceled` and the ledger gets the opposite entry, so the order is paid that amount again and, where its terms said so, owes it back again. Answers with the order.
+         * @description The refund stays in the order's history as `canceled` and the ledger gets the opposite entry, so the order is paid that amount again and, where its terms said so, owes it back again. The customer, who was written to about the refund, is told it was a mistake. Answers with the order.
          */
         post: operations["commerce_order_refund_void"];
         delete?: never;
@@ -12636,7 +12636,7 @@ export interface components {
             /** @description `{prefix}/{year}/{NNNN}`, e.g. `R/2026/0001`: per company, source and year of the company's time zone. Empty for a draft that waits for the company's answer. */
             number: string;
             /**
-             * @description A shortcut for lists; an order with nothing to pay is `paid`.
+             * @description A shortcut for lists; an order with nothing to pay is `paid`. An order its source took back is `canceled` — or `refunded`, once the company gave money back and the order's terms owe nothing more.
              *
              *     * `draft` - draft
              *     * `awaiting_payment` - awaiting_payment
@@ -12963,7 +12963,7 @@ export interface components {
             /** @description `{prefix}/{year}/{NNNN}`, e.g. `R/2026/0001`: per company, source and year of the company's time zone. Empty for a draft that waits for the company's answer. */
             number: string;
             /**
-             * @description A shortcut for lists; an order with nothing to pay is `paid`.
+             * @description A shortcut for lists; an order with nothing to pay is `paid`. An order its source took back is `canceled` — or `refunded`, once the company gave money back and the order's terms owe nothing more.
              *
              *     * `draft` - draft
              *     * `awaiting_payment` - awaiting_payment

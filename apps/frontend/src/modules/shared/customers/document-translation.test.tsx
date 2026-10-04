@@ -77,14 +77,18 @@ function terms(overrides: Partial<CustomerDocument> = {}): CustomerDocument {
   } as CustomerDocument;
 }
 
-function show(canManage = true, locale: "pl" | "en" = "pl") {
+function show(canManage = true, locale: "pl" | "en" = "pl", website?: boolean) {
   return render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? polishMessages : englishMessages}
       timeZone="Europe/Warsaw"
     >
-      <CustomerDocumentPanel canManage={canManage} kind="shop_terms" />
+      <CustomerDocumentPanel
+        canManage={canManage}
+        kind="shop_terms"
+        website={website}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -145,6 +149,23 @@ test("the missing languages are ordered for the document, and the result is said
   await waitFor(() =>
     expect(api.readCustomerDocument).toHaveBeenCalledTimes(2),
   );
+});
+
+test("without websites the way to accept is named by what it holds, not by a menu the company lacks", async () => {
+  show(true, "pl", false);
+
+  const section = await screen.findByRole("region", { name: /^Wersja 1 od/ });
+  // „Tłumaczenia” is an entry of „Strona internetowa”: no such path here.
+  expect(
+    within(section).queryByRole("link", {
+      name: "Tłumaczenia → Do akceptacji",
+    }),
+  ).toBeNull();
+  expect(
+    within(section)
+      .getByRole("link", { name: "Tłumaczenia do akceptacji" })
+      .getAttribute("href"),
+  ).toBe("/panel/sites/translations/review");
 });
 
 test("a translation that waits is said beside its language, with the way to accept it", async () => {

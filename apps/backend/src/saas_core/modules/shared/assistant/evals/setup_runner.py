@@ -105,6 +105,7 @@ def run_setup_scenario(
         first: Message | None = None
         for _ in range(MAX_STEPS):
             result.steps += 1
+            result.tools.append(len(tools))
             request = ModelRequest(
                 task=TASK,
                 messages=(system, *cached_tail(messages), *held),

@@ -53,9 +53,12 @@ type Answer = {
 
 export function TranslationJobsPanel({
   initialView = "",
+  website = true,
 }: {
   /** The view the address asks for: `held` is where a held notice leads. */
   initialView?: "" | "held";
+  /** Whether the organization has websites (see `TranslationReviewPanel`). */
+  website?: boolean;
 }) {
   const t = useTranslations("Translations.jobs");
   const review = useTranslations("Translations.review");
@@ -261,10 +264,11 @@ export function TranslationJobsPanel({
   return (
     <PanelPage
       description={t("description")}
-      eyebrow={nav("website")}
+      eyebrow={nav(website ? "website" : "settings")}
+      eyebrowHref={website ? undefined : "/panel/settings"}
       title={review("title")}
     >
-      <TranslationTabs />
+      <TranslationTabs website={website} />
       {held ? null : <AutomationHeld />}
       {narrowable ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

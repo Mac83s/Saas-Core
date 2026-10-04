@@ -17,6 +17,7 @@ class CommerceConfig(AppConfig):
         from saas_core.modules.shared.customers.api import register_customer_anonymizer
 
         from .balance import register_balance_settings
+        from .command_declarations import register_commerce_commands
         from .emails import register_templates
         from .models import PaymentRoute
         from .names import DEADLINES_PERMISSIONS, DEADLINES_ROLE
@@ -37,5 +38,7 @@ class CommerceConfig(AppConfig):
         register_templates()
         # The deadlines' task acts as the organization's own job, for one purpose.
         register_service_scope(DEADLINES_ROLE, DEADLINES_PERMISSIONS, exact=True)
+        # What the assistant may read and mark: orders and payments (ADR-076).
+        register_commerce_commands()
         # A pre-tenant routing index: erasing the organization takes it too.
         register_erasure_rows("shared.commerce.payment_route", PaymentRoute, "organization_id")

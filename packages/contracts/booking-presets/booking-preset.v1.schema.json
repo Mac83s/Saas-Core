@@ -193,7 +193,7 @@
       "required": ["name", "description"],
       "properties": {
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "description": { "type": "string", "minLength": 1, "maxLength": 240 }
+        "description": { "type": "string", "minLength": 1, "maxLength": 400 }
       }
     },
     "presetLabels": {

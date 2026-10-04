@@ -814,6 +814,8 @@ test("a canceled order says what its terms give back, and the company marks the 
   };
   const refunded = order({
     ...canceled,
+    // What the terms give back has gone back: the list's „Zwrócone”.
+    status: "refunded",
     version: 5,
     paid_minor: 3000,
     refunded_minor: 3000,
@@ -860,6 +862,10 @@ test("a canceled order says what its terms give back, and the company marks the 
   expect(
     within(dialog).getByLabelText("Powód zwrotu (opcjonalnie)"),
   ).toBeTruthy();
+  // The customer hears of it: said before the company saves.
+  expect(dialog.textContent).toContain(
+    "Klient dostanie e-mail z kwotą i sposobem zwrotu — bez powodu.",
+  );
   // Beyond the terms the company says why — before anything is sent.
   fireEvent.change(amount, { target: { value: "50" } });
   await waitFor(() =>
@@ -897,6 +903,14 @@ test("a canceled order says what its terms give back, and the company marks the 
     /60,00/,
   );
   expect(screen.queryByText("Do oddania klientowi")).toBeNull();
+  // A refunded order is still one nobody pays for: no rest to pay, no payment
+  // to mark, and what stayed with the company is said as for a canceled one.
+  expect(screen.getByText("Zwrócone")).toBeTruthy();
+  expect(
+    screen.getByText("Zostaje po anulowaniu").nextElementSibling?.textContent,
+  ).toMatch(/30,00/);
+  expect(screen.queryByText("Zostało do zapłaty")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
   expect((await axe.run(container)).violations).toEqual([]);
 
   // A refund marked by mistake is taken back after a question.
@@ -905,6 +919,9 @@ test("a canceled order says what its terms give back, and the company marks the 
   const question = await screen.findByRole("dialog", {
     name: /Wycofać zwrot 30,00/,
   });
+  expect(question.textContent).toContain(
+    "Klient dostanie e-mail, że wiadomość o tym zwrocie była pomyłką.",
+  );
   fireEvent.click(
     within(question).getByRole("button", { name: "Wycofaj zwrot" }),
   );

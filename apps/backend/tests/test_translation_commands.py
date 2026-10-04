@@ -131,3 +131,60 @@ def test_the_automation_runs_only_with_the_step_up_its_click_carried() -> None:
     assert (result.status, result.code) == ("done", None), result
     row = TranslationSettings.all_objects.get(organization_id=person.organization_id)
     assert row.auto_changes is True and row.auto_consent_membership_id == person.membership_id
+
+
+def test_the_status_says_what_the_automation_is_held_on_and_why() -> None:
+    """A person who asks why nothing was translated hears about the changes
+    the automation has not started, not only about the jobs that ran."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from command_evals.translation import _PAGE, SOURCE
+    from saas_core.modules.core.organizations.command_executor import execute_plan
+    from saas_core.modules.shared.translation.models import DemandState, TranslationDemand
+
+    person = company("tl-held-status")
+    now = timezone.now()
+    again = now + timedelta(days=3)
+    TranslationDemand.all_objects.create(
+        organization_id=person.organization_id,
+        source_key=SOURCE,
+        object_id=_PAGE[person.organization_id],
+        cause="schedule",
+        first_at=now - timedelta(hours=2),
+        due_at=now - timedelta(hours=1),
+        state=DemandState.BLOCKED,
+        reason="monthly_limit",
+        check_at=again,
+    )
+    TranslationDemand.all_objects.create(
+        organization_id=person.organization_id,
+        source_key=SOURCE,
+        object_id=uuid7(),
+        cause="schedule",
+        first_at=now,
+        due_at=now + timedelta(minutes=10),
+    )
+    acting = acting_context(person, via="assistant", ref=f"conversation:{uuid7()}")
+
+    def status(job_id: str | None) -> dict[str, object]:
+        step = Invocation(
+            command="translation.status.read@1", arguments={"job_id": job_id}, step_id=str(uuid7())
+        )
+        with activate_tenant_context(acting):
+            (result,) = execute_plan([step])
+        assert result.status == "done", result
+        return dict(result.output)
+
+    latest = status(None)
+
+    (held,) = latest["held"]
+    assert (held["source_key"], held["object_id"], held["reason"], held["check_at"]) == (
+        SOURCE,
+        str(_PAGE[person.organization_id]),
+        "monthly_limit",
+        again.isoformat(),
+    )
+    # The change that only waits out its quiet time is a number, not a problem.
+    assert (latest["held_count"], latest["waiting_count"], latest["jobs"]) == (1, 1, [])

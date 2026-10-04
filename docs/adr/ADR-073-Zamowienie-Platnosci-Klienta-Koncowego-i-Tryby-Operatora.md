@@ -965,6 +965,7 @@ Rozstrzygnięcia plastra 4h (2026-10-04, decyzje techniczne z powodem):
   wpłacono i ile wraca). Link klienta do późniejszych wiadomości daje źródło
   (`OrderHandler.link`), bo commerce go nie przechowuje. O samym oznaczeniu
   zwrotu klient nie dostaje wiadomości — przelew jest potwierdzeniem.
+  (Zmienione tego samego dnia: dostaje — „Uzupełnienie po 4h”, niżej.)
 - **Ekrany**: „Cennik” oferty (reszta ceny: na miejscu albo przelewem N dni
   przed; „Rezygnacja klienta i zwrot” z progami i przełącznikiem), strona
   zamówienia („Do oddania klientowi”, „Zostaje po anulowaniu”, „Zwroty” z
@@ -976,7 +977,51 @@ Rozstrzygnięcia plastra 4h (2026-10-04, decyzje techniczne z powodem):
   poleceniami wpłat z 4f-2); e-mail do klienta o oznaczonym zwrocie; gotowy
   preset z progami (Nocleg w wersji 1 je ma, ale jest zapowiedzią — wersja w
   użyciu ich nie nazywa); status zamówienia `refunded`; dopłata planowana dla
-  rezerwacji bez przedpłaty; zwrot i dopłata online (faza 7).
+  rezerwacji bez przedpłaty; zwrot i dopłata online (faza 7). (E-mail, preset,
+  status i polecenia wpłat zamknięte w „Uzupełnieniu po 4h”, niżej.)
+
+Uzupełnienie po 4h (2026-10-04, drobne pozycje zamknięte po fazie 4; decyzje
+techniczne z powodem):
+
+- **Klient dostaje e-mail o oznaczonym zwrocie.** `record_refund` wysyła
+  `commerce.refund_marked` (pl, en, de): numer i przedmiot zamówienia, kwota i
+  sposób („przelewem”, „na miejscu”). Powodu zwrotu w wiadomości nie ma — to
+  słowa firmy, zostają na stronie zamówienia (§8). Dotąd o zwrocie mówił tylko
+  sam przelew; klient, któremu firma oddała pieniądze na miejscu albo którego
+  przelew jeszcze nie doszedł, nie miał żadnego śladu. Wycofanie zwrotu
+  oznaczonego przez pomyłkę wysyła `commerce.refund_withdrawn` — inaczej
+  klient czekałby na pieniądze, o których mu napisano. Jedna wiadomość na
+  zwrot i krok; kopie czyści `strip_buyer` jak pozostałe (ten sam
+  `causation_id`). Okna „Oznacz zwrot” i „Wycofać zwrot?” mówią o e-mailu przed
+  zapisem, a przy kliencie bez adresu — że trzeba dać mu znać inaczej.
+- **Status `refunded` jest używany**, a nie usunięty: zamówienie odebrane przez
+  źródło jest `canceled`, a `refunded` („Zwrócone”) — gdy firma oddała pieniądze
+  i warunki nie każą oddać nic więcej (`refunded_minor > 0` i
+  `refund_owed_minor == 0`). Liczy to jedna funkcja, `ledger.status_for`;
+  wycofany zwrot przywraca `canceled`. Lista zamówień odróżnia więc anulowane,
+  które są rozliczone, od tych, które jeszcze czekają albo nic nie miały do
+  oddania. Dla pieniędzy oba stany znaczą to samo — nikt już za takie
+  zamówienie nie płaci i nikt go nie wycenia od nowa (`ledger.CLOSED_STATUSES`,
+  w panelu `isClosed`). Bez migracji: wartość była w modelu od 0001. Odrzucone:
+  usunięcie statusu — migracja i zmiana kontraktu po to, żeby lista mówiła
+  mniej; `refunded` dla zamówienia nieanulowanego, któremu oddano wszystko —
+  takie zamówienie nadal obowiązuje i czeka na wpłatę, więc „Do zapłaty” mówi
+  prawdę.
+- **Nocleg w wersji 3 niesie warunki na start**: przedpłata 30% przelewem z
+  trzema dniami na wpłatę, reszta 14 dni przed pobytem, progi zwrotu przedpłaty
+  100% do 30 dni, 50% do 14 dni, potem 0% (`core.lodging.v3.json`; wartości z
+  wersji 1, która była zapowiedzią). Opis presetu i słowa zgody polecenia
+  `booking.preset.apply@1` mówią, że to punkt wyjścia do zmiany w „Cenniku”.
+  Samej przedpłaty preset nadal nie włącza („Preset nie wybiera wpłaty z góry
+  za firmę”, wyżej): oferta startuje z `none`, z procentem, terminami i progami
+  już wpisanymi. Opis presetu może mieć teraz 400 znaków (było 240) — zdanie o
+  warunkach nie mieściło się obok zdania „rezerwacja przez stronę — wkrótce”.
+  Test kontraktu presetów dopuszcza w presecie gotowym przedpłaty i progi
+  (silnik obsługuje je od fazy 4).
+- **Polecenia asystenta** dla zamówień, wpłat i odpowiedzi na prośbę: ADR-076,
+  „Uzupełnienie 2026-10-04: zamówienia, wpłaty i prośby o rezerwację”.
+  `void_payment` dostał `preview` (ta sama walidacja, bez zapisu). Polecenia
+  zwrotów i progów oferty zostają otwarte — tam, pkt 7.
 
 Uzupełnienie plastrów 4b–4g (2026-10-04, drobne zaległości zamknięte razem z 4h):
 

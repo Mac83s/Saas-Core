@@ -3,7 +3,9 @@ ledger's entries, and the order's status follows from it."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
+from uuid import UUID
 
 from django.db.models import Sum
 
@@ -29,6 +31,10 @@ MANUAL_METHODS = (PaymentMethod.CASH.value, PaymentMethod.TRANSFER.value)
 PREPAYMENT_KINDS = (PaymentKind.DEPOSIT.value, PaymentKind.FULL.value)
 #: The kinds that change what the customer has paid.
 _PAID_KINDS = (LedgerEntryKind.CHARGE, LedgerEntryKind.REFUND)
+#: An order its source took back: `canceled`, and `refunded` once money went
+#: back to the customer and its terms owe nothing more. Nobody pays for
+#: either, and neither is priced again.
+CLOSED_STATUSES = (OrderStatus.CANCELED.value, OrderStatus.REFUNDED.value)
 
 
 def paid_minor(order: Order) -> int:
@@ -37,6 +43,20 @@ def paid_minor(order: Order) -> int:
         organization_id=order.organization_id, order=order, kind__in=_PAID_KINDS
     ).aggregate(total=Sum("amount_minor"))["total"]
     return int(total or 0)
+
+
+def paid_by_order(organization_id: UUID, order_ids: Sequence[UUID]) -> dict[UUID, int]:
+    """What the customers have paid for each of these orders, in one query —
+    for a list; an order nobody paid for is not in the answer."""
+    return {
+        row["order_id"]: int(row["total"] or 0)
+        for row in LedgerEntry.all_objects.filter(
+            organization_id=organization_id, order_id__in=list(order_ids), kind__in=_PAID_KINDS
+        )
+        .order_by()
+        .values("order_id")
+        .annotate(total=Sum("amount_minor"))
+    }
 
 
 def refunded_minor(order: Order) -> int:
@@ -48,14 +68,16 @@ def refunded_minor(order: Order) -> int:
     return -int(total or 0)
 
 
-def refund_owed(order: Order, paid: int | None = None) -> int:
+def refund_owed(order: Order, paid: int | None = None, refunded: int | None = None) -> int:
     """What the order's terms say is still to be given back (§8): what its
     source settled when it took back what it sold, less what went back
-    already — and never more than the customer has paid."""
+    already — and never more than the customer has paid. `refunded` is what
+    went back, when the caller asks about a refund not written yet."""
     if order.refund_due_minor is None:
         return 0
     paid = paid_minor(order) if paid is None else paid
-    return max(min(order.refund_due_minor - refunded_minor(order), paid), 0)
+    refunded = refunded_minor(order) if refunded is None else refunded
+    return max(min(order.refund_due_minor - refunded, paid), 0)
 
 
 def awaited_balance(order: Order) -> Payment | None:
@@ -88,13 +110,20 @@ def awaited_prepayment(order: Order) -> Payment | None:
     )
 
 
-def status_for(order: Order, paid: int) -> str:
+def status_for(order: Order, paid: int, *, refunded: int | None = None) -> str:
     """The order's shortcut for lists, from what its lines come to and what
-    the ledger says was paid. A canceled order stays canceled and a draft a
-    draft; nothing to pay is paid."""
-    if order.status in (OrderStatus.CANCELED, OrderStatus.DRAFT):
-        # Canceled stays canceled; a draft is placed by its source, not by money.
+    the ledger says was paid. A draft stays a draft and an order taken back
+    stays taken back: `canceled`, or `refunded` once the company gave money
+    back and the order's terms owe nothing more — a refund taken back makes
+    it `canceled` again. Nothing to pay is paid. `refunded` is what went
+    back, when the caller asks about a refund not written yet."""
+    if order.status == OrderStatus.DRAFT:
+        # A draft is placed by its source, not by money.
         return order.status
+    if order.status in CLOSED_STATUSES:
+        refunded = refunded_minor(order) if refunded is None else refunded
+        settled = refunded > 0 and refund_owed(order, paid, refunded) == 0
+        return OrderStatus.REFUNDED if settled else OrderStatus.CANCELED
     if paid >= order.gross_minor:
         return OrderStatus.PAID
     return OrderStatus.PARTIALLY_PAID if paid > 0 else OrderStatus.AWAITING_PAYMENT

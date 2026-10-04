@@ -136,3 +136,37 @@ def test_a_small_registry_is_offered_whole() -> None:
     few = ALL[: topics.SELECT_ABOVE]
 
     assert select(few, [said("Cześć")]) == few
+
+
+def test_orders_and_requests_are_areas_and_an_amount_alone_names_no_price_list() -> None:
+    # A question about money that came in reads orders — nothing of the price list.
+    assert names(said("Które zamówienia czekają na wpłatę?")) == [
+        "more_tools",
+        "commerce_order_read_v1",
+        "commerce_orders_read_v1",
+    ]
+    marking = names(said("Oznacz wpłatę 300 zł gotówką do zamówienia R/2026/0007"))
+    # „zł” is said about a payment as often as about a price: with the orders
+    # named, the price list stays closed and its definitions are not paid for.
+    assert marking == [
+        "more_tools",
+        "commerce_order_read_v1",
+        "commerce_orders_read_v1",
+        "commerce_payment_record_v1",
+        "commerce_payment_void_v1",
+    ]
+    # Alone, an amount still opens the price list.
+    assert "booking_price_save_v1" in names(said("Ustaw 300 zł za noc w Wigwamach"))
+
+    assert names(said("Jakie prośby o rezerwację czekają?")) == [
+        "more_tools",
+        "booking_requests_read_v1",
+    ]
+    answering = names(said("Przyjmij prośbę o Domek nad jeziorem"))
+    assert answering[1:] == [
+        "booking_requests_read_v1",
+        "booking_request_accept_v1",
+        "booking_request_decline_v1",
+    ]
+    assert names(said("Odmów tej prośbie")) == answering
+    assert names(said("Accept the booking request"))[1:] == answering[1:]

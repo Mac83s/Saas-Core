@@ -215,6 +215,22 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
     assert "Jednostki i ceny dodasz w następnym kroku albo w panelu." in effect.summary["pl"]
     assert "wkrótce" not in effect.summary["pl"]
     assert "coming soon" not in effect.summary["en"]
+    # What the preset writes about money: a start, the company's to change.
+    assert effect.summary["pl"].endswith(
+        " Warunki na start, do zmiany w „Cenniku”: przedpłata 30% przelewem (włączasz ją tam); "
+        "reszta 14 dni przed początkiem; zwrot przedpłaty przy rezygnacji: 100% do 30 dni "
+        "przed, 50% do 14 dni przed, później 0%."
+    )
+    assert "yours to change in the price list" in effect.summary["en"]
+    # A preset that says nothing about paying ahead adds no such words.
+    rental = [
+        invocation(
+            "booking.preset.apply@1", _preset_fields(preset_id="core.rental", name="Rowery")
+        )
+    ]
+    with activate_tenant_context(acting):
+        (plain,) = preview_plan(rental).groups
+    assert "Warunki na start" not in plain.calls[0].preview.effects[0].summary["pl"]
 
     tokens = clicked(person, acting, plan)
     with activate_tenant_context(acting):
@@ -222,7 +238,7 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
         (read,) = execute_plan([invocation("booking.setup.read@1", {})])
 
     assert result.status == "done", result
-    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 3)
+    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 4)
     stay = next(item for item in read.output["services"] if item["name"] == "Domek nad wodą")
     # A stay's check-in and check-out are read as the week's hours are written.
     assert (stay["time_model"], stay["range_unit"]) == ("range", "night")

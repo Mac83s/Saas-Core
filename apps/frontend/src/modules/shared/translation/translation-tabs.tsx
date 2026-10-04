@@ -10,12 +10,17 @@ import { translationComposed } from "./use-translation";
 /** „Tłumaczenia”: the overview, what waits for a person and the jobs, one
  *  menu entry (TL16). The views beside the overview exist only where the
  *  engine does and the person may decide — the queue's own answer says so,
- *  and how much waits. */
+ *  and how much waits. The overview lists a website's pages and articles, so
+ *  an organization without websites — whose documents for customers are
+ *  translated all the same — gets the other two. */
 export function TranslationTabs({
   waiting,
+  website = true,
 }: {
   /** How much waits, when the page showing the tabs already knows. */
   waiting?: number;
+  /** Whether the organization has websites (`shared.sites`). */
+  website?: boolean;
 }) {
   const t = useTranslations("Translations.review");
   const [asked, setAsked] = useState<number | null>();
@@ -44,7 +49,9 @@ export function TranslationTabs({
     <PageTabs
       label={t("tabs")}
       tabs={[
-        { href: "/panel/sites/translations", label: t("tabOverview") },
+        ...(website
+          ? [{ href: "/panel/sites/translations", label: t("tabOverview") }]
+          : []),
         {
           href: "/panel/sites/translations/review",
           label: count ? t("tabReviewCount", { count }) : t("tabReview"),

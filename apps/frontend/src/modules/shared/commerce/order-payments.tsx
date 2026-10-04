@@ -45,10 +45,17 @@ export function refusal(error: unknown, fallback: string): string {
   return error.problem.errors?.[0]?.message ?? fallback;
 }
 
+/** An order its source took back: `canceled`, and `refunded` once the
+ *  company gave money back and its terms owe nothing more (ADR-073 §8).
+ *  Nobody pays for either. */
+export function isClosed(order: Pick<Order, "status">): boolean {
+  return order.status === "canceled" || order.status === "refunded";
+}
+
 /** The payment the order's booking waits for before it is confirmed
  *  (ADR-073 §5); none once it was marked, called off or expired. */
 export function awaitedPayment(order: Order): OrderPayment | undefined {
-  return order.status === "canceled"
+  return isClosed(order)
     ? undefined
     : order.payments.find((payment) => payment.status === "requires_payment");
 }
@@ -91,7 +98,7 @@ export function OrderPayments({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const money = (minor: number) => formatMoney(minor, order.currency, locale);
-  const canceled = order.status === "canceled";
+  const canceled = isClosed(order);
   const awaited = awaitedPayment(order);
   // What went back is no longer paid: the two together are what came in.
   const refunded = order.refunded_minor ?? 0;

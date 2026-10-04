@@ -207,9 +207,10 @@ class RefundListView(APIView):
         "the order's `paid_minor` goes down by it. More than the customer has paid is "
         "refused (`refund_exceeds_paid`). Within what the order's terms give back "
         "(`refund_owed_minor`, settled when the order was canceled) no reason is asked "
-        "for; beyond it the company says why (`reason_required`). Nothing is sent to the "
-        "customer and no money moves: it records what the company did. Answers with the "
-        "order.",
+        "for; beyond it the company says why (`reason_required`). No money moves: it "
+        "records what the company did. The customer gets an e-mail with the amount and how "
+        "it was given back, never with the reason. A canceled order whose terms owe nothing "
+        "more becomes `refunded`. Answers with the order.",
         tags=_TAGS,
         request=RefundRecordInputSerializer,
         responses={201: OrderSerializer, **_WRITE_PROBLEMS},
@@ -231,7 +232,8 @@ class RefundVoidView(APIView):
         summary="Take back a refund marked by mistake",
         description="The refund stays in the order's history as `canceled` and the ledger "
         "gets the opposite entry, so the order is paid that amount again and, where its "
-        "terms said so, owes it back again. Answers with the order.",
+        "terms said so, owes it back again. The customer, who was written to about the "
+        "refund, is told it was a mistake. Answers with the order.",
         tags=_TAGS,
         request=PaymentVoidInputSerializer,
         responses={200: OrderSerializer, **_WRITE_PROBLEMS},

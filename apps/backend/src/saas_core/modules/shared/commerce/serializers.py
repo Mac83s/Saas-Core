@@ -50,7 +50,9 @@ class OrderSummarySerializer(serializers.Serializer[dict[str, Any]]):
     )
     status = serializers.ChoiceField(
         choices=OrderStatus.values,
-        help_text="A shortcut for lists; an order with nothing to pay is `paid`.",
+        help_text="A shortcut for lists; an order with nothing to pay is `paid`. An order "
+        "its source took back is `canceled` — or `refunded`, once the company gave money "
+        "back and the order's terms owe nothing more.",
     )
     channel = serializers.ChoiceField(
         choices=OrderChannel.values,

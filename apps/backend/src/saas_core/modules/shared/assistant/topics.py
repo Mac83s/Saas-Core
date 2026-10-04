@@ -6,8 +6,8 @@ read. A conversation therefore gets the tools of the areas it has touched, and
 of an area first only the ones that read:
 
 - an area opens when the person's own words name it („cennik”, „godziny”);
-  words too common to mean one („usługa”, „firma”) count only while nothing
-  is open;
+  words too common to mean one („usługa”, „firma”, an amount in „zł”) count
+  only while nothing is open;
 - its tools that change things come once the person asks for a change;
 - the model widens either on demand with one tool of the assistant's own,
   `more_tools`, which lists every area there is — so nothing is out of reach,
@@ -142,8 +142,6 @@ TOPICS: tuple[Topic, ...] = (
             "rabac",
             "znizk",
             "znizc",
-            "zl",
-            "pln",
             "price",
             "pricing",
             "cost",
@@ -152,6 +150,9 @@ TOPICS: tuple[Topic, ...] = (
             "discount",
             "tax",
         ),
+        # An amount is said about a payment as often as about a price: alone
+        # it names the price list only while nothing more exact is open.
+        weak=("zl", "pln"),
     ),
     Topic(
         key="quote",
@@ -173,6 +174,36 @@ TOPICS: tuple[Topic, ...] = (
             "season",
             "arrival",
             "departure",
+        ),
+    ),
+    Topic(
+        key="requests",
+        about="customers' booking requests that wait for the company's answer: reading "
+        "them, accepting, declining",
+        commands=("booking.request.*", "booking.requests.*"),
+        words=("prosb", "odmow", "odmaw", "request", "declin"),
+    ),
+    Topic(
+        key="orders",
+        about="customers' orders and what was paid for them: reading an order, marking a "
+        "payment the company received, taking back one marked by mistake",
+        commands=("commerce.*",),
+        words=(
+            "zamowien",
+            "wplat",
+            "wplac",
+            "platnos",
+            "przelew",
+            "przedplat",
+            "zadatk",
+            "zadatek",
+            "zaliczk",
+            "zwrot",
+            "order",
+            "payment",
+            "paid",
+            "refund",
+            "transfer",
         ),
     ),
     Topic(
@@ -268,7 +299,15 @@ CHANGE_WORDS: tuple[str, ...] = (
     "stworz",
     "zaloz",
     "opublikuj",
-    "wycofaj",
+    "wycof",
+    "oznacz",
+    "zaznacz",
+    "odnotuj",
+    "przyjm",
+    "zaakcept",
+    "akceptuj",
+    "odrzuc",
+    "odmow",
     "przetlumacz",
     "przenies",
     "nazwij",
@@ -304,6 +343,13 @@ CHANGE_WORDS: tuple[str, ...] = (
     "save",
     "edit",
     "fix",
+    "mark",
+    "record",
+    "accept",
+    "declin",
+    "reject",
+    "refus",
+    "void",
 )
 
 

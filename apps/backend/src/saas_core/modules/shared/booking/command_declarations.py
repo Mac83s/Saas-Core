@@ -23,9 +23,9 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
 
-from .models import AvailabilityRule, Location, Service, StaffChoice, TimeModel
+from .models import AvailabilityRule, Location, PaymentPolicy, Service, StaffChoice, TimeModel
 from .offer_settings import SLOT_STEPS
-from .presets import apply_preset, list_presets
+from .presets import apply_preset, find_preset, list_presets
 from .serializers import (
     PersonCreateSerializer,
     PersonHoursInputSerializer,
@@ -882,6 +882,8 @@ def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
     if not service.online:
         pl += " Rezerwacje wpisuje zespół w panelu; rezerwacja przez stronę — wkrótce."
         en += " The team books it in the panel; booking through the site is coming soon."
+    terms = _starting_terms(service)
+    pl, en = pl + terms[0], en + terms[1]
     # No id before the save, as for booking.offer.create@1.
     return Preview(
         effects=(
@@ -894,6 +896,51 @@ def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
             ),
         ),
         observed_versions={},
+    )
+
+
+def _starting_terms(service: Service) -> tuple[str, str]:
+    """What the preset wrote into the offer about paying ahead and about giving
+    a booking up, said before the person agrees: a start the company changes
+    in „Cennik” — where it also switches the prepayment itself on (a preset
+    never does, `presets.apply_preset`). Nothing for a preset without them."""
+    pl: list[str] = []
+    en: list[str] = []
+    # The offer's percent has a default of its own: only a preset that asks
+    # for a prepayment makes it a term worth saying.
+    asked = find_preset(service.preset_id, service.preset_version).raw.get("payment", {})
+    if asked.get("policy") == PaymentPolicy.DEPOSIT and service.payment_policy != asked["policy"]:
+        pl.append(f"przedpłata {service.deposit_percent}% przelewem (włączasz ją tam)")
+        en.append(f"{service.deposit_percent}% ahead by a transfer (you switch it on there)")
+    if service.balance_due_days_before is not None:
+        pl.append(f"reszta {service.balance_due_days_before} dni przed początkiem")
+        en.append(f"the rest {service.balance_due_days_before} days before the start")
+    rows = list(service.cancellation_refunds or [])
+    if rows:
+        steps_pl: list[str] = []
+        steps_en: list[str] = []
+        for row in rows:
+            days, percent = row["min_days_before"], row["refund_percent"]
+            if days > 0:
+                steps_pl.append(f"{percent}% do {days} dni przed")
+                steps_en.append(f"{percent}% up to {days} days before")
+            else:
+                steps_pl.append(f"później {percent}%")
+                steps_en.append(f"{percent}% later")
+        deposit = service.cancellation_applies_to == "deposit"
+        pl.append(
+            f"zwrot {'przedpłaty' if deposit else 'wpłat'} przy rezygnacji: "
+            + ", ".join(steps_pl)
+        )
+        en.append(
+            f"what comes back of {'the prepayment' if deposit else 'what was paid'} when a "
+            "customer gives the booking up: " + ", ".join(steps_en)
+        )
+    if not pl:
+        return "", ""
+    return (
+        f" Warunki na start, do zmiany w „Cenniku”: {'; '.join(pl)}.",
+        f" Terms to start from, yours to change in the price list: {'; '.join(en)}.",
     )
 
 
@@ -973,6 +1020,7 @@ PRESET_APPLY = CommandSpec(
 def register_booking_commands() -> None:
     # Imported here: the price-list and season commands use this module's helpers.
     from .pricing_commands import PRICING_COMMANDS  # noqa: PLC0415
+    from .request_commands import REQUEST_COMMANDS  # noqa: PLC0415
     from .season_commands import SEASON_COMMANDS  # noqa: PLC0415
 
     for spec in (
@@ -986,5 +1034,6 @@ def register_booking_commands() -> None:
         PRESET_APPLY,
         *PRICING_COMMANDS,
         *SEASON_COMMANDS,
+        *REQUEST_COMMANDS,
     ):
         register_command(spec)

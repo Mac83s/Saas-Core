@@ -1,7 +1,8 @@
 """What commerce writes to a buyer (ADR-073 §5, §8): the transfer's details
 with the order's number, the amount and the date it is awaited until; the
 rest of the price when it is due by a transfer, and again when its date has
-passed; and what comes back of what they paid when the order is canceled.
+passed; what comes back of what they paid when the order is canceled; and
+that the company has given money back — or that such a note was a mistake.
 
 A mail says the buyer's own order and nothing of anybody else's: the number,
 what the first line is called in the buyer's language, the amount, the
@@ -25,7 +26,7 @@ from saas_core.modules.shared.notifications.api import (
     register_email_template,
 )
 
-from .models import Order, OrderLine, Payment
+from .models import Order, OrderLine, Payment, PaymentMethod, Refund
 from .transfer_account import TransferAccount
 
 TRANSFER_DETAILS = "commerce.transfer_details"
@@ -38,6 +39,22 @@ BALANCE_OVERDUE = "commerce.balance_overdue"
 OFFICE_BALANCE_OVERDUE = "commerce.office_balance_overdue"
 #: What comes back of what the buyer paid for a canceled order.
 REFUND_SETTLED = "commerce.refund_settled"
+#: The company marked a refund: the money is on its way, or was handed over.
+REFUND_MARKED = "commerce.refund_marked"
+#: That refund was marked by mistake and taken back.
+REFUND_WITHDRAWN = "commerce.refund_withdrawn"
+
+#: How a refund the company marks by hand was made, as its mail says it.
+_REFUND_METHOD = {
+    PaymentMethod.TRANSFER.value: {
+        "pl": "przelewem",
+        "en": "by bank transfer",
+        "de": "per Überweisung",
+    },
+    # At the desk: cash or the company's own card terminal.
+    PaymentMethod.CASH.value: {"pl": "na miejscu", "en": "at the desk", "de": "vor Ort"},
+}
+_REFUND_CONTEXT = frozenset({"number", "organization_name", "subject", "amount", "method"})
 
 _BALANCE_CONTEXT = frozenset({
     "number",
@@ -300,6 +317,74 @@ _TEMPLATES = (
             "refund",
         }),
     ),
+    # The company's own reason for a refund is never here: it may name
+    # somebody, and it stays on the order's page (§8).
+    EmailTemplate(
+        key=REFUND_MARKED,
+        version=1,
+        category="required",
+        audience=AUDIENCE_CUSTOMER,
+        subjects={
+            "pl": "Zamówienie {number} — zwrot {amount}",
+            "en": "Order {number} — refund of {amount}",
+            "de": "Bestellung {number} — Erstattung von {amount}",
+        },
+        bodies={
+            "pl": (
+                "<p>{organization_name} przekazuje zwrot za zamówienie {number} "
+                "({subject}).</p>"
+                "<p>Kwota: {amount}<br>Sposób: {method}</p>"
+                "<p>Na pytania o zwrot odpowiada {organization_name}.</p>"
+            ),
+            "en": (
+                "<p>{organization_name} is returning money for order {number} ({subject}).</p>"
+                "<p>Amount: {amount}<br>How: {method}</p>"
+                "<p>{organization_name} answers any questions about the refund.</p>"
+            ),
+            "de": (
+                "<p>{organization_name} erstattet Geld für die Bestellung {number} "
+                "({subject}).</p>"
+                "<p>Betrag: {amount}<br>Art: {method}</p>"
+                "<p>Fragen zur Erstattung beantwortet {organization_name}.</p>"
+            ),
+        },
+        allowed_context=_REFUND_CONTEXT,
+    ),
+    EmailTemplate(
+        key=REFUND_WITHDRAWN,
+        version=1,
+        category="required",
+        audience=AUDIENCE_CUSTOMER,
+        subjects={
+            "pl": "Zamówienie {number} — korekta wiadomości o zwrocie",
+            "en": "Order {number} — a correction about your refund",
+            "de": "Bestellung {number} — Korrektur zur Erstattung",
+        },
+        bodies={
+            "pl": (
+                "<p>Wiadomość o zwrocie {amount} ({method}) za zamówienie {number} "
+                "({subject}) została wysłana przez pomyłkę: {organization_name} wycofuje "
+                "ten wpis.</p>"
+                "<p>Ten zwrot nie został przekazany. Na pytania odpowiada "
+                "{organization_name}.</p>"
+            ),
+            "en": (
+                "<p>The message about a refund of {amount} ({method}) for order {number} "
+                "({subject}) was sent by mistake: {organization_name} has taken that entry "
+                "back.</p>"
+                "<p>That refund was not made. {organization_name} answers any "
+                "questions.</p>"
+            ),
+            "de": (
+                "<p>Die Nachricht über eine Erstattung von {amount} ({method}) für die "
+                "Bestellung {number} ({subject}) wurde irrtümlich gesendet: "
+                "{organization_name} hat den Eintrag zurückgenommen.</p>"
+                "<p>Diese Erstattung wurde nicht geleistet. Fragen beantwortet "
+                "{organization_name}.</p>"
+            ),
+        },
+        allowed_context=_REFUND_CONTEXT,
+    ),
 )
 
 
@@ -394,6 +479,42 @@ def refund_settled(order: Order, *, paid_minor: int, refund_minor: int) -> None:
         },
         # An order is canceled once.
         idempotency_key=f"commerce-refund-settled:{order.id}",
+        causation_id=f"commerce-order:{order.id}",
+    )
+
+
+def refund_marked(order: Order, refund: Refund) -> None:
+    """Tells the buyer that the company has given money back: how much and
+    how. Until now only the transfer itself said so. A buyer without an
+    e-mail gets nothing."""
+    _refund_mail(order, refund, REFUND_MARKED, "marked")
+
+
+def refund_withdrawn(order: Order, refund: Refund) -> None:
+    """Tells the buyer that the refund they were written about was marked by
+    mistake and taken back, so nobody waits for money that is not coming."""
+    _refund_mail(order, refund, REFUND_WITHDRAWN, "withdrawn")
+
+
+def _refund_mail(order: Order, refund: Refund, template: str, step: str) -> None:
+    if not order.buyer_email:
+        return
+    locale = order.customer.locale
+    words = _REFUND_METHOD[refund.method]
+    queue_email(
+        recipient_email=order.buyer_email,
+        template_key=template,
+        template_version=1,
+        locale=locale,
+        template_context={
+            "number": order.number,
+            "organization_name": order.organization.name,
+            "subject": _subject(order),
+            "amount": money(refund.amount_minor, refund.currency, locale),
+            "method": words.get(locale) or words["en"],
+        },
+        # One per refund and step: a refund is marked once and taken back once.
+        idempotency_key=f"commerce-refund-{step}:{refund.id}",
         causation_id=f"commerce-order:{order.id}",
     )
 

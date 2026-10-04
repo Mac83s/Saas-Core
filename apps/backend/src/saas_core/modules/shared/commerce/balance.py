@@ -42,7 +42,7 @@ from saas_core.modules.shared.notifications.api import (
 from saas_core.modules.shared.notifications.security import encrypt_secret
 
 from . import emails
-from .ledger import awaited_balance, paid_minor
+from .ledger import CLOSED_STATUSES, awaited_balance, paid_minor
 from .models import (
     Order,
     OrderStatus,
@@ -125,7 +125,7 @@ def plan_balance(
     account = transfer_account()
     left = order.gross_minor - paid_minor(order)
     now = timezone.now()
-    if order.status in (OrderStatus.DRAFT, OrderStatus.CANCELED):
+    if order.status == OrderStatus.DRAFT or order.status in CLOSED_STATUSES:
         return None
     if waiting is None and planned_only:
         return None

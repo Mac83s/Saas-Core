@@ -234,7 +234,10 @@ export function OrderRefunds({
               <DialogTitle>
                 {t("refundVoidTitle", { amount: money(voiding.amount_minor) })}
               </DialogTitle>
-              <DialogDescription>{t("refundVoidHint")}</DialogDescription>
+              <DialogDescription>
+                {t("refundVoidHint")}{" "}
+                {order.buyer_email ? t("refundVoidMail") : t("refundNoMail")}
+              </DialogDescription>
             </DialogHeader>
             {problem ? (
               <p className="text-sm text-destructive" role="alert">
@@ -361,7 +364,8 @@ function RecordRefundDialog({
                     owed: money(owed),
                     paid: money(order.paid_minor),
                   })
-                : t("refundHint", { paid: money(order.paid_minor) })}
+                : t("refundHint", { paid: money(order.paid_minor) })}{" "}
+              {order.buyer_email ? t("refundMail") : t("refundNoMail")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">

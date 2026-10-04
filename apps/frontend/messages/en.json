@@ -3435,6 +3435,8 @@
       "commerce_balance_overdue": "Balance overdue",
       "commerce_office_balance_overdue": "A balance did not arrive in time (for the company)",
       "commerce_refund_settled": "What was paid, after a cancellation",
+      "commerce_refund_marked": "Refund marked on an order",
+      "commerce_refund_withdrawn": "Correction of a refund message",
       "inventory_low_stock": "Warehouse: items to refill",
       "system_retention_scheduled": "Removal of personal data switched on"
     },
@@ -3472,6 +3474,8 @@
       "commerce_balance_overdue": "To the customer, when the balance's date has passed and no payment was marked. The booking still stands.",
       "commerce_office_balance_overdue": "To the people who mark payments, when a customer's balance did not arrive in time. It calls nothing off — the booking is the company's decision.",
       "commerce_refund_settled": "To the customer, when an order with a payment was canceled: what they paid and what comes back under the booking's terms.",
+      "commerce_refund_marked": "To the customer when the company marks a refund on an order: the amount and how it was given back. The reason is never in the message.",
+      "commerce_refund_withdrawn": "To the customer when the company takes back a refund marked by mistake: that the earlier message was a mistake and that refund was not made.",
       "inventory_low_stock": "To the people with the warehouse notification role, once a day, when items fall to their minimum or below.",
       "system_retention_scheduled": "To the company's owners when somebody switches automatic removal of personal data on or makes its period shorter."
     },
@@ -6289,9 +6293,10 @@
     "textConfirm": "Save text",
     "textAdded": "Text saved: {language}.",
     "translateHelp": "AI can translate the missing languages. A document's translation never reaches customers by itself: it waits for you to accept it with a code from your authenticator app.",
-    "translationOrdered": "The translation is ordered. When it is ready it waits in “Translations → To approve” — the document's text is added only when you accept it.",
+    "translationOrdered": "The translation is ordered. When it is ready it waits in “{review}” — the document's text is added only when you accept it.",
     "translationWaits": "An AI translation ({language}) is waiting for you to accept it.",
     "translationReview": "Translations → To approve",
+    "translationReviewPlain": "Translations to approve",
     "versionsTitle": "Versions"
   },
   "CustomerDocument": {
@@ -6469,10 +6474,13 @@
     "refundReasonOptional": "Reason for the refund (optional)",
     "refundReasonHint": "Shown on the order's page only. The customer does not get it.",
     "refundReasonRequired": "Give a reason for a refund beyond what the order's terms give back.",
+    "refundMail": "The customer gets an e-mail with the amount and how it was given back — without the reason.",
+    "refundNoMail": "The customer gave no e-mail address — let them know another way.",
     "refundSave": "Save the refund",
     "refundRecorded": "Refund saved: {amount}.",
     "refundVoidTitle": "Take back the refund of {amount}?",
     "refundVoidHint": "Use this when the refund was marked by mistake. It stays in the order's history as taken back, and the amount counts as paid for the order again.",
+    "refundVoidMail": "The customer gets an e-mail saying the message about this refund was a mistake.",
     "refundVoidConfirm": "Take the refund back",
     "refundVoided": "Refund taken back: {amount}.",
     "refundActionsFor": "Actions for the refund of {amount}"

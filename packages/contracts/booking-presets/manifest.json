@@ -33,11 +33,12 @@
     },
     {
       "id": "core.lodging",
-      "latestVersion": 3,
+      "latestVersion": 4,
       "versions": {
         "1": "core.lodging.v1.json",
         "2": "core.lodging.v2.json",
-        "3": "core.lodging.v3.json"
+        "3": "core.lodging.v3.json",
+        "4": "core.lodging.v4.json"
       }
     },
     {

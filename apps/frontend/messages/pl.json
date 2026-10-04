@@ -3435,6 +3435,8 @@
       "commerce_balance_overdue": "Dopłata po terminie",
       "commerce_office_balance_overdue": "Dopłata nie wpłynęła w terminie (dla firmy)",
       "commerce_refund_settled": "Rozliczenie wpłaty po anulowaniu",
+      "commerce_refund_marked": "Zwrot oznaczony w zamówieniu",
+      "commerce_refund_withdrawn": "Korekta wiadomości o zwrocie",
       "inventory_low_stock": "Magazyn: pozycje do uzupełnienia",
       "system_retention_scheduled": "Włączono usuwanie danych osobowych"
     },
@@ -3472,6 +3474,8 @@
       "commerce_balance_overdue": "Do klienta, gdy termin dopłaty minął, a wpłata nie została oznaczona. Rezerwacja pozostaje ważna.",
       "commerce_office_balance_overdue": "Do osób oznaczających wpłaty, gdy dopłata klienta nie wpłynęła w terminie. Niczego nie odwołuje — o rezerwacji decyduje firma.",
       "commerce_refund_settled": "Do klienta, gdy zamówienie z wpłatą zostało anulowane: ile wpłacił i ile wraca według warunków rezerwacji.",
+      "commerce_refund_marked": "Do klienta, gdy firma oznaczy zwrot w zamówieniu: kwota i sposób zwrotu. Powodu zwrotu w wiadomości nie ma.",
+      "commerce_refund_withdrawn": "Do klienta, gdy firma wycofa zwrot oznaczony przez pomyłkę: że tamta wiadomość była pomyłką i ten zwrot nie został przekazany.",
       "inventory_low_stock": "Do osób z roli powiadomień magazynu, raz dziennie, gdy pozycje spadną do minimum albo niżej.",
       "system_retention_scheduled": "Do właścicieli firmy, gdy ktoś włączy automatyczne usuwanie danych osobowych albo skróci jego okres."
     },
@@ -6289,9 +6293,10 @@
     "textConfirm": "Zapisz tekst",
     "textAdded": "Tekst zapisany: {language}.",
     "translateHelp": "Brakujące języki może przetłumaczyć AI. Tłumaczenie dokumentu nigdy nie trafia do klientów samo: czeka na Twoją akceptację kodem z aplikacji uwierzytelniającej.",
-    "translationOrdered": "Zlecono tłumaczenie. Gdy będzie gotowe, poczeka w „Tłumaczenia → Do akceptacji” — tekst dokumentu dopisze dopiero Twoja akceptacja.",
+    "translationOrdered": "Zlecono tłumaczenie. Gdy będzie gotowe, poczeka w „{review}” — tekst dokumentu dopisze dopiero Twoja akceptacja.",
     "translationWaits": "Tłumaczenie AI ({language}) czeka na Twoją akceptację.",
     "translationReview": "Tłumaczenia → Do akceptacji",
+    "translationReviewPlain": "Tłumaczenia do akceptacji",
     "versionsTitle": "Wersje"
   },
   "CustomerDocument": {
@@ -6469,10 +6474,13 @@
     "refundReasonOptional": "Powód zwrotu (opcjonalnie)",
     "refundReasonHint": "Widać go tylko na stronie zamówienia. Klient go nie dostaje.",
     "refundReasonRequired": "Podaj powód zwrotu ponad to, co wynika z warunków zamówienia.",
+    "refundMail": "Klient dostanie e-mail z kwotą i sposobem zwrotu — bez powodu.",
+    "refundNoMail": "Klient nie podał adresu e-mail — daj mu znać inaczej.",
     "refundSave": "Zapisz zwrot",
     "refundRecorded": "Zapisano zwrot: {amount}.",
     "refundVoidTitle": "Wycofać zwrot {amount}?",
     "refundVoidHint": "Użyj tego, gdy zwrot został oznaczony przez pomyłkę. Zostanie w historii zamówienia jako wycofany, a kwota wróci do wpłat zamówienia.",
+    "refundVoidMail": "Klient dostanie e-mail, że wiadomość o tym zwrocie była pomyłką.",
     "refundVoidConfirm": "Wycofaj zwrot",
     "refundVoided": "Wycofano zwrot: {amount}.",
     "refundActionsFor": "Działania dla zwrotu {amount}"

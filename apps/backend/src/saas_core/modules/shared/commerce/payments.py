@@ -33,6 +33,7 @@ from saas_core.modules.shared.notifications.security import encrypt_secret
 from . import emails
 from .balance import balance_due, overdue_balance
 from .ledger import (
+    CLOSED_STATUSES,
     MANUAL_METHODS,
     PREPAYMENT_KINDS,
     awaited_balance,
@@ -345,12 +346,15 @@ def record_payment(
         return order_detail(order)
 
 
-def void_payment(order_id: UUID, payment_id: UUID, *, expected_version: int) -> dict[str, Any]:
+def void_payment(
+    order_id: UUID, payment_id: UUID, *, expected_version: int, preview: bool = False
+) -> dict[str, Any]:
     """A payment marked by mistake is taken back: it stays in the order's
     history as canceled, and the ledger gets the opposite entry. Not a refund —
     no money went back to anybody. What the source confirmed when the payment
     was marked stays confirmed: taking a booking back is the company's own
-    decision, never a side effect of a correction."""
+    decision, never a side effect of a correction. `preview` checks the same
+    and says what the order would be, writing nothing."""
     context = authorize_entitled(PAYMENTS_MANAGE, COMMERCE_ENABLED)
     with transaction.atomic():
         order = _locked(context, order_id, expected_version)
@@ -369,6 +373,15 @@ def void_payment(order_id: UUID, payment_id: UUID, *, expected_version: int) -> 
                     )
                 ]
             })
+        if preview:
+            after = paid_minor(order) - payment.amount_minor
+            return {
+                "amount_minor": payment.amount_minor,
+                "method": payment.method,
+                "paid_minor": after,
+                "due_minor": order.gross_minor - after,
+                "status": status_for(order, after),
+            }
         payment.status = PaymentStatus.CANCELED
         payment.version += 1
         payment.save(update_fields=["status", "version", "updated_at"])
@@ -401,7 +414,7 @@ def _locked(context: TenantContext, order_id: UUID, expected_version: int) -> Or
 
 
 def _refuse(order: Order, *, amount_minor: int, method: str, due: int) -> None:
-    if order.status == OrderStatus.CANCELED:
+    if order.status in CLOSED_STATUSES:
         raise ValidationError({
             "order": [ErrorDetail("Zamówienie jest anulowane.", code="order_canceled")]
         })

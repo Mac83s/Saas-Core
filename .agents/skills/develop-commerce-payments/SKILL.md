@@ -24,9 +24,11 @@ Slice 4g added draft orders for bookings that wait for the company's answer.
 Slice 4h added what goes back and what is still to come: refund thresholds
 frozen in the booking, the settlement at cancellation (`refund_due_minor`),
 refunds the company marks by hand (`Refund`, `refunds.py`) and the balance
-due by a transfer (`balance.py`; „Rozstrzygnięcia plastra 4h”). Online
-payments and refunds through an operator come with phase 7 — do not put an
-operator's field anywhere ahead of them.
+due by a transfer (`balance.py`; „Rozstrzygnięcia plastra 4h”). After it came
+the mail about a marked refund, the status `refunded` and the assistant's
+commands for orders and payments (`command_declarations.py`; „Uzupełnienie po
+4h” and ADR-076). Online payments and refunds through an operator come with
+phase 7 — do not put an operator's field anywhere ahead of them.
 
 ## The rules that decide the design
 
@@ -63,6 +65,10 @@ operator's field anywhere ahead of them.
   both in one function, `ledger.status_for`. Never store a paid amount, never
   set a status by hand, never rewrite an entry: a mistake is taken back by the
   opposite entry, and the database refuses anything else.
+- **An order taken back has two names.** `canceled`, and `refunded` once the
+  company gave money back and the terms owe nothing more; a refund taken back
+  makes it `canceled` again. For money they are one state — ask
+  `ledger.CLOSED_STATUSES` (the panel: `isClosed`), never `== canceled`.
 - **A person marks only what a person can know.** `cash` (at the desk) and
   `transfer`; an online payment is the operator's to confirm.
 - **A write on an order names the version it read** (`expected_version`): a
@@ -111,7 +117,13 @@ operator's field anywhere ahead of them.
   writes a `refund` ledger entry (negative) and moves no money. Within what
   the terms owe it asks for nothing; beyond it the company gives its reason
   (`reason_required`) — words that stay on the order's page, out of the audit
-  and of every mail, and go when the customer is anonymised.
+  and of every mail, and go when the customer is anonymised. The buyer is
+  written to with the amount and the way (`commerce.refund_marked`), and again
+  when the mark is taken back (`commerce.refund_withdrawn`).
+- **The assistant never learns who bought.** Its commands name an order by its
+  number and what it is for; a new output field with a buyer's data needs the
+  audited read of ADR-076 §1 first. A payment is the person's own amount, on
+  its own click, with the words written from the service's preview.
 - **The deadlines' task reads a route, not a tenant.** `commerce_paymentroute`
   carries ids and a date, never a buyer's data, and a `service` contract of
   the role `commerce_deadlines`; a module's own scheduled work for the

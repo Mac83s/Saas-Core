@@ -68,9 +68,14 @@ function message(error: unknown, fallback: string): string {
 export function CustomerDocumentPanel({
   kind,
   canManage,
+  website = true,
 }: {
   kind: Kind;
   canManage: boolean;
+  /** Whether the organization has websites: the translation review is then
+   *  named by its place in the menu („Tłumaczenia → Do akceptacji”, under
+   *  „Strona internetowa”); without them it is named by what it holds. */
+  website?: boolean;
 }) {
   const t = useTranslations("CustomerDocuments");
   const common = useTranslations("Common");
@@ -78,6 +83,7 @@ export function CustomerDocumentPanel({
   const labels = useDataTableLabels();
   const stepUp = useStepUp(t("stepUp"));
   const ids = useId();
+  const review = t(website ? "translationReview" : "translationReviewPlain");
   const [document, setDocument] = useState<CustomerDocument>();
   const [options, setOptions] = useState<CustomerDocumentOptions>();
   const [failed, setFailed] = useState(false);
@@ -387,7 +393,7 @@ export function CustomerDocumentPanel({
                       className="underline underline-offset-2"
                       href={REVIEW}
                     >
-                      {t("translationReview")}
+                      {review}
                     </Link>
                   </p>
                 ) : null}
@@ -400,12 +406,12 @@ export function CustomerDocumentPanel({
             <p className="max-w-3xl text-sm text-muted-foreground">
               {t("translateHelp")}{" "}
               <Link className="underline underline-offset-2" href={REVIEW}>
-                {t("translationReview")}
+                {review}
               </Link>
             </p>
             <TranslateMissing
               onOrdered={() => void load()}
-              orderedMessage={t("translationOrdered")}
+              orderedMessage={t("translationOrdered", { review })}
               // A language whose translation already waits is not ordered
               // (and paid for) a second time.
               targets={codes

@@ -1,14 +1,17 @@
 """Evals of the assistant's service, place and working-hours commands
 (`shared/booking/command_declarations.py`, ADR-072 §11), of its units, price
-list and draft removal (`shared/booking/pricing_commands.py`) and of its
-seasons (`shared/booking/season_commands.py`)."""
+list and draft removal (`shared/booking/pricing_commands.py`), of its seasons
+(`shared/booking/season_commands.py`) and of its answers to bookings made on
+request (`shared/booking/request_commands.py`)."""
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from typing import Any
+from uuid import uuid7
 
 from django.db.models import F
+from django.utils import timezone
 
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.shared.billing.models import (
@@ -17,7 +20,9 @@ from saas_core.modules.shared.billing.models import (
     SubscriptionState,
 )
 from saas_core.modules.shared.booking.models import (
+    Appointment,
     AvailabilityRule,
+    BookingMutation,
     BookingRule,
     Extra,
     Location,
@@ -34,6 +39,8 @@ from saas_core.modules.shared.booking.models import (
     TimeModel,
     VatCode,
 )
+from saas_core.modules.shared.customers.models import Customer
+from saas_core.modules.shared.notifications.security import encrypt_secret
 
 from . import CommandEval
 
@@ -332,6 +339,61 @@ def _season_fields(**given: Any) -> dict[str, Any]:
     return {**fields, **given}
 
 
+def _request_company(context: TenantContext) -> None:
+    """The company with one customer's booking that waits for its answer."""
+    _company(context)
+    organization_id = context.organization_id
+    service = _first(Service, context)
+    starts = timezone.now() + timedelta(days=10)
+    Appointment.all_objects.create(
+        organization_id=organization_id,
+        # No address: nothing is queued for a customer nobody can write to.
+        customer=Customer.all_objects.create(
+            organization_id=organization_id, display_name="Jan Nowak", contact_hash=uuid7().hex
+        ),
+        service=service,
+        staff=_first(StaffMember, context),
+        location=_first(Location, context),
+        starts_at=starts,
+        ends_at=starts + timedelta(minutes=30),
+        occupied_from=starts,
+        occupied_until=starts + timedelta(minutes=30),
+        timezone="Europe/Warsaw",
+        service_name=service.name,
+        status="pending_request",
+        hold_expires_at=timezone.now() + timedelta(hours=12),
+        self_service_token_ciphertext=encrypt_secret(uuid7().hex),
+        self_service_expires_at=starts,
+    )
+
+
+def _request(context: TenantContext) -> Appointment:
+    return Appointment.all_objects.get(organization_id=context.organization_id)
+
+
+def _request_state(context: TenantContext) -> dict[str, Any]:
+    organization_id = context.organization_id
+    return {
+        "bookings": sorted(
+            Appointment.all_objects.filter(organization_id=organization_id).values_list(
+                "status", "starts_at"
+            )
+        ),
+        "answers": sorted(
+            BookingMutation.all_objects.filter(organization_id=organization_id).values_list(
+                "action", flat=True
+            )
+        ),
+    }
+
+
+def _moved(context: TenantContext) -> None:
+    """The request is for other days than the person agreed about."""
+    Appointment.all_objects.filter(organization_id=context.organization_id).update(
+        starts_at=F("starts_at") + timedelta(days=1), ends_at=F("ends_at") + timedelta(days=1)
+    )
+
+
 def _quote_fields(**given: Any) -> dict[str, Any]:
     fields: dict[str, Any] = dict.fromkeys((
         "starts_at",
@@ -595,5 +657,36 @@ EVALS = {
         state=_price_state,
         prepare=_stay_company,
         preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.requests.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"waiting": True},
+        wrong_field="waiting",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_request_state,
+        prepare=_request_company,
+    ),
+    "booking.request.accept@1": CommandEval(
+        arguments=lambda context: {"request_id": str(_request(context).id)},
+        wrong_arguments={"request_id": "ta z rana"},
+        wrong_field="request_id",
+        stale=_moved,
+        state=_request_state,
+        prepare=_request_company,
+    ),
+    "booking.request.decline@1": CommandEval(
+        arguments=lambda context: {
+            "request_id": str(_request(context).id),
+            "reason": "W tym terminie mamy remont.",
+        },
+        # Refused as the panel refuses it: no link in words that go out by mail.
+        wrong_arguments=lambda context: {
+            "request_id": str(_request(context).id),
+            "reason": "Zapraszamy na www.inna-firma.example",
+        },
+        wrong_field="reason",
+        stale=_moved,
+        state=_request_state,
+        prepare=_request_company,
     ),
 }

@@ -26,7 +26,15 @@ from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
-from .ledger import MANUAL_METHODS, awaited_balance, paid_minor, refund_owed, status_for
+from . import emails
+from .ledger import (
+    MANUAL_METHODS,
+    awaited_balance,
+    paid_minor,
+    refund_owed,
+    refunded_minor,
+    status_for,
+)
 from .models import LedgerEntry, LedgerEntryKind, Order, OrderStatus, Refund, RefundStatus
 from .names import COMMERCE_ENABLED, PAYMENTS_MANAGE
 from .orders import order_detail
@@ -54,7 +62,8 @@ def record_refund(
     Never more than the customer has paid (`refund_exceeds_paid`). Within
     what the order's terms give back (`refund_owed_minor`) no reason is
     asked for; beyond it — or for an order nobody settled — the company says
-    why (`reason_required`)."""
+    why (`reason_required`). The buyer is told that the money is on its way
+    (`emails.refund_marked`): the amount and how, never the company's reason."""
     context = authorize_entitled(PAYMENTS_MANAGE, COMMERCE_ENABLED)
     reason = reason.strip()
     with transaction.atomic():
@@ -77,7 +86,7 @@ def record_refund(
             "amount_minor": amount_minor,
             "paid_minor": after,
             "refund_owed_minor": max(owed - amount_minor, 0),
-            "status": status_for(order, after),
+            "status": status_for(order, after, refunded=refunded_minor(order) + amount_minor),
             "reason_required": beyond,
         }
         if preview:
@@ -100,6 +109,7 @@ def record_refund(
             _await(awaited, awaited.amount_minor + amount_minor)
         _move(order, after)
         _audit(context, order, "commerce.refund.recorded", refund, beyond_terms=beyond)
+        emails.refund_marked(order, refund)
         return order_detail(order)
 
 
@@ -107,7 +117,8 @@ def void_refund(order_id: UUID, refund_id: UUID, *, expected_version: int) -> di
     """A refund marked by mistake is taken back: it stays in the order's
     history as canceled and the ledger gets the opposite entry, so the order
     is paid that amount again — and owes it back again where its terms said
-    so."""
+    so. The buyer, who was told the money is on its way, is told that the
+    note was a mistake (`emails.refund_withdrawn`)."""
     context = authorize_entitled(PAYMENTS_MANAGE, COMMERCE_ENABLED)
     with transaction.atomic():
         order = _locked(context, order_id, expected_version)
@@ -128,6 +139,7 @@ def void_refund(order_id: UUID, refund_id: UUID, *, expected_version: int) -> di
             _await(awaited, max(awaited.amount_minor - refund.amount_minor, 0))
         _move(order, paid_minor(order))
         _audit(context, order, "commerce.refund.voided", refund)
+        emails.refund_withdrawn(order, refund)
         return order_detail(order)
 
 

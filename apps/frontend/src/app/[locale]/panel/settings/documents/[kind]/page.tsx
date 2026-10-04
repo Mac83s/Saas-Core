@@ -37,6 +37,9 @@ export default async function CustomerDocumentPage({
         permission: "customers.manage",
       })}
       kind={known}
+      // „Tłumaczenia” is an entry of „Strona internetowa”: an organization
+      // without websites reaches what waits for acceptance from here only.
+      website={access.modules.includes("shared.sites")}
     />
   );
 }

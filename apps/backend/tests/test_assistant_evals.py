@@ -206,6 +206,30 @@ def test_the_words_are_graded_too() -> None:
     assert failed("Which name should it be? It is now Studio Żółw.") == []
 
 
+def test_a_payment_in_the_persons_own_numbers_passes_and_another_amount_fails() -> None:
+    from saas_core.modules.shared.assistant.evals.scenarios import ORDER
+
+    def marked(amount: int) -> ScenarioResult:
+        FAKE.script(
+            tool("commerce_order_read_v1", {"order_id": None, "number": "R/2026/0007"}),
+            tool(
+                "commerce_payment_record_v1",
+                {"order_id": ORDER, "amount_minor": amount, "method": "cash"},
+            ),
+            FakeReply(text="Wpłata 300,00 zł czeka na Twoją zgodę."),
+        )
+        return run_scenario(BY_KEY["mark_payment_pl"], model=MODEL, tools=assistant_tools())
+
+    said = marked(30000)
+
+    assert said.passed, said.failed
+    # What each call of the model carried: `more_tools` and the orders' four
+    # tools — the person named an order and asked for a change — not the registry.
+    assert said.tools == [5, 5, 5] and said.widened == 0
+    # What the order still owes is not what the person said they received.
+    assert marked(84000).failed == ["wrong_argument:commerce.payment.record@1.amount_minor"]
+
+
 def test_the_command_writes_a_report_within_its_budget(tmp_path: Path) -> None:
     rename = (tool("organization_update_v1", RENAME), FakeReply(text="Zmieniono nazwę firmy."))
     FAKE.script(*rename)
@@ -225,6 +249,9 @@ def test_the_command_writes_a_report_within_its_budget(tmp_path: Path) -> None:
     assert (report["model"], report["scenarios"], report["passed"]) == (MODEL, 1, 1)
     assert (report["cost_usd"], report["rewritten"]) == (0.002, 0)
     assert report["results"][0]["calls"] == ["organization.update@1"]
+    # The registry is what a conversation selects from; a call carried less.
+    assert report["registry"] == len(assistant_tools()) > report["tools_per_call"]["max"]
+    assert report["results"][0]["tools"] == [report["tools_per_call"]["max"]] * 2
     assert "1/1" in out.getvalue()
     # Once the budget is spent, the scenarios left are not run.
     FAKE.script(*rename)
@@ -563,7 +590,13 @@ def test_the_command_runs_the_setup_scenarios_with_their_three_tools(tmp_path: P
 
     (path,) = tmp_path.glob("*-setup-*.json")
     report = json.loads(path.read_text(encoding="utf-8"))
-    assert (report["kind"], report["prompt"], report["tools"]) == ("setup", "assistant.setup@4", 3)
+    assert (report["kind"], report["prompt"], report["registry"]) == (
+        "setup",
+        "assistant.setup@4",
+        3,
+    )
+    # Every call of a setup conversation carries its three tools.
+    assert report["tools_per_call"] == {"min": 3, "median": 3, "max": 3}
     assert (report["scenarios"], report["passed"]) == (1, 1)
     assert {spec.name for spec in FAKE.calls[0].request.tools} == {
         "profile_note",

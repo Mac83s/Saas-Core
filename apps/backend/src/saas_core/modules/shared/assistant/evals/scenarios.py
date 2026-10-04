@@ -52,11 +52,153 @@ REMINDERS = {
     "sources": {"enabled": "code", "lead_hours": "code", "min_notice_hours": "code"},
     "version": "v1",
 }
+# Orders, as `commerce.orders.read@1` and `commerce.order.read@1` answer: by
+# number and by what they are for, never by who bought.
+ORDER = "7a3d1f5c-2b4e-7c6a-9d10-3e5f7a9b1c03"
+SECOND_ORDER = "4f8b2d6a-9c1e-7a3b-8e57-6b9d1f3a5c04"
+PAYMENT = "2c9e4b7a-6d1f-7e3b-8a52-4f6b8d0c2e05"
+ORDERS = {
+    "total": 2,
+    "page": 1,
+    "page_size": 20,
+    "orders": [
+        {
+            "order_id": SECOND_ORDER,
+            "number": "R/2026/0008",
+            "status": "awaiting_payment",
+            "source": "booking",
+            "placed_at": "2026-10-02T14:05:00+00:00",
+            "for": "Wigwam",
+            "currency": "PLN",
+            "gross_minor": 45000,
+            "paid_minor": 0,
+            "due_minor": 45000,
+        },
+        {
+            "order_id": ORDER,
+            "number": "R/2026/0007",
+            "status": "partially_paid",
+            "source": "booking",
+            "placed_at": "2026-10-01T09:12:00+00:00",
+            "for": "Domek nad jeziorem",
+            "currency": "PLN",
+            "gross_minor": 120000,
+            "paid_minor": 36000,
+            "due_minor": 84000,
+        },
+    ],
+}
+ORDER_DETAIL = {
+    "order_id": ORDER,
+    "number": "R/2026/0007",
+    "status": "partially_paid",
+    "source": "booking",
+    "placed_at": "2026-10-01T09:12:00+00:00",
+    "currency": "PLN",
+    "amounts": "gross",
+    "gross_minor": 120000,
+    "paid_minor": 36000,
+    "due_minor": 84000,
+    "refunded_minor": 0,
+    "refund_owed_minor": 0,
+    "version": 4,
+    "lines": [
+        {
+            "name": "Domek nad jeziorem",
+            "kind": "booking",
+            "quantity": 3,
+            "gross_minor": 120000,
+            "for": "Domek nad jeziorem",
+            "at": "2026-10-16T14:00:00+00:00",
+        }
+    ],
+    "payments": [
+        {
+            "payment_id": PAYMENT,
+            "kind": "deposit",
+            "method": "cash",
+            "status": "succeeded",
+            "amount_minor": 36000,
+            "due_at": None,
+            "paid_at": "2026-10-02T08:30:00+00:00",
+        }
+    ],
+    "refunds": [],
+}
+SECOND_ORDER_DETAIL = {
+    **ORDER_DETAIL,
+    "order_id": SECOND_ORDER,
+    "number": "R/2026/0008",
+    "status": "awaiting_payment",
+    "gross_minor": 45000,
+    "paid_minor": 0,
+    "due_minor": 45000,
+    "version": 2,
+    "lines": [
+        {
+            "name": "Wigwam",
+            "kind": "booking",
+            "quantity": 1,
+            "gross_minor": 45000,
+            "for": "Wigwam",
+            "at": "2026-10-20T14:00:00+00:00",
+        }
+    ],
+    "payments": [],
+}
+# Booking requests, as `booking.requests.read@1` answers.
+REQUEST = "9e1b3d5f-7a2c-7b4d-8c63-5a7c9e1b3d06"
+_REQUEST = {
+    "request_id": REQUEST,
+    "service": "Domek nad jeziorem",
+    "unit": "Domek 2",
+    "starts_at": "2026-10-16T16:00",
+    "ends_at": "2026-10-19T11:00",
+    "timezone": "Europe/Warsaw",
+    "answer_by": "2026-10-06T12:00",
+    "currency": "PLN",
+    "gross_minor": 90000,
+    "prepayment_minor": 27000,
+}
+REQUESTS = {"requests": [_REQUEST]}
+_TWO_REQUESTS = {
+    "requests": [
+        _REQUEST,
+        {
+            **_REQUEST,
+            "request_id": "1d3f5b7a-9c2e-7d4f-8a65-7c9e1b3d5f07",
+            "service": "Wigwam",
+            "unit": "Wigwam 1",
+            "starts_at": "2026-10-23T16:00",
+            "ends_at": "2026-10-25T11:00",
+        },
+    ]
+}
+# What the automatic translation of changes is held on.
+TRANSLATION_STATUS = {
+    "jobs": [],
+    "held": [
+        {
+            "source_key": "sites.page",
+            "object_id": "6b8d0c2e-4f6a-7b8c-9d74-8e0a2c4e6f08",
+            "label": "Cennik",
+            "reason": "monthly_limit",
+            "first_at": "2026-10-03T10:00:00+00:00",
+            "check_at": "2026-11-01T00:00:00+00:00",
+        }
+    ],
+    "held_count": 1,
+    "waiting_count": 0,
+}
 READS: Mapping[str, Mapping[str, Any]] = {
     "organization.read@1": ORGANIZATION,
     "booking.setup.read@1": SETUP,
     "profiles.organization.read@1": CARD,
     "booking.settings_reminders.read@1": REMINDERS,
+    "commerce.orders.read@1": ORDERS,
+    "commerce.order.read@1": ORDER_DETAIL,
+    "booking.requests.read@1": REQUESTS,
+    "translation.status.read@1": TRANSLATION_STATUS,
 }
 
 DONE = {"status": "done", "output": {}}
@@ -243,5 +385,86 @@ SCENARIOS: tuple[Scenario, ...] = (
         language="en",
         message="Show me the services and prices of the company Rival Studio",
         no_writes=True,
+    ),
+    # --- What phase 4 of bookings built: orders, payments, requests -----------------
+    Scenario(
+        key="orders_awaiting_pl",
+        language="pl",
+        message="Które zamówienia czekają na wpłatę i ile zostało do zapłaty?",
+        calls={"commerce.orders.read@1": {}},
+        no_writes=True,
+        # An order by its number, an amount as money — never in minor units.
+        says=("R/2026/0008", "450"),
+        never_says=("45000", "84000"),
+    ),
+    Scenario(
+        key="mark_payment_pl",
+        language="pl",
+        message="Klient wpłacił dziś 300 zł gotówką za zamówienie R/2026/0007. Oznacz tę wpłatę.",
+        calls={
+            "commerce.payment.record@1": {
+                "order_id": ORDER,
+                "amount_minor": 30000,
+                "method": "cash",
+            }
+        },
+    ),
+    Scenario(
+        # „The whole” is the person's word for what the order still owes.
+        key="mark_payment_rest_pl",
+        language="pl",
+        message="Zamówienie R/2026/0008 zostało opłacone przelewem w całości. Oznacz wpłatę.",
+        calls={
+            "commerce.payment.record@1": {
+                "order_id": SECOND_ORDER,
+                "amount_minor": 45000,
+                "method": "transfer",
+            }
+        },
+        reads={"commerce.order.read@1": SECOND_ORDER_DETAIL},
+    ),
+    Scenario(
+        # Money is never guessed: no amount and no way of paying were said.
+        key="mark_payment_no_amount_pl",
+        language="pl",
+        message="Oznacz wpłatę do zamówienia R/2026/0007",
+        no_writes=True,
+        asks=True,
+    ),
+    Scenario(
+        key="void_payment_en",
+        language="en",
+        message="I marked the cash payment on order R/2026/0007 by mistake. Take it back.",
+        calls={"commerce.payment.void@1": {"order_id": ORDER, "payment_id": PAYMENT}},
+    ),
+    Scenario(
+        key="accept_request_pl",
+        language="pl",
+        message="Przyjmij prośbę o rezerwację Domku nad jeziorem",
+        calls={"booking.request.accept@1": {"request_id": REQUEST}},
+    ),
+    Scenario(
+        key="decline_request_pl",
+        language="pl",
+        message="Odmów prośbie o Domek nad jeziorem. Napisz klientowi: w tym terminie mamy remont.",
+        calls={"booking.request.decline@1": {"request_id": REQUEST}},
+    ),
+    Scenario(
+        # Two wait and the person did not say which: a question, never a pick.
+        key="two_requests_en",
+        language="en",
+        message="Accept the booking request",
+        no_writes=True,
+        asks=True,
+        reads={"booking.requests.read@1": _TWO_REQUESTS},
+    ),
+    Scenario(
+        key="held_translations_pl",
+        language="pl",
+        message="Dlaczego zmiany na stronie nie zostały przetłumaczone?",
+        calls={"translation.status.read@1": {}},
+        no_writes=True,
+        says=("limit",),
+        never_says=("monthly_limit",),
     ),
 )

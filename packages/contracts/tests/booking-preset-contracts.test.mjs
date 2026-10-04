@@ -81,8 +81,9 @@ const ENGINE = {
   participants: ["none", "count", "categories"],
   confirmation: ["instant"],
   place: ["business", "customer", "pickup_return"],
-  // Paying before the stay comes with orders (ADR-073, phase 4).
-  paymentPolicy: ["none", "on_site"],
+  // Paying before the stay came with orders (ADR-073, phase 4): a transfer
+  // with a date, a prepayment and its balance, refund thresholds.
+  paymentPolicy: ["none", "on_site", "transfer", "deposit", "full"],
 };
 // What the public booking form takes today, by time model and place: a visit
 // by the clock at the company's place, and — since phase 5b — a stay or a
@@ -341,17 +342,13 @@ test("a ready preset uses only what this core's booking engine runs", async () =
     } else {
       assert.equal(preset.booked.subject, "staff", where(item));
     }
-    // The price list, extras and the security deposit are here (phase 3);
-    // prepayments and refund thresholds come with orders (phase 4), custom
-    // fields with the public form (phase 5), portal calendars with phase 6.
+    // The price list, extras and the security deposit are here (phase 3),
+    // prepayments and refund thresholds since orders (phase 4); custom
+    // fields come with the public form (phase 5), portal calendars with
+    // phase 6.
     assert.ok(
       ENGINE.paymentPolicy.includes(preset.payment?.policy ?? "none"),
       `${where(item)}: payment policy`,
-    );
-    assert.equal(
-      preset.cancellation,
-      undefined,
-      `${where(item)}: cancellation`,
     );
     assert.deepEqual(preset.fields, [], where(item));
     assert.equal(preset.calendarSync, false, where(item));
@@ -397,6 +394,8 @@ test("what the engine runs today is ready, the rest is announced", async () => {
   // Owner decisions 67a and 68a (03.10.2026): stays, rentals and care stays
   // are ready once the price list is there, and the service at the
   // customer's in a reduced version — without waiting for the public form.
+  // Version 4 of the stay adds terms of paying ahead and of giving a stay up,
+  // as a start the company changes (ADR-073, „Uzupełnienie po 4h”).
   // Version 3 of the three kinds booked from–to came with that form (phase
   // 5b): customers book them through the site.
   assert.deepEqual(readiness, {
@@ -405,7 +404,7 @@ test("what the engine runs today is ready, the rest is announced", async () => {
     "core.service_at_customer": "ready v2",
     "core.hourly_space": "soon v1",
     "core.table_or_group": "soon v1",
-    "core.lodging": "ready v3",
+    "core.lodging": "ready v4",
     "core.rental": "ready v3",
     "core.care_stay": "ready v3",
     "core.exclusive_date": "soon v1",

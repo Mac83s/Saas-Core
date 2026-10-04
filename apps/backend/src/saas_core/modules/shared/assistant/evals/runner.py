@@ -146,11 +146,18 @@ class ScenarioResult:
     #: Answers sent back once for a verb form with a gender (`style`): what
     #: the prompt's rule alone did not prevent.
     rewritten: int = 0
+    #: How many tool definitions each call of the model carried — what the
+    #: conversation would have sent, not what the registry holds.
+    tools: list[int] = field(default_factory=list)
+    #: Calls of `more_tools`: the areas the person's words did not open.
+    widened: int = 0
     error: str = ""
 
 
 def assistant_tools() -> tuple[ToolSpec, ...]:
-    """Every command an owner's assistant is offered."""
+    """Every command an owner's assistant may be offered: what a conversation
+    selects from (`command_tools` for a person with every permission and
+    module), never what one call of the model carries."""
     return tuple(
         ToolSpec(
             name=spec.tool_name, description=spec.model_description, input_schema=spec.input_schema
@@ -198,11 +205,21 @@ def run_eval(
         spent += result.cost_usd_micros
         results.append(result)
     latencies = sorted(ms for result in results for ms in result.latencies_ms)
+    carried = sorted(count for result in results for count in result.tools)
     return {
         "model": model,
         "kind": kind,
         "prompt": prompt,
-        "tools": len(tools),
+        # What a conversation selects its tools from, and what a call of the
+        # model carried: the first says how big the product is, the second
+        # what a message costs.
+        "registry": len(tools),
+        "tools_per_call": {
+            "min": carried[0] if carried else None,
+            "median": int(median(carried)) if carried else None,
+            "max": carried[-1] if carried else None,
+        },
+        "widened": sum(result.widened for result in results),
         "scenarios": len(results),
         "passed": sum(result.passed for result in results),
         "skipped_for_budget": len([s for s in scenarios if not keys or s.key in keys])
@@ -224,6 +241,8 @@ def run_eval(
                 "steps": result.steps,
                 "cost_usd_micros": result.cost_usd_micros,
                 "rewritten": result.rewritten,
+                "tools": result.tools,
+                "widened": result.widened,
                 "answer": result.answer,
                 "error": result.error,
             }
@@ -257,6 +276,8 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
     first = ""
     for _ in range(MAX_STEPS):
         result.steps += 1
+        selected = topics.select(available, events)
+        result.tools.append(len(selected))
         request = ModelRequest(
             task=TASK,
             messages=(system, *cached_tail(messages), *held),
@@ -270,7 +291,7 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
                     description=tool["description"],
                     input_schema=tool["input_schema"],
                 )
-                for tool in topics.select(available, events)
+                for tool in selected
             ),
             cache_tools=True,
             model=model,
@@ -313,6 +334,7 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
         for call in response.tool_calls:
             events.append(topics.called(call.name, call.arguments_json))
             if call.name == topics.MORE_TOOLS:
+                result.widened += 1
                 messages.append(
                     _tool(
                         call.id,

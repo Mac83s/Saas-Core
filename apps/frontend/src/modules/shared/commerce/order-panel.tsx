@@ -18,7 +18,7 @@ import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
 import { formatMoney } from "#lib/money";
-import { OrderPayments } from "./order-payments";
+import { isClosed, OrderPayments } from "./order-payments";
 import { OrderRefunds } from "./order-refunds";
 import { STATUS_TONE } from "./orders-panel";
 
@@ -234,7 +234,7 @@ export function OrderPanel({
                 {t("recordRefund")}
               </Button>
             ) : null}
-            {order.status !== "canceled" && order.due_minor > 0 ? (
+            {!isClosed(order) && order.due_minor > 0 ? (
               <Button onClick={() => setMarking(true)}>
                 {t("recordPayment")}
               </Button>

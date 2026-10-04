@@ -889,3 +889,84 @@ nieodwracalności i szkic przemianowany w panelu), i to, co uzupełnienie A3-2 o
    `assistant.setup@4`. Scenariusz `undo_pl` sprawdza to, co osoba czyta w
    rozmowie: słowa modelu i zdanie serwera obok planu. Runner zwykłej rozmowy dobiera
    narzędzia tak jak rozmowa i odpowiada na `more_tools`.
+
+## Uzupełnienie 2026-10-04: zamówienia, wpłaty i prośby o rezerwację
+
+Polecenia nad tym, co zbudowała faza 4 rezerwacji (ADR-073, plastry 4e–4h). Zamyka
+pierwszą pozycję „Poza 4h” w ADR-073; polecenia zwrotów i progów oferty zostają
+otwarte (niżej, pkt 7).
+
+1. **Polecenia.** `commerce.orders.read@1` (lista, 20 naraz, filtr stanu i
+   wyszukiwanie), `commerce.order.read@1` (jedno zamówienie po identyfikatorze albo
+   po numerze: pozycje, wpłaty, zwroty), `commerce.payment.record@1` (wpłata
+   oznaczona ręcznie), `commerce.payment.void@1` (wpłata oznaczona przez pomyłkę) —
+   `shared/commerce/command_declarations.py`, rejestrowane tylko tam, gdzie profil
+   składa `shared.commerce`. `booking.requests.read@1`, `booking.request.accept@1`
+   i `booking.request.decline@1` — `shared/booking/request_commands.py`, nad
+   `dispatch.requests` i `services.answer_request` (ten sam klucz i ta sama odmowa
+   co przyciski „Próśb”).
+2. **Kupujący nie trafia do modelu.** Zamówienie nazywa jego numer i to, za co jest
+   (pierwsza pozycja); prośbę — usługa, jednostka i termin. Imienia, e-maila i
+   telefonu klienta nie ma w żadnym wyjściu, nie ma też osoby z firmy, która
+   oznaczyła wpłatę, ani własnych słów firmy o zwrocie. Powód: pole klasy `personal`
+   wymaga celu i audytowanego odczytu (pkt 1 decyzji), a tego audytu wykonawca
+   jeszcze nie ma — pierwszy odczyt danych klientów nie może powstać bez niego.
+   Wyszukiwanie przyjmuje słowa osoby (`q`: część numeru, nazwiska albo e-maila),
+   a odpowiedź mówi, które zamówienia pasują, nie czyje są. Słowa zgody też nie
+   nazywają klienta — są zapisywane przy planie w tabelach asystenta. Kto prosił,
+   widać w panelu („Prośby”, strona zamówienia). Odrzucone: `personal` z celem bez
+   audytu — kopia danych klientów u dostawcy modelu bez śladu, kto o nie zapytał.
+3. **Pieniędzy się nie zgaduje — także przy wpłacie.** `amount_minor` i `method` to
+   słowa osoby (opis polecenia); „resztę” albo „całość” model bierze z `due_minor`
+   odczytu i mówi kwotę; bez kwoty albo sposobu — pyta. Słowa zgody pisze serwer z
+   podglądu serwisu (`record_payment(preview=True)`, `void_payment(preview=True)` —
+   nowy argument, ta sama walidacja co zapis): kwota, sposób, numer i przedmiot
+   zamówienia, ile jest wpłacone po tym kroku i ile zostaje. Zgoda wiąże wersję
+   zamówienia (`expected_version`), więc wpłata oznaczona w panelu między podglądem
+   a kliknięciem unieważnia zgodę.
+4. **Klasa `irreversible` dla wpłaty i jej wycofania** (pkt 2 decyzji: „płatność”).
+   Księga jest tylko do dopisywania: wpis zostaje w historii zamówienia, a pomyłkę
+   koryguje wpis przeciwny, nie usunięcie — to właśnie mówi zdanie zgody obok
+   „Nie da się cofnąć”. Wpłata, która pokrywa przedpłatę, na którą czeka rezerwacja,
+   mówi też, że rezerwacja zostanie potwierdzona, a klient dostanie potwierdzenie.
+   Każda wpłata ma własne kliknięcie i zdanie serwera obok planu (`turns.warning`).
+   Odrzucone: `apply` we wspólnym kliknięciu z innymi krokami — kwota ginie wśród
+   zmian konfiguracji; `publish` — osobne kliknięcie, ale z etykietą „Będzie widoczne
+   publicznie”, która o pieniądzach mówi nieprawdę.
+5. **Odpowiedź na prośbę to `irreversible`**: wiadomość do klienta wychodzi od razu,
+   a termin zostaje zajęty albo zwolniony. Podgląd niczego nie zapisuje — sprawdza
+   stan prośby i mówi, co dostanie klient: potwierdzenie albo, gdy oferta wymaga
+   przedpłaty, a firma ma zamówienia i rachunek, dane do przelewu z kwotą; gdy klient
+   nie podał adresu — że trzeba dać mu znać inaczej. Prośba nie ma wersji, więc zgoda
+   wiąże jej stan (`pending_request`) i słowa podglądu: odpowiedź kogoś innego albo
+   wygaśnięcie to odmowa przed kliknięciem (409 `appointment_not_changeable`).
+   Powód odmowy to słowa osoby — do 300 znaków, bez linku (400 `links`, ta sama reguła
+   co w panelu); model go nie pisze i nie redaguje (opis polecenia).
+6. **Obszary rozmowy** (`topics.py`): `orders` („zamówienie”, „wpłata”, „płatność”,
+   „przelew”, „zwrot”…) i `requests` („prośba”, „odmów”…); słowa zmiany dostały
+   „oznacz”, „przyjmij”, „zaakceptuj”, „odrzuć”, „odmów”, „wycofaj”. Kwota w złotych
+   („zł”, „PLN”) przestała sama otwierać cennik, gdy osoba nazwała coś dokładniej:
+   pada przy wpłacie równie często jak przy cenie, a definicje poleceń cennika są
+   najcięższe w rejestrze. Sama — nadal go otwiera.
+7. **Czego tu nie ma.** Poleceń zwrotu (`record_refund`, `void_refund`) i progów
+   oferty: zwrot ponad warunki wymaga powodu słowami firmy, który może nazywać
+   klienta — do rozstrzygnięcia razem z pkt 2. Odwołania i przeniesienia rezerwacji
+   (A7). Rachunku do przelewów — zmienia go osoba kodem z aplikacji (ADR-073 §5).
+8. **`translation.status.read@1` mówi, na czym stoi automat** (dodane pola wyjścia):
+   `held` — do dwudziestu zmian, których automatyczne tłumaczenie nie zaczęło, z
+   powodem i chwilą ponownej próby, jak lista „Wstrzymane” w panelu — oraz
+   `held_count` i `waiting_count`. Etykieta obiektu to tekst firmy (`x-untrusted`).
+   Tylko przy odczycie ostatnich zleceń; pytanie o jedno zlecenie zostaje, jak było.
+9. **Raport evali mówi, co model dostał.** Runner zwykłej rozmowy dobiera narzędzia
+   jak rozmowa od pakietu L3; raport podawał jednak pod `tools` liczbę poleceń
+   rejestru (69) i stąd wniosek w `docs/evals/assistant/README.md`, że przebieg
+   04.10 szedł na całym rejestrze — nie szedł: `read_timezone_en` kosztował w nim
+   USD 0,0029 za dwa wywołania, a samo przeczytanie 69 definicji z cache dostawcy
+   to około USD 0,008 na wywołanie (27,6 tys. tokenów, pomiar pakietu L2); dobór
+   pilnuje też test runnera na atrapie modelu. Raport ma teraz `registry` (z czego rozmowa
+   wybiera), `tools_per_call` (najmniej, mediana, najwięcej definicji w jednym
+   wywołaniu modelu), `widened` (wywołania `more_tools`) i przy każdym scenariuszu
+   listę `tools` — po jednej liczbie na wywołanie. Bateria dostała dziewięć
+   scenariuszy tego uzupełnienia (zamówienia, wpłata w słowach osoby, „całość”,
+   brak kwoty, wycofanie, prośby, dwie prośby naraz, wstrzymane tłumaczenia).
+   Prompt `assistant.operate@3` bez zmian: reguły niosą opisy poleceń.

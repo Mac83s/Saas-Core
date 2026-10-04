@@ -72,4 +72,9 @@ def all_evals() -> dict[str, CommandEval]:
         from . import translation  # noqa: PLC0415
 
         evals |= translation.EVALS
+    # Products leave orders out; booking works without them.
+    if "shared.commerce" in settings.ACTIVE_MODULES:
+        from . import commerce  # noqa: PLC0415
+
+        evals |= commerce.EVALS
     return evals

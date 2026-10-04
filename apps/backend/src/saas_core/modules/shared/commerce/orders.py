@@ -31,6 +31,7 @@ from saas_core.modules.shared.notifications.api import scrub_messages
 
 from . import emails
 from .ledger import (
+    CLOSED_STATUSES,
     MANUAL_METHODS,
     paid_minor,
     payments_of,
@@ -222,7 +223,7 @@ def reprice_order(order: Order, *, amounts: str, lines: Sequence[OrderLineInput]
     new lines become the next revision; the earlier ones stay as they were.
     The same lines again change nothing."""
     context = require_tenant_context()
-    if order.status == OrderStatus.CANCELED:
+    if order.status in CLOSED_STATUSES:
         raise ValueError("A canceled order takes no new lines.")
     _check(amounts, lines, order.channel)
     in_force = [
@@ -283,7 +284,7 @@ def cancel_order(
     (`refund_due_minor`), the buyer is told, and the company marks the refund
     when it has given the money back (`refunds.record_refund`)."""
     context = require_tenant_context()
-    if order.status == OrderStatus.CANCELED:
+    if order.status in CLOSED_STATUSES:
         return order
     paid = paid_minor(order)
     back = 0
@@ -293,6 +294,8 @@ def cancel_order(
         # ledger's refunds, so nothing given back earlier is owed twice.
         order.refund_due_minor = refunded_minor(order) + back
     order.status = OrderStatus.CANCELED
+    # Money given back before, with nothing more owed: the list says so.
+    order.status = status_for(order, paid)
     order.version += 1
     order.save(update_fields=["status", "refund_due_minor", "version", "updated_at"])
     waiting = Payment.all_objects.filter(
@@ -384,7 +387,9 @@ def list_orders(
     query: str = "",
 ) -> dict[str, Any]:
     """The company's orders, newest first. `query` is a part of a number, of
-    the buyer's name or of their e-mail."""
+    the buyer's name or of their e-mail. `status` is the list's shortcut: an
+    order taken back is `canceled`, or `refunded` once money went back and
+    its terms owe nothing more."""
     context = authorize_entitled(ORDERS_READ, COMMERCE_ENABLED, operation=FeatureOperation.READ)
     orders = Order.all_objects.filter(organization_id=context.organization_id)
     if status:

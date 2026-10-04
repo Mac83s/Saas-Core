@@ -81,8 +81,11 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
     # that the site comes later (owner decision 67a).
     assert visit.online_booking == "ready"
     lodging = next(item for item in listed if item.id == "core.lodging")
-    assert (lodging.version, lodging.readiness, lodging.online_booking) == (3, "ready", "ready")
+    assert (lodging.version, lodging.readiness, lodging.online_booking) == (4, "ready", "ready")
     assert "wkrótce" not in lodging.labels["pl"]["description"]
+    # Its terms of paying and of giving a stay up are a start, and say so.
+    assert "Warunki na start, do zmiany w „Cenniku”" in lodging.labels["pl"]["description"]
+    assert "yours to change in the price list" in lodging.labels["en"]["description"]
     # A visit at the customer's is still the team's to book.
     at_customer = next(item for item in listed if item.id == "core.service_at_customer")
     assert (at_customer.readiness, at_customer.online_booking) == ("ready", "soon")
@@ -92,7 +95,7 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
     assert {item.id: item.version for item in listed if item.readiness == "ready"} == {
         "core.specialist_visit": 1,
         "core.service_at_customer": 2,
-        "core.lodging": 3,
+        "core.lodging": 4,
         "core.rental": 3,
         "core.care_stay": 3,
     }
@@ -154,7 +157,7 @@ def test_a_named_preset_is_found_or_refused_with_a_code_on_its_field() -> None:
     assert _refused("core.specialist_visit", 7) == (["preset_id"], ["preset_unknown"])
     assert _refused("core.hourly_space", None) == (["preset_id"], ["preset_not_ready"])
     # A version that was only announced stays so, whatever came after it.
-    assert find_preset("core.lodging", None).version == 3
+    assert find_preset("core.lodging", None).version == 4
     assert _refused("core.lodging", 1) == (["preset_id"], ["preset_not_ready"])
 
 
@@ -216,15 +219,16 @@ def test_the_words_come_in_the_companys_first_language() -> None:
 
 
 @pytest.mark.parametrize(
-    ("preset_id", "unit", "start", "end", "policy"),
+    ("preset_id", "unit", "start", "end", "policy", "version"),
     [
-        ("core.lodging", "night", time(16), time(11), "on_site"),
-        ("core.rental", "day", time(9), time(18), "on_site"),
-        ("core.care_stay", "day", time(9), time(18), "on_site"),
+        # A stay's prepayment is the company's to switch on: until then nothing is said.
+        ("core.lodging", "night", time(16), time(11), "none", 4),
+        ("core.rental", "day", time(9), time(18), "on_site", 3),
+        ("core.care_stay", "day", time(9), time(18), "on_site", 3),
     ],
 )
 def test_a_stay_preset_makes_an_offer_the_team_books_in_the_panel(
-    preset_id: str, unit: str, start: time, end: time, policy: str
+    preset_id: str, unit: str, start: time, end: time, policy: str, version: int
 ) -> None:
     owner = membership(f"wzorce-{unit}-{preset_id.rpartition('.')[2].replace('_', '-')}")
     with tenant(owner):
@@ -238,7 +242,7 @@ def test_a_stay_preset_makes_an_offer_the_team_books_in_the_panel(
     # A draft, switched off until the company has set it up — and then on the
     # public form: customers book it through the site (phase 5b).
     assert (service.active, service.draft, service.online) == (False, True, True)
-    assert (service.payment_policy, service.preset_version) == (policy, 3)
+    assert (service.payment_policy, service.preset_version) == (policy, version)
     assert service.vocabulary["timeUnit"] in ("noc", "doba")
     # Prices and units are never a preset's.
     assert not PriceRule.all_objects.filter(organization=owner.organization).exists()

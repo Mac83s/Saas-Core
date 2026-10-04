@@ -234,12 +234,22 @@ def test_the_options_say_what_a_threshold_may_be_and_a_preset_brings_its_own() -
             {"min_days_before": 0, "refund_percent": 0},
         ],
     }
-    # The one in use today names none: its offer starts without thresholds.
+    # The one in use today brings the same, with 30% ahead by a transfer and
+    # the rest due 14 days before — a start the company changes in „Cennik”,
+    # where it also switches the prepayment itself on.
     with tenant(owner):
         lodging = apply_preset(
             preset_id="core.lodging", name="Domek", idempotency_key=key()
         ).value.service
-    assert lodging.cancellation_refunds == [] and lodging.balance_due_days_before is None
+    assert lodging.preset_version == 4
+    assert lodging.cancellation_refunds == _refund_terms(first_lodging)["cancellation_refunds"]
+    assert (
+        lodging.payment_policy,
+        lodging.deposit_percent,
+        lodging.transfer_due_days,
+        lodging.balance_due_days_before,
+        lodging.cancellation_applies_to,
+    ) == ("none", 30, 3, 14, "deposit")
 
 
 def test_a_customer_who_gives_up_gets_back_what_the_thresholds_give(
@@ -319,7 +329,8 @@ def test_the_company_marks_the_refund_and_takes_a_mistake_back() -> None:
         assert order is not None
     given_up(owner, booked)
     with tenant(owner):
-        version = read_order(order.id)["version"]
+        given = read_order(order.id)
+        version = given["version"]
         preview = record_refund(
             order.id, amount_minor=2250, method="transfer", expected_version=version, preview=True
         )
@@ -335,6 +346,11 @@ def test_the_company_marks_the_refund_and_takes_a_mistake_back() -> None:
         )
         with pytest.raises(OrderVersionConflict):
             record_refund(order.id, amount_minor=2250, method="transfer", expected_version=version)
+        # Given back, the order is closed for money as a canceled one is.
+        with pytest.raises(ValidationError) as closed:
+            record_payment(
+                order.id, amount_minor=100, method="cash", expected_version=back["version"]
+            )
         entries = list(
             LedgerEntry.all_objects.filter(order=order)
             .order_by("occurred_at", "id")
@@ -358,14 +374,42 @@ def test_the_company_marks_the_refund_and_takes_a_mistake_back() -> None:
             .order_by("occurred_at", "id")
             .values_list("action", "metadata")
         )
+        # The refund the terms asked for, taken back too: the money is owed again.
+        owed_again = void_refund(
+            order.id, back["refunds"][0]["id"], expected_version=undone["version"]
+        )
 
+    # What the terms give back has gone back: the list says „Zwrócone”.
     assert preview == {
         "amount_minor": 2250,
         "paid_minor": 2250,
         "refund_owed_minor": 0,
-        "status": "canceled",
+        "status": "refunded",
         "reason_required": False,
     }
+    assert (given["status"], back["status"], kind["status"], undone["status"]) == (
+        "canceled",
+        "refunded",
+        "refunded",
+        "refunded",
+    )
+    assert (owed_again["status"], owed_again["refund_owed_minor"]) == ("canceled", 2250)
+    assert codes(closed) == [("order", "order_canceled")]
+    # The customer is written to about each refund — the amount and how, never
+    # the company's reason — and about each one taken back.
+    marked = mail("commerce.refund_marked")
+    assert [(item.context["amount"], item.context["method"]) for item in marked] == [
+        ("22,50 PLN", "przelewem"),
+        ("10,00 PLN", "na miejscu"),
+    ]
+    assert [item.context["amount"] for item in mail("commerce.refund_withdrawn")] == [
+        "10,00 PLN",
+        "22,50 PLN",
+    ]
+    assert all(
+        "klient" not in str(item.context)
+        for item in [*marked, *mail("commerce.refund_withdrawn")]
+    )
     assert codes(too_much) == [("amount_minor", "refund_exceeds_paid")]
     assert codes(unexplained) == [("reason", "reason_required")]
     assert codes(online) == [("method", "method_not_manual")]

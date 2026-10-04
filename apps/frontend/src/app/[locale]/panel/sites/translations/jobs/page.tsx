@@ -11,13 +11,14 @@ export default async function TranslationJobsPage({
   searchParams?: Promise<{ state?: string }>;
 }) {
   const organization = await getServerCurrentOrganization();
-  if (!modulesFor(organization?.organization_type).has("shared.translation"))
-    notFound();
+  const modules = modulesFor(organization?.organization_type);
+  if (!modules.has("shared.translation")) notFound();
   const view = (await searchParams)?.state === "held" ? "held" : "";
   return (
     <TranslationJobsPanel
       initialView={view}
       key={`${organization?.id ?? "no-organization"}:${view}`}
+      website={modules.has("shared.sites")}
     />
   );
 }

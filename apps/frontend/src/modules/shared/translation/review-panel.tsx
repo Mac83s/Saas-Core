@@ -80,7 +80,14 @@ type Decision = {
   key: string;
 };
 
-export function TranslationReviewPanel() {
+export function TranslationReviewPanel({
+  website = true,
+}: {
+  /** Whether the organization has websites: without them this page is not
+   *  under „Strona internetowa” — it is reached from a document's page, and
+   *  the way back up is „Ustawienia”. */
+  website?: boolean;
+}) {
   const t = useTranslations("Translations.review");
   const nav = useTranslations("DashboardNav");
   const skipped = useTranslations("Sites.languageMode.skipped");
@@ -434,11 +441,12 @@ export function TranslationReviewPanel() {
         ) : undefined
       }
       description={t("description")}
-      eyebrow={nav("website")}
+      eyebrow={nav(website ? "website" : "settings")}
+      eyebrowHref={website ? undefined : "/panel/settings"}
       notice={notice}
       title={t("title")}
     >
-      <TranslationTabs waiting={waiting} />
+      <TranslationTabs waiting={waiting} website={website} />
       {stepUp.ui}
       {problem || (answer?.problem && !loading) ? (
         <div
