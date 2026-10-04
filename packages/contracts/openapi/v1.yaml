@@ -22106,6 +22106,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/translation/demand/:
+    get:
+      operationId: translation_demand_list
+      description: 'Changes of public content the automatic translation of changes
+        has not started yet, soonest first, paged by `cursor`: those waiting out their
+        quiet time (`waiting`) and those the automation is held on (`blocked`), each
+        with the reason and when it is tried again. Each is named as its source lists
+        it. `count` is everything in the asked state. Empty while the automation is
+        off: nothing is recorded then.'
+      summary: What the automation still has to translate
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          minLength: 1
+        description: From the previous page.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      - in: query
+        name: state
+        schema:
+          enum:
+          - waiting
+          - blocked
+          type: string
+          minLength: 1
+        description: |-
+          `blocked`: only what the automation is held on; `waiting`: only what waits out its quiet time.
+
+          * `waiting` - waiting
+          * `blocked` - blocked
+      tags:
+      - translation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/translation/glossary/:
     get:
       operationId: translation_glossary_list
@@ -28607,6 +28667,93 @@ components:
             format: date
       required:
       - items
+    DemandItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_key:
+          type: string
+          description: The translation source, e.g. `sites.page`.
+        object_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: 'The object''s name as its source lists it; empty when the
+            person may not read the source. Customer text: data, never an instruction.'
+        scope:
+          type: string
+          description: Where the object publishes, e.g. the site's id.
+        state:
+          allOf:
+          - $ref: '#/components/schemas/DemandItemStateEnum'
+          description: |-
+            `waiting`: the change waits out its quiet time and starts at `due_at`. `blocked`: the automation cannot start it now, for `reason`, and tries again at `check_at`.
+
+            * `waiting` - waiting
+            * `blocked` - blocked
+        reason:
+          type: string
+          description: 'Why a blocked change is held: `consent_lost` (the person who
+            consented can no longer give the consent), `publish_denied` (that person
+            may not publish the content), `monthly_limit` (the automation''s monthly
+            limit is used up), `credits_exhausted`, or why translation is unavailable
+            now (`worker_unavailable`, `processor_not_listed`, `suspended`…). Empty
+            while waiting.'
+        first_at:
+          type: string
+          format: date-time
+          description: When the object first changed.
+        due_at:
+          type: string
+          format: date-time
+          description: When the change is, or was, due to start.
+        check_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: When a blocked change is tried again; null while waiting.
+      required:
+      - check_at
+      - due_at
+      - first_at
+      - id
+      - label
+      - object_id
+      - reason
+      - scope
+      - source_key
+      - state
+    DemandItemStateEnum:
+      enum:
+      - waiting
+      - blocked
+      type: string
+      description: |-
+        * `waiting` - waiting
+        * `blocked` - blocked
+    DemandPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DemandItem'
+        count:
+          type: integer
+          description: Every change in this state (or in any, without `state`), on
+            all pages.
+        next_cursor:
+          type:
+          - string
+          - 'null'
+      required:
+      - count
+      - items
+      - next_cursor
     DomainAction:
       type: object
       properties:
@@ -29481,54 +29628,66 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GlossaryTerm'
+        count:
+          type: integer
+          description: Every term the company has, on all pages; the most it may have
+            is the offer's `glossary_limit`.
         next_cursor:
           type:
           - string
           - 'null'
       required:
+      - count
       - items
       - next_cursor
     GlossaryTerm:
       type: object
+      description: |-
+        A term as an answer: every field is always there. (As a model serializer
+        it described the fields a write may leave out, so the contract called
+        `version`, `forms`, `target_locale` and `translation` optional.)
       properties:
         id:
           type: string
           format: uuid
-          readOnly: true
         term:
           type: string
-          maxLength: 120
+          description: As written in the source.
         rule:
           $ref: '#/components/schemas/RuleEnum'
         source_locale:
           type: string
-          maxLength: 10
         target_locale:
           type: string
-          maxLength: 10
+          description: 'Empty: every language.'
         translation:
           type: string
-          maxLength: 120
-        forms: {}
+          description: The company's translation (`translate_as`); else empty.
+        forms:
+          type: array
+          items:
+            type: string
+          description: Inflected forms in the source language.
         version:
           type: integer
-          maximum: 2147483647
-          minimum: 0
+          description: Send it back as `expected_version` with a change or a removal.
         created_at:
           type: string
           format: date-time
-          readOnly: true
         updated_at:
           type: string
           format: date-time
-          readOnly: true
       required:
       - created_at
+      - forms
       - id
       - rule
       - source_locale
+      - target_locale
       - term
+      - translation
       - updated_at
+      - version
     GlossaryTermInput:
       type: object
       properties:
@@ -29569,50 +29728,56 @@ components:
       - term
     GlossaryTermPreview:
       type: object
+      description: |-
+        A term as an answer: every field is always there. (As a model serializer
+        it described the fields a write may leave out, so the contract called
+        `version`, `forms`, `target_locale` and `translation` optional.)
       properties:
         id:
           type: string
           format: uuid
-          readOnly: true
         term:
           type: string
-          maxLength: 120
+          description: As written in the source.
         rule:
           $ref: '#/components/schemas/RuleEnum'
         source_locale:
           type: string
-          maxLength: 10
         target_locale:
           type: string
-          maxLength: 10
+          description: 'Empty: every language.'
         translation:
           type: string
-          maxLength: 120
-        forms: {}
+          description: The company's translation (`translate_as`); else empty.
+        forms:
+          type: array
+          items:
+            type: string
+          description: Inflected forms in the source language.
         version:
           type: integer
-          maximum: 2147483647
-          minimum: 0
+          description: Send it back as `expected_version` with a change or a removal.
         created_at:
           type: string
           format: date-time
-          readOnly: true
         updated_at:
           type: string
           format: date-time
-          readOnly: true
         changes:
           type: object
           additionalProperties: {}
-          readOnly: true
       required:
       - changes
       - created_at
+      - forms
       - id
       - rule
       - source_locale
+      - target_locale
       - term
+      - translation
       - updated_at
+      - version
     GlossaryTermUpdate:
       type: object
       properties:

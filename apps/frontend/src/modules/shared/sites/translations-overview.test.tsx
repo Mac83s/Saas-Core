@@ -32,6 +32,7 @@ const { api } = vi.hoisted(() => ({
     getSiteTexts: vi.fn(),
     saveSiteTexts: vi.fn(),
     publishSiteTexts: vi.fn(),
+    listTranslationDemand: vi.fn(),
   },
 }));
 // These screens ask the translation engine: the deployment composes it here.
@@ -158,6 +159,11 @@ beforeEach(() => {
   api.getTranslationOffer.mockResolvedValue(OFFER);
   api.getCustomerCredits.mockResolvedValue({ balance: { available: 40 } });
   api.listTranslationJobs.mockResolvedValue({ items: [], next_cursor: null });
+  api.listTranslationDemand.mockResolvedValue({
+    items: [],
+    count: 0,
+    next_cursor: null,
+  });
 });
 
 test("lists every page against the site's other languages, with the way into each version", async () => {
@@ -1020,4 +1026,21 @@ test("a card's waiting text is read beside its source before it is accepted", as
   expect(
     await screen.findByText("Tłumaczenie zaakceptowane i opublikowane."),
   ).toBeTruthy();
+});
+
+test("an automation that is held is said above the list, with the way to what waits", async () => {
+  api.listTranslationDemand.mockResolvedValue({
+    items: [{ reason: "credits_exhausted" }],
+    count: 1,
+    next_cursor: null,
+  });
+  view();
+  const notice = await screen.findByText(
+    "Automatyczne tłumaczenie zmian jest wstrzymane: brakuje kredytów. Czeka 1 zmiana.",
+  );
+  expect(
+    within(notice.parentElement!)
+      .getByRole("link", { name: "Pokaż wstrzymane" })
+      .getAttribute("href"),
+  ).toBe("/panel/sites/translations/jobs?state=held");
 });

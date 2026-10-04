@@ -6148,6 +6148,30 @@ export async function listTranslationJobs(
   return data;
 }
 
+export type TranslationDemand = components["schemas"]["DemandItem"];
+export type TranslationDemandPage = components["schemas"]["DemandPage"];
+
+/** What the automatic translation of changes has not started yet, soonest
+ *  first: `blocked` keeps what it is held on, with the reason. */
+export async function listTranslationDemand(
+  query: {
+    cursor?: string;
+    limit?: number;
+    state?: TranslationDemand["state"];
+  } = {},
+): Promise<TranslationDemandPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/translation/demand/",
+    {
+      params: { query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 async function decideTranslationJob(
   path:
     | "/api/v1/translation/jobs/{job_id}/cancel/"

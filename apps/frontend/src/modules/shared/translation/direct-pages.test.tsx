@@ -71,7 +71,7 @@ async function pages() {
   ]);
   return [
     () => review.default(),
-    () => jobs.default(),
+    () => jobs.default({ searchParams: Promise.resolve({ state: "held" }) }),
     () => job.default({ params: Promise.resolve({ jobId: JOB }) }),
   ];
 }

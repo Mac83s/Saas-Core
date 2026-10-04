@@ -28,6 +28,7 @@ from rest_framework.exceptions import APIException
 
 from saas_core.content_protocol.registry import translation_source
 from saas_core.content_protocol.sources import ObjectRef, TranslationSource
+from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.context import (
     TenantContext,
     acting_context,
@@ -48,6 +49,7 @@ from .jobs import (
 from .models import DemandState, TranslationDemand, TranslationJobPart, TranslationSettings
 from .notify import notify_automation_paused
 from .permissions import TRANSLATION_MANAGE, TRANSLATION_REQUEST
+from .review import object_labels
 from .services import settings_state, translation_offer
 from .settings_spec import AUTO_CHANGES, AUTO_MONTHLY_LIMIT, demand_wait
 from .worker import person_context
@@ -120,6 +122,45 @@ def automation_reading(
         "month_credits": automatic_credits_this_month(organization_id, now),
         "month_resets_at": _next_month(now),
     }
+
+
+def list_demand(
+    *, cursor: str | None, limit: int, state: str | None = None
+) -> tuple[list[TranslationDemand], str | None, int]:
+    """What the automation still has to translate, soonest first: changes
+    waiting out their quiet time (`waiting`) and those held with a reason
+    until `check_at` (`blocked`). Returns the page, the next cursor and how
+    many there are in all."""
+    context = authorize(TRANSLATION_REQUEST)
+    rows = TranslationDemand.all_objects.filter(organization_id=context.organization_id)
+    if state:
+        rows = rows.filter(state=state)
+    rows = rows.order_by("due_at", "id")
+    start = int(cursor) if cursor and cursor.isdigit() else 0
+    page = list(rows[start : start + limit + 1])
+    return page[:limit], (str(start + limit) if len(page) > limit else None), rows.count()
+
+
+def demand_listing(rows: Sequence[TranslationDemand]) -> list[dict[str, Any]]:
+    """The rows as the panel lists them: each with its object's name and scope."""
+    named = object_labels((row.source_key, row.object_id) for row in rows)
+    listed = []
+    for row in rows:
+        ref = named.get(row.object_id)
+        blocked = row.state == DemandState.BLOCKED
+        listed.append({
+            "id": row.id,
+            "source_key": row.source_key,
+            "object_id": row.object_id,
+            "label": ref.label if ref else "",
+            "scope": ref.scope if ref else "",
+            "state": row.state,
+            "reason": row.reason if blocked else "",
+            "first_at": row.first_at,
+            "due_at": row.due_at,
+            "check_at": row.check_at if blocked else None,
+        })
+    return listed
 
 
 def run_due_demand() -> int:

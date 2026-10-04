@@ -18,7 +18,11 @@ from django.test import override_settings
 from django.utils import timezone
 
 from saas_core.modules.core.organizations.context import activate_tenant_context
-from saas_core.modules.core.organizations.models import Membership, OrganizationAuditEntry
+from saas_core.modules.core.organizations.models import (
+    Membership,
+    OrganizationAuditEntry,
+    Role,
+)
 from saas_core.modules.shared.billing.models import (
     CreditLedgerEntry,
     CreditLedgerKind,
@@ -45,7 +49,7 @@ from saas_core.modules.shared.translation.notify import AUTOMATION_PAUSED
 from saas_core.modules.shared.translation.services import change_settings
 from saas_core.modules.shared.translation.settings_spec import demand_wait
 from saas_core.testing.clock import never_backwards
-from saas_core.testing.translation_sources import FakeSourceDriver
+from saas_core.testing.translation_sources import FAKE_SCOPE, FakeSourceDriver
 from test_booking import tenant
 from test_model_port import fake_models  # noqa: F401 — the port's fake models
 from test_tenant_context import authenticated_client
@@ -250,6 +254,10 @@ def test_no_credits_blocks_and_a_lost_consent_blocks_or_drops(source: JobSource)
         organization=owner.organization, template_key=AUTOMATION_PAUSED
     )
     assert paused.context["panel_url"].endswith("/panel/settings/credits")
+    assert (paused.context["reason_text"], paused.context["link_label"]) == (
+        "brakuje kredytów",
+        "Otwórz kredyty",
+    )
     TranslationDemand.all_objects.filter(organization=owner.organization).delete()
     # The consenting person no longer active: the consent is gone with them.
     Membership.objects.filter(pk=owner.pk).update(status="suspended")
@@ -299,7 +307,13 @@ def test_a_paused_automation_tells_the_managers_once_a_period(source: JobSource)
         organization=owner.organization, template_key=AUTOMATION_PAUSED
     )
     # To where the limit is raised; no credits would lead to the credits page.
+    # The mail says why and calls its link by where it leads.
     assert mail.context["panel_url"].endswith("/panel/settings/languages")
+    assert (mail.template_version, mail.context["reason_text"], mail.context["link_label"]) == (
+        2,
+        "wykorzystano miesięczny limit automatu",
+        "Otwórz ustawienia tłumaczeń",
+    )
     deliver_email_task.run(str(mail.id), mail.signed_tenant_context)
     assert NotificationMessage.all_objects.get(pk=mail.id).status == "sent"
     # Tried again within the month: still one notice.
@@ -365,3 +379,67 @@ def test_a_published_change_on_a_real_site_goes_out_in_german_without_a_click(
         assert job_id is not None
         assert run(TranslationJob.all_objects.get(pk=job_id)).state == JobState.SUCCEEDED
     assert driver.public_texts(home, "de") == [german("Zapraszamy do studia")]
+
+
+def test_what_the_automation_still_has_to_translate_is_listed_with_why_it_is_held(
+    source: JobSource,
+) -> None:
+    """„Wstrzymane” in „Tłumaczenia → Zadania” (TL16g): the demand the
+    automation could not start, with the reason and when it tries again."""
+    owner = automated("tl16g-held", limit=1)
+    source.live_locales.add("de")
+    held, quiet = page(source, "Alfa"), page(source, "Beta")
+    due(owner, held)
+    now = timezone.now()
+    assert start_due_demand(owner.organization_id, now) is None
+    TranslationDemand.all_objects.create(
+        organization=owner.organization,
+        source_key=SOURCE,
+        object_id=quiet,
+        cause=f"user:{owner.user_id}",
+        first_at=now,
+        due_at=now + timedelta(minutes=5),
+    )
+    client = authenticated_client(owner)
+
+    listed = client.get("/api/v1/translation/demand/")
+    assert listed.status_code == 200, listed.json()
+    assert listed.json()["count"] == 2
+    first, second = listed.json()["items"]
+    assert (first["object_id"], first["state"], first["reason"]) == (
+        str(held),
+        "blocked",
+        MONTHLY_LIMIT,
+    )
+    assert datetime.fromisoformat(first["check_at"]) == _next_month(now)
+    # Named as the source lists it, like the review queue's rows.
+    assert (first["source_key"], first["scope"]) == (SOURCE, FAKE_SCOPE)
+    assert first["label"]
+    # Waiting out its quiet time: no reason, nothing to check again.
+    assert (second["object_id"], second["state"], second["reason"], second["check_at"]) == (
+        str(quiet),
+        "waiting",
+        "",
+        None,
+    )
+
+    blocked = client.get("/api/v1/translation/demand/", {"state": "blocked", "limit": 1}).json()
+    assert ([row["object_id"] for row in blocked["items"]], blocked["count"]) == ([str(held)], 1)
+    assert blocked["next_cursor"] is None
+    paged = client.get("/api/v1/translation/demand/", {"limit": 1}).json()
+    assert paged["next_cursor"] == "1"
+    rest = client.get("/api/v1/translation/demand/", {"limit": 1, "cursor": "1"}).json()
+    assert [row["object_id"] for row in rest["items"]] == [str(quiet)]
+    assert client.get("/api/v1/translation/demand/", {"state": "perhaps"}).status_code == 400
+
+    # Another company sees none of it; a person without the right is refused.
+    stranger = authenticated_client(company("tl16g-held-stranger"))
+    assert stranger.get("/api/v1/translation/demand/").json() == {
+        "items": [],
+        "count": 0,
+        "next_cursor": None,
+    }
+    Membership.objects.filter(pk=owner.pk).update(
+        role=Role.objects.get(key="staff", organization=None, organization_type="")
+    )
+    assert authenticated_client(owner).get("/api/v1/translation/demand/").status_code == 403

@@ -185,6 +185,34 @@ def _managers(organization_id: UUID) -> list[Membership]:
     ]
 
 
+#: Why the automation stands still, in the words of the bell's notice; a
+#: reason not listed here is the engine being unavailable.
+PAUSE_REASONS: dict[str, dict[str, str]] = {
+    "monthly_limit": {
+        "pl": "wykorzystano miesięczny limit automatu",
+        "en": "the automation's monthly limit is used up",
+    },
+    "credits_exhausted": {"pl": "brakuje kredytów", "en": "there are no credits left"},
+    "consent_lost": {
+        "pl": "osoba, która zgodziła się na automat, nie ma już do tego uprawnień",
+        "en": "the person who consented to the automation no longer has the right to",
+    },
+    "publish_denied": {
+        "pl": "automat nie może publikować tych treści",
+        "en": "the automation may not publish this content",
+    },
+    "other": {
+        "pl": "tłumaczenie jest teraz niedostępne",
+        "en": "translation is unavailable right now",
+    },
+}
+#: What the mail's link is called: it names the place it leads to.
+PAUSE_LINKS: dict[str, dict[str, str]] = {
+    "credits": {"pl": "Otwórz kredyty", "en": "Open credits"},
+    "settings": {"pl": "Otwórz ustawienia tłumaczeń", "en": "Open translation settings"},
+}
+
+
 def notify_automation_paused(organization_id: UUID, *, reason: str, period: str) -> int:
     """The automation cannot run: who manages translation hears it once per
     period and reason; the published translations stay as they are."""
@@ -202,17 +230,21 @@ def notify_automation_paused(organization_id: UUID, *, reason: str, period: str)
                 idempotency_key=key,
             )
             locale = staff_locale(organization_id=organization_id, user=user)
+            words = "en" if locale == "en" else "pl"
+            # Where the cause is lifted: the credits, or the limit and the
+            # consent beside the automation's switch.
+            place = "credits" if reason == "credits_exhausted" else "settings"
             queue_email(
                 recipient_email=user.email,
                 template_key=AUTOMATION_PAUSED,
-                template_version=1,
+                template_version=2,
                 locale=locale,
                 template_context={
                     "organization_name": organization.name,
-                    # Where the cause is lifted: the credits, or the limit and
-                    # the consent beside the automation's switch.
+                    "reason_text": PAUSE_REASONS.get(reason, PAUSE_REASONS["other"])[words],
+                    "link_label": PAUSE_LINKS[place][words],
                     "panel_url": _panel(
-                        locale, CREDITS_PATH if reason == "credits_exhausted" else SETTINGS_PATH
+                        locale, CREDITS_PATH if place == "credits" else SETTINGS_PATH
                     ),
                 },
                 idempotency_key=f"{key}:{user.id}",
@@ -326,6 +358,39 @@ def register_templates() -> None:
             audience=AUDIENCE_STAFF,
         )
     )
+    register_email_template(
+        EmailTemplate(
+            key=AUTOMATION_PAUSED,
+            version=2,
+            category="required",
+            subjects={
+                "pl": "Automatyczne tłumaczenie zmian jest wstrzymane",
+                "en": "Automatic translation of changes is paused",
+            },
+            bodies={
+                "pl": (
+                    "<p>{organization_name}: zmiany na stronie nie są teraz tłumaczone "
+                    "automatycznie — {reason_text}. Opublikowane tłumaczenia zostają; nowe "
+                    "poczekają, aż przyczyna minie.</p>"
+                    '<p><a href="{panel_url}">{link_label}</a></p>'
+                ),
+                "en": (
+                    "<p>{organization_name}: changes on the site are not being translated "
+                    "automatically right now — {reason_text}. Published translations stay; "
+                    "new ones wait until the cause is gone.</p>"
+                    '<p><a href="{panel_url}">{link_label}</a></p>'
+                ),
+            },
+            allowed_context=frozenset({
+                "organization_name",
+                "reason_text",
+                "link_label",
+                "panel_url",
+            }),
+            audience=AUDIENCE_STAFF,
+        )
+    )
+    # Version 1 stays for the mails already queued with it.
     register_email_template(
         EmailTemplate(
             key=AUTOMATION_PAUSED,

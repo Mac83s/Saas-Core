@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    DemandListView,
     GlossaryCreatePreviewView,
     GlossaryDetailView,
     GlossaryListView,
@@ -25,6 +26,7 @@ urlpatterns = [
     path("jobs/<uuid:job_id>/", JobDetailView.as_view(), name="translation-job"),
     path("jobs/<uuid:job_id>/revert/", JobRevertView.as_view(), name="translation-job-revert"),
     path("jobs/<uuid:job_id>/cancel/", JobCancelView.as_view(), name="translation-job-cancel"),
+    path("demand/", DemandListView.as_view(), name="translation-demand"),
     path("review/", ReviewListView.as_view(), name="translation-review"),
     path("review/accept/", ReviewAcceptView.as_view(), name="translation-review-accept"),
     path("review/discard/", ReviewDiscardView.as_view(), name="translation-review-discard"),

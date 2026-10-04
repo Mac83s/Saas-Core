@@ -13,6 +13,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import {
   ApiProblemError,
+  type TranslationDemand,
   type TranslationJob,
   type TranslationJobDetail as JobDetail,
 } from "@saas-core/api-client";
@@ -29,6 +30,7 @@ const { api } = vi.hoisted(() => ({
     cancelTranslationJob: vi.fn(),
     revertTranslationJob: vi.fn(),
     listTranslationReview: vi.fn(),
+    listTranslationDemand: vi.fn(),
   },
 }));
 // These screens ask the translation engine: the deployment composes it here.
@@ -157,6 +159,11 @@ async function expectNoAxeViolations(container: HTMLElement) {
 beforeEach(() => {
   vi.clearAllMocks();
   api.listTranslationReview.mockResolvedValue({
+    items: [],
+    count: 0,
+    next_cursor: null,
+  });
+  api.listTranslationDemand.mockResolvedValue({
     items: [],
     count: 0,
     next_cursor: null,
@@ -490,4 +497,149 @@ test("a running job shows its progress and can be stopped; a job that is gone sa
   expect((await screen.findByRole("alert")).textContent).toContain(
     "Nie ma takiego zadania.",
   );
+});
+
+function held(overrides: Partial<TranslationDemand> = {}): TranslationDemand {
+  return {
+    id: "0199f0a0-0000-7000-8000-0000000000b1",
+    source_key: "sites.page",
+    object_id: HOME,
+    label: "Strona główna",
+    scope: SITE,
+    state: "blocked",
+    reason: "monthly_limit",
+    first_at: "2026-10-03T12:00:00Z",
+    due_at: "2026-10-03T12:05:00Z",
+    check_at: "2026-11-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+test("„Zadania” says when the automation is held and „Wstrzymane” lists what waits, why and until when", async () => {
+  api.listTranslationJobs.mockResolvedValue(page([job()]));
+  api.listTranslationDemand.mockResolvedValue({
+    items: [held()],
+    count: 3,
+    next_cursor: null,
+  });
+  const { container } = view(<TranslationJobsPanel />);
+
+  const notice = await screen.findByText(
+    /Automatyczne tłumaczenie zmian jest wstrzymane: wykorzystano miesięczny limit automatu\. Czekają 3 zmiany\./,
+  );
+  expect(
+    within(notice.parentElement!).getByRole("link", {
+      name: "Pokaż wstrzymane",
+    }),
+  ).toHaveProperty(
+    "href",
+    expect.stringContaining("/panel/sites/translations/jobs?state=held"),
+  );
+  expect(api.listTranslationDemand).toHaveBeenCalledWith({
+    state: "blocked",
+    limit: 1,
+  });
+
+  api.listTranslationDemand.mockResolvedValue({
+    items: [
+      held(),
+      held({
+        id: "0199f0a0-0000-7000-8000-0000000000b2",
+        source_key: "profiles.public_profile",
+        label: "",
+        reason: "worker_unavailable",
+        check_at: "2026-10-03T13:05:00Z",
+      }),
+      held({
+        id: "0199f0a0-0000-7000-8000-0000000000b3",
+        label: "Kontakt",
+        reason: "credits_exhausted",
+      }),
+    ],
+    count: 3,
+    next_cursor: null,
+  });
+  const jobsAsked = api.listTranslationJobs.mock.calls.length;
+  fireEvent.change(screen.getByLabelText("Stan"), {
+    target: { value: "held" },
+  });
+  const table = await screen.findByRole("table", {
+    name: "Wstrzymane zmiany do przetłumaczenia",
+  });
+  await waitFor(() =>
+    expect(api.listTranslationDemand).toHaveBeenLastCalledWith({
+      state: "blocked",
+      limit: 20,
+    }),
+  );
+  const [limit, card, credits] = await waitFor(() => {
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(3);
+    return rows;
+  });
+  expect(limit!.textContent).toContain("Strona główna");
+  expect(limit!.textContent).toContain("Podstrona");
+  expect(limit!.textContent).toContain(
+    "wykorzystano miesięczny limit automatu",
+  );
+  expect(limit!.textContent).toContain("3 paź 2026, 14:00");
+  expect(limit!.textContent).toContain("1 lis 2026, 01:00");
+  // Where the cause is lifted: the limit in the settings, credits on their page.
+  expect(
+    within(limit!)
+      .getByRole("link", { name: "Ustawienia tłumaczeń" })
+      .getAttribute("href"),
+  ).toBe("/panel/settings/languages");
+  expect(
+    within(credits!)
+      .getByRole("link", { name: "Kredyty" })
+      .getAttribute("href"),
+  ).toBe("/panel/settings/credits");
+  // An object the source does not name is called by its kind; a cause that
+  // passes by itself has nowhere to send the person.
+  expect(card!.textContent).toContain("Wizytówka");
+  expect(card!.textContent).toContain(
+    "usługa tłumaczeń chwilowo nie odpowiada",
+  );
+  expect(within(card!).queryByRole("link")).toBeNull();
+  // The view lists no jobs and asks for none.
+  expect(api.listTranslationJobs.mock.calls.length).toBe(jobsAsked);
+  expect((screen.getByLabelText("Stan") as HTMLSelectElement).value).toBe(
+    "held",
+  );
+  await expectNoAxeViolations(container);
+
+  // Back to the jobs with the filter.
+  fireEvent.change(screen.getByLabelText("Stan"), { target: { value: "" } });
+  expect(
+    await screen.findByRole("table", { name: "Zadania tłumaczeń" }),
+  ).toBeTruthy();
+});
+
+test("„Wstrzymane” opened from a notice: nothing held, a failed read, English", async () => {
+  api.listTranslationJobs.mockResolvedValue(page([]));
+  const empty = view(<TranslationJobsPanel initialView="held" />, "en");
+  expect(
+    await screen.findByText("The automation is holding nothing right now."),
+  ).toBeTruthy();
+  expect(api.listTranslationJobs).not.toHaveBeenCalled();
+  await expectNoAxeViolations(empty.container);
+  empty.unmount();
+
+  api.listTranslationDemand.mockRejectedValueOnce(new Error("offline"));
+  view(<TranslationJobsPanel initialView="held" />);
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Nie udało się wczytać wstrzymanych zmian.",
+  );
+  api.listTranslationDemand.mockResolvedValueOnce({
+    items: [held({ reason: "consent_lost" })],
+    count: 1,
+    next_cursor: null,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
+  expect(
+    await screen.findByText(
+      /nie ma już do tego uprawnień — potwierdź go ponownie/,
+    ),
+  ).toBeTruthy();
 });

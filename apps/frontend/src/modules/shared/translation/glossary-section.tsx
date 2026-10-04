@@ -87,6 +87,8 @@ export function GlossarySection({
   const locales = useCompanyLocales([]);
   const [rows, setRows] = useState<GlossaryTerm[]>();
   const [cursor, setCursor] = useState<string | null>(null);
+  // Every term the company has, whatever part of the list is on screen.
+  const [count, setCount] = useState<number>();
   const [reloads, setReloads] = useState(0);
   const [problem, setProblem] = useState("");
   const [notice, setNotice] = useState("");
@@ -102,6 +104,7 @@ export function GlossarySection({
         if (!alive) return;
         setRows(page.items);
         setCursor(page.next_cursor);
+        setCount(page.count);
       })
       .catch(() => {
         if (!alive) return;
@@ -176,7 +179,7 @@ export function GlossarySection({
       source_locale: term?.source_locale ?? locales[0]?.code ?? "",
       target_locale: term?.target_locale ?? "",
       translation: term?.translation ?? "",
-      forms: ((term?.forms as string[] | undefined) ?? []).join("\n"),
+      forms: (term?.forms ?? []).join("\n"),
     });
     setEditing({ term, key: crypto.randomUUID() });
   }
@@ -225,7 +228,7 @@ export function GlossarySection({
         await updateGlossaryTerm(
           editing.term.id,
           input,
-          editing.term.version ?? 1,
+          editing.term.version,
           editing.key,
         );
       else await createGlossaryTerm(input, editing.key);
@@ -248,11 +251,7 @@ export function GlossarySection({
     setBusy(true);
     setDialogProblem("");
     try {
-      await deleteGlossaryTerm(
-        asked.term.id,
-        asked.term.version ?? 1,
-        asked.key,
-      );
+      await deleteGlossaryTerm(asked.term.id, asked.term.version, asked.key);
       setNotice(t("removed", { term: asked.term.term }));
       setRemoving(undefined);
       setReloads((value) => value + 1);
@@ -270,6 +269,7 @@ export function GlossarySection({
       const page = await listGlossaryTerms({ limit: PAGE_SIZE, cursor: from });
       setRows((current) => [...(current ?? []), ...page.items]);
       setCursor(page.next_cursor);
+      setCount(page.count);
     } catch {
       setProblem(t("loadError"));
     } finally {
@@ -279,7 +279,7 @@ export function GlossarySection({
 
   const ruleText = (term: GlossaryTerm) =>
     term.rule === "translate_as"
-      ? t("ruleLine.translate_as", { translation: term.translation ?? "" })
+      ? t("ruleLine.translate_as", { translation: term.translation })
       : t(`ruleLine.${term.rule}`);
   const columns: ColumnDef<GlossaryTerm, unknown>[] = [
     {
@@ -288,7 +288,7 @@ export function GlossarySection({
       header: t("colTerm"),
       meta: { primary: true },
       cell: ({ row: { original: term } }) => {
-        const forms = (term.forms as string[] | undefined) ?? [];
+        const forms = term.forms;
         return (
           <div className="space-y-0.5">
             <p className="font-medium wrap-anywhere">{term.term}</p>
@@ -373,6 +373,11 @@ export function GlossarySection({
         <p className="max-w-3xl text-sm text-muted-foreground">
           {t("description")}
         </p>
+        {count === undefined ? null : (
+          <p className="text-sm text-muted-foreground">
+            {t("count", { count, limit })}
+          </p>
+        )}
       </div>
       <p className="text-sm empty:hidden" role="status">
         {notice}

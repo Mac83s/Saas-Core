@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from saas_core.http.exceptions import problem_details_exception_handler
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .automation import demand_listing, list_demand
 from .jobs import (
     TargetRequest,
     TranslationQuoteChanged,
@@ -44,6 +45,8 @@ from .review import (
     review_listing,
 )
 from .serializers import (
+    DemandPageSerializer,
+    DemandQuerySerializer,
     GlossaryDeleteQuerySerializer,
     GlossaryPageSerializer,
     GlossaryQuerySerializer,
@@ -215,11 +218,12 @@ class GlossaryListView(APIView):
     def get(self, request: Request) -> Response:
         query = GlossaryQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
-        items, next_cursor = list_glossary(
+        items, next_cursor, count = list_glossary(
             cursor=query.validated_data.get("cursor"), limit=query.validated_data["limit"]
         )
         return Response({
             "items": GlossaryTermSerializer(items, many=True).data,
+            "count": count,
             "next_cursor": next_cursor,
         })
 
@@ -468,6 +472,42 @@ class JobDetailView(APIView):
         query.is_valid(raise_exception=True)
         detail = job_detail(job_id, labels=query.validated_data["labels"])
         return Response(JobDetailSerializer(detail).data)
+
+
+class DemandListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="translation_demand_list",
+        summary="What the automation still has to translate",
+        description="Changes of public content the automatic translation of changes has not "
+        "started yet, soonest first, paged by `cursor`: those waiting out their quiet time "
+        "(`waiting`) and those the automation is held on (`blocked`), each with the reason and "
+        "when it is tried again. Each is named as its source lists it. `count` is everything "
+        "in the asked state. Empty while the automation is off: nothing is recorded then.",
+        tags=["translation"],
+        parameters=[DemandQuerySerializer],
+        responses={
+            200: DemandPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = DemandQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        rows, next_cursor, count = list_demand(
+            cursor=query.validated_data.get("cursor"),
+            limit=query.validated_data["limit"],
+            state=query.validated_data.get("state"),
+        )
+        return Response(
+            DemandPageSerializer({
+                "items": demand_listing(rows),
+                "count": count,
+                "next_cursor": next_cursor,
+            }).data
+        )
 
 
 def _choices(request: Request) -> list[ReviewChoice]:

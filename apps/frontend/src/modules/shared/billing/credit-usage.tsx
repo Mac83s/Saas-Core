@@ -143,7 +143,11 @@ export function CreditUsage() {
       cell: ({ row: { original: row } }) => (
         <div className="space-y-0.5">
           <p className="font-medium">{what(row)}</p>
-          {row.reason ? (
+          {/* A person's own words only (the operator's reason for a
+              correction): what the system writes beside its movements is
+              one sentence in one language, and the line above already says
+              it in the reader's. */}
+          {row.reason && row.kind === "operator_adjustment" ? (
             <p className="text-xs text-muted-foreground wrap-anywhere">
               {row.reason}
             </p>

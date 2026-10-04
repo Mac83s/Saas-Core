@@ -47,6 +47,7 @@ import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { SOURCE_KINDS, translationPlace } from "../translation/job-words";
+import { AutomationHeld } from "../translation/held-demand";
 import { TranslationJobsBar } from "../translation/jobs-bar";
 import { ReviewCompareDialog } from "../translation/review-compare";
 import {
@@ -688,6 +689,10 @@ export function TranslationsOverview({
       {offer.state === "unavailable" ? (
         <TranslationUnavailable reasons={offer.reasons} />
       ) : null}
+      {offer.state === "absent" || offer.state === "loading" ? null : (
+        // Changes the automation could not start: said where the work is looked at.
+        <AutomationHeld reloadKey={`${reloadKey}|${reloads}`} />
+      )}
       {offer.state === "absent" || offer.state === "loading" ? null : (
         <TranslationJobsBar
           onFinished={() => setReloads((value) => value + 1)}

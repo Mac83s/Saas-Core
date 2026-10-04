@@ -5497,7 +5497,8 @@
         "carryHint": "The automation pays for whole thousands of characters. Characters that have not yet made up a thousand carry over to the next job — so a short change may cost 0 credits and is settled together with the following ones.",
         "notLatest": "Only the latest job that wrote something can be taken back — another one came after this job.",
         "stillRunning": "This job is still running. Stop it first."
-      }
+      },
+      "held": "On hold"
     },
     "unavailable": {
       "line": "Automatic translation is not available right now: {reason}. You can translate manually.",
@@ -5593,7 +5594,8 @@
         "consent": "Acts on behalf of: {name} — consent of {date}.",
         "consentLost": "The automation is stopped: {name} can no longer manage translations in this company. Confirm it again and it will act on your behalf.",
         "somebody": "the person who turned it on",
-        "confirmAgain": "Confirm again"
+        "confirmAgain": "Confirm again",
+        "restored": "The automation is back to its default setting."
       },
       "limit": {
         "unit": "credits a month",
@@ -5695,7 +5697,33 @@
           "same_as_source": "Choose a language other than the one the term stands in.",
           "not_for_rule": "A translation is given only for the rule “Translate as…”.",
           "other": "Invalid value."
-        }
+        },
+        "count": "{count} of {limit} terms"
+      }
+    },
+    "held": {
+      "notice": "Automatic translation of changes is on hold: {reason}. {count, plural, one {# change is waiting} other {# changes are waiting}}.",
+      "show": "Show what is on hold",
+      "hint": "Changes of published content the automatic translation of changes could not translate yet. Published translations stay; these changes start by themselves once the cause is gone — the automation checks at the time shown.",
+      "caption": "Changes on hold",
+      "colWhat": "What",
+      "colReason": "Why it waits",
+      "colSince": "Changed",
+      "colCheck": "Next try",
+      "colActions": "Actions",
+      "actionsFor": "Actions for: {name}",
+      "place": {
+        "settings": "Translation settings",
+        "credits": "Credits"
+      },
+      "empty": "The automation is holding nothing right now.",
+      "loadFailed": "The changes on hold could not be loaded.",
+      "reasons": {
+        "consent_lost": "the person who consented to the automation no longer has the right to — confirm it again in the settings",
+        "publish_denied": "the person the automation acts for may not publish this content",
+        "monthly_limit": "the automation's monthly limit is used up",
+        "credits_exhausted": "there are no credits left",
+        "other": "translation is unavailable right now"
       }
     }
   },

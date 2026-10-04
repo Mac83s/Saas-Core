@@ -464,7 +464,8 @@ def change_settings(
 
 def list_glossary(
     *, cursor: str | None, limit: int
-) -> tuple[list[TranslationGlossaryTerm], str | None]:
+) -> tuple[list[TranslationGlossaryTerm], str | None, int]:
+    """A page of the company's terms, the next cursor and how many it has in all."""
     context = authorize(TRANSLATION_REQUEST)
     terms = TranslationGlossaryTerm.all_objects.filter(
         organization_id=context.organization_id
@@ -472,7 +473,7 @@ def list_glossary(
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = list(terms[start : start + limit + 1])
     next_cursor = str(start + limit) if len(page) > limit else None
-    return page[:limit], next_cursor
+    return page[:limit], next_cursor, terms.count()
 
 
 def _validate_term(data: Mapping[str, Any]) -> GlossaryEntry:

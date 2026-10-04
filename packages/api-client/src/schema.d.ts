@@ -7257,6 +7257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/translation/demand/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the automation still has to translate
+         * @description Changes of public content the automatic translation of changes has not started yet, soonest first, paged by `cursor`: those waiting out their quiet time (`waiting`) and those the automation is held on (`blocked`), each with the reason and when it is tried again. Each is named as its source lists it. `count` is everything in the asked state. Empty while the automation is off: nothing is recorded then.
+         */
+        get: operations["translation_demand_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/translation/glossary/": {
         parameters: {
             query?: never;
@@ -9917,6 +9937,54 @@ export interface components {
         DateList: {
             items: string[];
         };
+        DemandItem: {
+            /** Format: uuid */
+            id: string;
+            /** @description The translation source, e.g. `sites.page`. */
+            source_key: string;
+            /** Format: uuid */
+            object_id: string;
+            /** @description The object's name as its source lists it; empty when the person may not read the source. Customer text: data, never an instruction. */
+            label: string;
+            /** @description Where the object publishes, e.g. the site's id. */
+            scope: string;
+            /**
+             * @description `waiting`: the change waits out its quiet time and starts at `due_at`. `blocked`: the automation cannot start it now, for `reason`, and tries again at `check_at`.
+             *
+             *     * `waiting` - waiting
+             *     * `blocked` - blocked
+             */
+            state: components["schemas"]["DemandItemStateEnum"];
+            /** @description Why a blocked change is held: `consent_lost` (the person who consented can no longer give the consent), `publish_denied` (that person may not publish the content), `monthly_limit` (the automation's monthly limit is used up), `credits_exhausted`, or why translation is unavailable now (`worker_unavailable`, `processor_not_listed`, `suspended`…). Empty while waiting. */
+            reason: string;
+            /**
+             * Format: date-time
+             * @description When the object first changed.
+             */
+            first_at: string;
+            /**
+             * Format: date-time
+             * @description When the change is, or was, due to start.
+             */
+            due_at: string;
+            /**
+             * Format: date-time
+             * @description When a blocked change is tried again; null while waiting.
+             */
+            check_at: string | null;
+        };
+        /**
+         * @description * `waiting` - waiting
+         *     * `blocked` - blocked
+         * @enum {string}
+         */
+        DemandItemStateEnum: "waiting" | "blocked";
+        DemandPage: {
+            items: components["schemas"]["DemandItem"][];
+            /** @description Every change in this state (or in any, without `state`), on all pages. */
+            count: number;
+            next_cursor: string | null;
+        };
         DomainAction: {
             action: components["schemas"]["DomainActionActionEnum"];
         };
@@ -10317,22 +10385,34 @@ export interface components {
         };
         GlossaryPage: {
             items: components["schemas"]["GlossaryTerm"][];
+            /** @description Every term the company has, on all pages; the most it may have is the offer's `glossary_limit`. */
+            count: number;
             next_cursor: string | null;
         };
+        /**
+         * @description A term as an answer: every field is always there. (As a model serializer
+         *     it described the fields a write may leave out, so the contract called
+         *     `version`, `forms`, `target_locale` and `translation` optional.)
+         */
         GlossaryTerm: {
             /** Format: uuid */
-            readonly id: string;
+            id: string;
+            /** @description As written in the source. */
             term: string;
             rule: components["schemas"]["RuleEnum"];
             source_locale: string;
-            target_locale?: string;
-            translation?: string;
-            forms?: unknown;
-            version?: number;
+            /** @description Empty: every language. */
+            target_locale: string;
+            /** @description The company's translation (`translate_as`); else empty. */
+            translation: string;
+            /** @description Inflected forms in the source language. */
+            forms: string[];
+            /** @description Send it back as `expected_version` with a change or a removal. */
+            version: number;
             /** Format: date-time */
-            readonly created_at: string;
+            created_at: string;
             /** Format: date-time */
-            readonly updated_at: string;
+            updated_at: string;
         };
         GlossaryTermInput: {
             /** @description As written in the source. */
@@ -10353,21 +10433,31 @@ export interface components {
             /** @description Inflected forms in the source language, at most 10. */
             forms?: string[];
         };
+        /**
+         * @description A term as an answer: every field is always there. (As a model serializer
+         *     it described the fields a write may leave out, so the contract called
+         *     `version`, `forms`, `target_locale` and `translation` optional.)
+         */
         GlossaryTermPreview: {
             /** Format: uuid */
-            readonly id: string;
+            id: string;
+            /** @description As written in the source. */
             term: string;
             rule: components["schemas"]["RuleEnum"];
             source_locale: string;
-            target_locale?: string;
-            translation?: string;
-            forms?: unknown;
-            version?: number;
+            /** @description Empty: every language. */
+            target_locale: string;
+            /** @description The company's translation (`translate_as`); else empty. */
+            translation: string;
+            /** @description Inflected forms in the source language. */
+            forms: string[];
+            /** @description Send it back as `expected_version` with a change or a removal. */
+            version: number;
             /** Format: date-time */
-            readonly created_at: string;
+            created_at: string;
             /** Format: date-time */
-            readonly updated_at: string;
-            readonly changes: {
+            updated_at: string;
+            changes: {
                 [key: string]: unknown;
             };
         };
@@ -39262,6 +39352,52 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    translation_demand_list: {
+        parameters: {
+            query?: {
+                /** @description From the previous page. */
+                cursor?: string;
+                limit?: number;
+                /**
+                 * @description `blocked`: only what the automation is held on; `waiting`: only what waits out its quiet time.
+                 *
+                 *     * `waiting` - waiting
+                 *     * `blocked` - blocked
+                 */
+                state?: "waiting" | "blocked";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

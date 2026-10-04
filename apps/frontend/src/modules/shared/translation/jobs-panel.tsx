@@ -31,10 +31,12 @@ import {
   jobProgress,
   jobWaiting,
 } from "./job-words";
+import { AutomationHeld, HeldDemandTable } from "./held-demand";
 import { TranslationTabs } from "./translation-tabs";
 
 type Row = TranslationJob;
-type Which = "" | "active" | "ended";
+/** `held` is not a job's state: what the automation could not start yet. */
+type Which = "" | "active" | "ended" | "held";
 
 const PAGE_SIZE = 20;
 const POLL_MS = 5000;
@@ -48,13 +50,18 @@ type Answer = {
   problem?: string;
 };
 
-export function TranslationJobsPanel() {
+export function TranslationJobsPanel({
+  initialView = "",
+}: {
+  /** The view the address asks for: `held` is where a held notice leads. */
+  initialView?: "" | "held";
+}) {
   const t = useTranslations("Translations.jobs");
   const review = useTranslations("Translations.review");
   const nav = useTranslations("DashboardNav");
   const format = useFormatter();
   const labels = useDataTableLabels();
-  const [which, setWhich] = useState<Which>("");
+  const [which, setWhich] = useState<Which>(initialView);
   const [answer, setAnswer] = useState<Answer>();
   const [reloads, setReloads] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -72,6 +79,8 @@ export function TranslationJobsPanel() {
       : t("loadFailed");
 
   useEffect(() => {
+    // „Wstrzymane” lists no jobs: its own table asks for what is held.
+    if (which === "held") return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const ask = () => {
@@ -228,6 +237,32 @@ export function TranslationJobsPanel() {
     },
   ];
 
+  const filter = (
+    <DataTableFilter
+      id="translation-jobs-state"
+      label={t("filterState")}
+      onChange={(event) => setWhich(event.target.value as Which)}
+      value={which}
+    >
+      <option value="">{t("allStates")}</option>
+      <option value="active">{t("active")}</option>
+      <option value="ended">{t("ended")}</option>
+      <option value="held">{t("held")}</option>
+    </DataTableFilter>
+  );
+
+  if (which === "held")
+    return (
+      <PanelPage
+        description={t("description")}
+        eyebrow={nav("website")}
+        title={review("title")}
+      >
+        <TranslationTabs />
+        <HeldDemandTable filters={filter} onClear={() => setWhich("")} />
+      </PanelPage>
+    );
+
   return (
     <PanelPage
       description={t("description")}
@@ -235,6 +270,7 @@ export function TranslationJobsPanel() {
       title={review("title")}
     >
       <TranslationTabs />
+      <AutomationHeld />
       {problem || (answer?.problem && !loading) ? (
         <div
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
@@ -269,18 +305,7 @@ export function TranslationJobsPanel() {
             </Button>
           ) : undefined
         }
-        filters={
-          <DataTableFilter
-            id="translation-jobs-state"
-            label={t("filterState")}
-            onChange={(event) => setWhich(event.target.value as Which)}
-            value={which}
-          >
-            <option value="">{t("allStates")}</option>
-            <option value="active">{t("active")}</option>
-            <option value="ended">{t("ended")}</option>
-          </DataTableFilter>
-        }
+        filters={filter}
         getRowId={(row) => row.id}
         labels={{ ...labels, empty: which ? labels.empty : t("empty") }}
         loading={loading}

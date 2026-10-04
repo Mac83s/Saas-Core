@@ -42,6 +42,7 @@ import { Switch } from "@saas-core/ui/components/switch";
 
 import { PanelSection } from "#components/panel/panel-page";
 import { GlossarySection } from "./glossary-section";
+import { AutomationHeld } from "./held-demand";
 import { useTranslationOffer } from "./use-translation";
 
 const MODE = "translation.settings.mode";
@@ -386,7 +387,27 @@ function Section({
             <p className="max-w-3xl text-sm text-muted-foreground">
               {text(options.get(AUTO)?.help)}
             </p>
+            {/* Switched off by the company: its own „off” can go back to
+                what the product sets. */}
+            {canManage && auto?.value === false ? (
+              <Button
+                className="self-start"
+                disabled={busy}
+                onClick={() =>
+                  void send({ reset: [AUTO] }, t("automation.restored"))
+                }
+                size="sm"
+                type="button"
+                variant="link"
+              >
+                {t("restore")}
+              </Button>
+            ) : null}
           </div>
+          {/* Held for a reason the consent line below does not say. */}
+          {on && automation.consent_holds ? (
+            <AutomationHeld reloadKey={state.version} />
+          ) : null}
           {on ? (
             automation.consent_holds ? (
               <p className="text-sm">

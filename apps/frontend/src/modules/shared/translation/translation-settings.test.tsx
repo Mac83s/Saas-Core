@@ -29,6 +29,7 @@ const { api } = vi.hoisted(() => ({
     updateGlossaryTerm: vi.fn(),
     deleteGlossaryTerm: vi.fn(),
     getPublicLocales: vi.fn(),
+    listTranslationDemand: vi.fn(),
   },
 }));
 // These screens ask the translation engine: the deployment composes it here.
@@ -217,7 +218,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.getTranslationOffer.mockResolvedValue(OFFER);
   api.getTranslationSettings.mockResolvedValue(settings());
-  api.listGlossaryTerms.mockResolvedValue({ items: [], next_cursor: null });
+  api.listGlossaryTerms.mockResolvedValue({
+    items: [],
+    count: 0,
+    next_cursor: null,
+  });
+  api.listTranslationDemand.mockResolvedValue({
+    items: [],
+    count: 0,
+    next_cursor: null,
+  });
   api.getPublicLocales.mockResolvedValue({
     public_locales: ["pl", "en", "de"],
     offered: [
@@ -245,6 +255,12 @@ test("shows the mode, the automation with its consent and the month's usage, and
         forms: [],
       }),
     ],
+    count: 2,
+    next_cursor: null,
+  });
+  api.listTranslationDemand.mockResolvedValue({
+    items: [{ reason: "worker_unavailable" }],
+    count: 2,
     next_cursor: null,
   });
   const { container } = view();
@@ -310,6 +326,7 @@ test("English words and axe", async () => {
   api.getTranslationSettings.mockResolvedValue(RUNNING);
   api.listGlossaryTerms.mockResolvedValue({
     items: [term()],
+    count: 1,
     next_cursor: null,
   });
   const { container } = view(true, "en");
@@ -568,6 +585,7 @@ test("a reader without the right to manage sees the values and no way to change 
   api.getTranslationSettings.mockResolvedValue(RUNNING);
   api.listGlossaryTerms.mockResolvedValue({
     items: [term()],
+    count: 1,
     next_cursor: null,
   });
   view(false);
@@ -738,4 +756,62 @@ test("a term is edited at its version and removed after a question; more terms c
     ),
   );
   expect(await screen.findByText("Usunięto termin „Beta”.")).toBeTruthy();
+});
+
+test("the glossary says how many terms of the limit there are; a held automation is said beside its consent", async () => {
+  api.getTranslationSettings.mockResolvedValue(RUNNING);
+  api.listGlossaryTerms.mockResolvedValue({
+    items: [term()],
+    count: 37,
+    next_cursor: null,
+  });
+  api.listTranslationDemand.mockResolvedValue({
+    items: [{ reason: "worker_unavailable" }],
+    count: 2,
+    next_cursor: null,
+  });
+  view();
+  expect(await screen.findByText("37 z 500 terminów")).toBeTruthy();
+  // The consent holds, yet two changes wait: the section says why.
+  expect(
+    await screen.findByText(
+      "Automatyczne tłumaczenie zmian jest wstrzymane: usługa tłumaczeń chwilowo nie odpowiada. Czekają 2 zmiany.",
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: "Pokaż wstrzymane" }).getAttribute("href"),
+  ).toBe("/panel/sites/translations/jobs?state=held");
+});
+
+test("an automation the company switched off goes back to the default with one click", async () => {
+  api.getTranslationSettings.mockResolvedValue(
+    settings(
+      {},
+      { [AUTO]: { value: false, effective: false, source: "organization" } },
+    ),
+  );
+  api.updateTranslationSettings.mockResolvedValue(settings({ version: 4 }));
+  view();
+  const automation = (
+    await screen.findByRole("switch", { name: "Tłumacz zmiany automatycznie" })
+  ).closest("div")!;
+  fireEvent.click(
+    within(automation).getByRole("button", { name: "Przywróć domyślne" }),
+  );
+  await waitFor(() =>
+    expect(api.updateTranslationSettings).toHaveBeenCalledWith(
+      { reset: [AUTO] },
+      3,
+      expect.any(String),
+    ),
+  );
+  expect(
+    await screen.findByText("Przywrócono ustawienie domyślne automatu."),
+  ).toBeTruthy();
+  // Back on the default: nothing of the company's own left to take back.
+  await waitFor(() =>
+    expect(
+      within(automation).queryByRole("button", { name: "Przywróć domyślne" }),
+    ).toBeNull(),
+  );
 });

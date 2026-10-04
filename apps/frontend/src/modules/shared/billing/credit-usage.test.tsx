@@ -119,6 +119,7 @@ test("„Wszystkie ruchy” asks the server for every kind and names each in wor
         id: "g",
         kind: "allowance_granted",
         amount: 1000,
+        reason: "Pula planu na okres 2026-10-01.",
         operation_key: "",
         operation_name: "",
         operation_unit: "",
@@ -166,6 +167,9 @@ test("„Wszystkie ruchy” asks the server for every kind and names each in wor
   expect(text).toContain("Zwrot: Tłumaczenie AI");
   expect(text).toContain("Korekta operatora platformy");
   expect(text).toContain("Rekompensata za awarię");
+  // The system's own sentence is in one language only: the line above
+  // already names the movement in the reader's.
+  expect(text).not.toContain("Pula planu na okres");
   expect(text).toContain("Audyt SEO");
 });
 

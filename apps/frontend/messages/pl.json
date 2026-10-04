@@ -5497,7 +5497,8 @@
         "carryHint": "Automat zmian płaci za pełne tysiące znaków. Znaki, które nie złożyły się jeszcze na tysiąc, przechodzą na kolejne zadanie — dlatego krótka zmiana może kosztować 0 kredytów, a rozliczy się razem z następnymi.",
         "notLatest": "Cofnąć można tylko ostatnie zadanie, które coś zapisało — po tym zadaniu było już następne.",
         "stillRunning": "To zadanie jeszcze trwa. Najpierw je zatrzymaj."
-      }
+      },
+      "held": "Wstrzymane"
     },
     "unavailable": {
       "line": "Automatyczne tłumaczenie nie jest teraz dostępne: {reason}. Możesz przetłumaczyć ręcznie.",
@@ -5593,7 +5594,8 @@
         "consent": "Działa w imieniu: {name} — zgoda z {date}.",
         "consentLost": "Automat stoi: {name} nie może już zarządzać tłumaczeniami w tej firmie. Potwierdź go ponownie, a będzie działał w Twoim imieniu.",
         "somebody": "osoba, która go włączyła",
-        "confirmAgain": "Potwierdź ponownie"
+        "confirmAgain": "Potwierdź ponownie",
+        "restored": "Przywrócono ustawienie domyślne automatu."
       },
       "limit": {
         "unit": "kredytów miesięcznie",
@@ -5695,7 +5697,33 @@
           "same_as_source": "Wybierz inny język niż ten, w którym termin występuje.",
           "not_for_rule": "Tłumaczenie podaje się tylko dla reguły „Tłumacz jako…”.",
           "other": "Nieprawidłowa wartość."
-        }
+        },
+        "count": "{count} z {limit} terminów"
+      }
+    },
+    "held": {
+      "notice": "Automatyczne tłumaczenie zmian jest wstrzymane: {reason}. {count, plural, one {Czeka # zmiana} few {Czekają # zmiany} many {Czeka # zmian} other {Czeka # zmiany}}.",
+      "show": "Pokaż wstrzymane",
+      "hint": "Zmiany opublikowanych treści, których automat zmian nie mógł jeszcze przetłumaczyć. Opublikowane tłumaczenia zostają; te zmiany ruszą same, gdy przyczyna minie — automat sprawdza to w podanym czasie.",
+      "caption": "Wstrzymane zmiany do przetłumaczenia",
+      "colWhat": "Co",
+      "colReason": "Dlaczego czeka",
+      "colSince": "Zmieniono",
+      "colCheck": "Ponowna próba",
+      "colActions": "Działania",
+      "actionsFor": "Działania dla: {name}",
+      "place": {
+        "settings": "Ustawienia tłumaczeń",
+        "credits": "Kredyty"
+      },
+      "empty": "Automat zmian niczego teraz nie wstrzymuje.",
+      "loadFailed": "Nie udało się wczytać wstrzymanych zmian.",
+      "reasons": {
+        "consent_lost": "osoba, która zgodziła się na automat, nie ma już do tego uprawnień — potwierdź go ponownie w ustawieniach",
+        "publish_denied": "osoba, w której imieniu działa automat, nie może publikować tych treści",
+        "monthly_limit": "wykorzystano miesięczny limit automatu",
+        "credits_exhausted": "brakuje kredytów",
+        "other": "tłumaczenie jest teraz niedostępne"
       }
     }
   },

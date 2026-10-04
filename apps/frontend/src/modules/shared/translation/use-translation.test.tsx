@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import polishMessages from "../../../../messages/pl.json";
+import { AutomationHeld } from "./held-demand";
 import { TranslationJobsBar } from "./jobs-bar";
 import { TranslateMissing } from "./translate-missing";
 import { TranslationSettingsSection } from "./translation-settings";
@@ -16,6 +17,7 @@ const { api, composed } = vi.hoisted(() => ({
     getTranslationSettings: vi.fn(),
     listTranslationJobs: vi.fn(),
     listTranslationReview: vi.fn(),
+    listTranslationDemand: vi.fn(),
     listGlossaryTerms: vi.fn(),
   },
   // What the deployment's profile composes: a product without the engine
@@ -90,6 +92,8 @@ test("a deployment without the translation module asks its API nothing", async (
       {/* „Strona internetowa → Tłumaczenia”: the tabs and the bar of running jobs. */}
       <TranslationTabs />
       <TranslationJobsBar />
+      {/* What the automation is held on, said wherever translations are looked at. */}
+      <AutomationHeld />
       {/* Ustawienia › Języki i tłumaczenia. */}
       <TranslationSettingsSection canManage />
     </>,
