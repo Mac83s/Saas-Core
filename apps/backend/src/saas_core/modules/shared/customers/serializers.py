@@ -223,9 +223,10 @@ class MarketingConsentSerializer(serializers.Serializer[dict[str, Any]]):
     locale = serializers.CharField(allow_blank=True, help_text="The language of the form.")
     wording = serializers.CharField(
         allow_blank=True,
-        help_text="The sentence they agreed to. The journal keeps its hash; empty when no "
-        "sentence known today gives that hash — the company was renamed since, or the "
-        "sentence was changed.",
+        help_text="The sentence they agreed to, as the form showed it — kept in the journal "
+        "word for word, so a later change of the company's name does not change it. Empty "
+        "only for a consent written before the journal kept the words whose hash no "
+        "sentence known today gives: the words were not written down.",
     )
     withdrawn_at = serializers.DateTimeField(
         allow_null=True, help_text="When the withdrawal was written down; null while it stands."
@@ -244,3 +245,48 @@ class MarketingConsentWithdrawInputSerializer(serializers.Serializer[dict[str, A
         help_text="`consent_id` of the row the caller saw. When it is no longer the "
         "customer's latest journal line the answer is 409 `consent_changed`."
     )
+
+
+class CustomerSearchQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    q = serializers.CharField(
+        min_length=2,
+        max_length=120,
+        help_text="A name, an e-mail or a phone number, as the person typed it. Every word "
+        "must be in the name; a phone is matched by its digits.",
+    )
+
+
+class CustomerLinkSerializer(serializers.Serializer[dict[str, Any]]):
+    title = serializers.DictField(
+        child=serializers.CharField(), help_text="What the link leads to, by panel language."
+    )
+    href = serializers.CharField(help_text="A path in the panel.")
+
+
+class CustomerFoundSerializer(serializers.Serializer[dict[str, Any]]):
+    customer_id = serializers.UUIDField()
+    name = serializers.CharField()
+    email = serializers.CharField(
+        allow_null=True, help_text="Null when the caller does not see the customer's contact."
+    )
+    phone = serializers.CharField(
+        allow_null=True, help_text="Null when the caller does not see the customer's contact."
+    )
+    links = CustomerLinkSerializer(
+        many=True, help_text="Where the panel shows this customer to the caller."
+    )
+    matched = serializers.ListField(
+        child=serializers.ChoiceField(choices=["name", "email", "phone"]),
+        help_text="Which of the customer's data the words matched.",
+    )
+    seen_in = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Where the caller knows the customer from: `bookings`, `orders`.",
+    )
+
+
+class CustomerSearchSerializer(serializers.Serializer[dict[str, Any]]):
+    total = serializers.IntegerField(
+        help_text="How many customers match; `items` holds the first of them."
+    )
+    items = CustomerFoundSerializer(many=True)

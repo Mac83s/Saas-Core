@@ -6,15 +6,18 @@ calendar years after the year its ledger was last written to, counted in the
 company's time zone: a payment of June 2026 keeps the buyer until the end of
 31 December 2031. An order nobody paid for keeps nothing.
 
-Three things follow, and all of them ask the same question (`held_orders`):
+Two things follow, and both ask the same question (`held_orders`):
 
-- the company's own removal of customers after a time (booking's sweep) leaves
-  such a customer alone until the period ends — `customers_held`, registered
-  as that sweep's exclusion and asked again under its locks;
-- taking a customer out by hand strips the customer and the visits and leaves
-  the buyer on these orders (`orders.strip_buyer`);
+- taking a customer out strips the customer and the visits and leaves the
+  buyer on these orders (`orders.strip_buyer`) — by hand from the panel and
+  by the company's own removal of customers after a time alike (the owner's
+  answer of 04.10: the run keeps no more than a person's click does);
 - when the period ends, the buyer left on an order of a customer who is
   already anonymised is removed by the nightly privacy run (`erase_buyers`).
+
+What a strip would leave is read beforehand by `kept_of` — for the window
+that asks before a removal by hand, and for the preview of the company's
+retention setting.
 
 Every write to a ledger locks its order first, so whoever decides here locks
 the orders and reads the ledger afterwards: a payment in flight is waited for
@@ -23,7 +26,7 @@ and seen, one that starts later waits and finds the decision made.
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from datetime import date, datetime
 from typing import Any
 from uuid import UUID
@@ -50,15 +53,6 @@ SWEEP = "commerce.buyers"
 #: What a kept buyer is called where a module lists what stays of a customer.
 KEPT_KIND = "commerce.order_buyer"
 
-#: Why a customer past the company's own period is not removed yet — the end
-#: of a sentence that starts with their count.
-WHY_CUSTOMER_STAYS = {
-    "pl": "mają zamówienie z wpłatą; to zapis sprzedaży firmy, więc ich dane zostają przez "
-    f"{BUYER_RETENTION_YEARS} pełnych lat kalendarzowych po roku ostatniej wpłaty albo zwrotu",
-    "en": "they have an order that was paid for; it is the company's sales record, so their "
-    f"data stays for {BUYER_RETENTION_YEARS} full calendar years after the year of its last "
-    "payment or refund",
-}
 #: Why an order still names its buyer after the customer was taken out.
 WHY_BUYER_STAYS = {
     "pl": "Dane kupującego (imię i nazwisko, e-mail, telefon) zostają w zamówieniu z wpłatą: "
@@ -129,41 +123,19 @@ def held_orders(
     return held
 
 
-def customers_held(organization_id: UUID, among: Collection[UUID] | None) -> set[UUID]:
-    """The customers the company's removal after a time must leave alone: the
-    buyers of sales records inside the period. Registered as an exclusion of
-    the customers' sweep; with `among` the sweep holds those customers' locks,
-    and their orders are locked here before the ledger is read."""
-    scope: dict[str, Any] = {}
-    if among is not None:
-        if not among:
-            return set()
-        scope = {"order__customer_id__in": list(among)}
-        # Evaluated for its locks: NO KEY, as the sweep's own — rows that only
-        # point at an order do not queue behind the run.
-        list(
-            Order.all_objects.select_for_update(no_key=True)
-            .filter(organization_id=organization_id, customer_id__in=list(among))
-            .order_by("id")
-            .values_list("id", flat=True)
-        )
-    start = period_start(organization_id)
-    return {
-        row["customer_id"]
-        for row in _sales(organization_id, **scope)
-        if max(row["occurred"], row["written"]) >= start
-    }
-
-
-def kept_of(customer: Customer) -> list[Kept]:
-    """What taking this customer out now would leave: the buyer on each of
-    their orders inside the period, and until when. A read."""
+def kept_of(customers: Sequence[Customer]) -> list[Kept]:
+    """What taking these customers of one company out now would leave: the
+    buyer on each of their orders inside the period, and until when. A read."""
+    if not customers:
+        return []
+    organization_id = customers[0].organization_id
     orders = dict(
         Order.all_objects.filter(
-            organization_id=customer.organization_id, customer=customer
+            organization_id=organization_id,
+            customer_id__in=[customer.id for customer in customers],
         ).values_list("id", "number")
     )
-    held = held_orders(customer.organization_id, list(orders))
+    held = held_orders(organization_id, list(orders))
     return [
         Kept(
             kind=KEPT_KIND,

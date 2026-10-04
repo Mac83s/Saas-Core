@@ -25,18 +25,22 @@ from .models import (
     ExtraKind,
     ParticipantCategory,
     PriceBasis,
+    PriceChange,
     PriceRule,
     VatCode,
 )
 from .prices import (
     GROSS,
+    MAX_HISTORY_PAGE,
     NET,
     amounts_are_gross,
     copy_prices_to_next_year,
     delete_price,
     list_categories,
     list_extras,
+    list_price_changes,
     list_prices,
+    price_list_on,
     save_category,
     save_extra,
     save_price,
@@ -192,6 +196,82 @@ class PriceRuleListSerializer(serializers.Serializer[dict[str, Any]]):
         choices=[GROSS, NET],
         help_text="How the company's amounts are read (`pricing.entry.amounts`); a "
         "customer always sees gross.",
+    )
+
+
+class PriceHistoryQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    price_id = serializers.UUIDField(
+        required=False,
+        help_text="Only this price's lines — also of a price deleted since. Without it, "
+        "the whole price list's.",
+    )
+    page = serializers.IntegerField(min_value=1, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=MAX_HISTORY_PAGE, default=25)
+
+
+class PriceChangeActorSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField()
+    email = serializers.CharField()
+
+
+class PriceChangeSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    price_id = serializers.UUIDField(help_text="The price the line is about.")
+    change = serializers.ChoiceField(
+        choices=PriceChange.choices,
+        help_text="`baseline` — the price as it stood when the record began; `created`, "
+        "`updated`, `deleted` — a write since.",
+    )
+    recorded_at = serializers.DateTimeField()
+    actor = PriceChangeActorSerializer(
+        allow_null=True, help_text="Who wrote it; null for the baseline."
+    )
+    acting_via = serializers.CharField(
+        allow_blank=True, help_text="`assistant` when the person's assistant wrote it for them."
+    )
+    amount_minor = serializers.IntegerField(
+        help_text="The amount after the write, in minor units of `currency`; a deleted "
+        "price's last amount."
+    )
+    previous_amount_minor = serializers.IntegerField(
+        allow_null=True,
+        help_text="The amount before the write; null for a price just made and for the baseline.",
+    )
+    currency = serializers.CharField(help_text="ISO 4217.")
+    price = PriceRuleSerializer(
+        help_text="The whole price as the write left it — for a deletion, as it last was."
+    )
+
+
+class PriceChangePageSerializer(serializers.Serializer[dict[str, Any]]):
+    total = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    recorded_since = serializers.DateTimeField(
+        allow_null=True,
+        help_text="The company's first line: the record is complete from then on. Null — "
+        "the company never had a price.",
+    )
+    items = PriceChangeSerializer(many=True)
+
+
+class PriceListOnQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    day = serializers.DateField(
+        help_text="A day in the company's time zone: the price list as it stood when that "
+        "day ended. Today or a later day: as it stands now."
+    )
+
+
+class PriceListOnSerializer(serializers.Serializer[dict[str, Any]]):
+    day = serializers.DateField()
+    as_of = serializers.DateTimeField(help_text="The moment the list is read at.")
+    recorded_since = serializers.DateTimeField(
+        allow_null=True, help_text="The company's first line of the record; null — none yet."
+    )
+    items = PriceRuleSerializer(
+        many=True,
+        help_text="Every price that existed then, switched-off ones included (`active`), "
+        "each as it was — not as it is today.",
     )
 
 
@@ -390,6 +470,61 @@ class PriceRuleListView(APIView):
             price_id=None, data=dict(s.validated_data), idempotency_key=_idem(request)
         )
         return Response(_price_payload(saved.value), status=201)
+
+
+class PriceHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_price_history_list",
+        summary="List the record of price changes",
+        description="Every write of a price since the record began, newest first, a page at "
+        "a time: the price as the write left it, the amount before and after, who wrote it "
+        "and when. Append-only — nothing in it is ever changed or removed — so it answers "
+        "what a price was on a past day, also for a price deleted since. `price_id` narrows "
+        "it to one price.",
+        tags=["booking"],
+        parameters=[PriceHistoryQuerySerializer],
+        responses={
+            200: PriceChangePageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = PriceHistoryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        found = list_price_changes(**dict(query.validated_data))
+        return Response({
+            **found,
+            "items": [{**item, "price": _price_payload(item["price"])} for item in found["items"]],
+        })
+
+
+class PriceListOnView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_prices_on_day",
+        summary="Read the price list of a past day",
+        description="The company's price list as it stood when `day` ended in its time "
+        "zone, read from the append-only record of price changes — each price as it was "
+        "then, including ones changed or deleted since. Which of them applied on a booked "
+        "day follows the same order as today's list. A day before the record began is "
+        "400 `before_price_history`: the record does not know those prices.",
+        tags=["booking"],
+        parameters=[PriceListOnQuerySerializer],
+        responses={
+            200: PriceListOnSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = PriceListOnQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        found = price_list_on(query.validated_data["day"])
+        return Response({**found, "items": [_price_payload(item) for item in found["items"]]})
 
 
 @method_decorator(csrf_protect, name="dispatch")

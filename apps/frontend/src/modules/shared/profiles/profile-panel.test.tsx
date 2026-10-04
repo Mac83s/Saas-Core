@@ -147,6 +147,11 @@ test("the business card screen offers publication and is accessible", async () =
   // The dictionary drives the selects, so a value outside it cannot be picked.
   expect(screen.getByRole("option", { name: "Mrągowo" })).toBeTruthy();
   expect(screen.getByRole("option", { name: "Uroda i zdrowie" })).toBeTruthy();
+  // Who reads the card's public text for the search by meaning is said where
+  // the card is switched on (docs/architecture/model-port.md).
+  expect(
+    screen.getByText(/Qwen3 Embedding, przez pośrednika OpenRouter \(USA/),
+  ).toBeTruthy();
 
   const results = await axe.run(container);
   expect(results.violations).toEqual([]);

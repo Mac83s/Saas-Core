@@ -3040,6 +3040,51 @@ export async function listBookingPrices(): Promise<BookingPriceList> {
   return data;
 }
 
+export type BookingPriceChange = components["schemas"]["PriceChange"];
+export type BookingPriceChangePage = components["schemas"]["PriceChangePage"];
+export type BookingPriceListOn = components["schemas"]["PriceListOn"];
+
+/** The append-only record of price changes, newest first: each write of a
+ *  price with the price as it left it, the amount before, who and when
+ *  (ADR-073, slice 4i). */
+export async function listBookingPriceChanges(
+  query: { priceId?: string; page?: number; pageSize?: number } = {},
+): Promise<BookingPriceChangePage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/prices/history/",
+    {
+      params: {
+        query: {
+          price_id: query.priceId,
+          page: query.page,
+          page_size: query.pageSize,
+        },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The price list as it stood when `day` (YYYY-MM-DD, the company's time
+ *  zone) ended, read from the record of price changes. */
+export async function readBookingPricesOnDay(
+  day: string,
+): Promise<BookingPriceListOn> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/prices/on-day/",
+    {
+      params: { query: { day } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function createBookingPrice(
   input: BookingPriceInput,
   idempotencyKey: string,
@@ -6836,6 +6881,25 @@ export async function withdrawMarketingConsent(
       body: { consent_id: consentId },
       credentials: "same-origin",
       headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export type CustomerFound = components["schemas"]["CustomerFound"];
+export type CustomerSearch = components["schemas"]["CustomerSearch"];
+
+/** The company's customers matching a name, an e-mail or a phone a person
+ *  typed — only the ones the caller sees elsewhere in the panel, with the
+ *  contact where they see it there (ADR-073, slice 4i). */
+export async function searchCustomers(q: string): Promise<CustomerSearch> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/customers/search/",
+    {
+      params: { query: { q } },
+      credentials: "same-origin",
+      cache: "no-store",
     },
   );
   if (error || !data) throwProblem(error, response);

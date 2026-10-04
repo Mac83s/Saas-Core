@@ -5673,6 +5673,101 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/booking/setup/prices/history/:
+    get:
+      operationId: booking_price_history_list
+      description: 'Every write of a price since the record began, newest first, a
+        page at a time: the price as the write left it, the amount before and after,
+        who wrote it and when. Append-only — nothing in it is ever changed or removed
+        — so it answers what a price was on a past day, also for a price deleted since.
+        `price_id` narrows it to one price.'
+      summary: List the record of price changes
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: price_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this price's lines — also of a price deleted since. Without
+          it, the whole price list's.
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceChangePage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/prices/on-day/:
+    get:
+      operationId: booking_prices_on_day
+      description: 'The company''s price list as it stood when `day` ended in its
+        time zone, read from the append-only record of price changes — each price
+        as it was then, including ones changed or deleted since. Which of them applied
+        on a booked day follows the same order as today''s list. A day before the
+        record began is 400 `before_price_history`: the record does not know those
+        prices.'
+      summary: Read the price list of a past day
+      parameters:
+      - in: query
+        name: day
+        schema:
+          type: string
+          format: date
+        description: 'A day in the company''s time zone: the price list as it stood
+          when that day ended. Today or a later day: as it stands now.'
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListOn'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/setup/prices/preview/:
     post:
       operationId: booking_price_create_preview
@@ -9299,6 +9394,49 @@ paths:
       x-quality-exempt:
         idempotency-key: 'Locked by version: a repeat at the same version answers
           409 and changes nothing.'
+  /api/v1/customers/search/:
+    get:
+      operationId: customers_search
+      description: The company's customers matching what a person typed, newest first
+        — `total` and the first 10 of them. Everybody of the company may ask; the
+        answer holds only the customers the caller sees elsewhere in the panel (on
+        visits, on orders), with the e-mail and the phone where the caller sees them
+        there. A customer whose data was removed is not found. The panel's place for
+        removing one customer's data on request starts here (`POST /booking/customers/{id}/anonymize/`).
+      summary: Find a customer by name, e-mail or phone
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 120
+          minLength: 2
+        description: A name, an e-mail or a phone number, as the person typed it.
+          Every word must be in the name; a phone is matched by its digits.
+        required: true
+      tags:
+      - customers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSearch'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/farms/:
     get:
       operationId: farms_list
@@ -27342,7 +27480,7 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         customers:
           description: |-
-            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for is removed like any other, and only the buyer's details on that order stay until the sales record's statutory period ends; the preview says how many and until when. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -27397,7 +27535,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/Customers1e2Enum'
           description: |-
-            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for is removed like any other, and only the buyer's details on that order stay until the sales record's statutory period ends; the preview says how many and until when. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -28410,6 +28548,18 @@ components:
       required:
       - amount_minor
       - category_id
+    ChangeEnum:
+      enum:
+      - baseline
+      - created
+      - updated
+      - deleted
+      type: string
+      description: |-
+        * `baseline` - Stan początkowy
+        * `created` - Dodana
+        * `updated` - Zmieniona
+        * `deleted` - Usunięta
     ChangeSetApply:
       type: object
       properties:
@@ -30230,6 +30380,47 @@ components:
       - locales
       - number
       - source_locale
+    CustomerFound:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type:
+          - string
+          - 'null'
+          description: Null when the caller does not see the customer's contact.
+        phone:
+          type:
+          - string
+          - 'null'
+          description: Null when the caller does not see the customer's contact.
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerLink'
+          description: Where the panel shows this customer to the caller.
+        matched:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchedEnum'
+          description: Which of the customer's data the words matched.
+        seen_in:
+          type: array
+          items:
+            type: string
+          description: 'Where the caller knows the customer from: `bookings`, `orders`.'
+      required:
+      - customer_id
+      - email
+      - links
+      - matched
+      - name
+      - phone
+      - seen_in
     CustomerInput:
       type: object
       properties:
@@ -30290,6 +30481,20 @@ components:
       description: |-
         * `company` - company
         * `individual` - individual
+    CustomerLink:
+      type: object
+      properties:
+        title:
+          type: object
+          additionalProperties:
+            type: string
+          description: What the link leads to, by panel language.
+        href:
+          type: string
+          description: A path in the panel.
+      required:
+      - href
+      - title
     CustomerPlan:
       type: object
       properties:
@@ -30376,6 +30581,19 @@ components:
       - quotas
       - unit_amount_minor
       - version
+    CustomerSearch:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: How many customers match; `items` holds the first of them.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerFound'
+      required:
+      - items
+      - total
     CustomerSubscription:
       type: object
       properties:
@@ -34670,9 +34888,11 @@ components:
           description: The language of the form.
         wording:
           type: string
-          description: The sentence they agreed to. The journal keeps its hash; empty
-            when no sentence known today gives that hash — the company was renamed
-            since, or the sentence was changed.
+          description: 'The sentence they agreed to, as the form showed it — kept
+            in the journal word for word, so a later change of the company''s name
+            does not change it. Empty only for a consent written before the journal
+            kept the words whose hash no sentence known today gives: the words were
+            not written down.'
         withdrawn_at:
           type:
           - string
@@ -34720,6 +34940,16 @@ components:
             the customer''s latest journal line the answer is 409 `consent_changed`.'
       required:
       - consent_id
+    MatchedEnum:
+      enum:
+      - name
+      - email
+      - phone
+      type: string
+      description: |-
+        * `name` - name
+        * `email` - email
+        * `phone` - phone
     MaterialInput:
       type: object
       description: Produkt z magazynu przy usłudze albo wizycie (ADR-055).
@@ -37265,7 +37495,7 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         customers:
           description: |-
-            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for is removed like any other, and only the buyer's details on that order stay until the sales record's statutory period ends; the preview says how many and until when. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -38525,8 +38755,9 @@ components:
           - boolean
           - 'null'
           description: Confirm once that content goes to OpenRouter and model providers
-            outside the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only
-            true is accepted.
+            outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude
+            Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region).
+            Only true is accepted.
         reset:
           type:
           - array
@@ -39719,6 +39950,129 @@ components:
         * `per_time_unit` - Za jednostkę czasu
         * `per_person` - Za osobę
         * `per_group` - Za grupę
+    PriceChange:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        price_id:
+          type: string
+          format: uuid
+          description: The price the line is about.
+        change:
+          allOf:
+          - $ref: '#/components/schemas/ChangeEnum'
+          description: |-
+            `baseline` — the price as it stood when the record began; `created`, `updated`, `deleted` — a write since.
+
+            * `baseline` - Stan początkowy
+            * `created` - Dodana
+            * `updated` - Zmieniona
+            * `deleted` - Usunięta
+        recorded_at:
+          type: string
+          format: date-time
+        actor:
+          oneOf:
+          - $ref: '#/components/schemas/PriceChangeActor'
+          - type: 'null'
+          description: Who wrote it; null for the baseline.
+        acting_via:
+          type: string
+          description: '`assistant` when the person''s assistant wrote it for them.'
+        amount_minor:
+          type: integer
+          description: The amount after the write, in minor units of `currency`; a
+            deleted price's last amount.
+        previous_amount_minor:
+          type:
+          - integer
+          - 'null'
+          description: The amount before the write; null for a price just made and
+            for the baseline.
+        currency:
+          type: string
+          description: ISO 4217.
+        price:
+          allOf:
+          - $ref: '#/components/schemas/PriceRule'
+          description: The whole price as the write left it — for a deletion, as it
+            last was.
+      required:
+      - acting_via
+      - actor
+      - amount_minor
+      - change
+      - currency
+      - id
+      - previous_amount_minor
+      - price
+      - price_id
+      - recorded_at
+    PriceChangeActor:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+      required:
+      - email
+      - name
+    PriceChangePage:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        recorded_since:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: 'The company''s first line: the record is complete from then
+            on. Null — the company never had a price.'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceChange'
+      required:
+      - items
+      - page
+      - page_size
+      - recorded_since
+      - total
+    PriceListOn:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        as_of:
+          type: string
+          format: date-time
+          description: The moment the list is read at.
+        recorded_since:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: The company's first line of the record; null — none yet.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceRule'
+          description: Every price that existed then, switched-off ones included (`active`),
+            each as it was — not as it is today.
+      required:
+      - as_of
+      - day
+      - items
+      - recorded_since
     PriceRule:
       type: object
       properties:
@@ -47881,8 +48235,9 @@ components:
         processing_acknowledged:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
-            providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic,
-            the processor the platform's privacy documents name.
+            providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic
+            (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European
+            region), the processor the platform's privacy documents name.
         processing_ack_at:
           type:
           - string
@@ -47914,8 +48269,9 @@ components:
         processing_acknowledged:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
-            providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic,
-            the processor the platform's privacy documents name.
+            providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic
+            (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European
+            region), the processor the platform's privacy documents name.
         processing_ack_at:
           type:
           - string
@@ -47965,8 +48321,9 @@ components:
           - boolean
           - 'null'
           description: Confirm once that content goes to OpenRouter and model providers
-            outside the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only
-            true is accepted.
+            outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude
+            Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region).
+            Only true is accepted.
         reset:
           type:
           - array

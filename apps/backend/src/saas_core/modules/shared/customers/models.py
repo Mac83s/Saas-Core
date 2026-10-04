@@ -163,6 +163,12 @@ class ConsentRecord(TenantScopedModel):
     )
     #: sha256 of what was shown: the row's text, or the consent's own wording.
     text_hash = models.CharField(max_length=64, blank=True)
+    #: The sentence the person agreed to, as the form showed it (a marketing
+    #: or a field consent) — the evidence of the consent is its wording, and a
+    #: hash alone stops naming it once the company is renamed. Empty for a
+    #: document (its text row is the wording), for a withdrawal, and for a
+    #: line written before the journal kept the words.
+    wording = models.TextField(blank=True, default="")
     locale = models.CharField(max_length=10, blank=True)
     #: False withdraws an earlier consent of the same kind and source.
     granted = models.BooleanField(default=True)

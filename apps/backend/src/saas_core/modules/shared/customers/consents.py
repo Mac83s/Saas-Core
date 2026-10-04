@@ -4,12 +4,13 @@
 A consent to receive offers and promotions is a line of the consent journal
 with `kind="marketing"`, written by the form that showed the sentence
 (`documents.marketing_wording`, over `MARKETING_WORDING`) — never part of
-accepting a document. The journal keeps the hash of what the person saw, not
-the words, so the list reads a line's words back by rendering that sentence
-for the company and comparing hashes. A line whose hash matches none — the
-company was renamed since, or the sentence was changed — is still listed as
-agreed to, with its date and form, and says that its exact words are no longer
-known.
+accepting a document. The journal keeps the sentence the person saw, word for
+word, beside its hash: the list shows those words whatever the company is
+called today. A line written before the journal kept the words has only the
+hash; its words are read back by rendering today's sentence for the company
+and comparing hashes, and when none matches — the company was renamed since,
+or the sentence was changed — the line is still listed as agreed to, with its
+date and form, and says that its words were not written down.
 
 Nothing is ever changed in the journal: a withdrawal is the next line with
 `granted=False`, and the customer's latest line says where they stand.
@@ -57,8 +58,11 @@ class ConsentChanged(APIException):
 
 
 def _wording(line: ConsentRecord, company: str) -> str:
-    """The words a journal line's hash stands for, or nothing when no
-    sentence known today gives that hash."""
+    """The words the person agreed to: the line's own, or — for a line from
+    before the journal kept them — the sentence known today that gives the
+    line's hash; nothing when none does."""
+    if line.wording:
+        return line.wording
     for locale in dict.fromkeys([line.locale, *MARKETING_WORDING]):
         sentence = marketing_wording(locale, company)
         if sentence and text_hash(sentence) == line.text_hash:

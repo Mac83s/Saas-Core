@@ -259,6 +259,11 @@ test("with the operator's badge off the dialog promises only the file marking", 
   });
   expect(screen.queryByText(messages.marking)).toBeNull();
   expect(screen.getByText(messages.markingFileOnly)).not.toBeNull();
+  // Who gets the description is said before anything is sent (the processor
+  // entry of docs/architecture/model-port.md).
+  expect(
+    screen.getByText(/trafia do zewnętrznego dostawcy: OpenAI \(USA/),
+  ).not.toBeNull();
   submit(messages);
   await screen.findByRole("button", { name: messages.use });
   expect(document.querySelector(".site-ai-badge")).toBeNull();

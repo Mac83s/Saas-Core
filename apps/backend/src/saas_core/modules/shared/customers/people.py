@@ -22,7 +22,9 @@ from uuid import UUID
 from django.db.models import F, Func, Q, Value
 from django.db.models.functions import Lower
 
+from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ
 
 from .models import Customer
 
@@ -186,3 +188,29 @@ def find_customers(text: str) -> tuple[int, list[Found]]:
             matched.append("phone")
         found.append(Found(customer.id, tuple(matched), tuple(sorted(seen[customer.id]))))
     return len(found), found[:FOUND_AT_ONCE]
+
+
+def search_customers(text: str) -> dict[str, Any]:
+    """The panel's search for a customer by what a person typed — a name, an
+    e-mail or a phone: what `customers.find` answers to the assistant with
+    handles, here as the cards themselves, for the person at the screen.
+    Everybody of the company may ask; whom they find and how much of each
+    they see is what the panel shows them elsewhere (`register_customer_viewer`),
+    so the e-mail and the phone are empty for whoever does not see them
+    there. A customer whose data was removed is not found."""
+    authorize(ORGANIZATION_READ)
+    total, found = find_customers(text)
+    cards = customer_cards([person.customer_id for person in found])
+    return {
+        "total": total,
+        "items": [
+            {
+                "customer_id": person.customer_id,
+                **cards[person.customer_id],
+                "matched": list(person.matched),
+                "seen_in": list(person.seen_in),
+            }
+            for person in found
+            if person.customer_id in cards
+        ],
+    }

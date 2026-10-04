@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    CustomerSearchView,
     DocumentApprovePreviewView,
     DocumentApproveView,
     DocumentDetailView,
@@ -12,6 +13,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("search/", CustomerSearchView.as_view(), name="customers-search"),
     path(
         "consents/marketing/",
         MarketingConsentListView.as_view(),

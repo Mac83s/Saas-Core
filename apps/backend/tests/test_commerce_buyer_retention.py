@@ -1,10 +1,11 @@
 """How long an order names its buyer (ADR-073, slice 4i): an order money was
 taken for keeps the buyer for five full calendar years after the year its
-ledger was last written to, counted in the company's time zone. The company's
-removal of customers after a time leaves such a customer alone until then;
-taking a customer out by hand strips the customer and the visits and leaves
-the buyer on these orders; the nightly privacy run removes that buyer when
-the period ends. An order nobody paid for keeps nothing."""
+ledger was last written to, counted in the company's time zone. Taking a
+customer out strips the customer and the visits and leaves the buyer on these
+orders — by hand from the panel and by the company's removal of customers
+after a time, the same way (the owner's answer of 04.10); the nightly privacy
+run removes that buyer when the period ends. An order nobody paid for keeps
+nothing."""
 
 from __future__ import annotations
 
@@ -17,7 +18,6 @@ import pytest
 from django.core.cache import cache
 from django.utils import timezone
 
-from saas_core.modules.core.organizations import retention as privacy
 from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.models import (
     Membership,
@@ -407,18 +407,20 @@ def sold(member: Membership, person: Any, gross: int = 12000) -> Order:
     return order
 
 
-def test_the_companys_removal_leaves_a_buyer_alone_until_the_period_ends(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    owner = membership("okres-wyjatek")
+def test_the_companys_removal_strips_a_buyer_and_leaves_the_paid_order_named() -> None:
+    """The run keeps no more than a person's click does: the customer and
+    the visits go at the company's period, the buyer stays on the sales
+    record until its own."""
+    owner = membership("okres-przebieg")
     with_orders(owner.organization_id)
     configured = catalog(owner)
     bought = customer(owner, configured, "kupila", ended=40)
     asked = customer(owner, configured, "pytal", ended=40)
     order = sold(owner, bought)
+    year = timezone.now().astimezone(WARSAW).year
     with tenant(owner):
-        # An order nobody paid for holds nobody back.
-        place_order(
+        # An order nobody paid for keeps nothing.
+        unpaid = place_order(
             source="booking",
             customer=Customer.all_objects.get(pk=asked.id),
             currency="PLN",
@@ -426,57 +428,64 @@ def test_the_companys_removal_leaves_a_buyer_alone_until_the_period_ends(
             lines=[line(9000)],
             channel="office",
         )
+        assert unpaid is not None
         due = set(customers_due(owner.organization_id, cutoff_for(24)).values_list("id", flat=True))
-    assert due == {asked.id}
+    # Having bought something holds nobody back.
+    assert due == {asked.id, bought.id}
 
-    # The preview says who stays and why, before anybody saves.
+    # The preview says what stays, until when and why, before anybody saves —
+    # in the words of the module that keeps it, not as customers who stay.
     (effect,) = change(owner, "booking.retention", preview=True, customers="24").effects
-    assert "dotyczy teraz: 1." in effect.summary["pl"]
+    assert "dotyczy teraz: 2." in effect.summary["pl"]
+    assert "którzy na razie zostają" not in effect.summary["pl"]
     assert (
-        "Klienci po terminie, którzy na razie zostają: 1 — mają zamówienie z wpłatą"
-        in (effect.summary["pl"])
+        "Dane kupującego (imię i nazwisko, e-mail, telefon) zostają w zamówieniu z wpłatą"
+        in effect.summary["pl"]
     )
-    assert "who stay for now: 1 — they have an order that was paid for" in effect.summary["en"]
+    assert (
+        f"U klientów, których dotyczy teraz, zostaje tak: 1 — najdłużej do {year + 5}-12-31."
+        in effect.summary["pl"]
+    )
+    assert (
+        f"For the customers affected now this keeps: 1 — the longest until {year + 5}-12-31."
+        in effect.summary["en"]
+    )
 
     switch_on(owner)
-    assert [(item.sweep, item.count) for item in run().removed] == [("booking.customers", 1)]
+    assert [(item.sweep, item.count) for item in run().removed] == [("booking.customers", 2)]
     assert read_customer(owner, asked).anonymized_at is not None
-    kept = read_customer(owner, bought)
-    assert (kept.email, kept.anonymized_at) == ("kupila@example.test", None)
+    gone = read_customer(owner, bought)
+    assert (gone.display_name, gone.email, gone.phone) == PLACEHOLDER
+    assert gone.anonymized_at is not None
     with tenant(owner):
-        assert Appointment.all_objects.get(pk=bought.visit_id).customer_notes == "Boli mnie kolano"
+        assert Appointment.all_objects.get(pk=bought.visit_id).customer_notes == ""
+        shown = read_order(order.id)
+    # The sales record names its buyer, and says until when…
     assert buyer(owner, order) == ("kupila", "kupila@example.test", "+48500100200")
+    assert shown["buyer_kept_until"] == date(year + 5, 12, 31)
+    # …the order nobody paid for does not.
+    assert buyer(owner, unpaid) == PLACEHOLDER
 
-    # The first day after the fifth year: the customer goes, and the buyer
-    # with them — nothing is left for the other sweep.
-    year = timezone.now().astimezone(WARSAW).year
-    at(monkeypatch, datetime(year + 5, 12, 31, 23, 59, tzinfo=WARSAW))
-    assert run().removed == ()
-    at(monkeypatch, datetime(year + 6, 1, 1, tzinfo=WARSAW))
-    assert [(item.sweep, item.count) for item in run().removed] == [("booking.customers", 1)]
-    assert read_customer(owner, bought).anonymized_at is not None
+    # The first day after the fifth year the other sweep removes the buyer.
+    last = datetime(year + 5, 12, 31, 23, 59, 59, tzinfo=WARSAW)
+    assert [item for item in run(last).removed if item.sweep == "commerce.buyers"] == []
+    assert buyer(owner, order)[0] == "kupila"
+    first = last + timedelta(seconds=1)
+    assert [item.count for item in run(first).removed if item.sweep == "commerce.buyers"] == [1]
     assert buyer(owner, order) == PLACEHOLDER
 
 
-def test_a_payment_marked_while_the_run_was_looking_keeps_the_customer(
+def test_a_payment_marked_while_the_run_was_looking_keeps_the_buyer_on_the_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """What other modules still need is asked again under the customers'
-    lock, and commerce locks the orders before it reads the ledger."""
-    owner = membership("okres-wyjatek-wyscig")
+    """The run chose its customers before the payment was marked: the strip
+    locks the customer's orders and reads the ledger from under the lock, so
+    the order paid for meanwhile keeps its buyer — the customer goes."""
+    owner = membership("okres-przebieg-wyscig")
     with_orders(owner.organization_id)
     configured = catalog(owner)
     paying = customer(owner, configured, "placi", ended=40)
     free = customer(owner, configured, "wolny", ended=40)
-    locked: list[str] = []
-    asked = buyers.customers_held
-
-    def spy(organization_id: Any, among: Any) -> set[Any]:
-        locked.append("all" if among is None else "among")
-        return asked(organization_id, among)
-
-    monkeypatch.setattr(privacy, "_exclusions", {})
-    privacy.register_retention_exclusion("booking.customers", spy)
     with tenant(owner):
         candidates = Customer.all_objects.filter(
             organization_id=owner.organization_id, id__in=[paying.id, free.id]
@@ -485,13 +494,105 @@ def test_a_payment_marked_while_the_run_was_looking_keeps_the_customer(
             booking_retention, "customers_due", lambda organization_id, cutoff: candidates
         )
     # Committed after the run chose its candidates: the order is paid for.
-    sold(owner, paying)
+    order = sold(owner, paying)
     with tenant(owner):
-        assert erase_customers(owner.organization_id, cutoff_for(24), 10) == 1
+        assert erase_customers(owner.organization_id, cutoff_for(24), 10) == 2
 
-    assert locked == ["among"]
-    assert read_customer(owner, paying).email == "placi@example.test"
+    assert read_customer(owner, paying).anonymized_at is not None
     assert read_customer(owner, free).anonymized_at is not None
+    assert buyer(owner, order) == ("placi", "placi@example.test", "+48500100200")
+
+
+def _left_behind(way: str) -> dict[str, Any]:
+    """What is left of a customer with a paid order, an unpaid one, a refund
+    with the company's words, a visit's notes and stored mails — taken out
+    `by_hand` (the panel) or by the `run` (the company's period)."""
+    owner = membership(f"okres-oba-{way.replace('_', '-')}")
+    with_orders(owner.organization_id)
+    configured = catalog(owner)
+    # The helpers' keys are the name's: one name per company, read back as „anna”.
+    name = f"anna-{way.replace('_', '-')}"
+    person = customer(owner, configured, name, ended=40)
+    paid = sold(owner, person)
+    with tenant(owner):
+        unpaid = place_order(
+            source="booking",
+            customer=Customer.all_objects.get(pk=person.id),
+            currency="PLN",
+            amounts="gross",
+            lines=[line(9000)],
+            channel="office",
+        )
+        assert unpaid is not None
+        record_refund(
+            paid.id, amount_minor=5000, method="cash", expected_version=2, reason="Anna, kolano"
+        )
+        queue_email(
+            recipient_email=person.email,
+            template_key="booking.confirmation",
+            template_version=1,
+            locale="pl",
+            template_context={"organization_name": "Studio", "starts_at": "12.10 10:00"},
+            idempotency_key=f"mail-paid-{way}",
+            causation_id=f"commerce-order:{paid.id}",
+        )
+        foretold = anonymization_preview(person.id)["kept"]
+    if way == "by_hand":
+        with tenant(owner):
+            anonymize_customer(person.id)
+    else:
+        switch_on(owner)
+        assert [(item.sweep, item.count) for item in run().removed] == [("booking.customers", 1)]
+    with tenant(owner):
+        row = Customer.all_objects.get(pk=person.id)
+        visit_row = Appointment.all_objects.get(pk=person.visit_id)
+        return {
+            "customer": (row.display_name, row.email, row.phone, row.anonymized_at is not None),
+            "visit": (visit_row.customer_notes, visit_row.place_address, visit_row.place_town),
+            "paid_order": tuple(text.replace(name, "anna") for text in buyer(owner, paid)),
+            "paid_order_kept_until": read_order(paid.id)["buyer_kept_until"],
+            "unpaid_order": buyer(owner, unpaid),
+            "unpaid_order_kept_until": read_order(unpaid.id)["buyer_kept_until"],
+            "refund_reasons": list(
+                Refund.all_objects.filter(order_id=paid.id).values_list("reason", flat=True)
+            ),
+            "mails": sorted(
+                (template, address.endswith("@invalid.local"))
+                for template, address in NotificationMessage.all_objects.filter(
+                    causation_id__in=[f"commerce-order:{paid.id}", f"booking:{person.visit_id}"]
+                ).values_list("template_key", "recipient_email")
+            ),
+            "foretold": [(item["kind"], item["until"]) for item in foretold],
+            "left_after": len(anonymization_preview(person.id)["kept"]),
+        }
+
+
+def test_the_hand_and_the_run_leave_exactly_the_same() -> None:
+    """The owner's answer of 04.10 (variant b): the company's removal after a
+    time strips a customer with a paid order as the hand anonymisation does —
+    the card and the visits go, only the buyer's snapshot stays in the order
+    for its period."""
+    year = timezone.now().astimezone(WARSAW).year
+    by_hand, by_run = _left_behind("by_hand"), _left_behind("run")
+
+    assert by_hand == by_run
+    assert by_run == {
+        "customer": (*PLACEHOLDER, True),
+        "visit": ("", "", "Olsztyn"),
+        "paid_order": ("anna", "anna@example.test", "+48500100200"),
+        "paid_order_kept_until": date(year + 5, 12, 31),
+        "unpaid_order": PLACEHOLDER,
+        "unpaid_order_kept_until": None,
+        "refund_reasons": [""],
+        "mails": [
+            ("booking.confirmation", True),
+            ("booking.confirmation", True),
+            ("booking.confirmation", True),
+            ("commerce.refund_marked", True),
+        ],
+        "foretold": [("commerce.order_buyer", date(year + 5, 12, 31))],
+        "left_after": 0,
+    }
 
 
 def test_the_panel_reads_what_stays_over_the_api_and_only_in_its_own_company() -> None:

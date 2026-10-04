@@ -9,6 +9,8 @@ from .price_views import (
     ParticipantCategoryDetailView,
     ParticipantCategoryListView,
     ParticipantCategoryUpdatePreviewView,
+    PriceHistoryView,
+    PriceListOnView,
     PriceRuleCopyYearPreviewView,
     PriceRuleCopyYearView,
     PriceRuleCreatePreviewView,
@@ -282,6 +284,8 @@ urlpatterns = [
         PriceRuleCopyYearPreviewView.as_view(),
         name="prices-copy-year-preview",
     ),
+    path("setup/prices/history/", PriceHistoryView.as_view(), name="prices-history"),
+    path("setup/prices/on-day/", PriceListOnView.as_view(), name="prices-on-day"),
     path("setup/prices/<uuid:price_id>/", PriceRuleDetailView.as_view(), name="price"),
     path(
         "setup/prices/<uuid:price_id>/preview/",

@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { allows, panelAccess } from "#lib/panel-navigation";
+import { allows, panelAccess, profileOffers } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
-import { deployment } from "../../../../../generated/deployment";
 import { OrderPanel } from "../../../../../modules/shared/commerce";
 
 /**
@@ -12,9 +11,7 @@ import { OrderPanel } from "../../../../../modules/shared/commerce";
  * the customer would stay named there, and the window would promise more
  * than happens (docs/architecture/privacy-retention.md).
  */
-const customerRemovalOffered =
-  (deployment.features as Record<string, boolean | undefined>)
-    .customerRetention === true;
+const customerRemovalOffered = profileOffers("customerRetention");
 
 export default async function OrderPage({
   params,

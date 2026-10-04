@@ -17,6 +17,7 @@ import {
 
 import type { OrganizationSummary } from "@saas-core/api-client";
 
+import { deployment } from "../generated/deployment";
 import { product } from "../product";
 import { modulesFor, typeRole } from "./organization-types";
 import type { ProductNavigationItem } from "./product-extension";
@@ -80,6 +81,9 @@ export type PanelSectionTab = Pick<
   requests?: boolean;
   /** Only for a company that sells by dates (`GET /booking/overview/` `stays`). */
   stays?: boolean;
+  /** Only where the deployment's profile offers it (`features` of
+   * `deployment.json`), e.g. `customerRetention`. */
+  feature?: string;
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
   count?: number;
   /** The name as the API gives it, already in the panel's language — an
@@ -296,6 +300,15 @@ export const PANEL_SECTIONS = {
       module: "shared.customers",
       permission: "customers.read",
     },
+    {
+      // A customer's request to be forgotten (ADR-073, slice 4i): whoever
+      // may anonymise a customer, where the profile offers their removal.
+      href: "/panel/settings/customer-removal",
+      labelKey: "sectionCustomerRemoval",
+      module: "shared.booking",
+      permission: "booking.appointment.manage",
+      feature: "customerRetention",
+    },
     // The product's own settings (ProductSettingsSection) stand with the
     // company's, before the technical page (UX-002).
     ...(product.settingsSections ?? []),
@@ -483,6 +496,14 @@ const PLATFORM: PanelNavItem = {
   operator: true,
 };
 
+/** Whether the deployment's profile switches a feature on (`deployment.json`). */
+export function profileOffers(feature: string): boolean {
+  return (
+    (deployment.features as Record<string, boolean | undefined>)[feature] ===
+    true
+  );
+}
+
 export function allows(
   access: PanelAccess,
   item: Pick<
@@ -498,9 +519,11 @@ export function allows(
     dispatch?: PanelSectionTab["dispatch"];
     requests?: PanelSectionTab["requests"];
     stays?: PanelSectionTab["stays"];
+    feature?: PanelSectionTab["feature"];
   },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
+  if (item.feature && !profileOffers(item.feature)) return false;
   if (item.operator && (access.operatorLevel ?? 0) < 1) return false;
   if (item.stays && !access.booking?.stays) return false;
   if (item.requests && (access.booking?.requests ?? null) === null)

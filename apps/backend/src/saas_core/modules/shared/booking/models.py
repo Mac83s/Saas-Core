@@ -10,6 +10,7 @@ from django.contrib.postgres.fields import ArrayField, DateTimeRangeField, Range
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils.timezone import now
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 from saas_core.modules.shared.customers.api import CUSTOMER_MODEL
@@ -883,6 +884,54 @@ class PriceRule(TenantScopedModel):
                 condition=models.Q(currency__regex=r"^[A-Z]{3}$"),
                 name="booking_price_currency_ck",
             ),
+        ]
+
+
+class PriceChange(models.TextChoices):
+    #: The price as it stood when the record began (the migration's line).
+    BASELINE = "baseline", "Stan początkowy"
+    CREATED = "created", "Dodana"
+    UPDATED = "updated", "Zmieniona"
+    DELETED = "deleted", "Usunięta"
+
+
+class PriceHistoryEntry(TenantScopedModel):
+    """What a price was (ADR-072 §6; ADR-073, slice 4i): one line for every
+    write of a `PriceRule` — made, changed, deleted — with the whole rule as
+    the write left it, who wrote it and when. Append-only: the price list of
+    a past day is read from here (`price_history.rules_at`), not worked out
+    from the audit, whose entries name fields and can be trimmed. A promotion
+    must show the lowest price of the 30 days before it, and that cannot be
+    made up afterwards.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    #: The price's id — not a foreign key: the line outlives a deleted price.
+    rule_id = models.UUIDField()
+    change = models.CharField(max_length=8, choices=PriceChange)
+    #: Every column of the rule as this write left it, by column name; for a
+    #: deletion, as it last was.
+    state = models.JSONField()
+    #: The amount after the write (a deleted price's last one) and before it
+    #: (empty for a price just made and for the baseline).
+    amount_minor = models.PositiveIntegerField()
+    previous_amount_minor = models.PositiveIntegerField(null=True, blank=True)
+    currency = models.CharField(max_length=3)
+    #: The person who wrote it; empty — nobody did (the baseline).
+    actor_id = models.UUIDField(null=True, blank=True)
+    #: `assistant` when the person's assistant wrote it for them (ADR-076 §6).
+    acting_via = models.CharField(max_length=32, blank=True)
+    recorded_at = models.DateTimeField(default=now)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-recorded_at", "-id")
+        indexes = [
+            models.Index(
+                fields=["organization", "rule_id", "recorded_at"],
+                name="booking_pricehist_rule_idx",
+            ),
+            models.Index(fields=["organization", "recorded_at"], name="booking_pricehist_time_idx"),
         ]
 
 

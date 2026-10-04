@@ -89,9 +89,11 @@ def _past(organization_id: UUID, cutoff: datetime) -> QuerySet[Customer]:
 
 def customers_due(organization_id: UUID, cutoff: datetime) -> QuerySet[Customer]:
     """The customers whose data a run would remove at `cutoff`: past the
-    period, and never one another module still needs
-    (`register_retention_exclusion`) — the buyer of a sales record inside its
-    statutory period stays until that period ends."""
+    period, and never one another module holds back whole
+    (`register_retention_exclusion`; core registers none). A customer who
+    bought something is due like any other: the run strips them as a person's
+    click would, and the order keeps its buyer for the sales record's period
+    by itself (`customers.kept_after_strip`)."""
     return _past(organization_id, cutoff).exclude(id__in=excluded_ids(SWEEP, organization_id))
 
 
@@ -201,6 +203,7 @@ def _effects(before: Mapping[str, Any], after: Mapping[str, Any]) -> tuple[Effec
             for why, number in held
             if why
         )
+        + _kept_words(organization_id, cutoff, locale)
         for locale, lead in (
             ("pl", "Klienci po terminie, którzy na razie zostają"),
             ("en", "Customers past their time who stay for now"),
@@ -222,6 +225,27 @@ def _effects(before: Mapping[str, Any], after: Mapping[str, Any]) -> tuple[Effec
                 "owners get an e-mail about it." + stays["en"],
             },
         ),
+    )
+
+
+_KEPT_LEAD = {
+    "pl": "U klientów, których dotyczy teraz, zostaje tak: {count} — najdłużej do {until}.",
+    "en": "For the customers affected now this keeps: {count} — the longest until {until}.",
+}
+
+
+def _kept_words(organization_id: UUID, cutoff: datetime, locale: str) -> str:
+    """What stays of the customers a run would remove now, in the words of
+    the module that keeps it — the buyer on an order that was paid for, until
+    its date — with how many such records there are and the last day."""
+    kept = kept_after_strip(*customers_due(organization_id, cutoff))
+    reasons: dict[str, list[date]] = {}
+    for item in kept:
+        reasons.setdefault(item.why.get(locale) or item.why.get("en", ""), []).append(item.until)
+    return "".join(
+        f" {why} " + _KEPT_LEAD[locale].format(count=len(days), until=max(days).isoformat())
+        for why, days in reasons.items()
+        if why
     )
 
 
@@ -285,26 +309,28 @@ RETENTION = SettingGroup(
                 "uwagi klienta do wizyt, adres wizyty u klienta i adres w zapisie wysłanych "
                 "wiadomości; link klienta do zarządzania wizytą przestaje działać. Zostaje: "
                 "sama wizyta — termin, usługa, osoba z firmy, miejscowość — oraz e-maile, "
-                "które klient już dostał. Klient, którego dane firma musi jeszcze przechowywać "
-                "— kupujący z zamówienia z wpłatą — zostaje do końca tego okresu; podgląd "
-                "przed zapisem mówi, ilu takich jest. Po włączeniu nic nie znika przez "
-                f"{RETENTION_GRACE_DAYS} dni.",
+                "które klient już dostał. W zamówieniu z wpłatą dane kupującego zostają "
+                "dłużej — to zapis sprzedaży firmy, a system usunie je sam, gdy minie jego "
+                "okres; podgląd przed zapisem mówi, ilu zamówień to dotyczy i do kiedy. Po "
+                f"włączeniu nic nie znika przez {RETENTION_GRACE_DAYS} dni.",
                 "en": "Applies to a customer whose last visit ended longer ago and who has no "
                 "visit ahead. Removed: name, e-mail, phone, the customer's notes on visits, "
                 "the address of a visit at the customer's and the address in the record of "
                 "messages sent; the customer's link for managing a visit stops working. Kept: "
                 "the visit itself — its time, service, the company's person, the town — and "
-                "the e-mails the customer already received. A customer whose data the "
-                "company must still keep — the buyer of an order that was paid for — stays "
-                "until that period ends; the preview before saving says how many there are. "
+                "the e-mails the customer already received. On an order that was paid for "
+                "the buyer's details stay longer — it is the company's sales record, and the "
+                "system removes them by itself when its period ends; the preview before "
+                "saving says how many orders that is and until when. "
                 f"After switching it on, nothing goes for {RETENTION_GRACE_DAYS} days.",
             },
             model_description="After how many months from a customer's last visit their "
             "personal data is removed for good (name, e-mail, phone, their notes, the street "
             "of a visit at theirs, the copies in stored messages); `off` removes nothing. "
             "Only a customer with no visit ahead is affected; the visits stay without the "
-            "person's data. A customer who bought something that was paid for stays until "
-            "the sales record's statutory period ends; the preview counts them. "
+            "person's data. A customer who bought something that was paid for is removed "
+            "like any other, and only the buyer's details on that order stay until the "
+            "sales record's statutory period ends; the preview says how many and until when. "
             f"Nothing is removed for {RETENTION_GRACE_DAYS} days after the "
             "value changes, and the owners are told by e-mail. Irreversible: a person in "
             "the company must decide, never the assistant on its own.",

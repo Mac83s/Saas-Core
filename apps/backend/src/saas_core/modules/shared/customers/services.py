@@ -19,8 +19,10 @@ from .models import Customer
 
 #: The privacy run's sweep that removes customers after the company's own
 #: period. Its rule counts from visits, so booking registers it; a module
-#: that must keep a customer for now registers its exclusion under this key
-#: (`register_retention_exclusion`) without naming booking.
+#: that must keep a whole customer for now may register an exclusion under
+#: this key (`register_retention_exclusion`) without naming booking. Core
+#: registers none: what a module must keep of a stripped customer it keeps
+#: itself (`register_customer_anonymizer`, `keeps`).
 CUSTOMER_RETENTION_SWEEP = "booking.customers"
 
 
@@ -41,7 +43,8 @@ class Kept:
 
 
 type CustomerAnonymizer = Callable[[Customer], None]
-type CustomerKeeper = Callable[[Customer], Sequence[Kept]]
+#: Asked about customers of one company at once: a preview reads many.
+type CustomerKeeper = Callable[[Sequence[Customer]], Sequence[Kept]]
 
 _anonymizers: dict[str, CustomerAnonymizer] = {}
 _keepers: dict[str, CustomerKeeper] = {}
@@ -57,19 +60,23 @@ def register_customer_anonymizer(
 
     A module whose anonymizer leaves something for a time — a sales record
     inside its statutory period — says so with `keeps`: a read of what a
-    strip made now would leave, for whoever asks before they strip."""
+    strip of these customers made now would leave, for whoever asks before
+    they strip."""
     _anonymizers[name] = anonymizer
     if keeps is not None:
         _keepers[name] = keeps
 
 
-def kept_after_strip(customer: Customer) -> list[Kept]:
-    """What stripping this customer now would leave, and until when — a read,
-    inside the company's tenant. Empty for a customer already stripped: what
-    was left then is its module's to show."""
-    if customer.anonymized_at is not None:
+def kept_after_strip(*customers: Customer) -> list[Kept]:
+    """What stripping these customers of one company now would leave, and
+    until when — a read, inside the company's tenant: one customer for the
+    window that asks before a removal by hand, the customers past the
+    company's period for the preview of its retention setting. A customer
+    already stripped adds nothing: what was left then is its module's to show."""
+    named = [customer for customer in customers if customer.anonymized_at is None]
+    if not named:
         return []
-    return [item for name in sorted(_keepers) for item in _keepers[name](customer)]
+    return [item for name in sorted(_keepers) for item in _keepers[name](named)]
 
 
 def match_or_create(

@@ -56,12 +56,42 @@ class ModelProfile:
         )
 
 
-#: The processor the platform's privacy documents name for companies' content
-#: (the owner's answer of 04.10.2026; `docs/architecture/model-port.md`,
-#: „Podmiot przetwarzający”): OpenRouter with Claude Sonnet 5.5 by Anthropic.
-#: The tasks that send a company's content default to it, and a test holds
-#: them to it — another model is another entry in the documents first.
+@dataclass(frozen=True, slots=True)
+class Processor:
+    """One chain a company's content travels, link by link — what the
+    platform's privacy documents name („Podmiot przetwarzający”)."""
+
+    #: The intermediary the platform sends the request to, by its adapter:
+    #: `openrouter` — OpenRouter, Inc.
+    adapter: str
+    #: Who runs the model, as the intermediary names the host in a request's
+    #: provider preferences: `google-vertex/europe` — Google Cloud, Vertex AI,
+    #: a European region.
+    host: str
+    #: Whose model, as the intermediary names it: `anthropic/…` — Anthropic.
+    model: str
+
+
+#: The processors the platform's privacy documents name for companies'
+#: content (the owner's answers of 04.10.2026; `docs/architecture/model-port.md`,
+#: „Podmiot przetwarzający”): through OpenRouter, run by Google Cloud (Vertex
+#: AI, European region), Claude Sonnet 5.5 and — as the fallback — Claude Haiku
+#: 4.5 by Anthropic. Nothing else is sent a company's content: the platform's
+#: setting of a task's model refuses another model (`settings_spec.py`), the
+#: call itself is refused when `.env` or code names one (`service._gates`), and
+#: the host is the one the provider pin names
+#: (`model_port.privacy.claude_provider`). Another model or another host is
+#: another entry in the documents first, then a row here.
+LISTED_PROCESSORS = (
+    Processor("openrouter", "google-vertex/europe", "anthropic/claude-sonnet-5.5"),
+    Processor("openrouter", "google-vertex/europe", "anthropic/claude-haiku-4.5"),
+)
+#: The one of them the tasks that send a company's content default to; a test
+#: holds them to it.
 LISTED_PROCESSOR = ("openrouter", "anthropic/claude-sonnet-5.5")
+#: The adapter that never leaves the process (tests, the stand-in translator):
+#: nobody processes what it is given, so the list does not apply to it.
+IN_PROCESS_ADAPTER = "fake"
 
 #: The plan's candidates (TL7). Capabilities and prices follow the claude-api
 #: skill as of 2026-09-25 and OpenRouter's model list; each row is confirmed by
@@ -197,6 +227,22 @@ MODELS: dict[tuple[str, str], ModelProfile] = {
         evaluation_only=True,
     ),
 }
+
+
+def processor_listed(adapter: str, model: str) -> bool:
+    """Whether a company's content may go to this model: the documents name
+    a chain that serves it, or nobody would process it (the in-process
+    adapter)."""
+    return adapter == IN_PROCESS_ADAPTER or bool(listed_hosts(adapter, model))
+
+
+def listed_hosts(adapter: str, model: str) -> tuple[str, ...]:
+    """The hosts the documents name for this model through this intermediary."""
+    return tuple(
+        chain.host
+        for chain in LISTED_PROCESSORS
+        if (chain.adapter, chain.model) == (adapter, model)
+    )
 
 
 def model_profile(adapter: str, model: str) -> ModelProfile | None:

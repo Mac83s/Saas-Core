@@ -65,10 +65,11 @@ ACCEPTED_WRITE = "write"
 
 #: What a customer ticks to get the company's offers by e-mail (ADR-073 §9;
 #: the owner's wording of 2026-10-04): one sentence for every form, with the
-#: company's name in it. The journal keeps only its hash, so this is the one
-#: place the words live — a form shows them and the panel's list of consents
-#: reads them back through `marketing_wording`. A language without its own
-#: sentence has none: a consent is never asked for in another language.
+#: company's name in it. A form shows it through `marketing_wording` and the
+#: journal keeps the sentence as it was shown (`ConsentRecord.wording`), so a
+#: change here changes what the next person agrees to and nothing already
+#: agreed. A language without its own sentence has none: a consent is never
+#: asked for in another language.
 MARKETING_WORDING: dict[str, str] = {
     "pl": "Chcę otrzymywać oferty i promocje od {company} e-mailem.",
     "en": "I want to receive offers and promotions from {company} by e-mail.",
@@ -790,7 +791,7 @@ def marketing_wording(locale: str, company: str) -> str:
     """The marketing consent as a customer of `company` reads it in `locale`
     (`MARKETING_WORDING`); empty when that language has no sentence. Pass the
     result to `record_consent(kind="marketing", wording=…)`: the journal keeps
-    its hash (`text_hash`), which is how a line is matched to these words."""
+    the sentence itself and its hash (`wording`, `text_hash`)."""
     sentence = MARKETING_WORDING.get(locale)
     return sentence.format(company=company) if sentence else ""
 
@@ -809,8 +810,10 @@ def record_consent(
     """One line of the consent journal, inside the caller's transaction and
     tenant: this person — a customer, or whoever the source's record names —
     saw this text row of a document (`text_id`), or agreed to `wording` (a
-    marketing consent, a consent field of a form). Nothing is ever changed:
-    a withdrawal is the next line with `granted=False`."""
+    marketing consent, a consent field of a form) — kept word for word, with
+    its hash, because the wording shown is the evidence of the consent.
+    Nothing is ever changed: a withdrawal is the next line with
+    `granted=False`."""
     context = require_tenant_context()
     row: DocumentText | None = None
     if kind == ConsentKind.DOCUMENT:
@@ -831,6 +834,8 @@ def record_consent(
         kind=kind,
         document_text=row,
         text_hash=row.text_hash if row else (text_hash(wording) if wording else ""),
+        # A document's words are its text row; any other consent's are here.
+        wording="" if row else wording,
         locale=row.locale if row else locale,
         granted=granted,
         source=source,

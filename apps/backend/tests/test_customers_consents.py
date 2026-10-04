@@ -34,6 +34,7 @@ from saas_core.modules.shared.customers.consents import (
     list_marketing_consents,
     withdraw_marketing_consent,
 )
+from saas_core.modules.shared.customers.documents import text_hash
 from saas_core.modules.shared.customers.models import ConsentRecord
 from test_booking import membership, tenant
 from test_customers_documents import PRIVACY, approved, with_second_factor
@@ -109,15 +110,17 @@ def test_the_list_says_who_agreed_when_on_which_form_and_to_which_words() -> Non
         "wording": "Chcę otrzymywać oferty i promocje od zgody-lista e-mailem.",
         "withdrawn_at": None,
     }
-    # The journal keeps the hash; the words come back from the constant.
-    assert first.text_hash and "zgody-lista" in oldest["wording"]
+    # The journal keeps the words as they were shown, beside their hash.
+    assert first.wording == oldest["wording"] and len(first.text_hash) == 64
     assert (newest["consent_id"], newest["locale"]) == (second.id, "de")
     assert newest["wording"].startswith("Ich möchte Angebote")
     assert nobody["items"] == [] and nobody["total"] == 0
 
 
-def test_words_the_constant_no_longer_gives_are_said_to_be_unknown() -> None:
-    owner = membership("zgody-nieznane")
+def test_the_words_agreed_to_stay_after_the_company_is_renamed() -> None:
+    """The evidence of a consent is the wording shown: the journal keeps the
+    sentence, so neither a new name nor a changed constant rewrites it."""
+    owner = membership("zgody-nazwa")
     with tenant(owner):
         anna = person(owner, "Anna Lis")
         agree(anna, wording="Zgadzam się na newsletter.")
@@ -126,13 +129,48 @@ def test_words_the_constant_no_longer_gives_are_said_to_be_unknown() -> None:
         Organization.objects.filter(pk=owner.organization_id).update(name="Nowa Nazwa")
         listed = list_marketing_consents()
 
-    # Still listed as agreed, with the date and the form — only the exact
-    # words cannot be shown any more.
     assert [(item["name"], item["wording"]) for item in listed["items"]] == [
+        ("Jan Kot", "Chcę otrzymywać oferty i promocje od zgody-nazwa e-mailem."),
+        ("Anna Lis", "Zgadzam się na newsletter."),
+    ]
+
+
+def old_line(customer: Customer, sentence: str) -> ConsentRecord:
+    """A line from before the journal kept the words: the hash alone."""
+    return ConsentRecord.all_objects.create(
+        organization_id=customer.organization_id,
+        customer=customer,
+        kind=ConsentKind.MARKETING,
+        text_hash=text_hash(sentence),
+        locale="pl",
+        source=BOOKING,
+        source_reference=str(uuid7()),
+    )
+
+
+def test_a_line_from_before_the_words_were_kept_says_so_when_its_hash_names_none() -> None:
+    owner = membership("zgody-dawne")
+    with tenant(owner):
+        anna = person(owner, "Anna Lis")
+        old_line(anna, marketing_wording("pl", "zgody-dawne"))
+        jan = person(owner, "Jan Kot")
+        old_line(jan, "Zgadzam się na newsletter.")
+        before = list_marketing_consents()
+        Organization.objects.filter(pk=owner.organization_id).update(name="Nowa Nazwa")
+        after = list_marketing_consents()
+
+    # While today's sentence gives the hash, the hash proves the words.
+    assert [(item["name"], item["wording"]) for item in before["items"]] == [
+        ("Jan Kot", ""),
+        ("Anna Lis", "Chcę otrzymywać oferty i promocje od zgody-dawne e-mailem."),
+    ]
+    # Still listed as agreed, with the date and the form — the words were
+    # not written down, and nothing known today gives the hash any more.
+    assert [(item["name"], item["wording"]) for item in after["items"]] == [
         ("Jan Kot", ""),
         ("Anna Lis", ""),
     ]
-    assert all(item["granted"] for item in listed["items"])
+    assert all(item["granted"] for item in after["items"])
 
 
 def test_a_withdrawal_is_the_journals_next_line_and_never_a_change() -> None:

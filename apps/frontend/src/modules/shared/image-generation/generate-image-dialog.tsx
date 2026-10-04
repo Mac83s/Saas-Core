@@ -252,6 +252,9 @@ export function GenerateImageDialog({
             >
               {t("warning")}
             </p>
+            {/* Who gets the description: the processor entry's words
+                (docs/architecture/model-port.md, „Podmiot przetwarzający”). */}
+            <p className="text-sm text-muted-foreground">{t("processor")}</p>
             {/* Always mounted, so a screen reader hears each change in it. */}
             <p className="text-sm text-muted-foreground" role="status">
               {status}

@@ -23,6 +23,7 @@ from .documents import (
     save_draft,
 )
 from .models import DocumentRoute
+from .people import FOUND_AT_ONCE, search_customers
 from .security import public_documents_context
 from .serializers import (
     CustomerDocumentApprovalSerializer,
@@ -32,6 +33,8 @@ from .serializers import (
     CustomerDocumentListSerializer,
     CustomerDocumentSerializer,
     CustomerDocumentTextInputSerializer,
+    CustomerSearchQuerySerializer,
+    CustomerSearchSerializer,
     MarketingConsentPageSerializer,
     MarketingConsentQuerySerializer,
     MarketingConsentSerializer,
@@ -261,6 +264,33 @@ class MarketingConsentListView(APIView):
         query = MarketingConsentQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         return Response(list_marketing_consents(**cast(dict[str, Any], query.validated_data)))
+
+
+class CustomerSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="customers_search",
+        summary="Find a customer by name, e-mail or phone",
+        description="The company's customers matching what a person typed, newest first — "
+        f"`total` and the first {FOUND_AT_ONCE} of them. Everybody of the company may ask; "
+        "the answer holds only the customers the caller sees elsewhere in the panel (on "
+        "visits, on orders), with the e-mail and the phone where the caller sees them "
+        "there. A customer whose data was removed is not found. The panel's place for "
+        "removing one customer's data on request starts here "
+        "(`POST /booking/customers/{id}/anonymize/`).",
+        tags=_TAGS,
+        parameters=[CustomerSearchQuerySerializer],
+        responses={
+            200: CustomerSearchSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = CustomerSearchQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        return Response(search_customers(query.validated_data["q"]))
 
 
 @method_decorator(csrf_protect, name="dispatch")

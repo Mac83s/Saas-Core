@@ -432,6 +432,12 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
             />
             {t("showInCatalog")}
           </label>
+          {/* Who reads the card's public text for the directory's search by
+              meaning (docs/architecture/model-port.md, „Podmiot
+              przetwarzający”). */}
+          <p className="text-muted-foreground text-sm">
+            {t("catalogProcessor")}
+          </p>
           {error && (
             <p className="text-destructive text-sm" role="alert">
               {error}

@@ -112,6 +112,8 @@ def _platform_model(spec: TaskSpec) -> TaskSpec:
     # and the environment's override has already been applied.
     if chosen.source != "platform":
         return spec
+    # Neither a row removed since nor one outside the listed processors
+    # (chosen before that rule): the task's own model applies instead.
     if chosen.value not in selectable_models(spec.key):
         logger.warning(
             "model_port_platform_model_ignored",

@@ -465,7 +465,8 @@ def test_the_journal_says_who_saw_which_text_and_where() -> None:
     )
     assert (asked.customer_id, asked.source_reference) == (None, "inquiry-7")
     assert (marketing.document_text_id, len(marketing.text_hash)) == (None, 64)
-    assert withdrawn.text_hash == ""
+    assert marketing.wording == "Chcę dostawać oferty e-mailem."
+    assert (withdrawn.text_hash, withdrawn.wording, booked.wording) == ("", "", "")
 
 
 def test_the_database_refuses_a_consent_to_another_companys_text() -> None:

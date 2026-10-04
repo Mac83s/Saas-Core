@@ -2755,7 +2755,7 @@
         "additionalProperties": false,
         "properties": {
           "customers": {
-            "description": "After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
+            "description": "After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for is removed like any other, and only the buyer's details on that order stay until the sales record's statutory period ends; the preview says how many and until when. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own. Null keeps it as it is.",
             "enum": [
               "off",
               "12",

@@ -95,13 +95,13 @@ test("the list says who agreed, when, on which form and to which words", async (
   expect(await axe.run(container)).toMatchObject({ violations: [] });
 });
 
-test("words the journal can no longer give back are said to be unknown, and nobody yet is said calmly", async () => {
+test("a consent from before the journal kept the words says they were not recorded, and nobody yet is said calmly", async () => {
   api.listMarketingConsents.mockResolvedValue(
     page([consent({ wording: "", source: "shop.checkout" })]),
   );
   const first = wrap(<MarketingConsentsPanel />);
   expect(
-    await screen.findByText(/Treści z dnia zgody nie da się już odtworzyć/),
+    await screen.findByText(/Treść niezapisana — tę zgodę zapisano/),
   ).toBeTruthy();
   // A form this panel has no name for is shown by its key.
   expect(screen.getByText(/shop\.checkout/)).toBeTruthy();

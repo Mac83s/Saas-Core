@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { CopyIcon, PencilIcon, PlusIcon, UsersIcon } from "lucide-react";
+import {
+  CopyIcon,
+  HistoryIcon,
+  PencilIcon,
+  PlusIcon,
+  UsersIcon,
+} from "lucide-react";
 
 import {
   copyBookingPricesToNextYear,
@@ -30,6 +36,7 @@ import {
   type PriceSetup,
 } from "./price-book";
 import { PriceDialog, refusal } from "./price-dialog";
+import { PriceHistoryDialog } from "./price-history";
 import { PricePreview } from "./price-preview";
 
 /**
@@ -61,6 +68,7 @@ export function PriceList({
   const words = usePriceWords(setup);
   const [editing, setEditing] = useState<{ item?: BookingPrice }>();
   const [categorizing, setCategorizing] = useState(false);
+  const [history, setHistory] = useState(false);
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
   const [notice, setNotice] = useState("");
   const [problem, setProblem] = useState<string>();
@@ -219,6 +227,16 @@ export function PriceList({
             <UsersIcon aria-hidden="true" />
             {t("categoriesTitle")}
           </Button>
+          <Button
+            onClick={(event) => {
+              setReturnTo(event.currentTarget);
+              setHistory(true);
+            }}
+            variant="outline"
+          >
+            <HistoryIcon aria-hidden="true" />
+            {t("history")}
+          </Button>
           {latestYear ? (
             <Button
               onClick={() =>
@@ -335,6 +353,13 @@ export function PriceList({
               offer.draft ||
               offer.id === (editing.item?.service_id ?? service?.id),
           )}
+        />
+      ) : null}
+      {history ? (
+        <PriceHistoryDialog
+          finalFocus={returnTo}
+          onOpenChange={(open) => (open ? undefined : setHistory(false))}
+          setup={setup}
         />
       ) : null}
       {categorizing ? (

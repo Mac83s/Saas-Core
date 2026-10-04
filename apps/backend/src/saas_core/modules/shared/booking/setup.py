@@ -53,6 +53,7 @@ from .models import (
     Extra,
     Location,
     PaymentPolicy,
+    PriceChange,
     PriceRule,
     PublicBookingRoute,
     RangeUnit,
@@ -68,6 +69,7 @@ from .models import (
     TimeModel,
 )
 from .offer_settings import offer_options
+from .price_history import record as record_price
 from .services import (
     BOOKING_ENABLED,
     BOOKING_MANAGE,
@@ -493,6 +495,9 @@ def _discard_draft(
         _refuse_discard("Tę usługę już włączano: można ją tylko wyłączyć.", "not_a_draft")
     if Appointment.all_objects.filter(organization=organization, service=service).exists():
         _refuse_discard("Usługa ma rezerwacje.", "service_has_bookings")
+    # The record of prices keeps what the draft's prices were.
+    for price in PriceRule.all_objects.filter(organization=organization, service=service):
+        record_price(context, price, PriceChange.DELETED, previous_amount=price.amount_minor)
     # Everything that is the draft's own: its links, seasons, prices and extras.
     for model in (
         ServiceStaff,
@@ -1035,9 +1040,7 @@ def _write_offer_units(
         _refuse_units("count", f"Podaj liczbę od 1 do {MAX_OFFER_UNITS}.", "out_of_range")
     if capacity is not None and not 1 <= capacity <= MAX_UNIT_CAPACITY:
         # The panel's own bound for a unit (`ResourceInputSerializer`).
-        _refuse_units(
-            "capacity", f"Podaj liczbę osób od 1 do {MAX_UNIT_CAPACITY}.", "out_of_range"
-        )
+        _refuse_units("capacity", f"Podaj liczbę osób od 1 do {MAX_UNIT_CAPACITY}.", "out_of_range")
     if location_id is not None:
         _own(Location, organization, [location_id], "location_id")
     linked = list(

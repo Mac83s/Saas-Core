@@ -42,8 +42,10 @@ from saas_core.modules.shared.model_port.api import (
 )
 from saas_core.modules.shared.model_port.matrix import (
     LISTED_PROCESSOR,
+    LISTED_PROCESSORS,
     MODELS,
     ModelProfile,
+    listed_hosts,
     register_model,
 )
 from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
@@ -304,14 +306,53 @@ def test_a_conversation_without_its_conversation_id_cannot_skip_its_budget() -> 
 
 
 def test_the_tasks_that_send_a_companys_content_use_the_processor_the_documents_name() -> None:
-    """The privacy documents name one processor (the owner's answer of 04.10):
-    a task's default model that is another one would make them untrue. Change
-    the documents, the panel's words and `LISTED_PROCESSOR` together —
-    docs/architecture/model-port.md, „Podmiot przetwarzający”."""
+    """The privacy documents name the processors (the owner's answers of
+    04.10): a task's default model that is another one would make them
+    untrue. Change the documents, the panel's words and `LISTED_PROCESSORS`
+    together — docs/architecture/model-port.md, „Podmiot przetwarzający”."""
     assert LISTED_PROCESSOR == ("openrouter", "anthropic/claude-sonnet-5.5")
-    assert MODELS[LISTED_PROCESSOR].probed is not None
-    assert not MODELS[LISTED_PROCESSOR].evaluation_only
+    # The whole chain, link by link: the intermediary, who runs the model,
+    # whose model — Sonnet first, Haiku as the fallback.
+    assert [(chain.adapter, chain.host, chain.model) for chain in LISTED_PROCESSORS] == [
+        ("openrouter", "google-vertex/europe", "anthropic/claude-sonnet-5.5"),
+        ("openrouter", "google-vertex/europe", "anthropic/claude-haiku-4.5"),
+    ]
+    for chain in LISTED_PROCESSORS:
+        assert MODELS[(chain.adapter, chain.model)].probed is not None
+        assert not MODELS[(chain.adapter, chain.model)].evaluation_only
+        assert listed_hosts(chain.adapter, chain.model) == ("google-vertex/europe",)
+    assert listed_hosts("openrouter", "google/gemini-3.8-flash") == ()
     assert {(spec.adapter, spec.model) for spec in registry.DEFAULT_TASKS} == {LISTED_PROCESSOR}
+
+
+def test_a_companys_content_never_goes_to_a_model_outside_the_listed_processors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The setting refuses such a model; `.env` and code are not asked, so
+    the call itself is refused — for a company, and only for a company."""
+    from saas_core.modules.core.organizations.platform_workspace import ensure_platform_workspace
+    from saas_core.modules.shared.model_port import service
+
+    monkeypatch.setenv("MODEL_PORT_TASK_TRANSLATION_TEXT_MODEL", "google/gemini-3.8-flash")
+    monkeypatch.setenv("MODEL_PORT_TASK_TRANSLATION_TEXT_ADAPTER", "openrouter")
+    monkeypatch.setattr(service.settings, "MODEL_PORT_OPENROUTER_API_KEY_MOUNTED", True)
+    monkeypatch.setattr(service.settings, "MODEL_PORT_OPENROUTER_API_KEY", "test-key")
+    service._PLATFORM_ID.clear()
+    customer = organization()
+    publisher, _ = ensure_platform_workspace()
+    # The script stands in for OpenRouter: what reaches it would have left.
+    monkeypatch.setattr(service, "adapter_for", lambda _key: FAKE)
+    FAKE.script(reply_json({"translations": []}))
+
+    with pytest.raises(ModelError) as error:
+        complete(translation(customer))
+    complete(translation(publisher))
+
+    assert (error.value.kind, error.value.code) == ("configuration", "processor_not_listed")
+    # Only the publisher's own content left, for the model `.env` named.
+    assert [call.model.model for call in FAKE.calls] == ["google/gemini-3.8-flash"]
+    assert UsageEntry.objects.get().purpose == "platform"
+    service._PLATFORM_ID.clear()
 
 
 def test_customer_content_waits_for_the_processor_flag_the_publisher_does_not(
@@ -777,6 +818,47 @@ def test_a_claude_model_is_served_by_the_one_provider_the_platform_names(
         assert (row.outcome, row.resolved_provider) == ("configuration", "Anthropic")
     finally:
         MODELS.pop(("fake", CLAUDE), None)
+
+
+def test_a_companys_content_goes_only_to_the_host_the_documents_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The pin takes a listed host only (`settings_spec._only_listed_host`); a
+    value stored before that rule, or written past it, serves no company —
+    the call is refused before anything leaves."""
+    from saas_core.modules.core.organizations.platform_workspace import ensure_platform_workspace
+    from saas_core.modules.shared.model_port import service
+
+    haiku = "anthropic/claude-haiku-4.5"
+    monkeypatch.setenv("MODEL_PORT_TASK_TRANSLATION_TEXT_MODEL", haiku)
+    monkeypatch.setenv("MODEL_PORT_TASK_TRANSLATION_TEXT_ADAPTER", "openrouter")
+    monkeypatch.setattr(service.settings, "MODEL_PORT_OPENROUTER_API_KEY_MOUNTED", True)
+    monkeypatch.setattr(service.settings, "MODEL_PORT_OPENROUTER_API_KEY", "test-key")
+    # The script stands in for OpenRouter: what reaches it would have left.
+    monkeypatch.setattr(service, "adapter_for", lambda _key: FAKE)
+    service._PLATFORM_ID.clear()
+    customer = organization("port-host")
+    publisher, _ = ensure_platform_workspace()
+
+    # The listed chain: Haiku at Google's Vertex AI in Europe.
+    FAKE.script(reply_json({"translations": []}, resolved_provider="Google"))
+    complete(translation(customer))
+    assert [(call.model.model, call.provider) for call in FAKE.calls] == [
+        (haiku, "google-vertex/europe")
+    ]
+
+    monkeypatch.setattr(
+        platform_settings, "platform_overrides", lambda: {CLAUDE_PROVIDER.key: "amazon-bedrock"}
+    )
+    FAKE.script(reply_json({"translations": []}, resolved_provider="Amazon Bedrock"))
+    with pytest.raises(ModelError) as error:
+        complete(translation(customer))
+    # The publisher's own content is not a company's: the list does not hold it.
+    complete(translation(publisher))
+
+    assert (error.value.kind, error.value.code) == ("configuration", "processor_not_listed")
+    assert [call.provider for call in FAKE.calls] == ["google-vertex/europe", "amazon-bedrock"]
+    service._PLATFORM_ID.clear()
 
 
 def test_a_pinned_provider_that_cannot_serve_closes_the_call() -> None:

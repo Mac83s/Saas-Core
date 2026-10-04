@@ -21,14 +21,17 @@ off.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 from itertools import pairwise
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.exceptions import ErrorDetail, ValidationError
 
+from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.api import setting
 from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
@@ -40,6 +43,8 @@ from .models import (
     ExtraKind,
     ParticipantCategory,
     PriceBasis,
+    PriceChange,
+    PriceHistoryEntry,
     PriceRule,
     Resource,
     ResourceGroup,
@@ -47,6 +52,7 @@ from .models import (
     TimeModel,
     VatCode,
 )
+from .price_history import record, recorded_since, rule_of, rules_at
 from .rules import (
     CATEGORY_CHANGED,
     EXTRA_CHANGED,
@@ -60,6 +66,8 @@ from .rules import (
 from .setup import Saved, _manage, _own, setup_write
 
 AMOUNTS = "pricing.entry.amounts"
+#: The longest page of the record of price changes.
+MAX_HISTORY_PAGE = 100
 GROSS, NET = "gross", "net"
 
 _PRICE_FIELDS = (
@@ -142,26 +150,51 @@ def save_price(
         request={"data": data, "expected_version": expected_version},
         idempotency_key=idempotency_key,
         preview=preview,
-        write=lambda: _write(
+        write=lambda: _recorded(
             context,
-            organization,
-            PriceRule,
-            price_id,
-            data,
-            expected_version,
-            _PRICE_FIELDS,
-            _check_price,
-            PRICE_CHANGED,
-            unnamed=("category_prices", "length_discounts"),
+            _write(
+                context,
+                organization,
+                PriceRule,
+                price_id,
+                data,
+                expected_version,
+                _PRICE_FIELDS,
+                _check_price,
+                PRICE_CHANGED,
+                unnamed=("category_prices", "length_discounts"),
+            ),
         ),
         replay=lambda item_id: _replay(PriceRule, organization, item_id, created),
     )
 
 
+def _recorded(context: TenantContext, saved: Saved[PriceRule]) -> Saved[PriceRule]:
+    """The write's line in the record of prices (`price_history`): one for a
+    price just made, one for a change that changed something."""
+    if saved.created:
+        record(context, saved.value, PriceChange.CREATED)
+    elif saved.changes:
+        amount = saved.changes.get("amount_minor", {}).get("from", saved.value.amount_minor)
+        record(context, saved.value, PriceChange.UPDATED, previous_amount=amount)
+    return saved
+
+
 @transaction.atomic
 def delete_price(*, price_id: UUID, expected_version: int, idempotency_key: str) -> None:
-    """Bookings keep their frozen quote, so a price can go."""
-    _delete(PriceRule, "price.delete", price_id, expected_version, idempotency_key, PRICE_CHANGED)
+    """Bookings keep their frozen quote, so a price can go; the record of
+    prices keeps what it was."""
+    _delete(
+        PriceRule,
+        "price.delete",
+        price_id,
+        expected_version,
+        idempotency_key,
+        PRICE_CHANGED,
+        going=lambda context, rule: record(
+            context, rule, PriceChange.DELETED, previous_amount=rule.amount_minor
+        ),
+    )
 
 
 @transaction.atomic
@@ -177,9 +210,17 @@ def copy_prices_to_next_year(
         request={"year": year},
         idempotency_key=idempotency_key,
         preview=preview,
-        write=lambda: _copy(context, organization, PriceRule, year, PRICE_CHANGED),
+        write=lambda: _copied(
+            context, _copy(context, organization, PriceRule, year, PRICE_CHANGED)
+        ),
         replay=lambda _id: Saved([], organization.id, 0, True, replayed=True),
     )
+
+
+def _copied(context: TenantContext, saved: Saved[list[PriceRule]]) -> Saved[list[PriceRule]]:
+    for rule in saved.value:
+        record(context, rule, PriceChange.CREATED)
+    return saved
 
 
 @transaction.atomic
@@ -285,6 +326,90 @@ def _write_extra(
 
         notify_catalog_changed(context=context)
     return saved
+
+
+def _end_of(day: date, organization: Organization) -> datetime:
+    """The last moment of a local day — or now, for today and later."""
+    zone = ZoneInfo(organization.timezone)
+    closing = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
+    return min(closing, timezone.now())
+
+
+def price_list_on(day: date) -> dict[str, Any]:
+    """The price list as it stood at the end of `day` in the company's time
+    zone (today: as it stands now), from the append-only record. A day before
+    the record began is refused (`before_price_history`) — the record cannot
+    say what a price was then, and an empty list would read as „no prices”."""
+    _, organization = _manage(FeatureOperation.READ)
+    moment = _end_of(day, organization)
+    since = recorded_since(organization.id)
+    if since is not None and moment < since:
+        first = since.astimezone(ZoneInfo(organization.timezone)).date()
+        raise ValidationError({
+            "day": [
+                ErrorDetail(
+                    f"Historia cen zaczyna się {first.isoformat()}: wcześniejszych cen zapis "
+                    "nie zna.",
+                    code="before_price_history",
+                )
+            ]
+        })
+    return {
+        "day": day,
+        "as_of": moment,
+        "recorded_since": since,
+        "items": sorted(
+            rules_at(organization.id, moment),
+            key=lambda rule: (rule.starts_on or date.min, str(rule.id)),
+        ),
+    }
+
+
+def list_price_changes(
+    *, price_id: UUID | None = None, page: int = 1, page_size: int = 25
+) -> dict[str, Any]:
+    """The record itself, newest first: each write of a price with the price
+    as it left it, the amount before, who wrote it and when — of one price
+    (`price_id`, also a deleted one's) or of the whole list."""
+    _, organization = _manage(FeatureOperation.READ)
+    lines = PriceHistoryEntry.all_objects.filter(organization_id=organization.id)
+    if price_id is not None:
+        lines = lines.filter(rule_id=price_id)
+    lines = lines.order_by("-recorded_at", "-id")
+    start = (page - 1) * page_size
+    found = list(lines[start : start + page_size])
+    people = {
+        user.id: user
+        for user in User.objects.filter(pk__in={line.actor_id for line in found if line.actor_id})
+    }
+    return {
+        "total": lines.count(),
+        "page": page,
+        "page_size": page_size,
+        "recorded_since": recorded_since(organization.id),
+        "items": [
+            {
+                "id": line.id,
+                "price_id": line.rule_id,
+                "change": line.change,
+                "recorded_at": line.recorded_at,
+                "actor": _person(people.get(line.actor_id)) if line.actor_id else None,
+                "acting_via": line.acting_via,
+                "amount_minor": line.amount_minor,
+                "previous_amount_minor": line.previous_amount_minor,
+                "currency": line.currency,
+                "price": rule_of(line),
+            }
+            for line in found
+        ],
+    }
+
+
+def _person(user: User | None) -> dict[str, str] | None:
+    if user is None:
+        return None
+    name = " ".join(filter(None, [user.first_name, user.last_name])) or user.email
+    return {"name": name, "email": user.email}
 
 
 def price_for(

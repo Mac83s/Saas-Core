@@ -1,15 +1,20 @@
 """The model a task uses, and which hosts may serve it, as platform settings
 (TL22; answer 53 of 03.10; „karty osób” 04.10).
 
-Class A: only the platform sets it — `platform_setting set
-model_port.tasks.translation_text <model> --operator … --reason …` today, the
-„Platforma” panel later. The choice is one of the matrix rows a live probe
-confirmed that have every capability the task needs; a value that stops
-being one (a row removed in a later commit) is ignored and the task's own
-default applies.
+Class A: only the platform sets it — the „Platforma” panel, or
+`platform_setting set model_port.tasks.translation_text <model> --operator …
+--reason …`. The choice is one of the matrix rows a live probe confirmed that
+have every capability the task needs **and** whose processor the platform's
+privacy documents name (`matrix.LISTED_PROCESSORS`): the task sends companies'
+content, so any other row is refused with what has to happen first. A value
+that stops being such a row (removed, or chosen before the rule) is ignored
+and the task's own default applies.
 """
 
 from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
 
 from saas_core.modules.core.organizations.api import (
     SettingArea,
@@ -18,7 +23,7 @@ from saas_core.modules.core.organizations.api import (
 )
 from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
 
-from .matrix import MODELS
+from .matrix import LISTED_PROCESSORS, MODELS, processor_listed
 from .registry import DEFAULT_TASKS
 
 TRANSLATION_TASK = "translation.text"
@@ -34,45 +39,112 @@ AI_AREA = SettingArea(
 )
 
 
-def selectable_models(task: str) -> tuple[str, ...]:
-    """Probed rows with every capability the task needs, not evals-only."""
+def capable_models(task: str) -> tuple[str, ...]:
+    """Probed rows of the task's adapter with every capability it needs —
+    what the matrix could give the task, listed in the documents or not."""
     spec = next(spec for spec in DEFAULT_TASKS if spec.key == task)
     return tuple(
         profile.model
         for (adapter, _model), profile in MODELS.items()
         if adapter == spec.adapter
         and profile.probed is not None
-        and not profile.evaluation_only
         and spec.capabilities <= profile.capabilities
     )
 
 
+def selectable_models(task: str) -> tuple[str, ...]:
+    """The capable rows an operator may choose: not evals-only, and served by
+    a processor the privacy documents name (`LISTED_PROCESSORS`)."""
+    spec = next(spec for spec in DEFAULT_TASKS if spec.key == task)
+    return tuple(
+        model
+        for model in capable_models(task)
+        if not MODELS[(spec.adapter, model)].evaluation_only
+        and processor_listed(spec.adapter, model)
+    )
+
+
 _TRANSLATION_DEFAULT = next(spec for spec in DEFAULT_TASKS if spec.key == TRANSLATION_TASK)
+_LISTED_NAMES = (
+    "Claude Sonnet 5.5 i Claude Haiku 4.5 (Anthropic), uruchamiane w Google Cloud "
+    "(Vertex AI, region europejski), przez OpenRouter"
+)
+_UNLISTED = {
+    "pl": "{model} — poza listą podmiotów przetwarzających",
+    "en": "{model} — not on the list of processors",
+}
+
+
+def _choices(task: str) -> tuple[tuple[str, Mapping[str, str]], ...]:
+    """Every capable row, so an operator sees what the matrix has; a row the
+    documents do not cover says so in its name and is refused when chosen."""
+    allowed = selectable_models(task)
+    return tuple(
+        (
+            model,
+            {"pl": model, "en": model}
+            if model in allowed
+            else {locale: words.format(model=model) for locale, words in _UNLISTED.items()},
+        )
+        for model in capable_models(task)
+    )
+
+
+def not_listed(model: str) -> tuple[str, str]:
+    """The refusal of a model outside the listed set: what has to happen first."""
+    return (
+        f"Modelu {model} nie można wybrać: dokumenty prywatności platformy nie wymieniają "
+        "podmiotu, który przetwarzałby wtedy treść firm. Najpierw dopisz go do polityki "
+        "prywatności i umowy powierzenia (wpis „Podmiot przetwarzający” w "
+        "docs/architecture/model-port.md), potem do listy LISTED_PROCESSORS w kodzie portu "
+        f"modeli — dopiero wtedy da się go tu wybrać. Dziś na liście: {_LISTED_NAMES}.",
+        "processor_not_listed",
+    )
+
+
+def _only_listed(
+    _before: Mapping[str, Any], after: Mapping[str, Any]
+) -> Mapping[str, tuple[str, str]]:
+    """A task's model is one the privacy documents cover — refused at the
+    change and its preview, on the key the operator was changing."""
+    problems: dict[str, tuple[str, str]] = {}
+    for task, key in TASK_MODEL_SETTINGS.items():
+        field = key.rsplit(".", 1)[1]
+        if after[field] not in selectable_models(task):
+            problems[field] = not_listed(str(after[field]))
+    return problems
+
 
 TRANSLATION_MODEL = SettingSpec(
     key="model_port.tasks.translation_text",
     type="enum",
     default=_TRANSLATION_DEFAULT.model,
     scopes=("platform",),
-    values=tuple(
-        (model, {"pl": model, "en": model}) for model in selectable_models(TRANSLATION_TASK)
-    ),
+    values=_choices(TRANSLATION_TASK),
     label={"pl": "Model tłumaczeń", "en": "Translation model"},
-    model_description="The model the translation.text task calls through OpenRouter: one of "
-    "the probed rows of the model matrix that support JSON schema output. Changing it "
-    "changes cost and quality for every company; evals in docs/evals/translation compare "
-    "the candidates. The platform's privacy documents name OpenRouter with Claude Sonnet "
-    "5.5 (Anthropic) as the processor of companies' content: another model needs those "
-    "documents changed first.",
+    model_description="The model the translation.text task calls through OpenRouter. It "
+    "sends companies' content, so only a model whose processor the platform's privacy "
+    "documents name can be chosen — today Claude Sonnet 5.5 and Claude Haiku 4.5 "
+    "(Anthropic), run by Google Cloud (Vertex AI, European region), through OpenRouter. "
+    "Any other probed row of the matrix (Gemini, DeepSeek, "
+    "Claude Opus) is refused with processor_not_listed until its processor is added to "
+    "the privacy documents and to LISTED_PROCESSORS. Changing the model changes cost and "
+    "quality for every company; evals in docs/evals/translation compare the candidates.",
     help={
-        "pl": "Model, który tłumaczy treści wszystkich firm. Koszt i jakość kandydatów: "
-        "evale w docs/evals/translation. Dokumenty prywatności platformy wymieniają "
-        "OpenRouter z modelem Claude Sonnet 5.5 (Anthropic) — inny model wymaga najpierw "
-        "zmiany tych dokumentów.",
-        "en": "The model that translates every company's content. Candidates' cost and "
-        "quality: the evals in docs/evals/translation. The platform's privacy documents "
-        "name OpenRouter with Claude Sonnet 5.5 (Anthropic) — another model needs those "
-        "documents changed first.",
+        "pl": "Model, który tłumaczy treści wszystkich firm. Wybrać można tylko model, "
+        "którego podmiot przetwarzający jest w dokumentach prywatności platformy — dziś "
+        f"{_LISTED_NAMES}. Inny model (Gemini, DeepSeek, Claude Opus) wymaga najpierw "
+        "dopisania jego dostawcy do polityki prywatności i umowy powierzenia, a potem do "
+        "listy w kodzie; do tego czasu wybór jest odrzucany. Koszt i jakość kandydatów: "
+        "evale w docs/evals/translation.",
+        "en": "The model that translates every company's content. Only a model whose "
+        "processor is in the platform's privacy documents can be chosen — today Claude "
+        "Sonnet 5.5 and Claude Haiku 4.5 (Anthropic), run by Google Cloud (Vertex AI, "
+        "European region), through OpenRouter. Another model "
+        "(Gemini, DeepSeek, Claude Opus) needs its provider added to the privacy policy "
+        "and the data processing agreement first, then to the list in code; until then "
+        "the choice is refused. Candidates' cost and quality: the evals in "
+        "docs/evals/translation.",
     },
 )
 
@@ -128,6 +200,13 @@ _CLAUDE_PROVIDER_LABELS = {
 }
 #: The models this setting pins: Anthropic's, whoever hosts them.
 CLAUDE_MODELS = "anthropic/"
+#: The hosts the privacy documents name for them (`matrix.LISTED_PROCESSORS`),
+#: in the list's order: the only ones the pin accepts.
+LISTED_HOSTS = tuple(
+    dict.fromkeys(
+        chain.host for chain in LISTED_PROCESSORS if chain.model.startswith(CLAUDE_MODELS)
+    )
+)
 
 CLAUDE_PROVIDER = SettingSpec(
     key="model_port.privacy.claude_provider",
@@ -137,8 +216,18 @@ CLAUDE_PROVIDER = SettingSpec(
     # own endpoint at OpenRouter is not.
     default="google-vertex/europe",
     scopes=("platform",),
+    # Every host OpenRouter has for these models, so an operator sees what
+    # exists; one the documents do not name says so and is refused when chosen.
     values=tuple(
-        (slug, {"pl": _CLAUDE_PROVIDER_LABELS[slug], "en": _CLAUDE_PROVIDER_LABELS[slug]})
+        (
+            slug,
+            {
+                locale: _CLAUDE_PROVIDER_LABELS[slug]
+                if slug in LISTED_HOSTS
+                else words.format(model=_CLAUDE_PROVIDER_LABELS[slug])
+                for locale, words in _UNLISTED.items()
+            },
+        )
         for slug in CLAUDE_PROVIDERS
     ),
     label={"pl": "Dostawca modeli Claude", "en": "Provider of the Claude models"},
@@ -169,6 +258,28 @@ CLAUDE_PROVIDER = SettingSpec(
 )
 
 
+def host_not_listed(slug: str) -> tuple[str, str]:
+    """The refusal of a host outside the listed chain: what has to happen first."""
+    return (
+        f"Dostawcy {_CLAUDE_PROVIDER_LABELS.get(slug, slug)} nie można wybrać: dokumenty "
+        "prywatności platformy nazywają innego wykonawcę modeli Claude — "
+        f"{', '.join(_CLAUDE_PROVIDER_LABELS[host] for host in LISTED_HOSTS)}. Najpierw zmień "
+        "wpis „Podmiot przetwarzający” (docs/architecture/model-port.md) w polityce "
+        "prywatności i umowie powierzenia, potem wiersz listy LISTED_PROCESSORS w kodzie "
+        "portu modeli — dopiero wtedy da się go tu wybrać.",
+        "processor_not_listed",
+    )
+
+
+def _only_listed_host(
+    _before: Mapping[str, Any], after: Mapping[str, Any]
+) -> Mapping[str, tuple[str, str]]:
+    """The pin names a host of the listed chain — refused at the change and
+    its preview, on the key the operator was changing."""
+    chosen = str(after[CLAUDE_PROVIDER.field])
+    return {} if chosen in LISTED_HOSTS else {CLAUDE_PROVIDER.field: host_not_listed(chosen)}
+
+
 PRIVACY = SettingGroup(
     key="model_port.privacy",
     module="shared.model-port",
@@ -179,6 +290,7 @@ PRIVACY = SettingGroup(
     },
     permission=SETTINGS_MANAGE,
     area=AI_AREA.key,
+    platform_check=_only_listed_host,
     settings=(NO_TRAINING, CLAUDE_PROVIDER),
 )
 
@@ -197,5 +309,6 @@ TASKS = SettingGroup(
     # registry's requirement that some composed module declares one.
     permission=SETTINGS_MANAGE,
     area=AI_AREA.key,
+    platform_check=_only_listed,
     settings=(TRANSLATION_MODEL,),
 )

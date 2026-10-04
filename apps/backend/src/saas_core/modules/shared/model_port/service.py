@@ -29,7 +29,13 @@ from saas_core.modules.core.organizations.api import platform_setting
 
 from . import admission, metrics, state
 from .adapters.base import Adapter, AdapterCall, AdapterResult, StructuredMode
-from .matrix import ModelProfile, model_profile
+from .matrix import (
+    IN_PROCESS_ADAPTER,
+    ModelProfile,
+    listed_hosts,
+    model_profile,
+    processor_listed,
+)
 from .models import EntryState, UsageEntry
 from .registry import task_spec
 from .settings_spec import CLAUDE_MODELS, CLAUDE_PROVIDER, CLAUDE_PROVIDERS, NO_TRAINING
@@ -400,6 +406,17 @@ def _gates(spec: TaskSpec, profile: ModelProfile, purpose: str) -> None:
             _refuse(spec, "configuration", "adapter_unconfigured")
     if purpose == "customer" and not settings.MODEL_PORT_PROCESSOR_LISTED:
         _refuse(spec, "configuration", "processor_not_listed")
+    # Whoever chose the task's model — an operator before the rule, `.env`,
+    # a default in code — a company's content goes only to a processor the
+    # privacy documents name (`matrix.LISTED_PROCESSORS`).
+    if purpose == "customer" and not processor_listed(profile.adapter, profile.model):
+        _refuse(spec, "configuration", "processor_not_listed")
+    # …and only at the host they name for it: a pin outside the listed chain —
+    # stored before the setting refused it — serves no company.
+    if purpose == "customer" and profile.adapter != IN_PROCESS_ADAPTER:
+        named = _pinned_provider(profile)
+        if named is not None and named not in listed_hosts(profile.adapter, profile.model):
+            _refuse(spec, "configuration", "processor_not_listed")
     block = state.active_block(profile.adapter, spec.key, profile.model)
     if block is not None:
         until, kind, code = block

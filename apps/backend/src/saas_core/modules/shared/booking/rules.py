@@ -13,7 +13,7 @@ the company checks the dates afterwards.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -349,7 +349,11 @@ def _delete(
     expected_version: int,
     idempotency_key: str,
     audit_action: str,
+    *,
+    going: Callable[[TenantContext, Any], object] | None = None,
 ) -> None:
+    """`going`: called with the row before it is deleted, in the same
+    transaction — for what must outlive it (a price's line in its record)."""
     context, organization = _manage()
 
     def write() -> Saved[None]:
@@ -361,6 +365,8 @@ def _delete(
         if item is None:
             raise NotFound("Nie ma takiej pozycji.")
         check_version(item.version, expected_version)
+        if going is not None:
+            going(context, item)
         item.delete()
         _audit(organization, context, audit_action, item_id, {"deleted": True})
         return Saved(None, item_id, expected_version, False)

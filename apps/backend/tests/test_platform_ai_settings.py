@@ -8,13 +8,20 @@ from typing import Any
 
 import pytest
 from django.core.cache import cache
+from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.organizations import platform_settings
+from saas_core.modules.core.organizations.platform_settings import checked_platform_value
 from saas_core.modules.core.organizations.settings_registry import setting_group
 from saas_core.modules.shared.billing.api import operation_cost
+from saas_core.modules.shared.model_port.matrix import LISTED_PROCESSORS
 from saas_core.modules.shared.model_port.registry import task_spec
 from saas_core.modules.shared.model_port.settings_spec import (
+    CLAUDE_PROVIDER,
+    LISTED_HOSTS,
+    NO_TRAINING,
     TRANSLATION_MODEL,
+    capable_models,
     selectable_models,
 )
 from saas_core.modules.shared.translation.settings_spec import PRICE
@@ -23,6 +30,7 @@ pytestmark = pytest.mark.django_db
 
 SONNET = "anthropic/claude-sonnet-5.5"
 HAIKU = "anthropic/claude-haiku-4.5"
+GEMINI = "google/gemini-3.8-flash"
 
 
 @pytest.fixture
@@ -41,12 +49,81 @@ def test_both_are_platform_only_keys_in_the_ai_area() -> None:
         assert setting_group(spec.group).area == "ai"
 
 
-def test_the_model_is_chosen_among_probed_rows_and_never_an_evals_only_one() -> None:
-    offered = [value for value, _labels in TRANSLATION_MODEL.values]
-    assert offered == list(selectable_models("translation.text"))
-    assert SONNET in offered and HAIKU in offered
-    assert not any(model.startswith("deepseek/") for model in offered)
+def test_the_model_is_chosen_among_the_processors_the_documents_name() -> None:
+    """The task sends companies' content: an operator may choose only a model
+    the privacy documents cover. The panel still shows every probed row the
+    task could use, and says in its name which ones the documents leave out."""
+    assert selectable_models("translation.text") == (SONNET, HAIKU)
+    assert {(chain.adapter, chain.model) for chain in LISTED_PROCESSORS} == {
+        ("openrouter", SONNET),
+        ("openrouter", HAIKU),
+    }
+    labels = {value: names for value, names in TRANSLATION_MODEL.values}
+    assert list(labels) == list(capable_models("translation.text"))
+    assert labels[SONNET] == {"pl": SONNET, "en": SONNET}
+    assert labels[GEMINI]["pl"] == f"{GEMINI} — poza listą podmiotów przetwarzających"
+    assert "not on the list of processors" in labels["deepseek/deepseek-v4-pro"]["en"]
     assert TRANSLATION_MODEL.default == SONNET
+
+
+@pytest.mark.parametrize("model", [GEMINI, "deepseek/deepseek-v4-pro", "anthropic/claude-opus-5.5"])
+def test_a_model_outside_the_listed_processors_is_refused_with_what_comes_first(
+    model: str,
+) -> None:
+    with pytest.raises(ValidationError) as refused:
+        checked_platform_value(TRANSLATION_MODEL.key, model)
+
+    (message,) = refused.value.detail["value"]
+    assert message.code == "processor_not_listed"
+    assert str(message) == (
+        f"Modelu {model} nie można wybrać: dokumenty prywatności platformy nie wymieniają "
+        "podmiotu, który przetwarzałby wtedy treść firm. Najpierw dopisz go do polityki "
+        "prywatności i umowy powierzenia (wpis „Podmiot przetwarzający” w "
+        "docs/architecture/model-port.md), potem do listy LISTED_PROCESSORS w kodzie portu "
+        "modeli — dopiero wtedy da się go tu wybrać. Dziś na liście: Claude Sonnet 5.5 i "
+        "Claude Haiku 4.5 (Anthropic), uruchamiane w Google Cloud (Vertex AI, region "
+        "europejski), przez OpenRouter."
+    )
+
+
+def test_the_provider_pin_takes_only_the_host_the_documents_name() -> None:
+    """`model_port.privacy.claude_provider` names who runs the Claude models:
+    the listed chain's host, and no other until the documents name it."""
+    assert CLAUDE_PROVIDER.default == "google-vertex/europe"
+    assert LISTED_HOSTS == ("google-vertex/europe",)
+    assert {chain.host for chain in LISTED_PROCESSORS} == set(LISTED_HOSTS)
+    labels = {value: names for value, names in CLAUDE_PROVIDER.values}
+    assert labels["google-vertex/europe"]["pl"] == "Google (Vertex AI, Europa)"
+    assert labels["anthropic"]["pl"] == "Anthropic — poza listą podmiotów przetwarzających"
+    assert labels["amazon-bedrock"]["en"] == "Amazon (Bedrock) — not on the list of processors"
+
+    assert checked_platform_value(CLAUDE_PROVIDER.key, "google-vertex/europe") == (
+        "google-vertex/europe"
+    )
+    assert checked_platform_value(CLAUDE_PROVIDER.key, None) is None
+    for host in ("anthropic", "amazon-bedrock", "google-vertex", "azure"):
+        with pytest.raises(ValidationError) as refused:
+            checked_platform_value(CLAUDE_PROVIDER.key, host)
+        (message,) = refused.value.detail["value"]
+        assert message.code == "processor_not_listed"
+        assert "nie można wybrać: dokumenty prywatności platformy nazywają innego wykonawcę" in (
+            str(message)
+        )
+        assert "Google (Vertex AI, Europa). Najpierw zmień wpis „Podmiot przetwarzający”" in (
+            str(message)
+        )
+    # The other key of the group is not held back by the pin's rule.
+    assert checked_platform_value(NO_TRAINING.key, False) is False
+
+
+def test_the_translation_model_can_still_be_changed_within_the_listed_set() -> None:
+    assert checked_platform_value(TRANSLATION_MODEL.key, HAIKU) == HAIKU
+    assert checked_platform_value(TRANSLATION_MODEL.key, SONNET) == SONNET
+    # Giving the key back is never refused.
+    assert checked_platform_value(TRANSLATION_MODEL.key, None) is None
+    with pytest.raises(ValidationError) as unknown:
+        checked_platform_value(TRANSLATION_MODEL.key, "nobody/no-model")
+    assert unknown.value.detail["value"][0].code == "invalid_choice"
 
 
 def test_an_operators_model_comes_before_the_environment_and_the_code(
@@ -67,8 +144,13 @@ def test_an_operators_model_comes_before_the_environment_and_the_code(
     assert unread is not None and unread.model == "google/gemini-3.8-flash"
 
 
-def test_a_model_that_stopped_being_selectable_is_ignored(chosen: dict[str, Any]) -> None:
-    chosen[TRANSLATION_MODEL.key] = "deepseek/deepseek-v4-pro"
+@pytest.mark.parametrize("stale", ["deepseek/deepseek-v4-pro", GEMINI, "gone/removed-row"])
+def test_a_stored_model_that_is_not_selectable_is_ignored(
+    chosen: dict[str, Any], stale: str
+) -> None:
+    """A row removed since, an evals-only one, or a model an operator chose
+    before the listed set existed: the task keeps its own model."""
+    chosen[TRANSLATION_MODEL.key] = stale
 
     spec = task_spec("translation.text")
 
