@@ -48,6 +48,9 @@ import linkListV1Schema from "@saas-core/contracts/site-blocks/core.link_list.v1
 import linkListV2Schema from "@saas-core/contracts/site-blocks/core.link_list.v2.schema.json";
 import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.v1.schema.json";
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
+import stayCalendarV1Schema from "@saas-core/contracts/site-blocks/core.stay_calendar.v1.schema.json";
+import staySearchV1Schema from "@saas-core/contracts/site-blocks/core.stay_search.v1.schema.json";
+import stayUnitsV1Schema from "@saas-core/contracts/site-blocks/core.stay_units.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
 import featureListV1Schema from "@saas-core/contracts/site-blocks/core.feature_list.v1.schema.json";
 import footerV1Schema from "@saas-core/contracts/site-blocks/core.footer.v1.schema.json";
@@ -60,6 +63,11 @@ import richTextV1Schema from "@saas-core/contracts/site-blocks/core.rich_text.v1
 import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimonials.v1.schema.json";
 
 import { linkRel } from "./link-rel";
+import {
+  StayCalendarBlock,
+  StaySearchBlock,
+  StayUnitsBlock,
+} from "./stay-blocks";
 import type {
   BlockComponentProps,
   BlockFieldDefinition,
@@ -942,6 +950,69 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["text"], kind: "textarea", labelKey: "text" },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
           { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+        ],
+      },
+    },
+    // The three blocks of offers booked from–to (ADR-072, slice 5d): each
+    // carries a choice, and a published page fills it from the company's
+    // booking at every read.
+    {
+      type: "core.stay_units",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: stayUnitsV1Schema }],
+      migrators: {},
+      component: StayUnitsBlock,
+      live: true,
+      catalog: {
+        category: "booking",
+        labelKey: "stayUnitsBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          { path: ["offer"], kind: "stayOffer", labelKey: "stayOffer" },
+          {
+            path: ["layout"],
+            kind: "choice",
+            labelKey: "stayUnitsLayout",
+            options: ["cards", "rows"],
+          },
+          { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
+        ],
+      },
+    },
+    {
+      type: "core.stay_search",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: staySearchV1Schema }],
+      migrators: {},
+      component: StaySearchBlock,
+      live: true,
+      catalog: {
+        category: "booking",
+        labelKey: "staySearchBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          { path: ["offer"], kind: "stayOffer", labelKey: "stayOffer" },
+          { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
+        ],
+      },
+    },
+    {
+      type: "core.stay_calendar",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: stayCalendarV1Schema }],
+      migrators: {},
+      component: StayCalendarBlock,
+      live: true,
+      catalog: {
+        category: "booking",
+        labelKey: "stayCalendarBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          { path: ["offer"], kind: "stayOffer", labelKey: "stayOffer" },
+          { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
         ],
       },
     },

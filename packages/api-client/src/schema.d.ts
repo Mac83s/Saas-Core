@@ -15922,6 +15922,12 @@ export interface components {
             blocks: {
                 [key: string]: unknown;
             }[];
+            /** @description What the blocks that show the company's live records show now, by the block's position in `blocks` („0”, „3”): the stay offers of `core.stay_units`, `core.stay_search` and `core.stay_calendar` — the form's address, the offers and what a guest chooses of each. A block without an entry draws nothing. */
+            live: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
             navigation: components["schemas"]["PublicNavigationLink"][];
             feeds: components["schemas"]["PublicFeedLinks"];
             /**

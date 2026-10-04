@@ -8,7 +8,10 @@ export {
   type ContactFormTexts,
   type SiteUiLocale,
   type SiteUiTexts,
+  type StayTexts,
+  type StayUnit,
 } from "./site-ui-texts";
+export { stayAmount, stayFormHref, type StayPick } from "./stay-blocks";
 export {
   isTemplateContact,
   withoutSlots,

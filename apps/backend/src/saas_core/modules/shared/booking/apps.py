@@ -96,12 +96,23 @@ class BookingConfig(AppConfig):
 
         register_catalog_source()
 
-        # The pictures units show are kept while they show them (ADR-074 pkt 7).
+        # The pictures units show are kept while they show them (ADR-074 pkt 7);
+        # the company's site serves those a guest may see and asks here what
+        # its stay blocks show now (ADR-072, slice 5d).
         from saas_core.modules.core.organizations.api import PublicSource, register_public_source
 
-        from .unit_content import shown_photo_ids
+        from .site_blocks import SITE_BLOCK_TYPES, site_blocks
+        from .unit_content import public_photo_ids, shown_photo_ids
 
-        register_public_source(PublicSource("booking.units", shown_photo_ids))
+        register_public_source(
+            PublicSource(
+                "booking.units",
+                shown_photo_ids,
+                served_media=public_photo_ids,
+                site_block_types=SITE_BLOCK_TYPES,
+                site_blocks=site_blocks,
+            )
+        )
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")

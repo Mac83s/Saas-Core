@@ -59,6 +59,7 @@ const page: PublicSitePage = {
       path: "/oferta/konsultacje/",
     },
   ],
+  live: {},
   pagination: null,
   article: null,
   ai_media_ids: [],
@@ -385,4 +386,54 @@ test("tells the reader about a machine translation nobody has checked, and only 
   cleanup();
   render(<PublicSiteRenderer page={page} />);
   expect(screen.queryByRole("note")).toBeNull();
+});
+
+test("fills a stay block from the page's live answer and leaves out one without it", async () => {
+  const stay = (kind: string, title: string) => ({
+    block_type: `core.stay_${kind}`,
+    schema_version: 1,
+    data: { title },
+  });
+  const offer = "11111111-1111-4111-8111-111111111111";
+  const unit = "22222222-2222-4222-8222-222222222222";
+  const answer = {
+    slug: "domki",
+    form_url: "https://app.example.test/book/domki",
+    timezone: "Europe/Warsaw",
+    last_day: "2028-04-04",
+    paused: true,
+    offers: [
+      {
+        id: offer,
+        name: "Pobyt",
+        range_unit: "night",
+        choices: [{ kind: "unit", id: unit, name: "Domek 1", capacity: 4 }],
+      },
+    ],
+  };
+  const rendered = render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        blocks: [
+          stay("units", "Nasze domki"),
+          stay("calendar", "Wolne terminy"),
+          stay("search", "Bez odpowiedzi"),
+        ],
+        live: { "0": answer, "1": answer },
+      }}
+    />,
+  );
+
+  // The list is the server's answer, drawn on the server.
+  expect(screen.getByRole("heading", { name: "Domek 1" })).toBeVisible();
+  expect(
+    screen.getByRole("link", { name: "Zarezerwuj: Domek 1" }),
+  ).toHaveAttribute("href", `${answer.form_url}?offer=${offer}&unit=${unit}`);
+  // The calendar is booking's own component, with the answer in hand.
+  expect(
+    screen.getByText("Rezerwacja online jest chwilowo wstrzymana."),
+  ).toBeVisible();
+  expect(screen.queryByText("Bez odpowiedzi")).toBeNull();
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });

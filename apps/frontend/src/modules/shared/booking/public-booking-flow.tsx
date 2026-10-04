@@ -54,7 +54,7 @@ import {
   pickedExtras,
   ticked,
 } from "./public-booking-parts";
-import { PublicStayFlow } from "./public-stay-flow";
+import { PublicStayFlow, type StayPreset } from "./public-stay-flow";
 import { QuoteSummary } from "./quote-summary";
 
 type Values = ContactValues & {
@@ -63,13 +63,23 @@ type Values = ContactValues & {
   starts_at: string;
 };
 
-export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
+export function PublicBookingFlow({
+  preset,
+  publicSlug,
+}: {
+  /** What the link to the form chose ahead — a block of the company's site
+   *  names the offer, what is booked of it, the days and the people
+   *  (ADR-072, slice 5d). */
+  preset?: StayPreset;
+  publicSlug: string;
+}) {
   const t = useTranslations("PublicBooking");
   const locale = useLocale();
   const [catalog, setCatalog] = useState<BookingPublicCatalog>();
   // An offer booked from–to chosen in „Usługa”: it has its own form
   // (ADR-072, phase 5b). A company that offers nothing else opens on it.
-  const [stayId, setStayId] = useState<string>();
+  // Unset — nothing chosen here yet; null — a visit was.
+  const [stayId, setStayId] = useState<string | null>();
   // The company's documents in force in the page's language (ADR-073 §9),
   // the ones ticked, and whether a booking was tried without them. A list
   // that did not load is not a way round them: the server answers a booking
@@ -258,7 +268,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const stays = catalog?.stays ?? [];
   function pickOffer(id: string) {
     const stay = stays.some((item) => String(item.id) === id);
-    setStayId(stay ? id : undefined);
+    setStayId(stay ? id : null);
     form.setValue("service_id", stay ? "" : id);
     setPicked({});
     choose({});
@@ -383,7 +393,21 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     );
   if (elsewhere)
     return <LanguageUnavailable locales={elsewhere} publicSlug={publicSlug} />;
-  const stay = stayId ?? (catalog?.services.length ? undefined : stays[0]?.id);
+  // The stay the link named: the offer itself, or the one that lists the
+  // group or the unit it named. A name the form does not have is no choice.
+  const linked =
+    stays.find((item) => String(item.id) === preset?.offer) ??
+    (preset?.offer
+      ? undefined
+      : stays.find(
+          (item) =>
+            item.groups.some((group) => String(group.id) === preset?.group) ||
+            item.units.some((unit) => String(unit.id) === preset?.unit),
+        ));
+  const stay =
+    stayId === undefined
+      ? (linked?.id ?? (catalog?.services.length ? undefined : stays[0]?.id))
+      : stayId;
   if (catalog && stay && stays.some((item) => String(item.id) === stay))
     return (
       <PublicStayFlow
@@ -395,6 +419,9 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         onDocuments={setDocuments}
         onElsewhere={setElsewhere}
         onOffer={pickOffer}
+        preset={
+          linked && String(linked.id) === String(stay) ? preset : undefined
+        }
         publicSlug={publicSlug}
       />
     );

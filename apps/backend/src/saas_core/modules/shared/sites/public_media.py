@@ -8,6 +8,7 @@ from django.db import transaction
 from django.http import Http404, HttpResponse
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.public_sources import served_media_ids
 from saas_core.modules.shared.media.api import published_variant_key
 from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
 from saas_core.modules.shared.media.storage import (
@@ -54,9 +55,7 @@ def _published_asset_ids(*, organization_id: Any, site_id: Any) -> set[str]:
         entry_publication = entry.current_publication
         if entry_publication is None:
             continue
-        allowed.update(
-            str(item) for item in entry_publication.snapshot.get("media_asset_ids", [])
-        )
+        allowed.update(str(item) for item in entry_publication.snapshot.get("media_asset_ids", []))
     return allowed
 
 
@@ -75,19 +74,23 @@ def serve_public_media(*, host: str, asset_id: UUID, variant: str = "") -> HttpR
     )
     if domain is None or not tenant_is_servable(domain.organization_id):
         raise PublicSiteNotFound
-    allowed = _published_asset_ids(
-        organization_id=domain.organization_id, site_id=domain.site_id
-    )
-    if str(asset_id) not in allowed:
-        # The same answer whether the asset belongs to somebody else or to
-        # nobody: telling them apart would confirm which ids exist.
-        raise PublicSiteNotFound
+    allowed = _published_asset_ids(organization_id=domain.organization_id, site_id=domain.site_id)
     with transaction.atomic():
         # `media_mediaasset` carries forced row-level security, so without the
         # tenant setting the app role sees no rows and every picture on every
         # published page would answer 404. The host told us which organization
         # this is; the read has to happen inside that.
         set_local_organization_id(domain.organization_id)
+        if str(asset_id) not in allowed and not (
+            # A picture of a live record the company shows — a unit of its
+            # booking form — is the site's to serve too, on its source's word
+            # (the registry of public sources): one of our copies, never the
+            # original, as the source itself serves it.
+            variant and asset_id in served_media_ids(domain.organization_id)
+        ):
+            # The same answer whether the asset belongs to somebody else or to
+            # nobody: telling them apart would confirm which ids exist.
+            raise PublicSiteNotFound
         asset = MediaAsset.all_objects.filter(
             pk=asset_id,
             organization_id=domain.organization_id,

@@ -133,6 +133,27 @@
       "schemas": {
         "1": "core.gallery.v1.schema.json"
       }
+    },
+    {
+      "type": "core.stay_units",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.stay_units.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.stay_search",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.stay_search.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.stay_calendar",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.stay_calendar.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

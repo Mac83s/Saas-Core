@@ -1,7 +1,7 @@
 import axe from "axe-core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import {
   ApiProblemError,
@@ -12,6 +12,7 @@ import {
 
 import polishMessages from "../../../../messages/pl.json";
 import { PublicBookingFlow } from "./public-booking-flow";
+import type { StayPreset } from "./public-stay-flow";
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -179,34 +180,35 @@ function problem(status: number, code: string, extra: object = {}) {
   });
 }
 
-function show() {
+function show(preset?: StayPreset) {
   return render(
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
-      <PublicBookingFlow publicSlug="dokumenty-demo" />
+      <PublicBookingFlow preset={preset} publicSlug="dokumenty-demo" />
     </NextIntlClientProvider>,
   );
 }
+
+/** A day of the calendar by its date and what it is said to be. */
+const day = (name: RegExp) => screen.findByRole("button", { name });
 
 async function pickDates() {
   fireEvent.click(
     await screen.findByRole("radio", { name: /Domek nad jeziorem/ }),
   );
-  await waitFor(() =>
-    expect(screen.getByLabelText("Przyjazd")).not.toBeDisabled(),
-  );
-  fireEvent.change(screen.getByLabelText("Przyjazd"), {
-    target: { value: "2026-11-07" },
-  });
-  await waitFor(() =>
-    expect(screen.getByLabelText("Wyjazd")).not.toBeDisabled(),
-  );
-  fireEvent.change(screen.getByLabelText("Wyjazd"), {
-    target: { value: "2026-11-10" },
-  });
+  fireEvent.click(await day(/ 7 listopada 2026, wolny termin/));
+  fireEvent.click(await day(/ 10 listopada 2026, Wyjazd, 3 noce/));
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The calendar opens on the company's today: the month before the days
+  // the server names here. Only the clock is set; timers run as they do.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-04T10:00:00Z"));
   api.getPublicBookingCatalog.mockResolvedValue(catalog);
   api.getPublicBookingConsents.mockResolvedValue({
     locale: "pl",
@@ -340,10 +342,21 @@ test("the days, the party and the extras go to the server, which answers the pri
     group_id: COTTAGES,
     start: "2026-11-07",
   });
-  // A departure says how long the stay is.
-  expect(
-    screen.getByRole("option", { name: /10 listopada — 3 noce/ }),
-  ).toBeInTheDocument();
+  // One question for the two months shown, from the company's today.
+  expect(api.getPublicStayStarts).toHaveBeenCalledWith("dokumenty-demo", {
+    service_id: STAY,
+    group_id: COTTAGES,
+    from: "2026-10-04",
+    to: "2026-11-30",
+  });
+  // The days chosen are said with the stay's length; a day nobody can
+  // arrive on is not a button to press.
+  expect(screen.getByText("7 listopada – 10 listopada · 3 noce")).toBeVisible();
+  expect(await day(/ 7 listopada 2026, Przyjazd/)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(await day(/ 8 listopada 2026, niedostępny/)).toBeDisabled();
   fireEvent.change(screen.getByLabelText("Dziecko do 12 lat"), {
     target: { value: "1" },
   });
@@ -607,4 +620,66 @@ test("visits and stays share „Usługa”: a stay opens its form, a visit the o
   });
   expect(await screen.findByLabelText("Miejsce")).toBeInTheDocument();
   expect(screen.getByLabelText("Usługa")).toHaveValue(VISIT);
+});
+
+test("a link from the company's site opens the form on what it chose", async () => {
+  show({
+    offer: STAY,
+    unit: FLAT,
+    from: "2026-11-07",
+    to: "2026-11-09",
+    people: "1",
+  });
+
+  // The unit, the days and the party are the link's; the price is asked of
+  // the server for exactly them — nothing is taken on the link's word.
+  expect(
+    await screen.findByRole("radio", { name: /Apartament na piętrze/ }),
+  ).toBeChecked();
+  expect(screen.getByLabelText("Osoby")).toHaveValue(1);
+  await waitFor(() =>
+    expect(api.getPublicStayPlan).toHaveBeenLastCalledWith("dokumenty-demo", {
+      service_id: STAY,
+      resource_id: FLAT,
+      start_date: "2026-11-07",
+      end_date: "2026-11-09",
+      participants: [{ category_id: null, count: 1 }],
+      locale: "pl",
+    }),
+  );
+  expect(await day(/ 9 listopada 2026, Wyjazd/)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("a link that names what the form does not have chooses nothing", async () => {
+  show({
+    offer: "77777777-7777-4777-8777-777777777777",
+    unit: FLAT,
+    from: "2026-09-01",
+    to: "2026-08-01",
+    people: "500",
+  });
+
+  // An offer that is not on the form: the form opens as it always does; a
+  // day behind us and a party no unit takes are not carried over.
+  const cottage = await screen.findByRole("radio", {
+    name: /Domek nad jeziorem/,
+  });
+  expect(cottage).not.toBeChecked();
+  expect(
+    screen.getByRole("radio", { name: /Apartament na piętrze/ }),
+  ).not.toBeChecked();
+  expect(screen.getByLabelText("Osoby")).toHaveValue(2);
+  expect(api.getPublicStayPlan).not.toHaveBeenCalled();
+});
+
+test("a unit named without its offer finds the offer that lists it", async () => {
+  show({ group: COTTAGES });
+
+  expect(
+    await screen.findByRole("radio", { name: /Domek nad jeziorem/ }),
+  ).toBeChecked();
+  await day(/ 7 listopada 2026, wolny termin/);
 });

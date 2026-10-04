@@ -19,6 +19,7 @@ import {
   generatedAspect,
 } from "../image-generation/generate-image-dialog";
 import { PageEditorContext } from "./page-editor-context";
+import { StayOfferSelect } from "./stay-offer-select";
 import { LayoutChooser } from "./layout-chooser";
 import { SectionTypeChooser } from "./section-conversion";
 import {
@@ -717,6 +718,13 @@ function BlockField<TValues extends FieldValues>({
           />
         ) : null}
       </div>
+    ) : field.kind === "stayOffer" ? (
+      <StayOfferSelect
+        form={form}
+        id={id}
+        invalid={Boolean(error)}
+        name={name}
+      />
     ) : field.kind === "choice" ? (
       <NativeSelect
         aria-invalid={Boolean(error)}

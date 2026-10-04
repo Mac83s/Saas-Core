@@ -11,10 +11,14 @@ import {
   siteUiTexts,
   type DesignTokensV1,
   type IndexPagination,
+  type JsonObject,
   type PagePresentationV1,
   type SiteBlock,
+  type StayBlockV1Data,
+  type StayLive,
 } from "@saas-core/site-blocks";
 
+import { SiteStayBlock } from "../booking/site-stay-blocks";
 import { PublicContactForm } from "./public-contact-form";
 
 const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
@@ -238,6 +242,9 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       pagination: page.pagination as IndexPagination | null,
       paginationLabels: texts.pagination,
       languageLinks: page.language_links,
+      // What the blocks of live records show now (ADR-072, slice 5d).
+      // Absent in an older payload: such a block draws nothing.
+      live: page.live as Record<string, JsonObject> | undefined,
     },
     registry,
     (form, blockPosition) => (
@@ -251,5 +258,15 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
         successMessage={form.success_message}
       />
     ),
+    // The part of a stay block that asks for free days: booking's own.
+    (blockType, data, live) =>
+      blockType === "core.stay_search" || blockType === "core.stay_calendar" ? (
+        <SiteStayBlock
+          data={data as StayBlockV1Data}
+          kind={blockType === "core.stay_search" ? "search" : "calendar"}
+          live={live as unknown as StayLive}
+          locale={page.locale}
+        />
+      ) : null,
   );
 }

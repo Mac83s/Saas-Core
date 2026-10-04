@@ -43,6 +43,11 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.quote",
       "core.product",
       "core.gallery",
+      // Offers booked from–to (ADR-072, slice 5d): each carries a choice,
+      // the units, prices and free days are read live.
+      "core.stay_units",
+      "core.stay_search",
+      "core.stay_calendar",
     ],
   );
 

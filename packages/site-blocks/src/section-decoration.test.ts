@@ -114,6 +114,13 @@ describe("shared section decoration contract", () => {
         data: { text: "Sample company" },
       },
       { block_type: "core.entry_list", schema_version: 1, data: { items: [] } },
+      // The blocks of offers booked from–to: a choice only, drawn as a sketch
+      // here — the units and days are the published page's (ADR-072, 5d).
+      ...["units", "search", "calendar"].map((kind) => ({
+        block_type: `core.stay_${kind}`,
+        schema_version: 1,
+        data: { title: "Our cottages" },
+      })),
     ];
     for (const block of remaining) {
       for (const preset of sectionDecorationPresets) {

@@ -126,7 +126,7 @@ not in PostgreSQL.
   and a write needs the shown `quote_digest`.
 - **A guest gets a unit's content only when it is `public`**
   (`unit_content.py`, ADR-072 5c): pictures, amenities, town — never
-  coordinates.
+  coordinates. The company's site shows the same (`site_blocks.py`, 5d).
 - **Who books for themselves accepts the company's documents** (ADR-073 §9,
   `consents.py`): the form reads those in force in the booking's language
   (`shown`) and sends their `text_id`s; `record` checks and journals them,
@@ -168,7 +168,6 @@ not in PostgreSQL.
 
 ## Operable by the AI assistant
 
-Setup is what the assistant configures first, through the panel's functions.
 Every setup write goes through `setup.setup_write` (ADR-072 §11):
 
 - **a key with a receipt** — `BookingSetupMutation` (not `BookingMutation`,

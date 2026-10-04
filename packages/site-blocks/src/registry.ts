@@ -400,7 +400,7 @@ export function createSiteBlockRegistry(
     definitions,
     validate,
     migrate,
-    render(block, key, editor, imageRenderer, formRenderer, options) {
+    render(block, key, editor, imageRenderer, formRenderer, options, live) {
       const migrated = migrate(block);
       const definition = definitionFor(migrated.block_type);
       const effective = {
@@ -413,6 +413,7 @@ export function createSiteBlockRegistry(
         ...(editor ? { editor } : {}),
         ...(imageRenderer ? { imageRenderer } : {}),
         ...(formRenderer ? { formRenderer } : {}),
+        ...(live ? { live } : {}),
       };
       const decorated = decorateSection(
         createElement(definition.component, { ...props, key }),

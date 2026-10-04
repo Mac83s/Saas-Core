@@ -32,6 +32,19 @@ other.
   `apps/backend/src/saas_core/modules/shared/sites/publication_routing.py`.
   The public paths must never use the pre-tenant door — see `change-tenant-data`.
 
+## Blocks that show live records
+
+A unit's price or a free day cannot be in a snapshot. A block of live records
+(`live: true` in the manifest — the stay blocks, ADR-072 slice 5d) carries a
+choice only, and `public_page_payload` asks the registry of public sources in
+core (`live_site_blocks`, `PublicSource.site_blocks`) what it shows now; the
+answer travels as `live`, by the block's published position. Sites never
+imports the module that answers. A block without an answer is no section on
+the published page; the editor draws a sketch. A source's pictures are served
+at the site's host in our copies only (`served_media_ids`), and what a
+visitor's browser reads afterwards — free days — comes from that module's own
+public API, whose reads the host gate lets through (`http/hosts.py`).
+
 ## Six operations belong to a person
 
 `assert_person_required(context, what)` in

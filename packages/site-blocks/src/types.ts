@@ -424,6 +424,61 @@ export type BookingV1Data = JsonObject & {
   action: { label: string; href: string };
 };
 
+/** The three blocks that show offers booked from–to (ADR-072, slice 5d):
+ *  the list of units, the booking widget and the calendar of free days. They
+ *  carry a choice — which offer, how the list is laid out — never the units,
+ *  prices or days themselves. */
+export type StayBlockV1Data = JsonObject & {
+  title: string;
+  text?: string;
+  /** A stay offer's id; absent: every offer on the company's form. */
+  offer?: string;
+  /** `core.stay_units` only. */
+  layout?: "cards" | "rows";
+  action_label?: string;
+};
+
+/** One thing a guest chooses of an offer: a group of identical units or a
+ *  unit by itself. The content comes with the list of units only. */
+export type StayLiveChoice = {
+  kind: "group" | "unit";
+  id: string;
+  name: string;
+  /** The most people it takes; null — nobody counts. */
+  capacity: number | null;
+  description?: string;
+  /** Media ids, served at the site's own host. */
+  photos?: string[];
+  amenities?: { key: string; label: string }[];
+  town?: { slug: string; name: string } | null;
+  from_price?: {
+    gross_minor: number;
+    currency: string;
+    per: "night" | "day" | "stay";
+  } | null;
+};
+
+export type StayLiveOffer = {
+  id: string;
+  name: string;
+  range_unit: "night" | "day";
+  choices: StayLiveChoice[];
+};
+
+/** What the server says a stay block shows now (`live` of a published
+ *  page): the company's form and what it takes online. */
+export type StayLive = {
+  /** The form's slug: the block reads free days under it. */
+  slug: string;
+  /** The form's address in the page's language. */
+  form_url: string;
+  timezone: string;
+  /** The last arrival day the form takes. */
+  last_day: string;
+  paused: boolean;
+  offers: StayLiveOffer[];
+};
+
 export type FooterV1Data = JsonObject & {
   text: string;
   /** `rel` from footer v2 onwards. */
@@ -473,7 +528,16 @@ export type BlockCategory =
 /** `richText` binds a whole structured node array (core.rich_text v2
  *  `content`); the panel edits it with its own writing panel. */
 export type BlockFieldKind =
-  "text" | "textarea" | "url" | "list" | "media" | "richText" | "choice";
+  | "text"
+  | "textarea"
+  | "url"
+  | "list"
+  | "media"
+  | "richText"
+  | "choice"
+  /** One of the company's offers booked from–to, or all of them: the panel
+   *  lists them, the block keeps the id. */
+  | "stayOffer";
 
 /** How one editable value inside a block is presented. Deliberately data, not a
  *  component: the same manifest is loaded by the public renderer, which must not
@@ -529,6 +593,21 @@ export type BlockImageRenderer = (
   element: ReactElement<{ alt?: string }>,
 ) => ReactNode;
 
+/** Runtime-only: the application's interactive part of a block that shows
+ *  live records (a calendar asking for free days). Never in a snapshot. */
+export type BlockLiveRenderer = (
+  blockType: string,
+  data: JsonObject,
+  live: JsonObject,
+) => ReactNode;
+
+/** What a block that shows the company's live records is handed on a
+ *  published page: the server's answer for it, and the application's part. */
+export interface BlockLive {
+  readonly data: JsonObject;
+  readonly render?: BlockLiveRenderer;
+}
+
 export interface BlockComponentProps {
   data: JsonObject;
   /** Render options (publication vs preview, locale). Components use it for
@@ -537,6 +616,8 @@ export interface BlockComponentProps {
   editor?: BlockEditor;
   imageRenderer?: BlockImageRenderer;
   formRenderer?: BlockFormRenderer;
+  /** Only on a published page, and only for a block marked `live`. */
+  live?: BlockLive;
 }
 
 export interface BlockDefinition {
@@ -545,6 +626,10 @@ export interface BlockDefinition {
   readonly schemas: readonly BlockSchemaVersion[];
   readonly migrators: Readonly<Record<number, BlockMigrator>>;
   readonly component: ComponentType<BlockComponentProps>;
+  /** The block shows the company's live records (its units, their prices and
+   *  free days): a published page draws it only with the server's answer for
+   *  it, and leaves it out without one — an offer withdrawn, no form. */
+  readonly live?: true;
   /** Absent for a block that exists only to render older publications and is no
    *  longer offered in the library. */
   readonly catalog?: BlockCatalogEntry;
@@ -639,6 +724,9 @@ export interface PublishedPageDocument {
   readonly paginationLabels?: PaginationLabels;
   /** AI-generated images on the page; each gets the visible badge. */
   readonly aiMediaIds?: readonly string[];
+  /** What the blocks that show live records show now, by the block's
+   *  position in `blocks` as published. */
+  readonly live?: Readonly<Record<string, JsonObject>>;
 }
 
 export interface PageTemplateLabel {
@@ -703,5 +791,6 @@ export interface BlockRegistry {
     imageRenderer?: BlockImageRenderer,
     formRenderer?: BlockFormRenderer,
     options?: BlockRenderOptions,
+    live?: BlockLive,
   ): ReactElement;
 }

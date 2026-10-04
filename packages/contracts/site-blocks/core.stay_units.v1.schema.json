@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.stay_units.v1.schema.json",
+  "title": "Core list of units booked from–to v1",
+  "description": "Carries a choice only: the units, prices and free days are the company's live records, read each time the page is (ADR-072, slice 5d).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 600
+    },
+    "offer": {
+      "description": "The stay offer (its id) the block shows; empty or absent: every offer booked from–to on the company's form.",
+      "type": "string",
+      "pattern": "^$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "layout": {
+      "enum": ["cards", "rows"]
+    },
+    "action_label": {
+      "type": "string",
+      "maxLength": 80
+    }
+  }
+}

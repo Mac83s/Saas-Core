@@ -474,6 +474,14 @@ function PageTemplatePicker({
 const generatesImages = () =>
   (deployment.modules as readonly string[]).includes("shared.image-generation");
 
+/** The blocks the picker offers: those of offers booked from–to only where
+ *  the product has a public booking form — elsewhere they would draw nothing
+ *  (ADR-072, slice 5d). */
+const offeredBlocks = blockOptions.filter(
+  (option) =>
+    deployment.features.publicBooking || !option.type.startsWith("core.stay_"),
+);
+
 /** Where a picture sits in a section's data, as the form addresses it:
  *  `["image", "asset_id"]`, `["images", "0", "asset_id"]` or a figure inside
  *  rich text. The first match: a section rarely shows one photo twice. */
@@ -1127,7 +1135,7 @@ export function PageEditor({
           isItemEqualToValue={(item, value) => item.type === value.type}
           itemToStringLabel={(item) => t(item.labelKey)}
           itemToStringValue={(item) => item.type}
-          items={blockOptions}
+          items={offeredBlocks}
           onValueChange={setSelectedBlock}
           value={selectedBlock}
         >
@@ -1139,7 +1147,7 @@ export function PageEditor({
           <ComboboxContent>
             <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
             <ComboboxList>
-              {blockOptions.map((option) => (
+              {offeredBlocks.map((option) => (
                 <ComboboxItem key={option.type} value={option}>
                   {t(option.labelKey)}
                 </ComboboxItem>

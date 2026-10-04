@@ -62,7 +62,13 @@ from .public_locales import (
     register_public_locales_impact,
     register_public_locales_limit,
 )
-from .public_sources import PublicSource, register_public_source, shown_media_ids
+from .public_sources import (
+    PublicSource,
+    live_site_blocks,
+    register_public_source,
+    served_media_ids,
+    shown_media_ids,
+)
 from .references import (
     ResourceReferenceConflict,
     ResourceReferenceHandler,
@@ -199,6 +205,7 @@ __all__ = [
     "register_public_locales_guard",
     "register_public_locales_impact",
     "register_public_locales_limit",
+    "live_site_blocks",
     "register_public_source",
     "register_resource_reference_handler",
     "register_seat_limit",
@@ -210,5 +217,6 @@ __all__ = [
     "person_handle",
     "register_person_kind",
     "resolve_person",
+    "served_media_ids",
     "shown_media_ids",
 ]

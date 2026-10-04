@@ -23,6 +23,8 @@ import type {
   AppearanceLang,
   BlockRegistry,
   BlockImageRenderer,
+  BlockLiveRenderer,
+  JsonObject,
   PublishedFormRenderer,
   BlockRenderOptions,
   DesignTokensV1,
@@ -205,8 +207,18 @@ function renderDocument(
   languageSwitch?: ReactElement | null,
   articleHeader?: ReactElement | null,
   machineNotice?: ReactElement | null,
+  /** A publication's blocks after cleaning: where each stood as published,
+   *  what the live ones show now, and the application's part of them. */
+  published?: {
+    positions: readonly number[];
+    live?: Readonly<Record<string, JsonObject>>;
+    liveRenderer?: BlockLiveRenderer;
+  },
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
+  // The server knows a block by its position in the publication, whatever
+  // the cleaning left out before it.
+  const positionOf = (index: number) => published?.positions[index] ?? index;
   const content = createElement(
     "div",
     {
@@ -227,16 +239,29 @@ function renderDocument(
       articleHeader ?? null,
       // Under an article's title and byline; first on any other page.
       machineNotice ?? null,
-      ...blocks.map((block, index) =>
-        registry.render(
+      ...blocks.map((block, index) => {
+        const position = positionOf(index);
+        const answer = published?.live?.[String(position)];
+        // A block of live records without the server's answer — the offer
+        // withdrawn, no form — is no section at all on a published page.
+        if (
+          published &&
+          answer === undefined &&
+          registry.definitions.get(block.block_type)?.live
+        )
+          return null;
+        return registry.render(
           block,
           String(index),
           undefined,
           imageRenderer,
-          formRenderer ? (data) => formRenderer(data, index) : undefined,
+          formRenderer ? (data) => formRenderer(data, position) : undefined,
           options,
-        ),
-      ),
+          answer === undefined
+            ? undefined
+            : { data: answer, render: published?.liveRenderer },
+        );
+      }),
       renderPagination(pagination, paginationLabels),
     ),
     appearance ? renderSiteFooter(appearance, appearanceLang) : null,
@@ -291,6 +316,7 @@ export function renderPublishedPage(
   document: PublishedPageDocument,
   registry: BlockRegistry,
   formRenderer?: PublishedFormRenderer,
+  liveRenderer?: BlockLiveRenderer,
 ): ReactElement {
   if (
     document.kind !== "publication" ||
@@ -301,14 +327,25 @@ export function renderPublishedPage(
   }
   // A visitor never reads a template's slot or its sample contact (UX-038);
   // a block the cleaning would make invalid stays as it was.
-  const blocks = withoutTemplateLeftovers(document.blocks, (block) => {
-    try {
-      registry.validate(block);
-      return true;
-    } catch {
-      return false;
-    }
-  });
+  // Each block keeps the position it was published at: the server answers a
+  // form's message and a live block's question by it, and a block the
+  // cleaning leaves out must not move the ones after it.
+  const kept = withoutTemplateLeftovers(
+    document.blocks.map((block, position) => ({
+      block,
+      position,
+      data: block.data,
+    })),
+    ({ block, data }) => {
+      try {
+        registry.validate({ ...block, data });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  );
+  const blocks = kept.map(({ block, data }) => ({ ...block, data }));
   return renderDocument(
     blocks,
     document.designTokens,
@@ -341,5 +378,10 @@ export function renderPublishedPage(
       document.machineNotice,
       siteUiTexts(document.locale).machineNotice,
     ),
+    {
+      positions: kept.map(({ position }) => position),
+      live: document.live,
+      liveRenderer,
+    },
   );
 }

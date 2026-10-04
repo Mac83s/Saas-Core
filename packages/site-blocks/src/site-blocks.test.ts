@@ -235,11 +235,12 @@ describe("site block registry", () => {
     );
 
     // The nine ADR-031 sections plus the editorial quote (about), the
-    // product presentation (offer) and the gallery (about, F4-P3), which join
+    // product presentation (offer), the gallery (about, F4-P3) and the three
+    // blocks of offers booked from–to (booking, ADR-072 slice 5d), which join
     // existing categories.
     expect(
       categories.filter((category) => category !== "contact"),
-    ).toHaveLength(12);
+    ).toHaveLength(15);
     expect(
       coreSiteBlockManifest.blocks.find(
         (block) => block.type === "core.link_list",

@@ -217,6 +217,13 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     )
     page_presentation = serializers.DictField(allow_null=True, required=False)
     blocks = serializers.ListField(child=serializers.DictField())
+    live = serializers.DictField(
+        child=serializers.DictField(),
+        help_text="What the blocks that show the company's live records show now, by "
+        "the block's position in `blocks` („0”, „3”): the stay offers of `core.stay_units`, "
+        "`core.stay_search` and `core.stay_calendar` — the form's address, the offers and "
+        "what a guest chooses of each. A block without an entry draws nothing.",
+    )
     navigation = PublicNavigationLinkSerializer(many=True)
     feeds = PublicFeedLinksSerializer()
     describedby = serializers.URLField(

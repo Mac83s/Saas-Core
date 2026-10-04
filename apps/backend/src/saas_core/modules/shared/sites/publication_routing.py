@@ -16,6 +16,7 @@ from saas_core.modules.core.organizations.models import (
     WORKING_ORGANIZATION_STATUSES,
     Organization,
 )
+from saas_core.modules.core.organizations.public_sources import live_site_blocks
 from saas_core.modules.shared.media.api import ai_generated_asset_ids
 
 from .ai_badge import badge_visible
@@ -321,6 +322,9 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # The language's own body (ADR-070); the source language uses the
         # page's blocks.
         "blocks": blocks,
+        # What the blocks that show live records show now, by position — a
+        # unit's price or a free day is never in a snapshot (ADR-072, 5d).
+        "live": live_site_blocks(page.organization_id, page.locale, blocks),
         "navigation": navigation,
         "breadcrumbs": breadcrumbs,
         # Present only where they mean something: an index has pages, an

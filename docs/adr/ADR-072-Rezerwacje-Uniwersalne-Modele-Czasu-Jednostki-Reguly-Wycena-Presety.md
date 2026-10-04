@@ -884,3 +884,82 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   (zapis idzie tym samym `save_resource`, więc polecenie to deklaracja, nie
   nowa logika); ponowne sprzątanie obiektu, gdy jednostka przestaje pokazywać
   usunięte zdjęcie (dziś zostaje, jak obiekt zdjęty z publikacji).
+
+### Rozstrzygnięcia plastra 5d (bloki strony firmy)
+
+- **Trzy bloki, każdy niesie tylko wybór.** `core.stay_units` (lista
+  jednostek), `core.stay_search` (widget: termin i liczba osób) i
+  `core.stay_calendar` (kalendarz wolnych terminów) mają w danych nagłówek,
+  tekst, napis przycisku i `offer` — identyfikator oferty okresu albo nic
+  („wszystkie oferty z formularza”); lista ma jeszcze `layout` (`cards`,
+  `rows`). Jednostek, cen ani dni w danych bloku nie ma: publikacja jest
+  migawką, a one nią być nie mogą. `offer` ma wzorzec w schemacie, więc nie
+  jest tekstem do tłumaczenia; wersja językowa strony tłumaczy nagłówek, tekst
+  i napis. Bloki są w bibliotece w kategorii „rezerwacja” (ADR-031 zamroził
+  dziewięć sekcji; te trzy dochodzą tą decyzją, jak wcześniej cytat, produkt
+  i galeria) i tylko tam, gdzie produkt ma publiczny formularz rezerwacji.
+- **Co blok pokazuje, mówi serwer przy każdym odczycie strony.** Odpowiedź
+  `GET /api/v1/public/site/` ma `live`: po pozycji bloku to, co pokazuje on
+  teraz — adres formularza (`form_url`, `slug`), strefę, ostatni dzień
+  przyjazdu, pauzę i oferty z tym, co gość wybiera (grupa albo jednostka), a
+  dla listy także treść: zdjęcia po identyfikatorze, wyposażenie,
+  miejscowość, „od X zł/noc”. Witryna pyta przez rejestr publicznych źródeł
+  w rdzeniu (`PublicSource.site_blocks`, `live_site_blocks`), bo `shared.sites`
+  nie zna rezerwacji; odpowiada `booking/site_blocks.py` tym samym odczytem
+  co formularz (`public_stays`) w jego zakresie usługowym — jedna reguła tego,
+  co jest online i co firma pokazuje. Strona bez takich bloków nie pyta
+  nikogo.
+- **Blok bez odpowiedzi nie jest sekcją.** Firma bez formularza albo bez planu
+  z rezerwacjami, produkt bez publicznych rezerwacji, oferta zdjęta z
+  formularza albo usunięta, brak ofert okresu — `live` nie ma wpisu i
+  opublikowana strona takiego bloku nie rysuje wcale (pusty nagłówek „Nasze
+  domki” byłby gorszy niż nic). Edytor rysuje w tym miejscu zarys i zdanie o
+  tym, co pojawi się po publikacji; pole „Oferta” mówi, gdy firma nie ma
+  żadnej oferty okresu.
+- **Słowa słownika idą za językiem strony, tekst firmy za językami firmy.**
+  Wyposażenie i to, co blok mówi sam („od”, „Zarezerwuj”, kalendarz), jest w
+  języku strony (`siteUiTexts`, pięć języków platformy; inny czyta angielski).
+  Nazwy i opisy są w języku strony, gdy firma je w nim napisała, inaczej w jej
+  własnym. **Formularz jest linkowany w języku, w którym istnieje**
+  (`clamp_content_locale`): język strony, gdy firma go ma, inaczej pierwszy
+  język firmy, a dla firmy, której języków wdrożenie nie obsługuje — pierwszy
+  język produktu. Strona formularza takiej firmy odpowiada w tym języku (dotąd
+  odpowiadała 404 w każdym, choć API przyjmowało rezerwację).
+- **Zdjęcia jednostek serwuje host strony, w naszych kopiach.**
+  `PublicSource.served_media` (dla jednostek: `unit_content.public_photo_ids`
+  — publiczne i włączone) dopuszcza w `sites.public_media` kopie `thumbnail`
+  i `preview` zdjęcia, którego żadna publikacja nie wymienia; oryginał zostaje
+  niedostępny, tak jak przy formularzu. Blok rysuje `/media/<id>/preview` z
+  `srcset` obu kopii.
+- **Wolne dni blok czyta z publicznego API rezerwacji pod hostem strony.**
+  Widget i kalendarz pytają `…/booking/public/<slug>/stays/starts/` i
+  `…/ends/` z przeglądarki, miesiąc po miesiącu. Bramka hostów
+  (`http/hosts.py`) przepuszcza pod hostem spoza listy tylko `GET` i `HEAD`
+  na adresach `/api/v1/booking/public/` — odczyty tego, co formularz mówi
+  każdemu; firmę nazywa slug formularza, host o niczym nie decyduje. Zapisy
+  (wycena, rezerwacja) i wszystko z panelu zostają pod hostem platformy:
+  rezerwuje się w formularzu.
+- **Formularz przyjmuje wybór z adresu.** `/book/<slug>?offer=…&group=…|unit=…
+  &from=…&to=…&people=…` otwiera formularz na ofercie, wyborze, dniach i
+  liczbie osób z odnośnika (`stayFormHref` w `@saas-core/site-blocks`). To
+  tylko podpowiedź: oferty spoza formularza, dnia z przeszłości albo liczby,
+  która nie jest liczbą osób, formularz nie przyjmuje, a plan i cenę i tak
+  mówi serwer dla tego, co zostało wybrane.
+- **Daty wybiera się w siatce miesiąca, w formularzu i w blokach.**
+  `StayDatePicker` zastępuje listy wyboru z 5b: pyta o dni przyjazdu
+  miesiącami (nigdy ponad 92 dni okna publicznego), po wyborze przyjazdu o
+  dni wyjazdu, zaznacza pobyt i mówi jego długość; słowa dostaje od tego, kto
+  go pokazuje (komunikaty formularza albo teksty strony). Tydzień zaczyna się
+  w poniedziałek, jak w pozostałych kalendarzach produktu.
+- **Pozycja bloku to pozycja z publikacji.** Renderer pomija blok, którego
+  czyszczenie z pozostałości szablonu nie zostawia poprawnym; bloki za nim
+  zachowują pozycję, pod którą zna je serwer — po niej dostają `live`, a
+  formularz kontaktowy wysyła wiadomość (dotąd pominięty blok przesuwał
+  pozycję formularza za nim).
+- **Poza 5d:** strona jednostki i `public_slug` w adresie (5e); sekcje
+  biblioteki i szablon „Noclegi” z tymi blokami (5f) — dziś blok dodaje się w
+  Bibliotece z „Dodaj pustą sekcję”; podgląd prawdziwych jednostek w edytorze; kategorie
+  uczestników w widgecie (formularz pyta o nie sam); oznaczenie zdjęcia
+  jednostki wygenerowanego przez AI (okno jednostki przyjmuje tylko wgrane
+  pliki, API — każdy plik z biblioteki); ukrycie bloków w bibliotece firmy,
+  która nie ma ofert okresu.

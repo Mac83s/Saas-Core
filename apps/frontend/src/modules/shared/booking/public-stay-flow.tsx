@@ -37,7 +37,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
-import { addDays, formatDay, wallClock } from "./calendar-time";
+import { addDays, wallClock } from "./calendar-time";
 import {
   BookedCard,
   ContactFields,
@@ -57,13 +57,43 @@ import {
   type UnitContent,
 } from "./public-booking-parts";
 import { QuoteSummary } from "./quote-summary";
+import { StayDatePicker } from "./stay-date-picker";
 
 type Documents = BookingPublicConsents["documents"];
 type Offer = NonNullable<BookingPublicCatalog["stays"]>[number];
 
-/** One search of arrival days: what the server answers at once (ADR-072,
- *  phase 5a — its public window is 92 days). */
+/** How far ahead arrivals are looked for where the catalogue names no last
+ *  day (an older answer): a quarter. */
 const WINDOW_DAYS = 91;
+
+/** What a link to the form chose ahead of the guest (ADR-072, slice 5d) —
+ *  a block of the company's site says the offer, what is booked of it, the
+ *  days and how many people come. Everything is asked of the server again:
+ *  a day that is not free by now is refused like any other. */
+export type StayPreset = {
+  offer?: string;
+  group?: string;
+  unit?: string;
+  from?: string;
+  to?: string;
+  people?: string;
+};
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The days a link named, when they can be a stay at all: an arrival that is
+ *  not behind us, and an end after it (the same day ends a stay in days). */
+function presetDays(
+  preset: StayPreset | undefined,
+  today: string,
+  unit: "night" | "day",
+): { start: string; end: string } {
+  const start = preset?.from ?? "";
+  if (!DAY.test(start) || start < today) return { start: "", end: "" };
+  const end = preset?.to ?? "";
+  const closes = DAY.test(end) && (unit === "day" ? end >= start : end > start);
+  return { start, end: closes ? end : "" };
+}
 /** What the offer lets a guest choose: a group — the server picks the unit
  *  (ADR-072 §3) — or a unit listed by itself. */
 type Choice = UnitContent & {
@@ -104,6 +134,7 @@ export function PublicStayFlow({
   onDocuments,
   onElsewhere,
   onOffer,
+  preset,
   publicSlug,
 }: {
   catalog: BookingPublicCatalog;
@@ -119,6 +150,8 @@ export function PublicStayFlow({
   onElsewhere: (locales: string[]) => void;
   /** Another offer was chosen — a stay or a visit. */
   onOffer: (id: string) => void;
+  /** What the link to the form chose of this offer, if it chose anything. */
+  preset?: StayPreset;
   publicSlug: string;
 }) {
   const t = useTranslations("PublicBooking");
@@ -128,8 +161,16 @@ export function PublicStayFlow({
   const choices = useMemo(() => choicesOf(offer), [offer]);
   const unit = offer?.range_unit === "day" ? "day" : "night";
   const contact = catalog.online.contact;
-  // What is booked: the only choice by itself, otherwise the guest's pick.
-  const [chosen, setChosen] = useState("");
+  // What is booked: the only choice by itself, otherwise the guest's pick —
+  // or the one the link named, when the offer has it.
+  const [chosen, setChosen] = useState(() => {
+    const key = preset?.group
+      ? `group:${preset.group}`
+      : preset?.unit
+        ? `unit:${preset.unit}`
+        : "";
+    return choicesOf(offer).some((item) => item.key === key) ? key : "";
+  });
   const choice =
     choices.length === 1
       ? choices[0]
@@ -139,7 +180,9 @@ export function PublicStayFlow({
   // Counts are kept as typed, so a field can be emptied on the way to another
   // number; what is asked of the server are the whole numbers in them.
   const categories = catalog.participant_categories ?? [];
-  const [people, setPeople] = useState("2");
+  const [people, setPeople] = useState(() =>
+    /^[1-9]\d?$/.test(preset?.people ?? "") ? String(preset?.people) : "2",
+  );
   const [others, setOthers] = useState<Record<string, string>>({});
   const participants = useMemo(() => {
     const count = (typed: string) =>
@@ -151,18 +194,16 @@ export function PublicStayFlow({
         .map(([category_id, typed]) => ({ category_id, count: count(typed) })),
     ];
   }, [others, people]);
-  // The days: the window searched, the arrival days it found, the arrival
-  // chosen, the departures it allows and the one chosen. An unset list is
-  // one still being asked for.
+  // The days: the arrival and the departure picked in the calendar, which
+  // asks the server for the days of each month it shows.
   const [today] = useState(() => wallClock(new Date(), catalog.timezone).day);
   const lastDay = catalog.online.period_last_day ?? addDays(today, WINDOW_DAYS);
-  const [from, setFrom] = useState(today);
-  // The window one search covers: from `from`, never past the last day.
-  const until = [addDays(from, WINDOW_DAYS), lastDay].sort()[0];
-  const [starts, setStarts] = useState<string[]>();
-  const [start, setStart] = useState("");
-  const [ends, setEnds] = useState<string[]>();
-  const [end, setEnd] = useState("");
+  const [start, setStart] = useState(
+    () => presetDays(preset, today, unit).start,
+  );
+  const [end, setEnd] = useState(() => presetDays(preset, today, unit).end);
+  // Counts the times the days were asked for again from the start.
+  const [search, setSearch] = useState(0);
   const [picked, setPicked] = useState<Record<string, number>>({});
   const extras = useMemo(() => pickedExtras(picked), [picked]);
   const options = (catalog.extras ?? []).filter(
@@ -209,51 +250,6 @@ export function PublicStayFlow({
   });
   const targetKey = choice?.key ?? "";
 
-  // Each answer is dropped once the guest has moved on to another choice.
-  useEffect(() => {
-    if (!choice) return;
-    let current = true;
-    getPublicStayStarts(publicSlug, {
-      service_id: offerId,
-      ...choice.target,
-      from,
-      to: until,
-    })
-      .then((days) => {
-        if (current) setStarts(days);
-      })
-      .catch(() => {
-        if (!current) return;
-        setStarts([]);
-        setProblem(t("loadError"));
-      });
-    return () => {
-      current = false;
-    };
-    // `choice` is named by its key: the same pick must not search twice.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, offerId, publicSlug, t, targetKey, until]);
-  useEffect(() => {
-    if (!choice || !start) return;
-    let current = true;
-    getPublicStayEnds(publicSlug, {
-      service_id: offerId,
-      ...choice.target,
-      start,
-    })
-      .then((days) => {
-        if (current) setEnds(days);
-      })
-      .catch(() => {
-        if (!current) return;
-        setEnds([]);
-        setProblem(t("loadError"));
-      });
-    return () => {
-      current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offerId, publicSlug, start, t, targetKey]);
   useEffect(() => {
     if (!asked) return;
     let current = true;
@@ -283,24 +279,15 @@ export function PublicStayFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askedKey, attempt, locale, publicSlug]);
 
-  // Another thing booked or another window: the days listed are not its own.
-  function restart(next: { chosen?: string; from?: string }) {
+  // Another thing booked, or the days asked for again: the days chosen are
+  // not its own.
+  function restart(next: { chosen?: string }) {
     if (next.chosen !== undefined) setChosen(next.chosen);
-    if (next.from !== undefined) setFrom(next.from);
-    setStarts(undefined);
-    pickStart("");
+    setSearch((count) => count + 1);
+    setStart("");
+    setEnd("");
     setProblem(undefined);
   }
-  function pickStart(day: string) {
-    setStart(day);
-    setEnds(undefined);
-    setEnd("");
-  }
-  const lengthOf = (day: string) =>
-    Math.round(
-      (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) /
-        86400000,
-    ) + (unit === "day" ? 1 : 0);
 
   const book = form.handleSubmit(async ({ notes, ...customer }) => {
     if (!asked || !plan) return;
@@ -370,9 +357,6 @@ export function PublicStayFlow({
         name={form.getValues("display_name").trim()}
       />
     );
-  const months = Array.from(
-    new Set((starts ?? []).map((day) => day.slice(0, 7))),
-  );
   const onRequest = offer?.confirmation === "on_request";
   return (
     <Card>
@@ -510,113 +494,62 @@ export function PublicStayFlow({
               );
             })}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field data-invalid={tried && !start}>
-              <FieldLabel htmlFor="booking-arrival">
-                {t(unit === "day" ? "stayFirstDay" : "stayArrival")}
-              </FieldLabel>
-              <NativeSelect
-                aria-invalid={tried && !start}
-                disabled={!starts?.length}
-                id="booking-arrival"
-                onChange={(event) => pickStart(event.target.value)}
-                value={start}
-              >
-                <option value="">{t("choose")}</option>
-                {months.map((month) => (
-                  <optgroup
-                    key={month}
-                    label={formatDay(`${month}-01`, locale, {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  >
-                    {(starts ?? [])
-                      .filter((day) => day.startsWith(month))
-                      .map((day) => (
-                        <option key={day} value={day}>
-                          {formatDay(day, locale, {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "long",
-                          })}
-                        </option>
-                      ))}
-                  </optgroup>
-                ))}
-              </NativeSelect>
-              {tried && !start ? (
-                <FieldError errors={[{ message: t("stayDatesRequired") }]} />
-              ) : null}
-            </Field>
-            <Field data-invalid={tried && Boolean(start) && !end}>
-              <FieldLabel htmlFor="booking-departure">
-                {t(unit === "day" ? "stayLastDay" : "stayDeparture")}
-              </FieldLabel>
-              <NativeSelect
-                aria-invalid={tried && Boolean(start) && !end}
-                disabled={!ends?.length}
-                id="booking-departure"
-                onChange={(event) => setEnd(event.target.value)}
-                value={end}
-              >
-                <option value="">{t("choose")}</option>
-                {(ends ?? []).map((day) => (
-                  <option key={day} value={day}>
-                    {t("stayEndOption", {
-                      day: formatDay(day, locale, {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "long",
-                      }),
-                      count: lengthOf(day),
-                      unit,
-                    })}
-                  </option>
-                ))}
-              </NativeSelect>
-              {tried && start && !end ? (
-                <FieldError errors={[{ message: t("stayDatesRequired") }]} />
-              ) : null}
-            </Field>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {from > today ? (
-              <Button
-                onClick={() =>
-                  restart({
-                    from: [addDays(from, -WINDOW_DAYS - 1), today].sort()[1],
+          <FieldSet data-invalid={tried && !(start && end)}>
+            <FieldLegend variant="label">{t("stayDates")}</FieldLegend>
+            {choice ? (
+              <StayDatePicker
+                end={end}
+                invalid={tried && !(start && end)}
+                labels={{
+                  previousMonth: t("stayPreviousMonth"),
+                  nextMonth: t("stayNextMonth"),
+                  pickStart: t("stayPickStart", { unit }),
+                  pickEnd: t("stayPickEnd", { unit }),
+                  start: t(unit === "day" ? "stayFirstDay" : "stayArrival"),
+                  end: t(unit === "day" ? "stayLastDay" : "stayDeparture"),
+                  free: t("stayDayFree"),
+                  unavailable: t("stayDayUnavailable"),
+                  clear: t("stayClear"),
+                  loading: t("loadingTimes"),
+                  loadError: t("loadError"),
+                  noDays: t("stayNoDays"),
+                  length: (count) => t("stayLength", { count, unit }),
+                }}
+                lastDay={lastDay}
+                loadEnds={(day) =>
+                  getPublicStayEnds(publicSlug, {
+                    service_id: offerId,
+                    ...choice.target,
+                    start: day,
                   })
                 }
-                type="button"
-                variant="outline"
-              >
-                {t("stayEarlier")}
-              </Button>
+                loadStarts={(from, to) =>
+                  getPublicStayStarts(publicSlug, {
+                    service_id: offerId,
+                    ...choice.target,
+                    from,
+                    to,
+                  })
+                }
+                locale={locale}
+                months={2}
+                onChange={(first, last) => {
+                  setStart(first);
+                  setEnd(last);
+                  setProblem(undefined);
+                }}
+                searchKey={`${targetKey}#${search}`}
+                start={start}
+                today={today}
+                unit={unit}
+              />
+            ) : (
+              <FieldDescription>{t("stayChoiceFirst")}</FieldDescription>
+            )}
+            {tried && choice && !(start && end) ? (
+              <FieldError errors={[{ message: t("stayDatesRequired") }]} />
             ) : null}
-            {until < lastDay ? (
-              <Button
-                disabled={Boolean(choice) && !starts}
-                onClick={() => restart({ from: addDays(until, 1) })}
-                type="button"
-                variant="outline"
-              >
-                {t("stayLater")}
-              </Button>
-            ) : null}
-            <p aria-live="polite" className="text-sm text-muted-foreground">
-              {!choice
-                ? null
-                : !starts || (start && !ends)
-                  ? t("loadingTimes")
-                  : starts.length === 0
-                    ? t("stayNoDays", {
-                        from: formatDay(from, locale, { dateStyle: "long" }),
-                        to: formatDay(until, locale, { dateStyle: "long" }),
-                      })
-                    : null}
-            </p>
-          </div>
+          </FieldSet>
           <ExtrasPicker
             currency={catalog.currency ?? "PLN"}
             onPick={setPicked}

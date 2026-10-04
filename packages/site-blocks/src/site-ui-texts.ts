@@ -26,6 +26,57 @@ export interface ContactFormTexts {
   readonly tooLarge: string;
 }
 
+/** A stay's time unit: nights, or days of a rental. */
+export type StayUnit = "night" | "day";
+
+/** What the blocks of offers booked from–to say by themselves (ADR-072,
+ *  slice 5d): the list of units, the booking widget, the calendar. */
+export interface StayTexts {
+  /** „od 300 zł / noc”; the caller formats the amount. */
+  readonly fromPrice: (amount: string, per: StayUnit | "stay") => string;
+  /** „do 4 osób”. */
+  readonly capacity: (count: number) => string;
+  /** A unit's own action, where the block names none. */
+  readonly book: string;
+  /** The widget's and the calendar's action, where the block names none. */
+  readonly checkDates: string;
+  readonly offer: string;
+  readonly choice: string;
+  readonly guests: string;
+  readonly arrival: (unit: StayUnit) => string;
+  readonly departure: (unit: StayUnit) => string;
+  /** What to pick next in the calendar. */
+  readonly pick: (unit: StayUnit, step: "start" | "end") => string;
+  /** „3 noce”, „2 dni”. */
+  readonly length: (count: number, unit: StayUnit) => string;
+  readonly previousMonth: string;
+  readonly nextMonth: string;
+  /** A day of the calendar, said after its date. */
+  readonly free: string;
+  readonly unavailable: string;
+  readonly clear: string;
+  readonly loading: string;
+  readonly loadError: string;
+  readonly noDays: string;
+  readonly paused: string;
+  /** In the page editor only: what the published page will show here. */
+  readonly preview: {
+    readonly units: string;
+    readonly search: string;
+    readonly calendar: string;
+  };
+}
+
+/** One, few, many: the form a count takes in a language. */
+function counted(
+  locale: string,
+  count: number,
+  forms: { one: string; few?: string; many?: string; other: string },
+): string {
+  const rule = new Intl.PluralRules(locale).select(count) as keyof typeof forms;
+  return `${count} ${forms[rule] ?? forms.other}`;
+}
+
 export interface SiteUiTexts {
   readonly menu: string;
   readonly languages: string;
@@ -49,6 +100,7 @@ export interface SiteUiTexts {
     readonly body: string;
     readonly home: string;
   };
+  readonly stay: StayTexts;
 }
 
 const TEXTS = {
@@ -96,6 +148,53 @@ const TEXTS = {
       body: "Adres mógł się zmienić albo strona została usunięta.",
       home: "Przejdź na stronę główną",
     },
+    stay: {
+      fromPrice: (amount, per) =>
+        `od ${amount}${per === "night" ? " / noc" : per === "day" ? " / dzień" : ""}`,
+      capacity: (count) => (count === 1 ? "do 1 osoby" : `do ${count} osób`),
+      book: "Zarezerwuj",
+      checkDates: "Sprawdź cenę i zarezerwuj",
+      offer: "Oferta",
+      choice: "Co rezerwujesz",
+      guests: "Liczba osób",
+      arrival: (unit) => (unit === "day" ? "Pierwszy dzień" : "Przyjazd"),
+      departure: (unit) => (unit === "day" ? "Ostatni dzień" : "Wyjazd"),
+      pick: (unit, step) =>
+        unit === "day"
+          ? step === "start"
+            ? "Wybierz pierwszy dzień"
+            : "Wybierz ostatni dzień"
+          : step === "start"
+            ? "Wybierz dzień przyjazdu"
+            : "Wybierz dzień wyjazdu",
+      length: (count, unit) =>
+        unit === "day"
+          ? counted("pl", count, { one: "dzień", other: "dni" })
+          : counted("pl", count, {
+              one: "noc",
+              few: "noce",
+              many: "nocy",
+              other: "nocy",
+            }),
+      previousMonth: "Poprzedni miesiąc",
+      nextMonth: "Następny miesiąc",
+      free: "wolny termin",
+      unavailable: "niedostępny",
+      clear: "Wybierz inny termin",
+      loading: "Sprawdzamy wolne terminy…",
+      loadError:
+        "Nie udało się wczytać wolnych terminów. Odśwież stronę i spróbuj ponownie.",
+      noDays: "W tym miesiącu nie ma wolnych terminów.",
+      paused: "Rezerwacja online jest chwilowo wstrzymana.",
+      preview: {
+        units:
+          "Na opublikowanej stronie pojawią się tu Twoje jednostki: zdjęcie, miejscowość, wyposażenie i cena „od”. Ustawiasz je w Ustawieniach › Usługi i grafik.",
+        search:
+          "Na opublikowanej stronie gość wybierze tu termin i liczbę osób, a przycisk zaprowadzi go do formularza rezerwacji.",
+        calendar:
+          "Na opublikowanej stronie pojawi się tu kalendarz wolnych terminów z Twojego grafiku.",
+      },
+    },
   },
   en: {
     menu: "Menu",
@@ -140,6 +239,49 @@ const TEXTS = {
       title: "Page not found",
       body: "The address may have changed, or the page was removed.",
       home: "Go to the home page",
+    },
+    stay: {
+      fromPrice: (amount, per) =>
+        `from ${amount}${per === "night" ? " / night" : per === "day" ? " / day" : ""}`,
+      capacity: (count) =>
+        count === 1 ? "for 1 person" : `up to ${count} people`,
+      book: "Book",
+      checkDates: "Check the price and book",
+      offer: "Offer",
+      choice: "What you book",
+      guests: "Number of people",
+      arrival: (unit) => (unit === "day" ? "First day" : "Arrival"),
+      departure: (unit) => (unit === "day" ? "Last day" : "Departure"),
+      pick: (unit, step) =>
+        unit === "day"
+          ? step === "start"
+            ? "Choose the first day"
+            : "Choose the last day"
+          : step === "start"
+            ? "Choose your arrival day"
+            : "Choose your departure day",
+      length: (count, unit) =>
+        unit === "day"
+          ? counted("en", count, { one: "day", other: "days" })
+          : counted("en", count, { one: "night", other: "nights" }),
+      previousMonth: "Previous month",
+      nextMonth: "Next month",
+      free: "available",
+      unavailable: "unavailable",
+      clear: "Choose other dates",
+      loading: "Checking available dates…",
+      loadError:
+        "The available dates could not be loaded. Refresh the page and try again.",
+      noDays: "There are no available dates in this month.",
+      paused: "Online booking is paused for now.",
+      preview: {
+        units:
+          "The published page shows your units here: a photo, the town, the amenities and the “from” price. You set them in Settings › Services and schedule.",
+        search:
+          "On the published page a guest chooses the dates and the number of people here, and the button takes them to the booking form.",
+        calendar:
+          "The published page shows the calendar of available dates from your schedule here.",
+      },
     },
   },
   de: {
@@ -187,6 +329,49 @@ const TEXTS = {
       body: "Die Adresse hat sich vielleicht geändert, oder die Seite wurde entfernt.",
       home: "Zur Startseite",
     },
+    stay: {
+      fromPrice: (amount, per) =>
+        `ab ${amount}${per === "night" ? " / Nacht" : per === "day" ? " / Tag" : ""}`,
+      capacity: (count) =>
+        count === 1 ? "für 1 Person" : `bis ${count} Personen`,
+      book: "Buchen",
+      checkDates: "Preis prüfen und buchen",
+      offer: "Angebot",
+      choice: "Was Sie buchen",
+      guests: "Anzahl der Personen",
+      arrival: (unit) => (unit === "day" ? "Erster Tag" : "Anreise"),
+      departure: (unit) => (unit === "day" ? "Letzter Tag" : "Abreise"),
+      pick: (unit, step) =>
+        unit === "day"
+          ? step === "start"
+            ? "Wählen Sie den ersten Tag"
+            : "Wählen Sie den letzten Tag"
+          : step === "start"
+            ? "Wählen Sie den Anreisetag"
+            : "Wählen Sie den Abreisetag",
+      length: (count, unit) =>
+        unit === "day"
+          ? counted("de", count, { one: "Tag", other: "Tage" })
+          : counted("de", count, { one: "Nacht", other: "Nächte" }),
+      previousMonth: "Vorheriger Monat",
+      nextMonth: "Nächster Monat",
+      free: "frei",
+      unavailable: "nicht verfügbar",
+      clear: "Anderen Termin wählen",
+      loading: "Freie Termine werden geprüft…",
+      loadError:
+        "Die freien Termine konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+      noDays: "In diesem Monat gibt es keine freien Termine.",
+      paused: "Die Online-Buchung ist vorübergehend ausgesetzt.",
+      preview: {
+        units:
+          "Auf der veröffentlichten Seite erscheinen hier Ihre Einheiten: Foto, Ort, Ausstattung und der „ab“-Preis. Sie legen sie unter Einstellungen › Leistungen und Zeitplan fest.",
+        search:
+          "Auf der veröffentlichten Seite wählt der Gast hier Termin und Personenzahl; die Schaltfläche führt zum Buchungsformular.",
+        calendar:
+          "Auf der veröffentlichten Seite erscheint hier der Kalender der freien Termine aus Ihrem Zeitplan.",
+      },
+    },
   },
   es: {
     menu: "Menú",
@@ -232,6 +417,49 @@ const TEXTS = {
       body: "Es posible que la dirección haya cambiado o que la página se haya eliminado.",
       home: "Ir a la página de inicio",
     },
+    stay: {
+      fromPrice: (amount, per) =>
+        `desde ${amount}${per === "night" ? " / noche" : per === "day" ? " / día" : ""}`,
+      capacity: (count) =>
+        count === 1 ? "para 1 persona" : `hasta ${count} personas`,
+      book: "Reservar",
+      checkDates: "Ver el precio y reservar",
+      offer: "Oferta",
+      choice: "Qué reserva",
+      guests: "Número de personas",
+      arrival: (unit) => (unit === "day" ? "Primer día" : "Llegada"),
+      departure: (unit) => (unit === "day" ? "Último día" : "Salida"),
+      pick: (unit, step) =>
+        unit === "day"
+          ? step === "start"
+            ? "Elija el primer día"
+            : "Elija el último día"
+          : step === "start"
+            ? "Elija el día de llegada"
+            : "Elija el día de salida",
+      length: (count, unit) =>
+        unit === "day"
+          ? counted("es", count, { one: "día", other: "días" })
+          : counted("es", count, { one: "noche", other: "noches" }),
+      previousMonth: "Mes anterior",
+      nextMonth: "Mes siguiente",
+      free: "disponible",
+      unavailable: "no disponible",
+      clear: "Elegir otras fechas",
+      loading: "Comprobando las fechas disponibles…",
+      loadError:
+        "No se pudieron cargar las fechas disponibles. Actualice la página e inténtelo de nuevo.",
+      noDays: "No hay fechas disponibles en este mes.",
+      paused: "La reserva en línea está suspendida por ahora.",
+      preview: {
+        units:
+          "En la página publicada aparecerán aquí sus unidades: foto, localidad, equipamiento y el precio «desde». Se configuran en Ajustes › Servicios y horario.",
+        search:
+          "En la página publicada el huésped elegirá aquí las fechas y el número de personas, y el botón lo llevará al formulario de reserva.",
+        calendar:
+          "En la página publicada aparecerá aquí el calendario de fechas disponibles de su horario.",
+      },
+    },
   },
   ru: {
     menu: "Меню",
@@ -275,6 +503,59 @@ const TEXTS = {
       title: "Страница не найдена",
       body: "Возможно, адрес изменился или страница была удалена.",
       home: "На главную страницу",
+    },
+    stay: {
+      fromPrice: (amount, per) =>
+        `от ${amount}${per === "night" ? " / ночь" : per === "day" ? " / день" : ""}`,
+      capacity: (count) =>
+        count === 1 ? "для 1 человека" : `до ${count} человек`,
+      book: "Забронировать",
+      checkDates: "Узнать цену и забронировать",
+      offer: "Предложение",
+      choice: "Что вы бронируете",
+      guests: "Количество человек",
+      arrival: (unit) => (unit === "day" ? "Первый день" : "Заезд"),
+      departure: (unit) => (unit === "day" ? "Последний день" : "Выезд"),
+      pick: (unit, step) =>
+        unit === "day"
+          ? step === "start"
+            ? "Выберите первый день"
+            : "Выберите последний день"
+          : step === "start"
+            ? "Выберите день заезда"
+            : "Выберите день выезда",
+      length: (count, unit) =>
+        unit === "day"
+          ? counted("ru", count, {
+              one: "день",
+              few: "дня",
+              many: "дней",
+              other: "дня",
+            })
+          : counted("ru", count, {
+              one: "ночь",
+              few: "ночи",
+              many: "ночей",
+              other: "ночи",
+            }),
+      previousMonth: "Предыдущий месяц",
+      nextMonth: "Следующий месяц",
+      free: "свободно",
+      unavailable: "недоступно",
+      clear: "Выбрать другие даты",
+      loading: "Проверяем свободные даты…",
+      loadError:
+        "Не удалось загрузить свободные даты. Обновите страницу и попробуйте ещё раз.",
+      noDays: "В этом месяце нет свободных дат.",
+      paused: "Онлайн-бронирование временно приостановлено.",
+      preview: {
+        units:
+          "На опубликованной странице здесь появятся ваши объекты: фото, населённый пункт, удобства и цена «от». Они настраиваются в разделе Настройки › Услуги и расписание.",
+        search:
+          "На опубликованной странице гость выберет здесь даты и количество человек, а кнопка откроет форму бронирования.",
+        calendar:
+          "На опубликованной странице здесь появится календарь свободных дат из вашего расписания.",
+      },
     },
   },
 } satisfies Record<string, SiteUiTexts>;
