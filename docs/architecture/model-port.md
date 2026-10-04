@@ -220,7 +220,10 @@ przetwarzającego; blokada daje `deferred` do jej końca, reszta `denied`) → s
 mieści się w każdym sztywnym sufice w ogóle (inaczej `denied` /
 `estimate_exceeds_ceiling`) → platforma → pula w miesiącu, z rezerwą → pula w dobie →
 zadanie w dobie → firma → rozmowa → osoba. `eval` i `probe` przechodzą tylko platformę
-i pulę w miesiącu.
+i pulę w miesiącu — i tylko do nich się liczą: sumy doby (puli, zadania, firmy, osoby)
+i rozmowy pomijają wywołania `eval` i `probe`, więc przebieg evali ani dowód na
+lokalnym stosie (`ASSISTANT_PROOF_ACCOUNTS`, `assistant-chat.md`) nie zabiera nikomu
+dnia. To samo pokazuje `budget_state`.
 
 | Poziom | Pula `translation` | Pula `assistant` | Po przekroczeniu |
 | --- | --- | --- | --- |
@@ -331,7 +334,7 @@ kod, status HTTP, `retry_after`). Wywołanie spoza skryptu oblewa test; otrzyman
   `arguments_json` bez zmian i `errors` w formacie A1a; `continuation` innego modelu
   pominięta i policzona; odmowy; zalew `translation.text` staje na suficie, a zadanie
   asystenta działa dalej; udział odracza firmę tylko przy konkurencji; rezerwa chroni
-  asystenta; evale nie zużywają doby puli; `resend_of` przechodzi raz; limiter WWW
+  asystenta; evale nie zużywają doby puli ani dnia osoby, firmy i rozmowy; `resend_of` przechodzi raz; limiter WWW
   działa w żądaniu, a nie w workerze; wiersz bez znaczników treści; usunięcie firmy
   zabiera wiersze, a wywołanie zakończone po nim ich nie odtwarza.
 - Działający stos: wiersz telemetrii przeżywa wycofanie transakcji żądania; przy

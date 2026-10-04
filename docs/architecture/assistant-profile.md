@@ -63,8 +63,8 @@ i `assistant.use`), także asystent działający w jego imieniu; cecha planu
 
 ## Konfigurator (`shared/assistant/configurator.py`)
 
-`configure(profile, reads, commands, setup_refs=())` — bez modelu, bez bazy, bez
-wykonywania poleceń.
+`configure(profile, reads, commands, setup_refs=(), origins=None)` — bez modelu, bez
+bazy, bez wykonywania poleceń.
 
 - `reads`: wyniki poleceń odczytu, po nazwie polecenia — asystent sięga do innych
   modułów tylko przez rejestr (ADR-076 pkt 9): `organization.read@1`,
@@ -76,6 +76,10 @@ wykonywania poleceń.
 - `setup_refs`: rozmowy ustawiające tej firmy, w postaci, w jakiej usługa nazywa
   rozmowę, która ją założyła (`origin_ref` w `booking.setup.read@1`). Podaje je
   `setup._setup_refs` z tabeli rozmów — konfigurator sam niczego nie czyta.
+- `origins`: po identyfikatorze usługi — dla której oferty z notatek (`offer`, klucz)
+  rozmowa ustawiająca ją założyła albo zmieniła i jak się wtedy nazywała (`name`).
+  Podaje je `setup._origins` z wyników planów (`made` przy kroku `offer:<klucz>`,
+  zapisywane przez `turns.record_plan`).
 
 Wynik to cztery listy:
 
@@ -102,11 +106,17 @@ Zasady:
   Nazwa, którą notatki nadal mają — potwierdzona albo nie — zatrzymuje szkic. Szkicu
   założonego w panelu, w zwykłej rozmowie albo w rozmowie, którą retencja już usunęła,
   konfigurator nie rusza; bez polecenia w rejestrze nie mówi o nim nic.
+- **Usługa przemianowana w panelu zostaje ofertą z notatek** (`origins`): gdy usługę
+  założono dla oferty o tym kluczu i notatki nazywają ofertę tak, jak usługa nazywała
+  się wtedy, konfigurator bierze ją za usługę tej oferty — nie zakłada drugiej, nie
+  proponuje usunięcia, a brakujące jednostki, cenę i sezon planuje dla niej. Oferta
+  nazwana w notatkach inaczej jest inną ofertą, jak dotąd.
 - **Rodzaj rezerwacji**: pytanie `offer_needs_kind` podaje jako odpowiedzi tylko
   rodzaje gotowe (`readiness: ready`); zapowiedziane trafiają do `soon` — asystent
   nazywa je „wkrótce” i nie proponuje.
 - **Dopasowanie po nazwie**: miejsca, osoby i usługi konta poznaje po nazwie bez
-  wielkości liter, znaków diakrytycznych i interpunkcji.
+  wielkości liter, znaków diakrytycznych i interpunkcji; usługę — gdy nazwa nie
+  pasuje — także po pochodzeniu (wyżej).
 - **Usługa** powstaje przez `booking.preset.apply@1`, gdy produkt ma to polecenie; do
   tego czasu wizyta na godzinę (`slot`) powstaje przez `booking.offer.create@1`, bez
   zapisanego presetu. Zawsze wyłączona — włącza ją właściciel.

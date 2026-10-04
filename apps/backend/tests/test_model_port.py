@@ -333,6 +333,33 @@ def test_a_flood_of_translations_stops_at_the_ceiling_and_the_assistant_goes_on(
     assert complete(conversation(org)).text == "Jestem"
 
 
+def test_evals_and_proofs_are_counted_only_in_the_months(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A call that is not held to the daily ceilings does not use them up
+    either: a proof run as a person leaves that person's day as it was."""
+    from saas_core.modules.shared.model_port.api import budget_state
+
+    monkeypatch.setenv("MODEL_PORT_BUDGET_ASSISTANT_PERSON_DAY", "0.05")
+    request = conversation(organization())
+    proof = replace(request, context=replace(request.context, purpose="eval"))
+    FAKE.script(*(FakeReply(text="ok", cost_usd_micros=40_000) for _ in range(5)))
+
+    # Three calls of four cents each: past the person's five cents twice over.
+    for _ in range(3):
+        complete(proof)
+    assert complete(request).text == "ok"
+
+    levels = budget_state(request.task, request.context).levels
+    spent = {level.level: level.spent_usd_micros for level in levels}
+    assert spent["platform_month"] == 160_000
+    assert (spent["pool_day"], spent["company_day"], spent["person_day"]) == (40_000,) * 3
+    assert spent["conversation"] == 40_000
+    # The person's own calls are what their day stops.
+    complete(request)
+    with pytest.raises(ModelError) as stopped:
+        complete(request)
+    assert (stopped.value.kind, stopped.value.code) == ("budget", "person_day")
+
+
 def test_a_company_over_its_share_waits_only_while_another_one_is_asking(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

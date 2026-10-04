@@ -1052,6 +1052,19 @@ MODEL_PORT_TEST_DOUBLE = os.environ.get("MODEL_PORT_TEST_DOUBLE", "false").strip
     "yes",
 }
 MODEL_PORT_WEB_CALLS_PER_PROCESS = int(os.environ.get("MODEL_PORT_WEB_CALLS_PER_PROCESS", "1"))
+#: Accounts whose conversations with the assistant are proofs (browser
+#: walk-throughs of a local stack), by e-mail, comma-separated. Their model
+#: calls are counted with the evals — against the monthly ceilings only, in no
+#: person's or company's day — so a proof never uses up the ceiling of the
+#: account a person looks around with. Empty by default; a stack served over
+#: https that names one does not start (`assistant.E001`).
+ASSISTANT_PROOF_ACCOUNTS = tuple(
+    sorted({
+        account.strip().lower()
+        for account in os.environ.get("ASSISTANT_PROOF_ACCOUNTS", "").split(",")
+        if account.strip()
+    })
+)
 #: The deployment's values of two translation engine keys (TL22): below an
 #: operator's value in the „Platforma” panel, above the code's default
 #: (`platform_env` of `translation.engine.*`).

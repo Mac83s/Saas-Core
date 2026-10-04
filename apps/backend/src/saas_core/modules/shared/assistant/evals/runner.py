@@ -1,12 +1,15 @@
 """Runs the scenarios against one candidate model (A3; ADR-033 „Jakość i koszty”).
 
-The same prompt and the same tools a customer's conversation gets — every
-registered command exposed to the assistant — with purpose `eval`: the
-deployment's budget pays, no company. Tools are not executed: a read answers
-with the scenario's fixture and a write with the scenario's outcome, so a run
-touches no tenant data and its grading is deterministic. The report says how
-often the model did the right thing, what a message costs and how long a call
-takes; the owner picks the model on those numbers.
+The same prompt and the same tools a customer's conversation gets — of every
+registered command exposed to the assistant, the ones of the areas the
+conversation has touched (`topics.select`), widened by the model on demand —
+with purpose `eval`: the deployment's budget pays, no company. Tools are not
+executed: a read answers with the scenario's fixture and a write with the
+scenario's outcome, so a run touches no tenant data and its grading is
+deterministic. An answer with a verb form that has a gender is sent back once,
+as in a conversation (`style`). The report says how often the model did the
+right thing, what a message costs and how long a call takes; the owner picks
+the model on those numbers.
 """
 
 from __future__ import annotations
@@ -35,8 +38,10 @@ from saas_core.modules.shared.model_port.api import (
     complete,
 )
 
+from .. import style, topics
 from ..permissions import TASK
 from ..prompts import PROMPT_ID, PROMPT_VERSION, system_prompt
+from ..turns import cached_tail
 from .scenarios import READS, SCENARIOS, Scenario
 
 #: Model calls one scenario may take: read, propose, report — and one spare.
@@ -123,18 +128,6 @@ _ENGLISH_WORDS = frozenset([
     "for",
     "with",
 ])
-# „zrobiłem”, „ustawiłam”: the panel's assistant has no gender (R13). By verb,
-# because a noun ends the same way („zespołem”, „tytułem”).
-_GENDERED = re.compile(
-    r"\b(?:\w*(?:zmieni|stawi|doda|robi|sprawdzi|pisa|usun[ąę]|kona|znalaz|tworzy|"
-    r"owa|wysła|czyta|prawi|łączy|wybra|mog|musia|chcia|by|pomin[ąę]|stali|wprowadzi))"
-    r"(?:łem|łam)\b"
-    # „chciałbym”, „mogłabym”: the conditional has a gender too — also when it
-    # is split („żebym to zrobił”).
-    r"|\b\w+ł[ao]?bym\b"
-    r"|\b(?:że|a|gdy|o)bym\b[^.?!\n]{0,40}?\b\w+ła?\b",
-    re.IGNORECASE,
-)
 _MARKDOWN = re.compile(r"(\*\*|__|^#{1,6} |^\|.*\|$|`)", re.MULTILINE)
 
 
@@ -242,21 +235,37 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
         purpose="eval",
     )
     stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
-    messages: list[Message] = [
-        Message(role="system", content=system_prompt(language=scenario.language), cache=True),
-        Message(role="user", content=f"[{stamp}] {scenario.message}"),
+    system = Message(role="system", content=system_prompt(language=scenario.language), cache=True)
+    messages: list[Message] = [Message(role="user", content=f"[{stamp}] {scenario.message}")]
+    available = [
+        {"name": tool.name, "description": tool.description, "input_schema": tool.input_schema}
+        for tool in tools
     ]
+    # As in a conversation: the tools of the areas the person's words and the
+    # model's calls have touched so far.
+    events: list[Sequence[str]] = [topics.said(scenario.message)]
     arguments: dict[str, list[Mapping[str, Any]]] = {}
+    # An answer held back for its words, with the panel's note: sent once and
+    # never kept — as the conversation's own check does (`turns._rewritten`).
+    held: tuple[Message, ...] = ()
+    first = ""
     for _ in range(MAX_STEPS):
         result.steps += 1
         request = ModelRequest(
             task=TASK,
-            messages=tuple(messages),
+            messages=(system, *cached_tail(messages), *held),
             prompt_id=PROMPT_ID,
             prompt_version=PROMPT_VERSION,
             context=context,
             data_class="personal",
-            tools=tools,
+            tools=tuple(
+                ToolSpec(
+                    name=tool["name"],
+                    description=tool["description"],
+                    input_schema=tool["input_schema"],
+                )
+                for tool in topics.select(available, events)
+            ),
             cache_tools=True,
             model=model,
         )
@@ -279,11 +288,31 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
             continue
         result.cost_usd_micros += response.cost_usd_micros or 0
         result.latencies_ms.append(response.latency_ms)
-        messages.append(response.as_message())
-        if not response.tool_calls:
-            result.answer = response.text or ""
+        if held:
+            # Written again: taken when it is an answer in words, else the
+            # first one stands.
+            again = "" if response.tool_calls else (response.text or "").strip()
+            result.answer = again or first
             break
+        if not response.tool_calls:
+            first = response.text or ""
+            form = style.gendered(first)
+            if form:
+                held = style.rewrite_messages(response, form)
+                continue
+            result.answer = first
+            break
+        messages.append(response.as_message())
         for call in response.tool_calls:
+            events.append(topics.called(call.name, call.arguments_json))
+            if call.name == topics.MORE_TOOLS:
+                messages.append(
+                    _tool(
+                        call.id,
+                        {"status": "done", "output": topics.opened(call.arguments_json, available)},
+                    )
+                )
+                continue
             try:
                 spec = command_for_tool(call.name)
             except UnknownCommand:
@@ -353,7 +382,7 @@ def grade(
             failed.append("technical_names")
         if _MARKDOWN.search(answer):
             failed.append("markdown")
-        if _GENDERED.search(answer):
+        if style.gendered(answer):
             failed.append("gendered_verb")
         if _language(answer) not in {scenario.language, ""}:
             failed.append("wrong_language")

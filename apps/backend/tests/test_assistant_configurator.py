@@ -526,8 +526,8 @@ def test_money_is_never_guessed() -> None:
     offer["price"] = {**offer["price"], "origin": "assistant", "confirmed": False}
     answer = configure(profile, reads, COMMANDS)
     assert "price:cottage" not in [entry["ref"] for entry in answer["plan"]]
-    assert confirm("offers.cottage.price", "assistant", offer["price"]["value"]) in (
-        answer["missing"]
+    assert (
+        confirm("offers.cottage.price", "assistant", offer["price"]["value"]) in (answer["missing"])
     )
 
     # Neither is the tax rate: without the owner's answer the price waits.
@@ -737,6 +737,57 @@ def test_a_draft_whose_offer_left_the_notes_is_taken_back() -> None:
     assert refs[-3:] == ["offer:cottage", "discard:V1", "discard:V2"]
 
 
+def test_a_draft_renamed_in_the_panel_is_still_the_notes_offer() -> None:
+    """Known by where it came from, not by what it is called: the notes keep
+    the name they gave the offer, and the panel has renamed its draft."""
+    profile, reads = _cottages(draft=True, origin_ref=MADE_HERE)
+    reads[SETUP]["services"][0]["name"] = "Domek rodzinny"
+
+    def refs(**more: Any) -> list[str]:
+        answer = configure(profile, reads, COMMANDS, setup_refs=[MADE_HERE], **more)
+        return [entry["ref"] for entry in answer["plan"]]
+
+    # By its name alone the draft would be removed and the offer set up again.
+    assert [ref for ref in refs() if ref in ("offer:cottage", "discard:V1")] == [
+        "offer:cottage",
+        "discard:V1",
+    ]
+
+    # The plan that made it says which offer it was made for, and under what name.
+    made = {"V1": {"offer": "cottage", "name": "Domek 6-osobowy"}}
+    planned = refs(origins=made)
+    assert "discard:V1" not in planned and "offer:cottage" not in planned
+    # What the offer still lacks is planned for the renamed draft itself.
+    answer = configure(profile, reads, COMMANDS, setup_refs=[MADE_HERE], origins=made)
+    assert {
+        entry["arguments"]["service_id"]
+        for entry in answer["plan"]
+        if entry["ref"].split(":")[0] in ("units", "price", "season")
+    } <= {"V1"}
+
+    # The notes call the offer something else by now: another offer — its key
+    # may have been used again — so the old draft goes and the new one is set up.
+    profile["offers"][0]["name"]["value"] = "Domek letni"
+    assert [ref for ref in refs(origins=made) if ref in ("offer:cottage", "discard:V1")] == [
+        "offer:cottage",
+        "discard:V1",
+    ]
+    profile["offers"][0]["name"]["value"] = "Domek 6-osobowy"
+
+    # Made for another offer of the notes, or by a conversation that is not a
+    # setup one: the name alone decides, as before.
+    assert "discard:V1" in refs(origins={"V1": {"offer": "hut", "name": "Domek 6-osobowy"}})
+    answer = configure(profile, reads, COMMANDS, setup_refs=[], origins=made)
+    assert "offer:cottage" in [entry["ref"] for entry in answer["plan"]]
+
+    # The offer left the notes: its draft is offered for removal under the
+    # name it has now.
+    profile["offers"] = []
+    assert _discards(profile, reads, setup_refs=[MADE_HERE], origins=made) == [
+        discard("V1", "Domek rodzinny")
+    ]
+
+
 def test_only_a_draft_the_setup_conversation_made_is_the_notes_to_take_back() -> None:
     profile, reads = _cottages()
 
@@ -759,9 +810,7 @@ def test_only_a_draft_the_setup_conversation_made_is_the_notes_to_take_back() ->
     commands = COMMANDS - {"booking.offer.discard@1"}
     answer = configure(profile, reads, commands, setup_refs=[MADE_HERE])
     assert [entry["ref"] for entry in answer["blocked"] if "discard" in entry["ref"]] == []
-    assert _discards(profile, reads, setup_refs=[MADE_HERE]) == [
-        discard("V2", "Chata nad stawem")
-    ]
+    assert _discards(profile, reads, setup_refs=[MADE_HERE]) == [discard("V2", "Chata nad stawem")]
 
 
 # --- The kinds of booking --------------------------------------------------------------

@@ -20,6 +20,7 @@ from saas_core.modules.core.organizations import command_executor, platform_sett
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.assistant.models import (
     AssistantConversation,
+    AssistantMessage,
     AssistantProfileVersion,
 )
 from saas_core.modules.shared.assistant.services import WORKER_SEEN
@@ -464,6 +465,27 @@ def test_a_season_is_set_up_and_a_draft_taken_out_of_the_notes_is_taken_back(tal
     # Nothing nobody said: the offer's own settings stay in force.
     assert (season.max_length, season.end_weekdays, season.closed) == (None, [], False)
 
+    # The plan that made the offer says which offer of the notes it was for.
+    made = [
+        step["made"]
+        for result in AssistantMessage.all_objects.filter(result__has_key="steps").values_list(
+            "result", flat=True
+        )
+        for step in result["steps"]
+        if "made" in step
+    ]
+    assert made == [{"offer": "domki", "service_id": str(stay.id), "name": "Domki"}]
+    # Renamed in the panel while the notes keep the old name: still the notes'
+    # offer — neither offered for removal nor set up a second time.
+    Service.all_objects.filter(pk=stay.pk).update(name="Domki nad jeziorem")
+    at = len(FAKE.calls)
+    FAKE.script(tool("setup_status", {}, "renamed"), FakeReply(text="Wszystko ustawione."))
+    chat.say("Co jeszcze?", key="renamed")
+    status = sent_tool_results(at + 1)[-1]["output"]
+    assert status["ready"] == []
+    assert [step["step"] for step in status["waiting"]] == ["offer:domki:switch_on"]
+    Service.all_objects.filter(pk=stay.pk).update(name="Domki")
+
     # Drafts that are not the notes' to take back: one made in the panel and
     # one the assistant made in an ordinary conversation.
     for name, origin in (("Sauna", ""), ("Masaż", f"conversation:{ordinary.id}")):
@@ -501,6 +523,12 @@ def test_a_season_is_set_up_and_a_draft_taken_out_of_the_notes_is_taken_back(tal
         "Usunięcie wersji roboczej usługi „Domki” razem z jej cenami (1), dopłatami i "
         "kaucjami (0) oraz zasadami sezonów (1). Jednostki i ich grupa zostają."
     ]
+    # The model offered the plan without a word; the server says it beside the
+    # plan, in the conversation, before the click.
+    assert turn["items"][-2] == {
+        "kind": "text",
+        "text": f"Zanim się zgodzisz: tego kroku nie da się cofnąć. {shown[0]}",
+    }
     # The panel names it too, where the notes cannot.
     (ready,) = client.get(f"{BASE}conversations/{chat.id}/setup/").data["ready"]
     assert (ready["title"]["pl"], ready["risk"], ready["name"]) == (
@@ -514,6 +542,7 @@ def test_a_season_is_set_up_and_a_draft_taken_out_of_the_notes_is_taken_back(tal
     done = agreed(turn)
 
     assert done["items"][-2]["status"] == "done"
+    assert done["items"][-3]["text"].startswith("Zanim się zgodzisz: tego kroku nie da się cofnąć.")
     assert sorted(Service.all_objects.values_list("name", flat=True)) == ["Masaż", "Sauna"]
     assert not PriceRule.all_objects.exists()
     assert not BookingRule.all_objects.exists()

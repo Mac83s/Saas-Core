@@ -29,13 +29,13 @@ from saas_core.modules.shared.model_port.api import (
     complete,
 )
 
-from .. import setup
+from .. import setup, style
 from ..configurator import PRESETS, SETUP, WRITES, configure, fold, said_values
 from ..permissions import TASK
 from ..profile_schema import empty_profile, validate_profile
 from ..prompts import SETUP_PROMPT_ID, SETUP_PROMPT_VERSION, system_prompt
+from ..turns import cached_tail, irreversible_words
 from .runner import (
-    _GENDERED,
     _MARKDOWN,
     _TECHNICAL,
     ScenarioResult,
@@ -88,21 +88,26 @@ def run_setup_scenario(
     start = copy.deepcopy(dict(scenario.profile)) or empty_profile()
     state = _State(document=copy.deepcopy(start), scenario=scenario)
     stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
-    messages: list[Message] = [
-        Message(
-            role="system", content=system_prompt(language=scenario.language, setup=True), cache=True
-        )
-    ]
+    system = Message(
+        role="system", content=system_prompt(language=scenario.language, setup=True), cache=True
+    )
+    messages: list[Message] = []
+    # Everything the person reads in the conversation: the model's words and
+    # the server's own sentence beside a plan.
     spoken: list[str] = []
     for text in scenario.messages:
         state.owner_words += f"\n{text}"
         messages.append(Message(role="user", content=f"[{stamp}] {text}"))
         result.answer = ""
+        # An answer held back for its words, with the panel's note: sent once
+        # and never kept (`turns._rewritten`).
+        held: tuple[Message, ...] = ()
+        first: Message | None = None
         for _ in range(MAX_STEPS):
             result.steps += 1
             request = ModelRequest(
                 task=TASK,
-                messages=tuple(messages),
+                messages=(system, *cached_tail(messages), *held),
                 prompt_id=SETUP_PROMPT_ID,
                 prompt_version=SETUP_PROMPT_VERSION,
                 context=context,
@@ -129,14 +134,34 @@ def run_setup_scenario(
                 continue
             result.cost_usd_micros += response.cost_usd_micros or 0
             result.latencies_ms.append(response.latency_ms)
+            if first is not None:
+                # Written again: taken when it is an answer in words, else the
+                # first one stands.
+                if response.tool_calls or not (response.text or "").strip():
+                    response_message = first
+                else:
+                    response_message = response.as_message()
+                messages.append(response_message)
+                result.answer = response_message.content or ""
+                spoken.append(result.answer)
+                break
+            if not response.tool_calls:
+                form = style.gendered(response.text or "")
+                if form:
+                    first = response.as_message()
+                    held = style.rewrite_messages(response, form)
+                    continue
+                messages.append(response.as_message())
+                result.answer = response.text or ""
+                spoken.append(result.answer)
+                break
             messages.append(response.as_message())
             spoken.append(response.text or "")
-            if not response.tool_calls:
-                result.answer = response.text or ""
-                break
             for call in response.tool_calls:
                 result.calls.append(call.name)
                 messages.append(_tool(call.id, state.answer(call.name, call.arguments or {})))
+                if call.name == setup.SETUP_APPLY:
+                    spoken.append(state.said)
         if result.error:
             break
     result.failed = grade_setup(
@@ -154,6 +179,9 @@ class _State:
         self.scenario = scenario
         self.owner_words = ""
         self.version = 1 if len(document) > 1 else 0
+        #: The server's sentence beside the plan last offered, as the panel
+        #: shows it (`turns.warning`); empty for a plan anyone can take back.
+        self.said = ""
 
     def answer(self, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
         """What the tool answers, as in a conversation."""
@@ -212,6 +240,17 @@ class _State:
             }
         if name != setup.SETUP_APPLY:
             return {"status": "refused", "error": {"code": "unknown_tool", "errors": []}}
+        # No preview here to take the words from: the step's own title and
+        # what it is about stand for them.
+        language = self.scenario.language
+        self.said = irreversible_words(
+            [
+                f"{shown['action']}: „{shown.get('name', '')}”."
+                for shown in (setup._ready(step, language) for step in answer["plan"])
+                if shown.get("cannot_be_undone")
+            ],
+            language,
+        )
         if self.scenario.apply_result != "done":
             return _DECLINED
         return {
@@ -234,8 +273,9 @@ def grade_setup(
     *,
     spoken: str = "",
 ) -> list[str]:
-    """The checks a scenario failed, by name. `spoken` is everything the model
-    wrote in the conversation, the words beside its tool calls included."""
+    """The checks a scenario failed, by name. `spoken` is everything the person
+    reads in the conversation: the model's words, those beside its tool calls
+    included, and the server's own sentence beside a plan."""
     failed: list[str] = []
     foreign = sorted({name for name in result.calls if name not in setup.TOOL_NAMES})
     failed += [f"unknown_tool:{name}" for name in foreign]
@@ -302,7 +342,7 @@ def grade_setup(
             failed.append("technical_names")
         if _MARKDOWN.search(answer):
             failed.append("markdown")
-        if _GENDERED.search(answer):
+        if style.gendered(answer):
             failed.append("gendered_verb")
         if _language(answer) not in {scenario.language, ""}:
             failed.append("wrong_language")

@@ -10,7 +10,9 @@ estimate. Day and month are UTC.
 Order, the first failure decides: the estimate fits every hard ceiling at all
 → platform month → pool month with the assistant's reserve → pool day → task
 day → company → conversation → person. Calls for evals and probes check only
-the monthly ceilings.
+the monthly ceilings — and are counted only in them: a ceiling such a call is
+not held to is not used up by it either, so an eval or a proof never takes a
+person's, a company's or the pool's day away from customers.
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ from .types import Admission, ModelContext, TaskSpec
 WAITING_WINDOW = timedelta(minutes=5)
 SHARE_RETRY = timedelta(minutes=5)
 _LOCK = "model_port_admission"
+#: Purposes held to the monthly ceilings only, and counted only in them.
+MONTHLY_ONLY = ("eval", "probe")
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,10 +79,13 @@ def _next_month(at: datetime) -> datetime:
     return (start + timedelta(days=32)).replace(day=1)
 
 
-def _spent(**filters: Any) -> int:
+def _spent(*, apart: bool = False, **filters: Any) -> int:
+    """`apart` leaves out the calls counted only in the months (evals, probes)."""
     rows = UsageEntry.objects.using(alias()).filter(
         kind=EntryKind.CALL, state__in=COUNTED_STATES, **filters
     )
+    if apart:
+        rows = rows.exclude(purpose__in=MONTHLY_ONLY)
     total = rows.aggregate(total=Sum(Coalesce(F("cost_usd_micros"), F("estimate_usd_micros"))))[
         "total"
     ]
@@ -124,7 +131,7 @@ def _refusal(ask: Ask, budgets: Budgets, at: datetime) -> Admission | None:
     spec, context, estimate = ask.spec, ask.context, ask.estimate_usd_micros
     pool = spec.pool
     month, day = _month_start(at), _day_start(at)
-    monthly_only = ask.purpose in {"eval", "probe"}
+    monthly_only = ask.purpose in MONTHLY_ONLY
 
     hard = [micros(budgets.platform_month)]
     if pool == "translation":
@@ -161,30 +168,32 @@ def _refusal(ask: Ask, budgets: Budgets, at: datetime) -> Admission | None:
     pool_day_cap = micros(
         budgets.translation_day if pool == "translation" else budgets.assistant_day
     )
-    if _spent(pool=pool, created_at__gte=day) + estimate > pool_day_cap:
+    if _spent(apart=True, pool=pool, created_at__gte=day) + estimate > pool_day_cap:
         return Admission(decision="deferred", reason="pool_day", until=_next_day(at))
     if spec.daily_cap_usd is not None and _spent(
-        task=spec.key, created_at__gte=day
+        apart=True, task=spec.key, created_at__gte=day
     ) + estimate > micros(spec.daily_cap_usd):
         return Admission(decision="deferred", reason="task_day", until=_next_day(at))
 
     if pool == "translation" and context.organization_id is not None:
-        company = _spent(pool=pool, organization_id=context.organization_id, created_at__gte=day)
+        company = _spent(
+            apart=True, pool=pool, organization_id=context.organization_id, created_at__gte=day
+        )
         within = company + estimate <= int(pool_day_cap * budgets.translation_org_share)
         others = _note_asking(pool, context.organization_id, within, at)
         if not within and others:
             return Admission(decision="deferred", reason="company_share", until=at + SHARE_RETRY)
     if pool == "assistant":
         if context.organization_id is not None and _spent(
-            pool=pool, organization_id=context.organization_id, created_at__gte=day
+            apart=True, pool=pool, organization_id=context.organization_id, created_at__gte=day
         ) + estimate > micros(budgets.assistant_org_day):
             return Admission(decision="deferred", reason="company_day", until=_next_day(at))
         if context.conversation_id is not None and _spent(
-            pool=pool, conversation_id=context.conversation_id
+            apart=True, pool=pool, conversation_id=context.conversation_id
         ) + estimate > micros(budgets.assistant_conversation):
             return Admission(decision="denied", reason="conversation_budget")
         if context.actor_id is not None and _spent(
-            pool=pool, actor_id=context.actor_id, created_at__gte=day
+            apart=True, pool=pool, actor_id=context.actor_id, created_at__gte=day
         ) + estimate > micros(budgets.assistant_person_day):
             return Admission(decision="deferred", reason="person_day", until=_next_day(at))
     return None

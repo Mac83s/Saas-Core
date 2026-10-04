@@ -1274,7 +1274,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's price list as it was entered: every price (of a service, a group of units or a unit — the base price without dates, a season's with them), every extra and deposit, every participant category, switched-off ones included, each with its id and version; `currency` and whether amounts are read `gross` or `net`. Amounts are whole minor units (grosze). Use it before changing a price, to know the ids. It is the list, not what a booking costs: never add amounts up yourself — ask booking.quote.read.",
+      "model_description": "Returns the company's price list as it was entered: every price (of a service, a group of units or a unit — the base price without dates, a season's with them), every extra and deposit, every participant category, switched-off ones included, each with its id and version; `currency` and whether amounts are read `gross` or `net`; `names` gives, by id, the name of every service, group and unit a price or an extra belongs to. Amounts are whole minor units (grosze). Use it before changing a price, to know the ids. It is the list, not what a booking costs: never add amounts up yourself — ask booking.quote.read.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -1292,6 +1292,9 @@
           },
           "extras": {
             "type": "array"
+          },
+          "names": {
+            "type": "object"
           },
           "prices": {
             "type": "array"

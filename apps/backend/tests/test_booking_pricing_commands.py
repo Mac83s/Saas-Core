@@ -361,6 +361,16 @@ def test_the_quote_answers_what_the_price_list_says_and_writes_nothing() -> None
     assert (prices.output["amounts"], prices.output["currency"]) == ("gross", "PLN")
     assert [extra["name"] for extra in prices.output["extras"]] == ["Sprzątanie końcowe"]
     assert [category["name"] for category in prices.output["categories"]] == ["Dziecko"]
+    # A price says whose it is with an id; the list names every such id itself,
+    # so the whole setup is not read only to match a price to a service.
+    pointed = {
+        row[field]
+        for row in (*prices.output["prices"], *prices.output["extras"])
+        for field in ("service_id", "group_id", "resource_id")
+        if row.get(field)
+    }
+    assert set(prices.output["names"]) == pointed
+    assert prices.output["names"][arguments["service_id"]] == _stay(person).name
     # The pools are in the setup read, so a unit's `group_id` says something.
     assert [group["name"] for group in setup.output["groups"]] == ["Domki"]
 

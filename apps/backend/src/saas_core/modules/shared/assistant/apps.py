@@ -10,6 +10,7 @@ class AssistantConfig(AppConfig):
     def ready(self) -> None:
         from saas_core.modules.core.organizations.api import register_setting_group
 
+        from . import checks  # noqa: F401 — registers the system check
         from .settings_spec import LIMITS, RETENTION
 
         # Platform keys in model_port's "ai" area (ADR-078).

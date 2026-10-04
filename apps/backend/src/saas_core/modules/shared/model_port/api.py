@@ -120,7 +120,7 @@ def budget_state(task: str, context: ModelContext) -> BudgetState:
             ),
             BudgetLevel(
                 "pool_day",
-                admission._spent(pool=spec.pool, created_at__gte=day),
+                admission._spent(apart=True, pool=spec.pool, created_at__gte=day),
                 micros(budgets.translation_day),
             ),
         ]
@@ -128,7 +128,7 @@ def budget_state(task: str, context: ModelContext) -> BudgetState:
         levels += [
             BudgetLevel(
                 "pool_day",
-                admission._spent(pool=spec.pool, created_at__gte=day),
+                admission._spent(apart=True, pool=spec.pool, created_at__gte=day),
                 micros(budgets.assistant_day),
             ),
         ]
@@ -137,7 +137,10 @@ def budget_state(task: str, context: ModelContext) -> BudgetState:
                 BudgetLevel(
                     "company_day",
                     admission._spent(
-                        pool=spec.pool, organization_id=context.organization_id, created_at__gte=day
+                        apart=True,
+                        pool=spec.pool,
+                        organization_id=context.organization_id,
+                        created_at__gte=day,
                     ),
                     micros(budgets.assistant_org_day),
                 )
@@ -146,7 +149,9 @@ def budget_state(task: str, context: ModelContext) -> BudgetState:
             levels.append(
                 BudgetLevel(
                     "conversation",
-                    admission._spent(pool=spec.pool, conversation_id=context.conversation_id),
+                    admission._spent(
+                        apart=True, pool=spec.pool, conversation_id=context.conversation_id
+                    ),
                     micros(budgets.assistant_conversation),
                 )
             )
@@ -155,7 +160,7 @@ def budget_state(task: str, context: ModelContext) -> BudgetState:
                 BudgetLevel(
                     "person_day",
                     admission._spent(
-                        pool=spec.pool, actor_id=context.actor_id, created_at__gte=day
+                        apart=True, pool=spec.pool, actor_id=context.actor_id, created_at__gte=day
                     ),
                     micros(budgets.assistant_person_day),
                 )

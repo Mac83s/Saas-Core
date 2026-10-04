@@ -33,7 +33,7 @@ from saas_core.modules.core.organizations.api import (
 from saas_core.modules.core.organizations.context import TenantContext
 
 from .configurator import CARD_OPTIONS, PRESETS, READS, SETUP, configure, fold, said_values
-from .models import AssistantConversation, ConversationKind
+from .models import AssistantConversation, AssistantMessage, ConversationKind, MessageRole
 from .profile import ProfileState, read_profile, rewrite_profile
 
 PROFILE_NOTE = "profile_note"
@@ -521,22 +521,24 @@ def _answer(
             )
         else:
             profile = ProfileState(profile.version, seeded, profile.updated_at)
+    refs = _setup_refs(context, reads.get(SETUP))
     answer = configure(
-        profile.document, reads, allowed, setup_refs=_setup_refs(context, reads.get(SETUP))
+        profile.document, reads, allowed, setup_refs=refs, origins=_origins(context, refs)
     )
     return profile, answer, reads
 
 
 def _setup_refs(context: TenantContext, setup: Mapping[str, Any] | None) -> frozenset[str]:
-    """The setup conversations among the makers of the account's drafts. In
+    """The setup conversations among the makers of the account's services. In
     such a conversation the only way to a write is the configurator's plan
     (pkt 2 of the addendum), so what it made came from the notes — and the
-    notes may take it back. A draft from an ordinary conversation, or from a
-    conversation retention has removed since, is not theirs."""
+    notes may take a draft of theirs back. A service from an ordinary
+    conversation, or from a conversation retention has removed since, is not
+    theirs."""
     made: dict[uuid.UUID, str] = {}
     for service in (setup or {}).get("services", []):
         ref = service.get("origin_ref") or ""
-        if service.get("draft") and ref.startswith(_CONVERSATION):
+        if ref.startswith(_CONVERSATION):
             try:
                 made[uuid.UUID(ref.removeprefix(_CONVERSATION))] = ref
             except ValueError:
@@ -547,6 +549,33 @@ def _setup_refs(context: TenantContext, setup: Mapping[str, Any] | None) -> froz
         organization_id=context.organization_id, kind=ConversationKind.SETUP, pk__in=list(made)
     ).values_list("pk", flat=True)
     return frozenset(made[conversation_id] for conversation_id in found)
+
+
+def _origins(context: TenantContext, refs: frozenset[str]) -> dict[str, dict[str, str]]:
+    """Which offer of the notes each service was set up for, by the service's
+    id: the offer's key and the name the service then had. Read from the plans
+    those setup conversations ran (`turns.record_plan` keeps what a step
+    made), newest last — so a service renamed in the panel is still known as
+    the notes' offer, by where it came from and not by what it is called."""
+    if not refs:
+        return {}
+    results = (
+        AssistantMessage.all_objects.filter(
+            organization_id=context.organization_id,
+            conversation_id__in=[uuid.UUID(ref.removeprefix(_CONVERSATION)) for ref in refs],
+            role=MessageRole.TOOL,
+            result__has_key="steps",
+        )
+        .order_by("created_at", "index")
+        .values_list("result", flat=True)
+    )
+    origins: dict[str, dict[str, str]] = {}
+    for result in results:
+        for step in (result or {}).get("steps", []):
+            made = step.get("made")
+            if made:
+                origins[made["service_id"]] = {"offer": made["offer"], "name": made["name"]}
+    return origins
 
 
 def _seeded(document: dict[str, Any], reads: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:

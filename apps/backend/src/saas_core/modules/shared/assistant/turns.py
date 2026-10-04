@@ -14,6 +14,14 @@ The model's text is never a consent and never evidence that something was
 done: only a step's result is. Everything here acts as the person's own
 membership through the conversation (`acting_via="assistant"`), so a command
 checks their permissions and plan exactly as the panel would.
+
+What must not depend on a model remembering a rule, the server does itself
+(uzupełnienie 2026-10-04 L3): beside a plan with a step nobody
+can take back it writes that sentence in its own words (`warning`), and an
+answer with a Polish verb that has a gender goes back once to be written again
+(`style`). An ordinary conversation is offered the tools of the areas it has
+touched, not the whole registry (`topics`), and the transcript is marked for
+the provider's cache up to its last message.
 """
 
 from __future__ import annotations
@@ -23,10 +31,12 @@ import logging
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from uuid import UUID
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
@@ -36,6 +46,7 @@ from saas_core.http.exceptions import problem_code, problem_errors
 from saas_core.modules.core.organizations.api import (
     CallResult,
     Invocation,
+    Plan,
     UnknownCommand,
     command_for_tool,
     command_tools,
@@ -69,7 +80,7 @@ from saas_core.modules.shared.model_port.api import (
     complete,
 )
 
-from . import setup
+from . import setup, style, topics
 from .models import (
     AssistantConversation,
     AssistantMessage,
@@ -101,6 +112,20 @@ FAILURE_UNAVAILABLE = "unavailable"
 FAILURE_STEP_LIMIT = "step_limit"
 FAILURE_REVOKED = "authorization_revoked"
 FAILURE_TIMEOUT = "timeout"
+
+
+#: The server's own sentence beside a plan with a step that cannot be taken
+#: back, before what that step does in the words of its preview: one step, more.
+IRREVERSIBLE = {
+    "pl": (
+        "Zanim się zgodzisz: tego kroku nie da się cofnąć.",
+        "Zanim się zgodzisz: tych kroków nie da się cofnąć.",
+    ),
+    "en": (
+        "Before you agree: this step cannot be undone.",
+        "Before you agree: these steps cannot be undone.",
+    ),
+}
 
 
 class _Stop(Exception):
@@ -135,6 +160,9 @@ def run_turn(organization_id: UUID, turn_id: UUID) -> None:
                     continue
                 _fail(organization_id, turn_id, _failure_code(error))
                 return
+            form = "" if response.tool_calls else style.gendered(response.text or "")
+            if form:
+                response = _rewritten(organization_id, turn_id, request, response, form)
             go_on = _record_answer(organization_id, turn_id, response)
         except _Stop:
             return
@@ -189,9 +217,7 @@ def _next_request(organization_id: UUID, turn_id: UUID) -> ModelRequest | None:
         if not allowed:
             _finish(scope, TurnState.FAILED, FAILURE_REVOKED)
             return None
-        setting_up = scope.conversation.kind == ConversationKind.SETUP
-        limit = SETUP_STEPS_PER_TURN if setting_up else STEPS_PER_TURN
-        if turn.steps_used >= int(platform_setting(limit.key)):
+        if turn.steps_used >= _step_limit(scope.conversation):
             _finish(scope, TurnState.FAILED, FAILURE_STEP_LIMIT)
             return None
         turn.state = TurnState.RUNNING
@@ -200,8 +226,34 @@ def _next_request(organization_id: UUID, turn_id: UUID) -> ModelRequest | None:
         return _request(scope)
 
 
+def _step_limit(conversation: AssistantConversation) -> int:
+    setting_up = conversation.kind == ConversationKind.SETUP
+    return int(platform_setting((SETUP_STEPS_PER_TURN if setting_up else STEPS_PER_TURN).key))
+
+
+def _rows(conversation_id: UUID) -> list[AssistantMessage]:
+    return list(
+        AssistantMessage.all_objects.filter(conversation_id=conversation_id).order_by("index")
+    )
+
+
+def offered_tools(context: TenantContext, rows: Sequence[AssistantMessage]) -> list[Any]:
+    """The registry's tools an ordinary conversation is offered now: those of
+    the areas its messages and its calls have touched (`topics.select`)."""
+    events: list[Sequence[str]] = []
+    for row in rows:
+        if row.role == MessageRole.USER:
+            events.append(topics.said(row.content))
+        elif row.role == MessageRole.ASSISTANT:
+            events.extend(
+                topics.called(call["name"], call["arguments_json"]) for call in row.tool_calls
+            )
+    return topics.select(command_tools(context), events)
+
+
 def _request(scope: _Scope) -> ModelRequest:
     conversation = scope.conversation
+    rows = _rows(conversation.id)
     # A conversation that sets the company up gets its own three tools and no
     # command of the registry (ADR-076, A3-2): the plan is the configurator's.
     setting_up = conversation.kind == ConversationKind.SETUP
@@ -209,7 +261,7 @@ def _request(scope: _Scope) -> ModelRequest:
         ToolSpec(
             name=tool["name"], description=tool["description"], input_schema=tool["input_schema"]
         )
-        for tool in (setup.TOOLS if setting_up else command_tools(scope.context))
+        for tool in (setup.TOOLS if setting_up else offered_tools(scope.context, rows))
     )
     return ModelRequest(
         task=TASK,
@@ -219,7 +271,7 @@ def _request(scope: _Scope) -> ModelRequest:
                 content=system_prompt(language=conversation.language, setup=setting_up),
                 cache=True,
             ),
-            *transcript(conversation.id),
+            *cached_tail(_messages(rows)),
         ),
         prompt_id=SETUP_PROMPT_ID if setting_up else PROMPT_ID,
         prompt_version=SETUP_PROMPT_VERSION if setting_up else PROMPT_VERSION,
@@ -227,6 +279,7 @@ def _request(scope: _Scope) -> ModelRequest:
             organization_id=scope.context.organization_id,
             actor_id=scope.context.actor_id,
             conversation_id=conversation.id,
+            purpose="eval" if _is_proof(conversation) else None,
         ),
         # What a person types and what their tools return is theirs: the
         # registry lets no command return a health field (ADR-076 §1).
@@ -237,10 +290,47 @@ def _request(scope: _Scope) -> ModelRequest:
     )
 
 
+def _is_proof(conversation: AssistantConversation) -> bool:
+    """Whether the conversation is a proof's: its person is one of the accounts
+    the stack names in `ASSISTANT_PROOF_ACCOUNTS`. Its calls are then counted
+    with the evals — against the monthly ceilings only, and in no person's or
+    company's day. Off unless a local stack names an account; a stack served
+    over https names none (`checks.py`)."""
+    accounts = proof_accounts()
+    if not accounts:
+        return False
+    email = (
+        get_user_model()
+        .objects.filter(pk=conversation.created_by_id)
+        .values_list("email", flat=True)
+        .first()
+    )
+    return (email or "").strip().lower() in accounts
+
+
+def proof_accounts() -> frozenset[str]:
+    if settings.PUBLIC_SITE_SCHEME == "https":
+        return frozenset()
+    return frozenset(settings.ASSISTANT_PROOF_ACCOUNTS)
+
+
+def cached_tail(messages: Sequence[Message]) -> tuple[Message, ...]:
+    """The transcript with its last message marked for the provider's cache:
+    the next call reads everything up to it at a tenth of the price instead of
+    paying for every earlier tool result again. One mark only — a provider
+    takes four in a request, and the tools and the prompt have theirs."""
+    if not messages:
+        return ()
+    return (*messages[:-1], replace(messages[-1], cache=True))
+
+
 def transcript(conversation_id: UUID) -> tuple[Message, ...]:
     """The conversation as the model reads it, oldest first."""
+    return _messages(_rows(conversation_id))
+
+
+def _messages(rows: Sequence[AssistantMessage]) -> tuple[Message, ...]:
     messages: list[Message] = []
-    rows = AssistantMessage.all_objects.filter(conversation_id=conversation_id).order_by("index")
     for row in rows:
         if row.role == MessageRole.USER:
             # The time reaches the model with each message, so the system
@@ -274,6 +364,50 @@ def transcript(conversation_id: UUID) -> tuple[Message, ...]:
     return tuple(messages)
 
 
+def _rewritten(
+    organization_id: UUID, turn_id: UUID, request: ModelRequest, response: ModelResponse, form: str
+) -> ModelResponse:
+    """The answer written again without the verb form that has a gender — one
+    more call, once. The first answer stands when the turn has no call left,
+    the call fails or what comes back is not an answer in words."""
+    with _scope(organization_id, turn_id) as scope:
+        turn = scope.turn
+        if turn.state != TurnState.RUNNING or turn.steps_used >= _step_limit(scope.conversation):
+            return response
+        turn.steps_used += 1
+        turn.save(update_fields=["steps_used", "updated_at"])
+    again = replace(request, messages=(*request.messages, *style.rewrite_messages(response, form)))
+    try:
+        second = complete(again)
+    except ModelError:
+        return response
+    if second.tool_calls or not (second.text or "").strip():
+        return response
+    return second
+
+
+def warning(plan: Plan, language: str) -> str:
+    """What the server itself says beside a plan that holds a step nobody can
+    take back: that it cannot be undone, and what it does — in the words of
+    the step's preview, the ones its consent shows. Empty for any other plan."""
+    lines: list[str] = []
+    for group in plan.groups:
+        for call in group.calls:
+            if call.risk != "irreversible":
+                continue
+            effects = call.preview.effects if call.preview is not None else ()
+            lines += [effect.summary[language] for effect in effects] or [
+                f"{call.spec.title[language]}."
+            ]
+    return irreversible_words(lines, language)
+
+
+def irreversible_words(lines: Sequence[str], language: str) -> str:
+    if not lines:
+        return ""
+    return " ".join([IRREVERSIBLE[language][len(lines) > 1], *lines])
+
+
 def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse) -> bool:
     """Records what the model answered and acts on it; False ends the loop."""
     with _scope(organization_id, turn_id) as scope:
@@ -293,6 +427,21 @@ def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse
             return False
         if scope.conversation.kind == ConversationKind.SETUP:
             return _run_setup_calls(scope, calls)
+        # The assistant's own tool for more tools is answered here; the rest
+        # of the answer is the plan.
+        asked = [call for call in calls if call["name"] == topics.MORE_TOOLS]
+        if asked:
+            available = command_tools(scope.context)
+            for call in asked:
+                _append_result(
+                    scope,
+                    call,
+                    status="done",
+                    output=topics.opened(call["arguments_json"], available),
+                )
+            calls = [call for call in calls if call["name"] != topics.MORE_TOOLS]
+            if not calls:
+                return True
         invocations = [
             Invocation(
                 command=call["name"],
@@ -325,6 +474,7 @@ def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse
                     }
                     for group in plan.groups
                 ],
+                "said": warning(plan, scope.conversation.language),
             }
             scope.turn.state = TurnState.AWAITING_CONSENT
             scope.turn.save(update_fields=["pending", "state", "updated_at"])
@@ -401,6 +551,7 @@ def _run_setup_call(scope: _Scope, call: Mapping[str, Any]) -> bool:
                     }
                     for group in plan.groups
                 ],
+                "said": warning(plan, scope.conversation.language),
             }
             scope.turn.state = TurnState.AWAITING_CONSENT
             scope.turn.save(update_fields=["pending", "state", "updated_at"])
@@ -428,31 +579,31 @@ def record_plan(
     call: Mapping[str, Any],
     steps: Sequence[Mapping[str, Any]],
     results: Sequence[CallResult],
+    said: str = "",
 ) -> None:
     """The configurator's plan after the person's click: one tool message for
-    the one call that offered it, with every step's own result."""
+    the one call that offered it, with every step's own result. A step that
+    set an offer up is kept with the service it made (`made`): the notes'
+    offer is then known by where it came from, whatever it is called later."""
     by_step = {result.step_id: result for result in results}
     done = all(by_step[step["step_id"]].status == "done" for step in steps)
     append_message(
         turn,
         conversation,
         role=MessageRole.TOOL,
-        content=json.dumps(
-            {
-                "status": "done" if done else "failed",
-                "output": {
-                    "steps": [
-                        {
-                            "step": step["ref"],
-                            "status": by_step[step["step_id"]].status,
-                            "error": by_step[step["step_id"]].code,
-                        }
-                        for step in steps
-                    ]
-                },
+        content=_json({
+            "status": "done" if done else "failed",
+            "output": {
+                "steps": [
+                    {
+                        "step": step["ref"],
+                        "status": by_step[step["step_id"]].status,
+                        "error": by_step[step["step_id"]].code,
+                    }
+                    for step in steps
+                ]
             },
-            ensure_ascii=False,
-        ),
+        }),
         tool_call_id=call["id"],
         result={
             "step_id": call["step_id"],
@@ -465,11 +616,29 @@ def record_plan(
                     "command": step["command"],
                     "status": by_step[step["step_id"]].status,
                     "code": by_step[step["step_id"]].code or "",
+                    **_made(step, by_step[step["step_id"]]),
                 }
                 for step in steps
             ],
+            **({"said": said} if said else {}),
         },
     )
+
+
+def _made(step: Mapping[str, Any], result: CallResult) -> dict[str, Any]:
+    """The service a done step of the notes' offer answered with, under the
+    name it then had."""
+    kind, _, key = str(step["ref"]).partition(":")
+    output = result.output or {}
+    if kind != "offer" or result.status != "done" or "service_id" not in output:
+        return {}
+    return {
+        "made": {
+            "offer": key,
+            "service_id": str(output["service_id"]),
+            "name": str(output.get("name") or ""),
+        }
+    }
 
 
 def _record_invalid_calls(organization_id: UUID, turn_id: UUID, error: ModelError) -> bool:
@@ -515,10 +684,13 @@ def record_results(
     conversation: AssistantConversation,
     calls: Sequence[Mapping[str, Any]],
     results: Sequence[CallResult],
+    said: str = "",
 ) -> None:
-    """Each step's result as the tool message that answers its call."""
+    """Each step's result as the tool message that answers its call. `said`
+    is the server's sentence the plan waited under: kept with its first call,
+    so the conversation still shows it."""
     by_step = {result.step_id: result for result in results}
-    for call in calls:
+    for position, call in enumerate(calls):
         result = by_step[call["step_id"]]
         _write_result(
             turn,
@@ -527,7 +699,8 @@ def record_results(
             status=result.status,
             code=result.code,
             errors=result.errors,
-            output=result.output,
+            output=_lean(result.output),
+            said="" if position else said,
         )
 
 
@@ -535,8 +708,15 @@ def close_open_calls(turn: AssistantTurn, conversation: AssistantConversation, c
     """Answers the calls of a plan that will not run — declined, timed out —
     so the transcript stays one the model can be shown again."""
     pending = turn.pending or {}
-    for call in pending.get("calls", ()):
-        _write_result(turn, conversation, call, status="declined", code=code)
+    for position, call in enumerate(pending.get("calls", ())):
+        _write_result(
+            turn,
+            conversation,
+            call,
+            status="declined",
+            code=code,
+            said="" if position else pending.get("said", ""),
+        )
     turn.pending = None
 
 
@@ -600,6 +780,7 @@ def _write_result(
     code: str | None = None,
     errors: Sequence[Mapping[str, str | None]] = (),
     output: Mapping[str, Any] | None = None,
+    said: str = "",
 ) -> None:
     append_message(
         turn,
@@ -612,8 +793,20 @@ def _write_result(
             "command": call["command"],
             "status": status,
             "code": code or "",
+            **({"said": said} if said else {}),
         },
     )
+
+
+def _lean(output: Any) -> Any:
+    """A command's output without the fields that say nothing: a null is
+    „not set”, and a company's setup has hundreds. Every later call of the
+    model pays for the transcript again."""
+    if isinstance(output, Mapping):
+        return {key: _lean(value) for key, value in output.items() if value is not None}
+    if isinstance(output, list | tuple):
+        return [_lean(item) for item in output]
+    return output
 
 
 def _tool_content(
@@ -623,14 +816,17 @@ def _tool_content(
     output: Mapping[str, Any] | None,
 ) -> str:
     if status == "done":
-        content = json.dumps({"status": "done", "output": output or {}}, ensure_ascii=False)
+        content = _json({"status": "done", "output": output or {}})
         if len(content) <= MAX_TOOL_RESULT_CHARACTERS:
             return content
         code, errors = "output_too_large", ()
-    return json.dumps(
-        {"status": status, "error": {"code": code or status, "errors": list(errors)}},
-        ensure_ascii=False,
-    )
+    return _json({"status": status, "error": {"code": code or status, "errors": list(errors)}})
+
+
+def _json(value: Any) -> str:
+    # Without the spaces json puts after every comma and colon: the model
+    # reads it the same and pays for less.
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _failure_code(error: ModelError) -> str:

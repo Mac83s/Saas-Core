@@ -35,13 +35,21 @@ GET rozmowa  <-  tura done
   dostają wtedy wynik, żeby transkrypt dało się pokazać modelowi ponownie.
 - Plan czekający na kliknięcie dłużej niż `COMMAND_PENDING_TTL` jest proponowany
   ponownie przy odczycie rozmowy, na stanie z tej chwili.
+- **Plan z krokiem nieodwracalnym** (`irreversible`) ma obok siebie zdanie serwera:
+  „Zanim się zgodzisz: tego kroku nie da się cofnąć.” i słowa podglądu tego kroku.
+  API oddaje je jako pozycję `text` tuż przed krokami planu — gdy plan czeka, po
+  kliknięciu i po odmowie. Nie pisze go model i model go nie dostaje.
+- **Odpowiedź z polską formą z rodzajem** („zmieniłem”, „żebym pokazał”) wraca do
+  modelu raz, z nazwaną formą, zanim trafi do rozmowy; liczy się jako wywołanie
+  modelu tej wiadomości. Zapisywana jest tylko odpowiedź, którą osoba czyta.
 
 ## Dwa rodzaje rozmowy
 
 `kind` rozmowy wybiera się przy jej założeniu i nie zmienia.
 
 - **`operate`** (domyślna) — wszystko powyżej i poniżej: narzędziami modelu są
-  polecenia rejestru, wiadomość kosztuje kredyt.
+  polecenia rejestru — te z obszarów, których rozmowa dotyka („Co widzi model”) —
+  wiadomość kosztuje kredyt.
 - **`setup`** — rozmowa zakładająca firmę (ADR-076, uzupełnienie A3-2). Model
   dostaje **trzy narzędzia własne asystenta i żadnego polecenia rejestru**
   (`shared/assistant/setup.py`):
@@ -72,15 +80,36 @@ GET rozmowa  <-  tura done
 
 ## Co widzi model
 
-- Stały prompt (`prompts.py`: `assistant.operate@1`, w rozmowie zakładającej
-  `assistant.setup@1`) i język panelu rozmowy.
+- Stały prompt (`prompts.py`: `assistant.operate@2`, w rozmowie zakładającej
+  `assistant.setup@4`) i język panelu rozmowy.
 - Wiadomości osoby z czasem wysłania w nawiasie kwadratowym (UTC).
-- Narzędzia: `command_tools(context)` — polecenia, do których osoba ma uprawnienie
-  i moduł; wykonawca sprawdza wszystko jeszcze raz.
+- Narzędzia zwykłej rozmowy: z `command_tools(context)` — poleceń, do których osoba
+  ma uprawnienie i moduł — te z obszarów, których rozmowa dotyka (`topics.select`,
+  ADR-076 „słowa serwera, dobór narzędzi i koszt rozmowy” pkt 3):
+  - obszar otwierają słowa osoby, najpierw same odczyty; polecenia zmieniające
+    dochodzą, gdy osoba prosi o zmianę;
+  - `more_tools` (`topics`: lista obszarów, `change`: czy także zmieniające) —
+    narzędzie własne asystenta, którym model poszerza zestaw; wynik
+    `{"opened", "unknown", "change"}`, nowe narzędzia przy następnym wywołaniu;
+  - wybór jest funkcją transkryptu, a kolejność narzędzi — kolejnością dodania;
+  - rejestr do 12 poleceń idzie w całości, bez `more_tools`.
+  Wykonawca sprawdza wszystko jeszcze raz, cokolwiek model dostał.
 - Wynik kroku jako wiadomość `tool`: `{"status": "done", "output": …}` albo
-  `{"status": "refused" | "failed" | "skipped" | "declined", "error": {"code", "errors"}}`.
+  `{"status": "refused" | "failed" | "skipped" | "declined", "error": {"code", "errors"}}`,
+  zwarty JSON; z wyniku polecenia wypadają pola `null`.
   Wynik dłuższy niż 24 000 znaków jest zastępowany błędem `output_too_large`.
+- Ostatnia wiadomość transkryptu niesie znacznik cache dostawcy (obok narzędzi i
+  promptu): następne wywołanie czyta wcześniejsze wyniki za dziesiątą część ceny.
 - Klasa danych żądania to zawsze `personal`.
+
+## Dowody na lokalnym stosie
+
+`ASSISTANT_PROOF_ACCOUNTS=<e-mail>[,<e-mail>]` w środowisku backendu i workera `ai`:
+rozmowy tych kont idą do portu modeli z celem `eval` — liczone tylko w sufitach
+miesięcznych, w telemetrii obok evali, poza dniem każdej osoby i firmy
+(`model-port.md`). Domyślnie puste. Na stosie serwowanym przez https zmienna
+zatrzymuje start (`assistant.E001`) i jest pomijana. Kredyty, limity wiadomości i
+budżet rozmowy ustawiającej liczą się jak zwykle.
 
 ## API (`/api/v1/assistant/`)
 
@@ -140,4 +169,11 @@ kodu, który by go wysyłał, a A3-2 wyśle tylko to, czego wymaga pytanie.
   kto może zakładać; to, co konto już ma, trafia do profilu jako fakty.
 - `tests/test_assistant_evals.py` i `manage.py assistant_eval [--kind setup]`:
   scenariusze modelu dla obu rodzajów rozmowy.
+- `tests/test_assistant_topics.py`: dobór narzędzi — pytanie niesie odczyty swojego
+  obszaru, prośba o zmianę także polecenia zmieniające, `more_tools` poszerza, każde
+  polecenie jest w zasięgu, polecenie produktu jest obszarem po nazwie.
+- `tests/test_assistant_chat.py` (od 04.10): zdanie serwera obok planu z krokiem
+  nieodwracalnym, przed kliknięciem i po nim; odpowiedź z formą z rodzajem przepisana
+  raz; narzędzia według tematu rozmowy; znacznik cache i wyniki bez `null`; konto
+  dowodowe liczone z evalami, a na https — kontrola `assistant.E001`.
 - Panel: `apps/frontend/src/modules/shared/assistant/assistant-panel.test.tsx`.

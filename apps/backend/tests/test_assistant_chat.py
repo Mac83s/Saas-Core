@@ -589,3 +589,259 @@ def test_old_conversations_leave_with_the_common_privacy_run(talk: Any) -> None:
         organization_id=conversation.organization_id, action="privacy.retention.run"
     ).get()
     assert entry.metadata == {"sweep": "assistant.conversations", "period": "90 dni", "removed": 1}
+
+
+# --- What the server does itself: the sentence beside a plan, the words, the tools ----
+
+
+def _wipe_preview(arguments: Mapping[str, Any], call: Any) -> Preview:
+    return Preview(
+        effects=(
+            Effect(
+                kind="deleted",
+                resource="organization",
+                resource_id=str(call.context.organization_id),
+                summary={
+                    "pl": f"Usunięcie notatki „{arguments['name']}”.",
+                    "en": f"Removal of the note “{arguments['name']}”.",
+                },
+            ),
+        ),
+        observed_versions={},
+    )
+
+
+def _wipe() -> CommandSpec:
+    return CommandSpec(
+        name="organization.wipe",
+        version=1,
+        module="core.organizations",
+        title={"pl": "Usuń notatkę", "en": "Remove the note"},
+        summary={"pl": "Firma.", "en": "Company."},
+        model_description="Removes a note for good.",
+        input_schema=INPUT,
+        output_schema=OUTPUT,
+        permission=SETTINGS_MANAGE,
+        risk="irreversible",
+        run=_note,
+        undo="none:a removed note is gone",
+        preview=_wipe_preview,
+        no_version_reason="A note has no version.",
+    )
+
+
+SAID = "Zanim się zgodzisz: tego kroku nie da się cofnąć. Usunięcie notatki „Domki nad jeziorem”."
+
+
+def test_the_server_says_beside_the_plan_that_a_step_cannot_be_undone(talk: Any) -> None:
+    """The model offers the removal without a word; the sentence is the
+    server's, in the words of the step's preview — while the plan waits and
+    in the conversation ever after."""
+    register_command(_wipe())
+    chat = talk(person("chat-for-good"))
+    FAKE.script(tool("organization_wipe_v1", NOTE))
+
+    chat.say("Usuń notatkę")
+
+    turn = chat.last()
+    assert turn["state"] == "awaiting_consent"
+    said, action = turn["items"]
+    assert said == {"kind": "text", "text": SAID}
+    assert (action["status"], action["risk"]) == ("pending", "irreversible")
+
+    FAKE.script(FakeReply(text="Nic nie usunięto."))
+    chat.consent(declined=True)
+
+    turn = chat.last()
+    assert [item.get("text") or item["status"] for item in turn["items"]] == [
+        SAID,
+        "declined",
+        "Nic nie usunięto.",
+    ]
+    assert RAN == []
+    # The model is told how the step ended, as before — not the server's words.
+    assert sent_tool_results(1) == [
+        {"status": "declined", "error": {"code": "consent_declined", "errors": []}}
+    ]
+
+
+def test_the_sentence_stays_after_the_click_and_a_plan_one_can_take_back_has_none(
+    talk: Any,
+) -> None:
+    register_command(_wipe())
+    chat = talk(person("chat-for-good-done"))
+    FAKE.script(tool("organization_wipe_v1", NOTE))
+    chat.say("Usuń notatkę")
+    (group,) = chat.last()["consents"]
+
+    FAKE.script(FakeReply(text="Usunięto."))
+    chat.consent(consents={group["id"]: chat.click(group["digest"])})
+
+    turn = chat.last()
+    assert [item.get("text") or item["status"] for item in turn["items"]] == [
+        SAID,
+        "done",
+        "Usunięto.",
+    ]
+    assert RAN == ["Domki nad jeziorem"]
+
+    FAKE.script(tool("organization_note_v1", NOTE))
+    chat.say("Zmień nazwę", key="t2")
+    (action,) = chat.last()["items"]
+    assert action["status"] == "pending"
+
+
+def test_an_answer_with_a_gendered_verb_is_written_again_before_anyone_reads_it(talk: Any) -> None:
+    chat = talk(person("chat-words"))
+    FAKE.script(
+        FakeReply(text="Sprawdziłem: firma nazywa się chat-words."),
+        FakeReply(text="Firma nazywa się chat-words."),
+    )
+
+    chat.say("Jak nazywa się moja firma?")
+
+    turn = chat.last()
+    assert turn["items"] == [{"kind": "text", "text": "Firma nazywa się chat-words."}]
+    # The second call got the held answer and the panel's note, naming the form.
+    held, note = FAKE.calls[1].request.messages[-2:]
+    assert (held.role, held.content) == ("assistant", "Sprawdziłem: firma nazywa się chat-words.")
+    assert note.role == "user" and note.content.startswith("[panel]")
+    assert '"Sprawdziłem"' in note.content
+    # Neither is kept: the transcript has the answer the person read.
+    kept = AssistantMessage.all_objects.order_by("index").values_list("role", "content")
+    assert list(kept) == [
+        ("user", "Jak nazywa się moja firma?"),
+        ("assistant", "Firma nazywa się chat-words."),
+    ]
+    assert AssistantTurn.all_objects.get().steps_used == 2
+
+
+def test_the_first_answer_stands_when_it_cannot_be_written_again(
+    talk: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chat = talk(person("chat-words-once"))
+    # Once only: a second answer with such a form is shown as it is.
+    FAKE.script(FakeReply(text="Zmieniłem."), FakeReply(text="Żebym to zmienił, podaj nazwę."))
+    chat.say("Zmień", key="a")
+    assert chat.last()["items"] == [{"kind": "text", "text": "Żebym to zmienił, podaj nazwę."}]
+    assert len(FAKE.calls) == 2
+
+    # A failed rewrite, or a tool call instead of words, leaves the first answer.
+    FAKE.script(FakeReply(text="Dodałam."), FakeFailure(kind="unavailable", code="provider_down"))
+    chat.say("Dodaj", key="b")
+    assert chat.last()["items"] == [{"kind": "text", "text": "Dodałam."}]
+    FAKE.script(FakeReply(text="Mógłbym sprawdzić."), tool("organization_peek_v1", {}))
+    chat.say("Sprawdź", key="c")
+    assert chat.last()["items"] == [{"kind": "text", "text": "Mógłbym sprawdzić."}]
+
+    # No call left for it in this message: no rewrite is asked for.
+    monkeypatch.setattr(
+        platform_settings,
+        "platform_overrides",
+        lambda: {"assistant.limits.model_steps_per_turn": 1},
+    )
+    FAKE.reset()
+    FAKE.script(FakeReply(text="Ustawiłem."))
+    chat.say("Ustaw", key="d")
+    assert chat.last()["items"] == [{"kind": "text", "text": "Ustawiłem."}]
+    assert len(FAKE.calls) == 1
+
+
+def test_a_conversation_gets_the_tools_of_what_it_is_about(
+    talk: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Of the company's area first the tool that reads; the one that changes
+    comes when the model asks for it — or when the person asks for a change."""
+    from saas_core.modules.shared.assistant import topics
+
+    monkeypatch.setattr(topics, "SELECT_ABOVE", 0)
+    chat = talk(person("chat-tools"))
+    FAKE.script(
+        tool("more_tools", {"topics": ["company"], "change": True}),
+        tool("organization_note_v1", NOTE, "c2"),
+    )
+
+    chat.say("Jak nazywa się moja firma? Ma być inaczej.")
+
+    first, second = (call.request for call in FAKE.calls)
+    assert [spec.name for spec in first.tools] == ["more_tools", "organization_peek_v1"]
+    assert "- company: the company's own data" in first.tools[0].description
+    assert [spec.name for spec in second.tools] == [
+        "more_tools",
+        "organization_peek_v1",
+        "organization_note_v1",
+    ]
+    assert sent_tool_results(1) == [
+        {"status": "done", "output": {"opened": ["company"], "unknown": [], "change": True}}
+    ]
+    turn = chat.last()
+    opened, change = turn["items"]
+    assert (opened["status"], opened["risk"]) == ("done", "read")
+    assert opened["title"]["pl"] == "Sięgnij po kolejny obszar panelu"
+    assert (turn["state"], change["status"]) == ("awaiting_consent", "pending")
+
+    # The person's own words for a change bring both at once.
+    other = talk(person("chat-tools-change"))
+    FAKE.reset()
+    FAKE.script(FakeReply(text="Jaką nazwę ustawić?"))
+    other.say("Zmień nazwę firmy")
+    assert [spec.name for spec in FAKE.calls[0].request.tools] == [
+        "more_tools",
+        "organization_peek_v1",
+        "organization_note_v1",
+    ]
+    # Words that name no area: the one tool that lists them all.
+    FAKE.script(FakeReply(text="Cześć."))
+    other.say("Cześć", key="t2")
+    assert [spec.name for spec in FAKE.calls[1].request.tools][:1] == ["more_tools"]
+
+
+def test_the_transcript_is_marked_for_the_cache_and_results_carry_no_nulls(talk: Any) -> None:
+    from saas_core.modules.shared.assistant import turns
+
+    chat = talk(person("chat-cache"))
+    FAKE.script(tool("organization_peek_v1", {}), FakeReply(text="Firma nazywa się chat-cache."))
+
+    chat.say("Jak nazywa się moja firma?")
+
+    first, second = (call.request for call in FAKE.calls)
+    # One mark, on the last message; the prompt keeps its own.
+    assert [message.cache for message in first.messages] == [True, True]
+    assert [message.cache for message in second.messages] == [True, False, False, True]
+    stored = AssistantMessage.all_objects.get(role="tool").content
+    assert stored == '{"status":"done","output":{"name":"chat-cache"}}'
+    assert turns._lean({"a": None, "b": [{"c": None, "d": 0, "e": ""}], "f": []}) == {  # noqa: SLF001
+        "b": [{"d": 0, "e": ""}],
+        "f": [],
+    }
+
+
+def test_a_proof_accounts_conversation_is_counted_with_the_evals(talk: Any, settings: Any) -> None:
+    from django.contrib.auth import get_user_model
+    from django.core.checks import run_checks
+
+    from saas_core.modules.shared.model_port.models import UsageEntry
+
+    client = person("chat-proof")
+    email = get_user_model().objects.get().email
+    chat = talk(client)
+    settings.PUBLIC_SITE_SCHEME = "http"
+    settings.ASSISTANT_PROOF_ACCOUNTS = (email.lower(),)
+    FAKE.script(FakeReply(text="Cześć."), FakeReply(text="Cześć."), FakeReply(text="Cześć."))
+
+    chat.say("Cześć", key="a")
+    assert UsageEntry.objects.get().purpose == "eval"
+    assert not [found for found in run_checks() if found.id == "assistant.E001"]
+
+    # Any other account, and every account of a stack served over https, is a customer.
+    settings.ASSISTANT_PROOF_ACCOUNTS = ("ktos-inny@saas.test",)
+    chat.say("Cześć", key="b")
+    settings.ASSISTANT_PROOF_ACCOUNTS = (email.lower(),)
+    settings.PUBLIC_SITE_SCHEME = "https"
+    chat.say("Cześć", key="c")
+    purposes = list(UsageEntry.objects.order_by("created_at").values_list("purpose", flat=True))
+    assert purposes == ["eval", "customer", "customer"]
+    # …and such a stack does not start.
+    assert [found.id for found in run_checks() if found.id == "assistant.E001"] == [
+        "assistant.E001"
+    ]

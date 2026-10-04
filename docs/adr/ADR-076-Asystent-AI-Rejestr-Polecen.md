@@ -744,6 +744,8 @@ rezerwacji, które podawało też rodzaje jeszcze niedostępne.
      zaproponowany bez słowa asystenta o nieodwracalności
      (`docs/evals/assistant/README.md`). Dziś mówi to więc serwer i notatki, nie model
      — reguła do poprawy. Odmowa zostawia szkic i resztę planu bez zmian.
+     (Poprawione tego samego dnia: zdanie pisze serwer obok planu — następne
+     uzupełnienie, pkt 1.)
    - **Odrzucone:** usuwanie każdego szkicu, którego notatki nie nazywają — zabrałoby
      szkice założone w panelu albo w zwykłej rozmowie; ślad usuniętej oferty zapisany
      w profilu — drugi zapis tej samej prawdy, który nie obejmuje zmiany nazwy w
@@ -754,6 +756,8 @@ rezerwacji, które podawało też rodzaje jeszcze niedostępne.
      też dostanie propozycję usunięcia (obok założenia oferty pod nazwą z notatek):
      właściciel widzi nazwę w kroku i może nie kliknąć. Gdy retencja usunie rozmowę,
      która szkic założyła, szkic przestaje być „z notatek” i zostaje w koncie.
+     (Szkic przemianowany w panelu nie jest już proponowany do usunięcia — następne
+     uzupełnienie, pkt 6.)
 4. **Rodzaje rezerwacji: gotowe i zapowiedziane.** Pytanie `offer_needs_kind` podaje
    jako odpowiedzi tylko presety `ready`. Zapowiedziane (`soon`) są osobną listą
    pytania, którą model dostaje słowami, bez identyfikatorów: nazywa je „wkrótce” i
@@ -771,3 +775,98 @@ rezerwacji, które podawało też rodzaje jeszcze niedostępne.
    Wynik przebiegu 04.10 na Sonnet 5.5: 17 / 20 — `undo_pl` nie przeszedł (druga
    reguła nie zadziałała), a dwa wcześniej zaliczone scenariusze nie przeszły przez
    formę z rodzajem; pierwsza reguła („wkrótce”) i sezony przeszły.
+
+## Uzupełnienie 2026-10-04: słowa serwera, dobór narzędzi i koszt rozmowy
+
+Zamyka to, co poprzednie uzupełnienie zostawiło „do poprawy” (pkt 3: zdanie o
+nieodwracalności i szkic przemianowany w panelu), i to, co uzupełnienie A3-2 odłożyło
+„do pomiaru” (pkt 8: dobór narzędzi w zwykłej rozmowie). Pomiary:
+`docs/evals/assistant/README.md`.
+
+1. **Czego nie wolno zostawić pamięci modelu, mówi serwer.** Plan z krokiem klasy
+   `irreversible` dostaje zdanie serwera obok planu — w rozmowie, przed kliknięciem:
+   „Zanim się zgodzisz: tego kroku nie da się cofnąć.” i słowa podglądu tego kroku, te
+   same, które pokazuje okno zgody (`turns.warning`). Powstaje przy `offer_plan`, w obu
+   rodzajach rozmowy; czeka z planem (`pending.said`), po kliknięciu albo odmowie
+   zostaje w wyniku pierwszego kroku planu, a gdy plan jest proponowany ponownie po
+   wygaśnięciu podglądu — jest pisane od nowa. API oddaje je jako zwykły tekst
+   asystenta tuż przed krokami planu, więc panel nie potrzebuje zmiany. Model go nie
+   dostaje: wynik kroku mówi mu, jak krok się skończył, jak dotąd. Reguła promptu
+   „nazwij wprost, zanim zaproponujesz plan” znika (`assistant.setup@4`); zostaje:
+   nie obiecuj, że da się to przywrócić, i nie mów „usunięto” przed wynikiem.
+   Odrzucone: zdanie w wyniku `setup_status` do powtórzenia przez model — nadal zależy
+   od modelu, a to właśnie nie zadziałało; odmowa `setup_apply`, dopóki model zdania
+   nie napisze — dodatkowe wywołanie przy każdym cofnięciu i nadal słowa modelu.
+2. **Formy z rodzajem sprawdza serwer, raz.** Reguła promptu jest jedna dla obu
+   rozmów i nazywa obie formy z zamiennikami („pominąłem” → „Pominięto”, „Pomijam”;
+   „żebym pokazał” → „żeby pokazać”). Odpowiedź końcowa z taką formą wraca do modelu
+   z notatką panelu, która formę nazywa, zanim osoba ją zobaczy (`style.py`); ani
+   wstrzymana odpowiedź, ani notatka nie trafiają do rozmowy. Pierwsza odpowiedź
+   zostaje, gdy wiadomość nie ma już wywołania modelu, przepisanie się nie uda albo
+   zamiast słów wraca wywołanie narzędzia; druga odpowiedź jest pokazywana, jaka jest.
+   Wzorzec jest ten sam, którym ocenia eval — ocena się nie zmienia, a runner evali
+   robi to samo co rozmowa. Koszt: jedno wywołanie więcej w około jednej odpowiedzi
+   na dziesięć. Słowa pisane obok wywołania narzędzia nie są sprawdzane (przepisanie
+   powtórzyłoby wywołanie) — zostają regule promptu.
+3. **Zwykła rozmowa dostaje narzędzia obszarów, których dotyka** (`topics.py`), nie
+   cały rejestr: każda definicja narzędzia jedzie z każdym wywołaniem modelu.
+   - **Obszar** to grupa poleceń nazwana wzorcami ich nazw (firma, usługi i grafik,
+     cennik, sezony, ustawienia rezerwacji, wizytówka, strona, tłumaczenia, dokumenty,
+     magazyn). Polecenie, którego żaden obszar nie nazywa — polecenie produktu — jest
+     obszarem po pierwszym członie nazwy, opisanym tytułami swoich poleceń.
+   - **Obszar otwierają słowa osoby** (początki słów po polsku i angielsku: „cen”,
+     „koszt”, „godzin”…), najpierw tylko jego odczyty. Polecenia zmieniające dochodzą,
+     gdy osoba prosi o zmianę („zmień”, „ustaw”, „dodaj”…) — wtedy we wszystkich
+     obszarach już otwartych.
+   - **Model poszerza na żądanie** jednym narzędziem własnym asystenta, `more_tools`
+     (obszary i `change`); jego opis wymienia wszystkie obszary osoby, więc nic nie
+     jest poza zasięgiem — kosztuje jedno wywołanie więcej. Jak trzy narzędzia rozmowy
+     ustawiającej, nie jest poleceniem rejestru: niczego nie zmienia na koncie.
+   - **Wybór jest czystą funkcją transkryptu**: te same wiadomości dają te same
+     narzędzia, w kolejności dodania, więc cache dostawcy z wcześniejszych wywołań
+     zostaje ważny, gdy dochodzi obszar. Narzędzie raz wywołane zostaje w zestawie.
+     Rejestr do 12 poleceń idzie w całości, bez `more_tools`.
+   - Wybór decyduje tylko o tym, co model dostaje: egzekutor sprawdza każde wywołanie
+     jak dotąd, a port odrzuca wywołanie narzędzia, którego w żądaniu nie było. Pytanie
+     o usługi nie niesie więc poleceń zmieniających — treść wszyta w wynik odczytu
+     musiałaby najpierw skłonić model do sięgnięcia po nie.
+   Odrzucone: wybór obszaru osobnym wywołaniem modelu — koszt i czas w każdej
+   rozmowie, gdy zwykle wystarczają słowa osoby; pole `topic` w deklaracji polecenia —
+   dotyka każdego modułu naraz (do wzięcia, gdy produkt zechce własnych słów
+   kluczowych); stały zestaw wszystkich odczytów — około 7 tys. tokenów w każdym
+   wywołaniu.
+4. **Transkrypt w cache dostawcy i szczuplejsze wyniki.** Ostatnia wiadomość
+   transkryptu dostaje znacznik cache (trzeci po narzędziach i prompcie; dostawca
+   przyjmuje cztery): kolejne wywołanie czyta wcześniejsze wyniki narzędzi za dziesiątą
+   część ceny, zamiast płacić za nie od nowa — to one, nie definicje, kosztowały
+   najwięcej po pierwszym odczycie. Wynik polecenia idzie do modelu bez pól `null` i
+   bez spacji po przecinkach. `booking.prices.read@1` zwraca `names` — nazwy usług,
+   grup i jednostek, do których należą ceny (dodane pole wyjścia) — więc pytanie o
+   cenę nie czyta całego ustawienia firmy tylko po to, żeby dopasować nazwę do
+   identyfikatora.
+5. **Dowody i evale liczone osobno.** `ASSISTANT_PROOF_ACCOUNTS` (zmienna
+   środowiskowa, lista e-maili, domyślnie pusta) nazywa konta, których rozmowy są
+   dowodami: ich wywołania idą do portu z celem `eval`. Port liczy wywołania `eval` i
+   `probe` tylko w sufitach miesięcznych — i od teraz tylko tam: sumy doby (puli,
+   zadania, firmy, osoby) i rozmowy ich pomijają, więc dowód ani przebieg evali nie
+   zabiera dnia osobie, która ogląda stos. Tylko lokalnie: stos serwowany przez https
+   z tą zmienną nie startuje (`assistant.E001`, jak `model_port.E003`), a kod i tak ją
+   wtedy pomija. Kredyty i limity wiadomości zostają bez zmian.
+6. **Szkic poznawany po pochodzeniu, nie po nazwie** (zmienia „Granice” w pkt 3
+   poprzedniego uzupełnienia). Wynik planu zapisuje przy kroku `offer:<klucz>` usługę,
+   którą krok założył albo zmienił, i nazwę, którą wtedy miała (`made` w wyniku
+   narzędzia — we własnej tabeli asystenta, bez zmiany w rezerwacjach).
+   `shared.assistant` podaje to konfiguratorowi (`origins`), który zostaje czystą
+   funkcją: usługa założona dla oferty z notatek jest tą ofertą, dopóki notatki
+   nazywają ofertę tak, jak wtedy — także po zmianie nazwy usługi w panelu. Taki szkic
+   nie jest proponowany do usunięcia ani zakładany drugi raz, a brakujące kroki
+   (jednostki, cena, sezon) dotyczą jego. Oferta nazwana w notatkach inaczej to nadal
+   inna oferta (klucz mógł zostać użyty ponownie): stary szkic do usunięcia, nowa do
+   założenia — jak dotąd. Szkice sprzed tej zmiany nie mają zapisu pochodzenia i
+   zostają przy nazwie. Odrzucone: pochodzenie w profilu albo w usłudze — drugi zapis
+   tej samej prawdy albo zmiana modelu rezerwacji dla czegoś, co asystent już wie z
+   własnych planów.
+7. **Prompty i evale.** `assistant.operate@2` (reguła o obszarach, wspólna reguła
+   stylu) i `assistant.setup@4`. Scenariusz `undo_pl` sprawdza to, co osoba czyta w
+   rozmowie: słowa modelu i zdanie serwera obok planu. Runner zwykłej rozmowy dobiera
+   narzędzia tak jak rozmowa i odpowiada na `more_tools`.

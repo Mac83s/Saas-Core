@@ -45,7 +45,7 @@ from saas_core.modules.shared.billing.api import (
 )
 from saas_core.modules.shared.model_port.api import task_status
 
-from . import setup
+from . import setup, topics
 from .models import (
     TURN_OPEN,
     AssistantConversation,
@@ -69,6 +69,7 @@ from .turns import (
     conversation_ref,
     record_plan,
     record_results,
+    warning,
 )
 
 #: Set while a worker consumes the `ai` queue (`tasks.assistant_heartbeat`);
@@ -449,10 +450,11 @@ def answer_consent(
     else:
         with activate_tenant_context(conversation_context(context, conversation)):
             results = execute_plan(_pending_invocations(pending), dict(consents))
+        said = pending.get("said", "")
         if "steps" in pending:
-            record_plan(turn, conversation, calls[0], pending["steps"], results)
+            record_plan(turn, conversation, calls[0], pending["steps"], results, said)
         else:
-            record_results(turn, conversation, calls, results)
+            record_results(turn, conversation, calls, results, said)
         turn.pending = None
     turn.state = TurnState.RUNNING
     turn.save(update_fields=["pending", "state", "updated_at"])
@@ -492,7 +494,9 @@ def _offer_again(
         for group in plan.groups
     ]
     if groups != pending["groups"]:
-        turn.pending = {**pending, "groups": groups}
+        # The server's sentence beside the plan follows the plan as it is now.
+        said = warning(plan, conversation.language)
+        turn.pending = {**pending, "groups": groups, "said": said}
         turn.save(update_fields=["pending", "updated_at"])
 
 
@@ -516,6 +520,9 @@ def _shown_turn(turn: AssistantTurn, messages: list[AssistantMessage]) -> dict[s
             items.append({"kind": "text", "text": message.content})
         for call in message.tool_calls:
             result = results.get(call["id"], {})
+            said = _said(turn, call, result)
+            if said:
+                items.append({"kind": "text", "text": said})
             steps = _plan_steps(turn, call, result)
             if steps:
                 items.extend(steps)
@@ -536,6 +543,20 @@ def _shown_turn(turn: AssistantTurn, messages: list[AssistantMessage]) -> dict[s
         if turn.state == TurnState.AWAITING_CONSENT
         else [],
     }
+
+
+def _said(turn: AssistantTurn, call: Mapping[str, Any], result: Mapping[str, Any]) -> str:
+    """The server's own sentence beside the plan this call began — that a
+    step of it cannot be undone — while the plan waits and ever after. It is
+    the server's, not the model's: no model has to remember to say it."""
+    pending = turn.pending or {}
+    if (
+        turn.state == TurnState.AWAITING_CONSENT
+        and pending.get("calls")
+        and pending["calls"][0]["id"] == call["id"]
+    ):
+        return str(pending.get("said") or "")
+    return str(result.get("said") or "")
 
 
 def _plan_steps(
@@ -565,6 +586,8 @@ def _command_words(key: str, tool: str = "") -> dict[str, Any]:
     """The command as a person reads it: its title, never its key."""
     if tool in setup.TITLES:
         return {"title": setup.TITLES[tool], "risk": "read"}
+    if tool == topics.MORE_TOOLS:
+        return {"title": topics.TITLE, "risk": "read"}
     try:
         spec = command(key)
     except UnknownCommand:

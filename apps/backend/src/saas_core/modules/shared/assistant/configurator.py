@@ -183,11 +183,14 @@ def configure(
     commands: Collection[str],
     *,
     setup_refs: Collection[str] = (),
+    origins: Mapping[str, Mapping[str, str]] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """`setup_refs` are the company's setup conversations, as a service names
     the one that made it (`origin_ref`): only their drafts are the notes' to
-    take back."""
-    run = _Run(profile, reads, commands, setup_refs)
+    take back. `origins` says, by a service's id, which offer of the notes a
+    setup conversation made it for and under what name: a service renamed in
+    the panel since is still that offer."""
+    run = _Run(profile, reads, commands, setup_refs, origins or {})
     _company(run)
     _languages(run)
     _card(run)
@@ -217,15 +220,30 @@ class _Run:
         reads: Mapping[str, Mapping[str, Any]],
         commands: Collection[str],
         setup_refs: Collection[str] = (),
+        origins: Mapping[str, Mapping[str, str]] | None = None,
     ) -> None:
         self.profile = profile
         self.reads = reads
         self.commands = frozenset(commands)
         self.setup_refs = frozenset(setup_refs)
+        self.origins = dict(origins or {})
         self.missing: list[dict[str, Any]] = []
         self.plan: list[dict[str, Any]] = []
         self.blocked: list[dict[str, Any]] = []
         self.unsupported: list[dict[str, Any]] = []
+
+    def made_for(self, service: Mapping[str, Any], key: str, name: str) -> bool:
+        """Whether a setup conversation made this service for the notes' offer
+        `key`, under the name the notes still give it. Renamed in the panel
+        since, it stays that offer; an offer the notes call something else by
+        now is another offer — its key may have been used again."""
+        origin = self.origins.get(service["id"])
+        return (
+            origin is not None
+            and service.get("origin_ref") in self.setup_refs
+            and origin["offer"] == key
+            and fold(origin["name"]) == fold(name)
+        )
 
     def ask(
         self,
@@ -585,7 +603,12 @@ def _offers(
             _price(run, offer, preset, None, setup)
             _seasons(run, offer, preset, None)
             continue
-        service = services.get(fold(name))
+        service = services.get(fold(name)) or next(
+            # Not under that name any more: renamed in the panel, and still
+            # the service this offer was set up as.
+            (item for item in setup["services"] if run.made_for(item, offer["key"], name)),
+            None,
+        )
         units = _units(run, offer, preset, service, setup)
         price = _price(run, offer, preset, service, setup)
         seasons = _seasons(run, offer, preset, service)
@@ -826,25 +849,29 @@ def _follow(run: _Run, key: str, service_id: str | None, steps: list[dict[str, A
         if service_id is None:
             run.wait(step["ref"], step["command"], [f"offer:{key}"])
         else:
-            run.step(
-                step["ref"], step["command"], {"service_id": service_id, **step["arguments"]}
-            )
+            run.step(step["ref"], step["command"], {"service_id": service_id, **step["arguments"]})
 
 
 def _withdrawn(run: _Run, setup: Mapping[str, Any]) -> None:
     """The undo of a draft: an offer a setup conversation made, never switched
-    on, that the notes no longer name. A name the notes still hold — confirmed
-    or not — keeps its draft."""
+    on, that the notes no longer hold. A name the notes still have — confirmed
+    or not — keeps its draft, and so does the offer the draft was made for
+    while the notes call it what they called it then: a draft renamed in the
+    panel is the same offer, not one to remove."""
     if _OFFER_DISCARD not in run.commands:
         return
-    named = {
-        fold(offer["name"]["value"]) for offer in run.profile.get("offers", []) if "name" in offer
+    notes = {
+        offer["key"]: offer["name"]["value"]
+        for offer in run.profile.get("offers", [])
+        if "name" in offer
     }
+    named = {fold(name) for name in notes.values()}
     for service in setup["services"]:
         if (
             service.get("draft")
             and service.get("origin_ref") in run.setup_refs
             and fold(service["name"]) not in named
+            and not any(run.made_for(service, key, name) for key, name in notes.items())
         ):
             run.step(
                 f"discard:{service['id']}",
