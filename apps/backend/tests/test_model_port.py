@@ -49,7 +49,11 @@ from saas_core.modules.shared.model_port.matrix import (
 from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
 from saas_core.modules.shared.model_port.registry import task_spec
 from saas_core.modules.shared.model_port.service import web_request
-from saas_core.modules.shared.model_port.settings_spec import NO_TRAINING
+from saas_core.modules.shared.model_port.settings_spec import (
+    CLAUDE_PROVIDER,
+    CLAUDE_PROVIDERS,
+    NO_TRAINING,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -517,7 +521,11 @@ class Transport:
 
 
 def adapter_call(
-    request: ModelRequest, profile: ModelProfile, *, structured: str = "json_schema"
+    request: ModelRequest,
+    profile: ModelProfile,
+    *,
+    structured: str = "json_schema",
+    provider: str | None = None,
 ) -> AdapterCall:
     spec = task_spec(request.task)
     assert spec is not None
@@ -531,6 +539,7 @@ def adapter_call(
         zdr=True,
         structured=structured,  # type: ignore[arg-type]
         parameters={"reasoning_effort": "low", "temperature": 0.2},
+        provider=provider,
     )
 
 
@@ -579,6 +588,13 @@ def test_the_openrouter_request_keeps_the_model_denies_collection_and_obeys_the_
         (401, "", {}, "configuration", "openrouter_unauthorized"),
         (404, "", {}, "configuration", "openrouter_not_found"),
         (404, "No endpoints found matching your data policy", {}, "configuration", "no_provider"),
+        (
+            404,
+            "No allowed providers are available for the selected model.",
+            {},
+            "configuration",
+            "no_provider",
+        ),
         (408, "", {}, "unknown_outcome", "openrouter_http_408"),
         (502, "", {}, "unknown_outcome", "openrouter_http_502"),
         (429, "", {"retry-after": "7"}, "retryable", "openrouter_http_429"),
@@ -681,6 +697,115 @@ def test_no_host_within_the_data_policy_closes_the_call_and_nothing_is_sent_agai
         ).complete(adapter_call(request, OPUS, structured="none"))
     assert (inside.value.kind, inside.value.code) == ("configuration", "no_provider")
     assert len(wrapped.bodies) == 1
+
+
+CLAUDE = "anthropic/claude-test"
+
+
+@pytest.mark.django_db
+def test_a_claude_model_is_served_by_the_one_provider_the_platform_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`model_port.privacy.claude_provider`: the host the documents name —
+    Anthropic itself — unless an operator names another; that one and no
+    fallback; an answer from anybody else is not a success."""
+    org = organization("port-dostawca")
+    register_model(
+        ModelProfile(
+            adapter="fake",
+            model=CLAUDE,
+            capabilities=frozenset({"tools", "zdr"}),
+            forbidden_parameters=frozenset(),
+            input_usd_per_mtok=1.0,
+            output_usd_per_mtok=5.0,
+            context_window=100_000,
+            max_output_tokens=16_000,
+            probed="2026-10-04",
+        )
+    )
+    monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_MODEL", CLAUDE)
+    try:
+        assert (CLAUDE_PROVIDER.default, CLAUDE_PROVIDER.scopes) == ("anthropic", ("platform",))
+        assert [value for value, _labels in CLAUDE_PROVIDER.values] == list(CLAUDE_PROVIDERS)
+
+        FAKE.script(
+            FakeReply(text="Dzień dobry.", resolved_provider="Anthropic"),
+            reply_json({"translations": [{"id": "1", "text": "Good morning"}]}),
+        )
+        complete(conversation(org))
+        complete(translation(org))
+        claude, other = FAKE.calls
+
+        # Nobody else first and nobody else instead.
+        assert claude.provider == "anthropic"
+        assert request_body(claude)["provider"] == {
+            **STRICT,
+            "order": ["anthropic"],
+            "only": ["anthropic"],
+            "allow_fallbacks": False,
+        }
+        # A model of another maker is not pinned by Claude's setting.
+        assert other.provider is None and request_body(other)["provider"] == STRICT
+
+        monkeypatch.setattr(
+            platform_settings,
+            "platform_overrides",
+            lambda: {CLAUDE_PROVIDER.key: "google-vertex"},
+        )
+        FAKE.script(FakeReply(text="Dzień dobry.", resolved_provider="Google"))
+        complete(conversation(org))
+        named = request_body(FAKE.calls[-1])["provider"]
+        assert (named["order"], named["only"], named["allow_fallbacks"]) == (
+            ["google-vertex"],
+            ["google-vertex"],
+            False,
+        )
+
+        # Answered by a host other than the one named: counted, and an error.
+        FAKE.script(FakeReply(text="Dzień dobry.", resolved_provider="Amazon Bedrock"))
+        with pytest.raises(ModelError) as error:
+            complete(conversation(org))
+        assert (error.value.kind, error.value.code) == (
+            "configuration",
+            "resolved_provider_mismatch",
+        )
+        row = UsageEntry.objects.get(pk=error.value.usage_entry_id)
+        assert (row.outcome, row.resolved_provider) == ("configuration", "Amazon Bedrock")
+    finally:
+        MODELS.pop(("fake", CLAUDE), None)
+
+
+def test_a_pinned_provider_that_cannot_serve_closes_the_call() -> None:
+    """The pin only narrows: when the named host has no endpoint that meets
+    the rest (zero data retention, say), OpenRouter refuses and so does the
+    port — once, with the same pin, and with a code an operator can read."""
+    refused = json.dumps({
+        "error": {"message": "No allowed providers are available for the selected model."}
+    }).encode()
+    transport = Transport(HttpAnswer(status=404, headers={}, body=refused))
+    adapter = OpenRouterAdapter(
+        transport=transport, api_key="test-key", base_url="https://openrouter.test/api/v1"
+    )
+    request = ModelRequest(
+        task="assistant.conversation",
+        messages=(Message(role="user", content="Dzień dobry"),),
+        prompt_id="assistant.operate",
+        prompt_version="4",
+        context=ModelContext(organization_id=uuid.uuid4()),
+        data_class="personal",
+    )
+
+    with pytest.raises(ModelError) as error:
+        adapter.complete(adapter_call(request, OPUS, structured="none", provider="anthropic"))
+
+    assert (error.value.kind, error.value.code) == ("configuration", "no_provider")
+    (body,) = transport.bodies
+    assert body["provider"] == {
+        **STRICT,
+        "order": ["anthropic"],
+        "only": ["anthropic"],
+        "allow_fallbacks": False,
+    }
 
 
 def test_the_openrouter_answer_gives_tokens_cost_resolved_model_and_tool_calls() -> None:

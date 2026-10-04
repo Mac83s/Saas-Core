@@ -187,9 +187,55 @@ nie umie jej przekazać dostawcy, ma odmówić wywołania.
 
 Co to znaczy, a czego nie: gwarancją jest polityka danych, którą dostawca
 zadeklarował OpenRouterowi, i trasowanie OpenRoutera — port jej nie weryfikuje.
-`resolved_provider` w telemetrii mówi, kto obsłużył wywołanie: rozmowy z 04.10 na
-`anthropic/claude-sonnet-5.5` obsłużył dostawca `Google`. To kolejny podmiot w
-łańcuchu przetwarzania, o którym powinny mówić dokumenty prywatności platformy.
+`resolved_provider` w telemetrii mówi, kto obsłużył wywołanie.
+
+### Dokładny dostawca dla modeli Claude
+
+„Bez zbierania zapytań” nie mówi jeszcze, **kto** wykonuje żądanie: do 04.10 rozmowy
+na `anthropic/claude-sonnet-5.5` obsługiwał dostawca `Google`, choć dokumenty nazywają
+OpenRouter i Anthropic. Ustawienie platformy `model_port.privacy.claude_provider`
+(`enum`, domyślnie `anthropic`, operator poziomu 2) nazywa jedynego dostawcę, który
+może wykonać żądanie do modelu `anthropic/*`:
+
+- adapter wysyła `provider.order = [nazwa]`, `provider.only = [nazwa]` i
+  `allow_fallbacks = false` — nikt inny najpierw i nikt inny zamiast;
+- odpowiedź, której pole `provider` nazywa kogoś innego, kończy wywołanie jako
+  `configuration` / `resolved_provider_mismatch`, a wiersz telemetrii zapisuje, kto
+  odpowiedział;
+- gdy nazwany dostawca nie może wykonać żądania, OpenRouter odmawia („No endpoints…”,
+  „No allowed providers…”) i wywołanie kończy się `configuration` / `no_provider` —
+  jak każdy brak dostawcy, z blokadą pary zadanie–model; nic nie idzie gdzie indziej;
+- modele innych twórców nie są przypinane.
+
+Nazwy, które OpenRouter przyjmuje dla Claude Sonnet 5.5 (`/api/v1/providers` i
+`/api/v1/models/anthropic/claude-sonnet-5.5/endpoints`, odczyt 04.10.2026), i to, co
+odpowiedział na próbę z 04.10 — jedno zdanie bez żadnych danych, prosto przez adapter,
+z `data_collection: "deny"` (`.local-dev/resume/package-w/probe-providers.py`, wynik
+w `probe-providers.log`):
+
+| Nazwa w żądaniu | `provider` w odpowiedzi | Z `zdr: true` (każda rozmowa asystenta) | Bez `zdr` |
+| --- | --- | --- | --- |
+| `anthropic` | Anthropic | odmowa — `no_provider` | wykonał Anthropic |
+| `google-vertex` | Google | wykonał Google | wykonał Google |
+| `google-vertex/europe` | Google | wykonał Google (regionu odpowiedź nie podaje) | nie próbowano |
+| `amazon-bedrock` | Amazon Bedrock | wykonał Amazon Bedrock | wykonał Amazon Bedrock |
+| `azure` | Azure | odmowa — `no_provider` | wykonał Azure |
+| `claude-on-aws` | Claude Platform on AWS | odmowa — `no_provider` | wykonał Claude Platform on AWS |
+
+**Wartość domyślna nie wykonuje dziś niczego, co wymaga ZDR.** Lista punktów bez
+przechowywania danych (`/api/v1/endpoints/zdr`, 04.10.2026, 943 pozycje) nie ma ani
+jednego punktu dostawcy Anthropic; dla Claude Sonnet 5.5 mają je tylko Google (trzy
+regiony) i Amazon Bedrock. Żądanie klasy `personal` — każda rozmowa asystenta — i
+każde żądanie do modelu z możliwością `zdr` przy włączonym `no_training_providers`
+(także tłumaczenie treści publicznej) idzie z `zdr: true`, więc przypięte do
+`anthropic` kończy się `no_provider`: para zadanie–model blokuje się na 15 minut, a za
+trzecim razem w dobie do decyzji operatora (`model_port_status --unblock …`). To jest
+zamknięcie, o które chodzi — nic nie trafia do dostawcy, którego dokumenty nie nazywają
+— ale znaczy też, że przy wartości domyślnej asystent i tłumaczenia modelami Claude nie
+działają. Otwiera je decyzja właściciela: inny dostawca w tym ustawieniu razem z
+dokumentami prywatności (Google albo Amazon Bedrock — oba z ZDR) albo Anthropic bez ZDR,
+czyli zmiana reguły „`personal` tylko z ZDR” z ADR-068 osobnym ADR. Po zmianie
+ustawienia blokadę pary zdejmuje operator.
 
 ## Odpowiedź
 
@@ -348,6 +394,7 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 | `GUNICORN_GRACEFUL_TIMEOUT` | łagodne zamknięcie gunicorna i górny limit wywołania WWW + 2 s | 20 |
 | profil: `ai.sendableDataClasses` | klasy treści, które wolno wysłać | `["public", "public_personal"]` |
 | ustawienie platformy `model_port.privacy.no_training_providers` | tylko dostawcy, którzy nie zbierają zapytań (wyżej) | włączone |
+| ustawienie platformy `model_port.privacy.claude_provider` | jedyny dostawca, który może wykonać żądanie do modelu Claude (wyżej) | `anthropic` |
 
 Od fazy 1 planu ustawień wartości bez sekretów przechodzą do rejestru ustawień z
 historią (wpisem `memex ops` z `platform_setting`).
@@ -371,13 +418,16 @@ ten wpis bez zmian.
 | Jak | każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters`; klasa `personal` wychodzi wyłącznie do hostów z zerową retencją (`zdr`); pilnuje tego ustawienie platformy `model_port.privacy.no_training_providers`, domyślnie włączone — żądania trafiają tylko do dostawców, którzy nie zapisują promptów i nie uczą na nich modeli, gdy żaden taki nie obsługuje modelu, zadanie staje, zamiast pójść gdzie indziej, a wyłączyć je może tylko operator platformy i tylko dla treści bez danych osobowych („Dostawcy i prywatność zapytań”); firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
 | Od kiedy | od chwili, gdy operator ustawi `MODEL_PORT_PROCESSOR_LISTED=true` na danym wdrożeniu. Do tego czasu treść firmy nie wychodzi (`processor_not_listed`) |
 
-**Do rozstrzygnięcia przez właściciela (pakiet W, 04.10):** telemetria rozmów z 04.10
-pokazuje `resolved_provider = Google` przy modelu `anthropic/claude-sonnet-5.5` —
-OpenRouter wykonał żądania u hosta innego niż Anthropic, spełniającego `deny` i ZDR.
-Wiersz „Kto” nazywa tylko OpenRouter i Anthropic. Albo dokumenty nazywają także
-hostów, u których OpenRouter może wykonać model, albo port przypina dostawcę
-(`provider.only`), co zawęża dostępność; do tego czasu wiersz „Kto” mówi mniej, niż
-się dzieje.
+**Do rozstrzygnięcia przez właściciela (pakiet W, 04.10).** Do 04.10 OpenRouter
+wykonywał żądania do `anthropic/claude-sonnet-5.5` u dostawcy `Google`
+(`resolved_provider` w telemetrii), którego wiersz „Kto” nie nazywa. Port przypina
+teraz dostawcę modeli Claude (`model_port.privacy.claude_provider`, domyślnie
+`anthropic`, jak w wierszu „Kto”) — ale Anthropic nie ma u OpenRoutera punktu bez
+przechowywania danych, więc z wierszem „Jak” (`personal` tylko z ZDR) nie da się go
+pogodzić: przy wartości domyślnej żądania wymagające ZDR nie wychodzą wcale
+(„Dokładny dostawca dla modeli Claude”). Wiersze „Kto” i „Jak” zgadzają się ze sobą
+dopiero po wyborze: dostawca z ZDR w ustawieniu i w „Kto” (Google albo Amazon
+Bedrock) albo Anthropic bez ZDR i zmienione „Jak”.
 
 Gdzie ten wpis jest powtórzony słowami dla ludzi — zmiana modelu albo pośrednika
 zmienia wszystkie naraz, **najpierw dokumenty, potem konfigurację**:

@@ -35,6 +35,11 @@ class AdapterCall:
     #: always so for `personal`). An adapter that cannot ask its provider for
     #: that must refuse the call instead of sending it.
     no_training: bool = True
+    #: The one host that may serve the call, by the provider's own name for it
+    #: (`model_port.privacy.claude_provider`), or None for any host that meets
+    #: the rest. No other host first and none instead: when this one cannot
+    #: serve, the call fails.
+    provider: str | None = None
     #: Continuations of another model already removed by the core.
     parameters: dict[str, Any] = field(default_factory=dict)
 

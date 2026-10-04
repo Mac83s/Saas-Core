@@ -16,7 +16,10 @@ Which hosts: the request's provider preferences say it, every time
 them — and `provider.zdr: true` — only zero-data-retention endpoints). They
 restrict routing and are never relaxed here: when no host of the model meets
 them, OpenRouter answers that it has no endpoint, the call fails as
-`configuration` / `no_provider`, and nothing is sent again with less.
+`configuration` / `no_provider`, and nothing is sent again with less. A call
+that names its host (`AdapterCall.provider`) goes to that host alone:
+`provider.order` and `provider.only` hold its slug and `allow_fallbacks` is
+false.
 """
 
 from __future__ import annotations
@@ -212,6 +215,9 @@ def request_body(call: AdapterCall) -> dict[str, Any]:
     }
     if call.zdr:
         provider["zdr"] = True
+    if call.provider:
+        # This host: nobody else first, and nobody else instead.
+        provider.update(order=[call.provider], only=[call.provider], allow_fallbacks=False)
     body: dict[str, Any] = {
         "model": call.model.model,
         "messages": messages,

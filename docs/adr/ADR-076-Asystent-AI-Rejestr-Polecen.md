@@ -1048,7 +1048,13 @@ poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): 
    modeli, a gdzie model ma takie serwery, bez przechowywania danych (ZDR); gdy żaden
    taki dostawca nie obsługuje modelu, wywołanie kończy się błędem konfiguracji i
    nic nie jest wysyłane ponownie. Zapytania klasy `personal` — każda rozmowa
-   asystenta — idą tak zawsze, cokolwiek mówi przełącznik.
+   asystenta — idą tak zawsze, cokolwiek mówi przełącznik. Drugie ustawienie,
+   `model_port.privacy.claude_provider`, nazywa jedynego dostawcę, który może wykonać
+   żądanie do modelu Claude (domyślnie `anthropic`, bez zastępców; odpowiedź od kogoś
+   innego to błąd) — do 04.10 rozmowy obsługiwał Google, którego dokumenty nie
+   nazywają. Anthropic nie ma u OpenRoutera punktu ZDR, więc wartość domyślna zamyka
+   dziś rozmowę asystenta, dopóki właściciel nie wybierze dostawcy z ZDR albo nie
+   zmieni reguły ZDR (`model-port.md`, „Dokładny dostawca dla modeli Claude”).
 10. **Dowody.** `tests/test_assistant_people.py`: każde żądanie, które port przekazał
     adapterowi, zamienione na dokładne JSON dla OpenRoutera i przeszukane pod kątem
     imienia, nazwiska, e-maila i telefonu każdego klienta — jest tam tylko to, co

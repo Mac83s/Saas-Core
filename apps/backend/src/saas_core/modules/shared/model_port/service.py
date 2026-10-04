@@ -32,7 +32,7 @@ from .adapters.base import Adapter, AdapterCall, AdapterResult, StructuredMode
 from .matrix import ModelProfile, model_profile
 from .models import EntryState, UsageEntry
 from .registry import task_spec
-from .settings_spec import NO_TRAINING
+from .settings_spec import CLAUDE_MODELS, CLAUDE_PROVIDER, CLAUDE_PROVIDERS, NO_TRAINING
 from .test_double import routed
 from .types import (
     DATA_CLASS_RANK,
@@ -151,6 +151,7 @@ def complete(request: ModelRequest) -> ModelResponse:
             zdr=personal or (no_training and "zdr" in profile.capabilities),
             structured=_structured_mode(request, profile),
             no_training=no_training,
+            provider=_pinned_provider(profile),
             parameters=dict(spec.defaults),
         )
         UsageEntry.objects.using(admission.alias()).filter(
@@ -503,6 +504,15 @@ def _admitted(request: ModelRequest, ask: admission.Ask) -> UsageEntry:
     return entry
 
 
+def _pinned_provider(profile: ModelProfile) -> str | None:
+    """The one host that may serve this model, or None: a Claude model called
+    through OpenRouter goes where the platform's setting says — by default to
+    Anthropic itself, the processor the privacy documents name."""
+    if not profile.model.startswith(CLAUDE_MODELS):
+        return None
+    return str(platform_setting(CLAUDE_PROVIDER.key))
+
+
 def _interpret(
     result: AdapterResult,
     request: ModelRequest,
@@ -513,6 +523,9 @@ def _interpret(
 ) -> ModelResponse:
     cost, cost_source = _cost(result, profile)
     resolved_ok = result.resolved_model in {profile.model, *profile.dated_variants}
+    # The host that answered is the host that was named, where one was.
+    named = _pinned_provider(profile)
+    provider_ok = named is None or result.resolved_provider == CLAUDE_PROVIDERS.get(named)
 
     def finish(outcome: str, code: str = "") -> None:
         _finish(
@@ -558,6 +571,9 @@ def _interpret(
     if not resolved_ok:
         finish("configuration", "resolved_model_mismatch")
         raise ModelError("configuration", "resolved_model_mismatch", usage_entry_id=entry_id)
+    if not provider_ok:
+        finish("configuration", "resolved_provider_mismatch")
+        raise ModelError("configuration", "resolved_provider_mismatch", usage_entry_id=entry_id)
     finish_reason = result.finish_reason
     if result.refusal or finish_reason in {"content_filter", "refusal"}:
         finish("refused", "model_refused")
