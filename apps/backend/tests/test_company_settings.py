@@ -170,6 +170,25 @@ def test_a_change_has_a_version_a_receipt_a_history_and_a_reset() -> None:
     assert rows[1].metadata["reset"] == ["lead_hours"]
 
 
+def test_a_change_of_one_field_leaves_the_companys_other_values_as_they_are() -> None:
+    member = membership("settings-untouched")
+    with tenant(member):
+        first = _change(REMINDERS, read_group(REMINDERS).version, "u-1", lead_hours=48)
+        # Another field of the group: the company's own 48 hours are no part
+        # of the change — not in the preview, the check, the effects or the history.
+        preview = _change(REMINDERS, first.version, preview=True, min_notice_hours=3)
+        changed = _change(REMINDERS, first.version, "u-2", min_notice_hours=3)
+        state = read_group(REMINDERS)
+
+    assert preview.after["lead_hours"] == changed.after["lead_hours"] == 48
+    assert set(preview.changes) == set(changed.changes) == {"min_notice_hours"}
+    assert (state.values["lead_hours"].value, state.values["min_notice_hours"].value) == (48, 3)
+    last = OrganizationAuditEntry.objects.filter(
+        organization=member.organization, action="organization.settings_changed"
+    ).latest("occurred_at")
+    assert set(last.metadata["changes"]) == {"min_notice_hours"}
+
+
 def test_only_who_manages_the_company_changes_its_settings() -> None:
     member = membership("settings-permission")
     role, _ = Role.objects.get_or_create(

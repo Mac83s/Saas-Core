@@ -299,15 +299,20 @@ def change_settings(
         company_locales=tuple(organization.public_locales),
         in_force={field: resolved.value for field, resolved in before.values.items()},
     )
+    current = {field: resolved.value for field, resolved in before.values.items()}
     after = {
         spec.field: (
-            after_explicit[spec.field]
-            if spec.field in after_explicit and after_explicit[spec.field] is not None
+            # A field the change does not name stays as it is — the company's
+            # own value included; a reset one goes back to what the platform
+            # or the code says.
+            current[spec.field]
+            if spec.field not in after_explicit
             else _inherited(spec)
+            if after_explicit[spec.field] is None
+            else after_explicit[spec.field]
         )
         for spec in group.settings
     }
-    current = {field: resolved.value for field, resolved in before.values.items()}
     changed = {
         field: {"from": current[field], "to": after[field]}
         for field in group.fields

@@ -152,6 +152,23 @@ def test_an_account_number_is_checked_and_read_back_as_people_write_it() -> None
     assert audit.target_type == "commerce.transfer"
 
 
+def test_the_bank_or_the_holder_changes_while_a_transfer_is_awaited_and_the_number_stays() -> None:
+    configured = prepaid("rachunek-czeka")
+    owner: Membership = configured["owner"]
+    with tenant(owner):
+        visit(configured, at(configured))
+
+    # Only the bank's name: the number is no part of the change.
+    account(owner, account_holder=None, account_number=None, bank_name="Bank Nowy")
+    with pytest.raises(ValidationError) as cleared:
+        account(owner, account_holder=None, account_number="")
+
+    with tenant(owner):
+        given = transfer_account()
+    assert given is not None and (given.bank, given.holder) == ("Bank Nowy", "Gabinet Anna Nowak")
+    assert codes(cleared) == [("account_number", "transfer_account_in_use")]
+
+
 def test_changing_the_account_asks_for_a_code_and_a_plan_without_orders_has_none() -> None:
     configured = office("rachunek-kod")
     owner: Membership = configured["owner"]
