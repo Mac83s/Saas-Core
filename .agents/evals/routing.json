@@ -101,6 +101,17 @@
       ]
     },
     {
+      "id": "orders-change",
+      "task": "Zmień to, co zamówienie zapisuje o kupującym, i dopisz nowe źródło zamówień obok rezerwacji.",
+      "expect": "develop-commerce-payments",
+      "terms": [
+        "orders",
+        "order numbers",
+        "the buyer",
+        "sources that place orders"
+      ]
+    },
+    {
       "id": "organization-type",
       "task": "Dodaj w produkcie nowy typ organizacji (gospodarstwo) z własnymi modułami, planami i rejestracją, i schowaj przed nim moduł strony internetowej.",
       "expect": "develop-organization-types",
@@ -128,7 +139,7 @@
     },
     "shared.billing": {
       "skill": "change-api-and-events",
-      "note": "Świadomie ogólny: cykl życia, webhooki i kredyty to endpointy, zdarzenia i zadania. Dedykowany develop-commerce-payments powstaje w P5 razem z ADR-037."
+      "note": "Świadomie ogólny: cykl życia, webhooki i kredyty to endpointy, zdarzenia i zadania. Zamówienia i wpłaty klientów firm to inny moduł (shared.commerce) i skill develop-commerce-payments."
     },
     "shared.profiles": {
       "skill": "change-tenant-data",
@@ -151,8 +162,8 @@
       "note": "Klient końcowy firmy, dokumenty dla klientów i dziennik zgód (ADR-073 §2 i §9): tabele tenantowe z RLS, wersje i zgody tylko do dopisywania; kto szuka klienta przy rezerwacji albo czyści jego dane, czyta też develop-booking."
     },
     "shared.commerce": {
-      "skill": "change-tenant-data",
-      "note": "Zamówienia klientów firm (ADR-073 §1, §3): tabele tenantowe z RLS, pozycje tylko do dopisywania, numer z licznika pod blokadą; kto zakłada zamówienie z rezerwacji, czyta też develop-booking."
+      "skill": "develop-commerce-payments",
+      "note": "Własna procedura: commerce nie liczy kwot, złożonej pozycji nie zmienia, a zamówienie powstaje w transakcji źródła — reguły, których nie da się wyprowadzić z ogólnych; tabele według change-tenant-data."
     },
     "shared.booking": {
       "skill": "develop-booking",
