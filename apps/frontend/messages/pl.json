@@ -1741,6 +1741,7 @@
     "proposalMetadataPending": "Metadane czekają na akceptację. Do tego czasu zachowany jest dotychczasowy tytuł i opis.",
     "proposalReviewExpired": "Podgląd wygasł lub zmiana nie odpowiada obejrzanej propozycji. Zamknij porównanie i otwórz je ponownie przed decyzją.",
     "proposalAcceptPageHint": "Przyjęcie zapisuje zmianę w szkicu. Witrynę opublikujesz osobno na zakładce Publikacja.",
+    "proposalAcceptLanguageHint": "Przyjęcie zrobi z tej zmiany obowiązującą treść tej wersji językowej. Jeśli podstrona jest już opublikowana w tym języku, zmiana od razu trafi na stronę.",
     "proposalAcceptEntryHint": "Przyjęcie zachowuje zmianę w szkicu. Wpis opublikujesz osobno na zakładce Blog.",
     "proposalNotFound": "Ta propozycja już nie istnieje.",
     "proposalSuperseded": "Szkic zmienił się po tej propozycji — obejrzyj go, zanim cofniesz.",

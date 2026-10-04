@@ -304,3 +304,36 @@ test("angielski przegląd metadanych zachowuje dostępność", async () => {
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
   expect((await axe.run(document.body)).violations).toHaveLength(0);
 });
+
+test("nazywa język propozycji i mówi, że przyjęcie czekającej wersji ją publikuje", async () => {
+  const german = {
+    ...proposal,
+    resource_type: "site_page",
+    locale: "de",
+    commands: ["block.replace"],
+  };
+  listContentProposals.mockResolvedValue([german]);
+  readContentProposal.mockResolvedValue({
+    ...detail,
+    ...german,
+    language_version_waiting: true,
+  });
+  renderQueue();
+
+  // A page has one line per language (ADR-070 pkt 17): the row says which.
+  const table = await screen.findByRole("table", {
+    name: "Propozycje integracji do przejrzenia",
+  });
+  expect(await within(table).findByText("Deutsch")).not.toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Pokaż zmianę" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Podstrona — Deutsch",
+  });
+  // Accepting a waiting language version puts it on the site: said before
+  // the person decides, not after.
+  expect(
+    await within(dialog).findByText(/zmiana od razu trafi na stronę/),
+  ).not.toBeNull();
+  expect((await axe.run(document.body)).violations).toHaveLength(0);
+});

@@ -1741,6 +1741,7 @@
     "proposalMetadataPending": "Metadata is waiting for acceptance. The existing title and description remain unchanged until then.",
     "proposalReviewExpired": "The review expired or the change no longer matches what you reviewed. Close and reopen the comparison before deciding.",
     "proposalAcceptPageHint": "Acceptance saves the change in the draft. Publish the site separately from the Publication tab.",
+    "proposalAcceptLanguageHint": "Acceptance makes this change the working text of this language version. If the page is already published in this language, the change goes live at once.",
     "proposalAcceptEntryHint": "Acceptance keeps the change in the draft. Publish the entry separately from the Blog tab.",
     "proposalNotFound": "This proposal no longer exists.",
     "proposalSuperseded": "The draft changed after this proposal — look at it before undoing.",

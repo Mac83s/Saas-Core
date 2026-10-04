@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 
+import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { PagePresentationSummary } from "./page-presentation-fields";
 import { sitesErrorMessage } from "./problem";
@@ -240,9 +241,13 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
       meta: { primary: true },
       cell: ({ row: { original: proposal } }) => (
         <div className="space-y-1">
-          <p className="flex items-center gap-2 font-medium">
+          <p className="flex flex-wrap items-center gap-2 font-medium">
             <FileDiffIcon aria-hidden="true" className="size-4" />
             {kindLabel(proposal)}
+            {/* A page has one line per language: which one this is. */}
+            {proposal.locale && (
+              <Badge variant="outline">{nativeName(proposal.locale)}</Badge>
+            )}
           </p>
           {/* The integration's argument, attributed to it. */}
           <p className="text-sm">
@@ -364,7 +369,10 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
             finalFocus={() => returnTo ?? true}
           >
             <DialogHeader>
-              <DialogTitle>{kindLabel(open)}</DialogTitle>
+              <DialogTitle>
+                {kindLabel(open)}
+                {open.locale ? ` — ${nativeName(open.locale)}` : ""}
+              </DialogTitle>
               <DialogDescription>
                 {t("proposalClaim", { summary: open.summary })}
               </DialogDescription>
@@ -388,9 +396,11 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
               <p className="text-sm">{t("proposalMetadataPending")}</p>
             )}
             <p className="text-sm text-muted-foreground">
-              {open.resource_type === "site_page"
-                ? t("proposalAcceptPageHint")
-                : t("proposalAcceptEntryHint")}
+              {detail?.language_version_waiting
+                ? t("proposalAcceptLanguageHint")
+                : open.resource_type === "site_page"
+                  ? t("proposalAcceptPageHint")
+                  : t("proposalAcceptEntryHint")}
             </p>
             <DialogFooter>
               <Button
