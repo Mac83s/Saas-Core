@@ -62,11 +62,13 @@ anywhere ahead of them.
 - **An order money was taken for keeps its buyer for a time** (slice 4i):
   `BUYER_RETENTION_YEARS` full calendar years after the year its ledger was
   last written to, in the company's time zone — one constant in
-  `retention.py`, never a setting. One question, `held_orders`, decides three
-  things: the company's removal of customers after a time leaves such a buyer
-  alone (the exclusion `customers_held`), taking a customer out by hand leaves
-  the buyer on these orders, and the privacy run's sweep `commerce.buyers`
-  removes it when the period ends. Whoever decides locks the orders first and
+  `retention.py`, never a setting. One question, `held_orders`, decides two
+  things: taking a customer out leaves the buyer on these orders — by hand
+  and by the company's removal of customers after a time alike, both through
+  `strip_buyer` (owner decision of 04.10: commerce holds no customer back
+  from that removal) — and the privacy run's sweep `commerce.buyers` removes
+  it when the period ends. `kept_of` reads what a strip would leave, for
+  several customers at once. Whoever decides locks the orders first and
   reads the ledger afterwards — every ledger write locks its order — and a new
   kind of ledger write must do the same.
 - **The audit never names the buyer** — the history is read by whoever manages

@@ -99,7 +99,10 @@ Konfiguracja zadania: domyślne w kodzie, nadpisanie zmienną
 `MODEL_PORT_TASK_<ZADANIE>_<POLE>` (np. `MODEL_PORT_TASK_TRANSLATION_TEXT_MODEL`), a od
 fazy 1 planu ustawień klucz rejestru `model_port.task.<zadanie>.<pole>` z historią —
 ustawiona zmienna daje wtedy ostrzeżenie kontroli systemowej. Pusty model:
-`configuration` / `model_not_selected`.
+`configuration` / `model_not_selected`. Model zadania, które wysyła treść firm, jest
+zawsze z listy podmiotów przetwarzających: ustawienie platformy odmawia innego, a
+wywołanie z treścią firmy do modelu spoza listy kończy się `processor_not_listed`
+(„Podmiot przetwarzający”, „Lista w kodzie”).
 
 ## Reguły żądania
 
@@ -239,7 +242,11 @@ punktu. Dlatego `anthropic` w tym ustawieniu zamyka każde żądanie, które wym
 każdą rozmowę asystenta i każde żądanie do modelu z możliwością `zdr` przy włączonym
 `no_training_providers`. Model zapasowy asystenta, Claude Haiku 4.5, jest w regionie
 europejskim Vertex z ZDR (próba 04.10). Zmiana ustawienia idzie razem z dokumentami
-prywatności; blokadę pary po odmowach zdejmuje operator
+prywatności — i jest przez nie trzymana: ustawienie przyjmuje tylko host z listy
+podmiotów przetwarzających (dziś `google-vertex/europe`), a wybór innego kończy się
+odmową `processor_not_listed` ze zdaniem, co musi stać się najpierw („Podmiot
+przetwarzający”, „Lista w kodzie”). Pozostałe nazwy widać na liście wyboru z dopiskiem
+„poza listą podmiotów przetwarzających”. Blokadę pary po odmowach zdejmuje operator
 (`model_port_status --unblock …`).
 
 ## Odpowiedź
@@ -305,7 +312,8 @@ estimate_usd_micros)`); `expired` się nie liczy. Doba i miesiąc w UTC.
 
 Kolejność, pierwsze niespełnione rozstrzyga: bramki (zadanie włączone, adapter
 skonfigurowany i niezablokowany, para zadanie–model niezablokowana, flaga podmiotu
-przetwarzającego; blokada daje `deferred` do jej końca, reszta `denied`) → szacunek
+przetwarzającego i — dla treści firmy — model z listy podmiotów przetwarzających;
+blokada daje `deferred` do jej końca, reszta `denied`) → szacunek
 mieści się w każdym sztywnym sufice w ogóle (inaczej `denied` /
 `estimate_exceeds_ceiling`) → platforma → pula w miesiącu, z rezerwą → pula w dobie →
 zadanie w dobie → firma → rozmowa → osoba. `eval` i `probe` przechodzą tylko platformę
@@ -392,7 +400,7 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 | --- | --- | --- |
 | `MODEL_PORT_OPENROUTER_API_KEY_FILE` | sekret, jeden klucz na wdrożenie; tylko `backend` i `worker-ai` | pusty = nieskonfigurowany |
 | `MODEL_PORT_OPENROUTER_BASE_URL` | adres API | `https://openrouter.ai/api/v1` |
-| `MODEL_PORT_PROCESSOR_LISTED` | OpenRouter z modelem Claude Sonnet 5.5 (Anthropic) jest w polityce prywatności i umowie powierzenia — wpis niżej, „Podmiot przetwarzający”; na VPS tylko przez `memex ops`, decyzją właściciela | `false` |
+| `MODEL_PORT_PROCESSOR_LISTED` | łańcuch przetwarzania z wpisu niżej („Podmiot przetwarzający”: OpenRouter, Google Cloud Vertex AI w regionie europejskim, modele Claude Sonnet 5.5 i Claude Haiku 4.5 firmy Anthropic) jest w polityce prywatności i umowie powierzenia; na VPS tylko przez `memex ops`, decyzją właściciela | `false` |
 | `MODEL_PORT_TASK_<ZADANIE>_<POLE>` | nadpisanie pola zadania | wartości z kodu |
 | `MODEL_PORT_BUDGET_*` | nadpisanie sufitów i budżetów | tabela wyżej |
 | `MODEL_PORT_WEB_CALLS_PER_PROCESS` | limiter wywołań z żądań HTTP | 1 |
@@ -406,53 +414,113 @@ historią (wpisem `memex ops` z `platform_setting`).
 
 ## Podmiot przetwarzający
 
-Decyzja właściciela z 04.10.2026 (odpowiedź 10): treść firm przetwarza **OpenRouter z
-modelem Claude Sonnet 5.5 firmy Anthropic**. To jest wpis do dokumentów prywatności
-platformy — polityki prywatności i umowy powierzenia (lista dalszych
-przetwarzających) — i jedyne miejsce w repozytorium, które go definiuje. Publiczne
-strony tych dokumentów jeszcze nie istnieją (lista robocza regulaminu:
-`memex-vault/desk/regulamin-i-pytania-prawne.md`, sekcja 1); gdy powstaną, przenoszą
-ten wpis bez zmian.
+Decyzje właściciela z 04.10.2026 (odpowiedź 10 i rozstrzygnięcie wiersza „Kto” z tego
+samego dnia): tekst wysyłany do AI przetwarza **przez OpenRouter Google Cloud (Vertex
+AI, region europejski), modelem Claude Sonnet 5.5 — zapasowo Claude Haiku 4.5 — firmy
+Anthropic; bez uczenia modeli na zapytaniach, a przy danych osobowych bez ich
+przechowywania**. To jest wpis do dokumentów prywatności platformy — polityki
+prywatności i umowy powierzenia (lista dalszych przetwarzających) — i jedyne miejsce w
+repozytorium, które go definiuje. Publiczne strony tych dokumentów jeszcze nie istnieją
+(lista robocza regulaminu: `memex-vault/desk/regulamin-i-pytania-prawne.md`, sekcja 1);
+gdy powstaną, przenoszą ten wpis bez zmian. Wpis ma trzy części, bo treść firm
+przetwarzają trzy funkcje: modele językowe, generator obrazów i wyszukiwarka katalogu.
+
+### Modele językowe: tłumaczenia i asystent
 
 | | |
 | --- | --- |
-| Kto | OpenRouter, Inc. (USA) — pośrednik, do którego platforma wysyła żądanie; Anthropic, PBC (USA) — dostawca modelu `anthropic/claude-sonnet-5.5`, który je wykonuje |
+| Kto | **OpenRouter, Inc.** (USA) — pośrednik, do którego platforma wysyła żądanie; **Google Cloud, Vertex AI w regionie europejskim** (u OpenRoutera: `google-vertex/europe`) — wykonuje model; **Anthropic, PBC** — twórca modeli: `anthropic/claude-sonnet-5.5` (podstawowy) i `anthropic/claude-haiku-4.5` (zapasowy). Nikt inny: żaden inny host i żaden inny model nie dostaje treści firm |
 | Co | tekst zlecony do tłumaczenia (`translation.text`: treść stron firmy, wizytówki, katalogu ofert i dokumentów dla klientów; klasy `public` i `public_personal`) oraz rozmowa z asystentem (`assistant.conversation`, `assistant.extract_profile`: to, co osoba z firmy wpisała, i to, co oddały polecenia asystenta; klasa `personal`) |
 | Czego nigdy | treści klasy `health`; danych klientów firmy w wyniku polecenia asystenta — klient jest dla modelu uchwytem, a jego imię i nazwisko, e-mail i telefon widzi tylko osoba przy ekranie, na karcie (ADR-076, „karty osób”); tożsamości osoby, która pisze — pole `user` to skrót HMAC. To, co osoba sama wpisze w rozmowę, wychodzi tak, jak zostało wpisane — dlatego asystent mówi o tym nad polem rozmowy |
-| Gdzie | poza Europejskim Obszarem Gospodarczym (USA). Podstawa przekazania i treść klauzul — do potwierdzenia przez prawnika (lista prawna), zanim wpis trafi do opublikowanego dokumentu |
-| Jak | każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters`; klasa `personal` wychodzi wyłącznie do hostów z zerową retencją (`zdr`); pilnuje tego ustawienie platformy `model_port.privacy.no_training_providers`, domyślnie włączone — żądania trafiają tylko do dostawców, którzy nie zapisują promptów i nie uczą na nich modeli, gdy żaden taki nie obsługuje modelu, zadanie staje, zamiast pójść gdzie indziej, a wyłączyć je może tylko operator platformy i tylko dla treści bez danych osobowych („Dostawcy i prywatność zapytań”); firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
+| Gdzie | model wykonuje się w europejskim regionie Google Cloud; żądanie przechodzi przez pośrednika z siedzibą w USA (OpenRouter), a Google i Anthropic to spółki amerykańskie — czyli przez podmioty spoza Europejskiego Obszaru Gospodarczego. Podstawa przekazania i treść klauzul — do potwierdzenia przez prawnika (lista prawna), zanim wpis trafi do opublikowanego dokumentu |
+| Jak | bez uczenia modeli na zapytaniach: każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters` (ustawienie platformy `model_port.privacy.no_training_providers`, domyślnie włączone; wyłączyć je może tylko operator platformy i tylko dla treści bez danych osobowych — „Dostawcy i prywatność zapytań”); bez przechowywania danych przy danych osobowych: klasa `personal` wychodzi wyłącznie do punktów z zerową retencją (`zdr`); do jednego hosta: żądanie do modelu Claude nazywa host z wiersza „Kto” jako jedyny, bez zastępstwa (ustawienie platformy `model_port.privacy.claude_provider` = `google-vertex/europe`), a gdy ten host nie może go wykonać, zadanie staje, zamiast pójść gdzie indziej; firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
 | Od kiedy | od chwili, gdy operator ustawi `MODEL_PORT_PROCESSOR_LISTED=true` na danym wdrożeniu. Do tego czasu treść firmy nie wychodzi (`processor_not_listed`) |
 
-**Rozstrzygnięte 04.10 (pakiet W; wiersz „Kto” poprawia pakiet X).** Do 04.10
-OpenRouter wykonywał żądania do `anthropic/claude-sonnet-5.5` u dostawcy `Google`,
-którego wiersz „Kto” nie nazywał. Właściciel wybrał Google Cloud (Vertex AI, region
-europejski): port przypina modele Claude do `google-vertex/europe`
-(`model_port.privacy.claude_provider`, „Dokładny dostawca dla modeli Claude”), z ZDR i
-bez zastępców. Dokumenty mają nazywać: OpenRouter → Google Cloud (Vertex AI, Europa),
-model Claude Sonnet 5.5 firmy Anthropic. Dwie rzeczy dla tego wiersza: odpowiedź
-potwierdza dostawcę (Google), a regionu nie potwierdza nic poza nazwą w żądaniu; i
-OpenRouter pozostaje pośrednikiem poza Europejskim Obszarem Gospodarczym.
+**Od kiedy obowiązuje wiersz „Kto”.** Host nazywa i przypina ustawienie platformy
+`model_port.privacy.claude_provider` (domyślnie `google-vertex/europe`; „Dokładny
+dostawca dla modeli Claude”), które pakiet W wprowadził do `main` commitem `ed4ae541`
+(04.10) — od tego commita żądanie do modelu Claude nazywa ten host jako jedyny, z ZDR i
+bez zastępców. Do 04.10 OpenRouter wybierał host sam spośród spełniających `deny` i
+`zdr` (rozmowy z tego dnia wykonał `Google`, bez wskazania regionu). Dwie rzeczy, które
+wiersz „Kto” musi powiedzieć uczciwie: odpowiedź OpenRoutera potwierdza dostawcę
+(`Google`), a regionu nie potwierdza nic poza nazwą w żądaniu; i OpenRouter pozostaje
+pośrednikiem spoza Europejskiego Obszaru Gospodarczego.
 
-Gdzie ten wpis jest powtórzony słowami dla ludzi — zmiana modelu albo pośrednika
-zmienia wszystkie naraz, **najpierw dokumenty, potem konfigurację**:
+**Lista w kodzie.** `LISTED_PROCESSORS` w `model_port/matrix.py` niesie ten łańcuch
+ogniwo po ogniwie — pośrednik (adapter `openrouter`), host (`google-vertex/europe`),
+model — po jednym wierszu na model. Pilnują jej trzy miejsca:
+
+- **ustawienie modelu zadania** (`model_port.tasks.translation_text`, „Platforma” › AI i
+  tłumaczenia) przyjmuje tylko model z listy. Operator nadal zmienia model tłumaczeń —
+  między Claude Sonnet 5.5 i Claude Haiku 4.5. Lista wyboru pokazuje też pozostałe
+  sprawdzone wiersze macierzy (Claude Opus, Gemini, DeepSeek) z dopiskiem „poza listą
+  podmiotów przetwarzających”; ich wybór kończy się odmową `processor_not_listed` ze
+  zdaniem, co musi stać się najpierw: dostawca dopisany do polityki prywatności i umowy
+  powierzenia, potem wiersz w `LISTED_PROCESSORS`. Wartość spoza listy zapisana
+  wcześniej jest pomijana (zadanie idzie na swój model domyślny), z ostrzeżeniem w logu;
+- **samo wywołanie**: żądanie z treścią firmy (`purpose = customer`) do modelu spoza
+  listy kończy się `configuration` / `processor_not_listed`, zanim cokolwiek wyjdzie —
+  także gdy model wskazała zmienna `MODEL_PORT_TASK_…_MODEL` albo kod. Treść własna
+  platformy (`platform`), evale i próby (`eval`, `probe`) listy nie dotyczą: wiersze
+  DeepSeek i Gemini w macierzy służą im dalej. Atrapa (`fake`) nie opuszcza procesu;
+- **host**: przypięcie dostawcy modeli Claude (`model_port.privacy.claude_provider`)
+  przyjmuje tylko host z listy (`matrix.listed_hosts`): wybór innego w „Platformie” —
+  Anthropic, Amazon Bedrock, Azure — kończy się odmową `processor_not_listed` ze zdaniem,
+  co musi stać się najpierw, a wywołanie z treścią firmy, gdy zapisany host jest spoza
+  listy, jest odmawiane tak samo jak przy modelu. Zmiana hosta to najpierw zmiana tego
+  wpisu i wiersza listy.
+
+### Generator obrazów
+
+Tam, gdzie profil składa `shared.image-generation` i operator podał klucz
+(`IMAGE_GENERATION_OPENAI_API_KEY`); bez klucza funkcja nie działa i nic nie wychodzi.
+
+| | |
+| --- | --- |
+| Kto | **OpenAI** (USA) — bezpośrednie Image API (`api.openai.com`), model `gpt-image-2.5` (ADR-059); bez pośrednika |
+| Co | opis obrazu wpisany przez osobę z firmy (prompt, do 1000 znaków) i skrót SHA-256 identyfikatora konta w polu `user` |
+| Czego nigdy | treści stron, danych klientów firmy, plików firmy; imienia i adresu e-mail osoby, która zleca. Okno generatora prosi, żeby nie wpisywać danych osobowych ani informacji o zdrowiu — to prośba, nie filtr |
+| Gdzie | poza Europejskim Obszarem Gospodarczym (USA). Punktu w UE nie obiecujemy bez pisemnego potwierdzenia OpenAI dla tego modelu (ADR-059, „Poza zakresem”) |
+| Jak | OpenAI sprawdza opis pod kątem nadużyć (`moderation: auto`) i stosuje własne zasady przechowywania zleceń API — wyłączenia monitoringu nadużyć ani zmienionej retencji nie mamy uzgodnionych (lista prawna). U nas opis jest czyszczony po zakończeniu zlecenia; opis odrzucony zostaje 30 dni jako dowód nadużycia |
+| Od kiedy | od skonfigurowania klucza na wdrożeniu — osobna decyzja właściciela, jak przy modelach językowych |
+
+### Wyszukiwarka katalogu: osadzenia
+
+Tam, gdzie profil składa `shared.profiles` z katalogiem i operator podał klucz
+(`CATALOG_EMBEDDING_API_KEY`); bez klucza katalog szuka samymi słowami i nic nie
+wychodzi (ADR-064 pkt 8).
+
+| | |
+| --- | --- |
+| Kto | **OpenRouter, Inc.** (USA) — pośrednik; model osadzeń `qwen/qwen3-embedding-8b` (Qwen3 Embedding, Alibaba Cloud) wykonywany u hosta, którego OpenRouter wybiera spośród niezapisujących treści — **host nie jest przypięty** i wpis go nie nazywa (do rozstrzygnięcia przed włączeniem, tak jak rozstrzygnięto host modeli Claude) |
+| Co | publiczny tekst wizytówki pokazanej w katalogu (to, co i tak widzi każdy odwiedzający) oraz zapytanie wpisane w wyszukiwarkę katalogu przez odwiedzającego, z instrukcją zadania dla modelu |
+| Czego nigdy | wizytówki wyłączonej z katalogu, danych klientów firmy, tożsamości ani położenia odwiedzającego (żądanie nie niesie pola `user`; punkt „Blisko mnie” nie opuszcza serwera) |
+| Gdzie | poza Europejskim Obszarem Gospodarczym (pośrednik w USA; położenie hosta nieokreślone, dopóki host nie jest przypięty) |
+| Jak | żądanie niesie `provider.data_collection = "deny"` — tylko hosty, które nie zapisują treści i nie uczą na niej modeli; wektor zapytania trafia u nas na 30 dni do cache pod skrótem zapytania, nie jego treścią |
+| Od kiedy | od skonfigurowania klucza na wdrożeniu — osobna decyzja właściciela |
+
+### Gdzie wpis jest powtórzony słowami dla ludzi
+
+Zmiana modelu, hosta albo pośrednika zmienia wszystkie naraz, **najpierw dokumenty,
+potem konfigurację**:
 
 - panel, Języki i tłumaczenia: `Translation…processing.statement` i `.done`
   (`apps/frontend/messages/pl.json`, `en.json`) oraz opis pól `processing_acknowledged`
-  w `translation/serializers.py`;
+  w `translation/serializers.py`. Zdanie, które firma potwierdza, jest ogólne („do
+  OpenRouter i dostawców modeli AI poza EOG”); część po „obecnie” nazywa łańcuch z
+  wiersza „Kto” i zmienia się razem z nim;
 - panel, asystent: `notice` i `noticeSetup` (te same pliki);
-- ustawienie platformy „Model tłumaczeń” (`model_port/settings_spec.py`) — pomoc mówi,
-  że inny model wymaga najpierw zmiany dokumentów;
-- stała `LISTED_PROCESSOR` w `model_port/matrix.py` i test, że zadania wysyłające treść
-  firm mają domyślnie właśnie ten model (`tests/test_model_port.py`).
+- panel, okno generatora obrazów: `ImageGeneration.processor`;
+- panel, Wizytówka › „Katalog firm”: `Profile.catalogProcessor`;
+- „Platforma” › AI i tłumaczenia: pomoc ustawienia „Model tłumaczeń” i zdanie odmowy
+  (`model_port/settings_spec.py`);
+- `LISTED_PROCESSORS` i `LISTED_PROCESSOR` w `model_port/matrix.py` oraz testy, że
+  zadania wysyłające treść firm mają domyślnie model z listy i że treść firmy nie
+  wychodzi do modelu spoza niej (`tests/test_model_port.py`,
+  `tests/test_platform_ai_settings.py`).
 
-Czego wpis nie obejmuje i co lista przetwarzających musi nazwać osobno tam, gdzie te
-funkcje są włączone: generator obrazów (OpenAI Image API, ADR-059 — opis obrazu) i
-wyszukiwarka katalogu (osadzenia przez OpenRouter, model `qwen/qwen3-embedding-8b`,
-ADR-064 — publiczny tekst wizytówki i wpisane zapytanie). Operator może dziś wskazać
-zadaniu inny model z macierzy (`model_port.tasks.translation_text`,
-`MODEL_PORT_TASK_…_MODEL`); kod tego nie blokuje, więc zmiana na model innego dostawcy
-(np. Gemini — Google) bez wcześniejszej zmiany dokumentów czyni ten wpis nieprawdziwym.
-Wiersze DeepSeek w macierzy służą wyłącznie evalom.
+Zapytanie odwiedzającego w wyszukiwarce katalogu nie ma zdania w panelu — to strona
+publiczna; mówi o nim ten wpis, a powie polityka prywatności platformy, gdy powstanie.
 
 **Niczego ten wpis nie włącza.** Włączenie tłumaczeń i asystenta dla firm na VPS to
 osobny krok właściciela przy wdrożeniu: jego klucz OpenRouter
@@ -461,7 +529,8 @@ flaga `MODEL_PORT_PROCESSOR_LISTED=true` w `.env` stosu — jedna pozycja w `mem
 oznaczona jako jego decyzja. `compose.yaml` przekazuje flagę z `.env` do kontenerów
 (domyślnie `false`); zmieniona wartość wymaga ponownego utworzenia kontenerów
 (`docker compose up -d`), sam `restart` jej nie wczyta. Asystent na VPS wymaga ponadto
-modułu `shared.assistant` w profilu `vps-dev` (dziś go tam nie ma).
+modułu `shared.assistant` w profilu `vps-dev` (dziś go tam nie ma). Generator obrazów i
+osadzenia katalogu włącza dopiero ich własny klucz.
 
 ## Atrapa
 

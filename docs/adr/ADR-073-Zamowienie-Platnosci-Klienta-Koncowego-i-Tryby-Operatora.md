@@ -499,7 +499,8 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   niżej, „Rozstrzygnięcia plastra 4i”.)
 - **Historia cen (4i).** Każda zmiana `PriceRule` dopisuje wiersz historii
   (kto, kiedy, kwota przed i po), bo promocje (faza 10) muszą pokazać najniższą
-  cenę z 30 dni przed obniżką, a tej nie da się odtworzyć wstecz.
+  cenę z 30 dni przed obniżką, a tej nie da się odtworzyć wstecz. (Zbudowane
+  04.10 — niżej, „Uzupełnienie 2026-10-04: po plastrze 4i”.)
 
 Rozstrzygnięcia plastra 4c (2026-10-04, decyzje techniczne z powodem):
 
@@ -1084,7 +1085,10 @@ decyzje techniczne z powodem):
   trzyma”); zamówienie opłacone i zwrócone w całości zostaje zapisem — wpłata
   była, a zwrot jest jej korektą. Okres liczy się od ostatniego wpisu
   dowolnego rodzaju, więc zwrot oznaczony po trzech latach zaczyna go od nowa.
-- **Przebieg firmy omija kupującego do końca okresu** — tak, jak mówi zdanie
+- **Przebieg firmy omija kupującego do końca okresu** *(zmienione tego samego
+  dnia decyzją właściciela — przebieg czyści klienta jak ręczna anonimizacja;
+  niżej, „Uzupełnienie 2026-10-04: po plastrze 4i”; poniższy opis to stan
+  pierwszego scalenia plastra)* — tak, jak mówi zdanie
   tego ADR z 03.10 („migawka kupującego i klient zostają”). Commerce rejestruje
   wykluczenie przemiatania klientów (`register_retention_exclusion` pod kluczem
   `customers.api.CUSTOMER_RETENTION_SWEEP` — commerce nie nazywa booking) i
@@ -1136,7 +1140,8 @@ decyzje techniczne z powodem):
   — zostaje otwarta, należy do cennika rezerwacji); polecenie asystenta dla
   anonimizacji (klasa `irreversible`, dane osoby — osobna decyzja); miejsce w
   panelu do anonimizacji klienta, który nie ma żadnego zamówienia (nie ma listy
-  klientów).
+  klientów). (Historia cen i miejsce w panelu zbudowane 04.10 — niżej,
+  „Uzupełnienie 2026-10-04: po plastrze 4i”; polecenie asystenta zostaje poza.)
 
 Zgody marketingowe w panelu (2026-10-04, odpowiedź właściciela 6 z 04.10;
 decyzje techniczne z powodem):
@@ -1149,7 +1154,9 @@ decyzje techniczne z powodem):
   do `record_consent` (`kind="marketing"`). Pole w formularzach publicznych:
   „Uzupełnienie 2026-10-04: krok zgód formularzy publicznych”, niżej; stała
   jest jedna dla obu stron.
-- **Dziennik trzyma skrót, nie słowa** (decyzja koordynatora z 04.10). Lista
+- **Dziennik trzyma skrót, nie słowa** *(zmienione tego samego dnia — dziennik
+  trzyma też słowa; niżej, „Uzupełnienie 2026-10-04: po plastrze 4i”)* (decyzja
+  koordynatora z 04.10). Lista
   odtwarza zdanie, składając stałą z nazwą firmy i porównując skróty. Gdy żaden
   skrót nie pasuje — firma zmieniła nazwę albo zmieniono zdanie — wiersz nadal
   mówi, kto, kiedy i w którym formularzu się zgodził, i wprost, że słów z tamtego
@@ -1234,3 +1241,74 @@ plastry 5a–5b), wspólne dla formularza wizyty i pobytu, bez migracji:
   (dziennik i ekran — osobna praca nad `shared.customers`); brzmienia w
   językach poza pl, en, de; strona prawna witryny z dokumentów firmy (ADR-072,
   plaster 5f).
+
+## Uzupełnienie 2026-10-04: po plastrze 4i
+
+Cztery rzeczy, które plaster 4i zostawił otwarte albo które właściciel rozstrzygnął
+po jego scaleniu (04.10). Zmieniają zdania oznaczone wyżej; reszta 4i obowiązuje.
+
+- **Przebieg firmy czyści kupującego tak samo jak ręczna anonimizacja** (decyzja
+  właściciela z 04.10, wariant b pytania „do potwierdzenia” z rozstrzygnięć 4i).
+  Klient z zamówieniem, za które wzięto pieniądze, jest po okresie wybranym przez
+  firmę „po terminie” jak każdy inny: przebieg czyści kartę klienta i wizyty, a w
+  zamówieniu zostaje **sama migawka kupującego** do końca okresu zapisu sprzedaży
+  (`BUYER_RETENTION_YEARS`), po którym usuwa ją przemiatanie `commerce.buyers`.
+  Commerce nie rejestruje już wykluczenia przemiatania klientów
+  (`register_retention_exclusion` znika z `commerce/apps.py`; mechanizm wykluczeń
+  zostaje w rdzeniu dla modułu, który musiałby zatrzymać całego klienta). Obie
+  drogi — kliknięcie w panelu i przebieg — idą przez `strip_customer` →
+  `strip_buyer`, które blokuje zamówienia klienta i czyta księgę spod blokady, więc
+  wpłata oznaczona między wybraniem klienta a jego czyszczeniem zostawia kupującego
+  na zamówieniu. Powód: przebieg, który omija klienta w całości, przechowuje kartę i
+  wizyty dłużej, niż wymaga cel (zapis sprzedaży to zamówienie, nie kartoteka), i
+  dawał firmie dwa różne wyniki tej samej czynności. Podgląd ustawienia „Dane
+  klientów” nie mówi już „klienci po terminie, którzy na razie zostają”, tylko
+  zdaniem commerce, że dane kupującego w zamówieniach z wpłatą zostają, w ilu
+  zamówieniach klientów, których dotyczy teraz, i najdłużej do którego dnia
+  (`customers.kept_after_strip` dla wielu klientów naraz; `keeps` modułu dostaje
+  listę klientów). Test `test_the_hand_and_the_run_leave_exactly_the_same` porównuje
+  obie drogi pole po polu.
+- **Dziennik zgód trzyma zdanie, na które osoba się zgodziła, nie tylko jego skrót.**
+  Dowodem zgody jest treść, którą pokazano. Kolumna `ConsentRecord.wording`
+  (customers 0005) przechowuje zdanie zgody marketingowej albo pola formularza słowo
+  w słowo, obok skrótu; zgoda na dokument jej nie wypełnia (słowami jest wiersz
+  tekstu wersji), wycofanie też nie. Lista „Zgody marketingowe” pokazuje zapisane
+  słowa — także po zmianie nazwy firmy albo zdania w `MARKETING_WORDING`. Wpisy
+  sprzed kolumny mają sam skrót: dopóki dzisiejsze zdanie daje ten skrót, lista
+  pokazuje to zdanie (skrót jest dowodem), a gdy żadne nie pasuje — „Treść
+  niezapisana”. Migracja niczego nie uzupełnia wstecz: zdania sprzed kolumny nie da
+  się poznać inaczej niż przez skrót. Zmiana zdania w stałej przestaje być decyzją o
+  dowodach — dotyczy tylko następnych zgód.
+- **Miejsce w panelu do usunięcia danych klienta bez zamówienia**: Ustawienia ›
+  „Usuwanie danych klienta” (`/panel/settings/customer-removal`). Panel nie ma listy
+  klientów, więc strona szuka — po imieniu i nazwisku, e-mailu albo telefonie
+  (`GET /customers/search/?q=…`, bliźniak polecenia `customers.find`, który osobie
+  przy ekranie oddaje karty zamiast uchwytów) — i przy znalezionym kliencie otwiera
+  to samo okno co strona zamówienia (`RemoveCustomerDialog`, wspólne dla obu
+  miejsc). Szukający znajduje tylko klientów, których widzi gdzie indziej w panelu
+  (`register_customer_viewer`), z kontaktem tam, gdzie go tam widzi. Strona i wpis
+  w menu są tylko w profilu, który oferuje „Dane klientów”
+  (`features.customerRetention`), dla osoby z `booking.appointment.manage` — te
+  same warunki co przycisk na zamówieniu.
+- **Historia cen** (druga połowa wiersza 4i): `booking.PriceHistoryEntry` (booking
+  0034), tylko do dopisywania — wyzwalacz `booking_append_only` odmawia zmiany i
+  usunięcia poza usunięciem całej firmy (ADR-042). Każdy zapis ceny (`save_price`,
+  `delete_price`, `copy_prices_to_next_year`, usunięcie szkicu oferty) dopisuje w
+  swojej transakcji wiersz: **cała reguła po zapisie** (każda kolumna, pod nazwą
+  kolumny), kwota po i przed, waluta, kto i kiedy, oraz `acting_via`, gdy zapisał
+  asystent. Podgląd zapisu wiersza nie zostawia (wycofuje się razem z nim). Cała
+  reguła, a nie sama kwota, bo cena na dzień wynika z wielu reguł naraz (sezon nad
+  ceną podstawową, jednostka nad grupą): cennik z chwili T to ostatni wiersz każdej
+  ceny do T bez usuniętych (`price_history.rules_at`), a `price_for` odpowiada na
+  nim tak samo jak na dzisiejszym. Migracja dopisuje wiersz `baseline` dla każdej
+  istniejącej ceny, więc zapis jest kompletny od wdrożenia; sprzed pierwszego
+  wiersza firmy zapis nie wie nic i mówi to (`recorded_since`, odmowa
+  `before_price_history`) zamiast zgadywać. Migracja odmawia startu w roli objętej
+  RLS na `booking_pricerule` — skopiowałaby zero wierszy bez słowa. Odczyty:
+  `GET /booking/setup/prices/history/` (zmiany, od najnowszej, także jednej ceny —
+  również usuniętej) i `GET /booking/setup/prices/on-day/?day=…` (cennik z końca
+  dnia w strefie firmy); w panelu „Historia cen” przy cenniku. **Czego zapis nie
+  obejmuje:** dopłat i kaucji (`Extra`), tego, jak firma czyta kwoty (brutto czy
+  netto — ustawienie z własną historią, ADR-078), ani stawek podatku; promocje
+  (faza 10) dołożą to, czego będą potrzebować do „najniższej ceny z 30 dni”.
+  Polecenia asystenta dla tych odczytów nie ma.

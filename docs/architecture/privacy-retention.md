@@ -51,10 +51,12 @@ Obszar „Prywatność i dane” (`/panel/settings/privacy`), oba domyślnie `of
 - **Klient:** niezanonimizowany; jego najpóźniejsza wizyta (w dowolnym stanie)
   skończyła się przed granicą, czyli nic nie trwa i nic nie jest przed nim; klient
   bez żadnej wizyty liczy się od dnia założenia rekordu. Nigdy klient, którego inny
-  moduł jeszcze potrzebuje (`register_retention_exclusion`): **kupujący z zamówienia,
-  za które wzięto pieniądze, zostaje do końca okresu zapisu sprzedaży** — niżej,
-  „Zapis sprzedaży”. Podgląd ustawienia mówi, ilu klientów po terminie zostaje i
-  dlaczego.
+  moduł wstrzymuje w całości (`register_retention_exclusion`) — rdzeń nie rejestruje
+  żadnego takiego wyjątku. **Kupujący z zamówienia, za które wzięto pieniądze, jest po
+  terminie jak każdy inny klient**: przebieg czyści jego kartę i wizyty, a w zamówieniu
+  zostaje sama migawka kupującego do końca okresu zapisu sprzedaży — niżej, „Zapis
+  sprzedaży”. Podgląd ustawienia mówi, w ilu zamówieniach dane kupującego zostają i do
+  kiedy.
 - **Migawka kupującego** na zamówieniu zanonimizowanego klienta: zapis sprzedaży,
   którego okres minął (przemiatanie `commerce.buyers`, niżej).
 - **Zapytanie:** przyszło przed granicą, przeczytane czy nie, i jeszcze ma dane osoby.
@@ -86,11 +88,15 @@ Obszar „Prywatność i dane” (`/panel/settings/privacy`), oba domyślnie `of
   układaniu listy „po terminie” i **drugi raz pod blokadą**: `erase_customers`, mając
   zablokowanych klientów i ich wizyty, pyta `excluded_ids(…, among=<zablokowani>)`.
   Moduł dostaje wtedy listę kandydatów i sam blokuje to, od czego zależy jego
-  odpowiedź. Pierwsze wykluczenie rejestruje commerce (plaster 4i): blokuje
-  zamówienia tych klientów i dopiero potem czyta księgę, a każdy zapis do księgi
-  bierze najpierw blokadę zamówienia — wpłata oznaczona między wyszukaniem a blokadą
-  zatrzymuje klienta tak samo jak nowa wizyta, wpłata w toku każe przebiegowi
-  poczekać. Kolejność blokad: klient, wizyta, zamówienie;
+  odpowiedź. Mechanizm jest dla modułu, który musi zatrzymać **całego** klienta;
+  rdzeń nie rejestruje dziś żadnego wykluczenia (commerce zarejestrowało je w plastrze
+  4i i zdjęło 04.10 — decyzja właściciela, „Zapis sprzedaży”);
+- **to, co moduł musi zostawić po kliencie**, zostawia on sam przy czyszczeniu
+  (`register_customer_anonymizer` z `keeps`): `strip_buyer` blokuje zamówienia klienta i
+  dopiero potem czyta księgę, a każdy zapis do księgi bierze najpierw blokadę
+  zamówienia — wpłata oznaczona między wyszukaniem klienta a jego czyszczeniem
+  zostawia kupującego na zamówieniu, wpłata w toku każe przebiegowi poczekać.
+  Kolejność blokad: klient, wizyta, zamówienie;
 - reguła platformy w dniach (`platform_days`) nie ma okresu ochronnego, więc wartość
   poniżej jednego dnia (albo nie-liczba) znaczy „brak reguły”, nigdy „usuń
   wszystko”; kto rejestruje takie przemiatanie, deklaruje na kluczu rozsądne minimum;
@@ -135,15 +141,21 @@ ADR-073, „Rozstrzygnięcia plastra 4i”; odpowiedź właściciela 7 z 04.10.2
   więcej niż zero. Wpłata oznaczona przez pomyłkę i wycofana niczego nie trzyma;
   zamówienie opłacone i zwrócone zostaje zapisem. Zamówienie bez wpłaty nie trzyma
   niczego.
-- **Przebieg firmy** („Dane klientów”) takiego klienta **omija w całości** do końca
-  okresu — karta klienta, wizyty i migawka zostają — i usuwa go razem z migawką, gdy
-  okres minie. Podgląd ustawienia podaje liczbę takich klientów i powód.
-- **Ręczna anonimizacja** czyści kartę klienta i wizyty jak zawsze; **zostaje sama
-  migawka kupującego** (`Order.buyer_name`, `buyer_email`, `buyer_phone`) na
+- **Przebieg firmy i ręczna anonimizacja zostawiają dokładnie to samo** (decyzja
+  właściciela z 04.10.2026, wariant b): karta klienta i wizyty są czyszczone jak
+  zawsze — w przebiegu po okresie wybranym przez firmę, ręcznie od razu — a **zostaje
+  sama migawka kupującego** (`Order.buyer_name`, `buyer_email`, `buyer_phone`) na
   zamówieniach będących zapisem sprzedaży w okresie. Kopie e-maili i powód zwrotu
-  znikają od razu. Panel mówi to przed potwierdzeniem („Usuń dane klienta…” na
-  stronie zamówienia, `GET /booking/customers/<id>/anonymize/preview/`) i po nim
-  (zamówienie: „Dane kupującego zostają w tym zamówieniu do …”).
+  znikają od razu. Obie drogi idą przez `strip_customer` → `strip_buyer`, więc nie mają
+  jak się rozjechać; test porównuje ich wynik pole po polu. (Do 04.10 przebieg omijał
+  takiego klienta w całości; przechowywał więcej, niż trzeba.)
+- **Panel mówi to z góry**: przy ręcznej anonimizacji okno „Usuń dane klienta…” —
+  na stronie zamówienia i w Ustawienia › „Usuwanie danych klienta” — podaje, co
+  zostaje i do kiedy (`GET /booking/customers/<id>/anonymize/preview/`), a zamówienie
+  mówi potem „Dane kupującego zostają w tym zamówieniu do …”. Podgląd ustawienia „Dane
+  klientów” mówi zdaniem commerce, że dane kupującego w zamówieniach z wpłatą zostają,
+  w ilu zamówieniach klientów, których dotyczy teraz, i najdłużej do którego dnia —
+  nie liczy już „klientów, którzy zostają”.
 - **Po okresie** migawkę usuwa przemiatanie `commerce.buyers` we wspólnym przebiegu
   (co noc, w każdej firmie, bez okresu ochronnego — to okres z prawa, nie kliknięcie
   firmy; najwyżej `RUN_LIMIT` na firmę i przebieg). Zamówienia są blokowane, a księga
@@ -151,10 +163,27 @@ ADR-073, „Rozstrzygnięcia plastra 4i”; odpowiedź właściciela 7 z 04.10.2
   okres od nowa. To samo przemiatanie usuwa migawkę zamówienia, które przestało być
   zapisem sprzedaży (jedyną wpłatę wycofano jako pomyłkę po anonimizacji klienta).
 - **Wpłata oznaczona po anonimizacji** niczego nie przywraca: migawki już nie ma.
-- **Do potwierdzenia z prawnikiem**: sam okres i zakres danych, oraz to, czy
-  przebieg firmy ma zostawiać kupującego w całości (jak dziś), czy czyścić kartę i
-  wizyty po okresie wybranym przez firmę i zostawiać tylko migawkę (jak ręczna
-  anonimizacja). Zmiana to jedna linia rejestracji wykluczenia w `commerce/apps.py`.
+- **Do potwierdzenia z prawnikiem**: sam okres i zakres danych w migawce.
+
+## Usunięcie danych jednego klienta na żądanie
+
+Panel nie ma listy klientów, więc klienta, który prosi o usunięcie danych, trzeba
+znaleźć: Ustawienia › **„Usuwanie danych klienta”** (`/panel/settings/customer-removal`)
+szuka po imieniu i nazwisku, e-mailu albo telefonie (`GET /customers/search/?q=…`) i
+przy znalezionym kliencie otwiera to samo okno co strona zamówienia — z podglądem, co
+zostaje i do kiedy. To jest miejsce także dla klienta bez żadnego zamówienia (do 04.10
+okno było tylko na stronie zamówienia).
+
+- **Kto widzi stronę**: osoba z uprawnieniem do anonimizacji
+  (`booking.appointment.manage`), w profilu, który oferuje „Dane klientów”
+  (`features.customerRetention`) — z tego samego powodu co przycisk na zamówieniu: w
+  produkcie z kartą gospodarstwa klient zostałby nazwany na karcie.
+- **Kogo znajduje**: klientów, których szukający widzi gdzie indziej w panelu — na
+  wizytach i w zamówieniach (`register_customer_viewer`, ta sama reguła co karty osób
+  asystenta) — z e-mailem i telefonem tam, gdzie je tam widzi. Najwyżej 10 naraz, z
+  liczbą wszystkich pasujących. Klienta już zanonimizowanego nie znajduje.
+- Wyszukiwanie niczego nie zapisuje i nie trafia do historii; usunięcie zapisuje wpis
+  `booking.customer.anonymized` bez nazwiska, jak dotąd.
 
 ## D1 — klient rezerwacji: wszystkie przechowywane kopie
 
@@ -196,7 +225,7 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 | `Payment`, `LedgerEntry` (`shared.commerce`, ADR-073 §4) | kwoty, sposób zapłaty, czas i identyfikator osoby z firmy, która oznaczyła wpłatę | zostaje | bez danych klienta; księga jest tylko do dopisywania |
 | `Refund` (`shared.commerce`, ADR-073 §8) | kwota, sposób i czas zwrotu, identyfikator osoby z firmy, która go oznaczyła, oraz `reason` — własne słowa firmy o zwrocie ponad warunki | kwoty zostają; **`reason` usuwane** (`strip_buyer`), bo wolny tekst firmy może nazywać klienta | wolny tekst traktujemy jak daną klienta |
 | E-maile o dopłacie, rozliczeniu wpłaty i zwrocie (`commerce.balance_details`, `commerce.balance_overdue`, `commerce.refund_settled`, `commerce.refund_marked`, `commerce.refund_withdrawn`, ADR-073 §5, §8) | adres klienta i treść wiadomości (numer zamówienia, kwoty, sposób zwrotu, rachunek firmy; nigdy powód zwrotu) | **usuwane** — zapisane kopie czyści `strip_buyer` od razu, razem z danymi do przelewu | adres to dana klienta |
-| Dziennik zgód (`customers_consentrecord`, ADR-073 §9) — także zgody marketingowe i ich wycofania | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu albo zdania zgody, źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany. Lista „Zgody marketingowe” takiego klienta już nie pokazuje |
+| Dziennik zgód (`customers_consentrecord`, ADR-073 §9) — także zgody marketingowe i ich wycofania | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu albo zdania zgody i — od 04.10 — samo zdanie zgody (`wording`: stała treść z nazwą firmy, bez danych klienta), źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany. Lista „Zgody marketingowe” takiego klienta już nie pokazuje |
 | Karta gospodarstwa (`shared.farms`) | dane hodowcy | **zostaje — własna reguła** | dlatego grupy nie ma w profilu z gospodarstwami (wyżej) |
 | Rozmowa z asystentem (`assistant_assistantmessage`) | cokolwiek pracownik wpisał, także nazwisko klienta | zostaje do wygaśnięcia rozmowy | nie da się jej znaleźć po identyfikatorze klienta; ogranicza ją retencja rozmów asystenta |
 
@@ -287,8 +316,10 @@ Otwarte dla tego, kto zbuduje usuwanie konta użytkownika:
   trzyma kupującego, nieopłacone nie); wpis księgi dopisany po latach i wpis zapisany
   później, niż się wydarzył; wpis dopisany między wyszukaniem a blokadą; wpłata
   wycofana jako pomyłka przed anonimizacją i po niej; wpłata oznaczona po
-  anonimizacji; przebieg firmy omija kupującego do końca okresu, pyta ponownie pod
-  blokadą i mówi w podglądzie, ilu zostaje; podgląd anonimizacji przez API. Jak
+  anonimizacji; przebieg firmy czyści kupującego jak ręczna anonimizacja i zostawia
+  migawkę (wynik obu dróg porównany pole po polu), wpłata oznaczona po wybraniu
+  kandydatów zostawia migawkę, podgląd ustawienia mówi, w ilu zamówieniach dane
+  kupującego zostają i do kiedy; podgląd anonimizacji przez API. Jak
   wszystkie testy — ponad RLS; izolację tabel commerce dowiódł działający stos przy
   plastrach 4e–4h, 4i nie dodaje tabeli.
 
