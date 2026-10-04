@@ -20,6 +20,7 @@ and takes back when it was a mistake. Slice 4f-2 added the transfer with a
 date: the company's bank account (the settings group `commerce.transfer`), a
 payment a source asks for before it confirms (`request_prepayment`), the
 source's handler and the deadlines' task („Rozstrzygnięcia plastra 4f-2”).
+Slice 4g added draft orders for bookings that wait for the company's answer.
 Refunds, a balance's reminders and online payments come with the next slices
 of the ADR — do not put an operator's field or a refund anywhere ahead of
 them.
@@ -84,6 +85,13 @@ them.
   the materials, the people's notices and the observers' `CREATED` come at
   confirmation; a pending booking is called off or paid, never moved,
   completed or marked a no-show.
+- **What the source has not accepted yet is a draft.** A customer's booking of
+  an offer taken „on request” (`pending_request`, booking's own state and
+  booking's own expiry task) places its order with `draft=True`: no number, no
+  payment (`order_not_placed`), nothing asked for. `accept_order` gives the
+  number when the company accepts — only then does the source ask for a
+  prepayment — and a request declined, withdrawn or expired cancels the draft,
+  so the numbering has no gaps („Rozstrzygnięcia plastra 4g”).
 - **A late balance cancels nothing** (owner decision 29a). Only the kinds in
   `PREPAYMENT_KINDS` expire an order; taking a payment back never un-confirms
   what the source confirmed.
