@@ -706,9 +706,10 @@ CLAUDE = "anthropic/claude-test"
 def test_a_claude_model_is_served_by_the_one_provider_the_platform_names(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`model_port.privacy.claude_provider`: the host the documents name —
-    Anthropic itself — unless an operator names another; that one and no
-    fallback; an answer from anybody else is not a success."""
+    """`model_port.privacy.claude_provider`: the host the owner chose and the
+    documents name — Google's Vertex AI in Europe, which keeps nothing — unless
+    an operator names another; that one and no fallback; an answer from anybody
+    else is not a success."""
     org = organization("port-dostawca")
     register_model(
         ModelProfile(
@@ -725,23 +726,26 @@ def test_a_claude_model_is_served_by_the_one_provider_the_platform_names(
     )
     monkeypatch.setenv("MODEL_PORT_TASK_ASSISTANT_CONVERSATION_MODEL", CLAUDE)
     try:
-        assert (CLAUDE_PROVIDER.default, CLAUDE_PROVIDER.scopes) == ("anthropic", ("platform",))
+        assert (CLAUDE_PROVIDER.default, CLAUDE_PROVIDER.scopes) == (
+            "google-vertex/europe",
+            ("platform",),
+        )
         assert [value for value, _labels in CLAUDE_PROVIDER.values] == list(CLAUDE_PROVIDERS)
 
         FAKE.script(
-            FakeReply(text="Dzień dobry.", resolved_provider="Anthropic"),
+            FakeReply(text="Dzień dobry.", resolved_provider="Google"),
             reply_json({"translations": [{"id": "1", "text": "Good morning"}]}),
         )
         complete(conversation(org))
         complete(translation(org))
         claude, other = FAKE.calls
 
-        # Nobody else first and nobody else instead.
-        assert claude.provider == "anthropic"
+        # Nobody else first and nobody else instead — and zero retention still asked for.
+        assert claude.provider == "google-vertex/europe"
         assert request_body(claude)["provider"] == {
             **STRICT,
-            "order": ["anthropic"],
-            "only": ["anthropic"],
+            "order": ["google-vertex/europe"],
+            "only": ["google-vertex/europe"],
             "allow_fallbacks": False,
         }
         # A model of another maker is not pinned by Claude's setting.
@@ -750,19 +754,19 @@ def test_a_claude_model_is_served_by_the_one_provider_the_platform_names(
         monkeypatch.setattr(
             platform_settings,
             "platform_overrides",
-            lambda: {CLAUDE_PROVIDER.key: "google-vertex"},
+            lambda: {CLAUDE_PROVIDER.key: "amazon-bedrock"},
         )
-        FAKE.script(FakeReply(text="Dzień dobry.", resolved_provider="Google"))
+        FAKE.script(FakeReply(text="Dzień dobry.", resolved_provider="Amazon Bedrock"))
         complete(conversation(org))
         named = request_body(FAKE.calls[-1])["provider"]
         assert (named["order"], named["only"], named["allow_fallbacks"]) == (
-            ["google-vertex"],
-            ["google-vertex"],
+            ["amazon-bedrock"],
+            ["amazon-bedrock"],
             False,
         )
 
         # Answered by a host other than the one named: counted, and an error.
-        FAKE.script(FakeReply(text="Dzień dobry.", resolved_provider="Amazon Bedrock"))
+        FAKE.script(FakeReply(text="Dzień dobry.", resolved_provider="Anthropic"))
         with pytest.raises(ModelError) as error:
             complete(conversation(org))
         assert (error.value.kind, error.value.code) == (
@@ -770,7 +774,7 @@ def test_a_claude_model_is_served_by_the_one_provider_the_platform_names(
             "resolved_provider_mismatch",
         )
         row = UsageEntry.objects.get(pk=error.value.usage_entry_id)
-        assert (row.outcome, row.resolved_provider) == ("configuration", "Amazon Bedrock")
+        assert (row.outcome, row.resolved_provider) == ("configuration", "Anthropic")
     finally:
         MODELS.pop(("fake", CLAUDE), None)
 

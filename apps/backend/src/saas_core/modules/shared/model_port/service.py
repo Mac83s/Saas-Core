@@ -507,7 +507,7 @@ def _admitted(request: ModelRequest, ask: admission.Ask) -> UsageEntry:
 def _pinned_provider(profile: ModelProfile) -> str | None:
     """The one host that may serve this model, or None: a Claude model called
     through OpenRouter goes where the platform's setting says — by default to
-    Anthropic itself, the processor the privacy documents name."""
+    Google's Vertex AI in Europe, the processor the privacy documents name."""
     if not profile.model.startswith(CLAUDE_MODELS):
         return None
     return str(platform_setting(CLAUDE_PROVIDER.key))

@@ -196,9 +196,12 @@ def run_eval(
     budget = int(max_usd * 1_000_000)
     spent = 0
     results: list[ScenarioResult] = []
+    if keys:
+        # In the order asked for: what matters most is named first, and the
+        # budget cuts the rest.
+        by_key = {scenario.key: scenario for scenario in scenarios}
+        scenarios = [by_key[key] for key in keys if key in by_key]
     for scenario in scenarios:
-        if keys and scenario.key not in keys:
-            continue
         if spent >= budget:
             break
         result = run(scenario, model=model, tools=tools)

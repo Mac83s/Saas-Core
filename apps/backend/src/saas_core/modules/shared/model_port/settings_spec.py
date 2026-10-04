@@ -132,7 +132,10 @@ CLAUDE_MODELS = "anthropic/"
 CLAUDE_PROVIDER = SettingSpec(
     key="model_port.privacy.claude_provider",
     type="enum",
-    default="anthropic",
+    # The owner's choice of 04.10.2026: Google's Vertex AI in Europe — a host
+    # with a zero-data-retention endpoint for these models, which Anthropic's
+    # own endpoint at OpenRouter is not.
+    default="google-vertex/europe",
     scopes=("platform",),
     values=tuple(
         (slug, {"pl": _CLAUDE_PROVIDER_LABELS[slug], "en": _CLAUDE_PROVIDER_LABELS[slug]})
@@ -140,26 +143,28 @@ CLAUDE_PROVIDER = SettingSpec(
     ),
     label={"pl": "Dostawca modeli Claude", "en": "Provider of the Claude models"},
     model_description="The one host that may serve a request to a Claude model "
-    "(anthropic/*) through OpenRouter: Anthropic itself by default — the processor the "
-    "platform's privacy documents name. The request names this host alone and allows no "
-    "fallback, and an answer that came from another host is an error. The other rules "
-    "still hold: a request with personal data needs a zero-data-retention endpoint, so a "
-    "host that has none for the model serves nothing and the call fails "
+    "(anthropic/*) through OpenRouter: Google's Vertex AI in Europe by default — the "
+    "processor the platform's privacy documents name. The request names this host alone "
+    "and allows no fallback, and an answer that came from another provider is an error "
+    "(the answer names the provider, not its region). The other rules still hold: a "
+    "request with personal data needs a zero-data-retention endpoint, so a host that has "
+    "none for the model (Anthropic's own, Azure) serves nothing and the call fails "
     "(configuration / no_provider) instead of going elsewhere. Change it only together "
     "with the documents: the host named here is who processes the companies' content.",
     help={
         "pl": "Jedyny dostawca, który może wykonać zapytanie do modelu Claude. Domyślnie "
-        "Anthropic — ten, którego nazywają dokumenty prywatności platformy. Zapytanie "
-        "nie trafia do nikogo innego: gdy wskazany dostawca nie może go wykonać — także "
-        "dlatego, że nie ma dla tego modelu serwera bez przechowywania danych, którego "
-        "wymagają zapytania z danymi osobowymi — zadanie kończy się błędem. Zmiana "
-        "dostawcy wymaga najpierw zmiany dokumentów prywatności.",
-        "en": "The only provider that may serve a request to a Claude model. Anthropic by "
-        "default — the one the platform's privacy documents name. A request goes to nobody "
-        "else: when the named provider cannot serve it — also because it has no "
-        "zero-data-retention endpoint for the model, which requests with personal data "
-        "need — the task ends with an error. Changing the provider needs the privacy "
-        "documents changed first.",
+        "Google (Vertex AI, Europa) — ten, którego nazywają dokumenty prywatności "
+        "platformy. Zapytanie nie trafia do nikogo innego: gdy wskazany dostawca nie może "
+        "go wykonać — także dlatego, że nie ma dla tego modelu serwera bez przechowywania "
+        "danych, którego wymagają zapytania z danymi osobowymi (tak jest u samego "
+        "Anthropic) — zadanie kończy się błędem. Zmiana dostawcy wymaga najpierw zmiany "
+        "dokumentów prywatności.",
+        "en": "The only provider that may serve a request to a Claude model. Google "
+        "(Vertex AI, Europe) by default — the one the platform's privacy documents name. A "
+        "request goes to nobody else: when the named provider cannot serve it — also "
+        "because it has no zero-data-retention endpoint for the model, which requests with "
+        "personal data need (Anthropic's own has none) — the task ends with an error. "
+        "Changing the provider needs the privacy documents changed first.",
     },
 )
 

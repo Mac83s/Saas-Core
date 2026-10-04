@@ -1033,8 +1033,10 @@ poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): 
 7. **Imię wpisane przez osobę to jej słowa** i jedyne dane osobowe klienta, jakie
    model widzi: trafia do modelu z wiadomością i wraca w jego własnym wywołaniu
    (`q`). Serwer dopasowuje je do rekordów i oddaje uchwyty.
-8. **Rozmowa** (`assistant-chat.md`): prompt `assistant.operate@4` (reguła o
-   osobach; uchwyt jest jedynym identyfikatorem, który wolno napisać); obszar
+8. **Rozmowa** (`assistant-chat.md`): prompt `assistant.operate@5` (reguła o
+   osobach; uchwyt jest jedynym identyfikatorem, który wolno napisać, a o samym
+   uchwycie model osobie nie mówi — `@4` tego zdania nie miał i model tłumaczył
+   „Dostaję tylko uchwyt, na przykład …”, gdzie osoba czyta imię i nazwisko); obszar
    `customers` (`customers.find`, `booking.appointments.*`; słowa „telefon”,
    „kontakt”, „nazwisko”, „mail”, „kalendarz”, „wizyta”, „pobyt”, a „klient”, „jutro”
    i „dziś” tylko, gdy nic dokładniejszego nie padło); obszar `documents` zawężony do
@@ -1050,11 +1052,12 @@ poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): 
    nic nie jest wysyłane ponownie. Zapytania klasy `personal` — każda rozmowa
    asystenta — idą tak zawsze, cokolwiek mówi przełącznik. Drugie ustawienie,
    `model_port.privacy.claude_provider`, nazywa jedynego dostawcę, który może wykonać
-   żądanie do modelu Claude (domyślnie `anthropic`, bez zastępców; odpowiedź od kogoś
-   innego to błąd) — do 04.10 rozmowy obsługiwał Google, którego dokumenty nie
-   nazywają. Anthropic nie ma u OpenRoutera punktu ZDR, więc wartość domyślna zamyka
-   dziś rozmowę asystenta, dopóki właściciel nie wybierze dostawcy z ZDR albo nie
-   zmieni reguły ZDR (`model-port.md`, „Dokładny dostawca dla modeli Claude”).
+   żądanie do modelu Claude — bez zastępców, a odpowiedź od kogoś innego to błąd.
+   Domyślnie `google-vertex/europe` (Google Cloud, Vertex AI, region europejski;
+   decyzja właściciela z 04.10): do tego dnia rozmowy obsługiwał Google, którego
+   dokumenty nie nazywały, a sam Anthropic nie ma u OpenRoutera punktu ZDR, więc nie
+   może wykonać żadnej rozmowy asystenta. Odpowiedź potwierdza dostawcę, nie region
+   (`model-port.md`, „Dokładny dostawca dla modeli Claude”).
 10. **Dowody.** `tests/test_assistant_people.py`: każde żądanie, które port przekazał
     adapterowi, zamienione na dokładne JSON dla OpenRoutera i przeszukane pod kątem
     imienia, nazwiska, e-maila i telefonu każdego klienta — jest tam tylko to, co
@@ -1062,13 +1065,14 @@ poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): 
     właściciela, dla pracownika na wizycie i poza nią, po anonimizacji; uchwyt z innej
     rozmowy, z innej firmy i wymyślony. Evale: pytanie po nazwisku, prośba o telefon,
     wyszukanie po e-mailu, uchwyt z innej rozmowy, prośba o wypisanie danych z karty —
-    12 / 12 na Sonnet 5.5 za USD 0,30 (`docs/evals/assistant/README.md`).
+    12 / 12 na Sonnet 5.5 za USD 0,30 na prompcie `@4` i 13 / 13 za USD 0,30 na `@5`,
+    już u przypiętego dostawcy (`docs/evals/assistant/README.md`).
 11. **Czego tu nie ma.** Osoby firmy (pracownicy) nadal są nazwami w
-    `booking.setup.read` (klasa `personal`, bez zmian). Wyszukiwanie nie odmienia
-    nazwisk i nie zdejmuje polskich znaków („Kowalskiego”, „Wisniewska” nie znajdą) —
-    opis polecenia każe modelowi podać formę podstawową. Polecenia zwrotów z powodem
-    słowami firmy zostają otwarte. `booking.requests.read@1` podaje godziny lokalne
-    obok pola `timezone` — w `booking.appointments.read@1` to pole zniknęło, bo w
-    przeglądarce model przesunął przy nim godziny o dwie; w prośbach zostało (do
-    poprawy). Słowo „uchwyt” pada w odpowiedziach modelu, a osoba widzi w tym miejscu
-    imię i nazwisko — do poprawy w następnej wersji promptu, z ponownym przebiegiem.
+    `booking.setup.read` (klasa `personal`, bez zmian). Polecenia zwrotów z powodem
+    słowami firmy zostają otwarte. Wyszukiwanie klienta porównuje bez polskich znaków
+    i po rdzeniu nazwiska („Brzeczyszczykiewicz”, „Kowalskiego”, „z Kowalską” znajdują
+    właściwe osoby) — tanio: rdzeń „Kowalsk” znajduje i Kowalskiego, i Kowalską, a
+    osoba wybiera na kartach; krótkie imiona („Anny”) nie są odmieniane, a
+    wyszukiwanie zamówień po `q` zostało, jakie jest w panelu. Godziny w
+    `booking.appointments.read@1` i `booking.requests.read@1` to zegar firmy bez pola
+    `timezone` obok — przy tym polu model przesunął w przeglądarce godziny o dwie.

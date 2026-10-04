@@ -20,6 +20,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db.models import F, Func, Q, Value
+from django.db.models.functions import Lower
 
 from saas_core.modules.core.organizations.context import require_tenant_context
 
@@ -103,19 +104,52 @@ def _digits(text: str) -> str:
     return re.sub(r"\D", "", text)
 
 
+#: Polish letters and what people type instead of them. Both cases: the fold
+#: must not depend on how the database lowers a letter outside ASCII.
+_POLISH = "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ"
+_PLAIN = "acelnoszzACELNOSZZ"
+_FOLD = str.maketrans(_POLISH, _PLAIN)
+#: The endings Polish puts on a surname in a sentence („pana Kowalskiego”,
+#: „z Kowalską”, „Nowakowi”), folded, longest first. Cut only while four
+#: letters stay: „Anny” is left alone rather than cut to three.
+_ENDINGS = (
+    "owie", "iego", "iemu", "ego", "emu", "owi", "iej", "iem", "ich", "ych",
+    "im", "ym", "ej", "em", "om", "a", "u", "y", "i", "e",
+)  # fmt: skip
+_STEM_LETTERS = 4
+
+
+def _fold(text: str) -> str:
+    return text.translate(_FOLD).casefold()
+
+
+def _stem(word: str) -> str:
+    """A word of a name as it is looked for: without Polish letters, case and
+    the ending its place in a sentence gave it. Cheap on purpose — a stem finds
+    „Kowalski” and „Kowalska” alike, and the person picks on the cards."""
+    folded = _fold(word)
+    for ending in _ENDINGS:
+        if folded.endswith(ending) and len(folded) - len(ending) >= _STEM_LETTERS:
+            return folded[: -len(ending)]
+    return folded
+
+
 def find_customers(text: str) -> tuple[int, list[Found]]:
     """The caller's customers whose name, e-mail or phone the words match:
-    how many there are, and the first of them. Every word must be in the
-    name; the e-mail is matched as a whole; a phone by its digits, however it
-    was spaced and with or without a country code."""
+    how many there are, and the first of them. Every word must be in the name
+    — compared without Polish letters and by its stem, so „Brzeczyszczykiewicz”
+    and „Kowalskiego” find who they mean; the e-mail is matched as a whole; a
+    phone by its digits, however it was spaced and with or without a country
+    code."""
     context = require_tenant_context()
     words = text.split()
     whole = " ".join(words)
     if not whole:
         return 0, []
+    stems = [_stem(word) for word in words]
     name = Q()
-    for word in words:
-        name &= Q(display_name__icontains=word)
+    for stem in stems:
+        name &= Q(name_plain__contains=stem)
     match = name | Q(email__icontains=whole)
     digits = _digits(whole)
     # The last nine are the number without its country code.
@@ -129,7 +163,10 @@ def find_customers(text: str) -> tuple[int, list[Found]]:
         .annotate(
             phone_digits=Func(
                 F("phone"), Value(r"\D"), Value(""), Value("g"), function="regexp_replace"
-            )
+            ),
+            name_plain=Lower(
+                Func(F("display_name"), Value(_POLISH), Value(_PLAIN), function="translate")
+            ),
         )
         .filter(match)
         .order_by("-updated_at", "id")[:_LOOKED_AT]
@@ -139,9 +176,9 @@ def find_customers(text: str) -> tuple[int, list[Found]]:
     for customer in candidates:
         if customer.id not in seen:
             continue
-        folded = customer.display_name.casefold()
+        folded = _fold(customer.display_name)
         matched = []
-        if all(word.casefold() in folded for word in words):
+        if all(stem in folded for stem in stems):
             matched.append("name")
         if whole.casefold() in customer.email.casefold():
             matched.append("email")

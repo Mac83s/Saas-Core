@@ -192,13 +192,15 @@ zadeklarował OpenRouterowi, i trasowanie OpenRoutera — port jej nie weryfikuj
 ### Dokładny dostawca dla modeli Claude
 
 „Bez zbierania zapytań” nie mówi jeszcze, **kto** wykonuje żądanie: do 04.10 rozmowy
-na `anthropic/claude-sonnet-5.5` obsługiwał dostawca `Google`, choć dokumenty nazywają
-OpenRouter i Anthropic. Ustawienie platformy `model_port.privacy.claude_provider`
-(`enum`, domyślnie `anthropic`, operator poziomu 2) nazywa jedynego dostawcę, który
-może wykonać żądanie do modelu `anthropic/*`:
+na `anthropic/claude-sonnet-5.5` obsługiwał dostawca `Google`, choć dokumenty nazywały
+tylko OpenRouter i Anthropic. Ustawienie platformy `model_port.privacy.claude_provider`
+(`enum`, operator poziomu 2) nazywa jedynego dostawcę, który może wykonać żądanie do
+modelu `anthropic/*`. Wartość domyślna to **`google-vertex/europe`** — Google Cloud,
+Vertex AI, region europejski (decyzja właściciela z 04.10.2026):
 
 - adapter wysyła `provider.order = [nazwa]`, `provider.only = [nazwa]` i
-  `allow_fallbacks = false` — nikt inny najpierw i nikt inny zamiast;
+  `allow_fallbacks = false` — nikt inny najpierw i nikt inny zamiast; `data_collection`
+  i `zdr` zostają, jak wyżej;
 - odpowiedź, której pole `provider` nazywa kogoś innego, kończy wywołanie jako
   `configuration` / `resolved_provider_mismatch`, a wiersz telemetrii zapisuje, kto
   odpowiedział;
@@ -207,35 +209,38 @@ może wykonać żądanie do modelu `anthropic/*`:
   jak każdy brak dostawcy, z blokadą pary zadanie–model; nic nie idzie gdzie indziej;
 - modele innych twórców nie są przypinane.
 
+**Odpowiedź potwierdza dostawcę, nie region.** Pole `provider` odpowiedzi mówi
+`Google` — tak samo dla `google-vertex/europe`, `google-vertex/us` i
+`google-vertex/global`; identyfikator u dostawcy zaczyna się od `msg_vrtx_`. Zapis
+wywołania u OpenRoutera (`GET /generation?id=…`) nie ma pola z regionem dostawcy, a
+jego `data_region` mówił `global` przy każdej z trzech nazw, więc nie opisuje regionu
+Vertex. Region wynika wyłącznie z nazwy w żądaniu i z trasowania OpenRoutera; port
+sprawdza dostawcę, regionu sprawdzić nie może. OpenRouter sam jest pośrednikiem poza
+Europą — do Vertex w Europie żądanie dociera przez niego.
+
 Nazwy, które OpenRouter przyjmuje dla Claude Sonnet 5.5 (`/api/v1/providers` i
 `/api/v1/models/anthropic/claude-sonnet-5.5/endpoints`, odczyt 04.10.2026), i to, co
-odpowiedział na próbę z 04.10 — jedno zdanie bez żadnych danych, prosto przez adapter,
-z `data_collection: "deny"` (`.local-dev/resume/package-w/probe-providers.py`, wynik
-w `probe-providers.log`):
+odpowiedział na próby z 04.10 — jedno zdanie bez żadnych danych, prosto przez adapter,
+z `data_collection: "deny"` (`.local-dev/resume/package-w/probe-*.py`, wyniki w
+`probe-*.log`):
 
 | Nazwa w żądaniu | `provider` w odpowiedzi | Z `zdr: true` (każda rozmowa asystenta) | Bez `zdr` |
 | --- | --- | --- | --- |
-| `anthropic` | Anthropic | odmowa — `no_provider` | wykonał Anthropic |
-| `google-vertex` | Google | wykonał Google | wykonał Google |
-| `google-vertex/europe` | Google | wykonał Google (regionu odpowiedź nie podaje) | nie próbowano |
+| `google-vertex/europe` (domyślna) | Google | wykonał Google — Sonnet 5.5, Haiku 4.5 i Opus 5.5 | nie próbowano |
+| `google-vertex`, `google-vertex/us`, `google-vertex/global` | Google | wykonał Google | wykonał Google (`google-vertex`) |
 | `amazon-bedrock` | Amazon Bedrock | wykonał Amazon Bedrock | wykonał Amazon Bedrock |
+| `anthropic` | Anthropic | odmowa — `no_provider` | wykonał Anthropic |
 | `azure` | Azure | odmowa — `no_provider` | wykonał Azure |
 | `claude-on-aws` | Claude Platform on AWS | odmowa — `no_provider` | wykonał Claude Platform on AWS |
 
-**Wartość domyślna nie wykonuje dziś niczego, co wymaga ZDR.** Lista punktów bez
-przechowywania danych (`/api/v1/endpoints/zdr`, 04.10.2026, 943 pozycje) nie ma ani
-jednego punktu dostawcy Anthropic; dla Claude Sonnet 5.5 mają je tylko Google (trzy
-regiony) i Amazon Bedrock. Żądanie klasy `personal` — każda rozmowa asystenta — i
-każde żądanie do modelu z możliwością `zdr` przy włączonym `no_training_providers`
-(także tłumaczenie treści publicznej) idzie z `zdr: true`, więc przypięte do
-`anthropic` kończy się `no_provider`: para zadanie–model blokuje się na 15 minut, a za
-trzecim razem w dobie do decyzji operatora (`model_port_status --unblock …`). To jest
-zamknięcie, o które chodzi — nic nie trafia do dostawcy, którego dokumenty nie nazywają
-— ale znaczy też, że przy wartości domyślnej asystent i tłumaczenia modelami Claude nie
-działają. Otwiera je decyzja właściciela: inny dostawca w tym ustawieniu razem z
-dokumentami prywatności (Google albo Amazon Bedrock — oba z ZDR) albo Anthropic bez ZDR,
-czyli zmiana reguły „`personal` tylko z ZDR” z ADR-068 osobnym ADR. Po zmianie
-ustawienia blokadę pary zdejmuje operator.
+Lista punktów bez przechowywania danych (`/api/v1/endpoints/zdr`, 04.10.2026) ma dla
+modeli Claude tylko Google i Amazon Bedrock; sam Anthropic nie ma tam ani jednego
+punktu. Dlatego `anthropic` w tym ustawieniu zamyka każde żądanie, które wymaga ZDR —
+każdą rozmowę asystenta i każde żądanie do modelu z możliwością `zdr` przy włączonym
+`no_training_providers`. Model zapasowy asystenta, Claude Haiku 4.5, jest w regionie
+europejskim Vertex z ZDR (próba 04.10). Zmiana ustawienia idzie razem z dokumentami
+prywatności; blokadę pary po odmowach zdejmuje operator
+(`model_port_status --unblock …`).
 
 ## Odpowiedź
 
@@ -394,7 +399,7 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 | `GUNICORN_GRACEFUL_TIMEOUT` | łagodne zamknięcie gunicorna i górny limit wywołania WWW + 2 s | 20 |
 | profil: `ai.sendableDataClasses` | klasy treści, które wolno wysłać | `["public", "public_personal"]` |
 | ustawienie platformy `model_port.privacy.no_training_providers` | tylko dostawcy, którzy nie zbierają zapytań (wyżej) | włączone |
-| ustawienie platformy `model_port.privacy.claude_provider` | jedyny dostawca, który może wykonać żądanie do modelu Claude (wyżej) | `anthropic` |
+| ustawienie platformy `model_port.privacy.claude_provider` | jedyny dostawca, który może wykonać żądanie do modelu Claude (wyżej) | `google-vertex/europe` |
 
 Od fazy 1 planu ustawień wartości bez sekretów przechodzą do rejestru ustawień z
 historią (wpisem `memex ops` z `platform_setting`).
@@ -418,16 +423,15 @@ ten wpis bez zmian.
 | Jak | każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters`; klasa `personal` wychodzi wyłącznie do hostów z zerową retencją (`zdr`); pilnuje tego ustawienie platformy `model_port.privacy.no_training_providers`, domyślnie włączone — żądania trafiają tylko do dostawców, którzy nie zapisują promptów i nie uczą na nich modeli, gdy żaden taki nie obsługuje modelu, zadanie staje, zamiast pójść gdzie indziej, a wyłączyć je może tylko operator platformy i tylko dla treści bez danych osobowych („Dostawcy i prywatność zapytań”); firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
 | Od kiedy | od chwili, gdy operator ustawi `MODEL_PORT_PROCESSOR_LISTED=true` na danym wdrożeniu. Do tego czasu treść firmy nie wychodzi (`processor_not_listed`) |
 
-**Do rozstrzygnięcia przez właściciela (pakiet W, 04.10).** Do 04.10 OpenRouter
-wykonywał żądania do `anthropic/claude-sonnet-5.5` u dostawcy `Google`
-(`resolved_provider` w telemetrii), którego wiersz „Kto” nie nazywa. Port przypina
-teraz dostawcę modeli Claude (`model_port.privacy.claude_provider`, domyślnie
-`anthropic`, jak w wierszu „Kto”) — ale Anthropic nie ma u OpenRoutera punktu bez
-przechowywania danych, więc z wierszem „Jak” (`personal` tylko z ZDR) nie da się go
-pogodzić: przy wartości domyślnej żądania wymagające ZDR nie wychodzą wcale
-(„Dokładny dostawca dla modeli Claude”). Wiersze „Kto” i „Jak” zgadzają się ze sobą
-dopiero po wyborze: dostawca z ZDR w ustawieniu i w „Kto” (Google albo Amazon
-Bedrock) albo Anthropic bez ZDR i zmienione „Jak”.
+**Rozstrzygnięte 04.10 (pakiet W; wiersz „Kto” poprawia pakiet X).** Do 04.10
+OpenRouter wykonywał żądania do `anthropic/claude-sonnet-5.5` u dostawcy `Google`,
+którego wiersz „Kto” nie nazywał. Właściciel wybrał Google Cloud (Vertex AI, region
+europejski): port przypina modele Claude do `google-vertex/europe`
+(`model_port.privacy.claude_provider`, „Dokładny dostawca dla modeli Claude”), z ZDR i
+bez zastępców. Dokumenty mają nazywać: OpenRouter → Google Cloud (Vertex AI, Europa),
+model Claude Sonnet 5.5 firmy Anthropic. Dwie rzeczy dla tego wiersza: odpowiedź
+potwierdza dostawcę (Google), a regionu nie potwierdza nic poza nazwą w żądaniu; i
+OpenRouter pozostaje pośrednikiem poza Europejskim Obszarem Gospodarczym.
 
 Gdzie ten wpis jest powtórzony słowami dla ludzi — zmiana modelu albo pośrednika
 zmienia wszystkie naraz, **najpierw dokumenty, potem konfigurację**:

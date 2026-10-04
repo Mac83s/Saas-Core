@@ -380,6 +380,9 @@ def test_nothing_of_a_customer_reaches_the_provider_unless_the_person_typed_it(t
     assert HANDLE.fullmatch(visit["customer"]) and visit["customer"] not in handles
     (request,) = requests["requests"]
     assert request["customer"] == by_number["R/2026/0002"]
+    # Hours are the company's wall clock, with no zone beside them to convert by.
+    assert "timezone" not in visit and "timezone" not in request
+    assert request["starts_at"].endswith("T10:00")
 
 
 def test_the_person_at_the_screen_reads_a_card_where_the_model_wrote_a_handle(talk: Any) -> None:
@@ -477,6 +480,36 @@ def test_a_card_shows_what_the_reader_sees_in_the_panel(talk: Any) -> None:
         )
     (card,) = mine.last()["items"][-1]["people"]
     assert (card["name"], card["email"], card["phone"]) == ("Zanonimizowany klient", None, None)
+
+
+def test_a_customer_is_found_as_people_write_and_say_the_name(talk: Any) -> None:
+    """Without the Polish letters, and in the case the sentence put the surname in."""
+    firm = company("people-words")
+    chat = talk(firm.client)
+    asked = ["Kowalskiego", "kowalskim", "Brzeczyszczykiewicz", "Zenobii Brzęczyszczykiewiczowi"]
+    FAKE.script(
+        *(tool("customers_find_v1", {"q": q}, f"c{index}") for index, q in enumerate(asked)),
+        tool("customers_find_v1", {"q": "Nowaka"}, "c8"),
+        tool("customers_find_v1", {"q": "Kowalczyk"}, "c9"),
+        FakeReply(text="Znalezione."),
+    )
+
+    chat.say("Znajdź kontakt do Kowalskiego i do Zenobii Brzęczyszczykiewicz")
+
+    genitive, instrumental, plain, dative, nobody, another = (
+        result["output"] for result in tool_outputs(chat)
+    )
+    # Both Kowalskis, whichever case the surname came in — and the same two people.
+    assert (genitive["total"], instrumental["total"]) == (2, 2)
+    assert {person["handle"] for person in genitive["people"]} == {
+        person["handle"] for person in instrumental["people"]
+    }
+    # One Zenobia, typed without her letters or declined with her first name.
+    assert (plain["total"], dative["total"]) == (1, 1)
+    assert plain["people"][0]["handle"] == dative["people"][0]["handle"]
+    assert plain["people"][0]["matched"] == ["name"]
+    # A stem is not a licence: another surname finds nobody.
+    assert (nobody["total"], another["total"]) == (0, 0)
 
 
 def test_a_handle_works_only_in_the_conversation_that_issued_it(talk: Any) -> None:

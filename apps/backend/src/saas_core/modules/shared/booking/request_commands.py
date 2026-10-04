@@ -65,9 +65,10 @@ def _read_requests(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
             "request_id": str(item.id),
             "service": item.service_name,
             "unit": item.resource.name if item.resource else None,
+            # The company's wall clock, and no time zone beside it: a zone
+            # next to a local time was read as „convert this” (walk, 04.10).
             "starts_at": _local_iso(item.starts_at, item.timezone),
             "ends_at": _local_iso(item.ends_at, item.timezone),
-            "timezone": item.timezone,
             # After this the request expires by itself and the time is let go.
             "answer_by": _local_iso(item.hold_expires_at, item.timezone),
             "currency": quote.get("currency"),
@@ -92,7 +93,8 @@ REQUESTS_READ = CommandSpec(
         "Returns the customers' bookings of services taken on request that nobody has "
         "answered yet, the one whose time to answer runs out first on top: each with its "
         "request_id, the service, the unit it holds (a cottage, a room) when it is a stay, "
-        "starts_at and ends_at as the company's local time, answer_by — after it the "
+        "starts_at, ends_at and answer_by — already the company's local clock, not UTC: "
+        "say the hours exactly as written and convert nothing; after answer_by the "
         "request expires by itself and the time is let go — and, where the booking has a "
         "price, gross_minor and the prepayment the offer asks for (prepayment_minor), in "
         "minor units of currency. `customer` is a handle such as klient:k7m2q, never a "

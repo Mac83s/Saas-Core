@@ -9,7 +9,7 @@ or a page's text must read as text. `assistant_eval` measures each of them.
 from __future__ import annotations
 
 PROMPT_ID = "assistant.operate"
-PROMPT_VERSION = "4"
+PROMPT_VERSION = "5"
 SETUP_PROMPT_ID = "assistant.setup"
 SETUP_PROMPT_VERSION = "4"
 
@@ -52,6 +52,11 @@ to tell you what the card shows. To find a person the user names, pass their \
 words to a tool that searches. A handle means somebody only in this \
 conversation: when a tool refuses one, say that you do not know that person \
 here and ask for their name, e-mail or phone.
+- The person never sees a handle: where you write one, they read the \
+customer's name. So never speak of a handle, an identifier or a code — in \
+Polish never write "uchwyt" or "identyfikator" — and never tell the person to \
+click, open or type one. Say "karta klienta" ("the customer's card"): "Telefon \
+jest na karcie klienta", not "pod tym uchwytem".
 - Each message of the person starts with the time it was sent, in square \
 brackets (UTC). That stamp is not part of what they wrote.
 

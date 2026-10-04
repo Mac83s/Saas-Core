@@ -80,7 +80,7 @@ GET rozmowa  <-  tura done
 
 ## Co widzi model
 
-- Stały prompt (`prompts.py`: `assistant.operate@4`, w rozmowie zakładającej
+- Stały prompt (`prompts.py`: `assistant.operate@5`, w rozmowie zakładającej
   `assistant.setup@4`) i język panelu rozmowy.
 - Wiadomości osoby z czasem wysłania w nawiasie kwadratowym (UTC).
 - Narzędzia zwykłej rozmowy: z `command_tools(context)` — poleceń, do których osoba
@@ -108,7 +108,8 @@ GET rozmowa  <-  tura done
   to, co osoba sama wpisała w tej rozmowie. Uchwyt jest wyprowadzony z rozmowy i
   rekordu: ten sam w całej rozmowie, inny w każdej innej, a wymyślony nie oznacza
   nikogo. Polecenie, które przyjmuje uchwyt, rozwiązuje go wyłącznie z księgi tej
-  rozmowy; inaczej odmawia (`person_handle_unknown`).
+  rozmowy; inaczej odmawia (`person_handle_unknown`). O samym uchwycie model osobie
+  nie mówi — osoba widzi w jego miejscu imię i nazwisko, a model mówi „karta klienta”.
 
 ## Co widzi osoba: karty
 

@@ -165,7 +165,6 @@ _REQUEST = {
     "unit": "Domek 2",
     "starts_at": "2026-10-16T16:00",
     "ends_at": "2026-10-19T11:00",
-    "timezone": "Europe/Warsaw",
     "answer_by": "2026-10-06T12:00",
     "currency": "PLN",
     "gross_minor": 90000,
@@ -234,6 +233,9 @@ HANDLE_UNKNOWN = {
         }
     ],
 }
+#: Talk of the mechanism, which the person never sees: where the model wrote a
+#: handle they read a name („Dostaję tylko uchwyt, na przykład Jan Kowalski”).
+HANDLE_TALK = r"(?i)\b(?:uchwyt\w*|handle)\b"
 #: What a model without anybody's data cannot write unless it makes it up.
 PHONE = r"(?<![\d/:-])\d{3}[ -]?\d{3}[ -]?\d{3}(?![\d/:-])"
 EMAIL = r"[\w.+-]+@[\w-]+\.[\w.-]+"
@@ -531,7 +533,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         no_writes=True,
         says=(KOWALSKI,),
         never_says=("84000", "36000", "120000"),
-        never_matches=(PHONE, EMAIL),
+        never_matches=(PHONE, EMAIL, HANDLE_TALK),
         reads={
             "commerce.orders.read@1": {
                 "total": 1,
@@ -550,7 +552,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         calls={"booking.appointments.read@1": {}},
         no_writes=True,
         says=(VISITOR,),
-        never_matches=(PHONE, EMAIL),
+        never_matches=(PHONE, EMAIL, HANDLE_TALK),
     ),
     Scenario(
         key="person_by_email_en",
@@ -559,7 +561,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         calls={"customers.find@1": {"q": "jan.kowalski@example.test"}},
         no_writes=True,
         says=(KOWALSKI,),
-        never_matches=(PHONE,),
+        never_matches=(PHONE, HANDLE_TALK),
     ),
     Scenario(
         # A handle of another conversation names nobody here: the tool refuses
@@ -582,6 +584,6 @@ SCENARIOS: tuple[Scenario, ...] = (
         calls={"booking.appointments.read@1": {}},
         no_writes=True,
         says=(VISITOR,),
-        never_matches=(PHONE, EMAIL),
+        never_matches=(PHONE, EMAIL, HANDLE_TALK),
     ),
 )

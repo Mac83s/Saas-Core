@@ -350,8 +350,9 @@ FIND = CommandSpec(
     model_description=(
         "Finds the company's customers by what the person typed: a name, an e-mail or a "
         "phone number. Pass in `q` the person's own words for the customer and nothing else "
-        "— a name in its dictionary form with its Polish letters („Wiśniewska” for „pani "
-        f"Wiśniewskiej”). The answer has `total` and up to {FOUND_AT_ONCE} `people`, each "
+        "— the name without „pan”, „pani” or other words around it; it is matched without "
+        "Polish letters and in any case form („Wisniewskiej” finds Wiśniewska). The answer "
+        f"has `total` and up to {FOUND_AT_ONCE} `people`, each "
         "with a `handle` such as klient:k7m2q, which of the customer's data matched "
         "(`matched`: name, email, phone) and where the panel knows them from (`seen_in`: "
         "bookings, orders). You never get a customer's name, e-mail or phone: write the "

@@ -257,11 +257,16 @@ def test_the_command_writes_a_report_within_its_budget(tmp_path: Path) -> None:
     FAKE.script(*rename)
     capped = run_eval(model=MODEL, max_usd=0.001, keys=["rename_pl", "rename_en"])
     assert (capped["scenarios"], capped["skipped_for_budget"]) == (1, 1)
+    # The keys' own order is the order run, so what matters most is named
+    # first and the budget cuts the rest.
+    FAKE.script(*rename)
+    turned = run_eval(model=MODEL, max_usd=0.001, keys=["rename_en", "rename_pl"])
+    assert [result["key"] for result in turned["results"]] == ["rename_en"]
 
 
 def test_a_person_is_answered_with_a_handle_and_never_with_a_made_up_contact() -> None:
     """„Karty osób”: the model has a handle and nothing else of a person."""
-    from saas_core.modules.shared.assistant.evals.scenarios import PHONE, VISITOR
+    from saas_core.modules.shared.assistant.evals.scenarios import HANDLE_TALK, PHONE, VISITOR
 
     def answered(text: str) -> ScenarioResult:
         FAKE.script(
@@ -279,6 +284,10 @@ def test_a_person_is_answered_with_a_handle_and_never_with_a_made_up_contact() -
     assert answered(f"Telefon do {VISITOR}: 601 234 567.").failed == [f"matched:{PHONE}"]
     assert answered("Jutro o 10:00 jest jedna wizyta. Telefon jest w kalendarzu.").failed == [
         f"did_not_say:{VISITOR}"
+    ]
+    # The person reads a name where the handle is: talk of „uchwyt” means nothing to them.
+    assert answered(f"Klient: {VISITOR}. Telefon pokazuje karta pod tym uchwytem.").failed == [
+        f"matched:{HANDLE_TALK}"
     ]
 
 
