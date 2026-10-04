@@ -34,8 +34,9 @@ const quote: BookingPublicQuote = {
   ],
   gross_minor: 80000,
   security_deposit_minor: 0,
-  payment_policy: "on_site",
-  prepayment: null,
+  // What the offer asks of a new booking; a stay that moves is confirmed.
+  payment_policy: "deposit",
+  prepayment: { kind: "deposit", amount_minor: 24000, transfer_due_days: 3 },
   cancellation: null,
   digest: "digest-new",
 };
@@ -124,6 +125,9 @@ test("a stay moves only after its new dates and price were shown", async () => {
     start_date: "2026-11-14",
     end_date: "2026-11-16",
   });
+  // The new price, without asking for a prepayment again: it was paid.
+  expect(screen.getAllByText(/800,00\szł/).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/Przedpłata:/)).not.toBeInTheDocument();
   expect(api.moveSelfServiceStay).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Przenieś rezerwację" }));
   await waitFor(() => expect(api.moveSelfServiceStay).toHaveBeenCalledTimes(1));

@@ -150,7 +150,9 @@ function StayMove({
               when: stayWhen({ ...plan, timezone: appointment.timezone }),
             })}
           </p>
-          {plan.quote ? <QuoteSummary quote={plan.quote} /> : null}
+          {/* Only a confirmed stay moves: what was paid stays paid, so the
+              offer's terms of paying ahead are no instruction here. */}
+          {plan.quote ? <QuoteSummary quote={plan.quote} settled /> : null}
         </div>
       ) : null}
       {plan ? (
@@ -368,7 +370,8 @@ export function SelfServiceBooking({ token }: { token: string }) {
                     {offered ? (
                       <div className="space-y-2" role="status">
                         <p className="text-sm">{t("newPrice")}</p>
-                        <QuoteSummary quote={offered.quote} />
+                        {/* A confirmed visit: nothing is paid ahead anew. */}
+                        <QuoteSummary quote={offered.quote} settled />
                       </div>
                     ) : null}
                     <Button
