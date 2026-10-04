@@ -65,6 +65,10 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   ścieżka 3DS/`incomplete` (`shared/billing/provider.py:398`), konto live i
   webhook z przypiętą wersją API; po stronie właściciela OSS, księgowość,
   dokumenty sprzedaży. `SubscriptionState.SUSPENDED` jest martwą wartością.
+  Przeniesienie firm na bieżącą wersję planu (`plan_version_move`, 04.10,
+  `docs/operations/billing.md`) nie obejmuje subskrypcji w Stripe: wymaga
+  wywołania, które zmienia cenę trwającej subskrypcji bez proporcjonalnego
+  rozliczenia — do zrobienia razem z W9.5.2S.
 - **Operacje treści per język (TL13, 04.10, lokalnie, niewdrożone; ops
   mac-20261004-24, SCR mac-20261004-25):** `content-change-set.v1` przyjmuje
   język jako wzorzec, a podstrona w języku innym niż źródłowy ma własną bazę i

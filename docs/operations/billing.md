@@ -38,6 +38,49 @@ Powtórzenie nie może utworzyć drugiej subskrypcji ani nadać dostępu innemu
 tenantowi. Nie naprawiaj przepływu przez ręczne tworzenie snapshotu lub edycję
 danych subskrypcji.
 
+## Przeniesienie firm na bieżącą wersję planu
+
+Opublikowana wersja planu się nie zmienia, a firma zostaje na tej, którą
+dostała albo kupiła (ADR-032). To, co dokłada nowsza wersja, dociera do niej
+dopiero wtedy, gdy operator ją przeniesie — celowo, nigdy samoczynnie (decyzje
+właściciela z 04.10.2026). Służy do tego jedna komenda; bez `--apply` niczego
+nie zapisuje:
+
+```bash
+# Podgląd: kto by się przeniósł i co każda firma zyska albo straci.
+python manage.py plan_version_move [--plan <klucz>]
+
+# Wykonanie — tylko firmy, których plan kosztuje w bieżącej wersji tyle samo.
+python manage.py plan_version_move --apply --operator <e-mail> --reason "…"
+
+# Inna cena: jedna wskazana firma, z kodem z aplikacji operatora.
+python manage.py plan_version_move --organization <id>
+python manage.py plan_version_move --organization <id> --apply \
+  --operator <e-mail> --reason "…" --accept-price-change --code <kod>
+```
+
+- Przenosi operator poziomu 2 (`operator_level --grant`), z powodem. Każda
+  firma idzie we własnej transakcji i dostaje wpis w historii „Plan
+  zaktualizowany do bieżącej wersji przez operatora”; powtórne uruchomienie nie
+  znajduje nic do zrobienia.
+- „Ta sama cena” to ta sama kwota, waluta i okres. Przy innej cenie zbiorcze
+  uruchomienie firmy nie rusza; przenosi ją tylko `--organization` z
+  `--accept-price-change` i świeżym kodem (`--code`).
+- Funkcje, które bieżąca wersja odbiera, oraz limity obniżone albo usunięte
+  podgląd wypisuje wielkimi literami (`TRACI`, `NIŻSZE LIMITY`). Taka firma
+  zostaje, dopóki operator nie doda `--accept-losses`.
+- Plan nadany bez płatności i subskrypcja simulatora przenoszą się w całości
+  lokalnie (subskrypcja simulatora razem ze swoim mapowaniem ceny).
+- **Subskrypcji w Stripe komenda nie przenosi.** Jej wersję wyznacza cena u
+  operatora płatności: każdy webhook i rekonsyliacja zapisują snapshot z tej
+  ceny, a moduł nie ma wywołania, które zmienia cenę trwającej subskrypcji —
+  lokalna zmiana cofnęłaby się przy najbliższym zdarzeniu. Taka firma zostaje
+  na swojej wersji z tym zdaniem w wyniku; zmiana planu u Stripe pozostaje
+  czynnością klienta w Customer Portal.
+- Stan planu (aktywny, okres, dostęp) się nie zmienia: przeniesienie wymienia
+  warunki planu, a nie to, czy plan obowiązuje. Wyjątki dostępu (override)
+  zostają nałożone na nową wersję tak jak na starą.
+
 ## Realny Stripe — W9.5.2S
 
 Aktywacja Stripe jest świadomie odłożona. Sam obecny w repozytorium adapter,

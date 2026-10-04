@@ -216,6 +216,7 @@
       "billing_override_expired": "Wygasł wyjątek dostępu",
       "billing_credits_purchased": "Kupiono kredyty",
       "billing_credits_adjusted": "Skorygowano kredyty",
+      "billing_plan_version_moved": "Plan zaktualizowany do bieżącej wersji przez operatora",
       "support_notification_retried": "Ponowiono wysyłkę wiadomości",
       "support_webhook_retried": "Ponowiono webhook",
       "integration_api_key_created": "Utworzono klucz API",
