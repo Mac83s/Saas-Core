@@ -15,6 +15,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.settings_service import change_settings, read_group
+from saas_core.modules.shared.billing.models import EntitlementSnapshot
 from saas_core.modules.shared.booking.models import (
     Appointment,
     AppointmentResourceAllocation,
@@ -535,6 +536,65 @@ def test_the_customers_link_shows_a_stay_and_moves_it_by_its_dates() -> None:
         ).status_code
         == 404
     )
+
+
+def test_another_companys_offer_and_a_plan_without_booking_are_not_reached() -> None:
+    """The rows of the authorization matrix a public form has: its company's
+    own offers only, and nothing when the company's plan has no booking."""
+    configured = form("pobyty-swoje", priced=False)
+    other = form("pobyty-cudze", priced=False)
+    client = APIClient()
+    first = configured["first"].isoformat()
+    window = {"from": first, "to": first}
+    # Through one company's form another company's offer does not exist, nor
+    # does another company's unit under this company's own offer.
+    foreign = {"service_id": str(other["service"].id), "group_id": str(other["group"].id)}
+    mixed = {
+        "service_id": str(configured["service"].id),
+        "resource_id": str(other["units"][0].id),
+    }
+    for target in (foreign, mixed):
+        answers = (
+            client.get(f"{configured['url']}/stays/starts/", {**target, **window}),
+            client.get(f"{configured['url']}/stays/ends/", {**target, "start": first}),
+            client.post(
+                f"{configured['url']}/stays/quote/",
+                {**target, **configured["dates"]},
+                format="json",
+            ),
+            client.post(
+                f"{configured['url']}/stays/",
+                {**target, **configured["dates"], "customer": GUEST},
+                format="json",
+                HTTP_IDEMPOTENCY_KEY=key(),
+            ),
+        )
+        assert [answer.status_code for answer in answers] == [404, 404, 404, 404], target
+    for company in (configured, other):
+        with tenant(company["owner"]):
+            assert not Appointment.all_objects.exists()
+
+    # The company's plan lost booking: its form answers 403, whatever is asked.
+    made = booked(client, configured)
+    assert made.status_code == 201, made.data
+    link = f"/api/v1/booking/self-service/{made.json()['self_service_token']}"
+    EntitlementSnapshot.all_objects.filter(
+        organization_id=configured["owner"].organization_id
+    ).update(features={})
+    cache.clear()
+    refused = (
+        client.get(f"{configured['url']}/stays/starts/", {**configured["target"], **window}),
+        client.get(f"{configured['url']}/stays/ends/", {**configured["target"], "start": first}),
+        quoted(client, configured),
+        booked(client, configured),
+        client.post(f"{link}/stay/preview/", configured["dates"], format="json"),
+        client.post(
+            f"{link}/stay/", configured["dates"], format="json", HTTP_IDEMPOTENCY_KEY=key()
+        ),
+    )
+    assert [(answer.status_code, answer.json()["code"]) for answer in refused] == [
+        (403, "entitlement_required")
+    ] * 6
 
 
 def test_today_is_the_companys_day_for_the_forms_reach() -> None:
