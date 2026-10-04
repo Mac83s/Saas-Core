@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, fields
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -55,6 +56,7 @@ from .models import (
     TaxRate,
 )
 from .names import COMMERCE_ENABLED, ORDERS_READ
+from .retention import clear_buyers, held_orders
 from .sources import order_source, order_sources
 from .transfer_account import transfer_account
 
@@ -323,22 +325,30 @@ def strip_buyer(customer: Customer) -> None:
     transfer's details, a balance's reminders, what came back) and the
     company's own words about a refund, which may name them. Numbers, lines
     and amounts stay. Called by `customers.strip_customer`, inside its
-    transaction and tenant."""
-    orders = Order.all_objects.filter(organization_id=customer.organization_id, customer=customer)
+    transaction and tenant.
+
+    One thing stays for a time (slice 4i): the buyer on an order money was
+    taken for, until its period ends (`retention.held_orders`) — the privacy
+    run removes it then. The orders are locked before the ledger is read: a
+    payment being marked is waited for and keeps the buyer, one marked later
+    finds the buyer gone."""
+    organization_id = customer.organization_id
+    order_ids = list(
+        Order.all_objects.select_for_update(no_key=True)
+        .filter(organization_id=organization_id, customer=customer)
+        .order_by("id")
+        .values_list("id", flat=True)
+    )
     scrub_messages(
-        customer.organization_id,
-        [f"commerce-order:{order_id}" for order_id in orders.values_list("id", flat=True)],
+        organization_id,
+        [f"commerce-order:{order_id}" for order_id in order_ids],
         to_customers_only=True,
     )
-    Refund.all_objects.filter(
-        organization_id=customer.organization_id, order__in=orders
-    ).exclude(reason="").update(reason="", updated_at=timezone.now())
-    orders.update(
-        buyer_name=customer.display_name,
-        buyer_email="",
-        buyer_phone="",
-        updated_at=timezone.now(),
-    )
+    Refund.all_objects.filter(organization_id=organization_id, order_id__in=order_ids).exclude(
+        reason=""
+    ).update(reason="", updated_at=timezone.now())
+    held = held_orders(organization_id, order_ids)
+    clear_buyers(organization_id, [order_id for order_id in order_ids if order_id not in held])
 
 
 def holds_amounts(organization_id: UUID) -> bool:
@@ -438,9 +448,12 @@ def order_detail(order: Order) -> dict[str, Any]:
     records: dict[str, set[str]] = {}
     for source, reference in lines.order_by().values_list("source", "source_reference").distinct():
         records.setdefault(source, set()).add(reference)
+    anonymized_at, kept_until = _kept_buyer(order)
     return {
         **_summary(order),
         "customer_id": order.customer_id,
+        "customer_anonymized_at": anonymized_at,
+        "buyer_kept_until": kept_until,
         "buyer_email": order.buyer_email,
         "buyer_phone": order.buyer_phone,
         "amounts": order.amounts,
@@ -473,6 +486,19 @@ def order_detail(order: Order) -> dict[str, Any]:
             for consent in consents_of(source, sorted(records[source]))
         ],
     }
+
+
+def _kept_buyer(order: Order) -> tuple[datetime | None, date | None]:
+    """When the order's customer was anonymised, and — where the order is a
+    sales record that still names its buyer (slice 4i) — the last day it
+    does. A stripped order carries the customer's placeholder and no contact."""
+    anonymized_at, placeholder = Customer.all_objects.values_list(
+        "anonymized_at", "display_name"
+    ).get(organization_id=order.organization_id, pk=order.customer_id)
+    names = bool(order.buyer_email or order.buyer_phone or order.buyer_name != placeholder)
+    if anonymized_at is None or not names:
+        return anonymized_at, None
+    return anonymized_at, held_orders(order.organization_id, [order.id]).get(order.id)
 
 
 def _named(order: Order, lines: list[dict[str, Any]]) -> list[dict[str, Any]]:

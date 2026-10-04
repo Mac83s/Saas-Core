@@ -943,6 +943,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/customers/{customer_id}/anonymize/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What anonymising a customer would leave
+         * @description Read before `POST …/anonymize/`, which cannot be undone. Anonymising removes the customer's name, e-mail and phone, their notes on visits, the street of a visit at theirs, their links and the stored copies of mails sent to them. `kept` lists what stays for a time and why: the buyer on an order that was paid for is the company's sales record and stays until its statutory period ends, then the nightly privacy run removes it.
+         */
+        get: operations["booking_customer_anonymize_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/occupancy/": {
         parameters: {
             query?: never;
@@ -3047,6 +3067,46 @@ export interface paths {
          * @description Checks the refund exactly as the write does — the order's version, the method, the amount against what the customer has paid — and says what would stay paid, what the order's terms would still owe back and whether the amount needs a reason. Writes nothing.
          */
         post: operations["commerce_order_refund_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/consents/marketing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who agreed to receive offers and promotions
+         * @description The customers whose marketing consent stands (`state=granted`) or who took it back (`state=withdrawn`), newest first, a page at a time — read from the consent journal: when, on which form, in which language and to which sentence. A customer whose data was removed is not listed.
+         */
+        get: operations["customers_marketing_consents_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/consents/marketing/{customer_id}/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write down that a customer withdrew their marketing consent
+         * @description Appends the withdrawal to the consent journal — nothing in the journal is ever changed — and answers with where the customer stands. Names the consent the caller saw: a repeat, or a customer who agreed again meanwhile, is 409 `consent_changed` and writes nothing. The history says who wrote it down.
+         */
+        post: operations["customers_marketing_consent_withdraw"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9214,7 +9274,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["BookingRetentionSettingsChangeResetEnum"][];
             /**
-             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -9246,7 +9306,7 @@ export interface components {
         };
         BookingRetentionSettingsValues: {
             /**
-             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -10223,6 +10283,17 @@ export interface components {
         CsrfToken: {
             csrf_token: string;
         };
+        CustomerAnonymizePreview: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description Set when the customer is already anonymised.
+             */
+            anonymized_at: string | null;
+            /** @description What anonymising the customer now would leave and until when; empty when everything about the person goes at once. */
+            kept: components["schemas"]["CustomerKept"][];
+        };
         CustomerAnonymized: {
             /** Format: uuid */
             id: string;
@@ -10407,6 +10478,23 @@ export interface components {
             phone?: string;
             /** @description Język klienta; spoza języków firmy zamieniany na pierwszy język firmy. */
             locale?: string;
+        };
+        CustomerKept: {
+            /** @description What stays, e.g. `commerce.order_buyer` — the buyer's name, e-mail and phone on a paid order. */
+            kind: string;
+            /** @description What the panel names it by: an order's number. */
+            label: string;
+            /** @description That record's id. */
+            reference: string;
+            /**
+             * Format: date
+             * @description The last day it stays, in the company's time zone; the nightly privacy run removes it afterwards.
+             */
+            until: string;
+            /** @description Why it stays, for a person of the company: `pl` and `en`. */
+            why: {
+                [key: string]: string;
+            };
         };
         /**
          * @description * `company` - company
@@ -12351,6 +12439,52 @@ export interface components {
          * @enum {string}
          */
         ManualPaymentMethodEnum: "cash" | "transfer";
+        MarketingConsent: {
+            /** Format: uuid */
+            customer_id: string;
+            /** @description The customer's name. */
+            name: string;
+            email: string;
+            phone: string;
+            /** @description Where the customer stands now: their latest journal line. */
+            granted: boolean;
+            /**
+             * Format: uuid
+             * @description The journal line of the consent shown — the latest one the customer gave. A withdrawal names it.
+             */
+            consent_id: string;
+            /**
+             * Format: date-time
+             * @description When they agreed.
+             */
+            consented_at: string;
+            /** @description On which form: `booking.appointment` — while booking. */
+            source: string;
+            /** @description That form's record: the booking's id. */
+            source_reference: string;
+            /** @description The language of the form. */
+            locale: string;
+            /** @description The sentence they agreed to. The journal keeps its hash; empty when no sentence known today gives that hash — the company was renamed since, or the sentence was changed. */
+            wording: string;
+            /**
+             * Format: date-time
+             * @description When the withdrawal was written down; null while it stands.
+             */
+            withdrawn_at: string | null;
+        };
+        MarketingConsentPage: {
+            total: number;
+            page: number;
+            page_size: number;
+            items: components["schemas"]["MarketingConsent"][];
+        };
+        MarketingConsentWithdrawInput: {
+            /**
+             * Format: uuid
+             * @description `consent_id` of the row the caller saw. When it is no longer the customer's latest journal line the answer is 409 `consent_changed`.
+             */
+            consent_id: string;
+        };
         /** @description Produkt z magazynu przy usłudze albo wizycie (ADR-055). */
         MaterialInput: {
             /** Format: uuid */
@@ -12674,6 +12808,16 @@ export interface components {
             gross_minor: number;
             /** Format: uuid */
             customer_id: string;
+            /**
+             * Format: date-time
+             * @description When the order's customer was anonymised — by a person or by the company's retention setting; null while the customer is still named.
+             */
+            customer_anonymized_at: string | null;
+            /**
+             * Format: date
+             * @description For an anonymised customer's order that money was taken for: the last day it still names its buyer. A paid order is the company's sales record and keeps the buyer for 5 full calendar years after the year of its last ledger entry, in the company's time zone; the nightly privacy run removes the buyer afterwards. Null when the customer is not anonymised or the buyer is already gone.
+             */
+            buyer_kept_until: string | null;
             buyer_email: string;
             buyer_phone: string;
             /**
@@ -13534,7 +13678,7 @@ export interface components {
             /** @description Fields given back to the default (the platform's or the code's). */
             reset?: components["schemas"]["BookingRetentionSettingsChangeResetEnum"][];
             /**
-             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+             * @description After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
              *
              *     * `off` - off
              *     * `12` - 12
@@ -14112,7 +14256,7 @@ export interface components {
             auto_changes?: boolean | null;
             /** @description Credits a month translations without a click may spend; 0 turns it off. */
             auto_monthly_limit?: number | null;
-            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA. Only true is accepted. */
+            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only true is accepted. */
             processing_acknowledged?: boolean | null;
             /** @description Keys to take back to the inherited value. */
             reset?: ("translation.settings.mode" | "translation.settings.auto_changes" | "translation.settings.auto_monthly_limit")[] | null;
@@ -18164,7 +18308,7 @@ export interface components {
                 [key: string]: components["schemas"]["SettingValue"];
             };
             automation: components["schemas"]["SettingsAutomation"];
-            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA. */
+            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic, the processor the platform's privacy documents name. */
             processing_acknowledged: boolean;
             /** Format: date-time */
             processing_ack_at: string | null;
@@ -18178,7 +18322,7 @@ export interface components {
                 [key: string]: components["schemas"]["SettingValue"];
             };
             automation: components["schemas"]["SettingsAutomation"];
-            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA. */
+            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic, the processor the platform's privacy documents name. */
             processing_acknowledged: boolean;
             /** Format: date-time */
             processing_ack_at: string | null;
@@ -18199,7 +18343,7 @@ export interface components {
             auto_changes?: boolean | null;
             /** @description Credits a month translations without a click may spend; 0 turns it off. */
             auto_monthly_limit?: number | null;
-            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA. Only true is accepted. */
+            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only true is accepted. */
             processing_acknowledged?: boolean | null;
             /** @description Keys to take back to the inherited value. */
             reset?: ("translation.settings.mode" | "translation.settings.auto_changes" | "translation.settings.auto_monthly_limit")[] | null;
@@ -21028,6 +21172,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerAnonymized"];
+                };
+            };
+        };
+    };
+    booking_customer_anonymize_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerAnonymizePreview"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -26822,6 +27003,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundEffect"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_marketing_consents_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                /**
+                 * @description `granted` — customers whose consent stands; `withdrawn` — who took it back.
+                 *
+                 *     * `granted` - granted
+                 *     * `withdrawn` - withdrawn
+                 */
+                state?: "granted" | "withdrawn";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketingConsentPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    customers_marketing_consent_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketingConsentWithdrawInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["MarketingConsentWithdrawInput"];
+                "multipart/form-data": components["schemas"]["MarketingConsentWithdrawInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketingConsent"];
                 };
             };
             400: {

@@ -1085,9 +1085,11 @@ MODEL_PORT_OPENROUTER_API_KEY_MOUNTED = (
 MODEL_PORT_OPENROUTER_BASE_URL = os.environ.get(
     "MODEL_PORT_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
 )
-#: OpenRouter is listed as a processor in the privacy policy and the data
-#: processing agreement. Off until the operator says so through `memex ops`;
-#: the platform workspace and evals do not need it (ADR-068 pkt 9).
+#: OpenRouter with Claude Sonnet 5.5 (Anthropic) is listed as the processor of
+#: companies' content in the privacy policy and the data processing agreement
+#: (`docs/architecture/model-port.md`, „Podmiot przetwarzający”). Off until the
+#: owner says so through `memex ops` at a deployment; the platform workspace
+#: and evals do not need it (ADR-068 pkt 9).
 MODEL_PORT_PROCESSOR_LISTED = os.environ.get(
     "MODEL_PORT_PROCESSOR_LISTED", "false"
 ).strip().lower() in {"1", "true", "yes"}

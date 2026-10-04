@@ -245,8 +245,7 @@ class QuoteCancellationSerializer(serializers.Serializer[dict[str, Any]]):
     )
     refunds = RefundThresholdSerializer(
         many=True,
-        help_text="The longest notice first; less notice than the last row gives nothing "
-        "back.",
+        help_text="The longest notice first; less notice than the last row gives nothing back.",
     )
 
 
@@ -1110,8 +1109,7 @@ class SetupOptionsSerializer(serializers.Serializer[dict[str, Any]]):
     keys = SetupOptionSerializer(many=True)
     refund_thresholds = RefundThresholdBoundsSerializer(
         required=False,
-        help_text="The bounds of an offer's `cancellation_refunds` — a list, so not one of "
-        "`keys`.",
+        help_text="The bounds of an offer's `cancellation_refunds` — a list, so not one of `keys`.",
     )
     cancel_reasons = serializers.ListField(
         child=serializers.ChoiceField(choices=CANCEL_REASONS),
@@ -1569,6 +1567,37 @@ class ResourceUpdateSerializer(ResourceInputSerializer):
 class CustomerAnonymizedSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     anonymized_at = serializers.DateTimeField()
+
+
+class CustomerKeptSerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.CharField(
+        help_text="What stays, e.g. `commerce.order_buyer` — the buyer's name, e-mail and "
+        "phone on a paid order."
+    )
+    label = serializers.CharField(  # type: ignore[assignment]
+        help_text="What the panel names it by: an order's number."
+    )
+    reference = serializers.CharField(help_text="That record's id.")
+    until = serializers.DateField(
+        help_text="The last day it stays, in the company's time zone; the nightly privacy "
+        "run removes it afterwards."
+    )
+    why = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="Why it stays, for a person of the company: `pl` and `en`.",
+    )
+
+
+class CustomerAnonymizePreviewSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    anonymized_at = serializers.DateTimeField(
+        allow_null=True, help_text="Set when the customer is already anonymised."
+    )
+    kept = CustomerKeptSerializer(
+        many=True,
+        help_text="What anonymising the customer now would leave and until when; empty "
+        "when everything about the person goes at once.",
+    )
 
 
 class SlotSerializer(serializers.Serializer[dict[str, Any]]):

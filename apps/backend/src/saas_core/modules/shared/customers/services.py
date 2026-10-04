@@ -5,7 +5,9 @@ booking, an order and the retention run each answer it for themselves."""
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date
 
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -15,17 +17,59 @@ from saas_core.modules.core.organizations.models import Organization
 
 from .models import Customer
 
+#: The privacy run's sweep that removes customers after the company's own
+#: period. Its rule counts from visits, so booking registers it; a module
+#: that must keep a customer for now registers its exclusion under this key
+#: (`register_retention_exclusion`) without naming booking.
+CUSTOMER_RETENTION_SWEEP = "booking.customers"
+
+
+@dataclass(frozen=True, slots=True)
+class Kept:
+    """One thing that stays of a customer after their record is stripped,
+    because its module must keep it for a time."""
+
+    #: What it is, e.g. `commerce.order_buyer`.
+    kind: str
+    #: What the panel names it by — an order's number — and that record's id.
+    label: str
+    reference: str
+    #: The last day it stays; the module removes it afterwards by itself.
+    until: date
+    #: Why, in words a person of the company reads (pl, en).
+    why: Mapping[str, str]
+
+
 type CustomerAnonymizer = Callable[[Customer], None]
+type CustomerKeeper = Callable[[Customer], Sequence[Kept]]
 
 _anonymizers: dict[str, CustomerAnonymizer] = {}
+_keepers: dict[str, CustomerKeeper] = {}
 
 
-def register_customer_anonymizer(name: str, anonymizer: CustomerAnonymizer) -> None:
+def register_customer_anonymizer(
+    name: str, anonymizer: CustomerAnonymizer, *, keeps: CustomerKeeper | None = None
+) -> None:
     """From a module's `AppConfig.ready`: what it stores about a customer
     beside the customer's own row — a visit's notes, an order's buyer snapshot,
     a delivery address. `strip_customer` calls it in its own transaction, with
-    the customer's row locked and the company's tenant set."""
+    the customer's row locked and the company's tenant set.
+
+    A module whose anonymizer leaves something for a time — a sales record
+    inside its statutory period — says so with `keeps`: a read of what a
+    strip made now would leave, for whoever asks before they strip."""
     _anonymizers[name] = anonymizer
+    if keeps is not None:
+        _keepers[name] = keeps
+
+
+def kept_after_strip(customer: Customer) -> list[Kept]:
+    """What stripping this customer now would leave, and until when — a read,
+    inside the company's tenant. Empty for a customer already stripped: what
+    was left then is its module's to show."""
+    if customer.anonymized_at is not None:
+        return []
+    return [item for name in sorted(_keepers) for item in _keepers[name](customer)]
 
 
 def match_or_create(

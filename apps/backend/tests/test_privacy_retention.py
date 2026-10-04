@@ -539,7 +539,7 @@ def test_a_customer_another_module_still_needs_is_not_due(
     held = customer(owner, configured, "z-faktura", ended=40)
     free = customer(owner, configured, "bez-faktury", ended=40)
     monkeypatch.setattr(retention, "_exclusions", {})
-    register_retention_exclusion("booking.customers", lambda _organization_id: [held.id])
+    register_retention_exclusion("booking.customers", lambda _organization_id, _among: [held.id])
     switch_on(owner)
 
     assert [item.count for item in run().removed] == [1]

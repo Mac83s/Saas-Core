@@ -56,6 +56,13 @@ class ModelProfile:
         )
 
 
+#: The processor the platform's privacy documents name for companies' content
+#: (the owner's answer of 04.10.2026; `docs/architecture/model-port.md`,
+#: „Podmiot przetwarzający”): OpenRouter with Claude Sonnet 5.5 by Anthropic.
+#: The tasks that send a company's content default to it, and a test holds
+#: them to it — another model is another entry in the documents first.
+LISTED_PROCESSOR = ("openrouter", "anthropic/claude-sonnet-5.5")
+
 #: The plan's candidates (TL7). Capabilities and prices follow the claude-api
 #: skill as of 2026-09-25 and OpenRouter's model list; each row is confirmed by
 #: its live probe of 2026-10-02 (`docs/evals/model-port/`). Opus 5.5 and Sonnet

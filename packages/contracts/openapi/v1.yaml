@@ -2507,6 +2507,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/CustomerAnonymized'
           description: ''
+  /api/v1/booking/customers/{customer_id}/anonymize/preview/:
+    get:
+      operationId: booking_customer_anonymize_preview
+      description: 'Read before `POST …/anonymize/`, which cannot be undone. Anonymising
+        removes the customer''s name, e-mail and phone, their notes on visits, the
+        street of a visit at theirs, their links and the stored copies of mails sent
+        to them. `kept` lists what stays for a time and why: the buyer on an order
+        that was paid for is the company''s sales record and stays until its statutory
+        period ends, then the nightly privacy run removes it.'
+      summary: What anonymising a customer would leave
+      parameters:
+      - in: path
+        name: customer_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAnonymizePreview'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/occupancy/:
     get:
       operationId: booking_occupancy_retrieve
@@ -8820,6 +8860,131 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
       x-dry-run: true
+  /api/v1/customers/consents/marketing/:
+    get:
+      operationId: customers_marketing_consents_list
+      description: 'The customers whose marketing consent stands (`state=granted`)
+        or who took it back (`state=withdrawn`), newest first, a page at a time —
+        read from the consent journal: when, on which form, in which language and
+        to which sentence. A customer whose data was removed is not listed.'
+      summary: Who agreed to receive offers and promotions
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: state
+        schema:
+          enum:
+          - granted
+          - withdrawn
+          type: string
+          default: granted
+          minLength: 1
+        description: |-
+          `granted` — customers whose consent stands; `withdrawn` — who took it back.
+
+          * `granted` - granted
+          * `withdrawn` - withdrawn
+      tags:
+      - customers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingConsentPage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/customers/consents/marketing/{customer_id}/withdraw/:
+    post:
+      operationId: customers_marketing_consent_withdraw
+      description: 'Appends the withdrawal to the consent journal — nothing in the
+        journal is ever changed — and answers with where the customer stands. Names
+        the consent the caller saw: a repeat, or a customer who agreed again meanwhile,
+        is 409 `consent_changed` and writes nothing. The history says who wrote it
+        down.'
+      summary: Write down that a customer withdrew their marketing consent
+      parameters:
+      - in: path
+        name: customer_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketingConsentWithdrawInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MarketingConsentWithdrawInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MarketingConsentWithdrawInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingConsent'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by version: a repeat at the same version answers
+          409 and changes nothing.'
   /api/v1/customers/documents/:
     get:
       operationId: customers_documents_list
@@ -27119,7 +27284,7 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         customers:
           description: |-
-            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -27174,7 +27339,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/Customers1e2Enum'
           description: |-
-            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -29585,6 +29750,28 @@ components:
           type: string
       required:
       - csrf_token
+    CustomerAnonymizePreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        anonymized_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Set when the customer is already anonymised.
+        kept:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerKept'
+          description: What anonymising the customer now would leave and until when;
+            empty when everything about the person goes at once.
+      required:
+      - anonymized_at
+      - id
+      - kept
     CustomerAnonymized:
       type: object
       properties:
@@ -30008,6 +30195,35 @@ components:
           maxLength: 10
       required:
       - display_name
+    CustomerKept:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: What stays, e.g. `commerce.order_buyer` — the buyer's name,
+            e-mail and phone on a paid order.
+        label:
+          type: string
+          description: 'What the panel names it by: an order''s number.'
+        reference:
+          type: string
+          description: That record's id.
+        until:
+          type: string
+          format: date
+          description: The last day it stays, in the company's time zone; the nightly
+            privacy run removes it afterwards.
+        why:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'Why it stays, for a person of the company: `pl` and `en`.'
+      required:
+      - kind
+      - label
+      - reference
+      - until
+      - why
     CustomerKindEnum:
       enum:
       - company
@@ -34360,6 +34576,92 @@ components:
       description: |-
         * `cash` - cash
         * `transfer` - transfer
+    MarketingConsent:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: The customer's name.
+        email:
+          type: string
+        phone:
+          type: string
+        granted:
+          type: boolean
+          description: 'Where the customer stands now: their latest journal line.'
+        consent_id:
+          type: string
+          format: uuid
+          description: The journal line of the consent shown — the latest one the
+            customer gave. A withdrawal names it.
+        consented_at:
+          type: string
+          format: date-time
+          description: When they agreed.
+        source:
+          type: string
+          description: 'On which form: `booking.appointment` — while booking.'
+        source_reference:
+          type: string
+          description: 'That form''s record: the booking''s id.'
+        locale:
+          type: string
+          description: The language of the form.
+        wording:
+          type: string
+          description: The sentence they agreed to. The journal keeps its hash; empty
+            when no sentence known today gives that hash — the company was renamed
+            since, or the sentence was changed.
+        withdrawn_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: When the withdrawal was written down; null while it stands.
+      required:
+      - consent_id
+      - consented_at
+      - customer_id
+      - email
+      - granted
+      - locale
+      - name
+      - phone
+      - source
+      - source_reference
+      - withdrawn_at
+      - wording
+    MarketingConsentPage:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketingConsent'
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    MarketingConsentWithdrawInput:
+      type: object
+      properties:
+        consent_id:
+          type: string
+          format: uuid
+          description: '`consent_id` of the row the caller saw. When it is no longer
+            the customer''s latest journal line the answer is 409 `consent_changed`.'
+      required:
+      - consent_id
     MaterialInput:
       type: object
       description: Produkt z magazynu przy usłudze albo wizycie (ADR-055).
@@ -35046,6 +35348,24 @@ components:
         customer_id:
           type: string
           format: uuid
+        customer_anonymized_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: When the order's customer was anonymised — by a person or by
+            the company's retention setting; null while the customer is still named.
+        buyer_kept_until:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: 'For an anonymised customer''s order that money was taken for:
+            the last day it still names its buyer. A paid order is the company''s
+            sales record and keeps the buyer for 5 full calendar years after the year
+            of its last ledger entry, in the company''s time zone; the nightly privacy
+            run removes the buyer afterwards. Null when the customer is not anonymised
+            or the buyer is already gone.'
         buyer_email:
           type: string
         buyer_phone:
@@ -35116,11 +35436,13 @@ components:
       required:
       - amounts
       - buyer_email
+      - buyer_kept_until
       - buyer_name
       - buyer_phone
       - channel
       - consents
       - currency
+      - customer_anonymized_at
       - customer_id
       - due_minor
       - gross_minor
@@ -36885,7 +37207,7 @@ components:
           description: Fields given back to the default (the platform's or the code's).
         customers:
           description: |-
-            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
+            After how many months from a customer's last visit their personal data is removed for good (name, e-mail, phone, their notes, the street of a visit at theirs, the copies in stored messages); `off` removes nothing. Only a customer with no visit ahead is affected; the visits stay without the person's data. A customer who bought something that was paid for stays until the sales record's statutory period ends; the preview counts them. Nothing is removed for 7 days after the value changes, and the owners are told by e-mail. Irreversible: a person in the company must decide, never the assistant on its own.
 
             * `off` - off
             * `12` - 12
@@ -38088,7 +38410,8 @@ components:
           - boolean
           - 'null'
           description: Confirm once that content goes to OpenRouter and model providers
-            outside the EEA. Only true is accepted.
+            outside the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only
+            true is accepted.
         reset:
           type:
           - array
@@ -47091,7 +47414,8 @@ components:
         processing_acknowledged:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
-            providers outside the EEA.
+            providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic,
+            the processor the platform's privacy documents name.
         processing_ack_at:
           type:
           - string
@@ -47123,7 +47447,8 @@ components:
         processing_acknowledged:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
-            providers outside the EEA.
+            providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic,
+            the processor the platform's privacy documents name.
         processing_ack_at:
           type:
           - string
@@ -47173,7 +47498,8 @@ components:
           - boolean
           - 'null'
           description: Confirm once that content goes to OpenRouter and model providers
-            outside the EEA. Only true is accepted.
+            outside the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only
+            true is accepted.
         reset:
           type:
           - array

@@ -7,9 +7,21 @@ from .views import (
     DocumentDraftView,
     DocumentListView,
     DocumentTextView,
+    MarketingConsentListView,
+    MarketingConsentWithdrawView,
 )
 
 urlpatterns = [
+    path(
+        "consents/marketing/",
+        MarketingConsentListView.as_view(),
+        name="customers-marketing-consents",
+    ),
+    path(
+        "consents/marketing/<uuid:customer_id>/withdraw/",
+        MarketingConsentWithdrawView.as_view(),
+        name="customers-marketing-consent-withdraw",
+    ),
     path("documents/", DocumentListView.as_view(), name="customers-documents"),
     path("documents/<slug:kind>/", DocumentDetailView.as_view(), name="customers-document"),
     path(

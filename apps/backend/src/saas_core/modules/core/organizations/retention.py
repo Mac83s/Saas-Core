@@ -23,8 +23,8 @@ irreversible, so:
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from collections.abc import Callable, Collection, Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -108,10 +108,27 @@ class RunResult:
     failed: tuple[UUID, ...]
 
 
+#: Which of a sweep's records a module must not lose yet, in one company:
+#: `held(organization_id, among)`. `among` None is a read — every record that
+#: stays, for the list of what is due. With `among` the sweep holds these
+#: records' locks and asks again about them alone: the module locks what its
+#: own answer depends on and reads it from the locked rows, so a change that
+#: was in flight is waited for and seen.
+type Held = Callable[[UUID, Collection[UUID] | None], Iterable[UUID]]
+
+
+@dataclass(frozen=True, slots=True)
+class RetentionExclusion:
+    held: Held
+    #: Why they stay, as the preview of the sweep's setting tells the company
+    #: (pl, en); empty: the preview only counts them out.
+    why: Mapping[str, str] = field(default_factory=dict)
+
+
 _sweeps: dict[str, RetentionSweep] = {}
-#: sweep key → readers of the ids a module must not lose yet (documents inside
-#: a statutory period, an open order): `exclusion(organization_id)`.
-_exclusions: dict[str, list[Callable[[UUID], Iterable[UUID]]]] = {}
+#: sweep key → what other modules must not lose yet (sales records inside a
+#: statutory period).
+_exclusions: dict[str, list[RetentionExclusion]] = {}
 
 
 def register_retention_sweep(sweep: RetentionSweep) -> None:
@@ -123,20 +140,39 @@ def register_retention_sweep(sweep: RetentionSweep) -> None:
 
 
 def register_retention_exclusion(
-    sweep_key: str, exclusion: Callable[[UUID], Iterable[UUID]]
+    sweep_key: str, held: Held, *, why: Mapping[str, str] | None = None
 ) -> None:
     """A module that keeps something of a record another module would remove
-    says which records must stay for now. The owner of the sweep applies it in
-    its own `due` and `erase` through `excluded_ids`."""
-    _exclusions.setdefault(sweep_key, []).append(exclusion)
+    says which records must stay for now, and why. The owner of the sweep
+    applies it through `excluded_ids`: in its `due`, and in its `erase` again
+    under the locks it took (`among`)."""
+    _exclusions.setdefault(sweep_key, []).append(RetentionExclusion(held, why or {}))
 
 
-def excluded_ids(sweep_key: str, organization_id: UUID) -> set[UUID]:
+def excluded_ids(
+    sweep_key: str, organization_id: UUID, among: Collection[UUID] | None = None
+) -> set[UUID]:
+    """The records other modules still need. With `among`, asked again by the
+    sweep about the records it has locked — see `Held`."""
     return {
         identifier
         for exclusion in _exclusions.get(sweep_key, ())
-        for identifier in exclusion(organization_id)
+        for identifier in exclusion.held(organization_id, among)
     }
+
+
+def held_back(
+    sweep_key: str, organization_id: UUID, ids: Collection[UUID]
+) -> list[tuple[Mapping[str, str], int]]:
+    """How many of `ids` each module holds back and why — a read, for the
+    preview that tells the company what its setting will not remove yet."""
+    wanted = set(ids)
+    found = []
+    for exclusion in _exclusions.get(sweep_key, ()):
+        count = len(wanted & set(exclusion.held(organization_id, None))) if wanted else 0
+        if count:
+            found.append((exclusion.why, count))
+    return found
 
 
 def registered_sweeps() -> tuple[RetentionSweep, ...]:

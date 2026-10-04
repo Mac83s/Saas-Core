@@ -60,12 +60,18 @@ TRANSLATION_MODEL = SettingSpec(
     model_description="The model the translation.text task calls through OpenRouter: one of "
     "the probed rows of the model matrix that support JSON schema output. Changing it "
     "changes cost and quality for every company; evals in docs/evals/translation compare "
-    "the candidates.",
+    "the candidates. The platform's privacy documents name OpenRouter with Claude Sonnet "
+    "5.5 (Anthropic) as the processor of companies' content: another model needs those "
+    "documents changed first.",
     help={
         "pl": "Model, który tłumaczy treści wszystkich firm. Koszt i jakość kandydatów: "
-        "evale w docs/evals/translation.",
+        "evale w docs/evals/translation. Dokumenty prywatności platformy wymieniają "
+        "OpenRouter z modelem Claude Sonnet 5.5 (Anthropic) — inny model wymaga najpierw "
+        "zmiany tych dokumentów.",
         "en": "The model that translates every company's content. Candidates' cost and "
-        "quality: the evals in docs/evals/translation.",
+        "quality: the evals in docs/evals/translation. The platform's privacy documents "
+        "name OpenRouter with Claude Sonnet 5.5 (Anthropic) — another model needs those "
+        "documents changed first.",
     },
 )
 

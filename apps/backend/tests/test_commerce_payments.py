@@ -289,7 +289,8 @@ def test_the_ledger_is_never_rewritten_and_goes_only_with_the_company() -> None:
         paid = record_payment(order.id, amount_minor=15000, method="cash", expected_version=1)
         entry = LedgerEntry.all_objects.get(order_id=order.id)
         payment = Payment.all_objects.get(pk=paid["payments"][0]["id"])
-        # The customer goes; what they paid stays, without them.
+        # The customer goes; what they paid stays — and, the order being a
+        # sales record, so does its buyer until the period ends (slice 4i).
         anonymize_customer(order.customer_id)
         kept = read_order(order.id)
 
@@ -318,7 +319,8 @@ def test_the_ledger_is_never_rewritten_and_goes_only_with_the_company() -> None:
     ):
         with pytest.raises(DatabaseError), transaction.atomic():
             change()
-    assert (kept["buyer_name"], kept["paid_minor"]) == ("Zanonimizowany klient", 15000)
+    assert (kept["buyer_name"], kept["paid_minor"]) == (order.buyer_name, 15000)
+    assert kept["customer_anonymized_at"] is not None and kept["buyer_kept_until"] is not None
 
     erase_organization(organization=owner.organization, requested_by=None, reason="test")
 

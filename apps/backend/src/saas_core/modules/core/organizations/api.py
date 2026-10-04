@@ -70,11 +70,13 @@ from .retention import (
     company_months,
     cutoff_for,
     excluded_ids,
+    held_back,
     months_of,
     platform_days,
     register_retention_exclusion,
     register_retention_sweep,
 )
+from .retention import Rule as RetentionRule
 from .service_scopes import register_service_scope
 from .settings_commands import group_commands
 from .settings_registry import (
@@ -104,10 +106,12 @@ __all__ = [
     "RETENTION_GRACE_DAYS",
     "RETENTION_OFF",
     "RETENTION_PERIODS",
+    "RetentionRule",
     "RetentionSweep",
     "company_months",
     "cutoff_for",
     "excluded_ids",
+    "held_back",
     "months_of",
     "platform_days",
     "register_retention_exclusion",

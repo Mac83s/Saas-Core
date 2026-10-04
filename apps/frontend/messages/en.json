@@ -155,8 +155,10 @@
       "run": "{kind} · period: {period} · removed: {count}",
       "months": "{count, plural, one {# month} other {# months}}",
       "days": "{count, plural, one {# day} other {# days}}",
+      "years": "{count, plural, one {# year} other {# years}}",
       "kinds": {
         "booking_customers": "Customers' data",
+        "commerce_buyers": "Buyers' details on paid orders",
         "sites_inquiries": "Website enquiries",
         "assistant_conversations": "Conversations with the assistant",
         "assistant_profile_versions": "Earlier versions of the notes about the company"
@@ -355,6 +357,7 @@
       "customers_document_draft_saved": "Saved a draft of a document for customers",
       "customers_document_approved": "Approved a document for customers",
       "customers_document_text_added": "Added a text of a document for customers",
+      "customers_consent_withdrawn": "Wrote down a withdrawn marketing consent",
       "commerce_order_placed": "Order placed",
       "commerce_order_repriced": "Order amount changed",
       "commerce_order_canceled": "Order canceled",
@@ -529,6 +532,7 @@
     "sectionServices": "Services & schedule",
     "sectionBookings": "Bookings",
     "sectionDocuments": "Documents for customers",
+    "sectionConsents": "Marketing consents",
     "canceled": "Plan canceled",
     "theme": "Theme",
     "themeLight": "Light theme",
@@ -5107,7 +5111,7 @@
     "writing": "The assistant is writing…",
     "you": "You",
     "assistant": "Assistant",
-    "notice": "The assistant uses an external AI model — do not enter anything you would not want it to receive. {credits, plural, =0 {An answer uses no credits.} one {Each answer is # credit.} other {Each answer is # credits.}}",
+    "notice": "The assistant uses an external AI model (Claude Sonnet 5.5 by Anthropic, through OpenRouter, outside the European Economic Area) — do not enter anything you would not want it to receive. {credits, plural, =0 {An answer uses no credits.} one {Each answer is # credit.} other {Each answer is # credits.}}",
     "enterHint": "Enter sends, Shift+Enter adds a new line.",
     "status_done": "Done",
     "status_pending": "Waiting for consent",
@@ -5153,7 +5157,7 @@
     "setupSpent": "The free messages for setting the company up are used up. You can do the rest in the panel.",
     "setupBadge": "Setting the company up",
     "setupFree": "This conversation is free.",
-    "noticeSetup": "The assistant uses an external AI model — do not enter anything you would not want it to receive. This conversation uses no credits.",
+    "noticeSetup": "The assistant uses an external AI model (Claude Sonnet 5.5 by Anthropic, through OpenRouter, outside the European Economic Area) — do not enter anything you would not want it to receive. This conversation uses no credits.",
     "setupBudget": "The limit of free messages for setting the company up is used up. What was settled stays in the notes about the company. Do the rest in the panel: Business card, Team, Settings › Services and schedule.",
     "setupDailyBudget": "Today's limit of free messages for setting the company up is used up. What was settled stays in the notes about the company. Come back tomorrow or do the rest in the panel: Business card, Team, Settings › Services and schedule.",
     "profileTitle": "Notes about the company — what is known and what is missing",
@@ -5650,7 +5654,7 @@
     },
     "unavailable": {
       "line": "Automatic translation is not available right now: {reason}. You can translate manually.",
-      "processor_not_listed": "the platform has not chosen a translation provider yet",
+      "processor_not_listed": "the platform's operator has not switched AI translations on yet",
       "model_not_selected": "the platform has not chosen a translation model yet",
       "operation_unpriced": "the platform has not set the price of translations yet",
       "worker_unavailable": "the translation service is not responding at the moment",
@@ -5730,7 +5734,7 @@
       "lock": {
         "operator_forced_review": "Every translation waits for approval now — the platform operator decided so.",
         "kill_switch": "AI translations are switched off on the whole platform now.",
-        "processor_not_listed": "AI translations are off until the platform chooses a translation provider.",
+        "processor_not_listed": "AI translations are off until the platform's operator switches them on.",
         "organization_paused": "The platform operator paused AI translations for this company.",
         "other": "The platform operator decides this value now."
       },
@@ -5758,10 +5762,10 @@
       "processing": {
         "title": "Content processing by AI providers",
         "why": "Before your first translation, confirm once that you know where the content goes. AI translations do not start without it.",
-        "statement": "I confirm that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area.",
+        "statement": "I confirm that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area — today to the model Claude Sonnet 5.5 by Anthropic.",
         "confirm": "Confirm",
         "saved": "The confirmation was saved. You can order AI translations.",
-        "done": "On {date} the company confirmed that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area."
+        "done": "On {date} the company confirmed that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area. Today the model Claude Sonnet 5.5 by Anthropic translates it."
       },
       "consentDialog": {
         "title": "Turn on automatic translation of changes?",
@@ -6320,6 +6324,41 @@
     "otherLanguage": "This document has no text in the chosen language yet. You are reading it in: {language}.",
     "readIn": "Read in"
   },
+  "MarketingConsents": {
+    "title": "Marketing consents",
+    "description": "Customers who agreed to receive the company's offers and promotions. The list comes from the consent journal: when, on which form and to which words the customer agreed. Nothing is edited here — a withdrawal is written as the journal's next line.",
+    "noAccess": "The list of consents is read by the people who run the company.",
+    "caption": "Customers' marketing consents",
+    "colCustomer": "Customer",
+    "colWhen": "When and where",
+    "colWording": "Wording",
+    "colState": "State",
+    "colActions": "Actions",
+    "actionsFor": "Actions: {name}",
+    "filterState": "State of the consent",
+    "states": {
+      "granted": "Consent stands",
+      "withdrawn": "Consent withdrawn"
+    },
+    "sources": {
+      "booking_appointment": "Booking form",
+      "sites_inquiry": "Contact form",
+      "customers_panel": "The company's panel"
+    },
+    "wordingUnknown": "The words of that day can no longer be shown — the company changed its name or the consent's sentence changed. The date and the form are certain.",
+    "empty": "Nobody has agreed yet. The list fills up once customers tick the consent to offers and promotions on the booking form.",
+    "emptyWithdrawn": "Nobody has withdrawn a consent.",
+    "removedNote": "Customers whose data was removed are not listed — nobody is left to write to. Their lines in the consent journal stay.",
+    "withdraw": "Write down a withdrawal",
+    "withdrawTitle": "Write down that {name} withdraws the consent?",
+    "withdrawHint": "The consent journal will say that the customer no longer wants offers and promotions — with today's date; the change history shows who wrote it down. The line cannot be removed. The earlier consent stays in the journal as evidence, and the customer may agree again with their next booking.",
+    "withdrawConfirm": "Write the withdrawal down",
+    "withdrawn": "Written down: {name} no longer wants offers and promotions.",
+    "changed": "This consent changed meanwhile — the list shows where it stands now.",
+    "withdrawFailed": "Could not save the withdrawal. Try again.",
+    "loadError": "The list of consents could not be loaded.",
+    "retry": "Try again"
+  },
   "Orders": {
     "title": "Orders",
     "description": "Every booking with a price has a numbered order: who bought, what and for how much.",
@@ -6382,6 +6421,20 @@
     "email": "E-mail",
     "phone": "Phone",
     "notGiven": "not given",
+    "anonymize": "Remove the customer's data…",
+    "anonymizeTitle": "Remove the data of {name}?",
+    "anonymizeGoes": "This cannot be undone. What goes: the customer's name, e-mail and phone, their notes on visits, the address of a visit at theirs and the stored copies of messages to them; the customer's link for managing a booking stops working. It covers every visit and order of this customer.",
+    "anonymizeStays": "What stays: dates, services, order numbers, lines and amounts — without the person's data — and the e-mails the customer already received.",
+    "anonymizeChecking": "Checking what has to stay…",
+    "anonymizeKeptTitle": "What else stays, and until when",
+    "anonymizeKeptOrder": "Order {number}: the buyer's details until {until}",
+    "anonymizeKeptNothing": "None of this customer's orders was paid for, so nothing that points at the person stays on the orders.",
+    "anonymizeConfirm": "Remove the customer's data",
+    "anonymizePreviewFailed": "Could not check what stays. Close the window and try again.",
+    "anonymizeFailed": "Could not remove the customer's data. Try again.",
+    "anonymized": "The customer's data was removed.",
+    "buyerKept": "The customer's data was removed on {date}. The buyer's details stay on this order until {until}: an order that was paid for is the company's sales record. After that day the system removes them by itself.",
+    "buyerRemoved": "The customer's data was removed on {date}.",
     "lines": "Lines",
     "linesCaption": "The order's lines",
     "colLine": "Line",

@@ -342,7 +342,7 @@ function Changes({
 
 /** What a retention run removed: which data, after how long and how many —
  *  never a person. The API words the period as the command's report does:
- *  „24 mies.”, „90 dni”. */
+ *  „24 mies.”, „90 dni”, „5 lat”. */
 function RetentionRun({ details }: { details: HistoryEntry["details"] }) {
   const t = useTranslations("History");
   const { sweep, period, removed } = details as {
@@ -352,13 +352,14 @@ function RetentionRun({ details }: { details: HistoryEntry["details"] }) {
   };
   if (!sweep || typeof removed !== "number") return null;
   const kind = `retention.kinds.${messageKey(sweep)}`;
-  const [, length, unit] = /^(\d+) (mies\.|dni)$/.exec(period ?? "") ?? [];
+  const [, length, unit] = /^(\d+) (mies\.|dni|lat)$/.exec(period ?? "") ?? [];
+  const units = { "mies.": "months", dni: "days", lat: "years" } as const;
   return (
     <p className="text-sm text-muted-foreground wrap-anywhere">
       {t("retention.run", {
         kind: t.has(kind) ? t(kind) : humanize(sweep),
         period: length
-          ? t(unit === "dni" ? "retention.days" : "retention.months", {
+          ? t(`retention.${units[unit as keyof typeof units]}`, {
               count: Number(length),
             })
           : (period ?? t("empty")),

@@ -2,7 +2,19 @@ import { notFound } from "next/navigation";
 
 import { allows, panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
+import { deployment } from "../../../../../generated/deployment";
 import { OrderPanel } from "../../../../../modules/shared/commerce";
+
+/**
+ * Removing a customer's data by hand is offered where the profile offers
+ * their removal after a time (`features.customerRetention`): in a product
+ * whose visit hangs on another record of the same person — a farm's card —
+ * the customer would stay named there, and the window would promise more
+ * than happens (docs/architecture/privacy-retention.md).
+ */
+const customerRemovalOffered =
+  (deployment.features as Record<string, boolean | undefined>)
+    .customerRetention === true;
 
 export default async function OrderPage({
   params,
@@ -23,6 +35,13 @@ export default async function OrderPage({
   }
   return (
     <OrderPanel
+      canAnonymize={
+        customerRemovalOffered &&
+        allows(access, {
+          module: "shared.booking",
+          permission: "booking.appointment.manage",
+        })
+      }
       canManagePayments={allows(access, {
         module: "shared.commerce",
         permission: "commerce.payments.manage",

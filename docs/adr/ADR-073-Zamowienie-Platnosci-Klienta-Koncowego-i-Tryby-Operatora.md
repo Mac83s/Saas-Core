@@ -495,7 +495,8 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   (`docs/architecture/privacy-retention.md`). Zamówienie bez wpłaty niczego nie
   trzyma. Ręczna anonimizacja takiego klienta — do rozstrzygnięcia z listą
   prawną przed 4i (propozycja: czyści klienta i wizyty, migawka zamówienia
-  zostaje do końca okresu).
+  zostaje do końca okresu). (Rozstrzygnięte odpowiedzią właściciela z 04.10 —
+  niżej, „Rozstrzygnięcia plastra 4i”.)
 - **Historia cen (4i).** Każda zmiana `PriceRule` dopisuje wiersz historii
   (kto, kiedy, kwota przed i po), bo promocje (faza 10) muszą pokazać najniższą
   cenę z 30 dni przed obniżką, a tej nie da się odtworzyć wstecz.
@@ -536,7 +537,8 @@ Rozstrzygnięcia plastra 4c (2026-10-04, decyzje techniczne z powodem):
   ze skrótem treści obok wpisów dokumentów. Pole w formularzu publicznym
   przyjdzie razem z treścią zgody od prawnika i z miejscem, w którym firma
   zobaczy, kto się zgodził — zgoda, której firma nie może odczytać, niczemu nie
-  służy, a jej słowa to ryzyko prawne, nie decyzja techniczna.
+  służy, a jej słowa to ryzyko prawne, nie decyzja techniczna. (Treść i lista
+  zgód: niżej, „Zgody marketingowe w panelu”.)
 
 Rozstrzygnięcia plastra 4d (2026-10-04, decyzje techniczne z powodem):
 
@@ -1060,6 +1062,114 @@ Uzupełnienie plastrów 4b–4g (2026-10-04, drobne zaległości zamknięte raze
   podał adres), a gdy adresu nie ma — że trzeba dać mu znać; dzwonek nazywa
   powiadomienia `booking.office_*`; „Do akceptacji” wymienia dokumenty dla
   klientów obok strony i wizytówki.
+
+Rozstrzygnięcia plastra 4i (2026-10-04, po odpowiedzi właściciela 7 z 04.10;
+decyzje techniczne z powodem):
+
+- **Okres to jedna stała**: `commerce.retention.BUYER_RETENTION_YEARS = 5` —
+  wartość robocza do odpowiedzi prawnika, nie ustawienie firmy (firma nie może
+  wybrać krótszego przechowywania zapisów sprzedaży, niż każe prawo). Liczą się
+  pełne lata kalendarzowe po roku ostatniego wpisu księgi zamówienia, **w
+  strefie czasowej firmy**: wpłata z czerwca 2026 trzyma kupującego do końca 31
+  grudnia 2031, a od północy 1 stycznia 2032 czasu firmy już nie. Wpis z 31
+  grudnia 23:30 UTC jest dla firmy z Warszawy wpisem z nowego roku.
+- **Która data wpisu.** Wpis księgi ma dwie daty: kiedy rzecz się stała
+  (`occurred_at`) i kiedy ją zapisano (`created_at`). Liczy się późniejsza —
+  wpis dopisany po czasie do wcześniejszego zdarzenia trzyma kupującego od
+  chwili dopisania. Usunięcia nie da się cofnąć, więc w razie wątpliwości okres
+  jest dłuższy, nie krótszy.
+- **Zapis sprzedaży to zamówienie, za które naprawdę wzięto pieniądze**: wpisy
+  `charge` dają razem więcej niż zero. Wpłata oznaczona przez pomyłkę i wycofana
+  nie jest sprzedażą i niczego nie trzyma („zamówienie bez wpłaty niczego nie
+  trzyma”); zamówienie opłacone i zwrócone w całości zostaje zapisem — wpłata
+  była, a zwrot jest jej korektą. Okres liczy się od ostatniego wpisu
+  dowolnego rodzaju, więc zwrot oznaczony po trzech latach zaczyna go od nowa.
+- **Przebieg firmy omija kupującego do końca okresu** — tak, jak mówi zdanie
+  tego ADR z 03.10 („migawka kupującego i klient zostają”). Commerce rejestruje
+  wykluczenie przemiatania klientów (`register_retention_exclusion` pod kluczem
+  `customers.api.CUSTOMER_RETENTION_SWEEP` — commerce nie nazywa booking) i
+  podaje powód; podgląd ustawienia „Dane klientów” mówi, ilu klientów po
+  terminie zostaje i dlaczego. Pod blokadą klientów `erase_customers` pyta o
+  wykluczenia ponownie (`excluded_ids(…, among=…)`), a commerce przed odczytem
+  księgi blokuje zamówienia tych klientów: każdy zapis do księgi bierze najpierw
+  blokadę zamówienia, więc wpłata w toku każe przebiegowi poczekać i jest
+  widziana, a późniejsza czeka na przebieg. Kolejność blokad: klient, wizyta,
+  zamówienie. Gdy okres minie, przebieg firmy usuwa klienta razem z migawką.
+  **Do potwierdzenia z prawnikiem (lista prawna, 04.10):** czy przebieg ma
+  zostawiać takiego klienta w całości, czy — jak ręczna anonimizacja — czyścić
+  kartę klienta i wizyty po okresie wybranym przez firmę, a zostawiać samą
+  migawkę zamówienia. Druga wersja przechowuje mniej; to jedna linia
+  (rejestracja wykluczenia w `commerce/apps.py`), reszta mechanizmu jest wspólna.
+- **Ręczna anonimizacja czyści klienta i wizyty, a migawkę zostawia do końca
+  okresu** (propozycja z 03.10, przyjęta). `strip_buyer` blokuje zamówienia
+  klienta, czyta księgę spod blokady i czyści migawkę tylko tam, gdzie
+  zamówienie nie jest zapisem sprzedaży w okresie. Zapisane kopie e-maili i
+  powód zwrotu (wolny tekst firmy) znikają od razu także przy zostawionej
+  migawce — nie są zapisem sprzedaży. Wpłata oznaczona **po** anonimizacji nie
+  przywraca nazwiska: migawki już nie ma.
+- **Po okresie migawkę usuwa wspólny przebieg prywatności**: przemiatanie
+  `commerce.buyers` z regułą bez okresu ochronnego (to okres z prawa, nie
+  kliknięcie firmy), w każdej firmie — także tam, gdzie „Dane klientów” nie są
+  oferowane, bo ręczna anonimizacja jest wszędzie. Bierze zamówienia
+  zanonimizowanych klientów, które nadal nazywają kupującego, blokuje je i czyta
+  księgę ponownie; usuwa też migawkę zamówienia, które przestało być zapisem
+  sprzedaży (jedyną wpłatę wycofano jako pomyłkę już po anonimizacji). Wpis w
+  historii firmy jak przy innych przemiataniach: rodzaj, „5 lat”, liczba.
+- **Bez migracji.** Zostawioną migawkę rozpoznaje się po tym, że różni się od
+  zastępczej nazwy zanonimizowanego klienta albo ma e-mail lub telefon; nowe
+  pole na zamówieniu niczego by nie dodało, a kosztowałoby migrację danych.
+- **Panel mówi, co zostaje i dlaczego.** `GET
+  /booking/customers/<id>/anonymize/preview/` (to samo uprawnienie co
+  anonimizacja) oddaje listę tego, co zostanie, z dniem i powodem w pl i en —
+  czyta rejestr, z którego korzysta samo czyszczenie
+  (`register_customer_anonymizer(…, keeps=…)`). Strona zamówienia dostała
+  „Usuń dane klienta…” z tym podglądem — pierwsze miejsce w panelu, w którym
+  osoba może zanonimizować klienta (dotąd był tylko endpoint) — a zamówienie
+  zanonimizowanego klienta mówi, do kiedy nazywa kupującego
+  (`buyer_kept_until`, `customer_anonymized_at`). Przycisk jest tylko w profilu,
+  który oferuje „Dane klientów” (`features.customerRetention`): w produkcie z
+  kartą gospodarstwa klient zostałby nazwany na karcie, a okno obiecywałoby
+  więcej, niż się dzieje; w gabinetach usuwanie danych klientów zostaje
+  wyłączone (odpowiedź właściciela 9 z 04.10). Endpoint anonimizacji jest tam,
+  gdzie był.
+- **Poza 4i**: historia cen przed promocjami (druga połowa wiersza 4i w tabeli
+  — zostaje otwarta, należy do cennika rezerwacji); polecenie asystenta dla
+  anonimizacji (klasa `irreversible`, dane osoby — osobna decyzja); miejsce w
+  panelu do anonimizacji klienta, który nie ma żadnego zamówienia (nie ma listy
+  klientów).
+
+Zgody marketingowe w panelu (2026-10-04, odpowiedź właściciela 6 z 04.10;
+decyzje techniczne z powodem):
+
+- **Treść zgody to jedna stała** `MARKETING_WORDING`, wystawiona przez
+  `customers.api` razem z `marketing_wording(locale, firma)`: „Chcę otrzymywać
+  oferty i promocje od {firma} e-mailem.” (pl, en, de; język bez własnego zdania
+  nie ma zgody — o zgodę nie pyta się w innym języku). Formularz pokazuje to
+  zdanie i — gdy klient je zaznaczy — rezerwacja przekazuje dokładnie ten tekst
+  do `record_consent` (`kind="marketing"`). Pole w formularzach publicznych:
+  „Uzupełnienie 2026-10-04: krok zgód formularzy publicznych”, niżej; stała
+  jest jedna dla obu stron.
+- **Dziennik trzyma skrót, nie słowa** (decyzja koordynatora z 04.10). Lista
+  odtwarza zdanie, składając stałą z nazwą firmy i porównując skróty. Gdy żaden
+  skrót nie pasuje — firma zmieniła nazwę albo zmieniono zdanie — wiersz nadal
+  mówi, kto, kiedy i w którym formularzu się zgodził, i wprost, że słów z tamtego
+  dnia nie da się już odtworzyć. Dlatego zmiana zdania w stałej jest decyzją, a
+  nie poprawką. Otwarte: kolumna z treścią w dzienniku usunęłaby to ograniczenie.
+- **Lista jest odczytem dziennika**: `GET /customers/consents/marketing/`
+  (`customers.read`; `state=granted` albo `withdrawn`, stronicowana) — jeden
+  wiersz na klienta, o stanie rozstrzyga jego ostatni wpis. Klient, którego dane
+  usunięto, nie jest na liście (nie ma do kogo pisać); jego wpisy zostają.
+- **Wycofanie to kolejny wpis** (`granted=False`, źródło `customers.panel`,
+  odniesienie — wpis zgody): `POST /customers/consents/marketing/<klient>/withdraw/`
+  (`customers.manage`) nazywa zgodę, którą osoba widziała; gdy nie jest już
+  ostatnim wpisem klienta, odpowiedź to 409 `consent_changed` i nic nie powstaje
+  — powtórka nie dopisuje drugiego wpisu. Historia firmy mówi, kto odnotował
+  (`customers.consent.withdrawn`), bez nazwiska klienta. Ekran: Ustawienia ›
+  „Zgody marketingowe”.
+- **Poza zakresem**: wycofanie przez samego klienta (link w e-mailu), zgody osób
+  bez rekordu klienta (pytający z formularza kontaktowego — dziennik je
+  przyjmuje, lista ich nie pokazuje), eksport listy, osobna zgoda na telefon i
+  SMS (lista prawna, 04.10) oraz polecenie asystenta (lista niesie dane osób).
 
 ## Uzupełnienie 2026-10-04: krok zgód formularzy publicznych
 

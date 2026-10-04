@@ -4,7 +4,9 @@ A company's end customer is one record for bookings, orders and the shop.
 Another module reaches it through this file: `CUSTOMER_MODEL` for its own
 foreign key, `match_or_create` on a first booking or order, and
 `register_customer_anonymizer` for what it stores about a customer beside the
-customer's row.
+customer's row — with `keeps` when it must leave something for a time, read
+back by `kept_after_strip` — and `CUSTOMER_RETENTION_SWEEP` for the key under
+which it holds a customer back from the company's removal after a time.
 
 The company's documents for its customers (§9) are read and agreed to through
 two calls, both made inside the tenant the caller already holds — a public
@@ -28,7 +30,10 @@ from .documents import (
 )
 from .models import ConsentKind, Customer, DocumentKind
 from .services import (
+    CUSTOMER_RETENTION_SWEEP,
     CustomerAnonymizer,
+    Kept,
+    kept_after_strip,
     match_or_create,
     register_customer_anonymizer,
     strip_customer,
@@ -39,14 +44,18 @@ CUSTOMER_MODEL = "customers.Customer"
 __all__ = [
     "CUSTOMER_MODEL",
     "MARKETING_WORDING",
+    "CUSTOMER_RETENTION_SWEEP",
     "ConsentKind",
     "Customer",
     "CustomerAnonymizer",
     "DocumentInForce",
     "DocumentKind",
+    "Kept",
+    "MARKETING_WORDING",
     "consents_of",
     "current_document",
     "document_locales",
+    "kept_after_strip",
     "marketing_wording",
     "match_or_create",
     "record_consent",

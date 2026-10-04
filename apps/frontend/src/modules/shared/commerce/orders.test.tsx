@@ -23,7 +23,9 @@ import { OrdersPanel } from "./orders-panel";
 
 const { api } = vi.hoisted(() => ({
   api: {
+    anonymizeCustomer: vi.fn(),
     listOrders: vi.fn(),
+    previewCustomerAnonymization: vi.fn(),
     readCommerceOptions: vi.fn(),
     readOrder: vi.fn(),
     recordOrderPayment: vi.fn(),
@@ -87,6 +89,8 @@ function order(overrides: Partial<Order> = {}): Order {
   return {
     ...summary(),
     customer_id: "0199a000-0000-7000-8000-0000000000c1",
+    customer_anonymized_at: null,
+    buyer_kept_until: null,
     buyer_email: "anna@example.test",
     buyer_phone: "+48 600 100 200",
     amounts: "gross",
@@ -997,4 +1001,135 @@ test("the rest due by a transfer is said without a threat, and late it is the co
     ),
   ).toBeTruthy();
   vi.useRealTimers();
+});
+
+test("removing a customer's data says what goes and what stays, and until when (slice 4i)", async () => {
+  api.readOrder.mockResolvedValue(order({ status: "paid", paid_minor: 20000 }));
+  api.previewCustomerAnonymization.mockResolvedValue({
+    id: "0199a000-0000-7000-8000-0000000000c1",
+    anonymized_at: null,
+    kept: [
+      {
+        kind: "commerce.order_buyer",
+        label: "R/2026/0001",
+        reference: "0199a000-0000-7000-8000-000000000001",
+        until: "2031-12-31",
+        why: {
+          pl: "Dane kupującego zostają w zamówieniu z wpłatą: to zapis sprzedaży firmy.",
+          en: "The buyer's details stay on an order that was paid for.",
+        },
+      },
+    ],
+  });
+  api.anonymizeCustomer.mockResolvedValue({
+    id: "0199a000-0000-7000-8000-0000000000c1",
+    anonymized_at: "2026-10-04T10:00:00Z",
+  });
+
+  // Whoever may not anonymise is offered nothing.
+  const reader = wrap(<OrderPanel orderId="o-1" />);
+  await screen.findByRole("heading", { name: "Zamówienie R/2026/0001" });
+  expect(
+    screen.queryByRole("button", { name: "Usuń dane klienta…" }),
+  ).toBeNull();
+  reader.unmount();
+
+  wrap(<OrderPanel canAnonymize orderId="o-1" />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Usuń dane klienta…" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Usunąć dane klienta Anna Kowalska?",
+  });
+  expect(api.previewCustomerAnonymization).toHaveBeenCalledWith(
+    "0199a000-0000-7000-8000-0000000000c1",
+  );
+  expect(within(dialog).getByText(/Tego nie da się cofnąć/)).toBeTruthy();
+  // What stays is the server's: the order, the day and the reason.
+  expect(
+    await within(dialog).findByText(
+      "Zamówienie R/2026/0001: dane kupującego do 31 gru 2031",
+    ),
+  ).toBeTruthy();
+  expect(within(dialog).getByText(/to zapis sprzedaży firmy/)).toBeTruthy();
+  expect(await axe.run(dialog)).toMatchObject({ violations: [] });
+
+  api.readOrder.mockResolvedValue(
+    order({
+      status: "paid",
+      paid_minor: 20000,
+      customer_anonymized_at: "2026-10-04T10:00:00Z",
+      buyer_kept_until: "2031-12-31",
+    }),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Usuń dane klienta" }),
+  );
+  await waitFor(() =>
+    expect(api.anonymizeCustomer).toHaveBeenCalledWith(
+      "0199a000-0000-7000-8000-0000000000c1",
+    ),
+  );
+  // The page reads the order again: the sales record still names its buyer
+  // and says until when; nothing more can be removed by hand.
+  expect(
+    await screen.findByText(
+      /Dane kupującego zostają w tym zamówieniu do 31 gru 2031/,
+    ),
+  ).toBeTruthy();
+  expect(screen.getByText("Dane klienta usunięte.")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Usuń dane klienta…" }),
+  ).toBeNull();
+});
+
+test("a customer with no paid order leaves nothing, and a removed buyer says when — in English too", async () => {
+  api.readOrder.mockResolvedValue(order());
+  api.previewCustomerAnonymization.mockResolvedValue({
+    id: "0199a000-0000-7000-8000-0000000000c1",
+    anonymized_at: null,
+    kept: [],
+  });
+  const first = wrap(<OrderPanel canAnonymize orderId="o-1" />, "en");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Remove the customer's data…" }),
+  );
+  expect(
+    await screen.findByText(/None of this customer's orders was paid for/),
+  ).toBeTruthy();
+  first.unmount();
+
+  api.readOrder.mockResolvedValue(
+    order({
+      buyer_name: "Zanonimizowany klient",
+      buyer_email: "",
+      buyer_phone: "",
+      customer_anonymized_at: "2026-10-04T10:00:00Z",
+    }),
+  );
+  wrap(<OrderPanel canAnonymize orderId="o-1" />, "en");
+  expect(
+    await screen.findByText("The customer's data was removed on Oct 4, 2026."),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Remove the customer's data…" }),
+  ).toBeNull();
+});
+
+test("a preview that fails keeps the removal closed", async () => {
+  api.readOrder.mockResolvedValue(order());
+  api.previewCustomerAnonymization.mockRejectedValue(new Error("offline"));
+  wrap(<OrderPanel canAnonymize orderId="o-1" />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Usuń dane klienta…" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    await within(dialog).findByText(/Nie udało się sprawdzić, co zostaje/),
+  ).toBeTruthy();
+  const confirm = within(dialog).getByRole("button", {
+    name: "Usuń dane klienta",
+  }) as HTMLButtonElement;
+  expect(confirm.disabled).toBe(true);
+  expect(api.anonymizeCustomer).not.toHaveBeenCalled();
 });

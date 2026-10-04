@@ -68,6 +68,7 @@ from .views import (
     BookingSlotDaysView,
     BookingSlotsView,
     BookingSlotTimesView,
+    CustomerAnonymizePreviewView,
     CustomerAnonymizeView,
     PerformanceView,
     PublicBookingCatalogView,
@@ -405,6 +406,11 @@ urlpatterns = [
         "customers/<uuid:customer_id>/anonymize/",
         CustomerAnonymizeView.as_view(),
         name="customer-anonymize",
+    ),
+    path(
+        "customers/<uuid:customer_id>/anonymize/preview/",
+        CustomerAnonymizePreviewView.as_view(),
+        name="customer-anonymize-preview",
     ),
     path("public/<slug:public_slug>/", PublicBookingCatalogView.as_view(), name="public-catalog"),
     path(

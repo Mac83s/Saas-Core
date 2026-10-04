@@ -72,6 +72,7 @@ from .public import (
     shown_to_customer,
 )
 from .quote import QuoteChanged, customer_quote, offered_extras, quote_offer, quote_visit
+from .retention import anonymization_preview
 from .rules import (
     copy_closures_to_next_year,
     copy_rules_to_next_year,
@@ -110,6 +111,7 @@ from .serializers import (
     CopyYearResultSerializer,
     CrewInputSerializer,
     CustomerAnonymizedSerializer,
+    CustomerAnonymizePreviewSerializer,
     DateListSerializer,
     GroupInputSerializer,
     GroupSetupPreviewSerializer,
@@ -1222,6 +1224,29 @@ class CustomerAnonymizeView(AppointmentCancelView):
         del request
         customer = anonymize_customer(customer_id)
         return Response({"id": customer.id, "anonymized_at": customer.anonymized_at})
+
+
+class CustomerAnonymizePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_customer_anonymize_preview",
+        summary="What anonymising a customer would leave",
+        tags=["booking"],
+        description="Read before `POST …/anonymize/`, which cannot be undone. Anonymising "
+        "removes the customer's name, e-mail and phone, their notes on visits, the street "
+        "of a visit at theirs, their links and the stored copies of mails sent to them. "
+        "`kept` lists what stays for a time and why: the buyer on an order that was paid "
+        "for is the company's sales record and stays until its statutory period ends, "
+        "then the nightly privacy run removes it.",
+        responses={
+            200: CustomerAnonymizePreviewSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, customer_id: UUID) -> Response:
+        return Response(anonymization_preview(customer_id))
 
 
 def _localize(payload: dict[str, Any], value: dict[str, list[Any]], locale: str) -> None:

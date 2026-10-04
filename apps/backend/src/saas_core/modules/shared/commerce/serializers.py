@@ -196,6 +196,19 @@ class OrderRefundSerializer(serializers.Serializer[dict[str, Any]]):
 
 class OrderSerializer(OrderSummarySerializer):
     customer_id = serializers.UUIDField()
+    customer_anonymized_at = serializers.DateTimeField(
+        allow_null=True,
+        help_text="When the order's customer was anonymised — by a person or by the "
+        "company's retention setting; null while the customer is still named.",
+    )
+    buyer_kept_until = serializers.DateField(
+        allow_null=True,
+        help_text="For an anonymised customer's order that money was taken for: the last "
+        "day it still names its buyer. A paid order is the company's sales record and "
+        "keeps the buyer for 5 full calendar years after the year of its last ledger "
+        "entry, in the company's time zone; the nightly privacy run removes the buyer "
+        "afterwards. Null when the customer is not anonymised or the buyer is already gone.",
+    )
     buyer_email = serializers.CharField(allow_blank=True)
     buyer_phone = serializers.CharField(allow_blank=True)
     amounts = serializers.ChoiceField(

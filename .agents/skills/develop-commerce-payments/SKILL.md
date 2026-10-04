@@ -27,8 +27,10 @@ refunds the company marks by hand (`Refund`, `refunds.py`) and the balance
 due by a transfer (`balance.py`; „Rozstrzygnięcia plastra 4h”). After it came
 the mail about a marked refund, the status `refunded` and the assistant's
 commands for orders and payments (`command_declarations.py`; „Uzupełnienie po
-4h” and ADR-076). Online payments and refunds through an operator come with
-phase 7 — do not put an operator's field anywhere ahead of them.
+4h” and ADR-076). Slice 4i added how long a paid order names its buyer
+(`retention.py`; „Rozstrzygnięcia plastra 4i”). Online payments and refunds
+through an operator come with phase 7 — do not put an operator's field
+anywhere ahead of them.
 
 ## The rules that decide the design
 
@@ -57,6 +59,16 @@ phase 7 — do not put an operator's field anywhere ahead of them.
   it when the customer is anonymised. Any new copy of a customer's data here
   (invoice details, a delivery address) is cleared in the same place and gets
   its row in `docs/architecture/privacy-retention.md`.
+- **An order money was taken for keeps its buyer for a time** (slice 4i):
+  `BUYER_RETENTION_YEARS` full calendar years after the year its ledger was
+  last written to, in the company's time zone — one constant in
+  `retention.py`, never a setting. One question, `held_orders`, decides three
+  things: the company's removal of customers after a time leaves such a buyer
+  alone (the exclusion `customers_held`), taking a customer out by hand leaves
+  the buyer on these orders, and the privacy run's sweep `commerce.buyers`
+  removes it when the period ends. Whoever decides locks the orders first and
+  reads the ledger afterwards — every ledger write locks its order — and a new
+  kind of ledger write must do the same.
 - **The audit never names the buyer** — the history is read by whoever manages
   settings. A number, a source, an amount.
 - **The ledger decides about money.** What was paid is the sum of an order's
@@ -169,6 +181,10 @@ phase 7 — do not put an operator's field anywhere ahead of them.
 - **`django.utils.timezone` is one object.** Patching `timezone.now` through
   commerce's import patches it for the booking under test too; replace the
   `timezone` name in `commerce.orders` instead.
+- **Commerce's clock in a test is `commerce.retention.timezone`.** The period
+  is counted from it; replace that name to stand on the last day of the fifth
+  year. A ledger entry cannot be back-dated — the table is append-only and the
+  later of its two dates counts — so move the clock, not the entry.
 - **The test database does not prove isolation** — read `change-tenant-data`.
   Prove the three tables on a running stack as the application's role.
 

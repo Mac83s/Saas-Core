@@ -6791,6 +6791,96 @@ export async function addCustomerDocumentText(
   return data;
 }
 
+export type MarketingConsent = components["schemas"]["MarketingConsent"];
+export type MarketingConsentPage =
+  components["schemas"]["MarketingConsentPage"];
+
+/** Who agreed to receive the company's offers and promotions — or took the
+ *  consent back — read from the consent journal, newest first (ADR-073 §9). */
+export async function listMarketingConsents(
+  query: {
+    state?: "granted" | "withdrawn";
+    page?: number;
+    pageSize?: number;
+  } = {},
+): Promise<MarketingConsentPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/customers/consents/marketing/",
+    {
+      params: {
+        query: {
+          state: query.state,
+          page: query.page,
+          page_size: query.pageSize,
+        },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Writes down that a customer withdrew their marketing consent: the
+ *  journal's next line. Names the consent the caller saw — a repeat, or a
+ *  customer who agreed again meanwhile, is 409 `consent_changed`. */
+export async function withdrawMarketingConsent(
+  customerId: string,
+  consentId: string,
+): Promise<MarketingConsent> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/customers/consents/marketing/{customer_id}/withdraw/",
+    {
+      params: { path: { customer_id: customerId } },
+      body: { consent_id: consentId },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export type CustomerAnonymizePreview =
+  components["schemas"]["CustomerAnonymizePreview"];
+export type CustomerKept = components["schemas"]["CustomerKept"];
+
+/** What anonymising a customer would leave and until when — the buyer on a
+ *  paid order stays for its statutory period (ADR-073, slice 4i). Read
+ *  before `anonymizeCustomer`, which cannot be undone. */
+export async function previewCustomerAnonymization(
+  customerId: string,
+): Promise<CustomerAnonymizePreview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/customers/{customer_id}/anonymize/preview/",
+    {
+      params: { path: { customer_id: customerId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Takes the person out of a customer's record for good: the name, the
+ *  contact, their notes on visits and the stored copies of mails. */
+export async function anonymizeCustomer(
+  customerId: string,
+): Promise<components["schemas"]["CustomerAnonymized"]> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/customers/{customer_id}/anonymize/",
+    {
+      params: { path: { customer_id: customerId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type OrderSummary = components["schemas"]["OrderSummary"];
 export type OrderPage = components["schemas"]["OrderPage"];
 export type Order = components["schemas"]["Order"];

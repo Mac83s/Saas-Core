@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from saas_core.modules.core.organizations.locales import ContentLocaleField
 
+from .consents import MAX_PAGE_SIZE, STATES
 from .documents import DOCUMENT_TEXT_MAX
 from .models import DocumentKind
 
@@ -190,3 +191,56 @@ class PublicCustomerDocumentSerializer(serializers.Serializer[dict[str, Any]]):
     )
     text = serializers.CharField()
     text_hash = serializers.CharField(help_text="sha256 of `text`.")
+
+
+class MarketingConsentQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    state = serializers.ChoiceField(
+        choices=STATES,
+        default="granted",
+        help_text="`granted` — customers whose consent stands; `withdrawn` — who took it back.",
+    )
+    page = serializers.IntegerField(min_value=1, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=MAX_PAGE_SIZE, default=25)
+
+
+class MarketingConsentSerializer(serializers.Serializer[dict[str, Any]]):
+    customer_id = serializers.UUIDField()
+    name = serializers.CharField(help_text="The customer's name.")
+    email = serializers.CharField(allow_blank=True)
+    phone = serializers.CharField(allow_blank=True)
+    granted = serializers.BooleanField(
+        help_text="Where the customer stands now: their latest journal line."
+    )
+    consent_id = serializers.UUIDField(
+        help_text="The journal line of the consent shown — the latest one the customer gave. "
+        "A withdrawal names it."
+    )
+    consented_at = serializers.DateTimeField(help_text="When they agreed.")
+    source = serializers.CharField(  # type: ignore[assignment]
+        help_text="On which form: `booking.appointment` — while booking."
+    )
+    source_reference = serializers.CharField(help_text="That form's record: the booking's id.")
+    locale = serializers.CharField(allow_blank=True, help_text="The language of the form.")
+    wording = serializers.CharField(
+        allow_blank=True,
+        help_text="The sentence they agreed to. The journal keeps its hash; empty when no "
+        "sentence known today gives that hash — the company was renamed since, or the "
+        "sentence was changed.",
+    )
+    withdrawn_at = serializers.DateTimeField(
+        allow_null=True, help_text="When the withdrawal was written down; null while it stands."
+    )
+
+
+class MarketingConsentPageSerializer(serializers.Serializer[dict[str, Any]]):
+    total = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    items = MarketingConsentSerializer(many=True)
+
+
+class MarketingConsentWithdrawInputSerializer(serializers.Serializer[dict[str, Any]]):
+    consent_id = serializers.UUIDField(
+        help_text="`consent_id` of the row the caller saw. When it is no longer the "
+        "customer's latest journal line the answer is 409 `consent_changed`."
+    )

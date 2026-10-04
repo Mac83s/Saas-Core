@@ -61,7 +61,8 @@ class TranslationSettingsSerializer(serializers.Serializer[dict[str, Any]]):
     automation = SettingsAutomationSerializer()
     processing_acknowledged = serializers.BooleanField(
         help_text="The company confirmed that content goes to OpenRouter and model providers "
-        "outside the EEA."
+        "outside the EEA — today the model Claude Sonnet 5.5 by Anthropic, the processor "
+        "the platform's privacy documents name."
     )
     processing_ack_at = serializers.DateTimeField(allow_null=True)
 
@@ -94,7 +95,7 @@ class TranslationSettingsUpdateSerializer(serializers.Serializer[dict[str, Any]]
         required=False,
         allow_null=True,
         help_text="Confirm once that content goes to OpenRouter and model providers outside "
-        "the EEA. Only true is accepted.",
+        "the EEA — today the model Claude Sonnet 5.5 by Anthropic. Only true is accepted.",
     )
     reset = serializers.ListField(
         child=serializers.ChoiceField(choices=[d.key for d in COMPANY_SETTINGS]),

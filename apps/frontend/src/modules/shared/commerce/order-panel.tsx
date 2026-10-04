@@ -18,6 +18,7 @@ import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
 import { formatMoney } from "#lib/money";
+import { OrderBuyerPrivacy } from "./order-buyer";
 import { isClosed, OrderPayments } from "./order-payments";
 import { OrderRefunds } from "./order-refunds";
 import { STATUS_TONE } from "./orders-panel";
@@ -42,9 +43,12 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
  * — the lines, the tax, the totals and what is left to pay are the server's.
  */
 export function OrderPanel({
+  canAnonymize = false,
   canManagePayments = false,
   orderId,
 }: {
+  /** May remove a customer's personal data (`booking.appointment.manage`). */
+  canAnonymize?: boolean;
   /** May mark and take back payments (`commerce.payments.manage`). */
   canManagePayments?: boolean;
   orderId: string;
@@ -342,6 +346,14 @@ export function OrderPanel({
                     )}
                   </Fact>
                 </dl>
+                <OrderBuyerPrivacy
+                  canAnonymize={canAnonymize}
+                  onAnonymized={(text) => {
+                    setNotice(text);
+                    setAttempt((value) => value + 1);
+                  }}
+                  order={order}
+                />
               </section>
             </div>
           ) : null}

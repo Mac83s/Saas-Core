@@ -1,4 +1,5 @@
 from typing import Any, cast
+from uuid import UUID
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -12,6 +13,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .consents import list_marketing_consents, withdraw_marketing_consent
 from .documents import (
     add_text,
     approve_draft,
@@ -30,6 +32,10 @@ from .serializers import (
     CustomerDocumentListSerializer,
     CustomerDocumentSerializer,
     CustomerDocumentTextInputSerializer,
+    MarketingConsentPageSerializer,
+    MarketingConsentQuerySerializer,
+    MarketingConsentSerializer,
+    MarketingConsentWithdrawInputSerializer,
     PublicCustomerDocumentSerializer,
 )
 
@@ -231,3 +237,59 @@ class PublicDocumentView(APIView):
         if document is None:
             raise NotFound("Dokument nie istnieje.")
         return Response(document)
+
+
+class MarketingConsentListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="customers_marketing_consents_list",
+        summary="Who agreed to receive offers and promotions",
+        description="The customers whose marketing consent stands (`state=granted`) or who "
+        "took it back (`state=withdrawn`), newest first, a page at a time — read from the "
+        "consent journal: when, on which form, in which language and to which sentence. "
+        "A customer whose data was removed is not listed.",
+        tags=_TAGS,
+        parameters=[MarketingConsentQuerySerializer],
+        responses={
+            200: MarketingConsentPageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = MarketingConsentQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        return Response(list_marketing_consents(**cast(dict[str, Any], query.validated_data)))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MarketingConsentWithdrawView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="customers_marketing_consent_withdraw",
+        summary="Write down that a customer withdrew their marketing consent",
+        description="Appends the withdrawal to the consent journal — nothing in the journal "
+        "is ever changed — and answers with where the customer stands. Names the consent "
+        "the caller saw: a repeat, or a customer who agreed again meanwhile, is 409 "
+        "`consent_changed` and writes nothing. The history says who wrote it down.",
+        tags=_TAGS,
+        request=MarketingConsentWithdrawInputSerializer,
+        responses={
+            200: MarketingConsentSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+        extensions=_VERSION_LOCKED,
+    )
+    def post(self, request: Request, customer_id: UUID) -> Response:
+        serializer = MarketingConsentWithdrawInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            withdraw_marketing_consent(
+                customer_id, **cast(dict[str, Any], serializer.validated_data)
+            )
+        )

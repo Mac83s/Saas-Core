@@ -155,8 +155,10 @@
       "run": "{kind} · okres: {period} · usunięto: {count}",
       "months": "{count, plural, one {# miesiąc} few {# miesiące} many {# miesięcy} other {# miesiąca}}",
       "days": "{count, plural, one {# dzień} few {# dni} many {# dni} other {# dnia}}",
+      "years": "{count, plural, one {# rok} few {# lata} many {# lat} other {# roku}}",
       "kinds": {
         "booking_customers": "Dane klientów",
+        "commerce_buyers": "Dane kupujących w zamówieniach z wpłatą",
         "sites_inquiries": "Zapytania ze strony",
         "assistant_conversations": "Rozmowy z asystentem",
         "assistant_profile_versions": "Wcześniejsze wersje notatek o firmie"
@@ -355,6 +357,7 @@
       "customers_document_draft_saved": "Zapisano szkic dokumentu dla klientów",
       "customers_document_approved": "Zatwierdzono dokument dla klientów",
       "customers_document_text_added": "Dodano tekst dokumentu dla klientów",
+      "customers_consent_withdrawn": "Odnotowano wycofanie zgody marketingowej",
       "commerce_order_placed": "Złożono zamówienie",
       "commerce_order_repriced": "Zmieniono kwotę zamówienia",
       "commerce_order_canceled": "Anulowano zamówienie",
@@ -529,6 +532,7 @@
     "sectionServices": "Usługi i grafik",
     "sectionBookings": "Rezerwacje",
     "sectionDocuments": "Dokumenty dla klientów",
+    "sectionConsents": "Zgody marketingowe",
     "canceled": "Plan anulowany",
     "theme": "Motyw",
     "themeLight": "Jasny motyw",
@@ -5107,7 +5111,7 @@
     "writing": "Asystent pisze…",
     "you": "Ty",
     "assistant": "Asystent",
-    "notice": "Asystent korzysta z zewnętrznego modelu AI — nie wpisuj tu danych, których nie chcesz mu przekazać. {credits, plural, =0 {Odpowiedź nie zużywa kredytów.} one {Każda odpowiedź to # kredyt.} few {Każda odpowiedź to # kredyty.} other {Każda odpowiedź to # kredytów.}}",
+    "notice": "Asystent korzysta z zewnętrznego modelu AI (Claude Sonnet 5.5 firmy Anthropic, przez OpenRouter, poza Europejskim Obszarem Gospodarczym) — nie wpisuj tu danych, których nie chcesz mu przekazać. {credits, plural, =0 {Odpowiedź nie zużywa kredytów.} one {Każda odpowiedź to # kredyt.} few {Każda odpowiedź to # kredyty.} other {Każda odpowiedź to # kredytów.}}",
     "enterHint": "Enter wysyła, Shift+Enter dodaje nową linię.",
     "status_done": "Wykonano",
     "status_pending": "Czeka na zgodę",
@@ -5153,7 +5157,7 @@
     "setupSpent": "Bezpłatne wiadomości na ustawianie firmy są już wykorzystane. Resztę ustawisz w panelu.",
     "setupBadge": "Ustawianie firmy",
     "setupFree": "Ta rozmowa jest bezpłatna.",
-    "noticeSetup": "Asystent korzysta z zewnętrznego modelu AI — nie wpisuj tu danych, których nie chcesz mu przekazać. Ta rozmowa nie zużywa kredytów.",
+    "noticeSetup": "Asystent korzysta z zewnętrznego modelu AI (Claude Sonnet 5.5 firmy Anthropic, przez OpenRouter, poza Europejskim Obszarem Gospodarczym) — nie wpisuj tu danych, których nie chcesz mu przekazać. Ta rozmowa nie zużywa kredytów.",
     "setupBudget": "Limit bezpłatnych wiadomości na ustawianie firmy jest wykorzystany. To, co ustalone, zostaje w notatkach o firmie. Resztę ustawisz w panelu: Wizytówka, Zespół, Ustawienia › Usługi i grafik.",
     "setupDailyBudget": "Dzisiejszy limit bezpłatnych wiadomości na ustawianie firmy jest wykorzystany. To, co ustalone, zostaje w notatkach o firmie. Wróć jutro albo ustaw resztę w panelu: Wizytówka, Zespół, Ustawienia › Usługi i grafik.",
     "profileTitle": "Notatki o firmie — co już wiadomo i czego brakuje",
@@ -5650,7 +5654,7 @@
     },
     "unavailable": {
       "line": "Automatyczne tłumaczenie nie jest teraz dostępne: {reason}. Możesz przetłumaczyć ręcznie.",
-      "processor_not_listed": "platforma nie wybrała jeszcze dostawcy tłumaczeń",
+      "processor_not_listed": "operator platformy nie włączył jeszcze tłumaczeń AI",
       "model_not_selected": "platforma nie wybrała jeszcze modelu tłumaczeń",
       "operation_unpriced": "platforma nie ustaliła jeszcze ceny tłumaczeń",
       "worker_unavailable": "usługa tłumaczeń chwilowo nie odpowiada",
@@ -5730,7 +5734,7 @@
       "lock": {
         "operator_forced_review": "Teraz każde tłumaczenie czeka na akceptację — tak zdecydował operator platformy.",
         "kill_switch": "Tłumaczenia AI są teraz wyłączone na całej platformie.",
-        "processor_not_listed": "Tłumaczenia AI są wyłączone, dopóki platforma nie wybierze dostawcy tłumaczeń.",
+        "processor_not_listed": "Tłumaczenia AI są wyłączone, dopóki operator platformy ich nie włączy.",
         "organization_paused": "Operator platformy wstrzymał tłumaczenia AI dla tej firmy.",
         "other": "Tę wartość ustala teraz operator platformy."
       },
@@ -5758,10 +5762,10 @@
       "processing": {
         "title": "Przetwarzanie treści przez dostawców AI",
         "why": "Zanim zlecisz pierwsze tłumaczenie, potwierdź raz, że wiesz, dokąd trafia treść. Bez tego tłumaczenia AI nie ruszą.",
-        "statement": "Potwierdzam, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym.",
+        "statement": "Potwierdzam, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym — obecnie do modelu Claude Sonnet 5.5 firmy Anthropic.",
         "confirm": "Potwierdź",
         "saved": "Potwierdzenie zapisane. Możesz zlecać tłumaczenia AI.",
-        "done": "Firma potwierdziła {date}, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym."
+        "done": "Firma potwierdziła {date}, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym. Obecnie tłumaczy model Claude Sonnet 5.5 firmy Anthropic."
       },
       "consentDialog": {
         "title": "Włączyć automatyczne tłumaczenie zmian?",
@@ -6320,6 +6324,41 @@
     "otherLanguage": "Ten dokument nie ma jeszcze tekstu w wybranym języku. Czytasz wersję w języku: {language}.",
     "readIn": "Czytaj w języku"
   },
+  "MarketingConsents": {
+    "title": "Zgody marketingowe",
+    "description": "Klienci, którzy zgodzili się otrzymywać oferty i promocje firmy. Lista pochodzi z dziennika zgód: kiedy, w którym formularzu i na jaką treść klient się zgodził. Niczego tu nie edytujesz — wycofanie zgody zapisujemy jako kolejny wpis dziennika.",
+    "noAccess": "Listę zgód widzą osoby, które zarządzają firmą.",
+    "caption": "Zgody marketingowe klientów",
+    "colCustomer": "Klient",
+    "colWhen": "Kiedy i gdzie",
+    "colWording": "Treść zgody",
+    "colState": "Stan",
+    "colActions": "Działania",
+    "actionsFor": "Działania: {name}",
+    "filterState": "Stan zgody",
+    "states": {
+      "granted": "Zgoda aktualna",
+      "withdrawn": "Zgoda wycofana"
+    },
+    "sources": {
+      "booking_appointment": "Formularz rezerwacji",
+      "sites_inquiry": "Formularz kontaktowy",
+      "customers_panel": "Panel firmy"
+    },
+    "wordingUnknown": "Treści z dnia zgody nie da się już odtworzyć — firma zmieniła nazwę albo zmieniło się zdanie zgody. Data i formularz są pewne.",
+    "empty": "Nikt jeszcze nie wyraził zgody. Lista wypełni się, gdy klienci zaznaczą zgodę na oferty i promocje w formularzu rezerwacji.",
+    "emptyWithdrawn": "Nikt nie wycofał zgody.",
+    "removedNote": "Klientów, których dane usunięto, nie ma na liście — nie ma już do kogo pisać. Ich wpisy w dzienniku zgód zostają.",
+    "withdraw": "Odnotuj wycofanie",
+    "withdrawTitle": "Odnotować, że {name} wycofuje zgodę?",
+    "withdrawHint": "Zapiszemy w dzienniku zgód, że klient nie chce już otrzymywać ofert i promocji — z dzisiejszą datą; w historii zmian będzie widać, kto to odnotował. Wpisu nie da się usunąć. Wcześniejsza zgoda zostaje w dzienniku jako dowód, a klient może zgodzić się ponownie przy kolejnej rezerwacji.",
+    "withdrawConfirm": "Odnotuj wycofanie",
+    "withdrawn": "Odnotowano: {name} nie chce już otrzymywać ofert i promocji.",
+    "changed": "Ta zgoda zmieniła się w międzyczasie — lista pokazuje stan aktualny.",
+    "withdrawFailed": "Nie udało się zapisać wycofania. Spróbuj ponownie.",
+    "loadError": "Nie udało się wczytać listy zgód.",
+    "retry": "Spróbuj ponownie"
+  },
   "Orders": {
     "title": "Zamówienia",
     "description": "Każda rezerwacja z ceną ma zamówienie z numerem: kto kupił, co i za ile.",
@@ -6382,6 +6421,20 @@
     "email": "E-mail",
     "phone": "Telefon",
     "notGiven": "nie podano",
+    "anonymize": "Usuń dane klienta…",
+    "anonymizeTitle": "Usunąć dane klienta {name}?",
+    "anonymizeGoes": "Tego nie da się cofnąć. Znikną: imię i nazwisko, e-mail i telefon klienta, jego uwagi do wizyt, adres wizyty u klienta oraz zapisane kopie wiadomości do niego; link klienta do zarządzania rezerwacją przestanie działać. Dotyczy to wszystkich wizyt i zamówień tego klienta.",
+    "anonymizeStays": "Zostają terminy, usługi, numery zamówień, pozycje i kwoty — bez danych osoby — oraz e-maile, które klient już dostał.",
+    "anonymizeChecking": "Sprawdzam, co musi zostać…",
+    "anonymizeKeptTitle": "Co jeszcze zostaje i do kiedy",
+    "anonymizeKeptOrder": "Zamówienie {number}: dane kupującego do {until}",
+    "anonymizeKeptNothing": "Żadne zamówienie tego klienta nie ma wpłaty, więc w zamówieniach nie zostaje nic, co wskazuje tę osobę.",
+    "anonymizeConfirm": "Usuń dane klienta",
+    "anonymizePreviewFailed": "Nie udało się sprawdzić, co zostaje. Zamknij okno i spróbuj ponownie.",
+    "anonymizeFailed": "Nie udało się usunąć danych klienta. Spróbuj ponownie.",
+    "anonymized": "Dane klienta usunięte.",
+    "buyerKept": "Dane klienta usunięto {date}. Dane kupującego zostają w tym zamówieniu do {until}: zamówienie z wpłatą jest zapisem sprzedaży firmy. Po tym dniu system usunie je sam.",
+    "buyerRemoved": "Dane klienta usunięto {date}.",
     "lines": "Pozycje",
     "linesCaption": "Pozycje zamówienia",
     "colLine": "Pozycja",

@@ -290,6 +290,12 @@ export const PANEL_SECTIONS = {
       module: "shared.customers",
       permission: "customers.read",
     },
+    {
+      href: "/panel/settings/consents",
+      labelKey: "sectionConsents",
+      module: "shared.customers",
+      permission: "customers.read",
+    },
     // The product's own settings (ProductSettingsSection) stand with the
     // company's, before the technical page (UX-002).
     ...(product.settingsSections ?? []),

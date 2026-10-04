@@ -303,7 +303,7 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 | --- | --- | --- |
 | `MODEL_PORT_OPENROUTER_API_KEY_FILE` | sekret, jeden klucz na wdrożenie; tylko `backend` i `worker-ai` | pusty = nieskonfigurowany |
 | `MODEL_PORT_OPENROUTER_BASE_URL` | adres API | `https://openrouter.ai/api/v1` |
-| `MODEL_PORT_PROCESSOR_LISTED` | OpenRouter w polityce prywatności i umowie powierzenia; na VPS tylko przez `memex ops` | `false` |
+| `MODEL_PORT_PROCESSOR_LISTED` | OpenRouter z modelem Claude Sonnet 5.5 (Anthropic) jest w polityce prywatności i umowie powierzenia — wpis niżej, „Podmiot przetwarzający”; na VPS tylko przez `memex ops`, decyzją właściciela | `false` |
 | `MODEL_PORT_TASK_<ZADANIE>_<POLE>` | nadpisanie pola zadania | wartości z kodu |
 | `MODEL_PORT_BUDGET_*` | nadpisanie sufitów i budżetów | tabela wyżej |
 | `MODEL_PORT_WEB_CALLS_PER_PROCESS` | limiter wywołań z żądań HTTP | 1 |
@@ -312,6 +312,55 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 
 Od fazy 1 planu ustawień wartości bez sekretów przechodzą do rejestru ustawień z
 historią (wpisem `memex ops` z `platform_setting`).
+
+## Podmiot przetwarzający
+
+Decyzja właściciela z 04.10.2026 (odpowiedź 10): treść firm przetwarza **OpenRouter z
+modelem Claude Sonnet 5.5 firmy Anthropic**. To jest wpis do dokumentów prywatności
+platformy — polityki prywatności i umowy powierzenia (lista dalszych
+przetwarzających) — i jedyne miejsce w repozytorium, które go definiuje. Publiczne
+strony tych dokumentów jeszcze nie istnieją (lista robocza regulaminu:
+`memex-vault/desk/regulamin-i-pytania-prawne.md`, sekcja 1); gdy powstaną, przenoszą
+ten wpis bez zmian.
+
+| | |
+| --- | --- |
+| Kto | OpenRouter, Inc. (USA) — pośrednik, do którego platforma wysyła żądanie; Anthropic, PBC (USA) — dostawca modelu `anthropic/claude-sonnet-5.5`, który je wykonuje |
+| Co | tekst zlecony do tłumaczenia (`translation.text`: treść stron firmy, wizytówki, katalogu ofert i dokumentów dla klientów; klasy `public` i `public_personal`) oraz rozmowa z asystentem (`assistant.conversation`, `assistant.extract_profile`: to, co osoba z firmy wpisała, i to, co oddały polecenia asystenta; klasa `personal`) |
+| Czego nigdy | treści klasy `health`; danych klientów firmy w wyniku polecenia asystenta bez audytowanego odczytu (ADR-076 §1 — kupujący zamówienia nie trafia do modelu); tożsamości osoby, która pisze — pole `user` to skrót HMAC. To, co osoba sama wpisze w rozmowę, wychodzi tak, jak zostało wpisane — dlatego asystent mówi o tym nad polem rozmowy |
+| Gdzie | poza Europejskim Obszarem Gospodarczym (USA). Podstawa przekazania i treść klauzul — do potwierdzenia przez prawnika (lista prawna), zanim wpis trafi do opublikowanego dokumentu |
+| Jak | każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters`; klasa `personal` wychodzi wyłącznie do hostów z zerową retencją (`zdr`); firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
+| Od kiedy | od chwili, gdy operator ustawi `MODEL_PORT_PROCESSOR_LISTED=true` na danym wdrożeniu. Do tego czasu treść firmy nie wychodzi (`processor_not_listed`) |
+
+Gdzie ten wpis jest powtórzony słowami dla ludzi — zmiana modelu albo pośrednika
+zmienia wszystkie naraz, **najpierw dokumenty, potem konfigurację**:
+
+- panel, Języki i tłumaczenia: `Translation…processing.statement` i `.done`
+  (`apps/frontend/messages/pl.json`, `en.json`) oraz opis pól `processing_acknowledged`
+  w `translation/serializers.py`;
+- panel, asystent: `notice` i `noticeSetup` (te same pliki);
+- ustawienie platformy „Model tłumaczeń” (`model_port/settings_spec.py`) — pomoc mówi,
+  że inny model wymaga najpierw zmiany dokumentów;
+- stała `LISTED_PROCESSOR` w `model_port/matrix.py` i test, że zadania wysyłające treść
+  firm mają domyślnie właśnie ten model (`tests/test_model_port.py`).
+
+Czego wpis nie obejmuje i co lista przetwarzających musi nazwać osobno tam, gdzie te
+funkcje są włączone: generator obrazów (OpenAI Image API, ADR-059 — opis obrazu) i
+wyszukiwarka katalogu (osadzenia przez OpenRouter, model `qwen/qwen3-embedding-8b`,
+ADR-064 — publiczny tekst wizytówki i wpisane zapytanie). Operator może dziś wskazać
+zadaniu inny model z macierzy (`model_port.tasks.translation_text`,
+`MODEL_PORT_TASK_…_MODEL`); kod tego nie blokuje, więc zmiana na model innego dostawcy
+(np. Gemini — Google) bez wcześniejszej zmiany dokumentów czyni ten wpis nieprawdziwym.
+Wiersze DeepSeek w macierzy służą wyłącznie evalom.
+
+**Niczego ten wpis nie włącza.** Włączenie tłumaczeń i asystenta dla firm na VPS to
+osobny krok właściciela przy wdrożeniu: jego klucz OpenRouter
+(`MODEL_PORT_OPENROUTER_API_KEY_FILE`), kontener `worker-ai` (profil compose `ai`) i
+flaga `MODEL_PORT_PROCESSOR_LISTED=true` w `.env` stosu — jedna pozycja w `memex ops`,
+oznaczona jako jego decyzja. `compose.yaml` przekazuje flagę z `.env` do kontenerów
+(domyślnie `false`); zmieniona wartość wymaga ponownego utworzenia kontenerów
+(`docker compose up -d`), sam `restart` jej nie wczyta. Asystent na VPS wymaga ponadto
+modułu `shared.assistant` w profilu `vps-dev` (dziś go tam nie ma).
 
 ## Atrapa
 

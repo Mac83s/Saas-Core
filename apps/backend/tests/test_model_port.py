@@ -39,7 +39,12 @@ from saas_core.modules.shared.model_port.api import (
     complete,
     task_status,
 )
-from saas_core.modules.shared.model_port.matrix import MODELS, ModelProfile, register_model
+from saas_core.modules.shared.model_port.matrix import (
+    LISTED_PROCESSOR,
+    MODELS,
+    ModelProfile,
+    register_model,
+)
 from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
 from saas_core.modules.shared.model_port.registry import task_spec
 from saas_core.modules.shared.model_port.service import web_request
@@ -290,6 +295,17 @@ def test_a_conversation_without_its_conversation_id_cannot_skip_its_budget() -> 
         complete(request)
 
     assert error.value.code == "context_missing"
+
+
+def test_the_tasks_that_send_a_companys_content_use_the_processor_the_documents_name() -> None:
+    """The privacy documents name one processor (the owner's answer of 04.10):
+    a task's default model that is another one would make them untrue. Change
+    the documents, the panel's words and `LISTED_PROCESSOR` together —
+    docs/architecture/model-port.md, „Podmiot przetwarzający”."""
+    assert LISTED_PROCESSOR == ("openrouter", "anthropic/claude-sonnet-5.5")
+    assert MODELS[LISTED_PROCESSOR].probed is not None
+    assert not MODELS[LISTED_PROCESSOR].evaluation_only
+    assert {(spec.adapter, spec.model) for spec in registry.DEFAULT_TASKS} == {LISTED_PROCESSOR}
 
 
 def test_customer_content_waits_for_the_processor_flag_the_publisher_does_not(
