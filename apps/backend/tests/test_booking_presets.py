@@ -239,6 +239,29 @@ def test_a_stay_preset_makes_an_offer_the_team_books_in_the_panel(
     assert not Extra.all_objects.filter(organization=owner.organization).exists()
 
 
+def test_a_presets_prepayment_is_the_companys_own_choice_and_its_terms_come_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A preset that asks for a prepayment starts an offer in a company
+    without orders or a bank account too: the policy stays the company's to
+    choose in „Cennik”, with the preset's percent and days already there."""
+    owner = membership("wzorce-przedplata")
+    lodging = find_preset("core.lodging", 2)
+    monkeypatch.setitem(
+        lodging.raw,
+        "payment",
+        {"policy": "deposit", "depositPercent": 40, "transferDueDays": 5},
+    )
+    with tenant(owner):
+        saved = apply_preset(preset_id="core.lodging", name="Domek", idempotency_key="przedplata")
+    service = saved.value.service
+    assert (service.payment_policy, service.deposit_percent, service.transfer_due_days) == (
+        "none",
+        40,
+        5,
+    )
+
+
 def test_a_visit_at_the_customers_keeps_travel_time_before_it() -> None:
     owner = membership("wzorce-u-klienta")
     with tenant(owner):

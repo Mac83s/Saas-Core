@@ -150,6 +150,13 @@ def _local(value: str | None) -> time | None:
     return time.fromisoformat(value) if value else None
 
 
+#: The policies a preset sets by itself: the ones that ask nothing of the
+#: company's plan or account.
+_PLAIN_POLICIES = (PaymentPolicy.NONE.value, PaymentPolicy.ON_SITE.value)
+#: A preset's terms of a prepayment as the offer's fields.
+_PAYMENT_TERMS = {"deposit_percent": "depositPercent", "transfer_due_days": "transferDueDays"}
+
+
 def apply_preset(
     *,
     preset_id: str,
@@ -176,7 +183,8 @@ def apply_preset(
     preset = find_preset(preset_id, version)
     words = preset.raw.get("vocabulary", {})
     period, buffers = preset.raw.get("range", {}), preset.raw.get("buffers", {})
-    policy = preset.raw.get("payment", {}).get("policy")
+    payment = preset.raw.get("payment", {})
+    policy = payment.get("policy")
     values: dict[str, Any] = {
         "name": name,
         "time_model": preset.time_model,
@@ -187,8 +195,12 @@ def apply_preset(
         "buffer_before_minutes": buffers.get("beforeMinutes", 0),
         "buffer_after_minutes": buffers.get("afterMinutes", 0),
         "staff_count": 0 if preset.booked_staff == "none" else 1,
-        # What orders will bring (a transfer, a prepayment) is not an offer's yet.
-        "payment_policy": policy if policy in PaymentPolicy.values else PaymentPolicy.NONE,
+        # A payment ahead is the company's own choice in „Cennik”: it needs
+        # orders in the plan and, for a transfer, the company's account
+        # (ADR-073 §5), so a preset never fails to start for the lack of them.
+        # Its terms come with the offer, ready for that choice.
+        "payment_policy": policy if policy in _PLAIN_POLICIES else PaymentPolicy.NONE,
+        **{field: payment[key] for field, key in _PAYMENT_TERMS.items() if key in payment},
         # „Rezerwacja przez stronę — wkrótce”: the team books it in the panel.
         "online": preset.online_booking == READY,
         "active": False,

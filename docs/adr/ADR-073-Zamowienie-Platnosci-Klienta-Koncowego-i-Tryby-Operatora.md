@@ -704,6 +704,12 @@ Rozstrzygnięcia plastra 4f-2 (2026-10-04, decyzje techniczne z powodem):
   zamówienia (`orders_required`), a `transfer` — tylko z rachunkiem
   (`transfer_account_missing`); sprawdza to przy zmianie płatności, więc oferta
   ustawiona wcześniej zapisuje pozostałe pola także po utracie cechy.
+- **Preset nie wybiera wpłaty z góry za firmę.** `apply_preset` ustawia z
+  presetu tylko `none` i `on_site`; przy `transfer`, `deposit` i `full` oferta
+  startuje z `none`, a procent i dni z presetu (`depositPercent`,
+  `transferDueDays`) są już wpisane — politykę firma wybiera sama w „Cenniku”,
+  bo wymaga ona zamówień w planie i (przy przelewie) rachunku. Preset nie może
+  nie wystartować z ich braku, także w produkcie bez `shared.commerce`.
 - **Wycena mówi, co się stanie.** Zamrożona wycena niesie `prepayment`
   (`kind`, `amount_minor`, `transfer_due_days`) tylko wtedy, gdy wpłatę da się
   złożyć z góry (cecha `commerce.enabled` i rachunek). Bez tego `deposit` i
