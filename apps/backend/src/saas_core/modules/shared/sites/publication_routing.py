@@ -116,15 +116,10 @@ class PublicPage:
         return f"{settings.PUBLIC_SITE_SCHEME}://{self.canonical_hostname}{self.canonical_path}"
 
 
-def resolve_public_page(*, host: str, path: str) -> PublicPage:
-    try:
-        hostname = normalize_hostname(host, allow_port=True)
-    except InvalidHostname as error:
-        raise PublicSiteNotFound from error
-    normalized_path = _normalize_path(path)
-    # A published entry is reachable even when the site itself has no
-    # publication yet: entries publish independently, so requiring a site
-    # snapshot would make the blog depend on something unrelated to it.
+def _served_domain(hostname: str) -> tuple[Any, frozenset[str]] | None:
+    """The domain a normalized host names, with the languages its company is
+    served in — or None: the platform serves no site there. Verified only (a
+    pending domain is a claim), and only for a company that may be served."""
     domain = (
         Domain.all_objects.select_related("site__current_publication")
         # The snapshot is read once per process (`visible_snapshot`), not with
@@ -135,7 +130,40 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     )
     locales = serving_locales(domain.organization_id) if domain is not None else None
     if domain is None or locales is None:
+        return None
+    return domain, locales
+
+
+def site_host_company(host: str) -> Any | None:
+    """The company whose published site the platform serves at this host — a
+    customer's verified domain or the site's platform subdomain, with a port
+    or without — read exactly as `resolve_public_page` reads a host; None for
+    every other host. The host gate asks it before it lets a site's own
+    browser reads through (`http/hosts.py`): a site with nothing published
+    has no page that would make one."""
+    try:
+        hostname = normalize_hostname(host, allow_port=True)
+    except InvalidHostname:
+        return None
+    served = _served_domain(hostname)
+    if served is None or served[0].site.current_publication_id is None:
+        return None
+    return served[0].organization_id
+
+
+def resolve_public_page(*, host: str, path: str) -> PublicPage:
+    try:
+        hostname = normalize_hostname(host, allow_port=True)
+    except InvalidHostname as error:
+        raise PublicSiteNotFound from error
+    normalized_path = _normalize_path(path)
+    # A published entry is reachable even when the site itself has no
+    # publication yet: entries publish independently, so requiring a site
+    # snapshot would make the blog depend on something unrelated to it.
+    served = _served_domain(hostname)
+    if served is None:
         raise PublicSiteNotFound
+    domain, locales = served
     available = locales | {domain.site.default_locale}
     canonical = Domain.all_objects.filter(
         site_id=domain.site_id,

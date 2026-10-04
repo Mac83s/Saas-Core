@@ -346,27 +346,157 @@ def test_the_sites_host_serves_a_shown_units_picture_in_our_copies(
     assert get(cover.id).status_code == 404
 
 
-def test_the_forms_reads_answer_at_a_sites_host_and_nothing_else_does() -> None:
+def own_domain(host: str, name: str, *, status: str = DomainStatus.VERIFIED) -> str:
+    """A customer's own domain on the site that answers at `host`."""
+    first = Domain.all_objects.get(hostname=host)
+    Domain.all_objects.create(
+        organization_id=first.organization_id,
+        site_id=first.site_id,
+        hostname=name,
+        kind=DomainKind.CUSTOM,
+        status=status,
+        tls_status=DomainTlsStatus.ELIGIBLE,
+        is_canonical=False,
+        verification_name=f"_saas.{name}",
+        verification_token="token",
+        created_by=first.created_by,
+        idempotency_key=name,
+        request_hash="0" * 64,
+    )
+    return name
+
+
+def test_the_forms_reads_answer_at_the_hosts_of_the_companys_published_site() -> None:
     configured = form("bloki-host", priced=False)
-    host = published(configured["owner"], [block("stay_calendar")])
+    subdomain = published(configured["owner"], [block("stay_calendar")])
+    own = own_domain(subdomain, "domki-nad-jeziorem.test")
     client = APIClient()
     first = configured["first"]
     query = {**configured["target"], "from": first.isoformat(), "to": first.isoformat()}
 
-    catalogue = client.get(f"{configured['url']}/", HTTP_HOST=host)
-    starts = client.get(f"{configured['url']}/stays/starts/", query, HTTP_HOST=host)
-    assert (catalogue.status_code, starts.status_code) == (200, 200)
-    assert starts.json()["items"] == [first.isoformat()]
-    # A booking is made on the form, at the platform's host: no write here,
-    # and nothing of the panel.
-    quoted = client.post(
-        f"{configured['url']}/stays/quote/",
-        {**configured["target"], **configured["dates"]},
-        format="json",
-        HTTP_HOST=host,
-    )
-    panel = client.get("/api/v1/booking/setup/", HTTP_HOST=host)
-    assert (quoted.status_code, panel.status_code) == (400, 400)
+    # The site's platform subdomain and the customer's verified domain, with
+    # the port a local stack adds or without one — the hosts the renderer
+    # answers the company's pages at.
+    for host in (subdomain, own, f"{subdomain}:8080"):
+        catalogue = client.get(f"{configured['url']}/", HTTP_HOST=host)
+        starts = client.get(f"{configured['url']}/stays/starts/", query, HTTP_HOST=host)
+        assert (catalogue.status_code, starts.status_code) == (200, 200), host
+        assert starts.json()["items"] == [first.isoformat()]
+        assert client.head(f"{configured['url']}/", HTTP_HOST=host).status_code == 200
+        # A booking is made on the form, at the platform's host: no write
+        # here, and nothing of the panel.
+        quoted = client.post(
+            f"{configured['url']}/stays/quote/",
+            {**configured["target"], **configured["dates"]},
+            format="json",
+            HTTP_HOST=host,
+        )
+        panel = client.get("/api/v1/booking/setup/", HTTP_HOST=host)
+        assert (quoted.status_code, panel.status_code) == (400, 400), host
+
+
+def test_no_other_host_reads_a_companys_form() -> None:
+    configured = form("bloki-obcy", priced=False)
+    host = published(configured["owner"], [block("stay_calendar")])
+    other = form("bloki-sasiad", priced=False)
+    elsewhere = published(other["owner"], [block("stay_calendar")])
+    client = APIClient()
+    missing = "/api/v1/booking/public/nie-ma-takiego"
+
+    def read(url: str, at: str) -> int:
+        return int(client.get(f"{url}/", HTTP_HOST=at).status_code)
+
+    assert read(configured["url"], host) == 200
+    # A host the platform serves nobody's site at — the gate M8 left open.
+    assert read(configured["url"], "nobody.example.test") == 400
+    assert read(configured["url"], "nobody.example.test:8080") == 400
+    # Another company's site reads its own form and never this one: a block
+    # shows its company's offers, so no page asks across companies.
+    assert read(other["url"], elsewhere) == 200
+    assert read(configured["url"], elsewhere) == 400
+    assert read(other["url"], host) == 400
+    # A slug no form has names no company: 404 at the platform's host, and
+    # nothing a site's host is let through for.
+    assert read(missing, "testserver") == 404
+    assert read(missing, host) == 400
+    # A domain somebody only claimed is not the company's until verified.
+    claimed = own_domain(host, "cudza-marka.test", status=DomainStatus.PENDING)
+    assert read(configured["url"], claimed) == 400
+    failed = own_domain(host, "nieudana.test", status=DomainStatus.FAILED)
+    assert read(configured["url"], failed) == 400
+    # A form switched off answers nowhere; at a site's host the gate says so.
+    PublicBookingRoute.objects.filter(public_slug="bloki-sasiad").update(active=False)
+    assert read(other["url"], elsewhere) == 400
+    # A site with nothing published has no page that would ask.
+    site = Domain.all_objects.get(hostname=host).site_id
+    publication = Site.all_objects.get(pk=site).current_publication_id
+    Site.all_objects.filter(pk=site).update(current_publication=None)
+    assert read(configured["url"], host) == 400
+    Site.all_objects.filter(pk=site).update(current_publication=publication)
+    assert read(configured["url"], host) == 200
+    # A company the platform no longer serves has no site either.
+    Organization.objects.filter(pk=configured["owner"].organization_id).update(status="suspended")
+    assert read(configured["url"], host) == 400
+
+
+def test_no_answer_of_the_form_depends_on_the_host_it_was_asked_at(
+    storage: MemoryStorage,
+) -> None:
+    configured = form("bloki-adres")
+    owner: Membership = configured["owner"]
+    cover = picture(owner, storage, "okladka")
+    change(owner, configured["units"][0], public=True, photo_ids=[cover.id])
+    host = published(owner, [block("stay_units")])
+    client = APIClient()
+    first = configured["first"]
+    month = {**configured["target"], "from": first.isoformat(), "to": first.isoformat()}
+    # Every read under the form's address, answered and refused.
+    reads: list[tuple[str, dict[str, str], int]] = [
+        ("/", {}, 200),
+        ("/", {"locale": "en"}, 200),
+        ("/consents/", {}, 200),
+        ("/consents/", {"locale": "pl"}, 200),
+        ("/stays/starts/", month, 200),
+        ("/stays/starts/", {}, 400),
+        ("/stays/ends/", {**configured["target"], "start": first.isoformat()}, 200),
+        ("/stays/ends/", {}, 400),
+        ("/days/", {}, 400),
+        ("/slots/", {}, 400),
+        ("/times/", {}, 400),
+        (f"/photos/{cover.id}/preview/", {}, 200),
+        (f"/photos/{uuid7()}/preview/", {}, 404),
+    ]
+    for path, query, status in reads:
+        at_site = client.get(f"{configured['url']}{path}", query, HTTP_HOST=f"{host}:8443")
+        at_platform = client.get(f"{configured['url']}{path}", query)
+        # The same words at either host, and the visitor's host in none of
+        # them: a link in an answer is the platform's or has no host at all.
+        assert (at_site.status_code, at_platform.status_code) == (status, status), path
+        body, expected = (
+            b"".join(answer) if answer.streaming else answer.content
+            for answer in (at_site, at_platform)
+        )
+        if at_site.status_code >= 400 and "json" in at_site["Content-Type"]:
+            # A refusal names its own request and is otherwise the same.
+            body = body.replace(at_site.json()["correlation_id"].encode(), b"")
+            expected = expected.replace(at_platform.json()["correlation_id"].encode(), b"")
+        assert body == expected, path
+        assert host.encode() not in body, path
+        assert all(host not in value for _name, value in at_site.items()), path
+    assert client.get(f"{configured['url']}/", HTTP_HOST=host).json()["stays"]
+
+
+def test_the_forms_api_never_reads_the_requests_host() -> None:
+    """A link built from `Host` would be the visitor's to choose. Whatever
+    booking answers, it builds its links from settings or without a host."""
+    from pathlib import Path
+
+    from saas_core.modules.shared import booking
+
+    for source in sorted(Path(booking.__file__).parent.rglob("*.py")):
+        text = source.read_text(encoding="utf-8")
+        for needle in ("build_absolute_uri", "get_host(", "HTTP_HOST", "FORWARDED_HOST"):
+            assert needle not in text, f"{source.name}: {needle}"
 
 
 def test_the_blocks_booking_fills_are_registered_block_types() -> None:

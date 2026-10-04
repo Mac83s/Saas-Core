@@ -61,6 +61,19 @@ PAGE_SEGMENT = "stay"
 DESCRIPTION_LENGTH = 160
 
 
+def form_company(address: str) -> UUID | None:
+    """The company a public form's address names — `<slug>/…`, what follows
+    the API's prefix — or None where no form answers. The host gate lets a
+    site's host read its own company's form and nobody else's."""
+    if not settings.PUBLIC_BOOKING_ENABLED:
+        return None
+    return (
+        PublicBookingRoute.objects.filter(public_slug=address.split("/", 1)[0], active=True)
+        .values_list("organization_id", flat=True)
+        .first()
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _Form:
     """What the company's form says now, read once for a page."""

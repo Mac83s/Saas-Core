@@ -936,9 +936,10 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   `…/ends/` z przeglądarki, miesiąc po miesiącu. Bramka hostów
   (`http/hosts.py`) przepuszcza pod hostem spoza listy tylko `GET` i `HEAD`
   na adresach `/api/v1/booking/public/` — odczyty tego, co formularz mówi
-  każdemu; firmę nazywa slug formularza, host o niczym nie decyduje. Zapisy
-  (wycena, rezerwacja) i wszystko z panelu zostają pod hostem platformy:
-  rezerwuje się w formularzu.
+  każdemu — i tylko pod hostem opublikowanej strony tej firmy, którą nazywa
+  slug formularza („Zawężenie bramki hostów” niżej; do 2026-10-04 host o
+  niczym nie decydował). Zapisy (wycena, rezerwacja) i wszystko z panelu
+  zostają pod hostem platformy: rezerwuje się w formularzu.
 - **Formularz przyjmuje wybór z adresu.** `/book/<slug>?offer=…&group=…|unit=…
   &from=…&to=…&people=…` otwiera formularz na ofercie, wyborze, dniach i
   liczbie osób z odnośnika (`stayFormHref` w `@saas-core/site-blocks`). To
@@ -1024,3 +1025,38 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   (`Accommodation`/`Product` w JSON-LD) i obraz do udostępnień — strona ma
   dziś ogólny graf strony; licznik odsłon; strona jednostki w katalogu (5h);
   token pochodzenia (5h); własny adres stron jednostek per firma albo język.
+
+### Zawężenie bramki hostów dla odczytów formularza (2026-10-04)
+
+Plaster 5d otworzył odczyty `/api/v1/booking/public/` pod **każdym** hostem:
+wystarczyło, że żądanie było `GET` albo `HEAD`. Bloki potrzebują mniej, więc
+bramka przepuszcza teraz dokładnie tyle.
+
+- **Host musi być hostem opublikowanej strony.** Bramka pyta witryny
+  (`sites.publication_routing.site_host_company`), tą samą drogą, którą
+  renderer publiczny czyta host (`normalize_hostname` z portem, wspólne
+  `_served_domain`): wiersz `Domain` o tym hoście ze statusem `verified` —
+  domena własna klienta po weryfikacji DNS albo subdomena platformy strony —
+  firma w stanie, w którym platforma ją obsługuje (`onboarding`, `active`),
+  i strona z bieżącą publikacją. Domena `pending` albo `failed` to tylko
+  roszczenie; strona bez publikacji nie ma podstrony, która by pytała.
+- **Host i adres muszą nazywać tę samą firmę.** Slug formularza w adresie
+  wskazuje firmę (`booking.site_blocks.form_company`, aktywna trasa
+  formularza); strona firmy B pytająca o formularz firmy A to dla bramki
+  nieznany host. Blok pokazuje oferty własnej firmy, więc żadna strona nie
+  pyta w poprzek firm.
+- **Wszystko inne to 400 jak dotąd** („Host nie należy do konfiguracji
+  aplikacji”): host, pod którym nie serwujemy niczyjej strony, cudza strona,
+  slug bez formularza, formularz wyłączony, firma zawieszona, każdy zapis i
+  każdy adres spoza prefiksu. Pod hostem z `ALLOWED_HOSTS` nic się nie
+  zmienia — formularz na hoście platformy czyta jak dotąd.
+- **Warstwa HTTP nie zna modułów.** `http/hosts.py` ma dwa punkty
+  rejestracji: witryny mówią, czyj jest host (`register_site_host`),
+  rezerwacje — czyj jest adres (`register_site_reads`). Produkt bez witryn
+  albo bez formularza nie rejestruje nic i wyjątku nie ma.
+- **Żadna odpowiedź pod tym prefiksem nie buduje odnośnika z nagłówka
+  `Host`.** Adresy zdjęć są ścieżkami bez hosta, adres formularza i
+  dokumentów pochodzi z `FRONTEND_BASE_URL`. Pilnują tego dwa testy: każdy
+  odczyt daje pod hostem strony bajt w bajt to samo co pod hostem platformy
+  i nie zawiera hosta gościa, a kod modułu nie sięga po `get_host`,
+  `build_absolute_uri` ani `HTTP_HOST`.

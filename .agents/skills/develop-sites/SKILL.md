@@ -43,7 +43,10 @@ imports the module that answers. A block without an answer is no section on
 the published page; the editor draws a sketch. A source's pictures are served
 at the site's host in our copies only (`served_media_ids`), and what a
 visitor's browser reads afterwards — free days — comes from that module's own
-public API, whose reads the host gate lets through (`http/hosts.py`).
+public API. The host gate (`http/hosts.py`) lets those reads through only at
+a host of that company's published site (`site_host_company` — the renderer's
+own host lookup — and the source's `register_site_reads`); a new browser read
+of a source registers its prefix there, never a wider exception.
 
 A source's record may also have **a page nobody publishes** (slice 5e, a
 unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after

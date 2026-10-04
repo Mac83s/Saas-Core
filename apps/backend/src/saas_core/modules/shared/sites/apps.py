@@ -55,6 +55,14 @@ class SitesConfig(AppConfig):
         register_site_text_source()
         register(check_content_contracts, "sites")
 
+        # Which company's published site a host is: the host gate asks before it
+        # lets a site's page read its own company's form (ADR-072, slice 5d).
+        from saas_core.http.hosts import register_site_host
+
+        from .publication_routing import site_host_company
+
+        register_site_host(site_host_company)
+
         # The site's commands for the assistant (ADR-076, A1b-11).
         from .command_declarations import register_site_commands
 

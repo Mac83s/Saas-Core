@@ -122,6 +122,13 @@ class BookingConfig(AppConfig):
                 site_pages=site_pages,
             )
         )
+        # The site's blocks read free days from the form's API at the site's
+        # host: the gate lets the company's own site through, nobody else's.
+        from saas_core.http.hosts import PUBLIC_BOOKING_PREFIX, register_site_reads
+
+        from .site_blocks import form_company
+
+        register_site_reads(PUBLIC_BOOKING_PREFIX, form_company)
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")
