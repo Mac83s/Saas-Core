@@ -16,7 +16,11 @@ from saas_core.modules.core.organizations.models import (
     WORKING_ORGANIZATION_STATUSES,
     Organization,
 )
-from saas_core.modules.core.organizations.public_sources import live_site_blocks
+from saas_core.modules.core.organizations.public_sources import (
+    SourcePage,
+    live_site_blocks,
+    page_sources,
+)
 from saas_core.modules.shared.media.api import ai_generated_asset_ids
 
 from .ai_badge import badge_visible
@@ -177,7 +181,28 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                         available=available,
                     )
                 except PublicSiteNotFound:
-                    pass
+                    try:
+                        # A record's own page — a unit of the company's
+                        # booking — which nobody publishes either: its source
+                        # answers for it while the record is shown.
+                        page, locale_document, publication = _find_source_page(
+                            organization_id=domain.organization_id,
+                            site=domain.site,
+                            requested_path=normalized_path,
+                            available=available,
+                        )
+                    except PublicSiteNotFound:
+                        pass
+                    else:
+                        return _resolved(
+                            canonical=canonical,
+                            hostname=hostname,
+                            locale_document=locale_document,
+                            page=page,
+                            path=normalized_path,
+                            publication=publication,
+                            available=available,
+                        )
                 else:
                     return _resolved(
                         canonical=canonical,
@@ -324,7 +349,12 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "blocks": blocks,
         # What the blocks that show live records show now, by position — a
         # unit's price or a free day is never in a snapshot (ADR-072, 5d).
-        "live": live_site_blocks(page.organization_id, page.locale, blocks),
+        "live": live_site_blocks(
+            page.organization_id,
+            page.locale,
+            blocks,
+            lambda segment: source_page_base(default_locale, page.locale, segment),
+        ),
         "navigation": navigation,
         "breadcrumbs": breadcrumbs,
         # Present only where they mean something: an index has pages, an
@@ -1315,6 +1345,117 @@ def _find_tag_archive(
         },
         locale_document,
         _IndexPublication(collection=collection, entries=window),
+    )
+
+
+def source_page_base(default_locale: str, locale: str, segment: str) -> str:
+    """Where a source's records have their pages in a language: one segment,
+    the same in every language, under the language's prefix (ADR-074 pkt 7)."""
+    return f"/{segment}/" if locale == default_locale else f"/{locale}/{segment}/"
+
+
+def source_page_versions(
+    default_locale: str,
+    segment: str,
+    slug: str,
+    own_locales: frozenset[str],
+    available: frozenset[str] | None,
+) -> dict[str, str]:
+    """A record's page by language: always in the site's own, and in another
+    one only where the record has words of its own in it and the site is
+    read in it — never the same text under two addresses."""
+    return {
+        code: f"{source_page_base(default_locale, code, segment)}{slug}/"
+        for code in sorted({default_locale, *own_locales})
+        if code == default_locale or available is None or code in available
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class SourcePublication:
+    """Stands in for a `Publication` on a page a source answers for (like
+    `_IndexPublication`): named by the record, hashed by what the page says."""
+
+    organization_id: Any
+    page: SourcePage
+
+    @property
+    def id(self) -> Any:
+        return self.page.key
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        return {}
+
+    @property
+    def snapshot_hash(self) -> str:
+        digest = hashlib.sha256()
+        for part in (self.page.key, self.page.title, self.page.description):
+            digest.update(part.encode())
+        return digest.hexdigest()
+
+
+def _find_source_page(
+    *,
+    organization_id: Any,
+    site: Any,
+    requested_path: str,
+    available: frozenset[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], Any]:
+    """The page a record has by itself on a published site — `/stay/<unit>/`,
+    `/de/stay/<unit>/` — asked of the record's source. A language the record
+    has no words of its own in answers one 308 to the page in the site's own
+    language (ADR-071 pkt 9)."""
+    # „On every published site”: a site nobody published has no such pages.
+    if site.current_publication is None:
+        raise PublicSiteNotFound
+    default_locale = str(site.default_locale)
+    parts = _comparable_path(requested_path).strip("/").split("/")
+    locale = default_locale
+    if len(parts) == 3 and parts[0] != default_locale and len(parts[0]) == 2:
+        if available is not None and parts[0] not in available:
+            raise PublicSiteNotFound
+        locale, parts = parts[0], parts[1:]
+    if len(parts) != 2:
+        raise PublicSiteNotFound
+    segment, slug = parts
+    source = page_sources().get(segment)
+    if source is None or source.site_page is None:
+        raise PublicSiteNotFound
+    found = source.site_page(organization_id, locale, slug)
+    if found is None:
+        raise PublicSiteNotFound
+    versions = source_page_versions(default_locale, segment, slug, found.locales, available)
+    if locale not in versions:
+        raise PublicSiteMoved(versions[default_locale])
+    path = versions[locale]
+    locale_document: dict[str, Any] = {
+        "locale": locale,
+        "translation_id": None,
+        "version": 1,
+        "slug": slug,
+        "path": path,
+        "canonical_path": path,
+        "title": found.title,
+        "description": found.description,
+        "social_title": found.title,
+        "social_description": found.description,
+        "fallback_fields": [],
+    }
+    return (
+        {
+            "page_id": found.key,
+            "key": f"{segment}-{slug}",
+            "blocks": found.blocks,
+            "media_asset_ids": [],
+            "locales": [locale_document],
+            "hreflang": versions,
+            "x_default": versions[default_locale],
+            "noindex": False,
+            "pagination": None,
+        },
+        locale_document,
+        SourcePublication(organization_id=organization_id, page=found),
     )
 
 

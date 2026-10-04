@@ -963,3 +963,64 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   jednostki wygenerowanego przez AI (okno jednostki przyjmuje tylko wgrane
   pliki, API — każdy plik z biblioteki); ukrycie bloków w bibliotece firmy,
   która nie ma ofert okresu.
+
+### Rozstrzygnięcia plastra 5e (strona jednostki)
+
+- **Plaster 5e to strona jednostki i jej karta; blok mapy czeka na decyzję.**
+  Mapa na stronie firmy to osadzony zasób obcego dostawcy (kafelki, klucz,
+  adres IP gościa u dostawcy) — wybór dostawcy i zgoda gościa to decyzja
+  właściciela, nie plastra. Reszta 5e nie zależy od mapy.
+- **Karta jednostki to czwarty blok pobytów.** `core.stay_unit` v1 niesie
+  `unit` — identyfikator jednostki, którą firma pokazuje gościom — i napis
+  przycisku. Odpowiedź `live` daje treść (zdjęcia po identyfikatorze,
+  wyposażenie w języku strony, miejscowość, „od X zł/noc”) i oferty, przez
+  które jednostkę się rezerwuje, każdą z jednym wyborem. Karta rysuje galerię
+  (każde zdjęcie otwiera dużą kopię), opis, całe wyposażenie i kalendarz
+  wolnych dni z przyciskiem do formularza — ten sam komponent co blok
+  kalendarza. Bez odpowiedzi karta nie jest sekcją.
+- **Jednostka z puli mówi nazwą grupy.** Gość rezerwuje grupę, a sztukę
+  dobiera serwer (§3), więc karta jednostki, która reprezentuje grupę, ma
+  nazwę i opis grupy, treść jednostki i wybór `group`; jednostka przypięta do
+  oferty wprost — własną nazwę i wybór `unit`. Kartę i stronę ma ta
+  jednostka, której treść pokazuje formularz: przypięta wprost i publiczna
+  albo pierwsza publiczna w swojej grupie. Druga publiczna sztuka tej samej
+  puli strony nie ma — byłaby tą samą ofertą pod drugim adresem.
+- **Strona jednostki jest systemowa: nikt jej nie publikuje.** Na każdej
+  opublikowanej stronie firmy adres `/stay/<public_slug>/` odpowiada stroną,
+  której jedynym blokiem jest karta tej jednostki z `main` (nazwa jest wtedy
+  nagłówkiem strony). Witryna pyta źródło, gdy żadna opublikowana podstrona,
+  wpis, indeks ani archiwum nie odpowiada pod adresem
+  (`PublicSource.site_page`, `_find_source_page`); strona istnieje, dopóki
+  formularz pokazuje jednostkę, i znika (404) razem z nią. Tytuł to nazwa i
+  miejscowość, opis — początek opisu jednostki. Witryna bez publikacji takich
+  stron nie ma.
+- **Segment `stay` jest jeden dla wszystkich języków i zarezerwowany.** Jak
+  `shop` w ADR-074 pkt 7 (dług adresowy ADR-071 pkt 14): `/stay/<adres>/` w
+  języku strony, `/xx/stay/<adres>/` w innym. Źródło deklaruje segment
+  (`PublicSource.page_segment`), a `first_segment_reserved` odmawia go nowym
+  podstronom i ścieżkom kolekcji (`slug_reserved`); podstrona, która miała
+  taki adres wcześniej, zostaje i wygrywa z systemową, bo opublikowane
+  podstrony odpowiadają pierwsze. Słowo jest angielskie i ogólne: jednostką
+  bywa domek, pokój i kajak, a adres per język wymagałby zamrożenia slugu
+  wersji językowej, której ta strona nie ma.
+- **Inny język tylko tam, gdzie jednostka ma w nim własną nazwę.** Strona
+  jest zawsze w języku źródłowym witryny. W języku L istnieje, gdy L jest
+  dostępny na stronie (ADR-071 pkt 8) i jednostka — albo grupa, którą
+  reprezentuje — ma w L przetłumaczoną nazwę; inaczej `/L/stay/<adres>/`
+  odpowiada 308 do strony w języku źródłowym (ADR-071 pkt 9, jak produkt w
+  ADR-074) i nie ma go w `hreflang` ani w mapie strony. `x-default` to wersja
+  w języku źródłowym. Firma, której języków wdrożenie nie obsługuje, ma
+  stronę jednostki tylko w języku witryny.
+- **Mapa strony wymienia strony jednostek**, każdą z wersjami językowymi i
+  datą zmiany jednostki (`PublicSource.site_pages`). Odsłon strony jednostki
+  licznik nie zapisuje: nie jest podstroną, wpisem ani kolekcją, a
+  czwartego rodzaju wiersz licznika jeszcze nie ma.
+- **Lista jednostek prowadzi do strony.** Wybór w odpowiedzi `live` listy
+  dostaje `page_path` tam, gdzie jednostka ma stronę; karta listy linkuje
+  nim nazwę. Witryna mówi źródłu, gdzie w danym języku leżą jego strony
+  (`page_base` w `site_blocks`), bo adresy są jej. Katalog formularza oddaje
+  `public_slug` także przy grupie — adres jednostki, która za nią mówi.
+- **Poza 5e:** blok mapy (decyzja wyżej); dane strukturalne jednostki
+  (`Accommodation`/`Product` w JSON-LD) i obraz do udostępnień — strona ma
+  dziś ogólny graf strony; licznik odsłon; strona jednostki w katalogu (5h);
+  token pochodzenia (5h); własny adres stron jednostek per firma albo język.

@@ -8,6 +8,7 @@ import type {
   StayLive,
   StayLiveChoice,
   StayLiveOffer,
+  StayUnitV1Data,
 } from "./types";
 
 /** What a link to the company's booking form may say ahead of the guest:
@@ -96,7 +97,15 @@ function unitCard(
     h(
       "div",
       { className: "site-stay-unit__body" },
-      h(heading, { className: "site-stay-unit__name" }, choice.name),
+      h(
+        heading,
+        { className: "site-stay-unit__name" },
+        // The unit's own page, where the site has one: its pictures, all it
+        // has and its calendar.
+        choice.page_path
+          ? h("a", { href: choice.page_path }, choice.name)
+          : choice.name,
+      ),
       facts.length
         ? h("p", { className: "site-stay-unit__facts" }, facts.join(" · "))
         : null,
@@ -351,4 +360,151 @@ export function StaySearchBlock(props: BlockComponentProps) {
  *  form. */
 export function StayCalendarBlock(props: BlockComponentProps) {
   return interactive("calendar", props);
+}
+
+/**
+ * One unit's card (ADR-072, slice 5e): its pictures — the first one large,
+ * each opening in our large copy — its name, town and how many people it
+ * takes, its description, all it has, „od X zł / noc”, and under them the
+ * application's calendar of its free days with the way to the form. On the
+ * unit's own page (`main`) the name is the page's heading. Plain markup from
+ * the server's answer; the editor shows where the card will be.
+ */
+export function StayUnitBlock({
+  data,
+  editor,
+  live,
+  options,
+}: BlockComponentProps) {
+  const block = data as StayUnitV1Data;
+  const locale = options?.locale ?? "pl";
+  const texts = siteUiTexts(locale).stay;
+  const shown = live?.data as StayLive | undefined;
+  const unit = shown?.unit;
+  const label = block.action_label || texts.checkDates;
+  if (!shown || !unit)
+    return h(
+      "section",
+      {
+        className: "site-block site-block--stay-unit",
+        "data-block-type": "core.stay_unit",
+      },
+      h(
+        "div",
+        { className: "site-stay__preview" },
+        h(
+          "div",
+          {
+            className: "site-stay-card site-stay-card--sample",
+            "aria-hidden": true,
+          },
+          h("div", { className: "site-stay-card__gallery" }),
+          h(
+            "div",
+            { className: "site-stay-card__body" },
+            h("span", { className: "site-stay-unit__line" }),
+            h("span", { className: "site-stay-unit__line" }),
+            h("span", { className: "site-stay-unit__line" }),
+          ),
+        ),
+        h(
+          "span",
+          { className: "site-section__action" },
+          editor && block.action_label
+            ? editor.text(["action_label"], block.action_label)
+            : label,
+        ),
+        previewNote(texts.preview.unit),
+      ),
+    );
+  const photos = unit.photos ?? [];
+  const amenities = unit.amenities ?? [];
+  const facts = [
+    unit.town?.name,
+    unit.capacity ? texts.capacity(unit.capacity) : undefined,
+  ].filter(Boolean);
+  const offer = shown.offers[0];
+  return h(
+    "section",
+    {
+      className: "site-block site-block--stay-unit",
+      "data-block-type": "core.stay_unit",
+    },
+    h(
+      "div",
+      { className: "site-stay-card" },
+      photos.length
+        ? h(
+            "div",
+            { className: "site-stay-card__gallery" },
+            ...photos.map((photo, index) =>
+              h(
+                "a",
+                {
+                  key: photo,
+                  className: "site-stay-card__photo",
+                  href: `/media/${photo}/preview`,
+                  target: "_blank",
+                  rel: "noopener",
+                },
+                unitPhoto(
+                  photo,
+                  texts.photo(unit.name, index + 1),
+                  index === 0
+                    ? "(min-width: 64rem) 55vw, 100vw"
+                    : "(min-width: 48rem) 20vw, 33vw",
+                ),
+              ),
+            ),
+          )
+        : null,
+      h(
+        "div",
+        { className: "site-stay-card__body" },
+        h(block.main ? "h1" : "h2", null, unit.name),
+        facts.length
+          ? h("p", { className: "site-stay-unit__facts" }, facts.join(" · "))
+          : null,
+        unit.description
+          ? h("p", { className: "site-stay-unit__text" }, unit.description)
+          : null,
+        amenities.length
+          ? h(
+              "ul",
+              { className: "site-stay-unit__amenities" },
+              ...amenities.map((item) =>
+                h("li", { key: item.key }, item.label),
+              ),
+            )
+          : null,
+        unit.from_price
+          ? h(
+              "p",
+              { className: "site-stay-unit__price" },
+              texts.fromPrice(
+                stayAmount(unit.from_price, locale),
+                unit.from_price.per,
+              ),
+            )
+          : null,
+      ),
+    ),
+    h(
+      "div",
+      { className: "site-stay__body" },
+      live?.render?.("core.stay_unit", data, live.data) ??
+        h(
+          "a",
+          {
+            className: "site-section__action",
+            href: stayFormHref(shown.form_url, {
+              offer: offer?.id,
+              choice: offer?.choices[0],
+            }),
+            rel: "nofollow",
+          },
+          label,
+        ),
+    ),
+  );
 }

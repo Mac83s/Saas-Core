@@ -16034,6 +16034,8 @@ export interface components {
             town: components["schemas"]["PublicUnitTown"] | null;
             /** @description Null when the price list has no price for it. */
             from_price: components["schemas"]["PublicFromPrice"] | null;
+            /** @description The address segment of the unit whose content this is — the unit itself, or the one that speaks for its group; its own page on the company's site is `/stay/<public_slug>/`. Empty where the company shows none. */
+            public_slug: string;
             /**
              * Format: uuid
              * @description Send it as `group_id`.
@@ -16165,6 +16167,8 @@ export interface components {
             town: components["schemas"]["PublicUnitTown"] | null;
             /** @description Null when the price list has no price for it. */
             from_price: components["schemas"]["PublicFromPrice"] | null;
+            /** @description The address segment of the unit whose content this is — the unit itself, or the one that speaks for its group; its own page on the company's site is `/stay/<public_slug>/`. Empty where the company shows none. */
+            public_slug: string;
             /**
              * Format: uuid
              * @description Send it as `resource_id`.
@@ -16174,8 +16178,6 @@ export interface components {
             description: string;
             /** @description How many people it takes; null — nobody counts. */
             capacity: number | null;
-            /** @description Its address segment where the company shows it; else empty. */
-            public_slug: string;
         };
         PublicUnitAmenity: {
             key: string;

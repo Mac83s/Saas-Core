@@ -438,6 +438,14 @@ export type StayBlockV1Data = JsonObject & {
   action_label?: string;
 };
 
+/** One unit's card (slice 5e): which unit, never its content. `main` — the
+ *  card is the page's own heading, on the unit's own page. */
+export type StayUnitV1Data = JsonObject & {
+  unit: string;
+  main?: boolean;
+  action_label?: string;
+};
+
 /** One thing a guest chooses of an offer: a group of identical units or a
  *  unit by itself. The content comes with the list of units only. */
 export type StayLiveChoice = {
@@ -456,6 +464,8 @@ export type StayLiveChoice = {
     currency: string;
     per: "night" | "day" | "stay";
   } | null;
+  /** The unit's own page on this site, where it has one. */
+  page_path?: string;
 };
 
 export type StayLiveOffer = {
@@ -477,6 +487,8 @@ export type StayLive = {
   last_day: string;
   paused: boolean;
   offers: StayLiveOffer[];
+  /** A unit's card only: the unit's content. */
+  unit?: StayLiveChoice;
 };
 
 export type FooterV1Data = JsonObject & {
@@ -537,7 +549,9 @@ export type BlockFieldKind =
   | "choice"
   /** One of the company's offers booked from–to, or all of them: the panel
    *  lists them, the block keeps the id. */
-  | "stayOffer";
+  | "stayOffer"
+  /** One of the units the company shows its guests; the block keeps the id. */
+  | "stayUnit";
 
 /** How one editable value inside a block is presented. Deliberately data, not a
  *  component: the same manifest is loaded by the public renderer, which must not

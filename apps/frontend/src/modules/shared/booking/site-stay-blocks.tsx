@@ -27,7 +27,8 @@ export function SiteStayBlock({
   live,
   locale,
 }: {
-  data: StayBlockV1Data;
+  /** The block's own words: its button, where it names one. */
+  data: Pick<StayBlockV1Data, "action_label">;
   kind: "search" | "calendar";
   live: StayLive;
   /** The page's language; the words come from the site's catalogue. */

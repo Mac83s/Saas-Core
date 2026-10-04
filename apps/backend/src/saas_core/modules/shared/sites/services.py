@@ -253,8 +253,9 @@ class SlugReserved(APIException):
     status_code = 400
     default_detail = (
         "Ten adres jest zarezerwowany: dwuliterowe początki adresów należą do "
-        "wersji językowych, a media, api, internal, static, healthz i "
-        "site-renderer obsługuje platforma."
+        "wersji językowych, media, api, internal, static, healthz i "
+        "site-renderer obsługuje platforma, a pod stay są strony jednostek "
+        "z rezerwacji."
     )
     default_code = "slug_reserved"
 

@@ -17,26 +17,29 @@ type Offer = { id: string; name: string; online: boolean };
 
 /**
  * Which of the company's offers booked from–to a stay block shows (ADR-072,
- * slice 5d): every offer on the form, or one of them. The block keeps the
- * offer's id; the list is the company's booking setup, read here. An
- * offer that is not booked online is named as such — the published page
- * shows nothing of it. Controlled, like the picture select: the options
+ * slice 5d): every offer on the form, or one of them — or, for a unit's card
+ * (`kind` `unit`, slice 5e), which of the units the company shows its guests.
+ * The block keeps the id; the list is the company's booking setup, read
+ * here. An offer that is not booked online is named as such — the published
+ * page shows nothing of it. Controlled, like the picture select: the options
  * arrive after the value.
  */
 export function StayOfferSelect<TValues extends FieldValues>({
   form,
   id,
   invalid,
+  kind = "offer",
   name,
 }: {
   form: UseFormReturn<TValues>;
   id: string;
   invalid: boolean;
+  kind?: "offer" | "unit";
   name: string;
 }) {
   const t = useTranslations("Sites");
-  // Unset — still asked for; an empty list — nothing booked from–to, or a
-  // person who does not see the company's bookings.
+  // Unset — still asked for; an empty list — nothing to choose, or a person
+  // who does not see the company's bookings.
   const [offers, setOffers] = useState<Offer[]>();
   const value =
     (useWatch({ control: form.control, name: name as Path<TValues> }) as
@@ -45,13 +48,21 @@ export function StayOfferSelect<TValues extends FieldValues>({
     let current = true;
     getBookingSetup()
       .then((setup) =>
-        setup.services
-          .filter((item) => item.time_model === "range" && item.active)
-          .map((item) => ({
-            id: String(item.id),
-            name: item.name,
-            online: item.online,
-          })),
+        kind === "unit"
+          ? setup.resources
+              .filter((item) => item.public && item.active)
+              .map((item) => ({
+                id: String(item.id),
+                name: item.name,
+                online: true,
+              }))
+          : setup.services
+              .filter((item) => item.time_model === "range" && item.active)
+              .map((item) => ({
+                id: String(item.id),
+                name: item.name,
+                online: item.online,
+              })),
       )
       .catch(() => [])
       .then((found) => {
@@ -60,7 +71,7 @@ export function StayOfferSelect<TValues extends FieldValues>({
     return () => {
       current = false;
     };
-  }, []);
+  }, [kind]);
   return (
     <>
       <NativeSelect
@@ -69,9 +80,13 @@ export function StayOfferSelect<TValues extends FieldValues>({
         {...form.register(name as never)}
         value={value}
       >
-        <option value="">{t("stayOfferAll")}</option>
+        <option value="">
+          {t(kind === "unit" ? "stayUnitChoose" : "stayOfferAll")}
+        </option>
         {value && !offers?.some((offer) => offer.id === value) ? (
-          <option value={value}>{t("stayOfferCurrent")}</option>
+          <option value={value}>
+            {t(kind === "unit" ? "stayUnitCurrent" : "stayOfferCurrent")}
+          </option>
         ) : null}
         {offers?.map((offer) => (
           <option key={offer.id} value={offer.id}>
@@ -82,7 +97,9 @@ export function StayOfferSelect<TValues extends FieldValues>({
         ))}
       </NativeSelect>
       {offers?.length === 0 ? (
-        <FieldDescription>{t("stayOfferNone")}</FieldDescription>
+        <FieldDescription>
+          {t(kind === "unit" ? "stayUnitNone" : "stayOfferNone")}
+        </FieldDescription>
       ) : null}
     </>
   );

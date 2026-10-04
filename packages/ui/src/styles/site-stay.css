@@ -230,3 +230,75 @@
   border-radius: 0.3rem;
   background: var(--muted);
 }
+
+/* One unit's card (slice 5e): its pictures beside what it is and has. */
+.site-block--stay-unit {
+  display: grid;
+  gap: clamp(1.25rem, 3cqw, 2.5rem);
+}
+.site-stay-card {
+  display: grid;
+  gap: clamp(1.25rem, 3cqw, 2.5rem);
+  min-width: 0;
+}
+.site-stay-card__gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  min-width: 0;
+}
+.site-stay-card__photo {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--site-radius, 0.75rem);
+  background: var(--muted);
+}
+/* The cover takes the whole first row. */
+.site-stay-card__photo:first-child {
+  grid-column: 1 / -1;
+}
+.site-theme .site-block .site-stay-card__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+}
+.site-stay-card__photo:focus-visible {
+  outline: 3px solid var(--site-accent);
+  outline-offset: 2px;
+}
+.site-stay-card__body {
+  display: grid;
+  align-content: start;
+  gap: 0.875rem;
+  min-width: 0;
+}
+.site-theme .site-block .site-stay-card__body :is(h1, h2) {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.site-stay-card__body .site-stay-unit__amenities {
+  font-size: 0.875rem;
+}
+.site-theme .site-block .site-stay-card__body .site-stay-unit__price {
+  font-size: 1.125rem;
+}
+.site-stay-card--sample .site-stay-card__gallery {
+  display: block;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--site-radius, 0.75rem);
+  background: var(--muted);
+}
+.site-stay-card--sample .site-stay-unit__line:first-child {
+  height: 1.25rem;
+  width: 50%;
+}
+@container (min-width: 52rem) {
+  .site-stay-card {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}

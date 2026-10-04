@@ -1,8 +1,9 @@
-"""Stays on a company's own site (ADR-072, „Rozstrzygnięcia plastra 5d”): a
-block of the page carries a choice and the published page says what it shows
-now — the offers, what a guest chooses of each, the content of the units the
-company shows — the site's host serves those units' pictures in our copies,
-and the block's browser reads free days from the form's API at that host."""
+"""Stays on a company's own site (ADR-072, „Rozstrzygnięcia plastra 5d” and
+„…5e”): a block of the page carries a choice and the published page says what
+it shows now — the offers, what a guest chooses of each, the content of the
+units the company shows — the site's host serves those units' pictures in our
+copies, and the block's browser reads free days from the form's API at that
+host. A unit the form shows has a card and a page of its own on the site."""
 
 from __future__ import annotations
 
@@ -17,14 +18,18 @@ from rest_framework.test import APIClient
 from saas_core.modules.core.organizations.api import live_site_blocks, served_media_ids
 from saas_core.modules.core.organizations.models import Membership, Organization
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
+from saas_core.modules.shared.booking.item_translations import save_item_translation
 from saas_core.modules.shared.booking.models import PublicBookingRoute, Service
 from saas_core.modules.shared.booking.setup import save_service
 from saas_core.modules.shared.booking.site_blocks import SITE_BLOCK_TYPES, site_blocks
+from saas_core.modules.shared.sites.localization import first_segment_reserved
+from saas_core.modules.shared.sites.measurement import COUNT_VIEW_HEADER
 from saas_core.modules.shared.sites.models import (
     Domain,
     DomainKind,
     DomainStatus,
     DomainTlsStatus,
+    PageViewDay,
     Publication,
     Site,
 )
@@ -136,8 +141,12 @@ def published(owner: Membership, blocks: list[dict[str, Any]], *, locale: str = 
     return host
 
 
-def page(host: str) -> Any:
-    answer = APIClient().get("/api/v1/public/site/", {"path": "/"}, HTTP_HOST=host)
+def asked(host: str, path: str = "/", **extra: Any) -> Any:
+    return APIClient().get("/api/v1/public/site/", {"path": path}, HTTP_HOST=host, **extra)
+
+
+def page(host: str, path: str = "/") -> Any:
+    answer = asked(host, path)
     assert answer.status_code == 200, answer.content
     return answer.json()
 
@@ -364,11 +373,144 @@ def test_the_blocks_booking_fills_are_registered_block_types() -> None:
     from saas_core.modules.shared.sites.block_contracts import site_block_contracts
 
     assert set(site_block_contracts().validators) >= SITE_BLOCK_TYPES
-    for block_type in SITE_BLOCK_TYPES:
-        validate = site_block_contracts().validate
+    validate = site_block_contracts().validate
+    for block_type in SITE_BLOCK_TYPES - {"core.stay_unit"}:
         validate(block_type=block_type, schema_version=1, data={"title": "Domki"})
         validate(
             block_type=block_type,
             schema_version=1,
             data={"title": "Domki", "text": "…", "offer": str(uuid7()), "action_label": "Rezerwuj"},
         )
+    # A card names its unit; `main` is the unit's own page's.
+    validate(block_type="core.stay_unit", schema_version=1, data={"unit": str(uuid7())})
+    validate(
+        block_type="core.stay_unit",
+        schema_version=1,
+        data={"unit": str(uuid7()), "main": True, "action_label": "Rezerwuj"},
+    )
+
+
+def card(unit: Any, **data: Any) -> dict[str, Any]:
+    return {
+        "block_type": "core.stay_unit",
+        "schema_version": 1,
+        "data": {"unit": str(unit.id), **data},
+    }
+
+
+def test_a_shown_unit_has_a_card_and_a_page_of_its_own(settings: Any) -> None:
+    configured = form("strona-jednostki", priced=False, units=2)
+    owner: Membership = configured["owner"]
+    shown, hidden = configured["units"]
+    photo = picture(owner)
+    change(
+        owner, shown, public=True, photo_ids=[photo.id], amenities=["sauna"], city_slug="mragowo"
+    )
+    group = configured["group"]
+    host = published(owner, [block("stay_units"), card(shown), card(hidden)])
+
+    home = page(host)["live"]
+    # The list leads to the unit's page; a unit nobody shows has no card.
+    (listed,) = home["0"]["offers"][0]["choices"]
+    assert listed["page_path"] == "/stay/domek-1/"
+    assert sorted(home) == ["0", "1"]
+    # The card: the unit's content under the name it is booked by — the
+    # group's, because a guest books any cottage of the pool — and the one
+    # choice that books it.
+    assert home["1"]["unit"]["name"] == group.name
+    assert home["1"]["unit"]["photos"] == [str(photo.id)]
+    assert home["1"]["unit"]["town"] == {"slug": "mragowo", "name": "Mrągowo"}
+    assert [offer["choices"] for offer in home["1"]["offers"]] == [
+        [{"kind": "group", "id": str(group.id), "name": group.name, "capacity": listed["capacity"]}]
+    ]
+    assert home["1"]["form_url"].endswith("/book/strona-jednostki")
+
+    # The page nobody published: the card alone, as the page's own heading.
+    own = page(host, "/stay/domek-1/")
+    assert own["title"] == f"{group.name} — Mrągowo"
+    assert own["canonical_url"].endswith("/stay/domek-1/")
+    assert own["hreflang"] == {"pl": own["canonical_url"]}
+    assert own["noindex"] is False
+    assert own["blocks"] == [card(shown, main=True)]
+    assert own["live"]["0"]["unit"]["amenities"] == [{"key": "sauna", "label": "Sauna"}]
+    assert "latitude" not in str(own)
+    # The other spelling is one 308 away, as for every page of the site.
+    slashless = asked(host, "/stay/domek-1")
+    assert (slashless.status_code, slashless["Location"]) == (308, "/stay/domek-1/")
+    # Its view is not counted as some collection's.
+    assert asked(host, "/stay/domek-1/", **{COUNT_VIEW_HEADER: "1"}).status_code == 200
+    assert not PageViewDay.all_objects.filter(organization_id=owner.organization_id).exists()
+
+    # No such address, a unit the company does not show, and another segment.
+    gone = ("/stay/nie-ma/", "/stay/domek-2/", "/stay/", "/pobyt/domek-1/", "/stay/domek-1/x/")
+    for path in gone:
+        assert asked(host, path).status_code == 404, path
+
+    # Hidden again, the page is gone and the list no longer leads to it.
+    change(owner, shown, public=False)
+    assert asked(host, "/stay/domek-1/").status_code == 404
+    (again,) = page(host)["live"]["0"]["offers"][0]["choices"]
+    assert "page_path" not in again and sorted(page(host)["live"]) == ["0"]
+
+
+def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(
+    settings: Any,
+) -> None:
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+    configured = form("strona-jezyki", priced=False)
+    owner: Membership = configured["owner"]
+    (unit,) = configured["units"]
+    group = configured["group"]
+    Organization.objects.filter(pk=owner.organization_id).update(public_locales=["pl", "en", "de"])
+    change(owner, unit, public=True)
+    host = published(owner, [block("stay_units")])
+
+    # No words of its own in English: the address answers one 308 to the
+    # page in the site's language, and nothing names an English version.
+    moved = asked(host, "/en/stay/domek-1/")
+    assert (moved.status_code, moved["Location"]) == (308, "/stay/domek-1/")
+    assert list(page(host, "/stay/domek-1/")["hreflang"]) == ["pl"]
+
+    with tenant(owner):
+        save_item_translation(
+            kind="group",
+            item_id=group.id,
+            locale="en",
+            texts={"name": "Lakeside cottage"},
+            expected_version=0,
+            idempotency_key=key(),
+        )
+    english = page(host, "/en/stay/domek-1/")
+    assert english["locale"] == "en"
+    assert english["title"] == "Lakeside cottage"
+    assert english["live"]["0"]["unit"]["name"] == "Lakeside cottage"
+    assert sorted(english["hreflang"]) == ["en", "pl"]
+    assert english["x_default"].endswith("/stay/domek-1/")
+    assert english["canonical_url"].endswith("/en/stay/domek-1/")
+    # German still has none.
+    assert asked(host, "/de/stay/domek-1/").status_code == 308
+
+    # The sitemap names the page in both languages, each with the other.
+    sitemap = (
+        APIClient()
+        .get("/api/v1/public/site/sitemap.xml", HTTP_HOST=host, HTTP_ACCEPT="application/xml")
+        .content.decode()
+    )
+    origin = f"{settings.PUBLIC_SITE_SCHEME}://{host}"
+    assert f"<loc>{origin}/stay/domek-1/</loc>" in sitemap
+    assert f"<loc>{origin}/en/stay/domek-1/</loc>" in sitemap
+    assert f'hreflang="en" href="{origin}/en/stay/domek-1/"' in sitemap
+    assert "/de/stay/" not in sitemap
+
+    # A company whose languages the deployment serves none of: the page is
+    # there in the site's own language, and in no other.
+    Organization.objects.filter(pk=owner.organization_id).update(public_locales=["de"])
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en")
+    cache.clear()
+    assert page(host, "/stay/domek-1/")["hreflang"].keys() == {"pl"}
+    assert asked(host, "/en/stay/domek-1/").status_code == 404
+
+
+def test_a_new_page_cannot_take_the_address_of_the_units_pages() -> None:
+    assert first_segment_reserved("stay")
+    assert not first_segment_reserved("pobyt")

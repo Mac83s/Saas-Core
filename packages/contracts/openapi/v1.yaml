@@ -42359,6 +42359,12 @@ components:
           - $ref: '#/components/schemas/PublicFromPrice'
           - type: 'null'
           description: Null when the price list has no price for it.
+        public_slug:
+          type: string
+          description: The address segment of the unit whose content this is — the
+            unit itself, or the one that speaks for its group; its own page on the
+            company's site is `/stay/<public_slug>/`. Empty where the company shows
+            none.
         id:
           type: string
           format: uuid
@@ -42383,6 +42389,7 @@ components:
       - id
       - name
       - photos
+      - public_slug
       - town
       - units
     PublicStayMove:
@@ -42582,6 +42589,12 @@ components:
           - $ref: '#/components/schemas/PublicFromPrice'
           - type: 'null'
           description: Null when the price list has no price for it.
+        public_slug:
+          type: string
+          description: The address segment of the unit whose content this is — the
+            unit itself, or the one that speaks for its group; its own page on the
+            company's site is `/stay/<public_slug>/`. Empty where the company shows
+            none.
         id:
           type: string
           format: uuid
@@ -42595,9 +42608,6 @@ components:
           - integer
           - 'null'
           description: How many people it takes; null — nobody counts.
-        public_slug:
-          type: string
-          description: Its address segment where the company shows it; else empty.
       required:
       - amenities
       - capacity

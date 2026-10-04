@@ -64,7 +64,10 @@ from .public_locales import (
 )
 from .public_sources import (
     PublicSource,
+    SourcePage,
+    SourcePageAddress,
     live_site_blocks,
+    page_sources,
     register_public_source,
     served_media_ids,
     shown_media_ids,
@@ -205,7 +208,10 @@ __all__ = [
     "register_public_locales_guard",
     "register_public_locales_impact",
     "register_public_locales_limit",
+    "SourcePage",
+    "SourcePageAddress",
     "live_site_blocks",
+    "page_sources",
     "register_public_source",
     "register_resource_reference_handler",
     "register_seat_limit",

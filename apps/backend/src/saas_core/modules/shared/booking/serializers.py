@@ -1952,6 +1952,12 @@ class _PublicUnitContentSerializer(serializers.Serializer[dict[str, Any]]):
     from_price = PublicFromPriceSerializer(
         allow_null=True, help_text="Null when the price list has no price for it."
     )
+    public_slug = serializers.CharField(
+        allow_blank=True,
+        help_text="The address segment of the unit whose content this is — the unit itself, "
+        "or the one that speaks for its group; its own page on the company's site is "
+        "`/stay/<public_slug>/`. Empty where the company shows none.",
+    )
 
 
 class PublicStayUnitSerializer(_PublicUnitContentSerializer):
@@ -1962,9 +1968,6 @@ class PublicStayUnitSerializer(_PublicUnitContentSerializer):
     description = serializers.CharField(allow_blank=True)
     capacity = serializers.IntegerField(
         allow_null=True, help_text="How many people it takes; null — nobody counts."
-    )
-    public_slug = serializers.CharField(
-        allow_blank=True, help_text="Its address segment where the company shows it; else empty."
     )
 
 

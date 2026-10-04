@@ -259,10 +259,13 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       />
     ),
     // The part of a stay block that asks for free days: booking's own.
+    // A unit's card shows its calendar too.
     (blockType, data, live) =>
-      blockType === "core.stay_search" || blockType === "core.stay_calendar" ? (
+      blockType === "core.stay_search" ||
+      blockType === "core.stay_calendar" ||
+      blockType === "core.stay_unit" ? (
         <SiteStayBlock
-          data={data as StayBlockV1Data}
+          data={data as Pick<StayBlockV1Data, "action_label">}
           kind={blockType === "core.stay_search" ? "search" : "calendar"}
           live={live as unknown as StayLive}
           locale={page.locale}

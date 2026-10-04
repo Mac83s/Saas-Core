@@ -64,7 +64,10 @@ export interface StayTexts {
     readonly units: string;
     readonly search: string;
     readonly calendar: string;
+    readonly unit: string;
   };
+  /** A picture of a unit, for whoever does not see it: „Domek 1 — zdjęcie 2”. */
+  readonly photo: (name: string, number: number) => string;
 }
 
 /** One, few, many: the form a count takes in a language. */
@@ -193,7 +196,9 @@ const TEXTS = {
           "Na opublikowanej stronie gość wybierze tu termin i liczbę osób, a przycisk zaprowadzi go do formularza rezerwacji.",
         calendar:
           "Na opublikowanej stronie pojawi się tu kalendarz wolnych terminów z Twojego grafiku.",
+        unit: "Na opublikowanej stronie pojawi się tu karta jednostki: zdjęcia, wyposażenie, cena „od” i kalendarz wolnych terminów.",
       },
+      photo: (name, number) => `${name} — zdjęcie ${number}`,
     },
   },
   en: {
@@ -281,7 +286,9 @@ const TEXTS = {
           "On the published page a guest chooses the dates and the number of people here, and the button takes them to the booking form.",
         calendar:
           "The published page shows the calendar of available dates from your schedule here.",
+        unit: "The published page shows the unit's card here: photos, amenities, the “from” price and the calendar of available dates.",
       },
+      photo: (name, number) => `${name} — photo ${number}`,
     },
   },
   de: {
@@ -370,7 +377,9 @@ const TEXTS = {
           "Auf der veröffentlichten Seite wählt der Gast hier Termin und Personenzahl; die Schaltfläche führt zum Buchungsformular.",
         calendar:
           "Auf der veröffentlichten Seite erscheint hier der Kalender der freien Termine aus Ihrem Zeitplan.",
+        unit: "Auf der veröffentlichten Seite erscheint hier die Karte der Einheit: Fotos, Ausstattung, der „ab“-Preis und der Kalender der freien Termine.",
       },
+      photo: (name, number) => `${name} — Foto ${number}`,
     },
   },
   es: {
@@ -458,7 +467,9 @@ const TEXTS = {
           "En la página publicada el huésped elegirá aquí las fechas y el número de personas, y el botón lo llevará al formulario de reserva.",
         calendar:
           "En la página publicada aparecerá aquí el calendario de fechas disponibles de su horario.",
+        unit: "En la página publicada aparecerá aquí la ficha de la unidad: fotos, equipamiento, el precio «desde» y el calendario de fechas disponibles.",
       },
+      photo: (name, number) => `${name} — foto ${number}`,
     },
   },
   ru: {
@@ -555,7 +566,9 @@ const TEXTS = {
           "На опубликованной странице гость выберет здесь даты и количество человек, а кнопка откроет форму бронирования.",
         calendar:
           "На опубликованной странице здесь появится календарь свободных дат из вашего расписания.",
+        unit: "На опубликованной странице здесь появится карточка объекта: фото, удобства, цена «от» и календарь свободных дат.",
       },
+      photo: (name, number) => `${name} — фото ${number}`,
     },
   },
 } satisfies Record<string, SiteUiTexts>;

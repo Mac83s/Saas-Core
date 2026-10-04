@@ -232,10 +232,12 @@ def public_stays(
     language = locale or source_locale(organization)
 
     def content(shown: Resource | None) -> dict[str, Any]:
-        """What a guest sees of a unit the company shows; nothing of another."""
+        """What a guest sees of a unit the company shows — with the unit's
+        own address, by which its page is found; nothing of another."""
         if shown is None:
-            return {"photos": [], "amenities": [], "town": None}
+            return {"public_slug": "", "photos": [], "amenities": [], "town": None}
         return {
+            "public_slug": shown.public_slug,
             "photos": [photo_urls(public_slug, photo) for photo in shown.photos],
             "amenities": amenities_in(shown.amenities, language),
             "town": town_of(shown),
@@ -278,7 +280,6 @@ def public_stays(
                 "id": unit.id,
                 **words("resource", unit),
                 "capacity": unit.capacity,
-                "public_slug": unit.public_slug if unit.public else "",
                 **content(unit if unit.public else None),
                 "from_price": cheapest(offer, [unit]),
             }

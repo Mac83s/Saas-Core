@@ -1,28 +1,35 @@
-"""What a company's own site shows of its stays (ADR-072, slice 5d).
+"""What a company's own site shows of its stays (ADR-072, slices 5d and 5e).
 
-Three blocks of the page editor show offers booked from–to: the list of units
-(`core.stay_units`), the booking widget (`core.stay_search`) and the calendar
-of free days (`core.stay_calendar`). A publication is a snapshot and a free
-day or a price cannot be one, so a block carries only a choice — which offer —
-and the site asks here, through the registry of public sources, each time the
-page is read.
+Four blocks of the page editor show offers booked from–to: the list of units
+(`core.stay_units`), the booking widget (`core.stay_search`), the calendar of
+free days (`core.stay_calendar`) and one unit's card (`core.stay_unit`). A
+publication is a snapshot and a free day or a price cannot be one, so a block
+carries only a choice — which offer, which unit — and the site asks here,
+through the registry of public sources, each time the page is read.
+
+A unit the form shows the content of also has a page of its own on the site,
+at `/stay/<its address>/` (slice 5e): nobody publishes it — it is one unit's
+card, answered while the form shows the unit and gone when it does not.
 
 The answer is what the company's public form would say (`public_stays`): only
 what is offered online, the content of units the company shows, „od X zł/noc”
 from the quote, never coordinates. The pictures are named by id — the site
-serves them at its own host (`served_photo_ids`) — and the days a visitor
+serves them at its own host (`public_photo_ids`) — and the days a visitor
 picks are read by the block from the form's own API, under the form's address.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
 from django.conf import settings
 from rest_framework.exceptions import APIException
 
+from saas_core.modules.core.organizations.api import SourcePage, SourcePageAddress
 from saas_core.modules.core.organizations.locales import (
     clamp_content_locale,
     organization_content_locales,
@@ -33,8 +40,8 @@ from saas_core.modules.shared.notifications.api import public_url
 
 from .availability import _zone
 from .company_settings import online_paused
-from .item_translations import source_locale
-from .models import PublicBookingRoute
+from .item_translations import localized_texts, source_locale, translatable
+from .models import PublicBookingRoute, Resource, ResourceGroup
 from .periods import period_last_day
 from .public import public_stays
 from .security import public_booking_context
@@ -44,13 +51,82 @@ from .unit_content import amenities_in
 UNITS = "core.stay_units"
 SEARCH = "core.stay_search"
 CALENDAR = "core.stay_calendar"
+UNIT = "core.stay_unit"
 #: The blocks of a site this module fills.
-SITE_BLOCK_TYPES = frozenset({UNITS, SEARCH, CALENDAR})
+SITE_BLOCK_TYPES = frozenset({UNITS, SEARCH, CALENDAR, UNIT})
+#: The first segment of a unit's own page on the company's site, the same in
+#: every language (as the shop's `shop`, ADR-074 pkt 7).
+PAGE_SEGMENT = "stay"
+#: How much of a unit's description a search result shows under its name.
+DESCRIPTION_LENGTH = 160
 
 
-def _choice(kind: str, item: Mapping[str, Any], *, content: bool, locale: str) -> dict[str, Any]:
+@dataclass(frozen=True, slots=True)
+class _Form:
+    """What the company's form says now, read once for a page."""
+
+    organization: Organization
+    #: The form's address and clock, as every stay block is told them.
+    facts: dict[str, Any]
+    stays: list[dict[str, Any]]
+
+
+@contextmanager
+def _form(organization_id: UUID, locale: str) -> Iterator[_Form | None]:
+    """The company's form in the page's language, inside its service scope —
+    or None: no form, no plan for it, nothing booked from–to online."""
+    route = (
+        PublicBookingRoute.objects.filter(organization_id=organization_id, active=True).first()
+        if settings.PUBLIC_BOOKING_ENABLED
+        else None
+    )
+    if route is None:
+        yield None
+        return
+    with public_booking_context(organization_id):
+        try:
+            authorize_entitled("booking.public.read", BOOKING_ENABLED)
+        except APIException:
+            yield None
+            return
+        organization = Organization.objects.get(pk=organization_id)
+        # The company's own words in the page's language where it wrote them.
+        translated = (
+            locale
+            if locale in organization_content_locales(organization)
+            and locale != source_locale(organization)
+            else None
+        )
+        stays = public_stays(organization, translated, route.public_slug)
+        if not stays:
+            yield None
+            return
+        zone = _zone()
+        paused, _resume_on = online_paused(zone.key)
+        yield _Form(
+            organization=organization,
+            facts={
+                "slug": route.public_slug,
+                # The form in the page's language when the company has it,
+                # otherwise in the company's first one — a language the form
+                # does not speak would be a link to nowhere.
+                "form_url": public_url(
+                    clamp_content_locale(locale, organization=organization),
+                    f"/book/{route.public_slug}",
+                ),
+                "timezone": zone.key,
+                "last_day": period_last_day(zone).isoformat(),
+                "paused": paused,
+            },
+            stays=stays,
+        )
+
+
+def _choice(
+    kind: str, item: Mapping[str, Any], *, content: bool, locale: str, page_base: str = ""
+) -> dict[str, Any]:
     """One thing a guest chooses of an offer — a group or a unit — as a block
-    shows it. Only the list of units draws its content."""
+    shows it. Only the list of units and a unit's card draw its content."""
     choice: dict[str, Any] = {
         "kind": kind,
         "id": str(item["id"]),
@@ -68,73 +144,187 @@ def _choice(kind: str, item: Mapping[str, Any], *, content: bool, locale: str) -
             town=item["town"],
             from_price=item["from_price"],
         )
+        # The unit's own page, where the site has one for it.
+        if page_base and item.get("public_slug"):
+            choice["page_path"] = f"{page_base}{item['public_slug']}/"
     return choice
 
 
-def _offer(stay: Mapping[str, Any], *, content: bool, locale: str) -> dict[str, Any]:
+def _offer(
+    stay: Mapping[str, Any], *, content: bool, locale: str, page_base: str = ""
+) -> dict[str, Any]:
     return {
         "id": str(stay["id"]),
         "name": stay["name"],
         "range_unit": stay["range_unit"],
         "choices": [
-            *(_choice("group", item, content=content, locale=locale) for item in stay["groups"]),
-            *(_choice("unit", item, content=content, locale=locale) for item in stay["units"]),
+            *(
+                _choice(kind, item, content=content, locale=locale, page_base=page_base)
+                for kind, items in (("group", stay["groups"]), ("unit", stay["units"]))
+                for item in items
+            ),
+        ],
+    }
+
+
+def _shown(stays: Iterable[Mapping[str, Any]], public_slug: str) -> list[tuple[Any, str, Any]]:
+    """Where the form shows the unit at that address: each offer with the
+    choice that books it — the unit itself, or the group it speaks for."""
+    return [
+        (stay, kind, item)
+        for stay in stays
+        for kind, items in (("group", stay["groups"]), ("unit", stay["units"]))
+        for item in items
+        if public_slug and item.get("public_slug") == public_slug
+    ]
+
+
+def _card(form: _Form, public_slug: str, locale: str) -> dict[str, Any] | None:
+    """One unit's card: its content, and each offer it is booked through with
+    the one choice that books it. None — the form does not show such a unit."""
+    shown = _shown(form.stays, public_slug)
+    if not shown:
+        return None
+    _stay, kind, item = shown[0]
+    return {
+        **form.facts,
+        "unit": _choice(kind, item, content=True, locale=locale),
+        "offers": [
+            {
+                "id": str(stay["id"]),
+                "name": stay["name"],
+                "range_unit": stay["range_unit"],
+                "choices": [_choice(kind, item, content=False, locale=locale)],
+            }
+            for stay, kind, item in shown
         ],
     }
 
 
 def site_blocks(
-    organization_id: UUID, locale: str, blocks: Mapping[str, tuple[str, Mapping[str, Any]]]
+    organization_id: UUID,
+    locale: str,
+    blocks: Mapping[str, tuple[str, Mapping[str, Any]]],
+    page_base: str = "",
 ) -> dict[str, Any]:
     """What each stay block of a page shows now, by the key it was asked
     under. A company without a form, without the plan for it or with nothing
-    booked from–to online answers nothing, and so does a block whose offer is
-    gone: the page then draws no such section."""
-    if not settings.PUBLIC_BOOKING_ENABLED:
-        return {}
-    route = PublicBookingRoute.objects.filter(organization_id=organization_id, active=True).first()
-    if route is None:
-        return {}
-    with public_booking_context(organization_id):
-        try:
-            authorize_entitled("booking.public.read", BOOKING_ENABLED)
-        except APIException:
-            return {}
-        organization = Organization.objects.get(pk=organization_id)
-        # The company's own words in the page's language where it wrote them.
-        translated = (
-            locale
-            if locale in organization_content_locales(organization)
-            and locale != source_locale(organization)
-            else None
-        )
-        stays = public_stays(organization, translated, route.public_slug)
-        if not stays:
-            return {}
-        zone = _zone()
-        paused, _resume_on = online_paused(zone.key)
-        form = {
-            "slug": route.public_slug,
-            # The form in the page's language when the company has it,
-            # otherwise in the company's first one — a language the form does
-            # not speak would be a link to nowhere.
-            "form_url": public_url(
-                clamp_content_locale(locale, organization=organization),
-                f"/book/{route.public_slug}",
-            ),
-            "timezone": zone.key,
-            "last_day": period_last_day(zone).isoformat(),
-            "paused": paused,
-        }
+    booked from–to online answers nothing, and so does a block whose offer or
+    unit is gone: the page then draws no such section."""
     answers: dict[str, Any] = {}
-    for key, (block_type, data) in blocks.items():
-        wanted = str(data.get("offer") or "")
-        offers = [stay for stay in stays if not wanted or str(stay["id"]) == wanted]
-        if offers:
-            answers[key] = {
-                **form,
-                "offers": [
-                    _offer(stay, content=block_type == UNITS, locale=locale) for stay in offers
-                ],
+    with _form(organization_id, locale) as form:
+        if form is None:
+            return answers
+        # A card names its unit by id; the form knows a shown unit by its
+        # address.
+        wanted = {str(data.get("unit") or "") for kind, data in blocks.values() if kind == UNIT}
+        addresses = (
+            {
+                str(key): slug
+                for key, slug in Resource.all_objects.filter(
+                    organization_id=organization_id,
+                    public=True,
+                    active=True,
+                    pk__in=[key for key in wanted if key],
+                ).values_list("id", "public_slug")
             }
+            if wanted - {""}
+            else {}
+        )
+        for key, (block_type, data) in blocks.items():
+            if block_type == UNIT:
+                card = _card(form, addresses.get(str(data.get("unit") or ""), ""), locale)
+                if card is not None:
+                    answers[key] = card
+                continue
+            asked = str(data.get("offer") or "")
+            offers = [stay for stay in form.stays if not asked or str(stay["id"]) == asked]
+            if offers:
+                answers[key] = {
+                    **form.facts,
+                    "offers": [
+                        _offer(
+                            stay,
+                            content=block_type == UNITS,
+                            locale=locale,
+                            page_base=page_base,
+                        )
+                        for stay in offers
+                    ],
+                }
     return answers
+
+
+def _own_locales(organization: Organization, kind: str, item_id: Any) -> frozenset[str]:
+    """The company's languages the unit — or the group it speaks for — has a
+    name of its own in, beside the one the company writes in."""
+    model = ResourceGroup if kind == "group" else Resource
+    found = model.all_objects.filter(organization_id=organization.id, pk=item_id).first()
+    if found is None:
+        return frozenset()
+    entry = translatable("group" if kind == "group" else "resource")
+    return frozenset(
+        code
+        for code in organization_content_locales(organization)
+        if code != source_locale(organization)
+        and "name" in localized_texts(entry, [found], code).get(found.id, {})
+    )
+
+
+def site_page(organization_id: UUID, locale: str, public_slug: str) -> SourcePage | None:
+    """The page of the unit at that address: its card as the page's one
+    block. None — the form shows no such unit now."""
+    with _form(organization_id, locale) as form:
+        if form is None:
+            return None
+        shown = _shown(form.stays, public_slug)
+        if not shown:
+            return None
+        _stay, kind, item = shown[0]
+        unit = Resource.all_objects.filter(
+            organization_id=organization_id, public=True, active=True, public_slug=public_slug
+        ).first()
+        if unit is None:
+            return None
+        town = item["town"]["name"] if item["town"] else ""
+        return SourcePage(
+            key=str(unit.id),
+            title=f"{item['name']} — {town}" if town else str(item["name"]),
+            description=" ".join(str(item["description"]).split())[:DESCRIPTION_LENGTH],
+            blocks=[
+                {
+                    "block_type": UNIT,
+                    "schema_version": 1,
+                    # The page's own heading: the unit's name is its title.
+                    "data": {"unit": str(unit.id), "main": True},
+                }
+            ],
+            locales=_own_locales(form.organization, kind, item["id"]),
+        )
+
+
+def site_pages(organization_id: UUID) -> list[SourcePageAddress]:
+    """Every unit that has a page now: the ones the form shows the content
+    of, each with the languages it has a name in."""
+    with _form(organization_id, "") as form:
+        if form is None:
+            return []
+        seen: dict[str, tuple[str, Any]] = {}
+        for stay in form.stays:
+            for kind, items in (("group", stay["groups"]), ("unit", stay["units"])):
+                for item in items:
+                    if item.get("public_slug"):
+                        seen.setdefault(str(item["public_slug"]), (kind, item["id"]))
+        changed = dict(
+            Resource.all_objects.filter(
+                organization_id=organization_id, public_slug__in=list(seen)
+            ).values_list("public_slug", "updated_at")
+        )
+        return [
+            SourcePageAddress(
+                slug=slug,
+                locales=_own_locales(form.organization, kind, item_id),
+                changed_at=changed.get(slug),
+            )
+            for slug, (kind, item_id) in sorted(seen.items())
+        ]

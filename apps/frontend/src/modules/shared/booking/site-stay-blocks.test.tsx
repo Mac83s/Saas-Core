@@ -62,12 +62,7 @@ afterEach(() => {
 
 test("the calendar reads free days at the form's address and leads to the form with them", async () => {
   const { container } = render(
-    <SiteStayBlock
-      data={{ title: "Wolne terminy" }}
-      kind="calendar"
-      live={live}
-      locale="pl"
-    />,
+    <SiteStayBlock data={{}} kind="calendar" live={live} locale="pl" />,
   );
 
   // Before anything is picked the way to the form names the first choice.
@@ -123,7 +118,7 @@ test("the calendar reads free days at the form's address and leads to the form w
 test("the widget asks for the days and the people, and opens its calendar when asked", async () => {
   const { container } = render(
     <SiteStayBlock
-      data={{ title: "Rezerwacja", action_label: "Sprawdź cenę" }}
+      data={{ action_label: "Sprawdź cenę" }}
       kind="search"
       live={{ ...live, offers: live.offers.slice(0, 1) }}
       locale="pl"
@@ -156,7 +151,7 @@ test("the widget asks for the days and the people, and opens its calendar when a
 test("a paused form shows no calendar, only the way to the form", () => {
   render(
     <SiteStayBlock
-      data={{ title: "Wolne terminy" }}
+      data={{}}
       kind="calendar"
       live={{ ...live, paused: true }}
       locale="de"

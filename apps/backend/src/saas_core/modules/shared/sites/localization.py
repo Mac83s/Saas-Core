@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from saas_core.modules.core.organizations.public_sources import page_sources
+
 from .models import Page, PageTranslation, Site
 
 if TYPE_CHECKING:
@@ -68,8 +70,11 @@ RESERVED_FIRST_SEGMENTS = frozenset({
 
 
 def first_segment_reserved(segment: str) -> bool:
+    """Also the segment under which a source's records have their own pages
+    (`stay` for a booking's units, ADR-072 slice 5e; ADR-074 pkt 7): a new
+    page must not take the addresses those pages answer at."""
     two_letters = len(segment) == 2 and segment.isascii() and segment.isalpha()
-    return two_letters or segment in RESERVED_FIRST_SEGMENTS
+    return two_letters or segment in RESERVED_FIRST_SEGMENTS or segment in page_sources()
 
 
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:

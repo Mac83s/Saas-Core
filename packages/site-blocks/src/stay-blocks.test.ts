@@ -258,7 +258,16 @@ describe("stay blocks", () => {
         {
           kind: "draft-preview",
           versionId: "draft-1",
-          blocks: [stay("units"), stay("search"), stay("calendar")],
+          blocks: [
+            stay("units"),
+            stay("search"),
+            stay("calendar"),
+            {
+              block_type: "core.stay_unit",
+              schema_version: 1,
+              data: { unit: FLAT },
+            },
+          ],
           designTokens: tokens,
         },
         registry,
@@ -270,7 +279,84 @@ describe("stay blocks", () => {
     );
     expect(html).toContain("gość wybierze tu termin i liczbę osób");
     expect(html).toContain("kalendarz wolnych terminów z Twojego grafiku");
+    expect(html).toContain("pojawi się tu karta jednostki");
     expect(html).not.toContain("<a ");
+  });
+
+  it("draws a unit's card from the server's answer: pictures, all it has, and the application's calendar", () => {
+    const [group] = live.offers[0]!.choices;
+    const answer = {
+      ...live,
+      unit: group,
+      offers: [
+        {
+          ...live.offers[0]!,
+          choices: [
+            { kind: "group", id: COTTAGE, name: "Domek 6-os.", capacity: 6 },
+          ],
+        },
+      ],
+    };
+    const card = (data: JsonObject): SiteBlock => ({
+      block_type: "core.stay_unit",
+      schema_version: 1,
+      data: { unit: FLAT, ...data },
+    });
+    const seen: string[] = [];
+    const html = renderToStaticMarkup(
+      renderPublishedPage(
+        published([card({ main: true }), card({}), card({})], {
+          "0": answer,
+          "1": answer,
+        }),
+        registry,
+        undefined,
+        (blockType) => {
+          seen.push(blockType);
+          return createElement("div", { "data-live": blockType });
+        },
+      ),
+    );
+
+    // On the unit's own page the name is the page's heading; in a page of
+    // the company's it is a section's. A card without an answer is not drawn.
+    expect(html.match(/<h1>Domek 6-os\.<\/h1>/g)).toHaveLength(1);
+    expect(html.match(/<h2>Domek 6-os\.<\/h2>/g)).toHaveLength(1);
+    expect(html.match(/data-block-type="core.stay_unit"/g)).toHaveLength(2);
+    expect(seen).toEqual(["core.stay_unit", "core.stay_unit"]);
+    // Each picture opens in our large copy; all eight amenities are named.
+    expect(html).toContain(
+      `<a class="site-stay-card__photo" href="/media/${PHOTO}/preview" target="_blank" rel="noopener"><img src="/media/${PHOTO}/preview"`,
+    );
+    expect(html).toContain('alt="Domek 6-os. — zdjęcie 1"');
+    expect(html).toContain("<li>Pomost</li><li>Rowery</li>");
+    expect(html).toMatch(/od 300\szł \/ noc/);
+    expect(html).toContain("Mrągowo · do 6 osób");
+  });
+
+  it("leads from the list to a unit's own page where the site has one", () => {
+    const [group, flat] = live.offers[0]!.choices;
+    const html = renderToStaticMarkup(
+      renderPublishedPage(
+        published([stay("units")], {
+          "0": {
+            ...live,
+            offers: [
+              {
+                ...live.offers[0]!,
+                choices: [{ ...group, page_path: "/stay/domek-1/" }, flat],
+              },
+            ],
+          },
+        }),
+        registry,
+      ),
+    );
+
+    expect(html).toContain(
+      '<h3 class="site-stay-unit__name"><a href="/stay/domek-1/">Domek 6-os.</a></h3>',
+    );
+    expect(html).toContain('<h3 class="site-stay-unit__name">Apartament</h3>');
   });
 
   it("builds the form's address from what was chosen", () => {

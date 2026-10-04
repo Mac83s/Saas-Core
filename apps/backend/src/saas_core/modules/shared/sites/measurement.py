@@ -32,7 +32,7 @@ from .models import (
     SiteInquiry,
 )
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
-from .publication_routing import PublicPage
+from .publication_routing import PublicPage, SourcePublication
 from .services import SiteNotFound, assert_within_grant
 
 logger = logging.getLogger("saas_core.sites")
@@ -78,6 +78,10 @@ def record_page_view(page: PublicPage) -> None:
     next week is not worth a page a visitor cannot open now.
     """
     if not settings.SITES_PAGE_VIEW_COUNTER_ENABLED:
+        return
+    # A record's own page (a unit of the company's booking) is no page,
+    # entry or collection of the site: the count has no kind for it yet.
+    if isinstance(page.publication, SourcePublication):
         return
     try:
         with transaction.atomic():

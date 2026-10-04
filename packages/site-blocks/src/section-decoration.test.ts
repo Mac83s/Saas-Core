@@ -121,6 +121,11 @@ describe("shared section decoration contract", () => {
         schema_version: 1,
         data: { title: "Our cottages" },
       })),
+      {
+        block_type: "core.stay_unit",
+        schema_version: 1,
+        data: { unit: "11111111-1111-4111-8111-111111111111" },
+      },
     ];
     for (const block of remaining) {
       for (const preset of sectionDecorationPresets) {

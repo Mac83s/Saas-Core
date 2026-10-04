@@ -48,6 +48,8 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.stay_units",
       "core.stay_search",
       "core.stay_calendar",
+      // One unit's card, and the block of the unit's own page (slice 5e).
+      "core.stay_unit",
     ],
   );
 

@@ -16,12 +16,18 @@ const STAY = "11111111-1111-4111-8111-111111111111";
 const HIDDEN = "22222222-2222-4222-8222-222222222222";
 const GONE = "33333333-3333-4333-8333-333333333333";
 
-function Select({ offer }: { offer: string }) {
+function Select({ kind, offer }: { kind?: "unit"; offer: string }) {
   const form = useForm({ defaultValues: { offer } });
   return (
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
       <label htmlFor="offer">Oferta</label>
-      <StayOfferSelect form={form} id="offer" invalid={false} name="offer" />
+      <StayOfferSelect
+        form={form}
+        id="offer"
+        invalid={false}
+        kind={kind}
+        name="offer"
+      />
     </NextIntlClientProvider>
   );
 }
@@ -78,4 +84,39 @@ test("says what is missing when nothing is booked from–to, or the list cannot 
     await screen.findByText(/Nie masz jeszcze oferty rezerwowanej od–do/),
   ).toBeVisible();
   expect(screen.getByLabelText("Oferta")).toHaveValue("");
+});
+
+test("a card's unit is one the company shows its guests", async () => {
+  const unit = (id: string, name: string, extra: object = {}) => ({
+    id,
+    name,
+    public: true,
+    active: true,
+    ...extra,
+  });
+  api.getBookingSetup.mockResolvedValue({
+    services: [service(STAY, "Pobyt nad jeziorem")],
+    resources: [
+      unit(HIDDEN, "Domek 1"),
+      unit(GONE, "Domek 2", { public: false }),
+      unit("66666666-6666-4666-8666-666666666666", "Domek 3", {
+        active: false,
+      }),
+    ],
+  });
+  const { unmount } = render(<Select kind="unit" offer="" />);
+
+  expect(
+    await screen.findByRole("option", { name: "Domek 1" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getAllByRole("option").map((option) => option.textContent),
+  ).toEqual(["Wybierz jednostkę", "Domek 1"]);
+  unmount();
+
+  api.getBookingSetup.mockResolvedValue({ services: [], resources: [] });
+  render(<Select kind="unit" offer="" />);
+  expect(
+    await screen.findByText(/Żadnej jednostki nie pokazujesz jeszcze gościom/),
+  ).toBeVisible();
 });

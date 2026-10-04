@@ -101,7 +101,13 @@ class BookingConfig(AppConfig):
         # its stay blocks show now (ADR-072, slice 5d).
         from saas_core.modules.core.organizations.api import PublicSource, register_public_source
 
-        from .site_blocks import SITE_BLOCK_TYPES, site_blocks
+        from .site_blocks import (
+            PAGE_SEGMENT,
+            SITE_BLOCK_TYPES,
+            site_blocks,
+            site_page,
+            site_pages,
+        )
         from .unit_content import public_photo_ids, shown_photo_ids
 
         register_public_source(
@@ -111,6 +117,9 @@ class BookingConfig(AppConfig):
                 served_media=public_photo_ids,
                 site_block_types=SITE_BLOCK_TYPES,
                 site_blocks=site_blocks,
+                page_segment=PAGE_SEGMENT,
+                site_page=site_page,
+                site_pages=site_pages,
             )
         )
         # Service names make a company findable in the catalogue (ADR-064).

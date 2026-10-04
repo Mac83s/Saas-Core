@@ -45,6 +45,15 @@ at the site's host in our copies only (`served_media_ids`), and what a
 visitor's browser reads afterwards — free days — comes from that module's own
 public API, whose reads the host gate lets through (`http/hosts.py`).
 
+A source's record may also have **a page nobody publishes** (slice 5e, a
+unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after
+pages, entries, indexes and archives (`_find_source_page`,
+`PublicSource.site_page`). Its first segment is the source's, the same in
+every language and reserved for new pages (`first_segment_reserved`); another
+language's address exists only where the record has words of its own in it,
+else one 308 to the site's own language. The sitemap lists such pages
+(`site_pages`); their views are not counted.
+
 ## Six operations belong to a person
 
 `assert_person_required(context, what)` in

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.stay_unit.v1.schema.json",
+  "title": "Core card of one unit booked from–to v1",
+  "description": "Carries a choice only: which unit. Its pictures, amenities, price and free days are the company's live records, read each time the page is (ADR-072, slice 5e).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["unit"],
+  "properties": {
+    "unit": {
+      "description": "The unit (its id) the card shows — one the company shows its guests.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "main": {
+      "description": "The card is the page's own heading: set on the unit's own page, which nobody edits.",
+      "type": "boolean"
+    },
+    "action_label": {
+      "type": "string",
+      "maxLength": 80
+    }
+  }
+}

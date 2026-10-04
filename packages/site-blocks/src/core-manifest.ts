@@ -50,6 +50,7 @@ import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import stayCalendarV1Schema from "@saas-core/contracts/site-blocks/core.stay_calendar.v1.schema.json";
 import staySearchV1Schema from "@saas-core/contracts/site-blocks/core.stay_search.v1.schema.json";
+import stayUnitV1Schema from "@saas-core/contracts/site-blocks/core.stay_unit.v1.schema.json";
 import stayUnitsV1Schema from "@saas-core/contracts/site-blocks/core.stay_units.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
 import featureListV1Schema from "@saas-core/contracts/site-blocks/core.feature_list.v1.schema.json";
@@ -66,6 +67,7 @@ import { linkRel } from "./link-rel";
 import {
   StayCalendarBlock,
   StaySearchBlock,
+  StayUnitBlock,
   StayUnitsBlock,
 } from "./stay-blocks";
 import type {
@@ -1012,6 +1014,23 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["title"], kind: "text", labelKey: "heading" },
           { path: ["text"], kind: "textarea", labelKey: "text" },
           { path: ["offer"], kind: "stayOffer", labelKey: "stayOffer" },
+          { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
+        ],
+      },
+    },
+    // One unit's card (slice 5e); the unit's own page is this block alone.
+    {
+      type: "core.stay_unit",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: stayUnitV1Schema }],
+      migrators: {},
+      component: StayUnitBlock,
+      live: true,
+      catalog: {
+        category: "booking",
+        labelKey: "stayUnitBlock",
+        fields: [
+          { path: ["unit"], kind: "stayUnit", labelKey: "stayUnit" },
           { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
         ],
       },

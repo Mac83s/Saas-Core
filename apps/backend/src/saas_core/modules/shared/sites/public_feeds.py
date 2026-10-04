@@ -9,6 +9,8 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
 
+from saas_core.modules.core.organizations.public_sources import page_sources
+
 from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
 from .models import ContentCollection, Domain, DomainStatus
@@ -24,6 +26,7 @@ from .publication_routing import (
     parse_moment,
     published_entries,
     serving_locales,
+    source_page_versions,
     tag_archive_path,
     visible_snapshot,
 )
@@ -271,6 +274,19 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
             }
             for locale, path in sorted(indexed.items()):
                 locations.append(_Location(path, _latest(by_locale[locale]), indexed))
+    # The pages a source's records have by themselves (a unit of the company's
+    # booking, `/stay/<unit>/`): on a published site only, each in the site's
+    # own language and in those the record has words in.
+    if publication is not None:
+        for segment, source in sorted(page_sources().items()):
+            if source.site_pages is None:
+                continue
+            for record in source.site_pages(domain.organization_id):
+                versions = source_page_versions(
+                    site_locale, segment, record.slug, record.locales, available
+                )
+                for path in versions.values():
+                    locations.append(_Location(path, record.changed_at, versions))
     # Each language of an article is its own entry; the group makes them one
     # article to a search engine.
     articles: dict[str, dict[str, str]] = {}
