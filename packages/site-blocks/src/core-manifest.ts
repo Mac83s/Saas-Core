@@ -974,12 +974,8 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["title"], kind: "text", labelKey: "heading" },
           { path: ["text"], kind: "textarea", labelKey: "text" },
           { path: ["offer"], kind: "stayOffer", labelKey: "stayOffer" },
-          {
-            path: ["layout"],
-            kind: "choice",
-            labelKey: "stayUnitsLayout",
-            options: ["cards", "rows"],
-          },
+          // Cards or rows: the section library's two layouts of this block
+          // (slice 5f), chosen where every section's layout is.
           { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
         ],
       },

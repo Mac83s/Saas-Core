@@ -352,7 +352,7 @@ describe("section template contract", () => {
   });
 
   it("v7 appends F4-P4: seven product layouts on product v3 and two electronics add-ons — no price, no invented parameters", () => {
-    expect(coreSectionTemplates()).toHaveLength(158);
+    expect(coreSectionTemplates().length).toBeGreaterThanOrEqual(158);
     const added = coreSectionTemplates().slice(149, 158);
     expect(
       added.map((template) => [
@@ -408,9 +408,79 @@ describe("section template contract", () => {
     ]);
   });
 
+  it("v7 appends 5f: five sections of offers booked from–to — a choice and words, never a unit, a price or a day", () => {
+    expect(coreSectionTemplates()).toHaveLength(163);
+    const added = coreSectionTemplates().slice(158, 163);
+    expect(
+      added.map((template) => [
+        template.id,
+        template.blockType,
+        template.layout,
+      ]),
+    ).toEqual([
+      ["core.stay_search_widget", "core.stay_search", "classic"],
+      ["core.stay_units_cards", "core.stay_units", "cards"],
+      ["core.stay_units_rows", "core.stay_units", "rows"],
+      ["core.stay_calendar_free_days", "core.stay_calendar", "classic"],
+      ["core.stay_map_place", "core.stay_map", "classic"],
+    ]);
+    for (const template of added) {
+      expect(template).toMatchObject({
+        version: 1,
+        schemaVersion: 1,
+        kind: "default",
+        // Only where the company's bookings are: the library asks for both.
+        requirements: {
+          requiredEntitlements: ["sites.enabled", "booking.enabled"],
+          requiredModules: ["shared.sites", "shared.booking"],
+          media: "none",
+        },
+        // A page's section: an article is not where a stay is booked.
+        targetSurface: ["page"],
+      });
+      expect(template.conversion).toBeDefined();
+      expect(sampleMediaOf(template)).toEqual([]);
+      for (const locale of ["pl", "en"] as const) {
+        const seed = template.seed[locale] as Record<string, unknown>;
+        // Words and a layout only: which offer or unit, what it costs and
+        // when it is free are the company's live records.
+        expect(Object.keys(seed).sort()).toEqual(
+          [
+            "title",
+            "text",
+            ...(template.blockType === "core.stay_map" ? [] : ["action_label"]),
+            ...(template.blockType === "core.stay_units" ? ["layout"] : []),
+          ].sort(),
+        );
+        expect(JSON.stringify(seed)).not.toMatch(
+          /\d+\s?(zł|PLN|EUR|€)|#[a-z]/i,
+        );
+      }
+    }
+    // The widget, both lists and the calendar lead to the booking form; the
+    // map does not.
+    expect(
+      added
+        .filter((template) => !template.conversion?.primaryAction)
+        .map((template) => template.id),
+    ).toEqual(["core.stay_map_place"]);
+    // Offered only with the company's bookings in hand.
+    const ids = (entitlements: string[], modules: string[]) =>
+      availableSectionTemplates(registry, { entitlements, modules })
+        .map((template) => template.id)
+        .filter((id) => id.startsWith("core.stay_"));
+    expect(ids(["sites.enabled"], ["shared.sites"])).toEqual([]);
+    expect(
+      ids(
+        ["sites.enabled", "booking.enabled"],
+        ["shared.sites", "shared.booking"],
+      ),
+    ).toEqual(added.map((template) => template.id));
+  });
+
   it("offers the newest version of each template, one per id, in catalogue order", () => {
     const offered = offeredSectionTemplates();
-    expect(offered).toHaveLength(150);
+    expect(offered).toHaveLength(155);
     // A revision keeps its predecessor's place in the library; new ids follow.
     expect(offered.map((template) => template.id)).toEqual([
       ...v6Catalog.templates.map((template) => template.id),
@@ -418,7 +488,7 @@ describe("section template contract", () => {
         .slice(128)
         .map((template) => template.id),
     ]);
-    expect(new Set(offered.map((template) => template.id)).size).toBe(150);
+    expect(new Set(offered.map((template) => template.id)).size).toBe(155);
     for (const template of offered)
       expect(template.version).toBe(
         Math.max(
@@ -461,7 +531,9 @@ describe("section template contract", () => {
         expect(photos.has(sample.id)).toBe(true);
       for (const locale of ["pl", "en"] as const) {
         const block = sectionTemplateBlock(template, locale, registry);
-        expect(block.data.layout).toBe(template.layout);
+        // A block without layouts (the stay widget, the calendar, the map)
+        // is its one classic section and carries no `layout`.
+        expect(block.data.layout ?? "classic").toBe(template.layout);
         const html = renderToStaticMarkup(registry.render(block, key));
         expect(html).toContain(`data-block-type="${template.blockType}"`);
         if (template.layout !== "classic")

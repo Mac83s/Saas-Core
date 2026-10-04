@@ -1,0 +1,529 @@
+{
+  "id": "core.lodging",
+  "version": 1,
+  "category": "service",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Noclegi",
+      "description": "Strona obiektu z noclegami, która prowadzi do rezerwacji online: obietnica na otwarcie, wybór terminu, jednostki z ceną „od”, okolica, galeria, zasady pobytu, pytania, mapa i kalendarz wolnych terminów. Przykład: domki nad jeziorem; zdjęcia w galerii są poglądowe — wymień je przed publikacją."
+    },
+    "en": {
+      "name": "Accommodation",
+      "description": "An accommodation page that leads to online booking: a promise up front, the date picker, units with “from” prices, the area, a gallery, house rules, questions, a map and the calendar of available dates. Example: lakeside cottages; the gallery photos are illustrative — replace them before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled", "booking.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "organic"
+  },
+  "conversion": {
+    "goal": "booking",
+    "stages": [
+      "attention",
+      "action",
+      "interest",
+      "interest",
+      "proof",
+      "objection",
+      "objection",
+      "objection",
+      "action",
+      "action"
+    ]
+  },
+  "sectionRefs": [
+    {
+      "position": 1,
+      "id": "core.stay_search_widget",
+      "version": 1
+    },
+    {
+      "position": 2,
+      "id": "core.stay_units_cards",
+      "version": 1
+    },
+    {
+      "position": 7,
+      "id": "core.stay_map_place",
+      "version": 1
+    },
+    {
+      "position": 8,
+      "id": "core.stay_calendar_free_days",
+      "version": 1
+    }
+  ],
+  "media": [
+    {
+      "id": "agriculture",
+      "source": "assets/agriculture-farm.png",
+      "filename": "agriculture-farm.png",
+      "contentType": "image/png",
+      "sha256": "8f06eb2669e06dea7ac6092ed451b2c519d866c85134372af13c9911e023e9fb"
+    },
+    {
+      "id": "business",
+      "source": "assets/business-studio.png",
+      "filename": "business-studio.png",
+      "contentType": "image/png",
+      "sha256": "d913927c10daac2e3ceb7a2fcb28c00634dfe01961825509da104640e7f0fe43"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 4,
+      "mediaId": "agriculture",
+      "alt": {
+        "pl": "Krowy na pastwisku przy zabudowaniach gospodarstwa",
+        "en": "Cows grazing on a pasture by the farm buildings"
+      },
+      "path": ["items", 0, "image"]
+    },
+    {
+      "blockPosition": 4,
+      "mediaId": "business",
+      "alt": {
+        "pl": "Jasne wnętrze z drewnianym stołem przy wysokich oknach",
+        "en": "A bright interior with an oak table by tall windows"
+      },
+      "path": ["items", 1, "image"]
+    }
+  ],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Domki nad jeziorem, w których naprawdę odpoczniesz",
+        "text": "Kilka domków z własnym tarasem, kilka kroków od wody i lasu. Sprawdź wolny termin i zarezerwuj pobyt online.",
+        "action": {
+          "label": "Sprawdź wolny termin",
+          "href": "#terminy"
+        },
+        "secondaryAction": {
+          "label": "Zobacz domki",
+          "href": "#domki"
+        },
+        "layout": "centered"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.stay_search",
+      "schema_version": 1,
+      "data": {
+        "title": "Sprawdź wolny termin",
+        "text": "Wybierz daty i liczbę osób. Cenę za cały pobyt zobaczysz w następnym kroku, zanim podasz swoje dane.",
+        "action_label": "Sprawdź cenę i zarezerwuj"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "terminy"
+      }
+    },
+    {
+      "block_type": "core.stay_units",
+      "schema_version": 1,
+      "data": {
+        "title": "Wybierz miejsce dla siebie",
+        "text": "Zdjęcia, wyposażenie i cena „od” — zobacz, co Ci odpowiada, i sprawdź termin.",
+        "action_label": "Sprawdź termin",
+        "layout": "cards"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "anchor": "domki"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Co robić w okolicy",
+        "lead": "[Uzupełnij: jedno zdanie o okolicy — jezioro, las, góry, miasteczko]",
+        "items": [
+          {
+            "title": "[Uzupełnij: miejsce lub atrakcja, np. plaża i pomost]",
+            "text": "[Uzupełnij: co tam jest i jak daleko od domków]"
+          },
+          {
+            "title": "[Uzupełnij: szlak, trasa rowerowa albo kajakowa]",
+            "text": "[Uzupełnij: dla kogo i ile zajmuje]"
+          },
+          {
+            "title": "[Uzupełnij: sklep, restauracja albo targ w pobliżu]",
+            "text": "[Uzupełnij: jak daleko i w jakich godzinach]"
+          }
+        ],
+        "layout": "cards"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "okolica",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.gallery",
+      "schema_version": 1,
+      "data": {
+        "layout": "captioned_grid",
+        "title": "Zobacz, jak tu jest",
+        "lead": "[Uzupełnij: jedno zdanie o tym, co pokazują zdjęcia]",
+        "items": [
+          {
+            "title": "[Uzupełnij: co widać na zdjęciu, np. taras o zachodzie słońca]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie swojego obiektu."
+          },
+          {
+            "title": "[Uzupełnij: co widać na zdjęciu, np. wnętrze domku]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie swojego obiektu."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "anchor": "galeria"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Cena i zasady pobytu",
+        "lead": "Cenę za wybrany termin pokazuje formularz rezerwacji — zależy od dat i liczby osób. Tu jest to, co warto wiedzieć wcześniej.",
+        "items": [
+          {
+            "title": "W cenie",
+            "text": "[Uzupełnij: co obejmuje cena, np. pościel, ręczniki, parking, drewno do kominka]"
+          },
+          {
+            "title": "Przyjazd i wyjazd",
+            "text": "[Uzupełnij: od której godziny przyjazd i do której wyjazd]"
+          },
+          {
+            "title": "Płatność i odwołanie",
+            "text": "[Uzupełnij: jak płaci się za pobyt i do kiedy można bezpłatnie odwołać rezerwację]"
+          },
+          {
+            "title": "Zwierzęta i cisza nocna",
+            "text": "[Uzupełnij: czy przyjmujecie zwierzęta i w jakich godzinach obowiązuje cisza]"
+          }
+        ],
+        "layout": "checklist"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "zasady"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "accordion",
+        "title": "Pytania przed przyjazdem",
+        "items": [
+          {
+            "question": "Czy muszę zakładać konto, żeby zarezerwować?",
+            "answer": "Nie. Wybierasz termin i podajesz dane kontaktowe — bez zakładania konta i hasła."
+          },
+          {
+            "question": "Czy mogę przyjechać z dziećmi?",
+            "answer": "[Uzupełnij: czy macie łóżeczko, plac zabaw, zabezpieczenia]."
+          },
+          {
+            "question": "Jak odebrać klucze?",
+            "answer": "[Uzupełnij: gdzie i od kogo, co przy późnym przyjeździe]."
+          },
+          {
+            "question": "Czy na miejscu jest internet i zasięg?",
+            "answer": "[Uzupełnij: Wi-Fi, zasięg sieci komórkowych]."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "pytania",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.stay_map",
+      "schema_version": 1,
+      "data": {
+        "title": "Jak do nas trafić",
+        "text": "[Uzupełnij: jak dojechać — z której drogi zjechać, gdzie zaparkować]"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "dojazd"
+      }
+    },
+    {
+      "block_type": "core.stay_calendar",
+      "schema_version": 1,
+      "data": {
+        "title": "Wolne terminy",
+        "text": "Zaznacz dzień przyjazdu i wyjazdu, a przejdziesz do rezerwacji z wybranym terminem.",
+        "action_label": "Sprawdź cenę i zarezerwuj"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "wolne-terminy",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 2,
+      "data": {
+        "layout": "split",
+        "contact": "email",
+        "locale": "pl",
+        "title": "Masz pytanie przed rezerwacją?",
+        "text": "Napisz — odpowiemy [Uzupełnij: w jakim czasie]. Termin najszybciej zarezerwujesz samodzielnie, w kalendarzu powyżej.",
+        "submit_label": "Wyślij pytanie",
+        "success_message": "Dziękujemy! Wiadomość dotarła. Odpowiemy e-mailem.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "Lakeside cottages where you really rest",
+          "text": "A few cottages, each with its own terrace, a few steps from the water and the forest. Check available dates and book your stay online.",
+          "action": {
+            "label": "Check available dates",
+            "href": "#terminy"
+          },
+          "secondaryAction": {
+            "label": "See the cottages",
+            "href": "#domki"
+          },
+          "layout": "centered"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.stay_search",
+        "schema_version": 1,
+        "data": {
+          "title": "Check available dates",
+          "text": "Choose your dates and the number of guests. You will see the price of the whole stay in the next step, before you enter your details.",
+          "action_label": "Check the price and book"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "terminy"
+        }
+      },
+      {
+        "block_type": "core.stay_units",
+        "schema_version": 1,
+        "data": {
+          "title": "Choose your place",
+          "text": "Photos, amenities and the “from” price — see what suits you and check the dates.",
+          "action_label": "Check dates",
+          "layout": "cards"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "anchor": "domki"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "Things to do nearby",
+          "lead": "[Fill in: one sentence about the area — the lake, the forest, the hills, the town]",
+          "items": [
+            {
+              "title": "[Fill in: a place or an attraction, e.g. the beach and the pier]",
+              "text": "[Fill in: what is there and how far from the cottages]"
+            },
+            {
+              "title": "[Fill in: a trail, a cycling or a kayaking route]",
+              "text": "[Fill in: who it is for and how long it takes]"
+            },
+            {
+              "title": "[Fill in: a shop, a restaurant or a market nearby]",
+              "text": "[Fill in: how far and the opening hours]"
+            }
+          ],
+          "layout": "cards"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "okolica",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.gallery",
+        "schema_version": 1,
+        "data": {
+          "layout": "captioned_grid",
+          "title": "See what it is like here",
+          "lead": "[Fill in: one sentence on what the photos show]",
+          "items": [
+            {
+              "title": "[Fill in: what the photo shows, e.g. the terrace at sunset]",
+              "caption": "Illustrative photo — replace it with a photo of your own place."
+            },
+            {
+              "title": "[Fill in: what the photo shows, e.g. inside a cottage]",
+              "caption": "Illustrative photo — replace it with a photo of your own place."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "anchor": "galeria"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "Price and house rules",
+          "lead": "The booking form shows the price for the dates you choose — it depends on the dates and the number of guests. Here is what is worth knowing before.",
+          "items": [
+            {
+              "title": "Included in the price",
+              "text": "[Fill in: what the price covers, e.g. bed linen, towels, parking, firewood]"
+            },
+            {
+              "title": "Arrival and departure",
+              "text": "[Fill in: check-in from and check-out until]"
+            },
+            {
+              "title": "Payment and cancellation",
+              "text": "[Fill in: how the stay is paid for and until when a booking can be cancelled free of charge]"
+            },
+            {
+              "title": "Pets and quiet hours",
+              "text": "[Fill in: whether pets are welcome and when quiet hours apply]"
+            }
+          ],
+          "layout": "checklist"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "zasady"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "accordion",
+          "title": "Questions before you arrive",
+          "items": [
+            {
+              "question": "Do I need an account to book?",
+              "answer": "No. You choose the dates and enter your contact details — no account and no password."
+            },
+            {
+              "question": "Can I come with children?",
+              "answer": "[Fill in: whether you have a cot, a playground, safety features]."
+            },
+            {
+              "question": "How do I get the keys?",
+              "answer": "[Fill in: where and from whom, and what if you arrive late]."
+            },
+            {
+              "question": "Is there internet and mobile coverage?",
+              "answer": "[Fill in: Wi-Fi, mobile network coverage]."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "pytania",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.stay_map",
+        "schema_version": 1,
+        "data": {
+          "title": "How to find us",
+          "text": "[Fill in: how to get here — where to turn off, where to park]"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "dojazd"
+        }
+      },
+      {
+        "block_type": "core.stay_calendar",
+        "schema_version": 1,
+        "data": {
+          "title": "Available dates",
+          "text": "Mark your arrival and departure days to continue to booking with those dates.",
+          "action_label": "Check the price and book"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "wolne-terminy",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 2,
+        "data": {
+          "layout": "split",
+          "contact": "email",
+          "locale": "en",
+          "title": "A question before you book?",
+          "text": "Write to us — we will reply [Fill in: how soon]. The quickest way to book is the calendar above.",
+          "submit_label": "Send your question",
+          "success_message": "Thank you! Your message has arrived. We will reply by email.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "kontakt"
+        }
+      }
+    ]
+  }
+}

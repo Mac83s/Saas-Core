@@ -715,6 +715,81 @@ def test_page_template_import_enforces_recipe_entitlements(tmp_path: Path) -> No
     assert PageVersion.all_objects.filter(organization=organization).count() == 0
 
 
+def test_the_lodging_template_brings_the_stay_sections_to_a_company_with_bookings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """„Noclegi” (ADR-072, slice 5f): the recipe as it ships, imported whole —
+    for a company whose plan has bookings, and for no other."""
+    client, organization, _ = sites_client(slug="sites-template-lodging")
+    snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
+    snapshot.features.update({"storage.enabled": True, "booking.enabled": False})
+    # Room for the recipe's own illustrations, as they ship.
+    snapshot.quotas["storage.bytes"] = 200 * 1024**2
+    snapshot.sources["storage.enabled"] = {"kind": "plan"}
+    snapshot.sources["storage.bytes"] = {"kind": "plan"}
+    snapshot.save(update_fields=["features", "quotas", "sources", "updated_at"])
+    storage = TemplateMediaStorage()
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage", lambda: storage
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner",
+        lambda: CleanTemplateMediaScanner(),
+    )
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    def lodging(key: str) -> Any:
+        return import_page_template(
+            client,
+            page.data["id"],
+            expected_version=0,
+            idempotency_key=key,
+            template_id="core.lodging",
+        )
+
+    denied = lodging("lodging-without-bookings")
+    assert (denied.status_code, denied.data["code"]) == (403, "entitlement_required")
+    assert PageVersion.all_objects.filter(organization=organization).count() == 0
+    assert storage.objects == {}
+
+    snapshot.features["booking.enabled"] = True
+    snapshot.sources["booking.enabled"] = {"kind": "plan"}
+    snapshot.save(update_fields=["features", "sources", "updated_at"])
+    imported = lodging("lodging-with-bookings")
+    assert imported.status_code == 201, imported.data
+    blocks = imported.data["blocks"]
+    assert [block["block_type"] for block in blocks] == [
+        "core.hero",
+        "core.stay_search",
+        "core.stay_units",
+        "core.feature_list",
+        "core.gallery",
+        "core.feature_list",
+        "core.faq",
+        "core.stay_map",
+        "core.stay_calendar",
+        "core.contact_form",
+    ]
+    # A stay section is words and a layout: which offer or unit, its price
+    # and its free days are read when the page is.
+    for block in blocks:
+        if block["block_type"].startswith("core.stay_"):
+            assert set(block["data"]) <= {"title", "text", "action_label", "layout"}
+    # The first screen leads to the date picker, which is on the page.
+    assert blocks[0]["data"]["action"]["href"] == "#terminy"
+    assert blocks[1]["presentation"]["anchor"] == "terminy"
+    # The gallery's two sample photos are the company's own assets now.
+    photos = [item["image"]["asset_id"] for item in blocks[4]["data"]["items"]]
+    assert len(set(photos)) == 2
+    assert {
+        str(asset)
+        for asset in MediaAsset.all_objects.filter(organization=organization).values_list(
+            "id", flat=True
+        )
+    } == set(photos)
+
+
 def test_page_template_import_materializes_approved_media_once_per_tenant(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

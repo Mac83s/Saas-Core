@@ -158,6 +158,7 @@ import { VersionHistory } from "./version-history";
 import { PageEditorContext } from "./page-editor-context";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
+import { isStayBlock, stayEntitlements, useStayOffers } from "./stay-offers";
 import { SeoPreview } from "./seo-preview";
 import { OwnPageTemplates, SaveAsTemplate } from "./own-templates";
 import {
@@ -474,14 +475,6 @@ function PageTemplatePicker({
 const generatesImages = () =>
   (deployment.modules as readonly string[]).includes("shared.image-generation");
 
-/** The blocks the picker offers: those of offers booked from–to only where
- *  the product has a public booking form — elsewhere they would draw nothing
- *  (ADR-072, slice 5d). */
-const offeredBlocks = blockOptions.filter(
-  (option) =>
-    deployment.features.publicBooking || !option.type.startsWith("core.stay_"),
-);
-
 /** Where a picture sits in a section's data, as the form addresses it:
  *  `["image", "asset_id"]`, `["images", "0", "asset_id"]` or a figure inside
  *  rich text. The first match: a section rarely shows one photo twice. */
@@ -666,11 +659,19 @@ export function PageEditor({
   const selectableAssets = assets.filter(
     (asset) => asset.state === "ready" && !selectedMediaIds.includes(asset.id),
   );
+  // What the editor offers of stays — the blocks, their library sections,
+  // the „Noclegi” template — it offers to a company that has an offer booked
+  // from–to: elsewhere they would draw nothing (ADR-072, slices 5d and 5f).
+  const stays = useStayOffers();
+  const offeredBlocks = useMemo(
+    () => blockOptions.filter((option) => stays || !isStayBlock(option.type)),
+    [stays],
+  );
   // Reaching the editor already means `sites.enabled`; the API stays the
   // boundary, this only avoids offering a template it would refuse.
   const pageTemplates = useMemo(
-    () => availablePageTemplates(registry, ["sites.enabled"]),
-    [],
+    () => availablePageTemplates(registry, stayEntitlements(stays)),
+    [stays],
   );
   const templateLocale = interfaceLocale === "en" ? "en" : "pl";
 
@@ -1529,6 +1530,7 @@ export function PageEditor({
                           onAdd={(block) =>
                             addSection(block, blocks.fields.length)
                           }
+                          stays={stays}
                         />
                         {blockPicker(false)}
                       </>
@@ -1672,6 +1674,7 @@ export function PageEditor({
                                 onAdd={(block) =>
                                   addSection(block, insertPosition)
                                 }
+                                stays={stays}
                               />
                               {/* A bare block when no layout fits. */}
                               <details className="studio-library-blank">

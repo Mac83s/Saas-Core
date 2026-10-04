@@ -182,3 +182,54 @@ PL/EN, wskazówki kompozycji i edytowalną wysokość, szerokość oraz ton.
 Osiem presetów dekoracji jest osobnym katalogiem wspólnego wyglądu, dostępnym
 dla wszystkich bloków; nie zwiększa liczby układów i nie zamyka macierzy 20 wariantów.
 Pełny kontrakt: [site-section-decoration.md](site-section-decoration.md).
+
+## Sekcje pobytów i szablon „Noclegi” — 2026-10-04
+
+Katalog v7 dostał pięć sekcji z blokami ofert rezerwowanych od–do (ADR-072,
+„Rozstrzygnięcia plastra 5f, część 1”) — łącznie 163 wpisy, 155 oferowanych:
+
+| Sekcja | Blok | Układ | Etap ścieżki |
+| --- | --- | --- | --- |
+| `core.stay_search_widget` | `core.stay_search` | `classic` | działanie (główne) |
+| `core.stay_units_cards` | `core.stay_units` | `cards` | zainteresowanie (główne) |
+| `core.stay_units_rows` | `core.stay_units` | `rows` | zainteresowanie (główne) |
+| `core.stay_calendar_free_days` | `core.stay_calendar` | `classic` | działanie (główne) |
+| `core.stay_map_place` | `core.stay_map` | `classic` | obiekcja |
+
+Seed takiej sekcji to słowa i układ. Jednostki, ceny, wolne dni i położenie są
+żywymi rekordami firmy, czytanymi przy każdym otwarciu strony; w bibliotece i
+w edytorze sekcja rysuje zarys. Blok bez układów (widget, kalendarz, mapa)
+jest swoją jedną sekcją `classic` i nie niesie pola `layout`; lista jednostek
+ma dwa układy, wybierane tam, gdzie układ każdej sekcji. Sekcje wymagają
+`booking.enabled` i modułu `shared.booking`, a edytor oferuje je — razem z
+blokami pobytów w „Dodaj pustą sekcję” i szablonem „Noclegi” — firmie, która
+ma aktywną ofertę rezerwowaną od–do.
+
+Recepta strony `core.lodging` v1 („Noclegi”, cel: rezerwacja) przeszła listę
+„Szablony nastawione na konwersję” ze zrzutami 390 i 1440 px:
+
+1. **Jeden cel:** rezerwacja online. Przyciski nazywają efekt („Sprawdź wolny
+   termin”, „Sprawdź cenę i zarezerwuj”); jedyne cichsze działanie to pytanie
+   w formularzu na końcu.
+2. **Pierwszy ekran:** obietnica, zdanie uzupełnienia i główne działanie,
+   które prowadzi do wyboru terminu na tej samej stronie (`#terminy`) — widoczne
+   bez przewijania na 390 i 1440 px. Sekcja startowa nie ma zdjęcia: nie ma
+   jeszcze zatwierdzonej ilustracji noclegów, a prawdziwe zdjęcia pokazuje
+   lista jednostek tuż niżej.
+3. **Ścieżka decyzji:** start → wybór terminu → jednostki z ceną „od” →
+   okolica → galeria → cena i zasady pobytu → pytania → mapa → kalendarz
+   wolnych terminów → pytanie przed rezerwacją. Główne działanie wraca przy
+   jednostkach i na końcu.
+4. **Bez zmyślania:** żadnych cen, opinii ani ocen w seedzie. Fakty obiektu
+   (okolica, godziny przyjazdu, zasady, odpowiedzi) to miejsca `[Uzupełnij: …]`,
+   których opublikowana strona nie pokazuje; zdjęcia galerii są oznaczone jako
+   poglądowe. Ceny i wolne dni pochodzą z cennika i grafiku firmy.
+5. **Niski próg:** rezerwacja bez konta; formularz pytania ma imię, e-mail i
+   wiadomość.
+6. **Bez ciemnych wzorców:** bez liczników i sztucznej rzadkości — kalendarz
+   pokazuje prawdziwe wolne dni.
+7. **Telefon:** główne działanie na pierwszym ekranie telefonu, pola dotyku od
+   44 px, mapa wczytywana dopiero po kliknięciu.
+8. **Metadane:** `conversion.goal` `booking`, etap każdej sekcji w recepcie;
+   cztery sekcje pobytów są przypięte do wersji z katalogu (`sectionRefs`).
+

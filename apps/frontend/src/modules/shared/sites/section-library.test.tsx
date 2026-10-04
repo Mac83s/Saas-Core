@@ -65,6 +65,57 @@ test("a chip names a kind of section as the outline and the inspector do", () =>
   ]);
 });
 
+test("a company with an offer booked from–to gets the stay sections; no other company sees them", () => {
+  const chips = () =>
+    within(screen.getByRole("group", { name: "Kategoria" }))
+      .getAllByRole("button")
+      .map((chip) => chip.textContent?.replace(/\d+$/, ""));
+  const onAdd = vi.fn();
+  const { unmount } = render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <SectionLibraryContent compact onAdd={onAdd} stays />
+    </NextIntlClientProvider>,
+  );
+  expect(chips().slice(-4)).toEqual([
+    "Rezerwacja pobytu",
+    "Lista jednostek",
+    "Kalendarz terminów",
+    "Mapa położenia",
+  ]);
+  chooseCategory("core.stay_units", "pl");
+  expect(
+    screen.getByRole("heading", { name: "Domki i pokoje — karty" }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("heading", {
+      name: "Domki i pokoje — wiersze ze zdjęciem z boku",
+    }),
+  ).toBeVisible();
+  // A stay section brings words and a layout, never a unit or a photo: it is
+  // added at once, without copying anything into the media library.
+  chooseCategory("core.stay_map", "pl");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Dodaj: Mapa położenia" }),
+  );
+  expect(materializeTemplatePhoto).not.toHaveBeenCalled();
+  expect(onAdd).toHaveBeenCalledWith(
+    expect.objectContaining({
+      block_type: "core.stay_map",
+      data: expect.objectContaining({ title: "Jak do nas trafić" }),
+    }),
+  );
+  expect(onAdd.mock.calls[0]![0].data).not.toHaveProperty("layout");
+  unmount();
+
+  render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <SectionLibraryContent compact onAdd={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  expect(chips().at(-1)).toBe("Galeria");
+  expect(screen.queryByText("Mapa położenia")).toBeNull();
+});
+
 test.each(["pl", "en"] as const)(
   "copies a photo before inserting and reuses the retry key (%s)",
   async (locale) => {

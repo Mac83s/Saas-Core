@@ -335,9 +335,12 @@ export function BlockFields<TValues extends FieldValues>({
   }) as SectionPresentation | undefined;
   const locale = useLocale() === "en" ? "en" : "pl";
   // One option per layout: an industry template may reuse a universal one.
+  // A block that has no layouts — the stay widget, the calendar, the map —
+  // is its one library section and gets no select: its data has no `layout`.
   const layouts = offeredSectionTemplates().filter(
     (template, position, all) =>
       template.blockType === type &&
+      template.seed.pl.layout !== undefined &&
       all.findIndex(
         (other) => other.blockType === type && other.layout === template.layout,
       ) === position,

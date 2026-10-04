@@ -57,6 +57,12 @@ that talks to a third party by itself needs a consent banner we do not have.
 What the block may show is the source's answer (`place_of`: the town, or the
 unit's own point once its company switched that on), never the block's data.
 
+Stays reach a page three ways — a bare block, a library section, the
+„Noclegi” recipe (`core.lodging`) — and the editor offers all three to a
+company that has an offer booked from–to (`stay-offers.ts`), nobody else. A
+library section of a block without layouts (the widget, the calendar, the
+map) is its one `classic` section and its seed carries no `layout`.
+
 A source's record may also have **a page nobody publishes** (slice 5e, a
 unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after
 pages, entries, indexes and archives (`_find_source_page`,

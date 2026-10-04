@@ -1119,3 +1119,54 @@ dokładny punkt dopiero po włączeniu „Pokaż dokładne położenie”.**
   (5h), położenie firmy niezależne od jednostek (miejsce `Location` nie ma
   współrzędnych), wzmianka o OpenStreetMap w dokumentach firmy (sprawdzenie
   prawne, nie decyzja plastra).
+
+### Rozstrzygnięcia plastra 5f, część 1 (sekcje biblioteki i szablon „Noclegi”)
+
+Plaster 5f ma dwie części. Ta przynosi sekcje biblioteki z blokami pobytów i
+szablon strony „Noclegi”; strona prawna witryny z dokumentów firmy (ADR-073,
+„Otwarte technicznie”) to część 2.
+
+- **Pięć sekcji biblioteki.** Katalog sekcji v7 dostaje widget rezerwacji,
+  listę jednostek w dwóch układach (karty, wiersze), kalendarz wolnych
+  terminów i mapę położenia. Sekcja niesie słowa i układ — nigdy jednostkę,
+  cenę ani dzień. Karta jednostki sekcji nie ma: wymaga wskazania jednostki,
+  więc zostaje w „Dodaj pustą sekcję”.
+- **Blok bez układów jest swoją jedną sekcją.** Widget, kalendarz i mapa nie
+  mają pola `layout`; ich sekcja ma w katalogu układ `classic`, a edytor nie
+  pokazuje im wyboru układu („Ta sekcja ma jeden układ”). Lista jednostek
+  wybiera karty albo wiersze tam, gdzie układ każdej sekcji — osobne pole
+  „Układ listy” zniknęło z pól bloku.
+- **Co dotyczy pobytów, edytor oferuje firmie, która ma ofertę okresu.** Bloki
+  pobytów w „Dodaj pustą sekcję”, sekcje biblioteki i szablon „Noclegi”
+  pojawiają się, gdy produkt ma publiczny formularz rezerwacji, a firma —
+  aktywną ofertę rezerwowaną od–do (`useStayOffers` czyta
+  `GET /booking/setup/`; osoba bez wglądu w rezerwacje nie dostaje nic).
+  Dotąd widziała je każda firma produktu z formularzem, także bez ofert
+  okresu. Sekcje, które strona już ma, zostają do edycji. Po stronie serwera
+  sekcje i szablon wymagają `booking.enabled`: import szablonu bez niego to
+  403 `entitlement_required`, a katalog szablonów dla automatu go nie
+  wymienia.
+- **„Noclegi” to jedna strona z jednym celem — rezerwacją.** Recepta
+  `core.lodging` v1 ma dziesięć sekcji: start z obietnicą i głównym
+  działaniem, wybór terminu, jednostki z ceną „od”, okolica, galeria, cena i
+  zasady pobytu, pytania, mapa, kalendarz wolnych terminów i formularz
+  pytania. Lista z planu (start, domki, okolica, galeria, cennik, regulamin,
+  kontakt z mapą) jest więc sekcjami jednej strony, nie siedmioma podstronami:
+  recepta strony opisuje jedną stronę (ADR-031), a rozbicie ścieżki rezerwacji
+  na podstrony oddala gościa od terminu. Firma, która chce osobnych podstron,
+  składa je z tych samych sekcji.
+- **„Cennik” bez kwot, „regulamin” bez treści prawnej.** Seed nie może nieść
+  wymyślonych cen: cenę „od” pokazuje lista jednostek z cennika firmy, cenę
+  terminu — formularz. Sekcja „Cena i zasady pobytu” mówi, co jest w cenie i
+  jakie są zasady, miejscami `[Uzupełnij: …]`. Dokument regulaminu i strona
+  prawna to część 2.
+- **Start bez zdjęcia, galeria z ilustracjami poglądowymi.** Zatwierdzonej
+  ilustracji noclegów jeszcze nie ma (zdjęcia do recept generuje właściciel),
+  więc sekcja startowa jest typograficzna, a galeria używa dwóch
+  zatwierdzonych ilustracji z podpisem „Zdjęcie poglądowe — wymień na zdjęcie
+  swojego obiektu”. Prawdziwe zdjęcia obiektu pokazuje lista jednostek.
+- **Poza tą częścią:** strona prawna witryny (część 2), własne ilustracje
+  noclegów, sekcja biblioteki dla karty jednostki, podgląd prawdziwych
+  jednostek w edytorze, kategorie uczestników w widgecie, podpowiedź szablonu
+  przez preset przy zakładaniu firmy (5g).
+

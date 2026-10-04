@@ -1456,7 +1456,7 @@
     "conversionGoals": {
       "inquiry": "zapytanie ofertowe",
       "call": "telefon",
-      "booking": "rezerwacja wizyty",
+      "booking": "rezerwacja",
       "email": "e-mail",
       "visit": "wizyta na miejscu"
     },

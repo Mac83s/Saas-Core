@@ -50,6 +50,7 @@ const heroVersion = registry.definitions.get("core.hero")?.latestVersion;
 const {
   completeMediaUpload,
   createSiteTemplate,
+  getBookingSetup,
   getImageGenerationOffer,
   importOwnPageTemplate,
   listSiteTemplates,
@@ -69,6 +70,7 @@ const {
 } = vi.hoisted(() => ({
   completeMediaUpload: vi.fn(),
   createSiteTemplate: vi.fn(),
+  getBookingSetup: vi.fn(),
   importOwnPageTemplate: vi.fn(),
   listSiteTemplates: vi.fn(),
   getImageGenerationOffer: vi.fn(),
@@ -114,6 +116,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   completeMediaUpload,
   createSiteTemplate,
+  getBookingSetup,
   importOwnPageTemplate,
   listSiteTemplates,
   getImageGenerationOffer,
@@ -192,6 +195,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   composed.imageGeneration = true;
   listSiteTemplates.mockResolvedValue({ items: [], limit: null });
+  // A company without bookings, unless a test gives it an offer.
+  getBookingSetup.mockRejectedValue(new Error("no bookings"));
   getImageGenerationOffer.mockResolvedValue({ ...offer, available: false });
   materializeTemplatePhoto.mockResolvedValue({
     asset_id: "019ff20d-a000-7000-8000-000000000099",
@@ -363,6 +368,40 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
       items: [{ question: "Ile trwa wizyta?", answer: "Około godziny." }],
     },
   });
+});
+
+test("stay blocks are offered to a company that has an offer booked from–to, and to no other", async () => {
+  const options = async () => {
+    const picker = await screen.findByRole("combobox", {
+      name: "Rodzaj sekcji",
+    });
+    picker.focus();
+    fireEvent.change(picker, { target: { value: "Mapa" } });
+    fireEvent.keyDown(picker, { key: "ArrowDown" });
+    return screen.queryAllByRole("option").map((item) => item.textContent);
+  };
+  // Visits only: nothing of stays among the kinds of section.
+  getBookingSetup.mockResolvedValue({
+    services: [{ time_model: "slot", active: true }],
+    resources: [],
+  });
+  const first = renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+  );
+  await waitFor(() => expect(getBookingSetup).toHaveBeenCalled());
+  expect(await options()).not.toContain("Mapa położenia");
+  first.unmount();
+
+  getBookingSetup.mockResolvedValue({
+    services: [{ time_model: "range", active: true }],
+    resources: [],
+  });
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await waitFor(async () =>
+    expect(await options()).toContain("Mapa położenia"),
+  );
 });
 
 test("przestawia pozycje listy strzałkami i zapisuje nową kolejność", async () => {

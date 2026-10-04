@@ -17953,6 +17953,333 @@
           "layout": "in_the_box"
         }
       }
+    },
+    {
+      "id": "core.stay_search_widget",
+      "version": 1,
+      "blockType": "core.stay_search",
+      "schemaVersion": 1,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Rezerwacja pobytu: termin i liczba osób",
+          "description": "Gość wybiera przyjazd i wyjazd w kalendarzu wolnych terminów, podaje liczbę osób i jednym przyciskiem przechodzi do formularza rezerwacji z tym wyborem.",
+          "usage": "Główne działanie strony z noclegami: zaraz pod sekcją startową i jeszcze raz na końcu. Wolne terminy pochodzą z Twojego grafiku — na opublikowanej stronie sekcja pojawia się, gdy masz ofertę rezerwowaną od–do w rezerwacji online."
+        },
+        "en": {
+          "name": "Stay booking: dates and guests",
+          "description": "The guest picks arrival and departure in the calendar of available dates, enters the number of guests and goes to the booking form with that choice in one click.",
+          "usage": "The main action of an accommodation page: right under the opening section and once more at the end. Available dates come from your schedule — on the published page the section appears once you have an offer booked from–to in online booking."
+        }
+      },
+      "goals": ["book"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled", "booking.enabled"],
+        "requiredModules": ["shared.sites", "shared.booking"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Sprawdź wolny termin",
+          "text": "Wybierz daty i liczbę osób. Cenę za cały pobyt zobaczysz w następnym kroku, zanim podasz swoje dane.",
+          "action_label": "Sprawdź cenę i zarezerwuj"
+        },
+        "en": {
+          "title": "Check available dates",
+          "text": "Choose your dates and the number of guests. You will see the price of the whole stay in the next step, before you enter your details.",
+          "action_label": "Check the price and book"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": null
+      },
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.stay_units_cards",
+      "version": 1,
+      "blockType": "core.stay_units",
+      "schemaVersion": 1,
+      "layout": "cards",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Domki i pokoje — karty",
+          "description": "Każda jednostka na własnej karcie: zdjęcie, miejscowość, liczba osób, wyposażenie i cena „od”, z przyciskiem prowadzącym do rezerwacji tej jednostki.",
+          "usage": "Układ: karty obok siebie. Środek strony, pod rezerwacją. Zdjęcia i opisy ustawiasz raz, w Ustawieniach › Usługi i grafik — sekcja pokazuje je sama, i tylko jednostki, które pokazujesz gościom."
+        },
+        "en": {
+          "name": "Cottages and rooms — cards",
+          "description": "Each unit on its own card: photo, town, number of guests, amenities and the “from” price, with a button that leads to booking that unit.",
+          "usage": "Layout: cards side by side. Page body, under the booking section. You set photos and descriptions once, in Settings › Services and schedule — the section shows them by itself, and only the units you show to guests."
+        }
+      },
+      "goals": ["explain_offer", "book"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled", "booking.enabled"],
+        "requiredModules": ["shared.sites", "shared.booking"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Wybierz miejsce dla siebie",
+          "text": "Zdjęcia, wyposażenie i cena „od” — zobacz, co Ci odpowiada, i sprawdź termin.",
+          "action_label": "Sprawdź termin",
+          "layout": "cards"
+        },
+        "en": {
+          "title": "Choose your place",
+          "text": "Photos, amenities and the “from” price — see what suits you and check the dates.",
+          "action_label": "Check dates",
+          "layout": "cards"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": null
+      },
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.stay_units_rows",
+      "version": 1,
+      "blockType": "core.stay_units",
+      "schemaVersion": 1,
+      "layout": "rows",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Domki i pokoje — wiersze ze zdjęciem z boku",
+          "description": "Jednostki jedna pod drugą: zdjęcie z boku, obok opis, wyposażenie i cena „od”. Więcej miejsca na opis każdej z nich.",
+          "usage": "Układ: wiersze. Dobre dla dwóch–czterech jednostek z dłuższym opisem. Treść jednostek pochodzi z Ustawień › Usługi i grafik."
+        },
+        "en": {
+          "name": "Cottages and rooms — rows with a side photo",
+          "description": "Units one under another: a photo on the side, next to it the description, amenities and the “from” price. More room for each unit's description.",
+          "usage": "Layout: rows. Good for two to four units with a longer description. The units' content comes from Settings › Services and schedule."
+        }
+      },
+      "goals": ["explain_offer", "book"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled", "booking.enabled"],
+        "requiredModules": ["shared.sites", "shared.booking"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Wybierz miejsce dla siebie",
+          "text": "Zdjęcia, wyposażenie i cena „od” — zobacz, co Ci odpowiada, i sprawdź termin.",
+          "action_label": "Sprawdź termin",
+          "layout": "rows"
+        },
+        "en": {
+          "title": "Choose your place",
+          "text": "Photos, amenities and the “from” price — see what suits you and check the dates.",
+          "action_label": "Check dates",
+          "layout": "rows"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": null
+      },
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.stay_calendar_free_days",
+      "version": 1,
+      "blockType": "core.stay_calendar",
+      "schemaVersion": 1,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Kalendarz wolnych terminów",
+          "description": "Miesiąc po miesiącu: dni, w które można przyjechać. Gość zaznacza przyjazd i wyjazd, a przycisk prowadzi do formularza z tym terminem.",
+          "usage": "Na końcu strony albo pod opisem jednostek — dla gościa, który najpierw sprawdza, czy termin jest wolny. Kalendarz czyta wolne dni z Twojego grafiku przy każdym otwarciu strony."
+        },
+        "en": {
+          "name": "Calendar of available dates",
+          "description": "Month by month: the days a stay can start on. The guest marks arrival and departure and the button leads to the form with those dates.",
+          "usage": "At the end of the page or under the units — for a guest who first checks whether the dates are free. The calendar reads free days from your schedule every time the page is opened."
+        }
+      },
+      "goals": ["book"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "end",
+        "recommendedNext": ["contact", "footer"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled", "booking.enabled"],
+        "requiredModules": ["shared.sites", "shared.booking"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Wolne terminy",
+          "text": "Zaznacz dzień przyjazdu i wyjazdu, a przejdziesz do rezerwacji z wybranym terminem.",
+          "action_label": "Sprawdź cenę i zarezerwuj"
+        },
+        "en": {
+          "title": "Available dates",
+          "text": "Mark your arrival and departure days to continue to booking with those dates.",
+          "action_label": "Check the price and book"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": null
+      },
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.stay_map_place",
+      "version": 1,
+      "blockType": "core.stay_map",
+      "schemaVersion": 1,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Mapa położenia",
+          "description": "Gdzie jest jednostka: nazwa, miejscowość i mapa OpenStreetMap, która wczytuje się dopiero po kliknięciu „Pokaż mapę”, z odnośnikiem „Otwórz w mapach”.",
+          "usage": "Na końcu strony, przy kontakcie. Mapa pokazuje miejscowość; dokładny punkt dopiero wtedy, gdy w ustawieniach jednostki zaznaczysz „Pokaż dokładne położenie”. Bez wyboru jednostki pokazuje pierwszą, która ma miejscowość."
+        },
+        "en": {
+          "name": "Location map",
+          "description": "Where the unit is: its name, town and an OpenStreetMap map that loads only after “Show map” is selected, with an “Open in maps” link.",
+          "usage": "At the end of the page, near the contact details. The map shows the town; the exact point only once you tick “Show exact location” in the unit's settings. With no unit chosen it shows the first one that has a town."
+        }
+      },
+      "goals": ["visit"],
+      "composition": {
+        "role": "contact",
+        "preferredPosition": "end",
+        "recommendedNext": ["contact", "footer"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled", "booking.enabled"],
+        "requiredModules": ["shared.sites", "shared.booking"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak do nas trafić",
+          "text": "[Uzupełnij: jak dojechać — z której drogi zjechać, gdzie zaparkować]"
+        },
+        "en": {
+          "title": "How to find us",
+          "text": "[Fill in: how to get here — where to turn off, where to park]"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": null
+      },
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "objection",
+        "primaryAction": false
+      }
     }
   ]
 }

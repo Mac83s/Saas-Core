@@ -228,6 +228,7 @@ export function StayUnitsBlock({
     {
       className: `site-block site-block--stay-units site-stay-units--${layout}`,
       "data-block-type": "core.stay_units",
+      "data-section-layout": layout,
     },
     intro(block, editor),
     shown
@@ -263,7 +264,9 @@ export function StayUnitsBlock({
                   h(
                     "span",
                     { className: "site-section__action" },
-                    editor && block.action_label
+                    // One place to edit the words; the other sample cards
+                    // repeat them.
+                    editor && block.action_label && index === 0
                       ? editor.text(["action_label"], block.action_label)
                       : actionLabel,
                   ),

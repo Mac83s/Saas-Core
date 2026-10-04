@@ -162,6 +162,13 @@
       "versions": {
         "1": "core.product_collection.v1.json"
       }
+    },
+    {
+      "id": "core.lodging",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.lodging.v1.json"
+      }
     }
   ],
   "sampleMedia": "sample-media.v1.json"

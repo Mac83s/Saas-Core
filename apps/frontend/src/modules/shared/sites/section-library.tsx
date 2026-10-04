@@ -42,6 +42,7 @@ import {
   useSectionTypeName,
   type BlockFormValues,
 } from "./block-form";
+import { stayEntitlements, stayModules } from "./stay-offers";
 import { OwnSectionTemplates } from "./own-templates";
 
 /** Library order and category filter: the families interleave in this order. */
@@ -57,6 +58,11 @@ const BLOCK_TYPES = [
   "quote",
   "product",
   "gallery",
+  // Offers booked from–to (ADR-072, slice 5f): for a company that has one.
+  "stay_search",
+  "stay_units",
+  "stay_calendar",
+  "stay_map",
 ] as const;
 
 const tokens = {
@@ -75,12 +81,15 @@ export function SectionLibrary({
   onBusyChange,
   open: openProp,
   onOpenChange,
+  stays = false,
 }: {
   onAdd: (block: BlockFormValues) => void;
   triggerLabel?: string;
   onBusyChange?: (busy: boolean) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** The company has an offer booked from–to: the stay sections are its. */
+  stays?: boolean;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
   const common = useTranslations("Common");
@@ -119,6 +128,7 @@ export function SectionLibrary({
             onAdd(block);
             setOpen(false);
           }}
+          stays={stays}
         />
       </DialogContent>
     </Dialog>
@@ -130,10 +140,12 @@ export function SectionLibraryContent({
   onAdd,
   compact = false,
   onBusyChange,
+  stays = false,
 }: {
   onAdd: (block: BlockFormValues) => void;
   compact?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  stays?: boolean;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
   const typeName = useSectionTypeName();
@@ -171,8 +183,8 @@ export function SectionLibraryContent({
   const matching = useMemo(
     () =>
       availableSectionTemplates(registry, {
-        entitlements: ["sites.enabled"],
-        modules: ["shared.sites"],
+        entitlements: stayEntitlements(stays),
+        modules: stayModules(stays),
         industry,
         blockType: "",
       }).filter((template) => {
@@ -183,7 +195,7 @@ export function SectionLibraryContent({
           .toLocaleLowerCase(locale)
           .includes(search);
       }),
-    [industry, query, locale],
+    [industry, query, locale, stays],
   );
   const templates = useMemo(
     () =>

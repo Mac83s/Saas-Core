@@ -4,7 +4,7 @@
  *  fields are the ones pages use — only the endpoint differs — so a blog post
  *  cannot drift into a second, weaker notion of content. */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -52,6 +52,7 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { isStayBlock, useStayOffers } from "./stay-offers";
 import { sitesErrorMessage } from "./problem";
 
 const entryDraftSchema = z.object({ blocks: z.array(blockFormSchema) });
@@ -83,6 +84,13 @@ export function EntryEditor({
     defaultValues: { blocks: [] },
   });
   const blocks = useFieldArray({ control: form.control, name: "blocks" });
+  // A stay block is offered to a company that has an offer booked from–to,
+  // as in the page editor.
+  const stays = useStayOffers();
+  const offeredBlocks = useMemo(
+    () => blockOptions.filter((option) => stays || !isStayBlock(option.type)),
+    [stays],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -221,7 +229,7 @@ export function EntryEditor({
                   isItemEqualToValue={(item, value) => item.type === value.type}
                   itemToStringLabel={(item) => t(item.labelKey)}
                   itemToStringValue={(item) => item.type}
-                  items={blockOptions}
+                  items={offeredBlocks}
                   onValueChange={setSelectedBlock}
                   value={selectedBlock}
                 >
@@ -233,7 +241,7 @@ export function EntryEditor({
                   <ComboboxContent>
                     <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
                     <ComboboxList>
-                      {blockOptions.map((option) => (
+                      {offeredBlocks.map((option) => (
                         <ComboboxItem key={option.type} value={option}>
                           {t(option.labelKey)}
                         </ComboboxItem>
