@@ -81,8 +81,8 @@ def test_a_model_outside_the_listed_processors_is_refused_with_what_comes_first(
         "prywatności i umowy powierzenia (wpis „Podmiot przetwarzający” w "
         "docs/architecture/model-port.md), potem do listy LISTED_PROCESSORS w kodzie portu "
         "modeli — dopiero wtedy da się go tu wybrać. Dziś na liście: Claude Sonnet 5.5 i "
-        "Claude Haiku 4.5 (Anthropic), uruchamiane w Google Cloud (Vertex AI, region "
-        "europejski), przez OpenRouter."
+        "Claude Haiku 4.5 (Anthropic), wywoływane przez OpenRouter "
+        "w Google Cloud (Vertex AI) z żądanym regionem europejskim."
     )
 
 
@@ -93,7 +93,7 @@ def test_the_provider_pin_takes_only_the_host_the_documents_name() -> None:
     assert LISTED_HOSTS == ("google-vertex/europe",)
     assert {chain.host for chain in LISTED_PROCESSORS} == set(LISTED_HOSTS)
     labels = {value: names for value, names in CLAUDE_PROVIDER.values}
-    assert labels["google-vertex/europe"]["pl"] == "Google (Vertex AI, Europa)"
+    assert labels["google-vertex/europe"]["pl"] == "Google (Vertex AI, żądany region europejski)"
     assert labels["anthropic"]["pl"] == "Anthropic — poza listą podmiotów przetwarzających"
     assert labels["amazon-bedrock"]["en"] == "Amazon (Bedrock) — not on the list of processors"
 
@@ -109,7 +109,7 @@ def test_the_provider_pin_takes_only_the_host_the_documents_name() -> None:
         assert "nie można wybrać: dokumenty prywatności platformy nazywają innego wykonawcę" in (
             str(message)
         )
-        assert "Google (Vertex AI, Europa). Najpierw zmień wpis „Podmiot przetwarzający”" in (
+        assert "Google (Vertex AI, żądany region europejski). Najpierw zmień wpis „Podmiot przetwarzający”" in (
             str(message)
         )
     # The other key of the group is not held back by the pin's rule.

@@ -5176,7 +5176,7 @@
     "writing": "Asystent pisze…",
     "you": "Ty",
     "assistant": "Asystent",
-    "notice": "Asystent korzysta z zewnętrznego modelu AI: Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), uruchamianego w Google Cloud (Vertex AI, region europejski), przez pośrednika OpenRouter (USA). Dostawcy nie uczą modeli na rozmowach i ich nie przechowują. Nie wpisuj tu danych, których nie chcesz mu przekazać. {credits, plural, =0 {Odpowiedź nie zużywa kredytów.} one {Każda odpowiedź to # kredyt.} few {Każda odpowiedź to # kredyty.} other {Każda odpowiedź to # kredytów.}}",
+    "notice": "Asystent korzysta z zewnętrznego modelu AI: Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), wywoływanego przez pośrednika OpenRouter (USA) w Google Cloud (Vertex AI); żądamy regionu europejskiego, ale odpowiedź potwierdza dostawcę, nie region. Dostawcy nie uczą modeli na rozmowach i ich nie przechowują. Nie wpisuj tu danych, których nie chcesz mu przekazać. {credits, plural, =0 {Odpowiedź nie zużywa kredytów.} one {Każda odpowiedź to # kredyt.} few {Każda odpowiedź to # kredyty.} other {Każda odpowiedź to # kredytów.}}",
     "enterHint": "Enter wysyła, Shift+Enter dodaje nową linię.",
     "status_done": "Wykonano",
     "status_pending": "Czeka na zgodę",
@@ -5231,7 +5231,7 @@
     "setupSpent": "Bezpłatne wiadomości na ustawianie firmy są już wykorzystane. Resztę ustawisz w panelu.",
     "setupBadge": "Ustawianie firmy",
     "setupFree": "Ta rozmowa jest bezpłatna.",
-    "noticeSetup": "Asystent korzysta z zewnętrznego modelu AI: Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), uruchamianego w Google Cloud (Vertex AI, region europejski), przez pośrednika OpenRouter (USA). Dostawcy nie uczą modeli na rozmowach i ich nie przechowują. Nie wpisuj tu danych, których nie chcesz mu przekazać. Ta rozmowa nie zużywa kredytów.",
+    "noticeSetup": "Asystent korzysta z zewnętrznego modelu AI: Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), wywoływanego przez pośrednika OpenRouter (USA) w Google Cloud (Vertex AI); żądamy regionu europejskiego, ale odpowiedź potwierdza dostawcę, nie region. Dostawcy nie uczą modeli na rozmowach i ich nie przechowują. Nie wpisuj tu danych, których nie chcesz mu przekazać. Ta rozmowa nie zużywa kredytów.",
     "setupBudget": "Limit bezpłatnych wiadomości na ustawianie firmy jest wykorzystany. To, co ustalone, zostaje w notatkach o firmie. Resztę ustawisz w panelu: Wizytówka, Zespół, Ustawienia › Usługi i grafik.",
     "setupDailyBudget": "Dzisiejszy limit bezpłatnych wiadomości na ustawianie firmy jest wykorzystany. To, co ustalone, zostaje w notatkach o firmie. Wróć jutro albo ustaw resztę w panelu: Wizytówka, Zespół, Ustawienia › Usługi i grafik.",
     "profileTitle": "Notatki o firmie — co już wiadomo i czego brakuje",
@@ -5836,10 +5836,10 @@
       "processing": {
         "title": "Przetwarzanie treści przez dostawców AI",
         "why": "Zanim zlecisz pierwsze tłumaczenie, potwierdź raz, że wiesz, dokąd trafia treść. Bez tego tłumaczenia AI nie ruszą.",
-        "statement": "Potwierdzam, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym — obecnie przez OpenRouter (USA) do modelu Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), uruchamianego w Google Cloud (Vertex AI, region europejski). Dostawcy nie uczą modeli na tej treści.",
+        "statement": "Potwierdzam, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym — obecnie przez OpenRouter (USA) do modelu Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), wywoływanego w Google Cloud (Vertex AI); żądamy regionu europejskiego, ale odpowiedź potwierdza dostawcę, nie region. Dostawcy nie uczą modeli na tej treści.",
         "confirm": "Potwierdź",
         "saved": "Potwierdzenie zapisane. Możesz zlecać tłumaczenia AI.",
-        "done": "Firma potwierdziła {date}, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym. Obecnie tłumaczy model Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), uruchamiany w Google Cloud (Vertex AI, region europejski), przez pośrednika OpenRouter (USA); dostawcy nie uczą modeli na tej treści."
+        "done": "Firma potwierdziła {date}, że treść do tłumaczenia trafia do OpenRouter i dostawców modeli AI poza Europejskim Obszarem Gospodarczym. Obecnie tłumaczy model Claude Sonnet 5.5 firmy Anthropic (zapasowo Claude Haiku 4.5), wywoływany przez pośrednika OpenRouter (USA) w Google Cloud (Vertex AI) — żądamy regionu europejskiego, ale odpowiedź potwierdza dostawcę, nie region; dostawcy nie uczą modeli na tej treści."
       },
       "consentDialog": {
         "title": "Włączyć automatyczne tłumaczenie zmian?",

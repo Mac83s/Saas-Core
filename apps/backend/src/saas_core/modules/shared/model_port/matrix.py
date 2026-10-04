@@ -66,7 +66,7 @@ class Processor:
     adapter: str
     #: Who runs the model, as the intermediary names the host in a request's
     #: provider preferences: `google-vertex/europe` — Google Cloud, Vertex AI,
-    #: a European region.
+    #: a European region requested (the answer does not confirm it).
     host: str
     #: Whose model, as the intermediary names it: `anthropic/…` — Anthropic.
     model: str
@@ -74,8 +74,8 @@ class Processor:
 
 #: The processors the platform's privacy documents name for companies'
 #: content (the owner's answers of 04.10.2026; `docs/architecture/model-port.md`,
-#: „Podmiot przetwarzający”): through OpenRouter, run by Google Cloud (Vertex
-#: AI, European region), Claude Sonnet 5.5 and — as the fallback — Claude Haiku
+#: „Podmiot przetwarzający”): through OpenRouter, called in Google Cloud (Vertex
+#: AI, European region requested), Claude Sonnet 5.5 and — as the fallback — Claude Haiku
 #: 4.5 by Anthropic. Nothing else is sent a company's content: the platform's
 #: setting of a task's model refuses another model (`settings_spec.py`), the
 #: call itself is refused when `.env` or code names one (`service._gates`), and

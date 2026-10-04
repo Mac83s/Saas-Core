@@ -62,7 +62,7 @@ class TranslationSettingsSerializer(serializers.Serializer[dict[str, Any]]):
     processing_acknowledged = serializers.BooleanField(
         help_text="The company confirmed that content goes to OpenRouter and model providers "
         "outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 "
-        "as the fallback) run by Google Cloud (Vertex AI, European region), the processor "
+        "as the fallback) called in Google Cloud (Vertex AI) with a European region requested, the processor "
         "the platform's privacy documents name."
     )
     processing_ack_at = serializers.DateTimeField(allow_null=True)
@@ -97,7 +97,7 @@ class TranslationSettingsUpdateSerializer(serializers.Serializer[dict[str, Any]]
         allow_null=True,
         help_text="Confirm once that content goes to OpenRouter and model providers outside "
         "the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the "
-        "fallback) run by Google Cloud (Vertex AI, European region). Only true is accepted.",
+        "fallback) called in Google Cloud (Vertex AI) with a European region requested. Only true is accepted.",
     )
     reset = serializers.ListField(
         child=serializers.ChoiceField(choices=[d.key for d in COMPANY_SETTINGS]),

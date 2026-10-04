@@ -38756,8 +38756,8 @@ components:
           - 'null'
           description: Confirm once that content goes to OpenRouter and model providers
             outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude
-            Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region).
-            Only true is accepted.
+            Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI) with a European
+            region requested. Only true is accepted.
         reset:
           type:
           - array
@@ -48247,8 +48247,9 @@ components:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
             providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic
-            (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European
-            region), the processor the platform's privacy documents name.
+            (Claude Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI)
+            with a European region requested, the processor the platform's privacy
+            documents name.
         processing_ack_at:
           type:
           - string
@@ -48281,8 +48282,9 @@ components:
           type: boolean
           description: The company confirmed that content goes to OpenRouter and model
             providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic
-            (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European
-            region), the processor the platform's privacy documents name.
+            (Claude Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI)
+            with a European region requested, the processor the platform's privacy
+            documents name.
         processing_ack_at:
           type:
           - string
@@ -48333,8 +48335,8 @@ components:
           - 'null'
           description: Confirm once that content goes to OpenRouter and model providers
             outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude
-            Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region).
-            Only true is accepted.
+            Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI) with a European
+            region requested. Only true is accepted.
         reset:
           type:
           - array

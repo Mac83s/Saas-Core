@@ -5176,7 +5176,7 @@
     "writing": "The assistant is writing…",
     "you": "You",
     "assistant": "Assistant",
-    "notice": "The assistant uses an external AI model: Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback), run in Google Cloud (Vertex AI, European region), through the intermediary OpenRouter (USA). The providers neither train models on the conversations nor store them. Do not enter anything you would not want it to receive. {credits, plural, =0 {An answer uses no credits.} one {Each answer is # credit.} other {Each answer is # credits.}}",
+    "notice": "The assistant uses an external AI model: Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback), called through the intermediary OpenRouter (USA) in Google Cloud (Vertex AI); we request a European region, but the answer confirms the provider, not the region. The providers neither train models on the conversations nor store them. Do not enter anything you would not want it to receive. {credits, plural, =0 {An answer uses no credits.} one {Each answer is # credit.} other {Each answer is # credits.}}",
     "enterHint": "Enter sends, Shift+Enter adds a new line.",
     "status_done": "Done",
     "status_pending": "Waiting for consent",
@@ -5231,7 +5231,7 @@
     "setupSpent": "The free messages for setting the company up are used up. You can do the rest in the panel.",
     "setupBadge": "Setting the company up",
     "setupFree": "This conversation is free.",
-    "noticeSetup": "The assistant uses an external AI model: Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback), run in Google Cloud (Vertex AI, European region), through the intermediary OpenRouter (USA). The providers neither train models on the conversations nor store them. Do not enter anything you would not want it to receive. This conversation uses no credits.",
+    "noticeSetup": "The assistant uses an external AI model: Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback), called through the intermediary OpenRouter (USA) in Google Cloud (Vertex AI); we request a European region, but the answer confirms the provider, not the region. The providers neither train models on the conversations nor store them. Do not enter anything you would not want it to receive. This conversation uses no credits.",
     "setupBudget": "The limit of free messages for setting the company up is used up. What was settled stays in the notes about the company. Do the rest in the panel: Business card, Team, Settings › Services and schedule.",
     "setupDailyBudget": "Today's limit of free messages for setting the company up is used up. What was settled stays in the notes about the company. Come back tomorrow or do the rest in the panel: Business card, Team, Settings › Services and schedule.",
     "profileTitle": "Notes about the company — what is known and what is missing",
@@ -5836,10 +5836,10 @@
       "processing": {
         "title": "Content processing by AI providers",
         "why": "Before your first translation, confirm once that you know where the content goes. AI translations do not start without it.",
-        "statement": "I confirm that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area — today through OpenRouter (USA) to the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback), run in Google Cloud (Vertex AI, European region). The providers do not train models on this content.",
+        "statement": "I confirm that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area — today through OpenRouter (USA) to the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback), called in Google Cloud (Vertex AI); we request a European region, but the answer confirms the provider, not the region. The providers do not train models on this content.",
         "confirm": "Confirm",
         "saved": "The confirmation was saved. You can order AI translations.",
-        "done": "On {date} the company confirmed that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area. Today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) translates it, run in Google Cloud (Vertex AI, European region), through the intermediary OpenRouter (USA); the providers do not train models on this content."
+        "done": "On {date} the company confirmed that the content to translate goes to OpenRouter and AI model providers outside the European Economic Area. Today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) translates it, called through the intermediary OpenRouter (USA) in Google Cloud (Vertex AI) — we request a European region, but the answer confirms the provider, not the region; the providers do not train models on this content."
       },
       "consentDialog": {
         "title": "Turn on automatic translation of changes?",

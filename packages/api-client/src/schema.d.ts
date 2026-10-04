@@ -14406,7 +14406,7 @@ export interface components {
             auto_changes?: boolean | null;
             /** @description Credits a month translations without a click may spend; 0 turns it off. */
             auto_monthly_limit?: number | null;
-            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region). Only true is accepted. */
+            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI) with a European region requested. Only true is accepted. */
             processing_acknowledged?: boolean | null;
             /** @description Keys to take back to the inherited value. */
             reset?: ("translation.settings.mode" | "translation.settings.auto_changes" | "translation.settings.auto_monthly_limit")[] | null;
@@ -18679,7 +18679,7 @@ export interface components {
                 [key: string]: components["schemas"]["SettingValue"];
             };
             automation: components["schemas"]["SettingsAutomation"];
-            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region), the processor the platform's privacy documents name. */
+            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI) with a European region requested, the processor the platform's privacy documents name. */
             processing_acknowledged: boolean;
             /** Format: date-time */
             processing_ack_at: string | null;
@@ -18693,7 +18693,7 @@ export interface components {
                 [key: string]: components["schemas"]["SettingValue"];
             };
             automation: components["schemas"]["SettingsAutomation"];
-            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region), the processor the platform's privacy documents name. */
+            /** @description The company confirmed that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI) with a European region requested, the processor the platform's privacy documents name. */
             processing_acknowledged: boolean;
             /** Format: date-time */
             processing_ack_at: string | null;
@@ -18714,7 +18714,7 @@ export interface components {
             auto_changes?: boolean | null;
             /** @description Credits a month translations without a click may spend; 0 turns it off. */
             auto_monthly_limit?: number | null;
-            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) run by Google Cloud (Vertex AI, European region). Only true is accepted. */
+            /** @description Confirm once that content goes to OpenRouter and model providers outside the EEA — today the model Claude Sonnet 5.5 by Anthropic (Claude Haiku 4.5 as the fallback) called in Google Cloud (Vertex AI) with a European region requested. Only true is accepted. */
             processing_acknowledged?: boolean | null;
             /** @description Keys to take back to the inherited value. */
             reset?: ("translation.settings.mode" | "translation.settings.auto_changes" | "translation.settings.auto_monthly_limit")[] | null;

@@ -199,7 +199,7 @@ na `anthropic/claude-sonnet-5.5` obsługiwał dostawca `Google`, choć dokumenty
 tylko OpenRouter i Anthropic. Ustawienie platformy `model_port.privacy.claude_provider`
 (`enum`, operator poziomu 2) nazywa jedynego dostawcę, który może wykonać żądanie do
 modelu `anthropic/*`. Wartość domyślna to **`google-vertex/europe`** — Google Cloud,
-Vertex AI, region europejski (decyzja właściciela z 04.10.2026):
+Vertex AI z żądanym regionem europejskim (decyzja właściciela z 04.10.2026):
 
 - adapter wysyła `provider.order = [nazwa]`, `provider.only = [nazwa]` i
   `allow_fallbacks = false` — nikt inny najpierw i nikt inny zamiast; `data_collection`
@@ -240,8 +240,8 @@ Lista punktów bez przechowywania danych (`/api/v1/endpoints/zdr`, 04.10.2026) m
 modeli Claude tylko Google i Amazon Bedrock; sam Anthropic nie ma tam ani jednego
 punktu. Dlatego `anthropic` w tym ustawieniu zamyka każde żądanie, które wymaga ZDR —
 każdą rozmowę asystenta i każde żądanie do modelu z możliwością `zdr` przy włączonym
-`no_training_providers`. Model zapasowy asystenta, Claude Haiku 4.5, jest w regionie
-europejskim Vertex z ZDR (próba 04.10). Zmiana ustawienia idzie razem z dokumentami
+`no_training_providers`. Model zapasowy asystenta, Claude Haiku 4.5, działa przez Vertex z ZDR
+(próba 04.10; region żądany, niepotwierdzony). Zmiana ustawienia idzie razem z dokumentami
 prywatności — i jest przez nie trzymana: ustawienie przyjmuje tylko host z listy
 podmiotów przetwarzających (dziś `google-vertex/europe`), a wybór innego kończy się
 odmową `processor_not_listed` ze zdaniem, co musi stać się najpierw („Podmiot
@@ -400,7 +400,7 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 | --- | --- | --- |
 | `MODEL_PORT_OPENROUTER_API_KEY_FILE` | sekret, jeden klucz na wdrożenie; tylko `backend` i `worker-ai` | pusty = nieskonfigurowany |
 | `MODEL_PORT_OPENROUTER_BASE_URL` | adres API | `https://openrouter.ai/api/v1` |
-| `MODEL_PORT_PROCESSOR_LISTED` | łańcuch przetwarzania z wpisu niżej („Podmiot przetwarzający”: OpenRouter, Google Cloud Vertex AI w regionie europejskim, modele Claude Sonnet 5.5 i Claude Haiku 4.5 firmy Anthropic) jest w polityce prywatności i umowie powierzenia; na VPS tylko przez `memex ops`, decyzją właściciela | `false` |
+| `MODEL_PORT_PROCESSOR_LISTED` | łańcuch przetwarzania z wpisu niżej („Podmiot przetwarzający”: OpenRouter, Google Cloud Vertex AI z żądanym regionem europejskim, modele Claude Sonnet 5.5 i Claude Haiku 4.5 firmy Anthropic) jest w polityce prywatności i umowie powierzenia; na VPS tylko przez `memex ops`, decyzją właściciela | `false` |
 | `MODEL_PORT_TASK_<ZADANIE>_<POLE>` | nadpisanie pola zadania | wartości z kodu |
 | `MODEL_PORT_BUDGET_*` | nadpisanie sufitów i budżetów | tabela wyżej |
 | `MODEL_PORT_WEB_CALLS_PER_PROCESS` | limiter wywołań z żądań HTTP | 1 |
@@ -415,8 +415,8 @@ historią (wpisem `memex ops` z `platform_setting`).
 ## Podmiot przetwarzający
 
 Decyzje właściciela z 04.10.2026 (odpowiedź 10 i rozstrzygnięcie wiersza „Kto” z tego
-samego dnia): tekst wysyłany do AI przetwarza **przez OpenRouter Google Cloud (Vertex
-AI, region europejski), modelem Claude Sonnet 5.5 — zapasowo Claude Haiku 4.5 — firmy
+samego dnia): tekst wysyłany do AI trafia **przez OpenRouter do Google Cloud (Vertex
+AI) z żądanym regionem europejskim (odpowiedź potwierdza dostawcę, nie region), do modelu Claude Sonnet 5.5 — zapasowo Claude Haiku 4.5 — firmy
 Anthropic; bez uczenia modeli na zapytaniach, a przy danych osobowych bez ich
 przechowywania**. To jest wpis do dokumentów prywatności platformy — polityki
 prywatności i umowy powierzenia (lista dalszych przetwarzających) — i jedyne miejsce w
@@ -429,10 +429,10 @@ przetwarzają trzy funkcje: modele językowe, generator obrazów i wyszukiwarka 
 
 | | |
 | --- | --- |
-| Kto | **OpenRouter, Inc.** (USA) — pośrednik, do którego platforma wysyła żądanie; **Google Cloud, Vertex AI w regionie europejskim** (u OpenRoutera: `google-vertex/europe`) — wykonuje model; **Anthropic, PBC** — twórca modeli: `anthropic/claude-sonnet-5.5` (podstawowy) i `anthropic/claude-haiku-4.5` (zapasowy). Nikt inny: żaden inny host i żaden inny model nie dostaje treści firm |
+| Kto | **OpenRouter, Inc.** (USA) — pośrednik, do którego platforma wysyła żądanie; **Google Cloud, Vertex AI** (u OpenRoutera: `google-vertex/europe` — region europejski jest żądany, nie potwierdzony) — wykonuje model; **Anthropic, PBC** — twórca modeli: `anthropic/claude-sonnet-5.5` (podstawowy) i `anthropic/claude-haiku-4.5` (zapasowy). Nikt inny: żaden inny host i żaden inny model nie dostaje treści firm |
 | Co | tekst zlecony do tłumaczenia (`translation.text`: treść stron firmy, wizytówki, katalogu ofert i dokumentów dla klientów; klasy `public` i `public_personal`) oraz rozmowa z asystentem (`assistant.conversation`, `assistant.extract_profile`: to, co osoba z firmy wpisała, i to, co oddały polecenia asystenta; klasa `personal`) |
 | Czego nigdy | treści klasy `health`; danych klientów firmy w wyniku polecenia asystenta — klient jest dla modelu uchwytem, a jego imię i nazwisko, e-mail i telefon widzi tylko osoba przy ekranie, na karcie (ADR-076, „karty osób”); tożsamości osoby, która pisze — pole `user` to skrót HMAC. To, co osoba sama wpisze w rozmowę, wychodzi tak, jak zostało wpisane — dlatego asystent mówi o tym nad polem rozmowy |
-| Gdzie | model wykonuje się w europejskim regionie Google Cloud; żądanie przechodzi przez pośrednika z siedzibą w USA (OpenRouter), a Google i Anthropic to spółki amerykańskie — czyli przez podmioty spoza Europejskiego Obszaru Gospodarczego. Podstawa przekazania i treść klauzul — do potwierdzenia przez prawnika (lista prawna), zanim wpis trafi do opublikowanego dokumentu |
+| Gdzie | żądamy europejskiego regionu Google Cloud (Vertex AI); odpowiedź potwierdza dostawcę (`Google`), nie region, więc nie twierdzimy, że model na pewno wykonuje się w Europie. Żądanie przechodzi przez pośrednika z siedzibą w USA (OpenRouter), a Google i Anthropic to spółki amerykańskie — czyli przez podmioty spoza Europejskiego Obszaru Gospodarczego. Podstawa przekazania i treść klauzul — do potwierdzenia przez prawnika (lista prawna), zanim wpis trafi do opublikowanego dokumentu |
 | Jak | bez uczenia modeli na zapytaniach: każde żądanie niesie `provider.data_collection = "deny"` i `require_parameters` (ustawienie platformy `model_port.privacy.no_training_providers`, domyślnie włączone; wyłączyć je może tylko operator platformy i tylko dla treści bez danych osobowych — „Dostawcy i prywatność zapytań”); bez przechowywania danych przy danych osobowych: klasa `personal` wychodzi wyłącznie do punktów z zerową retencją (`zdr`); do jednego hosta: żądanie do modelu Claude nazywa host z wiersza „Kto” jako jedyny, bez zastępstwa (ustawienie platformy `model_port.privacy.claude_provider` = `google-vertex/europe`), a gdy ten host nie może go wykonać, zadanie staje, zamiast pójść gdzie indziej; firma potwierdza raz, że wie, dokąd trafia treść do tłumaczenia (`processing_acknowledged`); asystent mówi o tym nad polem rozmowy |
 | Od kiedy | od chwili, gdy operator ustawi `MODEL_PORT_PROCESSOR_LISTED=true` na danym wdrożeniu. Do tego czasu treść firmy nie wychodzi (`processor_not_listed`) |
 

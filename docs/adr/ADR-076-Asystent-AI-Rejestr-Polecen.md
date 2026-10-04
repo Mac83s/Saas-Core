@@ -1053,7 +1053,7 @@ poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): 
    asystenta — idą tak zawsze, cokolwiek mówi przełącznik. Drugie ustawienie,
    `model_port.privacy.claude_provider`, nazywa jedynego dostawcę, który może wykonać
    żądanie do modelu Claude — bez zastępców, a odpowiedź od kogoś innego to błąd.
-   Domyślnie `google-vertex/europe` (Google Cloud, Vertex AI, region europejski;
+   Domyślnie `google-vertex/europe` (Google Cloud, Vertex AI, region europejski żądany, niepotwierdzony;
    decyzja właściciela z 04.10): do tego dnia rozmowy obsługiwał Google, którego
    dokumenty nie nazywały, a sam Anthropic nie ma u OpenRoutera punktu ZDR, więc nie
    może wykonać żadnej rozmowy asystenta. Odpowiedź potwierdza dostawcę, nie region

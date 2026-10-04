@@ -66,8 +66,8 @@ def selectable_models(task: str) -> tuple[str, ...]:
 
 _TRANSLATION_DEFAULT = next(spec for spec in DEFAULT_TASKS if spec.key == TRANSLATION_TASK)
 _LISTED_NAMES = (
-    "Claude Sonnet 5.5 i Claude Haiku 4.5 (Anthropic), uruchamiane w Google Cloud "
-    "(Vertex AI, region europejski), przez OpenRouter"
+    "Claude Sonnet 5.5 i Claude Haiku 4.5 (Anthropic), wywoływane przez OpenRouter "
+    "w Google Cloud (Vertex AI) z żądanym regionem europejskim"
 )
 _UNLISTED = {
     "pl": "{model} — poza listą podmiotów przetwarzających",
@@ -125,7 +125,7 @@ TRANSLATION_MODEL = SettingSpec(
     model_description="The model the translation.text task calls through OpenRouter. It "
     "sends companies' content, so only a model whose processor the platform's privacy "
     "documents name can be chosen — today Claude Sonnet 5.5 and Claude Haiku 4.5 "
-    "(Anthropic), run by Google Cloud (Vertex AI, European region), through OpenRouter. "
+    "(Anthropic), called through OpenRouter in Google Cloud (Vertex AI) with a European region requested. "
     "Any other probed row of the matrix (Gemini, DeepSeek, "
     "Claude Opus) is refused with processor_not_listed until its processor is added to "
     "the privacy documents and to LISTED_PROCESSORS. Changing the model changes cost and "
@@ -139,8 +139,8 @@ TRANSLATION_MODEL = SettingSpec(
         "evale w docs/evals/translation.",
         "en": "The model that translates every company's content. Only a model whose "
         "processor is in the platform's privacy documents can be chosen — today Claude "
-        "Sonnet 5.5 and Claude Haiku 4.5 (Anthropic), run by Google Cloud (Vertex AI, "
-        "European region), through OpenRouter. Another model "
+        "Sonnet 5.5 and Claude Haiku 4.5 (Anthropic), called through OpenRouter in Google Cloud (Vertex AI) "
+        "with a European region requested. Another model "
         "(Gemini, DeepSeek, Claude Opus) needs its provider added to the privacy policy "
         "and the data processing agreement first, then to the list in code; until then "
         "the choice is refused. Candidates' cost and quality: the evals in "
@@ -193,7 +193,7 @@ CLAUDE_PROVIDERS = {
 _CLAUDE_PROVIDER_LABELS = {
     "anthropic": "Anthropic",
     "google-vertex": "Google (Vertex AI)",
-    "google-vertex/europe": "Google (Vertex AI, Europa)",
+    "google-vertex/europe": "Google (Vertex AI, żądany region europejski)",
     "amazon-bedrock": "Amazon (Bedrock)",
     "azure": "Microsoft (Azure)",
     "claude-on-aws": "Claude Platform on AWS",
@@ -232,7 +232,7 @@ CLAUDE_PROVIDER = SettingSpec(
     ),
     label={"pl": "Dostawca modeli Claude", "en": "Provider of the Claude models"},
     model_description="The one host that may serve a request to a Claude model "
-    "(anthropic/*) through OpenRouter: Google's Vertex AI in Europe by default — the "
+    "(anthropic/*) through OpenRouter: Google's Vertex AI, European region requested, by default — the "
     "processor the platform's privacy documents name. The request names this host alone "
     "and allows no fallback, and an answer that came from another provider is an error "
     "(the answer names the provider, not its region). The other rules still hold: a "
@@ -242,14 +242,14 @@ CLAUDE_PROVIDER = SettingSpec(
     "with the documents: the host named here is who processes the companies' content.",
     help={
         "pl": "Jedyny dostawca, który może wykonać zapytanie do modelu Claude. Domyślnie "
-        "Google (Vertex AI, Europa) — ten, którego nazywają dokumenty prywatności "
-        "platformy. Zapytanie nie trafia do nikogo innego: gdy wskazany dostawca nie może "
+        "Google (Vertex AI, żądany region europejski) — ten, którego nazywają dokumenty "
+        "prywatności platformy; odpowiedź potwierdza dostawcę, nie region. Zapytanie nie trafia do nikogo innego: gdy wskazany dostawca nie może "
         "go wykonać — także dlatego, że nie ma dla tego modelu serwera bez przechowywania "
         "danych, którego wymagają zapytania z danymi osobowymi (tak jest u samego "
         "Anthropic) — zadanie kończy się błędem. Zmiana dostawcy wymaga najpierw zmiany "
         "dokumentów prywatności.",
         "en": "The only provider that may serve a request to a Claude model. Google "
-        "(Vertex AI, Europe) by default — the one the platform's privacy documents name. A "
+        "(Vertex AI, European region requested) by default — the one the platform's privacy documents name; the answer confirms the provider, not the region. A "
         "request goes to nobody else: when the named provider cannot serve it — also "
         "because it has no zero-data-retention endpoint for the model, which requests with "
         "personal data need (Anthropic's own has none) — the task ends with an error. "
