@@ -1040,14 +1040,27 @@ def site_translation_overview(
 
 def _published_bodies(snapshot: Mapping[str, Any]) -> dict[tuple[str, str], str]:
     """The (page, language) pairs a publication carries with their own body,
-    each with the path it answers at."""
-    return {
-        (str(page.get("page_id")), str(entry.get("locale"))): str(entry.get("path") or "")
-        for page in snapshot.get("pages", [])
-        if isinstance(page, dict)
-        for entry in page.get("locales", [])
-        if isinstance(entry, dict) and "blocks" in entry and not entry.get("withheld")
-    }
+    each with the address visitors read it at, as the renderer answers: the
+    home page at the language's root, and nothing while the language is not
+    public on the site (its home page is not out yet, ADR-070 pkt 7)."""
+    pages = [page for page in snapshot.get("pages", []) if isinstance(page, dict)]
+    home = next(
+        (page for page in pages if page.get("page_type") == "homepage"),
+        pages[0] if pages else None,
+    )
+    live = snapshot.get("live_locales")
+    found: dict[tuple[str, str], str] = {}
+    for page in pages:
+        for entry in page.get("locales", []):
+            if not isinstance(entry, dict) or "blocks" not in entry or entry.get("withheld"):
+                continue
+            locale = str(entry.get("locale"))
+            if live is not None and locale not in live:
+                path = ""
+            else:
+                path = f"/{locale}/" if page is home else str(entry.get("path") or "")
+            found[str(page.get("page_id")), locale] = path
+    return found
 
 
 def _page_rows(

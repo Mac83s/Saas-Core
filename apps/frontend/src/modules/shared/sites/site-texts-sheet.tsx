@@ -117,7 +117,7 @@ export function SiteTextsSheet({
       } else {
         const named = problem?.errors?.[0];
         const item = named
-          ? byKey.get(named.field.replace(/^texts\./, ""))
+          ? byKey.get((named.field ?? "").replace(/^texts\./, ""))
           : undefined;
         setMessage({
           text:

@@ -638,8 +638,9 @@ export function SitesPanel({
     <section className="space-y-6" aria-labelledby="sites-heading">
       {heading}
       {section === "translations" ? (
-        // Asked again when a result is accepted in the overview: less waits.
-        <TranslationTabs key={translationsDecided} />
+        // Asked again when what waits may have changed: a result accepted in
+        // the overview, an order placed or ended.
+        <TranslationTabs key={`${translationsDecided}|${translationsReload}`} />
       ) : null}
 
       {problem && (
@@ -882,7 +883,7 @@ export function SitesPanel({
       {section === "translations" && selectedSiteId ? (
         <TranslationsOverview
           key={selectedSiteId}
-          onDecided={() => setTranslationsDecided((value) => value + 1)}
+          onReviewChanged={() => setTranslationsDecided((value) => value + 1)}
           // An article is public by itself, so the address does not wait for
           // the site's own publication.
           publicBaseUrl={domains.length ? publicSiteUrl(domains) : null}

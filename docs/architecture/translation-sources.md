@@ -188,7 +188,20 @@ def register_source_change_listener(listener: Callable[[SourceChangeNotice], Non
 def notify_source_changed(*, context: ContentContext, source_key: str,
                           object_ids: Iterable[UUID], change: SourceChange = "changed",
                           cause: str) -> None: ...
+
+# TL16g: what waits for a person, for a module's own list
+def register_review_reader(reader: Callable[[ContentContext], WaitingReviews]) -> None: ...  # the engine, once
+def waiting_reviews(context: ContentContext) -> dict[tuple[str, UUID, str], WaitingReview]: ...
 ```
+
+`waiting_reviews` odpowiada, co ta osoba może teraz zaakceptować — po kluczu (źródło,
+obiekt, język): identyfikator i wersja pozycji przeglądu oraz `comparable` (tekst czeka
+tylko w kolejce silnika, więc czyta się go w jej porównaniu). Moduł treści pyta o to
+rejestr, nie silnik: przegląd „Strona internetowa → Tłumaczenia” (`shared.sites`) pokazuje
+w komórce „Zaakceptuj”, nie importując `shared.translation`. Bez silnika w profilu, bez
+modułu w typie firmy albo bez `translation.request` odpowiedź jest pusta. Pozycje bez
+tekstu do akceptacji (`qa_failed`, `gate_failed`, `model_refused`) i pytanie o zdjęcie
+tłumaczenia (`source_withdrawn`) zostają we własnym widoku kolejki.
 
 Rejestracja sprawdza deklarację od razu, więc zepsuty adapter zatrzymuje start, a nie
 zlecenie klienta: klucz `<etykieta aplikacji>.<rzecz>` (prefiks `testing.` tylko ze

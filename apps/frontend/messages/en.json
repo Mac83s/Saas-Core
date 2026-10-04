@@ -3392,7 +3392,9 @@
       "what": "Which data",
       "months": "Period in months",
       "starts_on": "From when",
-      "settings_url": "Settings address"
+      "settings_url": "Settings address",
+      "reason_text": "The reason, in words",
+      "link_label": "The link's name"
     },
     "previewTitle": "Preview",
     "previewLanguage": "Preview language",

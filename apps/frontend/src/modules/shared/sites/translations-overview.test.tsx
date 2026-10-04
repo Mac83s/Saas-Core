@@ -124,7 +124,7 @@ const OFFER = {
   },
 };
 
-const onDecided = vi.fn();
+const onReviewChanged = vi.fn();
 
 function view(locale: "pl" | "en" = "pl", reloadKey = 0) {
   return render(
@@ -134,7 +134,7 @@ function view(locale: "pl" | "en" = "pl", reloadKey = 0) {
       timeZone="Europe/Warsaw"
     >
       <TranslationsOverview
-        onDecided={onDecided}
+        onReviewChanged={onReviewChanged}
         publicBaseUrl="https://studio.example.test"
         reloadKey={reloadKey}
         siteId={SITE}
@@ -800,7 +800,7 @@ test("a cell leads to the version's preview and its place on the site, and takes
   await waitFor(() =>
     expect(api.getSiteTranslationOverview).toHaveBeenCalledTimes(2),
   );
-  expect(onDecided).toHaveBeenCalledTimes(1);
+  expect(onReviewChanged).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 

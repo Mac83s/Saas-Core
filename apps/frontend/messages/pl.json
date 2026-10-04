@@ -3392,7 +3392,9 @@
       "what": "Jakie dane",
       "months": "Okres w miesiącach",
       "starts_on": "Od kiedy",
-      "settings_url": "Adres ustawień"
+      "settings_url": "Adres ustawień",
+      "reason_text": "Powód, słowami",
+      "link_label": "Nazwa odnośnika"
     },
     "previewTitle": "Podgląd",
     "previewLanguage": "Język podglądu",

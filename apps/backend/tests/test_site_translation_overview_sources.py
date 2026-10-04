@@ -14,10 +14,11 @@ from django.core.cache import cache
 from saas_core.modules.core.organizations.context import context_from_membership
 from saas_core.modules.core.organizations.models import Membership
 from saas_core.modules.shared.sites.appearance import default_appearance, save_site_appearance
+from saas_core.modules.shared.sites.language_versions import _published_bodies
 from saas_core.modules.shared.sites.models import Site
 from saas_core.modules.shared.sites.services import create_site, publish_site
-from test_site_language_decisions import _published_site
-from test_sites_api import csrf_value, sites_client
+from test_site_language_decisions import _get, _published_site
+from test_sites_api import csrf_value, publish_site_request, sites_client
 from test_sites_site_text_source import _as, _key, home_page
 
 pytestmark = pytest.mark.django_db
@@ -153,24 +154,44 @@ def test_a_reworded_text_reads_outdated_and_the_rows_page_by_cursor():
 
 
 def test_a_page_on_the_site_says_where_visitors_read_each_language():
-    client, _organization, site_id, home, offer, _host = _published_site("overview-paths")
+    client, _organization, site_id, home, offer, host = _published_site("overview-paths")
 
     rows = {
         row["id"]: row
         for row in client.get(f"/api/v1/sites/{site_id}/translations/").json()["items"]
     }
+    assert rows[home]["source_key"] == "sites.page"
+    [cell] = [cell for cell in rows[home]["cells"] if cell["locale"] == "en"]
+    # The home page answers at the language's root, whatever its slug says.
+    assert (cell["on_site"], cell["path"]) == (True, "/en/")
+    assert _get(host, "/en/").status_code == 200
+    # Translated, not yet published: no address to open.
+    [waiting] = [cell for cell in rows[offer]["cells"] if cell["locale"] == "en"]
+    assert (waiting["state"], waiting["on_site"], waiting["path"]) == ("complete", False, None)
+
+    # Published: any other page answers under its own address in the language.
+    published = publish_site_request(client, site_id, idempotency_key="second")
+    assert published.status_code == 201, published.data
+    [cell] = [
+        cell
+        for row in client.get(f"/api/v1/sites/{site_id}/translations/").json()["items"]
+        if row["id"] == offer
+        for cell in row["cells"]
+        if cell["locale"] == "en"
+    ]
+    assert cell["on_site"] is True
     snapshot = Site.all_objects.get(pk=site_id).current_publication.snapshot
     english = next(
         entry
         for page in snapshot["pages"]
-        if page["page_id"] == home
+        if page["page_id"] == offer
         for entry in page["locales"]
         if entry["locale"] == "en"
     )
-    assert rows[home]["source_key"] == "sites.page"
-    [cell] = [cell for cell in rows[home]["cells"] if cell["locale"] == "en"]
-    assert (cell["on_site"], cell["path"]) == (True, english["path"])
-    assert cell["path"].startswith("/en/")
-    # Translated, not yet published: no address to open.
-    [waiting] = [cell for cell in rows[offer]["cells"] if cell["locale"] == "en"]
-    assert (waiting["state"], waiting["on_site"], waiting["path"]) == ("complete", False, None)
+    assert cell["path"] == english["path"] != "/en/"
+    assert _get(host, cell["path"]).status_code == 200
+
+    # A language whose home page is not out is not public: its pages carry
+    # their text in the publication, but there is nowhere to send a visitor.
+    snapshot["live_locales"] = ["pl"]
+    assert _published_bodies(snapshot)[offer, "en"] == ""

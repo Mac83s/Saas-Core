@@ -362,15 +362,16 @@ export function TranslationsOverview({
   siteId,
   reloadKey = 0,
   publicBaseUrl,
-  onDecided,
+  onReviewChanged,
 }: {
   siteId: string;
   /** Changes when something outside the list changed what it shows. */
   reloadKey?: number;
   /** The published site's address, when it has one. */
   publicBaseUrl?: string | null;
-  /** A waiting result was accepted here: less waits in „Do akceptacji”. */
-  onDecided?: () => void;
+  /** What waits in „Do akceptacji” may have changed: a result was accepted
+   *  here, or an order ended and left some. */
+  onReviewChanged?: () => void;
 }) {
   const t = useTranslations("Sites.translationsCentre");
   const sites = useTranslations("Sites");
@@ -441,6 +442,13 @@ export function TranslationsOverview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // An order that ended may have left results waiting for a person.
+  useEffect(() => {
+    if (jobDone) onReviewChanged?.();
+    // `onReviewChanged` is the same for the list's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobDone]);
+
   const loading = answer?.key !== key;
   const rows = answer?.rows ?? [];
   const shown = answer?.locales ?? [];
@@ -493,7 +501,7 @@ export function TranslationsOverview({
     setAccepting(undefined);
     setNotice(review("changed"));
     setReloads((value) => value + 1);
-    onDecided?.();
+    onReviewChanged?.();
   }
 
   async function accept(waiting: Waiting, version: number) {
@@ -520,7 +528,7 @@ export function TranslationsOverview({
       );
       setAccepting(undefined);
       setReloads((value) => value + 1);
-      onDecided?.();
+      onReviewChanged?.();
     } catch (error) {
       const problem =
         error instanceof ApiProblemError ? error.problem : undefined;
@@ -695,7 +703,10 @@ export function TranslationsOverview({
       )}
       {offer.state === "absent" || offer.state === "loading" ? null : (
         <TranslationJobsBar
-          onFinished={() => setReloads((value) => value + 1)}
+          onFinished={() => {
+            setReloads((value) => value + 1);
+            onReviewChanged?.();
+          }}
           // Asked again when an order is placed here or from the page's header.
           reloadKey={`${reloadKey}|${jobId ?? ""}`}
         />
