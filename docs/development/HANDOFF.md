@@ -169,10 +169,14 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
 - **Workspace platformy** dostaje `sites.enabled` bez `sites.max`, więc
   założenie witryny kończy się `QuotaUnavailable`
   (`provision_platform_workspace.py:45`).
-- **Dane demo stosu testowego:** `manage.py seed_demo` (30.09) zakłada firmę z
-  zespołem, plan bez płatności, kalendarz z wizytami (także w „Do przydzielenia”) i
-  magazyn z ruchami; tylko z `DEMO_SEED_ENABLED=1`, nigdy na produkcji; produkty
-  podają własny scenariusz (`docs/development/demo-data.md`).
+- **Dane demo stosu testowego:** `manage.py seed_demo` (30.09; historie 04.10) zakłada
+  trzy firmy Business — wizyty („Studio Testowe”), noclegi z wzorca („Domki nad
+  Jeziorem”) i wypożyczalnię („Kajaki Krutynia”) — z przeszłością, dniem dzisiejszym
+  i przyszłością: zamówienia w każdym stanie, dokumenty i dziennik zgód, opublikowane
+  strony w językach firmy. Pisze przez serwisy modułów, z zegarem procesu ustawionym na
+  chwilę zdarzenia; bez wywołań modelu; `--scenario`, `--list`, na końcu konta i ścieżki
+  do przeklikania. Tylko z `DEMO_SEED_ENABLED=1`, nigdy na produkcji; produkty podają
+  własny scenariusz, części i kroki historii (`docs/development/demo-data.md`).
 - **Strony marketingowe:** brak bloga i stron prawnych; formularz kontaktowy
   czeka na klucze (`contact/page.tsx:21`); SCR dla stron marketingowych
   (plan 14:133).

@@ -24,7 +24,13 @@ from uuid import UUID
 from django.db import models, transaction
 from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 
-from saas_core.content_protocol.provenance import ORIGIN_COPY, ORIGIN_HUMAN, Provenance, unit_hash
+from saas_core.content_protocol.provenance import (
+    ORIGIN_COPY,
+    ORIGIN_HUMAN,
+    ORIGIN_IMPORT,
+    Provenance,
+    unit_hash,
+)
 from saas_core.content_protocol.units import (
     DATA_PUBLIC,
     UNIT_NAME,
@@ -257,20 +263,35 @@ def save_item_translation(
     expected_version: int | None,
     idempotency_key: str = "",
     preview: bool = False,
+    imported: bool = False,
 ) -> Saved[ItemTranslation]:
     """A person's text of an item in another language, at the version they saw
-    (0 for a language the item does not have yet)."""
+    (0 for a language the item does not have yet). `imported`: the text was
+    brought in from outside the panel — a demo seed, an import — and says so
+    (`import`): neither a person's translation nor a model's."""
     entry = translatable(kind)
     context, organization = _manage()
     return setup_write(
         context=context,
         action=f"{kind}.translation",
         target_id=item_id,
-        request={"locale": locale, "texts": dict(texts), "expected_version": expected_version},
+        request={
+            "locale": locale,
+            "texts": dict(texts),
+            "expected_version": expected_version,
+            **({"imported": True} if imported else {}),
+        },
         idempotency_key=idempotency_key,
         preview=preview,
         write=lambda: _write(
-            context, organization, entry, item_id, locale, texts, expected_version
+            context,
+            organization,
+            entry,
+            item_id,
+            locale,
+            texts,
+            expected_version,
+            ORIGIN_IMPORT if imported else ORIGIN_HUMAN,
         ),
         replay=lambda row_id: _replayed(entry, organization, row_id),
     )
@@ -284,6 +305,7 @@ def _write(
     locale: str,
     texts: Mapping[str, str],
     expected_version: int | None,
+    origin: str = ORIGIN_HUMAN,
 ) -> Saved[ItemTranslation]:
     item = _item(entry, organization, item_id, lock=True)
     assert_content_locale(locale, organization=organization)
@@ -310,7 +332,7 @@ def _write(
         field: (
             text,
             Provenance(
-                origin=ORIGIN_HUMAN,
+                origin=origin,
                 source_hash=units[field].source_hash if field in units else LEGACY_SOURCE,
                 written_hash=unit_hash(UNIT_TEXT, text) if text else "",
             ),

@@ -24,6 +24,13 @@ class CustomersConfig(AppConfig):
         register_customer_commands()
         # The documents' texts in other languages (ADR-073 §9; needs no engine).
         register_document_source()
+        # A demo company's terms and privacy policy, approved before its
+        # bookings are made (seed_demo).
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import describe, seed_documents
+
+        register_demo_part("customers.documents", seed_documents, order=25, describe=describe)
 
         # Each document in force has a page on the company's own site, at
         # `/documents/<its name>/` (ADR-072, slice 5f part 2).

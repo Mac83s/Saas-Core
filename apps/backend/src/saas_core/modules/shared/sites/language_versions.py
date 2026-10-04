@@ -29,6 +29,7 @@ from saas_core.content_protocol.provenance import (
     ORIGIN_AI,
     ORIGIN_COPY,
     ORIGIN_HUMAN,
+    ORIGIN_IMPORT,
     ORIGIN_UNTRANSLATED,
     PROTECTED_ORIGINS,
     Provenance,
@@ -242,6 +243,7 @@ def save_locale_body(
     idempotency_key: str,
     preview: bool = False,
     provenance_model: str = "",
+    imported: bool = False,
 ) -> MutationResult[LocaleBody]:
     """Writes the given units over the current ones.
 
@@ -249,9 +251,11 @@ def save_locale_body(
     translation job — `acting_via`): then it is AI text, keeps the machine
     marker and is not protected like a person's correction, and the version
     names who acted (`acting_ref`). `provenance_model` is the model that wrote
-    it, when the caller knows. Units not named keep what they had. With
-    `preview` nothing is saved: the answer is the body as it would be, with
-    every problem a save would raise.
+    it, when the caller knows. `imported`: the text was brought in from
+    outside the editor — a demo seed, an import — and says so (`import`):
+    neither a person's translation nor a model's. Units not named keep what
+    they had. With `preview` nothing is saved: the answer is the body as it
+    would be, with every problem a save would raise.
     """
     return _write(
         page_id=page_id,
@@ -264,12 +268,17 @@ def save_locale_body(
         changes=lambda body, context: _written(
             body,
             units,
-            ORIGIN_AI if context.acting_via else ORIGIN_HUMAN,
+            ORIGIN_IMPORT
+            if imported
+            else ORIGIN_AI
+            if context.acting_via
+            else ORIGIN_HUMAN,
             model=provenance_model,
         ),
         request={
             "units": dict(sorted(units.items())),
             **({"provenance_model": provenance_model} if provenance_model else {}),
+            **({"imported": True} if imported else {}),
         },
     )
 

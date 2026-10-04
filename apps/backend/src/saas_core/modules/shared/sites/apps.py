@@ -53,6 +53,13 @@ class SitesConfig(AppConfig):
         register_page_source()
         register_entry_source()
         register_site_text_source()
+        # A demo company's site, built and published after its offers and units
+        # exist (seed_demo).
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import describe, seed_sites
+
+        register_demo_part("sites.site", seed_sites, order=50, describe=describe)
         register(check_content_contracts, "sites")
 
         # Which company's published site a host is: the host gate asks before it

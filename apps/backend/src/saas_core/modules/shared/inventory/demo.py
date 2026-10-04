@@ -91,7 +91,7 @@ BUSINESS: dict[str, Any] = {
 def seed_warehouse(run: DemoRun) -> None:
     for spec in run.scenario.organizations:
         data = run.data(spec.key, "inventory")
-        if data is None and run.scenario.default and spec.key == "firma":
+        if data is None and run.scenario.default and spec.key == "studio":
             data = BUSINESS
         if data is not None:
             with run.acting(spec.key) as request:

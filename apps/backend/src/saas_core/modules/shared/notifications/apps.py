@@ -27,6 +27,14 @@ class NotificationsConfig(AppConfig):
         )
         # Whom customers hear from and the company's note to them (36a, ADR-078).
         register_customer_mail()
+        # How many messages a demo run queued: counted before every other part
+        # and said after the last one (seed_demo).
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import count_before, report
+
+        register_demo_part("notifications.count", count_before, order=1)
+        register_demo_part("notifications.report", report, order=990)
 
         # Every type here needs a payload allowlist in `services.py` as well:
         # an unregistered event is silently delivered nowhere, and an

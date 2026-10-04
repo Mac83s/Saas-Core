@@ -40,9 +40,10 @@ class BookingConfig(AppConfig):
         # A demo day board on a staging stack (seed_demo).
         from saas_core.modules.core.organizations.demo import register_demo_part
 
-        from .demo import seed_calendar
+        from .demo import describe, register_steps, seed_calendar
 
-        register_demo_part("booking.calendar", seed_calendar, order=30)
+        register_demo_part("booking.calendar", seed_calendar, order=30, describe=describe)
+        register_steps()
         # What the people on a visit hear about it (ADR-058 §9).
         register_templates()
         # A person's results and history: the calendar's and the account's (phase 5).

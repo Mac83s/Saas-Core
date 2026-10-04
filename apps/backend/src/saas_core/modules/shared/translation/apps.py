@@ -53,6 +53,15 @@ class TranslationConfig(AppConfig):
         register_credit_cost(CREDIT_OPERATION, lambda: int(platform_setting(PRICE.key)))
         # A row of the credits page leads to the job it paid for (TL16f).
         register_credit_subject(CREDIT_OPERATION, job_of_hold)
+        # A demo run never has a real model called: companies whose automation
+        # would do it are left out first, and one translation is left waiting
+        # where the model's stand-in answers (seed_demo).
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import guard, seed_waiting
+
+        register_demo_part("translation.guard", guard, order=2)
+        register_demo_part("translation.waiting", seed_waiting, order=60)
 
         from saas_core.modules.shared.model_port.api import register_task
 

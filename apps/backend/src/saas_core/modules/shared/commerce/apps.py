@@ -58,3 +58,13 @@ class CommerceConfig(AppConfig):
         register_commerce_commands()
         # A pre-tenant routing index: erasing the organization takes it too.
         register_erasure_rows("shared.commerce.payment_route", PaymentRoute, "organization_id")
+        # A demo company's bank account, before its offers ask for a transfer,
+        # and what happens to an order's money in a demo story (seed_demo).
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import describe, register_steps, seed_transfer_accounts
+
+        register_demo_part(
+            "commerce.transfer", seed_transfer_accounts, order=20, describe=describe
+        )
+        register_steps()
