@@ -24,6 +24,11 @@ class BookingConfig(AppConfig):
         from .staff import link_on_join
 
         register(check_preset_contracts, "booking")
+        # The customer's public link, the reminders and the mails to the people
+        # on a visit run as the organization's own work (ADR-073 §5).
+        from .security import register_service_scopes
+
+        register_service_scopes()
         # The person the office added is the one who accepts the invitation.
         register_invitation_accepted(link_on_join)
         # A demo day board on a staging stack (seed_demo).

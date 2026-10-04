@@ -15,7 +15,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from django.db import connection
-from django.db.models import Q, Sum
+from django.db.models import F, Q, Sum
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
 
@@ -27,6 +27,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.billing.decisions import FeatureOperation, decide_feature
 from saas_core.modules.shared.customers.api import Customer, consents_of
+from saas_core.modules.shared.notifications.api import scrub_messages
 
 from .ledger import MANUAL_METHODS, paid_minor, payments_of, status_for
 from .models import (
@@ -37,12 +38,15 @@ from .models import (
     OrderLine,
     OrderLineKind,
     OrderStatus,
+    Payment,
+    PaymentRoute,
+    PaymentStatus,
     TaxRate,
 )
+from .names import COMMERCE_ENABLED, ORDERS_READ
 from .sources import order_source, order_sources
+from .transfer_account import transfer_account
 
-COMMERCE_ENABLED = "commerce.enabled"
-ORDERS_READ = "commerce.orders.read"
 MAX_PAGE_SIZE = 100
 
 
@@ -130,6 +134,42 @@ def order_for(source: str, reference: str) -> Order | None:
     )
 
 
+def order_references(order: Order, source: str) -> list[str]:
+    """The records of `source` the order's lines stand for, in any revision."""
+    return list(
+        OrderLine.all_objects.filter(
+            organization_id=order.organization_id, order=order, source=source
+        )
+        .order_by()
+        .values_list("source_reference", flat=True)
+        .distinct()
+    )
+
+
+def orders_of(source: str, references: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """The orders of a list of a source's records — the visits of a calendar —
+    by reference: `id` and `number`, enough for a link. One read for the list.
+    Empty for a caller who may not read orders, and where the plan has none."""
+    context = require_tenant_context()
+    if (
+        not references
+        or not context.has_permission(ORDERS_READ)
+        or not decide_feature(COMMERCE_ENABLED, operation=FeatureOperation.READ).allowed
+    ):
+        return {}
+    return {
+        reference: {"id": order_id, "number": number}
+        for reference, order_id, number in OrderLine.all_objects.filter(
+            organization_id=context.organization_id,
+            source=source,
+            source_reference__in=list(references),
+        )
+        .order_by()
+        .values_list("source_reference", "order_id", "order__number")
+        .distinct()
+    }
+
+
 def reprice_order(order: Order, *, amounts: str, lines: Sequence[OrderLineInput]) -> Order:
     """The source priced what it sold again — a stay moved to dearer days. The
     new lines become the next revision; the earlier ones stay as they were.
@@ -178,23 +218,40 @@ def reprice_order(order: Order, *, amounts: str, lines: Sequence[OrderLineInput]
     return order
 
 
-def cancel_order(order: Order) -> Order:
-    """The source took back what it sold: its booking was canceled."""
+def cancel_order(order: Order, *, awaited: str = PaymentStatus.CANCELED, reason: str = "") -> Order:
+    """The source took back what it sold: its booking was canceled. A payment
+    the order still waited for is closed with it (`awaited`: called off, or
+    expired when its date did it) and its date no longer comes; `reason` says
+    in the company's history why, when it was not a person's decision."""
     context = require_tenant_context()
     if order.status == OrderStatus.CANCELED:
         return order
     order.status = OrderStatus.CANCELED
     order.version += 1
     order.save(update_fields=["status", "version", "updated_at"])
-    _audit(context, order, "commerce.order.canceled")
+    waiting = Payment.all_objects.filter(
+        organization_id=order.organization_id,
+        order=order,
+        status=PaymentStatus.REQUIRES_PAYMENT,
+    )
+    PaymentRoute.objects.filter(payment_id__in=list(waiting.values_list("id", flat=True))).delete()
+    waiting.update(status=awaited, version=F("version") + 1, updated_at=timezone.now())
+    _audit(context, order, "commerce.order.canceled", **({"reason": reason} if reason else {}))
     return order
 
 
 def strip_buyer(customer: Customer) -> None:
     """What orders keep of a customer goes with the customer (§9): the buyer's
-    name and contact. Numbers, lines and amounts stay. Called by
+    name and contact, and the stored copies of the mails commerce sent them
+    (the transfer's details). Numbers, lines and amounts stay. Called by
     `customers.strip_customer`, inside its transaction and tenant."""
-    Order.all_objects.filter(organization_id=customer.organization_id, customer=customer).update(
+    orders = Order.all_objects.filter(organization_id=customer.organization_id, customer=customer)
+    scrub_messages(
+        customer.organization_id,
+        [f"commerce-order:{order_id}" for order_id in orders.values_list("id", flat=True)],
+        to_customers_only=True,
+    )
+    orders.update(
         buyer_name=customer.display_name,
         buyer_email="",
         buyer_phone="",
@@ -229,6 +286,7 @@ def options() -> dict[str, Any]:
         "line_kinds": OrderLineKind.values,
         "tax_rates": TaxRate.values,
         "manual_methods": list(MANUAL_METHODS),
+        "transfer_account_set": transfer_account() is not None,
         "max_page_size": MAX_PAGE_SIZE,
     }
 

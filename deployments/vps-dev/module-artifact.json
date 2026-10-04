@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:4726e83c404c171b7c2715eebdebab332183bf0d83cd1a1633efba9931d6b471",
+  "profileHash": "sha256:2f37bc1fa6732306cf2d67ebe7cc60b4aca209bf5e350fa73fdec94589015946",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -529,7 +529,8 @@
       "dependsOn": [
         "core.organizations",
         "shared.billing",
-        "shared.customers"
+        "shared.customers",
+        "shared.notifications"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.commerce",
@@ -555,6 +556,12 @@
         "entitlements": [
           "commerce.enabled"
         ],
+        "beatSchedule": {
+          "commerce-expire-due-payments": {
+            "task": "saas_core.modules.shared.commerce.tasks.expire_due_payments",
+            "schedule": 60
+          }
+        },
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": []

@@ -150,9 +150,20 @@ class OrderPaymentSerializer(serializers.Serializer[dict[str, Any]]):
     )
     status = serializers.ChoiceField(
         choices=PaymentStatus.values,
-        help_text="`succeeded` counts as paid; `canceled` was marked by mistake and taken back.",
+        help_text="`succeeded` counts as paid; `canceled` was marked by mistake and taken "
+        "back, or called off with its order; `requires_payment` is awaited until `due_at` "
+        "— what the order's source asked for before it confirms — and `expired` was not "
+        "paid by then.",
     )
-    amount_minor = serializers.IntegerField(help_text="In minor units of the order's currency.")
+    amount_minor = serializers.IntegerField(
+        help_text="In minor units of the order's currency. Of an awaited payment: what is "
+        "still awaited."
+    )
+    due_at = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+        help_text="Until when an awaited payment is to be paid; null for one marked at the desk.",
+    )
     paid_at = serializers.DateTimeField(allow_null=True)
     recorded_by = serializers.CharField(
         allow_blank=True, help_text="Who marked it, by name; empty when no person did."
@@ -211,6 +222,12 @@ class CommerceOptionsSerializer(serializers.Serializer[dict[str, Any]]):
         child=serializers.ChoiceField(choices=MANUAL_METHODS),
         help_text="The methods of a payment the company marks as received itself.",
     )
+    transfer_account_set = serializers.BooleanField(
+        required=False,
+        help_text="Whether the company gave a bank account for its customers' transfers "
+        "(Settings › Customers' payments, group `commerce.transfer`). Without one nothing "
+        "can be paid ahead by a transfer.",
+    )
     max_page_size = serializers.IntegerField(help_text="The longest page a list returns.")
 
 
@@ -236,6 +253,11 @@ class PaymentEffectSerializer(serializers.Serializer[dict[str, Any]]):
     due_minor = serializers.IntegerField(help_text="What would be left to pay.")
     status = serializers.ChoiceField(
         choices=OrderStatus.values, help_text="The order's status after it."
+    )
+    prepayment_met = serializers.BooleanField(
+        required=False,
+        help_text="Whether the amount covers the payment the order waits for before its "
+        "source confirms: marking it confirms the booking the order is for.",
     )
 
 

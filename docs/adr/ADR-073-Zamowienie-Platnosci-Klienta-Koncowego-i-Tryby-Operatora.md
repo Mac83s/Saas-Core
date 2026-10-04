@@ -428,7 +428,7 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | **4d-2** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; akceptacja tłumaczenia przez osobę ze step-upem w centrum tłumaczeń | do rozstrzygnięcia (niżej) | Tłumaczenia |
 | **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał (token pochodzenia — niżej, „Rozstrzygnięcia plastra 4e”); `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0004 (wersje planów publikuje 0004) | Zamówienia (lista, szczegół) |
 | **4f-1** | Wpłaty ręczne (§4): `Payment`, `LedgerEntry` (tylko do dopisywania), oznaczenie wpłaty przez firmę (na miejscu, przelew) z podglądem, wycofanie wpłaty oznaczonej przez pomyłkę, status zamówienia z księgi (`partially_paid`, `paid`), `commerce.payments.manage` | commerce 0005–0007 | wpłaty w zamówieniu |
-| **4f-2** | Przelew z terminem (§5): rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, handler źródła w rejestrze, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | oferta, zamówienie, wizyta |
+| **4f-2** | Przelew z terminem (§5): rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, handler źródła w rejestrze, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, e-maile z numerem zamówienia i danymi do przelewu | commerce 0008, booking 0030 | oferta („Cennik”), zamówienie, wizyta, Ustawienia › „Płatności klientów”, formularz publiczny i link klienta |
 | **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
 | **4h** | Progi anulowania (przeniesione z 3d) i zwroty ręczne (§8): progi i `appliesTo` w ofercie i migawce, wyliczenie zwrotu przy rezygnacji gościa i odwołaniu przez firmę, zwrot ręczny w księdze, przypomnienia dopłaty i alert dla firmy (29a) | booking, commerce | oferta, zamówienie, link samoobsługi |
 | **4i** | Wyjątek retencji dla klientów z zapisami sprzedaży w okresie ustawowym i historia cen przed promocjami (niżej) | commerce, booking | Prywatność i dane (podgląd) |
@@ -680,3 +680,91 @@ Rozstrzygnięcia plastra 4f-1 (2026-10-04, decyzje techniczne z powodem):
   Pracownik bez tego uprawnienia widzi wpłaty tylko wtedy, gdy czyta
   zamówienia. Polecenie asystenta dla wpłat i odnośnik z wizyty w kalendarzu do
   zamówienia przychodzą z 4f-2, razem ze zmianami w booking.
+
+Rozstrzygnięcia plastra 4f-2 (2026-10-04, decyzje techniczne z powodem):
+
+- **Rachunek firmy to grupa ustawień `commerce.transfer`** w rejestrze ADR-078
+  (właściciel rachunku, numer, opcjonalnie bank; Ustawienia › „Płatności
+  klientów”), a nie własna tabela: rejestr daje wersję, podgląd, historię i
+  formularz. Numer to 26 cyfr (polski rachunek) albo IBAN, sprawdzany sumą
+  kontrolną; odczyt oddaje go w grupach po cztery znaki. Zmienia go
+  `commerce.payments.manage` **z kodem z aplikacji uwierzytelniającej** —
+  podmieniony numer rachunku to miejsce, w które trafiają pieniądze klientów —
+  i z tego samego powodu grupa nie ma polecenia asystenta (§11 „rachunek od
+  asystenta jest nieaktywny do uruchomienia” spełnione najprościej: asystent
+  rachunku nie pisze). Rachunku nie da się wyczyścić, dopóki oferta ma politykę
+  `transfer` (`register_transfer_account_use`) albo jakaś wpłata przelewem jest
+  oczekiwana (`transfer_account_in_use`).
+- **Oferta niesie trzy pola**: `payment_policy` (`transfer`, `deposit`, `full`
+  obok `none` i `on_site`), `deposit_percent` (1–99, domyślnie 30) i
+  `transfer_due_days` (1–30, domyślnie 3). Kwota przedpłaty to procent ceny
+  brutto zaokrąglony do całej jednostki (połówki w górę); reszta przy `deposit`
+  idzie na miejscu — termin dopłaty przed pobytem i jej przypomnienia to 4h.
+  Polityki z wpłatą z góry serwis oferty przyjmuje tylko tam, gdzie firma ma
+  zamówienia (`orders_required`), a `transfer` — tylko z rachunkiem
+  (`transfer_account_missing`); sprawdza to przy zmianie płatności, więc oferta
+  ustawiona wcześniej zapisuje pozostałe pola także po utracie cechy.
+- **Wycena mówi, co się stanie.** Zamrożona wycena niesie `prepayment`
+  (`kind`, `amount_minor`, `transfer_due_days`) tylko wtedy, gdy wpłatę da się
+  złożyć z góry (cecha `commerce.enabled` i rachunek). Bez tego `deposit` i
+  `full` idą na miejscu: wycena mówi `on_site`, a rezerwacja jest potwierdzona
+  od razu — formularz nie obiecuje przelewu, którego nikt nie przyjmie.
+  `prepayment` wchodzi do skrótu wyceny tylko, gdy jest, więc skróty rezerwacji
+  sprzed 4f-2 się nie zmieniają.
+- **Źródło prosi, commerce wyznacza termin.** Booking woła
+  `request_prepayment(order, kind, amount_minor, transfer_days, before)` zaraz
+  po `place_order`; commerce zakłada `Payment` (`requires_payment`, `transfer`,
+  `due_at`), trasę terminu i wysyła dane do przelewu, a oddaje termin — albo
+  nic, gdy wpłaty z góry złożyć się nie da. Termin to dni z oferty, **nigdy
+  później niż początek rezerwacji** (`before`); rezerwacja, która zaczyna się
+  już, nie czeka (wizyta w toku też nie). Kwoty liczy źródło — commerce nadal
+  niczego nie wycenia.
+- **Rezerwacja oczekująca** (`pending_payment`, `hold_expires_at` = kopia
+  terminu) trzyma termin tymi samymi alokacjami co potwierdzona — także ta
+  założona przez biuro w panelu, bo zadatek telefonicznej rezerwacji też ma
+  termin. Potwierdzenie, przypomnienie, rezerwacja materiałów, powiadomienia
+  osób z wizyty i `CREATED` dla obserwatorów przychodzą dopiero z
+  potwierdzeniem; o rezygnacji i wygaśnięciu oczekującej obserwatorzy i osoby
+  z wizyty nie dowiadują się niczego. Oczekującej nie da się przełożyć,
+  zakończyć ani oznaczyć nieobecności; da się ją odwołać (firma) i z niej
+  zrezygnować (link klienta).
+- **Handler źródła ma dwa wywołania, oba w transakcji zmiany, która je
+  spowodowała**: `prepaid(order)` — wpłata oczekiwana dotarła w całości — i
+  `expired(order)` — termin minął, zamówienie jest już anulowane. Odmowa
+  handlera („terminu nie da się już przyjąć”, §1) przyjdzie z płatnością
+  online: przy wpłacie oznaczanej ręcznie zamówienie wygasłej rezerwacji jest
+  anulowane i wpłaty nie przyjmuje (`order_canceled`).
+- **Oznaczenie wpłaty oczekiwanej**: kwota co najmniej równa oczekiwanej
+  przestawia ten sam wiersz na `succeeded` (metodą i kwotą faktycznej wpłaty)
+  i potwierdza rezerwację; mniejsza jest osobną wpłatą i zmniejsza to, co
+  nadal oczekiwane, do tego samego terminu. Wycofanie wpłaty częściowej
+  przywraca kwotę oczekiwaną. **Wycofanie wpłaty po potwierdzeniu niczego nie
+  odwołuje** — rezerwacja zostaje potwierdzona, a o jej odwołaniu decyduje
+  firma (ta sama zasada co 29a: automat nie odwołuje rezerwacji za pomyłkę w
+  księgowaniu).
+- **Zadanie terminów** `commerce.tasks.expire_due_payments` (co minutę, z
+  deskryptora modułu) czyta `commerce_paymentroute` — identyfikatory i termin,
+  bez danych osobowych, z niewygasającym kontraktem `service` roli
+  `commerce_deadlines` — i dla każdej trasy w tenancie zamówienia wygasza
+  płatność, anuluje zamówienie (powód `payment_expired` w historii) i woła
+  handler. Wpłata oznaczona w międzyczasie zostaje. `balance` po terminie
+  niczego nie anuluje (29a) — jej zgłaszanie to 4h.
+- **`register_service_scope` w rdzeniu** (`core.organizations.api`): moduł
+  deklaruje z `AppConfig.ready` rolę kontraktu `service` i jej uprawnienia;
+  `exact` — kontrakt niesie dokładnie ten zestaw (przypomnienia, zapytania ze
+  strony, terminy płatności), inaczej dowolną jego część, a inny moduł może do
+  zakresu dopisać własne uprawnienie. Wszystkie dotychczasowe wpisy listy
+  `_service_context` przeniosły się do swoich modułów (booking, sites,
+  inventory, translation); rdzeń nie zna już żadnej nazwy modułu shared.
+- **E-maile.** Dane do przelewu (`commerce.transfer_details`: numer
+  zamówienia jako tytuł, kwota, termin, rachunek, nazwa pierwszej pozycji w
+  języku klienta) wysyła commerce; wygaśnięcie (`booking.pending_expired`) —
+  booking, a biuro dostaje `booking.office_expired`, gdy firma włączyła
+  powiadomienia biura. Wszystkie w pl, en i de, przez szablony powiadomień;
+  żaden nie niesie danych innej osoby. Po wpłacie klient dostaje zwykłe
+  potwierdzenie rezerwacji.
+- **Odnośnik z wizyty do zamówienia**: `commerce.api.orders_of(source,
+  references)` to jeden odczyt na listę wizyt; kalendarz dostaje `order`
+  (`id`, `number`) tylko dla wywołującego z `commerce.orders.read`.
+- **Poza 4f-2** zostały polecenia asystenta dla wpłat (zgoda z kliknięcia,
+  ADR-033) — osobny przegląd razem z paczką asystenta.

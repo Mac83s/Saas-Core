@@ -36,6 +36,8 @@ from .publication_routing import (
 from .services import SiteNotFound, _idempotency_key, assert_person_required
 
 INQUIRY_SUBMIT = "sites.inquiry.submit"
+#: The role of the tenant context a visitor's message is written under.
+INQUIRY_ROLE = "public_site_inquiry"
 
 # Mirror of CONTACT_FORM_FIELDS in @saas-core/site-blocks (contact-form-block.ts):
 # what each `contact` variant of core.contact_form requires. The name is always
@@ -110,7 +112,7 @@ def public_inquiry_context(organization_id: UUID) -> Iterator[TenantContext]:
         organization_id=organization_id,
         membership_id=organization_id,
         actor_id=organization_id,
-        role_key="public_site_inquiry",
+        role_key=INQUIRY_ROLE,
         permissions=frozenset({INQUIRY_SUBMIT}),
         principal_kind="service",
     )

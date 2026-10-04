@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { updateSetupService, type ServiceSetup } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  updateSetupService,
+  type ServiceSetup,
+} from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import {
   Dialog,
@@ -19,15 +23,29 @@ import {
   FieldDescription,
   FieldLabel,
 } from "@saas-core/ui/components/field";
+import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+
+import { Link } from "#i18n/navigation";
 
 import { ExtrasList } from "./extras-list";
 import type { PriceBook, PriceSetup } from "./price-book";
 import { refusal } from "./price-dialog";
 import { PriceList } from "./price-list";
 
-/** How the customer pays, until orders bring the rest (ADR-072 §8). */
-const PAYMENT_POLICIES = ["none", "on_site"] as const;
+/** How the customer pays (ADR-072 §8). The last three ask for money before
+ *  the booking is confirmed: it waits for the transfer (ADR-073 §5). */
+const PAYMENT_POLICIES = [
+  "none",
+  "on_site",
+  "transfer",
+  "deposit",
+  "full",
+] as const;
+type PaymentPolicy = (typeof PAYMENT_POLICIES)[number];
+const AHEAD: readonly PaymentPolicy[] = ["transfer", "deposit", "full"];
+/** The server's refusals the panel says in its own language. */
+const PAYMENT_REFUSALS = ["transfer_account_missing", "orders_required"];
 
 /**
  * „Cennik” of one offer (phase 3e): its prices with the question which of
@@ -58,20 +76,62 @@ export function OfferPricesDialog({
   const common = useTranslations("Common");
   const [problem, setProblem] = useState<string>();
   const [notice, setNotice] = useState("");
+  // What the select shows: a prepayment is saved with its percent, by the
+  // button, so until then the choice lives here.
+  const [policy, setPolicy] = useState<PaymentPolicy>(
+    service.payment_policy as PaymentPolicy,
+  );
+  const [percent, setPercent] = useState(String(service.deposit_percent ?? 30));
+  const [days, setDays] = useState(String(service.transfer_due_days ?? 3));
+  const ahead = AHEAD.includes(policy);
 
-  async function pay(policy: (typeof PAYMENT_POLICIES)[number]) {
+  async function pay(next: PaymentPolicy, terms = false) {
     setProblem(undefined);
+    setNotice("");
+    const share = Number(percent);
+    const due = Number(days);
+    if (terms && next === "deposit" && !(share >= 1 && share <= 99))
+      return setProblem(t("depositPercentInvalid"));
+    if (terms && !(due >= 1 && due <= 30))
+      return setProblem(t("transferDaysInvalid"));
     try {
       await updateSetupService(
         service.id,
-        { payment_policy: policy, expected_version: service.version },
+        {
+          payment_policy: next,
+          ...(terms
+            ? {
+                transfer_due_days: due,
+                ...(next === "deposit" ? { deposit_percent: share } : {}),
+              }
+            : {}),
+          expected_version: service.version,
+        },
         crypto.randomUUID(),
       );
       setNotice(t("paymentSaved"));
     } catch (error) {
-      setProblem(refusal(error, t("failed"), t("versionConflict")));
+      const code =
+        error instanceof ApiProblemError
+          ? error.problem.errors?.[0]?.code
+          : undefined;
+      setProblem(
+        code && PAYMENT_REFUSALS.includes(code)
+          ? t(`paymentRefused_${code}`)
+          : refusal(error, t("failed"), t("versionConflict")),
+      );
+      // The offer keeps what it had.
+      if (!terms) setPolicy(service.payment_policy as PaymentPolicy);
     }
     await onSetupChanged();
+  }
+
+  function choose(next: PaymentPolicy) {
+    setPolicy(next);
+    setProblem(undefined);
+    setNotice("");
+    // A prepayment waits for its percent; everything else saves at once.
+    if (next !== "deposit") void pay(next);
   }
 
   return (
@@ -108,20 +168,76 @@ export function OfferPricesDialog({
               <NativeSelect
                 id="offer-payment"
                 onChange={(event) =>
-                  void pay(
-                    event.target.value as (typeof PAYMENT_POLICIES)[number],
-                  )
+                  choose(event.target.value as PaymentPolicy)
                 }
-                value={service.payment_policy}
+                value={policy}
               >
-                {PAYMENT_POLICIES.map((policy) => (
-                  <option key={policy} value={policy}>
-                    {t(`payment_${policy}`)}
+                {PAYMENT_POLICIES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`payment_${value}`)}
                   </option>
                 ))}
               </NativeSelect>
             </div>
             <FieldDescription>{t("paymentHint")}</FieldDescription>
+            {ahead ? (
+              <form
+                className="space-y-3 rounded-lg border p-4"
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void pay(policy, true);
+                }}
+              >
+                <p className="text-sm">
+                  {t.rich("paymentAheadHint", {
+                    settings: (chunks) => (
+                      <Link
+                        className="font-medium text-primary hover:underline"
+                        href="/panel/settings/customer-payments"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </p>
+                <div className="flex flex-wrap items-end gap-4">
+                  {policy === "deposit" ? (
+                    <Field className="w-36">
+                      <FieldLabel htmlFor="offer-deposit-percent">
+                        {t("depositPercent")}
+                      </FieldLabel>
+                      <Input
+                        id="offer-deposit-percent"
+                        inputMode="numeric"
+                        max={99}
+                        min={1}
+                        onChange={(event) => setPercent(event.target.value)}
+                        type="number"
+                        value={percent}
+                      />
+                    </Field>
+                  ) : null}
+                  <Field className="w-36">
+                    <FieldLabel htmlFor="offer-transfer-days">
+                      {t("transferDays")}
+                    </FieldLabel>
+                    <Input
+                      id="offer-transfer-days"
+                      inputMode="numeric"
+                      max={30}
+                      min={1}
+                      onChange={(event) => setDays(event.target.value)}
+                      type="number"
+                      value={days}
+                    />
+                  </Field>
+                  <Button type="submit" variant="outline">
+                    {t("paymentTermsSave")}
+                  </Button>
+                </div>
+              </form>
+            ) : null}
             <p
               className="text-sm text-success-foreground empty:hidden"
               role="status"

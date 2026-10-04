@@ -43,13 +43,16 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.billing.decisions import FeatureOperation
 
 from . import materials as stock
+from . import orders
 from .models import (
+    PREPAID_POLICIES,
     Appointment,
     AppointmentStatus,
     BookingRule,
     BookingSetupMutation,
     Extra,
     Location,
+    PaymentPolicy,
     PriceRule,
     PublicBookingRoute,
     RangeUnit,
@@ -90,8 +93,12 @@ _SERVICE_FIELDS = (
     "slot_step_minutes",
     "online",
     "payment_policy",
+    "deposit_percent",
+    "transfer_due_days",
     "active",
 )
+#: What decides how a customer pays ahead; checked when one of them changes.
+_PAYMENT_FIELDS = ("payment_policy", "deposit_percent", "transfer_due_days")
 _PLACE_FIELDS = ("name", "address", "active", "online")
 _RESOURCE_FIELDS = ("name", "active", "capacity", "description", "group_id", "location_id")
 _GROUP_FIELDS = ("name", "description", "active")
@@ -511,6 +518,35 @@ _RANGE_TIMES = {
 }
 
 
+def _check_payment(service: Service, before: dict[str, Any]) -> None:
+    """What paying before the booking is confirmed asks of the offer and of
+    the company (ADR-072 §8, ADR-073 §5). Asked when the offer's payment
+    changes, so an offer set up earlier still saves its other fields."""
+    policy = service.payment_policy
+    if before and all(before.get(name) == getattr(service, name) for name in _PAYMENT_FIELDS):
+        return
+    if policy not in PREPAID_POLICIES:
+        return
+    if not orders.orders_available():
+        raise ValidationError({
+            "payment_policy": [
+                ErrorDetail(
+                    "Płatność przed wizytą wymaga zamówień, a plan firmy ich nie obejmuje.",
+                    code="orders_required",
+                )
+            ]
+        })
+    if policy == PaymentPolicy.TRANSFER and not orders.transfer_account_set():
+        raise ValidationError({
+            "payment_policy": [
+                ErrorDetail(
+                    "Najpierw podaj rachunek do przelewów: Ustawienia › Płatności klientów.",
+                    code="transfer_account_missing",
+                )
+            ]
+        })
+
+
 def _check_offer(service: Service, before: dict[str, Any]) -> None:
     """What the offer's time model asks of its other fields (ADR-072 §1–§2)."""
     if (
@@ -611,6 +647,7 @@ def _write_service(
         raise ValidationError({
             "public_staff_choice": "Osobę klient wybiera tylko przy usłudze dla jednej osoby."
         })
+    _check_payment(service, before)
     _check_offer(service, before)
     # Made switched off, it is a draft until somebody switches it on.
     service.draft = not service.active and (service.draft or not before)

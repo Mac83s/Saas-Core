@@ -63,3 +63,9 @@ class TranslationConfig(AppConfig):
         register_translation_commands()
         register_templates()
         register_task(JUDGE_SPEC)
+        # The notices go as the organization's own job (ADR-073 §5).
+        from saas_core.modules.core.organizations.api import register_service_scope
+
+        from .notify import NOTIFY_ROLE
+
+        register_service_scope(NOTIFY_ROLE)

@@ -16,6 +16,9 @@ from saas_core.modules.shared.customers.api import CUSTOMER_MODEL
 
 
 class AppointmentStatus(models.TextChoices):
+    #: Waits for a payment the offer asks for before confirming (ADR-072 §9):
+    #: it holds its time like a confirmed one, until `hold_expires_at`.
+    PENDING_PAYMENT = "pending_payment", "Czeka na wpłatę"
     CONFIRMED = "confirmed", "Potwierdzona"
     COMPLETED = "completed", "Zakończona"
     CANCELED = "canceled", "Anulowana"
@@ -52,11 +55,22 @@ class PriceBasis(models.TextChoices):
 
 class PaymentPolicy(models.TextChoices):
     """How the customer pays for an offer (ADR-072 §8). Paying before the
-    visit — a transfer, a prepayment, the whole — comes with orders (ADR-073)."""
+    visit — a transfer, a prepayment, the whole — needs orders (ADR-073): the
+    booking then waits for the payment before it is confirmed."""
 
     #: Nothing is said about paying.
     NONE = "none", "Nie określono"
     ON_SITE = "on_site", "Płatność na miejscu"
+    #: The whole amount by a transfer to the company's account.
+    TRANSFER = "transfer", "Przelew przed wizytą"
+    #: A part ahead (`Service.deposit_percent`), the rest on site.
+    DEPOSIT = "deposit", "Przedpłata"
+    #: The whole amount ahead, however it can be paid ahead.
+    FULL = "full", "Całość z góry"
+
+
+#: The policies that ask for money before the booking is confirmed.
+PREPAID_POLICIES = (PaymentPolicy.TRANSFER, PaymentPolicy.DEPOSIT, PaymentPolicy.FULL)
 
 
 class ExtraBasis(models.TextChoices):
@@ -338,6 +352,11 @@ class Service(TenantScopedModel):
     payment_policy = models.CharField(
         max_length=16, choices=PaymentPolicy, default=PaymentPolicy.NONE
     )
+    #: With `deposit`: the part of the price paid ahead, in percent.
+    deposit_percent = models.PositiveSmallIntegerField(default=30)
+    #: With a payment ahead by a transfer: how many days the customer has
+    #: before the booking expires.
+    transfer_due_days = models.PositiveSmallIntegerField(default=3)
     active = models.BooleanField(default=True)
     #: Never switched on since it was made. Only a draft can be discarded
     #: (`setup.discard_draft`); switching the offer on ends it for good.
@@ -876,6 +895,9 @@ class Appointment(TenantScopedModel):
     status = models.CharField(
         max_length=16, choices=AppointmentStatus, default=AppointmentStatus.CONFIRMED
     )
+    #: Until when a pending booking holds its time: a copy of the awaited
+    #: payment's date, for showing — the date itself is commerce's (ADR-073 §5).
+    hold_expires_at = models.DateTimeField(null=True, blank=True)
     self_service_token_ciphertext = models.TextField()
     self_service_expires_at = models.DateTimeField()
     reminder_due_at = models.DateTimeField(null=True, blank=True)

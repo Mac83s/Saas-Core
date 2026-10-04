@@ -64,6 +64,8 @@
     "book": "Buchen",
     "confirmed": "Buchung bestätigt",
     "confirmedDescription": "Vielen Dank, {name}. Die Bestätigung haben wir an {email} gesendet.",
+    "pending": "Ihre Buchung wartet auf die Zahlung",
+    "pendingDescription": "Vielen Dank, {name}. Der Termin ist für Sie reserviert. Die Überweisungsdaten haben wir an {email} gesendet; die Bestätigung folgt nach Zahlungseingang.",
     "manage": "Termin ändern oder absagen",
     "loadError": "Die freien Zeiten konnten nicht geladen werden.",
     "createError": "Die Zeit ist nicht mehr frei oder die Angaben sind ungültig.",
@@ -89,6 +91,7 @@
     "seenBy": "Sie werden betreut von",
     "status": "Status",
     "statusConfirmed": "Bestätigt",
+    "statusPending": "Wartet auf Zahlung",
     "addToCalendar": "Zum Kalender hinzufügen",
     "manageHint": "Den Link zur Verwaltung der Buchung finden Sie auch in der E-Mail.",
     "extrasLegend": "Zusatzleistungen",
@@ -100,6 +103,7 @@
   },
   "BookingSelfService": {
     "changesUntil": "Sie können den Termin bis {when} ändern oder absagen.",
+    "cancelUntil": "Sie können die Buchung bis {when} absagen.",
     "contactCompany": "Für Änderungen oder Absagen wenden Sie sich bitte an das Unternehmen.",
     "title": "Buchung verwalten",
     "description": "Eine aktive Buchung können Sie verschieben oder absagen.",
@@ -110,6 +114,7 @@
     "rescheduleError": "Die Buchung konnte nicht verschoben werden.",
     "cancelError": "Die Buchung konnte nicht abgesagt werden.",
     "confirmed": "bestätigt",
+    "pending_payment": "wartet auf Zahlung",
     "completed": "abgeschlossen",
     "canceled": "abgesagt",
     "no_show": "nicht erschienen",
@@ -167,7 +172,16 @@
     "total": "Gesamt",
     "times": "{name} × {count}",
     "deposit": "Rückzahlbare Kaution: {amount}",
-    "payOnSite": "Zahlung vor Ort."
+    "payOnSite": "Zahlung vor Ort.",
+    "prepayDeposit": "Vorauszahlung: {amount} per Überweisung innerhalb von {days, plural, one {# Tag} other {# Tagen}}. Den Rest zahlen Sie vor Ort.",
+    "prepayFull": "Zahlung im Voraus: {amount} per Überweisung innerhalb von {days, plural, one {# Tag} other {# Tagen}}.",
+    "transferTitle": "Überweisungsdaten",
+    "transferHint": "Ihre Buchung wartet auf eine Zahlung von {amount}. Bitte überweisen Sie bis {due}. Geht die Zahlung nicht rechtzeitig ein, verfällt die Buchung.",
+    "transferAmount": "Betrag",
+    "transferHolder": "Empfänger",
+    "transferAccount": "Kontonummer",
+    "transferBank": "Bank",
+    "transferReference": "Verwendungszweck"
   },
   "CustomerDocument": {
     "kinds": {

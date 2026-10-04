@@ -24,6 +24,13 @@ class SitesConfig(AppConfig):
         from .translation_source import register_page_source
 
         register_inquiry_email()
+        # A visitor's message is written under the site's own role, with the
+        # one permission it needs (ADR-073 §5).
+        from saas_core.modules.core.organizations.api import register_service_scope
+
+        from .inquiries import INQUIRY_ROLE, INQUIRY_SUBMIT
+
+        register_service_scope(INQUIRY_ROLE, {INQUIRY_SUBMIT}, exact=True)
         # The company's history names a site, a page, its versions and an entry
         # (UX-055).
         from .history_targets import register_history_targets

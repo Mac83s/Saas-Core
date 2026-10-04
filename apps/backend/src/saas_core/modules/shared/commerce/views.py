@@ -131,7 +131,9 @@ class PaymentListView(APIView):
         "writes the payment and its ledger entry and moves the order's status "
         "(`partially_paid`, `paid`). More than what is left to pay is refused "
         "(`amount_exceeds_due`), so is a payment for a canceled order (`order_canceled`). "
-        "Answers with the order.",
+        "Where the order waits for a payment (`requires_payment`), an amount that covers "
+        "it marks that payment and confirms the booking the order is for; a smaller one "
+        "leaves the rest awaited. Answers with the order.",
         tags=_TAGS,
         request=PaymentRecordInputSerializer,
         responses={201: OrderSerializer, **_WRITE_PROBLEMS},
@@ -153,8 +155,9 @@ class PaymentVoidView(APIView):
         summary="Take back a payment marked by mistake",
         description="The payment stays in the order's history as `canceled` and the ledger "
         "gets the opposite entry, so the order owes that amount again. Not a refund: no "
-        "money went back to anybody. Only a payment marked by hand can be taken back. "
-        "Answers with the order.",
+        "money went back to anybody. Only a payment marked by hand can be taken back. A "
+        "booking the payment confirmed stays confirmed — calling it off is the company's "
+        "own decision. Answers with the order.",
         tags=_TAGS,
         request=PaymentVoidInputSerializer,
         responses={200: OrderSerializer, **_WRITE_PROBLEMS},

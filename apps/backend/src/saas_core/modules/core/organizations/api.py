@@ -75,6 +75,7 @@ from .retention import (
     register_retention_exclusion,
     register_retention_sweep,
 )
+from .service_scopes import register_service_scope
 from .settings_commands import group_commands
 from .settings_registry import (
     SettingArea,
@@ -110,6 +111,7 @@ __all__ = [
     "platform_days",
     "register_retention_exclusion",
     "register_retention_sweep",
+    "register_service_scope",
     "HistoryTarget",
     "register_history_target",
     "Resolved",

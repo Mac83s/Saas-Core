@@ -509,6 +509,10 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "service_name",
         "location_name",
         "status",
+        # While the booking waits for its payment: until when, and the
+        # company's account to transfer to (ADR-073 §5) — the company's data.
+        "hold_expires_at",
+        "payment",
         "team_name",
         "person_name",
         # What the customer's link may still do (B4): about the booking, not people.

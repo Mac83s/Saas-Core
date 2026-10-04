@@ -20,6 +20,7 @@ import {
   CheckCircle2Icon,
   CircleIcon,
   ClockAlertIcon,
+  HourglassIcon,
   MapPinIcon,
   NavigationIcon,
   PhoneIcon,
@@ -82,6 +83,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 import { cn } from "@saas-core/ui/lib/utils";
 
+import { Link } from "#i18n/navigation";
 import { useCompanyLocales } from "#lib/company-locales";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import type {
@@ -129,6 +131,12 @@ const STATUS_STYLES: Record<
   string,
   { className: string; border: string; icon: LucideIcon }
 > = {
+  // Holds its time while it waits for a payment (ADR-072 §9).
+  pending_payment: {
+    className: "bg-warning text-warning-foreground",
+    border: "border-l-warning-foreground",
+    icon: HourglassIcon,
+  },
   confirmed: {
     className: "bg-info text-info-foreground",
     border: "border-l-info-foreground",
@@ -1681,6 +1689,36 @@ function AppointmentDetails({
           <CrewBadges appointment={appointment} />
           <FlagBadges flags={appointment.flags} />
         </dd>
+        {/* A booking that waits for its payment says until when (ADR-072 §9). */}
+        {appointment.status === "pending_payment" &&
+        appointment.hold_expires_at ? (
+          <>
+            <dt className="text-muted-foreground">{t("holdUntil")}</dt>
+            <dd className="font-medium">
+              {dateFormat(locale, {
+                day: "numeric",
+                month: "long",
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: zone,
+              }).format(new Date(appointment.hold_expires_at))}
+            </dd>
+          </>
+        ) : null}
+        {/* Only for whoever may read orders: the API names none otherwise. */}
+        {appointment.order ? (
+          <>
+            <dt className="text-muted-foreground">{t("order")}</dt>
+            <dd>
+              <Link
+                className="font-medium text-primary hover:underline"
+                href={`/panel/orders/${appointment.order.id}`}
+              >
+                {appointment.order.number}
+              </Link>
+            </dd>
+          </>
+        ) : null}
         {rows.map(([label, value]) => (
           <Fragment key={label}>
             <dt className="text-muted-foreground">{label}</dt>
@@ -1842,6 +1880,28 @@ function AppointmentDetails({
             when={when}
           />
         </DialogFooter>
+      ) : null}
+      {/* A booking that waits for its payment is confirmed in its order —
+          the payment is marked there — or called off; it is never moved. */}
+      {appointment.status === "pending_payment" ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            {t(appointment.order ? "pendingHint" : "pendingHintNoOrder")}
+          </p>
+          {canManage ? (
+            <DialogFooter>
+              <CancelDialog
+                appointment={appointment}
+                onDone={(updated) => {
+                  setNotice(t("canceled"));
+                  onChanged(updated);
+                }}
+                returnFocus={title}
+                when={when}
+              />
+            </DialogFooter>
+          ) : null}
+        </>
       ) : null}
     </>
   );

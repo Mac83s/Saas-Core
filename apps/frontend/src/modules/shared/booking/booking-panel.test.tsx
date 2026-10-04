@@ -2607,9 +2607,90 @@ test("the customer's link offers only what the booking's terms allow (B4)", asyn
     await screen.findByRole("button", { name: "Cancel booking" }),
   ).not.toBeNull();
   expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
+  // Only what the link may do is promised.
+  expect(screen.getByText(/You can cancel the booking until/)).not.toBeNull();
+});
+
+test("the customer's page shows the transfer a waiting booking asks for (ADR-073 §5)", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    status: "pending_payment",
+    hold_expires_at: "2026-08-17T10:00:00Z",
+    payment: {
+      number: "R/2026/0007",
+      amount_minor: 4500,
+      currency: "PLN",
+      due_at: "2026-08-17T10:00:00Z",
+      account_holder: "Gabinet Anna Nowak",
+      account_number: "PL61 1090 1014 0000 0712 1981 2874",
+      bank_name: "",
+    },
+    // A booking that waits is given up, never moved.
+    self_service: {
+      reschedule: false,
+      cancel: true,
+      until: "2026-08-20T07:00:00Z",
+    },
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <SelfServiceBooking token="bk_pending" />
+    </NextIntlClientProvider>,
+  );
+  const transfer = await screen.findByRole("region", {
+    name: "Transfer details",
+  });
+  expect(screen.getByText("awaiting payment")).not.toBeNull();
   expect(
-    screen.getByText(/You can change the time or cancel until/),
+    within(transfer).getByText(/waiting for a payment of PLN\s45\.00/),
   ).not.toBeNull();
+  expect(
+    within(transfer).getByText("PL61 1090 1014 0000 0712 1981 2874"),
+  ).not.toBeNull();
+  expect(
+    within(transfer).getByText("Transfer title").nextSibling,
+  ).toHaveTextContent("R/2026/0007");
+  // No bank was given: the row is left out.
+  expect(within(transfer).queryByText("Bank")).toBeNull();
+  expect(screen.getByRole("button", { name: "Cancel booking" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Reschedule" })).toBeNull();
+});
+
+test("a visit that waits for its payment says until when and leads to its order (ADR-072 §9)", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    {
+      ...appointment,
+      status: "pending_payment",
+      hold_expires_at: "2026-08-17T10:00:00Z",
+      order: {
+        id: "0199a000-0000-7000-8000-000000000007",
+        number: "R/2026/0007",
+      },
+    },
+  ]);
+  renderCalendar();
+  fireEvent.click(await screen.findByText("Jan Kowalski"));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText("Awaiting payment")).toBeInTheDocument();
+  expect(
+    within(dialog).getByText("Awaiting payment until").nextSibling,
+  ).toHaveTextContent(/August 17/);
+  expect(
+    within(dialog).getByRole("link", { name: "R/2026/0007" }),
+  ).toHaveAttribute(
+    "href",
+    "/panel/orders/0199a000-0000-7000-8000-000000000007",
+  );
+  expect(
+    within(dialog).getByText(/Once you mark the payment in the order/),
+  ).toBeInTheDocument();
+  // It is called off or paid; it is never moved, closed or marked a no-show.
+  expect(
+    within(dialog).getByRole("button", { name: "Cancel appointment" }),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).queryByRole("button", { name: "Reschedule" }),
+  ).toBeNull();
 });
 
 test("a booking whose terms allow nothing sends the customer to the company (B4)", async () => {

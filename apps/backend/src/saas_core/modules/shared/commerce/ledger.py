@@ -9,11 +9,23 @@ from django.db.models import Sum
 
 from saas_core.modules.core.identity.models import User
 
-from .models import LedgerEntry, LedgerEntryKind, Order, OrderStatus, Payment, PaymentMethod
+from .models import (
+    LedgerEntry,
+    LedgerEntryKind,
+    Order,
+    OrderStatus,
+    Payment,
+    PaymentKind,
+    PaymentMethod,
+    PaymentStatus,
+)
 
 #: What the company itself marks as received; an online payment is the
 #: operator's to confirm, never a person's.
 MANUAL_METHODS = (PaymentMethod.CASH.value, PaymentMethod.TRANSFER.value)
+#: What a source asks for before it confirms what it sold; a date not kept
+#: cancels the order. A `balance` is never one (owner decision 29a).
+PREPAYMENT_KINDS = (PaymentKind.DEPOSIT.value, PaymentKind.FULL.value)
 #: The kinds that change what the customer has paid.
 _PAID_KINDS = (LedgerEntryKind.CHARGE, LedgerEntryKind.REFUND)
 
@@ -24,6 +36,21 @@ def paid_minor(order: Order) -> int:
         organization_id=order.organization_id, order=order, kind__in=_PAID_KINDS
     ).aggregate(total=Sum("amount_minor"))["total"]
     return int(total or 0)
+
+
+def awaited_prepayment(order: Order) -> Payment | None:
+    """The payment the order's source waits for before it confirms, if one
+    still waits."""
+    return (
+        Payment.all_objects.filter(
+            organization_id=order.organization_id,
+            order=order,
+            status=PaymentStatus.REQUIRES_PAYMENT,
+            kind__in=PREPAYMENT_KINDS,
+        )
+        .order_by("created_at", "id")
+        .first()
+    )
 
 
 def status_for(order: Order, paid: int) -> str:
@@ -55,6 +82,7 @@ def payments_of(order: Order) -> list[dict[str, Any]]:
             "method": row.method,
             "status": row.status,
             "amount_minor": row.amount_minor,
+            "due_at": row.due_at,
             "paid_at": row.paid_at,
             "recorded_by": people.get(row.recorded_by, "") if row.recorded_by else "",
         }

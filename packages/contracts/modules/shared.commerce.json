@@ -2,7 +2,12 @@
   "id": "shared.commerce",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "shared.billing", "shared.customers"],
+  "dependsOn": [
+    "core.organizations",
+    "shared.billing",
+    "shared.customers",
+    "shared.notifications"
+  ],
   "backend": {
     "djangoApp": "saas_core.modules.shared.commerce",
     "urlPrefix": "/api/v1/commerce",
@@ -13,6 +18,12 @@
       "owner": ["commerce.orders.read", "commerce.payments.manage"]
     },
     "entitlements": ["commerce.enabled"],
+    "beatSchedule": {
+      "commerce-expire-due-payments": {
+        "task": "saas_core.modules.shared.commerce.tasks.expire_due_payments",
+        "schedule": 60
+      }
+    },
     "eventSchemas": [],
     "publicTables": [],
     "platformTables": []

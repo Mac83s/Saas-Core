@@ -341,6 +341,77 @@ test("cennik oferty: ceny tak, jak je wpisano, dopłaty z kaucją i sposób pła
   expect(
     await within(dialog).findByText("Zapisano sposób płatności."),
   ).toBeInTheDocument();
+
+  // A prepayment waits for its percent: choosing it saves nothing yet.
+  api.updateSetupService.mockClear();
+  fireEvent.change(within(dialog).getByLabelText("Jak płaci klient"), {
+    target: { value: "deposit" },
+  });
+  expect(
+    within(dialog).getByRole("link", {
+      name: "Ustawienia › Płatności klientów",
+    }),
+  ).toHaveAttribute("href", "/panel/settings/customer-payments");
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  fireEvent.change(within(dialog).getByLabelText("Przedpłata (%)"), {
+    target: { value: "0" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz warunki wpłaty" }),
+  );
+  expect(
+    await within(dialog).findByText("Przedpłata to od 1 do 99 procent ceny."),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  fireEvent.change(within(dialog).getByLabelText("Przedpłata (%)"), {
+    target: { value: "40" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Dni na przelew"), {
+    target: { value: "5" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz warunki wpłaty" }),
+  );
+  await waitFor(() =>
+    expect(api.updateSetupService).toHaveBeenCalledWith(
+      VISIT,
+      {
+        payment_policy: "deposit",
+        transfer_due_days: 5,
+        deposit_percent: 40,
+        expected_version: 3,
+      },
+      expect.any(String),
+    ),
+  );
+
+  // The whole by transfer saves at once; without the company's account the
+  // server refuses and the panel says where to give one.
+  api.updateSetupService.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Validation",
+      status: 400,
+      code: "validation_error",
+      detail: "",
+      correlation_id: null,
+      errors: [
+        {
+          field: "payment_policy",
+          code: "transfer_account_missing",
+          message: "Najpierw podaj rachunek do przelewów.",
+        },
+      ],
+    }),
+  );
+  fireEvent.change(within(dialog).getByLabelText("Jak płaci klient"), {
+    target: { value: "transfer" },
+  });
+  expect(
+    await within(dialog).findByText(
+      "Najpierw podaj rachunek do przelewów: Ustawienia › Płatności klientów.",
+    ),
+  ).toBeInTheDocument();
 });
 
 test("„Jaka cena obowiązuje dnia…”: pyta serwer o sam cennik i mówi, która cena wygrała", async () => {

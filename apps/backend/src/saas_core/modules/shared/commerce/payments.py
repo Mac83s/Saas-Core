@@ -5,35 +5,56 @@ and the ledger the order's balance is read from.
 The ledger is append-only and decides about money: what was paid is the sum of
 its entries, never a field somebody edits. A mark made by mistake is taken
 back with an entry of the opposite sign, not by removing the first.
+
+A source may ask for a part of the order, or all of it, before it confirms
+what it sold (`request_prepayment`): the payment then waits with a date
+(`requires_payment`, `due_at`), the customer gets the transfer's details, and
+the source's handler hears which came first — the money (`prepaid`) or the
+date (`expired`, from the deadlines' task).
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
-from saas_core.modules.core.organizations.context import TenantContext
+from saas_core.modules.core.organizations.context import TenantContext, require_tenant_context
+from saas_core.modules.core.organizations.tasks import issue_service_task_contract
 from saas_core.modules.shared.billing.authorization import authorize_entitled
+from saas_core.modules.shared.notifications.security import encrypt_secret
 
-from .ledger import MANUAL_METHODS, paid_minor, status_for
+from . import emails
+from .ledger import MANUAL_METHODS, PREPAYMENT_KINDS, awaited_prepayment, paid_minor, status_for
 from .models import (
     LedgerEntry,
     LedgerEntryKind,
     Order,
+    OrderLine,
     OrderStatus,
     Payment,
     PaymentKind,
+    PaymentMethod,
+    PaymentRoute,
     PaymentStatus,
 )
-from .orders import COMMERCE_ENABLED, order_detail
+from .names import COMMERCE_ENABLED, PAYMENTS_MANAGE
+from .orders import cancel_order, order_detail
+from .sources import order_source
+from .transfer_account import transfer_account
 
-PAYMENTS_MANAGE = "commerce.payments.manage"
+#: The role the deadlines' task acts under: the organization's own job. The
+#: permission is a scope marker nobody's role carries.
+DEADLINES_ROLE = "commerce_deadlines"
+DEADLINES_PERMISSIONS = frozenset({"commerce.deadlines.run"})
+#: Why an order whose prepayment did not come is canceled, in its history.
+PAYMENT_EXPIRED = "payment_expired"
 
 
 class OrderVersionConflict(APIException):
@@ -43,6 +64,139 @@ class OrderVersionConflict(APIException):
     default_code = "order_version_conflict"
     default_detail = "Zamówienie zmieniło się od chwili, gdy je otwarto. Wczytaj je ponownie."
     problem_code = "order_version_conflict"
+
+
+def request_prepayment(
+    order: Order, *, kind: str, amount_minor: int, transfer_days: int, before: datetime
+) -> datetime | None:
+    """The source wants `amount_minor` of the order it has just placed before
+    it confirms what it sold — a `deposit` or the `full` amount, worked out by
+    the source. Answers until when the customer has to pay, and the source
+    holds its record until then; or None where the amount cannot be paid
+    ahead — the company gave no bank account, or nothing is left of the time
+    before `before` (the start of what was sold) — and the amount is then due
+    on site: the source confirms at once.
+
+    The date is commerce's (§5): `transfer_days` from now, never past
+    `before`. The customer gets the transfer's details by e-mail; the
+    source's handler hears `prepaid` when the company marks the payment and
+    `expired` when the date passes first.
+    """
+    context = require_tenant_context()
+    if not connection.in_atomic_block:
+        raise RuntimeError("A prepayment is asked for inside the order's transaction.")
+    if kind not in PREPAYMENT_KINDS or not 0 < amount_minor <= order.gross_minor:
+        raise ValueError("A prepayment is a deposit or the whole, within the order's amount.")
+    if order_source(order.source).handler is None:
+        raise RuntimeError(f"Order source {order.source!r} asks for a payment and hears nothing.")
+    account = transfer_account()
+    now = timezone.now()
+    due_at = min(now + timedelta(days=transfer_days), before)
+    if account is None or due_at <= now:
+        return None
+    payment = Payment.all_objects.create(
+        organization_id=order.organization_id,
+        order=order,
+        kind=kind,
+        method=PaymentMethod.TRANSFER,
+        status=PaymentStatus.REQUIRES_PAYMENT,
+        amount_minor=amount_minor,
+        currency=order.currency,
+        due_at=due_at,
+    )
+    PaymentRoute.objects.create(
+        payment_id=payment.id,
+        organization_id=order.organization_id,
+        # The organization's own contract: the date comes whoever placed the
+        # order has left by then (the lesson of the reminders, ADR-058 §7).
+        signed_tenant_context=encrypt_secret(
+            issue_service_task_contract(
+                organization_id=order.organization_id,
+                role_key=DEADLINES_ROLE,
+                permissions=DEADLINES_PERMISSIONS,
+                causation_id=f"commerce-payment:{payment.id}",
+            )
+        ),
+        due_at=due_at,
+    )
+    order.version += 1
+    order.save(update_fields=["version", "updated_at"])
+    record_audit(
+        organization=order.organization,
+        action="commerce.payment.requested",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="order",
+        target_id=order.id,
+        metadata={
+            "number": order.number,
+            "amount_minor": amount_minor,
+            "currency": order.currency,
+            "method": payment.method,
+            "due_at": due_at.isoformat(),
+        },
+    )
+    emails.transfer_details(order, payment, account)
+    return due_at
+
+
+def awaited_transfer(source: str, reference: str) -> dict[str, Any] | None:
+    """What the buyer of a source's record still has to pay before it is
+    confirmed, and where: the order's number (the transfer's title), the
+    amount, the date and the company's account. None when nothing is awaited.
+    For the source's own answer to its customer — the page after booking, the
+    customer's link — so it asks for no permission of the company's people."""
+    context = require_tenant_context()
+    order = Order.all_objects.filter(
+        organization_id=context.organization_id,
+        pk__in=OrderLine.all_objects.filter(
+            organization_id=context.organization_id, source=source, source_reference=reference
+        ).values("order_id"),
+    ).first()
+    payment = awaited_prepayment(order) if order is not None else None
+    account = transfer_account()
+    if order is None or payment is None or account is None:
+        return None
+    return {
+        "number": order.number,
+        "amount_minor": payment.amount_minor,
+        "currency": payment.currency,
+        "due_at": payment.due_at,
+        "account_holder": account.holder,
+        "account_number": account.number,
+        "bank_name": account.bank,
+    }
+
+
+def expire_prepayment(payment_id: UUID) -> bool:
+    """The date of a payment a source waited for has passed: the payment
+    expires, its order is canceled and the source lets go of what it held —
+    in the caller's transaction and tenant (the deadlines' task). Says whether
+    anything expired: a payment marked or called off meanwhile is left as it
+    is, and so is a balance — late, it cancels nothing by itself (owner
+    decision 29a)."""
+    context = require_tenant_context()
+    found = Payment.all_objects.filter(
+        organization_id=context.organization_id, pk=payment_id
+    ).first()
+    if found is None:
+        return False
+    # The order first, as every write on its payments locks it.
+    order = Order.all_objects.select_for_update().get(
+        organization_id=context.organization_id, pk=found.order_id
+    )
+    payment = awaited_prepayment(order)
+    if (
+        payment is None
+        or payment.id != payment_id
+        or payment.due_at is None
+        or payment.due_at > timezone.now()
+    ):
+        return False
+    cancel_order(order, awaited=PaymentStatus.EXPIRED, reason=PAYMENT_EXPIRED)
+    handler = order_source(order.source).handler
+    if handler is not None:
+        handler.expired(order)
+    return True
 
 
 def record_payment(
@@ -58,50 +212,77 @@ def record_payment(
     status, and answers with the order as its page shows it; `preview` checks
     the same and says what the order would be, writing nothing. Locked by the
     order's version: a repeat at the version the first
-    call saw is 409 and changes nothing, so a retry never marks twice."""
+    call saw is 409 and changes nothing, so a retry never marks twice.
+
+    Where the order waits for a prepayment, an amount that covers it is that
+    payment — however it came, the row that waited is the one marked — and the
+    source confirms what it held (`prepayment_met`); a smaller amount is a
+    payment of its own and leaves the rest awaited until the same date."""
     context = authorize_entitled(PAYMENTS_MANAGE, COMMERCE_ENABLED)
     with transaction.atomic():
         order = _locked(context, order_id, expected_version)
         paid = paid_minor(order)
         _refuse(order, amount_minor=amount_minor, method=method, due=order.gross_minor - paid)
         after = paid + amount_minor
+        awaited = awaited_prepayment(order)
+        met = awaited is not None and amount_minor >= awaited.amount_minor
         effect = {
             "amount_minor": amount_minor,
             "paid_minor": after,
             "due_minor": order.gross_minor - after,
             "status": status_for(order, after),
+            "prepayment_met": met,
         }
         if preview:
             return effect
         now = timezone.now()
-        payment = Payment.all_objects.create(
-            organization_id=order.organization_id,
-            order=order,
+        marked = {
             # The whole at once, the rest of it, or a part ahead of the rest.
-            kind=(
+            "kind": (
                 PaymentKind.DEPOSIT
                 if after < order.gross_minor
                 else PaymentKind.FULL
                 if paid == 0
                 else PaymentKind.BALANCE
             ),
-            method=method,
-            status=PaymentStatus.SUCCEEDED,
-            amount_minor=amount_minor,
-            currency=order.currency,
-            paid_at=now,
-            recorded_by=context.actor_id,
-        )
+            "method": method,
+            "status": PaymentStatus.SUCCEEDED,
+            "amount_minor": amount_minor,
+            "paid_at": now,
+            "recorded_by": context.actor_id,
+        }
+        if awaited is not None and met:
+            payment = awaited
+            for name, value in marked.items():
+                setattr(payment, name, value)
+            payment.version += 1
+            payment.save(update_fields=[*marked, "version", "updated_at"])
+            PaymentRoute.objects.filter(payment_id=payment.id).delete()
+        else:
+            payment = Payment.all_objects.create(
+                organization_id=order.organization_id,
+                order=order,
+                currency=order.currency,
+                **marked,
+            )
+            if awaited is not None:
+                _await(awaited, awaited.amount_minor - amount_minor)
         _post(order, payment, amount_minor, now)
         _move(order, after)
         _audit(context, order, "commerce.payment.recorded", payment)
+        if met:
+            handler = order_source(order.source).handler
+            if handler is not None:
+                handler.prepaid(order)
         return order_detail(order)
 
 
 def void_payment(order_id: UUID, payment_id: UUID, *, expected_version: int) -> dict[str, Any]:
     """A payment marked by mistake is taken back: it stays in the order's
     history as canceled, and the ledger gets the opposite entry. Not a refund —
-    no money went back to anybody."""
+    no money went back to anybody. What the source confirmed when the payment
+    was marked stays confirmed: taking a booking back is the company's own
+    decision, never a side effect of a correction."""
     context = authorize_entitled(PAYMENTS_MANAGE, COMMERCE_ENABLED)
     with transaction.atomic():
         order = _locked(context, order_id, expected_version)
@@ -123,6 +304,9 @@ def void_payment(order_id: UUID, payment_id: UUID, *, expected_version: int) -> 
         payment.status = PaymentStatus.CANCELED
         payment.version += 1
         payment.save(update_fields=["status", "version", "updated_at"])
+        # A part of a prepayment still awaited is awaited again.
+        if (awaited := awaited_prepayment(order)) is not None:
+            _await(awaited, awaited.amount_minor + payment.amount_minor)
         _post(order, payment, -payment.amount_minor, timezone.now())
         _move(order, paid_minor(order))
         _audit(context, order, "commerce.payment.voided", payment)
@@ -163,6 +347,13 @@ def _refuse(order: Order, *, amount_minor: int, method: str, due: int) -> None:
                 )
             ]
         })
+
+
+def _await(payment: Payment, amount_minor: int) -> None:
+    """What is still awaited of a prepayment, after a part came or went."""
+    payment.amount_minor = amount_minor
+    payment.version += 1
+    payment.save(update_fields=["amount_minor", "version", "updated_at"])
 
 
 def _post(order: Order, payment: Payment, amount_minor: int, at: Any) -> None:

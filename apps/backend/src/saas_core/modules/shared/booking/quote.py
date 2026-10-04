@@ -44,9 +44,11 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
+from . import orders
 from .availability import _zone
 from .item_translations import localized_texts, source_locale, translatable
 from .models import (
+    PREPAID_POLICIES,
     Extra,
     ExtraBasis,
     ExtraKind,
@@ -153,6 +155,11 @@ class Quote:
     security_deposit_minor: int
     #: What the customer is told about paying (ADR-072 §8), as it was then.
     payment_policy: str
+    #: What is paid before the booking is confirmed, where the offer asks for
+    #: it and the company can be paid ahead: `{"kind": "deposit" | "full",
+    #: "amount_minor", "transfer_due_days"}`. None: nothing is — the price is
+    #: paid as `payment_policy` says, or on site.
+    prepayment: dict[str, Any] | None
     net_minor: int
     vat_minor: int
     gross_minor: int
@@ -174,6 +181,7 @@ class Quote:
             "extras": list(self.extras),
             "security_deposit_minor": self.security_deposit_minor,
             "payment_policy": self.payment_policy,
+            "prepayment": self.prepayment,
             "net_minor": self.net_minor,
             "vat_minor": self.vat_minor,
             "gross_minor": self.gross_minor,
@@ -528,6 +536,7 @@ def customer_quote(snapshot: Mapping[str, Any] | None) -> dict[str, Any] | None:
         "gross_minor": snapshot["gross_minor"],
         "security_deposit_minor": snapshot.get("security_deposit_minor", 0),
         "payment_policy": snapshot.get("payment_policy", PaymentPolicy.NONE.value),
+        "prepayment": snapshot.get("prepayment"),
         "digest": snapshot["digest"],
     }
 
@@ -764,6 +773,14 @@ def _total(
         "vat_minor": sum(line.vat_minor for line in taxed),
         "gross_minor": sum(line.gross_minor for line in taxed),
     }
+    prepayment = _prepayment(service, sums["gross_minor"])
+    # What the customer is told: an offer that asks for money ahead where none
+    # can be paid ahead is paid on site (ADR-073 §5).
+    policy = (
+        PaymentPolicy.ON_SITE.value
+        if service.payment_policy in PREPAID_POLICIES and prepayment is None
+        else service.payment_policy
+    )
     # Of the price, whatever order its lines come in: they follow names, and
     # a rename between showing a price and booking it is no change of price.
     essence = {
@@ -781,7 +798,10 @@ def _total(
         ),
         "extras": sorted(picked.chosen, key=lambda pick: pick["extra_id"]),
         "security_deposit_minor": picked.deposit,
-        "payment_policy": service.payment_policy,
+        "payment_policy": policy,
+        # Only where there is one: the digest of every other quote stays what
+        # bookings made before prepayments froze.
+        **({"prepayment": prepayment} if prepayment else {}),
         **sums,
     }
     return Quote(
@@ -791,10 +811,39 @@ def _total(
         participants=participants,
         extras=picked.chosen,
         security_deposit_minor=picked.deposit,
-        payment_policy=service.payment_policy,
+        payment_policy=policy,
+        prepayment=prepayment,
         digest=canonical_json_hash(essence),
         **sums,
     )
+
+
+def _prepayment(service: Service, gross_minor: int) -> dict[str, Any] | None:
+    """What the offer asks for before it confirms a booking of this price
+    (ADR-072 §8, ADR-073 §5): a part of it (`deposit`, the percent rounded
+    half up to a whole minor unit) or all of it (`transfer`, `full`). Nothing
+    where the offer asks for none, where there is nothing to pay, and where
+    the company cannot be paid ahead — the price is then due on site and the
+    booking confirmed at once, so a quote never promises a transfer nobody
+    can make."""
+    if service.payment_policy not in PREPAID_POLICIES or gross_minor <= 0:
+        return None
+    if not orders.prepayment_available():
+        return None
+    if service.payment_policy == PaymentPolicy.DEPOSIT:
+        share = (gross_minor * service.deposit_percent + 50) // 100
+        if share <= 0:
+            return None
+        return {
+            "kind": "deposit" if share < gross_minor else "full",
+            "amount_minor": min(share, gross_minor),
+            "transfer_due_days": service.transfer_due_days,
+        }
+    return {
+        "kind": "full",
+        "amount_minor": gross_minor,
+        "transfer_due_days": service.transfer_due_days,
+    }
 
 
 def _taxed(line: QuoteLine, gross: bool) -> QuoteLine:

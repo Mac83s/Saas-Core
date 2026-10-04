@@ -47,6 +47,7 @@ from saas_core.modules.shared.notifications.api import (
 from saas_core.modules.shared.notifications.security import decrypt_secret
 
 from .models import Appointment, AppointmentStatus, StaffMember
+from .security import NOTIFY_ROLE
 
 ASSIGNED = "booking.assigned"
 UNASSIGNED = "booking.unassigned"
@@ -58,13 +59,10 @@ CANCELED = "booking.canceled"
 OFFICE_NEW = "booking.office_new"
 OFFICE_WAITING = "booking.office_waiting"
 OFFICE_CANCELED = "booking.office_canceled"
+#: A booking that waited for its payment let its time go (ADR-072 §9).
+OFFICE_EXPIRED = "booking.office_expired"
 #: Who manages bookings: the queue and the calendar of everybody.
 MANAGE_BOOKINGS = "booking.appointment.manage"
-
-#: The role of the context the mails are signed with: the organization's own
-#: job, not the office member who clicked — that membership may be gone by the
-#: time a retry delivers (the lesson of the reminders, ADR-058 §7).
-NOTIFY_ROLE = "booking_notify"
 
 
 def staff_assigned(appointment: Appointment, staff_ids: Iterable[UUID]) -> None:
@@ -381,6 +379,16 @@ def register_templates() -> None:
                 "en": "<p>{organization_name}: a customer called off the visit at {starts_at}.</p>",
             },
         ),
+        (
+            OFFICE_EXPIRED,
+            {"pl": "Rezerwacja wygasła bez wpłaty", "en": "A booking expired unpaid"},
+            {
+                "pl": "<p>{organization_name}: rezerwacja na {starts_at} wygasła, bo wpłata "
+                "nie dotarła w terminie. Termin jest znowu wolny.</p>",
+                "en": "<p>{organization_name}: the booking for {starts_at} expired because "
+                "its payment did not arrive in time. The time is free again.</p>",
+            },
+        ),
     ):
         _template(
             key,
@@ -430,4 +438,35 @@ def register_templates() -> None:
         {"organization_name", "starts_at", "manage_url"},
         audience=AUDIENCE_CUSTOMER,
         version=2,
+    )
+    # A booking that waited for its payment and did not get it (ADR-072 §9).
+    _template(
+        "booking.pending_expired",
+        {
+            "pl": "Rezerwacja wygasła",
+            "en": "Your booking has expired",
+            "de": "Ihre Buchung ist verfallen",
+        },
+        {
+            "pl": (
+                "<p>Rezerwacja w {organization_name} na {starts_at} wygasła, bo wpłata nie "
+                "dotarła w terminie.</p>"
+                "<p>Jeśli przelew jest już w drodze albo chcesz zarezerwować ponownie, "
+                "skontaktuj się z {organization_name}.</p>"
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} for {starts_at} has expired because "
+                "the payment did not arrive in time.</p>"
+                "<p>If your transfer is on its way, or you want to book again, please "
+                "contact {organization_name}.</p>"
+            ),
+            "de": (
+                "<p>Ihre Buchung bei {organization_name} für {starts_at} ist verfallen, weil "
+                "die Zahlung nicht rechtzeitig eingegangen ist.</p>"
+                "<p>Ist Ihre Überweisung bereits unterwegs oder möchten Sie erneut buchen, "
+                "wenden Sie sich bitte an {organization_name}.</p>"
+            ),
+        },
+        {"organization_name", "starts_at"},
+        audience=AUDIENCE_CUSTOMER,
     )

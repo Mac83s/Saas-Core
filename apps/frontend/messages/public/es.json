@@ -26,5 +26,25 @@
     "version": "Versión {number}, vigente desde el {date}",
     "otherLanguage": "Este documento aún no tiene texto en el idioma elegido. Lo está leyendo en: {language}.",
     "readIn": "Leer en"
+  },
+  "BookingPrice": {
+    "prepayDeposit": "Pago anticipado: {amount} por transferencia en un plazo de {days, plural, one {# día} other {# días}}. El resto se paga en el lugar.",
+    "prepayFull": "Pago por adelantado: {amount} por transferencia en un plazo de {days, plural, one {# día} other {# días}}.",
+    "transferTitle": "Datos para la transferencia",
+    "transferHint": "Su reserva está a la espera de un pago de {amount}. Realice la transferencia antes del {due}. Si el pago no llega a tiempo, la reserva caducará.",
+    "transferAmount": "Importe",
+    "transferHolder": "Beneficiario",
+    "transferAccount": "Número de cuenta",
+    "transferBank": "Banco",
+    "transferReference": "Concepto"
+  },
+  "PublicBooking": {
+    "pending": "Su reserva está a la espera del pago",
+    "pendingDescription": "Gracias, {name}. Le hemos reservado la fecha. Hemos enviado los datos para la transferencia a {email}; la confirmación llegará cuando recibamos el pago.",
+    "statusPending": "A la espera del pago"
+  },
+  "BookingSelfService": {
+    "cancelUntil": "Puede cancelar la reserva hasta el {when}.",
+    "pending_payment": "a la espera del pago"
   }
 }

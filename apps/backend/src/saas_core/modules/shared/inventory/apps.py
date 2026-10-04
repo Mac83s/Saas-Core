@@ -21,6 +21,12 @@ class InventoryConfig(AppConfig):
         # Low-stock notices, lot expiry and where a visit's products come from (ADR-078).
         register_company_settings()
         register_templates()
+        # The daily low-stock notice is the organization's own job (ADR-073 §5).
+        from saas_core.modules.core.organizations.api import register_service_scope
+
+        from .alerts import NOTIFY_ROLE
+
+        register_service_scope(NOTIFY_ROLE)
         # The company's history names a document and an item (UX-055).
         from .history_targets import register_history_targets
 

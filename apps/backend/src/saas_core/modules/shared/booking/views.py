@@ -27,6 +27,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
+from . import orders
 from .availability import _zone, available_days, available_slots, available_times
 from .company_settings import (
     CONTACT,
@@ -322,6 +323,8 @@ class _Known:
     flags: Mapping[UUID, list[str]]
     contacts: set[UUID]
     titles: Mapping[UUID, str]
+    #: The order of each priced visit, for a caller who may read orders.
+    orders: Mapping[UUID, dict[str, Any]]
 
 
 def _known(items: Sequence[Any]) -> _Known:
@@ -331,6 +334,8 @@ def _known(items: Sequence[Any]) -> _Known:
         appointment_flags({item.id: item.service.appointment_kind for item in items}),
         visible_contacts(ids),
         appointment_titles(ids),
+        # Only a booking with a price has an order (ADR-073 §3).
+        orders.links([item.id for item in items if item.quote and item.quote["lines"]]),
     )
 
 
@@ -349,6 +354,8 @@ def _appointment_payload(
         "service_name": value.service_name,
         "service_id": value.service_id,
         "status": value.status,
+        "hold_expires_at": value.hold_expires_at,
+        "order": known.orders.get(value.id),
         "passed": has_passed(value),
         "closes_explicitly": closes_explicitly(value.service.appointment_kind),
         "customer_name": value.customer.display_name,
@@ -416,6 +423,9 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "service_name": value.customer_service_name or value.service_name,
         "location_name": value.location.name,
         "status": value.status,
+        "hold_expires_at": value.hold_expires_at,
+        # The transfer's details while the booking waits for its payment.
+        "payment": orders.awaited(value) if value.status == "pending_payment" else None,
         "team_name": team,
         "person_name": person,
         **({"self_service_token": token} if token else {}),
@@ -427,8 +437,11 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
 def _self_service(value: Any) -> dict[str, Any]:
     """What the link may still do, by the booking's own terms (B4)."""
     now = timezone.now()
+    open_to = {"reschedule": ("confirmed",), "cancel": ("confirmed", "pending_payment")}
+    # A booking that waits for its payment can be given up, not moved
+    # (ADR-072 §9: only a confirmed one is moved).
     allows = {
-        action: value.status == "confirmed" and self_service_allows(value, action, now)
+        action: value.status in open_to[action] and self_service_allows(value, action, now)
         for action in ("reschedule", "cancel")
     }
     return {
@@ -2097,6 +2110,8 @@ def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
         "slot_step_minutes": service.slot_step_minutes,
         "online": service.online,
         "payment_policy": service.payment_policy,
+        "deposit_percent": service.deposit_percent,
+        "transfer_due_days": service.transfer_due_days,
         "active": service.active,
         "draft": service.draft,
         "preset_id": service.preset_id or None,

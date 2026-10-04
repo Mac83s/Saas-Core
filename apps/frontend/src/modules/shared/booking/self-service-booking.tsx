@@ -27,6 +27,7 @@ import { Input } from "@saas-core/ui/components/input";
 import { Label } from "@saas-core/ui/components/label";
 
 import { QuoteSummary } from "./quote-summary";
+import { TransferDetails } from "./transfer-details";
 
 const schema = z.object({ starts_at: z.string().min(1) });
 
@@ -137,10 +138,18 @@ export function SelfServiceBooking({ token }: { token: string }) {
                 </p>
               ) : null}
             </div>
+            {/* The booking waits for this transfer before it is confirmed. */}
+            {appointment.payment ? (
+              <TransferDetails
+                payment={appointment.payment}
+                zone={appointment.timezone}
+              />
+            ) : null}
             {appointment.quote ? (
               <QuoteSummary quote={appointment.quote} />
             ) : null}
-            {appointment.status === "confirmed" ? (
+            {appointment.status === "confirmed" ||
+            appointment.status === "pending_payment" ? (
               <>
                 {/* What the link may still do: the booking's own terms (B4). */}
                 {terms.reschedule ? (
@@ -175,7 +184,7 @@ export function SelfServiceBooking({ token }: { token: string }) {
                 {appointment.self_service ? (
                   <p className="text-sm text-muted-foreground">
                     {terms.until
-                      ? t("changesUntil", {
+                      ? t(terms.reschedule ? "changesUntil" : "cancelUntil", {
                           when: new Intl.DateTimeFormat(locale, {
                             dateStyle: "full",
                             timeStyle: "short",

@@ -50,6 +50,7 @@ import {
   wallClock,
 } from "./calendar-time";
 import { QuoteSummary } from "./quote-summary";
+import { TransferDetails } from "./transfer-details";
 
 type Values = {
   service_id: string;
@@ -387,13 +388,16 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       })
     : undefined;
 
-  if (booked)
+  if (booked) {
+    // The offer asks for money first: the booking holds its time and waits
+    // for the transfer (ADR-072 §9).
+    const pending = booked.status === "pending_payment";
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{t("confirmed")}</CardTitle>
+          <CardTitle>{t(pending ? "pending" : "confirmed")}</CardTitle>
           <CardDescription>
-            {t("confirmedDescription", {
+            {t(pending ? "pendingDescription" : "confirmedDescription", {
               name: form.getValues("display_name").trim(),
               email: form.getValues("email"),
             })}
@@ -420,8 +424,13 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               </>
             ) : null}
             <dt className="text-muted-foreground">{t("status")}</dt>
-            <dd className="font-medium">{t("statusConfirmed")}</dd>
+            <dd className="font-medium">
+              {t(pending ? "statusPending" : "statusConfirmed")}
+            </dd>
           </dl>
+          {booked.payment ? (
+            <TransferDetails payment={booked.payment} zone={booked.timezone} />
+          ) : null}
           {booked.quote ? <QuoteSummary quote={booked.quote} /> : null}
           <div className="flex flex-wrap gap-3">
             {booked.self_service_token ? (
@@ -444,6 +453,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         </CardContent>
       </Card>
     );
+  }
   // The company paused online booking (ADR-078, booking.online): say so
   // instead of a form the server would refuse.
   if (catalog?.online.paused)

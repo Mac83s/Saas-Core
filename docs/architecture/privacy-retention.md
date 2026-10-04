@@ -139,6 +139,8 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 | `Order.buyer_name`, `buyer_email`, `buyer_phone` (`shared.commerce`, ADR-073 §3) | migawka kupującego z chwili złożenia zamówienia | **usuwane** („Zanonimizowany klient”, puste pola) | to jest usuwana dana |
 | `Order` (numer, kwoty, status, kanał), `OrderLine` (pozycje, stawki) | fakty o sprzedaży | zostaje | zapis sprzedaży firmy; kupujący jest już nienazwany. Wyjątek retencji dla zamówień z wpłatą — plaster 4i (ADR-073) |
 | `OrganizationAuditEntry` zamówień | numer, źródło, kanał, kwota | zostaje | bez danych kupującego |
+| E-mail z danymi do przelewu (`commerce.transfer_details`, ADR-073 §5) | adres klienta i treść wiadomości (numer zamówienia, kwota, rachunek firmy) | **usuwane** — zapisane kopie czyści `strip_buyer` od razu, jak e-maile rezerwacji | adres to dana klienta |
+| `commerce_paymentroute` (trasy terminów wpłat) | identyfikator płatności i firmy, termin, kontrakt zadania | zostaje do usunięcia firmy | bez danych klienta |
 | `Payment`, `LedgerEntry` (`shared.commerce`, ADR-073 §4) | kwoty, sposób zapłaty, czas i identyfikator osoby z firmy, która oznaczyła wpłatę | zostaje | bez danych klienta; księga jest tylko do dopisywania |
 | Dziennik zgód (`customers_consentrecord`, ADR-073 §9) | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu, źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany |
 | Karta gospodarstwa (`shared.farms`) | dane hodowcy | **zostaje — własna reguła** | dlatego grupy nie ma w profilu z gospodarstwami (wyżej) |

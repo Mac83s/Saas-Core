@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:3d5af5b18abf3a9fbc83a66b5c7e66eb67aeb20320cd6883aed82db453c5db43",
+  "profileHash": "sha256:6e8ed5e25303eb0be48b7c90beebc0709ba7b3cb5d36e6621be25ec20c26ae45",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -584,7 +584,8 @@
       "dependsOn": [
         "core.organizations",
         "shared.billing",
-        "shared.customers"
+        "shared.customers",
+        "shared.notifications"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.commerce",
@@ -610,6 +611,12 @@
         "entitlements": [
           "commerce.enabled"
         ],
+        "beatSchedule": {
+          "commerce-expire-due-payments": {
+            "task": "saas_core.modules.shared.commerce.tasks.expire_due_payments",
+            "schedule": 60
+          }
+        },
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": []

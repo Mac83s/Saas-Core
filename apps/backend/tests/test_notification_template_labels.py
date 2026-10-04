@@ -18,6 +18,7 @@ MESSAGES = Path(__file__).resolve().parents[2] / "frontend" / "messages"
 CORE_PREFIXES = (
     "billing.",
     "booking.",
+    "commerce.",
     "inventory.",
     "product.",
     "sites.",

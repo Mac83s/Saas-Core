@@ -45,6 +45,14 @@ function refusal(error: unknown, fallback: string): string {
   return error.problem.errors?.[0]?.message ?? fallback;
 }
 
+/** The payment the order's booking waits for before it is confirmed
+ *  (ADR-073 §5); none once it was marked, called off or expired. */
+export function awaitedPayment(order: Order): OrderPayment | undefined {
+  return order.status === "canceled"
+    ? undefined
+    : order.payments.find((payment) => payment.status === "requires_payment");
+}
+
 function isStale(error: unknown): boolean {
   return (
     error instanceof ApiProblemError &&
@@ -84,6 +92,7 @@ export function OrderPayments({
   const [problem, setProblem] = useState<string>();
   const money = (minor: number) => formatMoney(minor, order.currency, locale);
   const canceled = order.status === "canceled";
+  const awaited = awaitedPayment(order);
 
   async function takeBack(payment: OrderPayment) {
     setBusy(true);
@@ -112,6 +121,11 @@ export function OrderPayments({
         payment.paid_at ? (
           <time dateTime={payment.paid_at}>
             {formatDateTime(payment.paid_at, locale)}
+          </time>
+        ) : payment.due_at ? (
+          // Not paid yet: the date it is awaited until, or was.
+          <time dateTime={payment.due_at}>
+            {t("dueBy", { date: formatDateTime(payment.due_at, locale) })}
           </time>
         ) : (
           "—"
@@ -207,6 +221,14 @@ export function OrderPayments({
           </div>
         )}
       </dl>
+      {awaited?.due_at ? (
+        <p className="max-w-prose text-sm" role="note">
+          {t("awaited", {
+            amount: money(awaited.amount_minor),
+            date: formatDateTime(awaited.due_at, locale),
+          })}
+        </p>
+      ) : null}
       <DataTable
         caption={t("paymentsCaption")}
         columns={columns}
@@ -262,8 +284,9 @@ export function OrderPayments({
   );
 }
 
-/** „Oznacz wpłatę”: the amount starts at what is left to pay — the server's
- *  number — and the server refuses more than that. */
+/** „Oznacz wpłatę”: the amount starts at what the order waits for before
+ *  its booking is confirmed, else at what is left to pay — the server's
+ *  numbers — and the server refuses more than is left. */
 function RecordPaymentDialog({
   onChanged,
   onOpenChange,
@@ -278,7 +301,10 @@ function RecordPaymentDialog({
   const t = useTranslations("Orders");
   const common = useTranslations("Common");
   const locale = useLocale();
-  const [amount, setAmount] = useState(amountText(order.due_minor, locale));
+  const awaited = awaitedPayment(order);
+  const [amount, setAmount] = useState(
+    amountText(awaited?.amount_minor ?? order.due_minor, locale),
+  );
   // What the company may mark by hand comes from the API.
   const [methods, setMethods] = useState<Method[]>([]);
   const [method, setMethod] = useState<Method>();
@@ -292,7 +318,13 @@ function RecordPaymentDialog({
       (options) => {
         if (!active) return;
         setMethods(options.manual_methods);
-        setMethod((current) => current ?? options.manual_methods[0]);
+        // An awaited payment was asked for by a transfer.
+        const expected = options.manual_methods.find(
+          (value) => value === awaited?.method,
+        );
+        setMethod(
+          (current) => current ?? expected ?? options.manual_methods[0],
+        );
       },
       () => {
         if (active) setProblem(t("saveFailed"));
@@ -301,7 +333,7 @@ function RecordPaymentDialog({
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [t, awaited?.method]);
 
   async function save() {
     const value = parseAmount(amount);
@@ -343,7 +375,12 @@ function RecordPaymentDialog({
               {t("recordTitle", { number: order.number })}
             </DialogTitle>
             <DialogDescription>
-              {t("recordHint", { due: money(order.due_minor) })}
+              {awaited
+                ? t("recordHintAwaited", {
+                    amount: money(awaited.amount_minor),
+                    due: money(order.due_minor),
+                  })
+                : t("recordHint", { due: money(order.due_minor) })}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">

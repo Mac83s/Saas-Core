@@ -78,7 +78,13 @@ def test_how_the_customer_pays_is_the_offers_setting_and_part_of_the_price_shown
     assert changed.changes == {"payment_policy": {"from": "none", "to": "on_site"}}
     assert (before.payment_policy, after.payment_policy) == ("none", "on_site")
     assert before.digest != after.digest
-    assert [value["value"] for value in option["values"]] == ["none", "on_site"]
+    assert [value["value"] for value in option["values"]] == [
+        "none",
+        "on_site",
+        "transfer",
+        "deposit",
+        "full",
+    ]
     assert option["default"] == "none"
 
 
@@ -113,6 +119,8 @@ def test_the_form_shows_the_gross_price_and_books_at_the_price_shown() -> None:
         "gross_minor": 24000,
         "security_deposit_minor": 0,
         "payment_policy": "on_site",
+        # Nothing is paid before the booking is confirmed.
+        "prepayment": None,
         "digest": quote["digest"],
     }
 

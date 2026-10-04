@@ -272,3 +272,29 @@ class LedgerEntry(TenantScopedModel):
             models.Index(fields=["organization", "order"], name="commerce_ledger_order_idx"),
         ]
         ordering = ("order_id", "occurred_at", "id")
+
+
+class PaymentRoute(models.Model):
+    """Which payment's date comes when (ADR-073 §5): what the deadlines' task
+    reads before it knows a tenant. Identifiers and a date, never a customer's
+    data — the pattern of booking's `ReminderRoute` (ADR-058 §7). The contract
+    is the organization's own, so it outlives whoever placed the order."""
+
+    payment_id = models.UUIDField(primary_key=True)
+    organization_id = models.UUIDField()
+    signed_tenant_context = models.TextField()
+    due_at = models.DateTimeField()
+    dispatched_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["due_at"],
+                condition=models.Q(dispatched_at__isnull=True),
+                name="commerce_payroute_due_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return str(self.payment_id)

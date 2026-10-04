@@ -182,6 +182,20 @@ class BookingQuoteLineSerializer(serializers.Serializer[dict[str, Any]]):
     extra_id = serializers.UUIDField(allow_null=True)
 
 
+class QuotePrepaymentSerializer(serializers.Serializer[dict[str, Any]]):
+    """What is paid before the booking is confirmed (ADR-073 §5)."""
+
+    kind = serializers.ChoiceField(
+        choices=["deposit", "full"],
+        help_text="`deposit` — a part ahead, the rest on site; `full` — the whole.",
+    )
+    amount_minor = serializers.IntegerField(help_text="Gross, in minor units.")
+    transfer_due_days = serializers.IntegerField(
+        help_text="How many days the customer has to pay by a transfer before the booking "
+        "expires; never past the booking's start."
+    )
+
+
 class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
     """A booking's price (ADR-072 §7): whole minor units, the tax worked out on
     each line. No lines — the offer has no price list."""
@@ -197,7 +211,15 @@ class BookingQuoteSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Held and given back: beside the totals, never in them."
     )
     payment_policy = serializers.ChoiceField(
-        choices=PaymentPolicy.choices, help_text="What the customer is told about paying."
+        choices=PaymentPolicy.choices,
+        help_text="What the customer is told about paying. An offer that asks for money "
+        "ahead where none can be paid ahead says `on_site`.",
+    )
+    prepayment = QuotePrepaymentSerializer(
+        allow_null=True,
+        required=False,
+        help_text="What a booking at this price waits for before it is confirmed; null — "
+        "nothing, it is confirmed at once.",
     )
     net_minor = serializers.IntegerField()
     vat_minor = serializers.IntegerField()
@@ -375,7 +397,14 @@ class PublicQuoteSerializer(serializers.Serializer[dict[str, Any]]):
     )
     payment_policy = serializers.ChoiceField(
         choices=PaymentPolicy.choices,
-        help_text="`on_site` — the customer pays at the visit; `none` — nothing is said.",
+        help_text="`on_site` — the customer pays at the visit; `none` — nothing is said; "
+        "`transfer`, `deposit`, `full` — a part or the whole is paid ahead, see "
+        "`prepayment`.",
+    )
+    prepayment = QuotePrepaymentSerializer(
+        allow_null=True,
+        required=False,
+        help_text="What the customer pays before the booking is confirmed; null — nothing.",
     )
     digest = serializers.CharField(help_text="Send it back as `quote_digest` when booking.")
 
@@ -404,6 +433,11 @@ class TeamRefSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
 
 
+class AppointmentOrderSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField(help_text="`GET /commerce/orders/{id}/`.")
+    number = serializers.CharField()
+
+
 class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     starts_at = serializers.DateTimeField()
@@ -412,7 +446,24 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     service_name = serializers.CharField()
     service_id = serializers.UUIDField(help_text="The offer it was booked from.")
     status = serializers.CharField(
-        help_text=("`confirmed`, `completed`, `canceled` or `no_show` (the customer did not come).")
+        help_text=(
+            "`confirmed`, `completed`, `canceled`, `no_show` (the customer did not come) or "
+            "`pending_payment`: the offer asks for money before confirming, and the booking "
+            "holds its time until `hold_expires_at` — it is confirmed when the company marks "
+            "the payment in its order, and expires (`canceled`) when the date comes first."
+        )
+    )
+    hold_expires_at = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+        help_text="Until when a `pending_payment` booking waits for its payment; null otherwise.",
+    )
+    order = AppointmentOrderSerializer(
+        required=False,
+        allow_null=True,
+        help_text="The booking's order, for a caller who may read orders "
+        "(`commerce.orders.read`); null for a booking without a price, without orders in "
+        "the company's plan, or for anybody else.",
     )
     passed = serializers.BooleanField(
         help_text=(
@@ -527,6 +578,18 @@ class PublicSelfServiceSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class PublicAwaitedPaymentSerializer(serializers.Serializer[dict[str, Any]]):
+    """The transfer a booking waits for (ADR-073 §5)."""
+
+    number = serializers.CharField(help_text="The order's number: the transfer's title.")
+    amount_minor = serializers.IntegerField(help_text="Gross, in minor units.")
+    currency = serializers.CharField()
+    due_at = serializers.DateTimeField(help_text="Until when the payment is awaited.")
+    account_holder = serializers.CharField()
+    account_number = serializers.CharField()
+    bank_name = serializers.CharField(allow_blank=True)
+
+
 class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     """What the customer sees of their visit: no stock, and of the people
     only the team they chose or a name shown to customers (ADR-058 §8)."""
@@ -537,7 +600,18 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     timezone = serializers.CharField()
     service_name = serializers.CharField()
     location_name = serializers.CharField()
-    status = serializers.CharField()
+    status = serializers.CharField(
+        help_text="`pending_payment`: the booking waits for the payment in `payment` until "
+        "`hold_expires_at`, then expires; otherwise `confirmed`, `completed`, `canceled` or "
+        "`no_show`."
+    )
+    hold_expires_at = serializers.DateTimeField(required=False, allow_null=True)
+    payment = PublicAwaitedPaymentSerializer(
+        required=False,
+        allow_null=True,
+        help_text="What the customer has to transfer before the booking is confirmed, and "
+        "where; null when nothing is awaited.",
+    )
     #: The team the customer chose, by name.
     team_name = serializers.CharField(allow_null=True)
     #: „Przyjmie Cię”: the lead's name when it is shown to customers.
@@ -670,6 +744,12 @@ class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     online = serializers.BooleanField(help_text=offer_setting("online").model_description)
     payment_policy = serializers.ChoiceField(
         choices=PaymentPolicy.choices, help_text=offer_setting("payment_policy").model_description
+    )
+    deposit_percent = serializers.IntegerField(
+        required=False, help_text=offer_setting("deposit_percent").model_description
+    )
+    transfer_due_days = serializers.IntegerField(
+        required=False, help_text=offer_setting("transfer_due_days").model_description
     )
     active = serializers.BooleanField()
     draft = serializers.BooleanField(
@@ -942,6 +1022,8 @@ class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         help_text=offer_setting("payment_policy").model_description,
     )
+    deposit_percent = _bounded("deposit_percent", required=False)
+    transfer_due_days = _bounded("transfer_due_days", required=False)
     active = serializers.BooleanField(required=False)
     #: A new service only: the kind of visit a module provides (ADR-050).
     appointment_kind = serializers.CharField(max_length=64, required=False, allow_blank=True)

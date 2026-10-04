@@ -82,7 +82,13 @@ def test_a_payment_at_the_desk_settles_the_order_and_is_written_in_the_ledger() 
         audit = OrganizationAuditEntry.objects.get(action="commerce.payment.recorded")
 
     # The preview says what the write then does, and writes nothing.
-    assert seen == {"amount_minor": 15000, "paid_minor": 15000, "due_minor": 0, "status": "paid"}
+    assert seen == {
+        "amount_minor": 15000,
+        "paid_minor": 15000,
+        "due_minor": 0,
+        "status": "paid",
+        "prepayment_met": False,
+    }
     assert untouched == (0, 0)
     assert (paid["status"], paid["paid_minor"], paid["due_minor"], paid["version"]) == (
         "paid",
@@ -346,7 +352,13 @@ def test_the_panel_marks_and_takes_back_a_payment_over_the_api() -> None:
     preview = send(f"{url}preview/", body)
     assert (preview.status_code, preview.json()) == (
         200,
-        {"amount_minor": 5000, "paid_minor": 5000, "due_minor": 10000, "status": "partially_paid"},
+        {
+            "amount_minor": 5000,
+            "paid_minor": 5000,
+            "due_minor": 10000,
+            "status": "partially_paid",
+            "prepayment_met": False,
+        },
     )
     made = send(url, body)
     assert made.status_code == 201, made.data

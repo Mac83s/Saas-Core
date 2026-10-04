@@ -101,6 +101,11 @@ BOOKING_MANAGE = "booking.appointment.manage"
 BOOKING_ENABLED = "booking.enabled"
 
 
+#: Why a pending booking changed its status, in its history.
+HOLD_PAID = "paid"
+HOLD_EXPIRED = "payment_expired"
+
+
 class AppointmentNotChangeable(APIException):
     status_code = 409
     default_detail = "Tej wizyty nie można już zmienić."
@@ -737,7 +742,6 @@ def create_appointment(
             "queued_at",
         ]
     )
-    stock.reserve(organization.id, appointment.id, lines)
     record_new_booking(
         organization,
         appointment,
@@ -755,7 +759,11 @@ def create_appointment(
         consents=consents,
         asked_locale=customer_data.get("locale"),
     )
-    notify.staff_assigned(appointment, taken)
+    # The materials and the people's notices come with a confirmed booking
+    # (ADR-072 §9); one that waits for its payment gets them when it is paid.
+    if appointment.status == AppointmentStatus.CONFIRMED:
+        stock.reserve(organization.id, appointment.id, lines)
+        notify.staff_assigned(appointment, taken)
     # The office, when the company wants it told (W8): what waits for someone
     # first, else what came in online.
     if appointment.needs_assignment:
@@ -984,6 +992,8 @@ def cancel_appointment(
     *, appointment_id: UUID, idempotency_key: str, principal_ref: str
 ) -> Appointment:
     context = require_tenant_context()
+    # The order before the booking, as commerce takes them (`orders.lock`).
+    orders.lock(appointment_id)
     appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
     if not appointment:
         raise NotFound("Rezerwacja nie istnieje.")
@@ -1002,34 +1012,7 @@ def cancel_appointment(
     if appointment.status != AppointmentStatus.CANCELED:
         old = appointment.status
         crew = crew_of(appointment)
-        appointment.status = AppointmentStatus.CANCELED
-        # Nothing left to staff: a called-off visit leaves the queue.
-        appointment.needs_assignment = appointment.auto_assigned = False
-        appointment.queue_reason, appointment.queued_at = "", None
-        appointment.save(
-            update_fields=[
-                "status",
-                "needs_assignment",
-                "auto_assigned",
-                "queue_reason",
-                "queued_at",
-                "updated_at",
-            ]
-        )
-        AppointmentStaffAllocation.all_objects.filter(appointment=appointment).update(active=False)
-        AppointmentResourceAllocation.all_objects.filter(appointment=appointment).update(
-            active=False
-        )
-        SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(
-            revoked_at=timezone.now()
-        )
-        AppointmentStatusHistory.all_objects.create(
-            organization_id=context.organization_id,
-            appointment=appointment,
-            from_status=old,
-            to_status=AppointmentStatus.CANCELED,
-            actor_kind=context.principal_kind,
-        )
+        _call_off(appointment)
         stock.release(context.organization_id, appointment.id)
         orders.canceled(appointment)
         customer = appointment.customer
@@ -1052,21 +1035,26 @@ def cancel_appointment(
                 idempotency_key=f"booking-cancel:{appointment.id}",
                 causation_id=f"booking:{appointment.id}",
             )
-        notify.staff_canceled(appointment, crew)
+        # The people and the observers heard of the booking when it was
+        # confirmed; of one given up while it waited they hear nothing
+        # (ADR-072 §9).
+        if old != AppointmentStatus.PENDING_PAYMENT:
+            notify.staff_canceled(appointment, crew)
         if context.role_key == PUBLIC_BOOKING_ROLE:
             notify.office_told(appointment, notify.OFFICE_CANCELED, crew=crew)
-        _announce(
-            AppointmentChange(
-                change=CANCELED,
-                organization_id=context.organization_id,
-                appointment_id=appointment.id,
-                previous_starts_at=appointment.starts_at,
-                starts_at=appointment.starts_at,
-                previous_status=old,
-                status=AppointmentStatus.CANCELED,
-                timezone=appointment.timezone,
+        if old != AppointmentStatus.PENDING_PAYMENT:
+            _announce(
+                AppointmentChange(
+                    change=CANCELED,
+                    organization_id=context.organization_id,
+                    appointment_id=appointment.id,
+                    previous_starts_at=appointment.starts_at,
+                    starts_at=appointment.starts_at,
+                    previous_status=old,
+                    status=AppointmentStatus.CANCELED,
+                    timezone=appointment.timezone,
+                )
             )
-        )
     BookingMutation.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -1083,6 +1071,129 @@ def cancel_appointment(
         target_id=appointment.id,
     )
     return appointment
+
+
+def _call_off(appointment: Appointment, *, reason: str = "") -> None:
+    """The booking lets go of its time: canceled, out of the queue, its people
+    and its unit free, its customer's link dead, and the change in its
+    history — with `reason` when no person decided it."""
+    context = require_tenant_context()
+    old = appointment.status
+    appointment.status = AppointmentStatus.CANCELED
+    appointment.hold_expires_at = None
+    # Nothing left to staff: a called-off visit leaves the queue.
+    appointment.needs_assignment = appointment.auto_assigned = False
+    appointment.queue_reason, appointment.queued_at = "", None
+    appointment.save(
+        update_fields=[
+            "status",
+            "hold_expires_at",
+            "needs_assignment",
+            "auto_assigned",
+            "queue_reason",
+            "queued_at",
+            "updated_at",
+        ]
+    )
+    AppointmentStaffAllocation.all_objects.filter(appointment=appointment).update(active=False)
+    AppointmentResourceAllocation.all_objects.filter(appointment=appointment).update(active=False)
+    SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(revoked_at=timezone.now())
+    AppointmentStatusHistory.all_objects.create(
+        organization_id=context.organization_id,
+        appointment=appointment,
+        from_status=old,
+        to_status=AppointmentStatus.CANCELED,
+        reason=reason,
+        actor_kind=context.principal_kind,
+    )
+
+
+def confirm_pending(appointment: Appointment) -> None:
+    """The payment a booking waited for has come — commerce's word, in the
+    payment's own transaction (`orders._prepaid`). The booking is confirmed,
+    and everything a confirmed booking gets follows now: the reminder, the
+    confirmation, the materials, the people's notices and the observers'
+    `CREATED` (ADR-072 §9)."""
+    context = require_tenant_context()
+    if appointment.status != AppointmentStatus.PENDING_PAYMENT:
+        return
+    organization = Organization.objects.get(pk=context.organization_id)
+    appointment.status = AppointmentStatus.CONFIRMED
+    appointment.hold_expires_at = None
+    appointment.save(update_fields=["status", "hold_expires_at", "updated_at"])
+    AppointmentStatusHistory.all_objects.create(
+        organization=organization,
+        appointment=appointment,
+        from_status=AppointmentStatus.PENDING_PAYMENT,
+        to_status=AppointmentStatus.CONFIRMED,
+        reason=HOLD_PAID,
+        actor_kind=context.principal_kind,
+    )
+    customer = appointment.customer
+    _welcome(
+        organization,
+        appointment,
+        customer,
+        email="" if customer.anonymized_at else customer.email,
+        token=decrypt_secret(appointment.self_service_token_ciphertext),
+    )
+    stock.reserve(organization.id, appointment.id, appointment.materials)
+    notify.staff_assigned(appointment, crew_of(appointment))
+    record_audit(
+        organization=organization,
+        action="booking.appointment.confirmed",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="appointment",
+        target_id=appointment.id,
+    )
+    _announce(
+        AppointmentChange(
+            change=CREATED,
+            organization_id=organization.id,
+            appointment_id=appointment.id,
+            previous_starts_at=None,
+            starts_at=appointment.starts_at,
+            previous_status="",
+            status=appointment.status,
+            timezone=appointment.timezone,
+        )
+    )
+
+
+def expire_pending(appointment: Appointment) -> None:
+    """The date came before the payment — commerce's word, from its deadlines'
+    task, with the order already canceled (`orders._expired`). The booking
+    lets go of its time, with the reason in its history; the customer is told,
+    the people and the observers never heard of it."""
+    context = require_tenant_context()
+    if appointment.status != AppointmentStatus.PENDING_PAYMENT:
+        return
+    _call_off(appointment, reason=HOLD_EXPIRED)
+    customer = appointment.customer
+    organization = Organization.objects.get(pk=context.organization_id)
+    if customer.email and not customer.anonymized_at:
+        queue_email(
+            recipient_email=customer.email,
+            template_key="booking.pending_expired",
+            template_version=1,
+            locale=customer.locale,
+            template_context={
+                "organization_name": organization.name,
+                "starts_at": local_time(
+                    appointment.starts_at, appointment.timezone, customer.locale
+                ),
+            },
+            idempotency_key=f"booking-expired:{appointment.id}",
+            causation_id=f"booking:{appointment.id}",
+        )
+    notify.office_told(appointment, notify.OFFICE_EXPIRED)
+    record_audit(
+        organization=organization,
+        action="booking.appointment.expired",
+        actor=None,
+        target_type="appointment",
+        target_id=appointment.id,
+    )
 
 
 def _refuse_customer_change(role_key: str, appointment: Appointment, action: str) -> None:
@@ -1554,12 +1665,19 @@ def record_new_booking(
     # First: a customer who has not accepted the documents in force books
     # nothing, and nothing below is written for them.
     record_consents(consents, customer=customer, reference=appointment.id, asked=asked_locale)
-    # A booking with a price is an order, where the company has orders (ADR-073 §3).
-    orders.place(appointment, customer)
+    # A booking with a price is an order, where the company has orders
+    # (ADR-073 §3). An offer that asks for money first makes it wait: the
+    # booking holds its time until the date commerce names (ADR-072 §9).
+    hold_until = orders.place(appointment, customer, hold=not walk_in)
+    if hold_until is not None:
+        appointment.status = AppointmentStatus.PENDING_PAYMENT
+        appointment.hold_expires_at = hold_until
+        appointment.save(update_fields=["status", "hold_expires_at", "updated_at"])
+    pending = hold_until is not None
     AppointmentStatusHistory.all_objects.create(
         organization=organization,
         appointment=appointment,
-        to_status=AppointmentStatus.CONFIRMED,
+        to_status=appointment.status,
         actor_kind=context.principal_kind,
     )
     BookingMutation.all_objects.create(
@@ -1576,9 +1694,48 @@ def record_new_booking(
         appointment_id=appointment.id,
         expires_at=expires,
     )
-    if not walk_in:
-        arm_reminder(appointment)
-    if email and not walk_in:
+    # The reminder and the confirmation come with `confirmed`; a booking that
+    # waits for its payment got the transfer's details from commerce instead.
+    if not walk_in and not pending:
+        _welcome(organization, appointment, customer, email=email, token=token)
+    record_audit(
+        organization=organization,
+        action="booking.appointment.created",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="appointment",
+        target_id=appointment.id,
+        metadata=metadata,
+    )
+    if pending:
+        # Observers hear `CREATED` when the booking is confirmed, and nothing
+        # of one that never is (ADR-072 §9).
+        return
+    _announce(
+        AppointmentChange(
+            change=CREATED,
+            organization_id=organization.id,
+            appointment_id=appointment.id,
+            previous_starts_at=None,
+            starts_at=appointment.starts_at,
+            previous_status="",
+            status=appointment.status,
+            timezone=appointment.timezone,
+        )
+    )
+
+
+def _welcome(
+    organization: Organization,
+    appointment: Appointment,
+    customer: Customer,
+    *,
+    email: str,
+    token: str,
+) -> None:
+    """What a booking gets when it is confirmed: its reminder, and the
+    confirmation with the customer's link."""
+    arm_reminder(appointment)
+    if email:
         queue_email(
             recipient_email=email,
             template_key="booking.confirmation",
@@ -1594,26 +1751,6 @@ def record_new_booking(
             idempotency_key=f"booking-confirm:{appointment.id}",
             causation_id=f"booking:{appointment.id}",
         )
-    record_audit(
-        organization=organization,
-        action="booking.appointment.created",
-        actor=User.objects.filter(pk=context.actor_id).first(),
-        target_type="appointment",
-        target_id=appointment.id,
-        metadata=metadata,
-    )
-    _announce(
-        AppointmentChange(
-            change=CREATED,
-            organization_id=organization.id,
-            appointment_id=appointment.id,
-            previous_starts_at=None,
-            starts_at=appointment.starts_at,
-            previous_status="",
-            status=appointment.status,
-            timezone=appointment.timezone,
-        )
-    )
 
 
 def local_time(value: datetime, zone: str, locale: str) -> str:

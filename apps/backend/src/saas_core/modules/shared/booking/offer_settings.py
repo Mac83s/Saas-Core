@@ -230,17 +230,77 @@ OFFER_SETTINGS: tuple[SettingSpec, ...] = (
         values=(
             (PaymentPolicy.NONE.value, {"pl": "Nie mówimy o płatności", "en": "Nothing said"}),
             (PaymentPolicy.ON_SITE.value, {"pl": "Płatność na miejscu", "en": "Pay on site"}),
+            (
+                PaymentPolicy.TRANSFER.value,
+                {"pl": "Całość przelewem przed wizytą", "en": "The whole by transfer ahead"},
+            ),
+            (
+                PaymentPolicy.DEPOSIT.value,
+                {"pl": "Przedpłata, reszta na miejscu", "en": "A prepayment, the rest on site"},
+            ),
+            (PaymentPolicy.FULL.value, {"pl": "Całość z góry", "en": "The whole ahead"}),
         ),
         label={"pl": "Płatność", "en": "Payment"},
         help={
-            "pl": "Klient widzi to przy cenie. Płatność przed wizytą dojdzie z zamówieniami.",
-            "en": "The customer sees it next to the price. Paying before the visit comes "
-            "with orders.",
+            "pl": "Klient widzi to przy cenie. Przy płatności z góry rezerwacja czeka na "
+            "wpłatę i wygasa, gdy wpłata nie dotrze w terminie. Wpłatę z góry klient robi "
+            "przelewem na rachunek firmy (Ustawienia › Płatności klientów); bez rachunku "
+            "płaci na miejscu.",
+            "en": "The customer sees it next to the price. With a payment ahead the booking "
+            "waits for the money and expires when it does not arrive in time. A payment "
+            "ahead is a transfer to the company's account (Settings › Customers' "
+            "payments); without an account the customer pays on site.",
         },
         model_description=(
-            "What the customer is told about paying for the service, shown next to its "
-            "price and frozen in each booking: `none` says nothing, `on_site` says the "
-            "customer pays at the visit. Paying in advance is not available yet."
+            "How the customer pays for the service, shown next to its price and frozen in "
+            "each booking: `none` says nothing, `on_site` says the customer pays at the "
+            "visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, "
+            "`deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money "
+            "before the booking is confirmed: the booking waits (`pending_payment`) and "
+            "expires after `transfer_due_days` without it. They need orders in the "
+            "company's plan (`orders_required`); `transfer` also needs the company's bank "
+            "account (`transfer_account_missing`). `deposit` and `full` without an account "
+            "are paid on site and confirmed at once."
+        ),
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.deposit_percent",
+        type="int",
+        default=30,
+        minimum=1,
+        maximum=99,
+        unit="percent",
+        label={"pl": "Przedpłata", "en": "Prepayment"},
+        help={
+            "pl": "Jaka część ceny jest przedpłatą. Resztę klient płaci na miejscu.",
+            "en": "The part of the price paid ahead. The customer pays the rest on site.",
+        },
+        model_description=(
+            "With `payment_policy` `deposit`: the percent of the booking's price the "
+            "customer pays before the booking is confirmed (1–99), rounded to a whole "
+            "minor unit. The rest is paid on site."
+        ),
+        depends_on="payment_policy == 'deposit'",
+    ),
+    SettingSpec(
+        scopes=("offer",),
+        key="booking.offer.transfer_due_days",
+        type="int",
+        default=3,
+        minimum=1,
+        maximum=30,
+        unit="day",
+        label={"pl": "Termin przelewu", "en": "Days to transfer"},
+        help={
+            "pl": "Ile dni klient ma na przelew, zanim rezerwacja wygaśnie. Nigdy dłużej "
+            "niż do początku rezerwacji.",
+            "en": "How many days the customer has to transfer before the booking expires. "
+            "Never past the booking's start.",
+        },
+        model_description=(
+            "With a payment before confirmation: how many days the customer has to pay by "
+            "a transfer before the booking expires (1–30), never past the booking's start."
         ),
     ),
     SettingSpec(

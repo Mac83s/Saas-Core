@@ -7830,8 +7830,10 @@ paths:
       description: 'The customer paid at the desk or the company saw their transfer:
         writes the payment and its ledger entry and moves the order''s status (`partially_paid`,
         `paid`). More than what is left to pay is refused (`amount_exceeds_due`),
-        so is a payment for a canceled order (`order_canceled`). Answers with the
-        order.'
+        so is a payment for a canceled order (`order_canceled`). Where the order waits
+        for a payment (`requires_payment`), an amount that covers it marks that payment
+        and confirms the booking the order is for; a smaller one leaves the rest awaited.
+        Answers with the order.'
       summary: Mark a payment the company received
       parameters:
       - in: path
@@ -7896,7 +7898,8 @@ paths:
       description: 'The payment stays in the order''s history as `canceled` and the
         ledger gets the opposite entry, so the order owes that amount again. Not a
         refund: no money went back to anybody. Only a payment marked by hand can be
-        taken back. Answers with the order.'
+        taken back. A booking the payment confirmed stays confirmed — calling it off
+        is the company''s own decision. Answers with the order.'
       summary: Take back a payment marked by mistake
       parameters:
       - in: path
@@ -13865,6 +13868,152 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BookingSelfServiceSettingsPreview'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/organizations/current/settings/commerce.transfer/:
+    get:
+      operationId: organization_settings_commerce_transfer_retrieve
+      description: A customer who is to pay by a transfer gets this account with the
+        order's number as the transfer's title. Changing the account needs a code
+        from the authenticator app. The values that apply, where each comes from (code,
+        platform or the company) and the group's version token.
+      summary: 'Read the company''s settings: Bank account for transfers'
+      tags:
+      - organizations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommerceTransferSettings'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: organization_settings_commerce_transfer_update
+      description: Changes the given fields, guarded by `expected_version` (a stale
+        one answers 409 settings_version_conflict). A field left out or null stays
+        as it is; `reset` gives fields back to the default. A repeat with the same
+        Idempotency-Key answers the first change.
+      summary: 'Change the company''s settings: Bank account for transfers'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Klucz bezpiecznego ponowienia: powtórka zwraca pierwszą zmianę.'
+        required: true
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceTransferSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceTransferSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceTransferSettingsChange'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommerceTransferSettings'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/settings/commerce.transfer/preview/:
+    post:
+      operationId: organization_settings_commerce_transfer_preview
+      description: 'The same checks as the change, and nothing saved: the values after,
+        what changes and what that does (e.g. reminders it re-plans).'
+      summary: 'See what a change of the company''s settings would do: Bank account
+        for transfers'
+      tags:
+      - organizations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommerceTransferSettingsChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommerceTransferSettingsChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommerceTransferSettingsChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommerceTransferSettingsPreview'
           description: ''
         '400':
           content:
@@ -23646,8 +23795,25 @@ components:
           description: The offer it was booked from.
         status:
           type: string
-          description: '`confirmed`, `completed`, `canceled` or `no_show` (the customer
-            did not come).'
+          description: '`confirmed`, `completed`, `canceled`, `no_show` (the customer
+            did not come) or `pending_payment`: the offer asks for money before confirming,
+            and the booking holds its time until `hold_expires_at` — it is confirmed
+            when the company marks the payment in its order, and expires (`canceled`)
+            when the date comes first.'
+        hold_expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Until when a `pending_payment` booking waits for its payment;
+            null otherwise.
+        order:
+          oneOf:
+          - $ref: '#/components/schemas/AppointmentOrder'
+          - type: 'null'
+          description: The booking's order, for a caller who may read orders (`commerce.orders.read`);
+            null for a booking without a price, without orders in the company's plan,
+            or for anybody else.
         passed:
           type: boolean
           description: 'Confirmed and its planned end is behind us: nobody closed
@@ -23915,6 +24081,18 @@ components:
             $ref: '#/components/schemas/Appointment'
       required:
       - items
+    AppointmentOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: '`GET /commerce/orders/{id}/`.'
+        number:
+          type: string
+      required:
+      - id
+      - number
     AssistantConsentAnswer:
       type: object
       properties:
@@ -25552,10 +25730,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            What the customer is told about paying.
+            What the customer is told about paying. An offer that asks for money ahead where none can be paid ahead says `on_site`.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        prepayment:
+          oneOf:
+          - $ref: '#/components/schemas/QuotePrepayment'
+          - type: 'null'
+          description: What a booking at this price waits for before it is confirmed;
+            null — nothing, it is confirmed at once.
         net_minor:
           type: integer
         vat_minor:
@@ -27213,6 +27400,11 @@ components:
           items:
             $ref: '#/components/schemas/ManualPaymentMethodEnum'
           description: The methods of a payment the company marks as received itself.
+        transfer_account_set:
+          type: boolean
+          description: Whether the company gave a bank account for its customers'
+            transfers (Settings › Customers' payments, group `commerce.transfer`).
+            Without one nothing can be paid ahead by a transfer.
         max_page_size:
           type: integer
           description: The longest page a list returns.
@@ -27225,6 +27417,139 @@ components:
       - sources
       - statuses
       - tax_rates
+    CommerceTransferSettings:
+      type: object
+      properties:
+        group:
+          type: string
+        version:
+          type: string
+          description: The group's version token.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/CommerceTransferSettingsValues'
+          description: The values that apply, by field.
+        sources:
+          allOf:
+          - $ref: '#/components/schemas/CommerceTransferSettingsSources'
+          description: Where each value comes from.
+        can_change:
+          type: boolean
+        locked:
+          type: string
+      required:
+      - can_change
+      - group
+      - locked
+      - sources
+      - values
+      - version
+    CommerceTransferSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommerceTransferSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        account_holder:
+          type:
+          - string
+          - 'null'
+          description: Who the company's bank account for customers' transfers belongs
+            to, as customers read it in the transfer details.
+          maxLength: 140
+        account_number:
+          type:
+          - string
+          - 'null'
+          description: 'The number of the bank account customers pay to by a transfer:
+            26 digits (a Polish account) or an IBAN. Empty: no offer may ask for a
+            transfer.'
+          maxLength: 42
+        bank_name:
+          type:
+          - string
+          - 'null'
+          description: The bank's name shown beside the account, when the company
+            wants it said.
+          maxLength: 80
+      required:
+      - expected_version
+    CommerceTransferSettingsChangeResetEnum:
+      enum:
+      - account_holder
+      - account_number
+      - bank_name
+      type: string
+      description: |-
+        * `account_holder` - account_holder
+        * `account_number` - account_number
+        * `bank_name` - bank_name
+    CommerceTransferSettingsPreview:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version token the preview read.
+        values:
+          allOf:
+          - $ref: '#/components/schemas/CommerceTransferSettingsValues'
+          description: The values after the change, by field.
+        changes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {}
+          description: 'Each field that would change: {from, to}.'
+        effects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingEffect'
+      required:
+      - changes
+      - effects
+      - values
+      - version
+    CommerceTransferSettingsSources:
+      type: object
+      properties:
+        account_holder:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        account_number:
+          $ref: '#/components/schemas/SettingSourceEnum'
+        bank_name:
+          $ref: '#/components/schemas/SettingSourceEnum'
+      required:
+      - account_holder
+      - account_number
+      - bank_name
+    CommerceTransferSettingsValues:
+      type: object
+      properties:
+        account_holder:
+          type: string
+          description: Who the company's bank account for customers' transfers belongs
+            to, as customers read it in the transfer details.
+          maxLength: 140
+        account_number:
+          type: string
+          description: 'The number of the bank account customers pay to by a transfer:
+            26 digits (a Polish account) or an IBAN. Empty: no offer may ask for a
+            transfer.'
+          maxLength: 42
+        bank_name:
+          type: string
+          description: The bank's name shown beside the account, when the company
+            wants it said.
+          maxLength: 80
+      required:
+      - account_holder
+      - account_number
+      - bank_name
     ContactA7eEnum:
       enum:
       - email
@@ -33797,7 +34122,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/OrderPaymentStatusEnum'
           description: |-
-            `succeeded` counts as paid; `canceled` was marked by mistake and taken back.
+            `succeeded` counts as paid; `canceled` was marked by mistake and taken back, or called off with its order; `requires_payment` is awaited until `due_at` — what the order's source asked for before it confirms — and `expired` was not paid by then.
 
             * `requires_payment` - requires_payment
             * `processing` - processing
@@ -33808,7 +34133,15 @@ components:
             * `expired` - expired
         amount_minor:
           type: integer
-          description: In minor units of the order's currency.
+          description: 'In minor units of the order''s currency. Of an awaited payment:
+            what is still awaited.'
+        due_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Until when an awaited payment is to be paid; null for one marked
+            at the desk.
         paid_at:
           type:
           - string
@@ -35389,6 +35722,39 @@ components:
           minimum: 0
           description: 'How many hours before the start the link stops allowing changes
             (0 to 168; 0: until the start). Frozen into each booking.'
+    PatchedCommerceTransferSettingsChange:
+      type: object
+      properties:
+        expected_version:
+          type: string
+          description: The version token read with the values; a stale one is a 409.
+        reset:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommerceTransferSettingsChangeResetEnum'
+          description: Fields given back to the default (the platform's or the code's).
+        account_holder:
+          type:
+          - string
+          - 'null'
+          description: Who the company's bank account for customers' transfers belongs
+            to, as customers read it in the transfer details.
+          maxLength: 140
+        account_number:
+          type:
+          - string
+          - 'null'
+          description: 'The number of the bank account customers pay to by a transfer:
+            26 digits (a Polish account) or an IBAN. Empty: no offer may ask for a
+            transfer.'
+          maxLength: 42
+        bank_name:
+          type:
+          - string
+          - 'null'
+          description: The bank's name shown beside the account, when the company
+            wants it said.
+          maxLength: 80
     PatchedContentEntryMetadata:
       type: object
       description: 'Each field is optional: one left out keeps its value.'
@@ -36119,10 +36485,27 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+            How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        deposit_percent:
+          type: integer
+          maximum: 99
+          minimum: 1
+          description: 'With `payment_policy` `deposit`: the percent of the booking''s
+            price the customer pays before the booking is confirmed (1–99), rounded
+            to a whole minor unit. The rest is paid on site.'
+        transfer_due_days:
+          type: integer
+          maximum: 30
+          minimum: 1
+          description: 'With a payment before confirmation: how many days the customer
+            has to pay by a transfer before the booking expires (1–30), never past
+            the booking''s start.'
         active:
           type: boolean
         staff_ids:
@@ -36395,6 +36778,11 @@ components:
             * `completed` - completed
             * `canceled` - canceled
             * `refunded` - refunded
+        prepayment_met:
+          type: boolean
+          description: 'Whether the amount covers the payment the order waits for
+            before its source confirms: marking it confirms the booking the order
+            is for.'
       required:
       - amount_minor
       - due_minor
@@ -36412,10 +36800,16 @@ components:
       enum:
       - none
       - on_site
+      - transfer
+      - deposit
+      - full
       type: string
       description: |-
         * `none` - Nie określono
         * `on_site` - Płatność na miejscu
+        * `transfer` - Przelew przed wizytą
+        * `deposit` - Przedpłata
+        * `full` - Całość z góry
     PaymentRecordInput:
       type: object
       properties:
@@ -38531,6 +38925,20 @@ components:
           type: string
         status:
           type: string
+          description: '`pending_payment`: the booking waits for the payment in `payment`
+            until `hold_expires_at`, then expires; otherwise `confirmed`, `completed`,
+            `canceled` or `no_show`.'
+        hold_expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        payment:
+          oneOf:
+          - $ref: '#/components/schemas/PublicAwaitedPayment'
+          - type: 'null'
+          description: What the customer has to transfer before the booking is confirmed,
+            and where; null when nothing is awaited.
         team_name:
           type:
           - string
@@ -38615,6 +39023,36 @@ components:
       - location_id
       - service_id
       - starts_at
+    PublicAwaitedPayment:
+      type: object
+      description: The transfer a booking waits for (ADR-073 §5).
+      properties:
+        number:
+          type: string
+          description: 'The order''s number: the transfer''s title.'
+        amount_minor:
+          type: integer
+          description: Gross, in minor units.
+        currency:
+          type: string
+        due_at:
+          type: string
+          format: date-time
+          description: Until when the payment is awaited.
+        account_holder:
+          type: string
+        account_number:
+          type: string
+        bank_name:
+          type: string
+      required:
+      - account_holder
+      - account_number
+      - amount_minor
+      - bank_name
+      - currency
+      - due_at
+      - number
     PublicCatalog:
       type: object
       description: |-
@@ -39152,10 +39590,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            `on_site` — the customer pays at the visit; `none` — nothing is said.
+            `on_site` — the customer pays at the visit; `none` — nothing is said; `transfer`, `deposit`, `full` — a part or the whole is paid ahead, see `prepayment`.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        prepayment:
+          oneOf:
+          - $ref: '#/components/schemas/QuotePrepayment'
+          - type: 'null'
+          description: What the customer pays before the booking is confirmed; null
+            — nothing.
         digest:
           type: string
           description: Send it back as `quote_digest` when booking.
@@ -39532,8 +39979,25 @@ components:
           description: The offer it was booked from.
         status:
           type: string
-          description: '`confirmed`, `completed`, `canceled` or `no_show` (the customer
-            did not come).'
+          description: '`confirmed`, `completed`, `canceled`, `no_show` (the customer
+            did not come) or `pending_payment`: the offer asks for money before confirming,
+            and the booking holds its time until `hold_expires_at` — it is confirmed
+            when the company marks the payment in its order, and expires (`canceled`)
+            when the date comes first.'
+        hold_expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Until when a `pending_payment` booking waits for its payment;
+            null otherwise.
+        order:
+          oneOf:
+          - $ref: '#/components/schemas/AppointmentOrder'
+          - type: 'null'
+          description: The booking's order, for a caller who may read orders (`commerce.orders.read`);
+            null for a booking without a price, without orders in the company's plan,
+            or for anybody else.
         passed:
           type: boolean
           description: 'Confirmed and its planned end is behind us: nobody closed
@@ -39816,6 +40280,37 @@ components:
         * `category` - category
         * `discount` - discount
         * `extra` - extra
+    QuotePrepayment:
+      type: object
+      description: What is paid before the booking is confirmed (ADR-073 §5).
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuotePrepaymentKindEnum'
+          description: |-
+            `deposit` — a part ahead, the rest on site; `full` — the whole.
+
+            * `deposit` - deposit
+            * `full` - full
+        amount_minor:
+          type: integer
+          description: Gross, in minor units.
+        transfer_due_days:
+          type: integer
+          description: How many days the customer has to pay by a transfer before
+            the booking expires; never past the booking's start.
+      required:
+      - amount_minor
+      - kind
+      - transfer_due_days
+    QuotePrepaymentKindEnum:
+      enum:
+      - deposit
+      - full
+      type: string
+      description: |-
+        * `deposit` - deposit
+        * `full` - full
     QuoteRequest:
       type: object
       properties:
@@ -40837,10 +41332,27 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+            How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        deposit_percent:
+          type: integer
+          maximum: 99
+          minimum: 1
+          description: 'With `payment_policy` `deposit`: the percent of the booking''s
+            price the customer pays before the booking is confirmed (1–99), rounded
+            to a whole minor unit. The rest is paid on site.'
+        transfer_due_days:
+          type: integer
+          maximum: 30
+          minimum: 1
+          description: 'With a payment before confirmation: how many days the customer
+            has to pay by a transfer before the booking expires (1–30), never past
+            the booking''s start.'
         active:
           type: boolean
         appointment_kind:
@@ -40929,10 +41441,23 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+            How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        deposit_percent:
+          type: integer
+          description: 'With `payment_policy` `deposit`: the percent of the booking''s
+            price the customer pays before the booking is confirmed (1–99), rounded
+            to a whole minor unit. The rest is paid on site.'
+        transfer_due_days:
+          type: integer
+          description: 'With a payment before confirmation: how many days the customer
+            has to pay by a transfer before the booking expires (1–30), never past
+            the booking''s start.'
         active:
           type: boolean
         draft:
@@ -41063,10 +41588,23 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+            How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        deposit_percent:
+          type: integer
+          description: 'With `payment_policy` `deposit`: the percent of the booking''s
+            price the customer pays before the booking is confirmed (1–99), rounded
+            to a whole minor unit. The rest is paid on site.'
+        transfer_due_days:
+          type: integer
+          description: 'With a payment before confirmation: how many days the customer
+            has to pay by a transfer before the booking expires (1–30), never past
+            the booking''s start.'
         active:
           type: boolean
         draft:
@@ -41242,10 +41780,27 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentPolicyEnum'
           description: |-
-            What the customer is told about paying for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. Paying in advance is not available yet.
+            How the customer pays for the service, shown next to its price and frozen in each booking: `none` says nothing, `on_site` says the customer pays at the visit. `transfer` (the whole by a bank transfer), `deposit` (a part ahead, `deposit_percent`, the rest on site) and `full` (the whole ahead) ask for money before the booking is confirmed: the booking waits (`pending_payment`) and expires after `transfer_due_days` without it. They need orders in the company's plan (`orders_required`); `transfer` also needs the company's bank account (`transfer_account_missing`). `deposit` and `full` without an account are paid on site and confirmed at once.
 
             * `none` - Nie określono
             * `on_site` - Płatność na miejscu
+            * `transfer` - Przelew przed wizytą
+            * `deposit` - Przedpłata
+            * `full` - Całość z góry
+        deposit_percent:
+          type: integer
+          maximum: 99
+          minimum: 1
+          description: 'With `payment_policy` `deposit`: the percent of the booking''s
+            price the customer pays before the booking is confirmed (1–99), rounded
+            to a whole minor unit. The rest is paid on site.'
+        transfer_due_days:
+          type: integer
+          maximum: 30
+          minimum: 1
+          description: 'With a payment before confirmation: how many days the customer
+            has to pay by a transfer before the booking expires (1–30), never past
+            the booking''s start.'
         active:
           type: boolean
         staff_ids:

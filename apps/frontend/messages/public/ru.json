@@ -26,5 +26,25 @@
     "version": "Версия {number}, действует с {date}",
     "otherLanguage": "У этого документа пока нет текста на выбранном языке. Вы читаете его на языке: {language}.",
     "readIn": "Читать на языке"
+  },
+  "BookingPrice": {
+    "prepayDeposit": "Предоплата: {amount} банковским переводом в течение {days, plural, one {# дня} other {# дней}}. Остальное оплачивается на месте.",
+    "prepayFull": "Оплата заранее: {amount} банковским переводом в течение {days, plural, one {# дня} other {# дней}}.",
+    "transferTitle": "Реквизиты для перевода",
+    "transferHint": "Ваше бронирование ожидает оплаты {amount}. Пожалуйста, переведите деньги до {due}. Если оплата не поступит вовремя, бронирование будет отменено.",
+    "transferAmount": "Сумма",
+    "transferHolder": "Получатель",
+    "transferAccount": "Номер счёта",
+    "transferBank": "Банк",
+    "transferReference": "Назначение платежа"
+  },
+  "PublicBooking": {
+    "pending": "Бронирование ожидает оплаты",
+    "pendingDescription": "Спасибо, {name}. Время забронировано для вас. Реквизиты для перевода мы отправили на {email}; подтверждение придёт после поступления оплаты.",
+    "statusPending": "Ожидает оплаты"
+  },
+  "BookingSelfService": {
+    "cancelUntil": "Вы можете отменить бронирование до {when}.",
+    "pending_payment": "ожидает оплаты"
   }
 }

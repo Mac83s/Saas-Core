@@ -34,6 +34,7 @@ from .models import (
     Organization,
 )
 from .retention import run as run_retention
+from .service_scopes import service_scope
 
 TENANT_TASK_CONTEXT_SALT = "saas-core.tenant-task-context.v1"
 logger = logging.getLogger("saas_core.security")
@@ -105,8 +106,8 @@ def issue_service_task_contract(
 
     A membership contract dies with the membership: right for something a
     person authorised, wrong for a customer's reminder, which nobody's
-    departure should cancel. The scope must be one `_service_context` accepts,
-    or the task refuses the contract when it runs.
+    departure should cancel. The scope must be one a module registered
+    (`register_service_scope`), or the task refuses the contract when it runs.
     """
     service = TenantContext(
         organization_id=organization_id,
@@ -339,31 +340,10 @@ def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _service_context(contract: TenantTaskContract) -> TenantContext:
-    allowed_scopes = {
-        "public_booking": {"booking.public.read", "booking.public.manage"},
-        "public_site_inquiry": {"sites.inquiry.submit"},
-        "booking_reminder": {"booking.reminder.send"},
-        # Booking's mails to the people on a visit (ADR-058 §9): sent on the
-        # organization's own account, with no permission of their own.
-        "booking_notify": set(),
-        # The warehouse's daily low-stock notice (ADR-055, phase 10): the
-        # hourly sweep signs its mails as the organization's own job.
-        "inventory_notifications": set(),
-        # Translation's notices to the company's people (ADR-069 pkt 20): a
-        # job that ended with gaps, the daily "results wait" and a paused
-        # automation come from a worker or a sweep, with no person behind them.
-        "translation_notifications": set(),
-    }
-    allowed = allowed_scopes.get(contract.role_key)
-    if (
-        contract.version != 2
-        or allowed is None
-        or not set(contract.permissions) <= allowed
-        or (
-            contract.role_key in {"public_site_inquiry", "booking_reminder"}
-            and set(contract.permissions) != allowed
-        )
-    ):
+    # Which roles the organization's own work is signed with, and what each may
+    # carry, is the modules' to say (`register_service_scope`, ADR-073 §5).
+    scope = service_scope(contract.role_key)
+    if contract.version != 2 or scope is None or not scope.allows(contract.permissions):
         raise InvalidTenantTaskContext("Service tenant context ma niedozwolony zakres.")
     if not Organization.objects.filter(
         pk=contract.organization_id,

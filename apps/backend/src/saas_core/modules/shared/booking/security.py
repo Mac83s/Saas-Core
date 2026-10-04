@@ -33,6 +33,22 @@ PUBLIC_BOOKING_ROLE = "public_booking"
 #: queues one mail. The permission is a scope marker nobody's role carries.
 REMINDER_ROLE = "booking_reminder"
 REMINDER_PERMISSIONS = frozenset({"booking.reminder.send"})
+#: Booking's mails to the people on a visit (ADR-058 §9) are signed as the
+#: organization's own job, with no permission of their own — not as the office
+#: member who clicked, whose membership may be gone by the time a retry
+#: delivers (the lesson of the reminders, ADR-058 §7).
+NOTIFY_ROLE = "booking_notify"
+
+
+def register_service_scopes() -> None:
+    """The roles booking's own work is signed with (ADR-073 §5); from
+    `BookingConfig.ready`."""
+    from saas_core.modules.core.organizations.api import register_service_scope
+
+    register_service_scope(PUBLIC_BOOKING_ROLE, PUBLIC_BOOKING_PERMISSIONS)
+    # A reminder does one thing: its contract carries exactly its scope.
+    register_service_scope(REMINDER_ROLE, REMINDER_PERMISSIONS, exact=True)
+    register_service_scope(NOTIFY_ROLE)
 
 
 @contextmanager

@@ -584,6 +584,73 @@ test("marking a payment starts from what is left, sends the version read and sho
   expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
 });
 
+test("an order that waits for a prepayment says until when, and marking starts from what is awaited", async () => {
+  const awaited: OrderPayment = {
+    ...payment,
+    status: "requires_payment",
+    amount_minor: 6000,
+    due_at: "2026-10-07T08:30:00Z",
+    paid_at: null,
+    recorded_by: "",
+  };
+  api.readOrder.mockResolvedValue(order({ version: 2, payments: [awaited] }));
+  api.recordOrderPayment.mockResolvedValue(
+    order({
+      status: "partially_paid",
+      version: 3,
+      paid_minor: 6000,
+      due_minor: 14000,
+      payments: [{ ...payment, amount_minor: 6000 }],
+    }),
+  );
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+
+  // Until when, and what marking it does.
+  const note = await screen.findByRole("note");
+  expect(note).toHaveTextContent(/czeka na wpłatę 60,00\szł do 7 paź/);
+  expect(note).toHaveTextContent(/rezerwacja zostanie potwierdzona/);
+  const table = screen.getByRole("table", {
+    name: "Wpłaty do tego zamówienia",
+  });
+  expect(within(table).getByText("Czeka na wpłatę")).toBeTruthy();
+  expect(within(table).getByText(/^do 7 paź/)).toBeTruthy();
+  // An awaited payment is not one to take back.
+  expect(within(table).queryByRole("button", { name: "Wycofaj" })).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Oznacz wpłatę" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Oznacz wpłatę do zamówienia R/2026/0001",
+  });
+  expect(
+    within(dialog).getByText(/Rezerwacja czeka na wpłatę 60,00/),
+  ).toBeTruthy();
+  // The amount awaited, by the transfer it was asked for.
+  expect(
+    (within(dialog).getByLabelText("Kwota (PLN)") as HTMLInputElement).value,
+  ).toBe("60,00");
+  await waitFor(() =>
+    expect(
+      (within(dialog).getByLabelText("Jak zapłacono") as HTMLSelectElement)
+        .value,
+    ).toBe("transfer"),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz wpłatę" }),
+  );
+  await waitFor(() =>
+    expect(api.recordOrderPayment).toHaveBeenCalledWith(
+      "0199a000-0000-7000-8000-000000000001",
+      { amount_minor: 6000, method: "transfer", expected_version: 2 },
+    ),
+  );
+  await waitFor(() => expect(screen.queryByRole("note")).toBeNull());
+});
+
 test("the server's refusal is shown in the dialog and a stale order is read again", async () => {
   api.readOrder.mockResolvedValue(order());
   api.recordOrderPayment.mockRejectedValueOnce(

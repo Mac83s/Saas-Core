@@ -9,19 +9,34 @@ company's plan has no orders. Afterwards the source finds its order with
 `reprice_order` when it priced the thing again, `cancel_order` when it took it
 back. `ORDER_MODEL` is for a module's own table of details about an order.
 
+A source that confirms only after a payment asks for it right after placing
+the order — `request_prepayment(order, …)` answers until when it holds its
+record — and registers a handler (`OrderHandler`) to hear which came first,
+the money or the date (§5). Whether the company can be paid by a transfer at
+all is `transfer_account()`; a module whose offers ask for one says so with
+`register_transfer_account_use`. `orders_of(source, references)` names the
+orders of a list of records for whoever may read orders,
+`order_references(order, source)` the records an order stands for, and
+`awaited_transfer(source, reference)` is what the buyer still has to pay and
+where.
+
 Commerce never imports a source and works out no price.
 """
 
 from .models import Amounts, Order, OrderChannel, OrderLineKind, OrderStatus, TaxRate
+from .names import COMMERCE_ENABLED
 from .orders import (
-    COMMERCE_ENABLED,
     OrderLineInput,
     cancel_order,
     order_for,
+    order_references,
+    orders_of,
     place_order,
     reprice_order,
 )
-from .sources import register_order_source
+from .payments import awaited_transfer, request_prepayment
+from .sources import OrderHandler, register_order_source
+from .transfer_account import TransferAccount, register_transfer_account_use, transfer_account
 
 ORDER_MODEL = "commerce.Order"
 
@@ -31,13 +46,21 @@ __all__ = [
     "Amounts",
     "Order",
     "OrderChannel",
+    "OrderHandler",
     "OrderLineInput",
     "OrderLineKind",
     "OrderStatus",
     "TaxRate",
+    "TransferAccount",
+    "awaited_transfer",
     "cancel_order",
     "order_for",
+    "order_references",
+    "orders_of",
     "place_order",
     "register_order_source",
+    "register_transfer_account_use",
     "reprice_order",
+    "request_prepayment",
+    "transfer_account",
 ]

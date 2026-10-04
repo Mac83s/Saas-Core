@@ -100,6 +100,20 @@ export function PanelQuote({
       {quote.payment_policy === "on_site" ? (
         <p className="text-muted-foreground">{t("payOnSite")}</p>
       ) : null}
+      {/* What the booking waits for before it is confirmed (ADR-073 §5). */}
+      {quote.prepayment ? (
+        <p className="text-muted-foreground">
+          {t(
+            quote.prepayment.kind === "deposit"
+              ? "prepayDeposit"
+              : "prepayFull",
+            {
+              amount: money(quote.prepayment.amount_minor),
+              days: quote.prepayment.transfer_due_days,
+            },
+          )}
+        </p>
+      ) : null}
     </section>
   );
 }

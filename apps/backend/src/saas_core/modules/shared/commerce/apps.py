@@ -11,10 +11,16 @@ class CommerceConfig(AppConfig):
         from saas_core.modules.core.organizations.api import (
             register_currency_use,
             register_history_target,
+            register_service_scope,
         )
+        from saas_core.modules.core.organizations.erasure_checks import register_erasure_rows
         from saas_core.modules.shared.customers.api import register_customer_anonymizer
 
+        from .emails import register_templates
+        from .models import PaymentRoute
         from .orders import holds_amounts, name_orders, strip_buyer
+        from .payments import DEADLINES_PERMISSIONS, DEADLINES_ROLE
+        from .transfer_account import register_transfer_settings
 
         # The buyer on an order goes when the customer is stripped (ADR-073 §9).
         register_customer_anonymizer("shared.commerce.orders", strip_buyer)
@@ -22,3 +28,11 @@ class CommerceConfig(AppConfig):
         register_currency_use(holds_amounts)
         # The company's history names an order by its number.
         register_history_target("order", name_orders)
+        # The company's bank account for its customers' transfers (ADR-073 §5).
+        register_transfer_settings()
+        # The transfer's details, sent to the buyer.
+        register_templates()
+        # The deadlines' task acts as the organization's own job, for one purpose.
+        register_service_scope(DEADLINES_ROLE, DEADLINES_PERMISSIONS, exact=True)
+        # A pre-tenant routing index: erasing the organization takes it too.
+        register_erasure_rows("shared.commerce.payment_route", PaymentRoute, "organization_id")
