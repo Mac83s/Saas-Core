@@ -1007,17 +1007,18 @@ techniczne z powodem):
   mniej; `refunded` dla zamówienia nieanulowanego, któremu oddano wszystko —
   takie zamówienie nadal obowiązuje i czeka na wpłatę, więc „Do zapłaty” mówi
   prawdę.
-- **Nocleg w wersji 3 niesie warunki na start**: przedpłata 30% przelewem z
+- **Nocleg w wersji 4 niesie warunki na start**: przedpłata 30% przelewem z
   trzema dniami na wpłatę, reszta 14 dni przed pobytem, progi zwrotu przedpłaty
-  100% do 30 dni, 50% do 14 dni, potem 0% (`core.lodging.v3.json`; wartości z
+  100% do 30 dni, 50% do 14 dni, potem 0% (`core.lodging.v4.json`; wartości z
   wersji 1, która była zapowiedzią). Opis presetu i słowa zgody polecenia
   `booking.preset.apply@1` mówią, że to punkt wyjścia do zmiany w „Cenniku”.
   Samej przedpłaty preset nadal nie włącza („Preset nie wybiera wpłaty z góry
   za firmę”, wyżej): oferta startuje z `none`, z procentem, terminami i progami
   już wpisanymi. Opis presetu może mieć teraz 400 znaków (było 240) — zdanie o
-  warunkach nie mieściło się obok zdania „rezerwacja przez stronę — wkrótce”.
-  Test kontraktu presetów dopuszcza w presecie gotowym przedpłaty i progi
-  (silnik obsługuje je od fazy 4).
+  warunkach nie mieściło się obok opisu rodzaju. Test kontraktu presetów
+  dopuszcza w presecie gotowym przedpłaty i progi (silnik obsługuje je od fazy
+  4). Wersja 3 przyszła tego samego dnia z fazą 5b (goście rezerwują przez
+  stronę); warunki stoją na niej, jako wersja 4.
 - **Polecenia asystenta** dla zamówień, wpłat i odpowiedzi na prośbę: ADR-076,
   „Uzupełnienie 2026-10-04: zamówienia, wpłaty i prośby o rezerwację”.
   `void_payment` dostał `preview` (ta sama walidacja, bez zapisu). Polecenia

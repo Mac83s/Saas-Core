@@ -1,4 +1,4 @@
-# Asystent: zamówienia, wpłaty i prośby; e-mail o zwrocie, „Zwrócone” i Nocleg w wersji 3 — wydanie 2026-10-04
+# Asystent: zamówienia, wpłaty i prośby; e-mail o zwrocie, „Zwrócone” i Nocleg w wersji 4 — wydanie 2026-10-04
 
 Zakres: drobne pozycje po fazie 4 planu memex
 `saas-core-rezerwacje-uniwersalne-i-sprzedaz` i faza A3-6 planu
@@ -29,10 +29,11 @@ Zakres: drobne pozycje po fazie 4 planu memex
 - **Stan „Zwrócone”.** Anulowane zamówienie, któremu firma oddała pieniądze i
   nie ma nic więcej do oddania, ma na liście stan `refunded`; wycofany zwrot
   przywraca „Anulowane”.
-- **Nocleg, wersja 3.** Nowa oferta noclegu startuje z warunkami do zmiany w
+- **Nocleg, wersja 4.** Nowa oferta noclegu startuje z warunkami do zmiany w
   „Cenniku”: przedpłata 30% przelewem (firma włącza ją sama), reszta 14 dni
   przed pobytem, zwrot przedpłaty 100% do 30 dni i 50% do 14 dni przed, potem
-  bez zwrotu. Oferty założone z wersji 2 zostają, jak były.
+  bez zwrotu. Wersja 3 (faza 5b: rezerwacja przez stronę) przyszła tego samego
+  dnia; oferty założone z wersji 2 i 3 zostają, jak były.
 - **Ekran dokumentu bez stron www.** Tam, gdzie organizacja nie ma modułu
   stron, odnośnik do tłumaczeń czekających na akceptację nie nazywa menu
   „Strona internetowa”, a „Do akceptacji” i „Zadania” nie pokazują zakładki
