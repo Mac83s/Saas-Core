@@ -2,7 +2,9 @@
 
 The demo seed addresses everybody in `.test`; a real SMTP provider would count
 every such message as a bounce. `EMAIL_HOLD_RESERVED_DOMAINS` (default on)
-makes the senders stop before the provider.
+makes the senders stop before the provider. `.local` (RFC 6762) is here for
+the address a scrubbed message gets (`redacted+…@invalid.local`): one scrubbed
+while still queued must not be sent either.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-_RESERVED_TLDS = frozenset({"test", "example", "invalid", "localhost"})
+_RESERVED_TLDS = frozenset({"test", "example", "invalid", "localhost", "local"})
 _RESERVED_DOMAINS = frozenset({"example.com", "example.net", "example.org"})
 
 
